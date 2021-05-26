@@ -1,0 +1,144 @@
+##################################################################################
+#
+# Dell PowerEdge R620 servers: Configure the RAID-1 using first two disks 
+#  
+# 1. Reset the Existing RAID on the server
+# 2. Create a job, Restart the server and then wait for job to be completed
+# 3. Setup RAID-1 with : Write Through, No Read Ahead, Default Disk cache policy
+#                        and Stripe size 64k   
+# 4. Create a job, Restart the server and then wait for job to be completed 
+#
+##################################################################################
+
+- name: Clear All the Jobs
+  raw: racadm jobqueue delete --all
+  register: result_jobqueue
+- debug: var=result_jobqueue
+
+- name: Compare the catalog for any updates
+  raw: racadm update -f Catalog.xml -e {{catalog_http_share}} -t HTTP --verifycatalog
+  register: catalog_status
+- debug: var=catalog_status
+
+#- name: Pause for 1 Minute so that iDrac will download catalog file
+#  pause:
+#    minutes: 1
+
+## ref: https://github.com/sensu/sensu-ansible/issues/227
+- name: Pause for 60 seconds so that iDrac will download catalog file
+  wait_for:
+    timeout: 60
+
+- name: Check the catalog report for any available updates
+  raw: racadm update viewreport
+  register: catalog_report
+  failed_when: '"ERROR" in catalog_status.stdout'
+- debug: var=catalog_report.stdout_lines
+
+#    - name: End the play when there are no updates available
+#      meta: end_play
+#      when: '"The server firmware is up to date and matches the catalog definitions" in catalog_report.stdout'
+
+- name: Execute the catalog updates if any available and then reboots the server to apply the updates
+  raw: racadm update -f Catalog.xml -e {{catalog_http_share}} -t HTTP -a TRUE
+  #raw: racadm getsysinfo -c
+  register: catalog_execute_status
+  when: '"The server firmware is up to date and matches the catalog definitions" not in catalog_report.stdout'
+- debug: var=catalog_execute_status
+
+#    - pause:
+#        minutes: 2
+
+- name: Wait for the iDrac to start the updates process(120 seconds pause in playbook)
+  wait_for:
+    timeout: 120
+  delegate_to: localhost
+  when: catalog_execute_status is defined and catalog_execute_status.changed == 'true'
+
+- name: Check and wait for the port 22 to go down(iDrac will reset all the connections when there is an iDrac FW update is being applied)
+  wait_for:
+    port: 22
+    host: '{{ansible_ssh_host}}'
+    delay: 60
+    sleep: 30
+    timeout: 1500
+    #connect_timeout: 180
+    state: stopped
+  register: idrac_port_status
+  connection: local
+  when: catalog_report is defined and "iDRAC.Embedded.1-1" in catalog_report.stdout
+  ignore_errors: yes
+- debug: var=idrac_port_status
+
+- name: Fail when the timeout is reached for the port 22 to go down (after 30 minutes)
+  fail:
+    msg: "The timeout of 30 minutes is over for port 22 to go down on iDrac. Either updates or running slow/iDrac having tribule in resetting all the connections."
+  when: idrac_port_status.msg is defined and "Timeout" in idrac_port_status.msg
+
+- name: Wait for the iDrac connection to be up and running with port 22 reachable
+  wait_for:
+    port: 22
+    host: '{{ansible_ssh_host}}'
+    delay: 60
+    sleep: 30
+    timeout: 180
+    #connect_timeout: 180
+    state: started
+  register: idrac_port_start_status
+  connection: local
+  when: idrac_port_status.state is defined and idrac_port_status.state == "stopped"
+  #ignore_errors: yes
+- debug: var=idrac_port_start_status
+
+
+- name: Wait for the iDrac to be fully up(180 seconds pause in playbook)
+  wait_for:
+    timeout: 180
+  delegate_to: localhost
+  when: idrac_port_start_status.state is defined and idrac_port_start_status.state == "started"
+
+- name: Wait for all the FW updates to finish(stages are-download,schedule,reboot,run)
+  raw: racadm jobqueue view
+  register: fwupdate_jobstatus
+  until: fwupdate_jobstatus.stdout.find("New") <= 0 and fwupdate_jobstatus.stdout.find("Downloading") <= 0 and fwupdate_jobstatus.stdout.find("Downloaded") <= 0 and fwupdate_jobstatus.stdout.find("Scheduled") <= 0 and fwupdate_jobstatus.stdout.find("Running") <= 0
+  retries: 60
+  delay: 30
+- debug: var=fwupdate_jobstatus
+
+- name: Compare the catalog (to check whether all updates are done)
+  raw: racadm update -f Catalog.xml -e {{catalog_http_share}} -t HTTP --verifycatalog
+  register: catalog_status_afterupdate
+#      when: catalog_execute_status.changed == "true"
+- debug: var=catalog_status_afterupdate
+
+#- name: Pause for 1 Minute so that iDrac will download catalog file
+#  pause:
+#    minutes: 1
+
+## ref: https://github.com/sensu/sensu-ansible/issues/227
+- name: Pause for 1 Minute so that iDrac will download catalog file
+  wait_for:
+    timeout: 60
+
+
+- name: Check the catalog report (to check whether all updates are done)
+  raw: racadm update viewreport
+  register: catalog_report_afterupdate
+  failed_when: '"ERROR" in catalog_status_afterupdate.stdout'
+  when: catalog_status_afterupdate is defined
+- debug: var=catalog_report_afterupdate.stdout_lines
+- debug: var=catalog_report_afterupdate
+
+- name: Fail the playbook(check the failed hosts)
+  fail:
+    msg: "We ran the updates for 20 minutes, something went wrong please check the iDrac lifecycle log/Jobqueue."
+  when: '"The server firmware is up to date and matches the catalog definitions" not in catalog_report_afterupdate.stdout'
+
+- name: Clear All the Jobs
+  raw: racadm jobqueue delete --all
+  register: result_jobqueue
+- debug: var=result_jobqueue
+
+#    - name: End the play when there are no updates available
+#      meta: end_play
+#      when: '"The server firmware is up to date and matches the catalog definitions" in catalog_report.stdout'

@@ -1,0 +1,44 @@
+---
+
+docker_stack_appspec_services__openldap:
+  ## must have --copy-service for runtime bootstrap to work
+  ## ref: https://github.com/osixia/docker-openldap/issues/163
+  openldap:
+    container_name: "openldap"
+#    image: {{ docker_stack_registry_endpoint }}/openldap:latest
+    image: "{{ __docker_stack_appspecs__openldap_image }}"
+#    hostname: "{{ ldap_server }}"
+    command: --copy-service --loglevel debug
+    ports:
+      - 389:389
+      - 636:636
+    restart: "unless-stopped"
+    networks:
+#      - internal
+      - net
+    volumes:
+      - "{{ docker_stack_dir }}/openldap/slapd/database:/var/lib/ldap"
+      - "{{ docker_stack_dir }}/openldap/slapd/config:/etc/ldap/slapd.d"
+#      - "{{ docker_stack_dir }}/openldap/slapd/certs:/container/service/slapd/assets/certs"
+      - "{{ docker_stack_dir }}/openldap/ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom"
+      - "{{ docker_stack_dir }}/openldap/environment:/container/environment/01-custom"
+      ## custom schema
+      ## ref: https://github.com/osixia/docker-openldap/issues/177
+      - "{{ docker_stack_dir }}/openldap/schema:/container/service/slapd/assets/config/bootstrap/schema"
+    environment:
+#      HOSTNAME: "{{ __docker_stack_appspecs__openldap_server }}"
+#      LDAP_TLS: 0
+      LDAP_OPENLDAP_UID: "{{ docker_user_uid }}"
+      LDAP_OPENLDAP_GID: "{{ docker_user_gid }}"
+      LDAP_ORGANISATION: "{{ __docker_stack_appspecs__openldap_config.ldap_organisation }}"
+      LDAP_DOMAIN: "{{ __docker_stack_appspecs__openldap_config.ldap_domain }}"
+      LDAP_BASE_DN: "{{ __docker_stack_appspecs__openldap_config.ldap_base_dn }}"
+      SLAPD_ADDITIONAL_MODULES: "memberof"
+      LDAP_ADMIN_PASSWORD: "{{ __docker_stack_appspecs__openldap_config.ldap_admin_password }}"
+      LDAP_READONLY_USER: "{{ ldap_internal.ldap_readonly_user }}"
+      LDAP_READONLY_USER_USERNAME: "{{ ldap_internal.ldap_readonly_user_username }}"
+      LDAP_READONLY_USER_PASSWORD: "{{ ldap_internal.ldap_readonly_user_password }}"
+      LDAP_REPLICATION: "false"
+      LDAP_CONFIG_PASSWORD: "{{ ldap_internal.ldap_config_password }}"
+      LDAP_RFC2307BIS_SCHEMA: "false"
+

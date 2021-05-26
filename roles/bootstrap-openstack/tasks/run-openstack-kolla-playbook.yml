@@ -1,0 +1,39 @@
+---
+
+#- name: Run bootstrap play from openstack kolla playbook
+#  command: >
+#    {{openstack_venv_path}}/bin/ansible-playbook {{ openstack_kolla_pb_debug_flags }}
+#      -i {{ openstack_kolla_pb_inventory_dir }}/{{ openstack_kolla_pb_inventory_file }}
+#      -e ansible_python_interpreter={{ ansible_openstack_python_interpreter }}
+#      -e @/etc/kolla/globals.yml
+#      -e @/etc/kolla/passwords.yml
+#      -e CONFIG_DIR=/etc/kolla
+#      -e kolla_action=bootstrap-servers
+#      -e kolla_serial=0
+#      "{{openstack_venv_path}}/share/kolla-ansible/ansible/kolla-host.yml"
+#  args:
+#    creates: /etc/openstack_playbook_complete
+
+- name: Run openstack kolla {{ kolla_playbook.kolla_action }} playbook
+  become: Yes
+  become_user: "{{ ansible_local_user }}"
+  command: >
+    {{openstack_venv_path}}/bin/ansible-playbook {{ openstack_kolla_pb_debug_flags }}
+      -i {{ openstack_kolla_pb_inventory_dir }}/{{ openstack_kolla_pb_inventory_file }}
+      -e @/etc/kolla/globals.yml
+      -e @/etc/kolla/passwords.yml
+      -e CONFIG_DIR=/etc/kolla
+      -e kolla_action={{ kolla_playbook.kolla_action }}
+      -e kolla_serial=0
+      "{{openstack_venv_path}}/{{ kolla_playbook.playbook }}"
+  args:
+    creates: /etc/openstack_playbook_complete_{{ kolla_playbook.kolla_action }}
+  with_items: "{{ openstack_kolla_playbooks }}"
+
+- name: Create a /etc/ file to mark playbook {{ kolla_playbook.kolla_action }} has completed
+  become: yes
+  become_user: root
+  file:
+    path: /etc/openstack_playbook_complete_{{ kolla_playbook.kolla_action }}
+    state: touch
+  changed_when: false

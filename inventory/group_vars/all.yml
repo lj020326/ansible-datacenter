@@ -1,0 +1,165 @@
+---
+
+ansible_user: root
+ansible_ssh_user: "{{ ansible_user }}"
+#ansible_debug_mode: yes
+
+#ansible_host: "{{ inventory_hostname }}.{{ ca_domain }}"
+#ansible_host: "{{ inventory_hostname_short }}.{{ ca_domain }}"
+
+netbase__hostname: "{{ ( inventory_hostname_short | d(inventory_hostname.split('.')[0]) + '.' + ca_domain )
+                       if (inventory_hostname_short | d(inventory_hostname.split('.')[0]) not in ['localhost','127'])
+                       else inventory_hostname }}"
+
+ansible_host: "{{ netbase__hostname }}"
+
+#fqdn: "{{ inventory_hostname_short }}.{{ ca_domain }}"
+fqdn: "{{ netbase__hostname }}"
+
+internal_gateway_ip: "192.168.0.1"
+dns_nameserver: [ "192.168.0.1" ]
+
+network_name_servers:
+  - 192.168.0.1
+
+cacert_keyring_inventory_hostname: "{{ groups['ca_keyring'][0] }}"
+
+#cacert_keyring_host: "{{ cacert_keyring_inventory_hostname }}"
+cacert_keyring_host: "{{ hostvars[groups['ca_keyring'][0]]['ansible_host'] | d(cacert_keyring_host_default) }}"
+#cacert_keyring_host: "{{ hostvars[cacert_keyring_inventory_hostname]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) }}"
+
+internal_root_domain: johnson.int
+external_root_domain: dettonville.org
+
+ca_domain: "{{ internal_root_domain }}"
+ca_subdomain: "{{ internal_root_domain }}"
+ca_keyring_repo_url: ssh://git@gitea.admin.johnson.int:2222/infra/cacerts.git
+
+#internal_domain: "johnson.int"
+internal_domain: "{{ ca_domain }}"
+internal_parent_domain: "{{ ('.').join(internal_domain.split('.')[1::]) }}"
+cname: "{{ inventory_hostname }}.{{ internal_domain }}"
+
+external_domain: "dettonville.org"
+
+dns_domain: "{{ ca_domain }}"
+hostname_internal_domain: "{{ internal_domain }}"
+
+timezone: "America/New_York"
+
+email: "admin@dettonville.org"
+email_from: "{{ email }}"
+email_to: "{{ email }}"
+
+ldap_config_password: "password"
+ldap_admin_password: "password"
+ldap_readonly_user_password: "foobar123"
+
+# if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
+ldap_admindn: "cn=admin,{{ ldap_internal.ldap_base_dn }}"
+ldap_adminpw: "{{ ldap_admin_password }}"
+
+# if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
+smb_ldap_admindn: "{{ ldap_admindn }}"
+smb_ldap_adminpw: "{{ ldap_admin_password }}"
+
+ldap_internal_domain: "johnson.int"
+ldap_internal_base_dn: "dc=johnson,dc=int"
+ldap_internal_search_base_dn: "ou=users,{{ ldap_internal_base_dn }}"
+ldap_internal_host: "ldap.johnson.int:389"
+ldap_internal_uri: "ldap://{{ ldap_internal_host }}"
+
+ldap_internal:
+  ldap_organisation: "Johnsonville LLC"
+  ldap_domain: "{{ ldap_internal_domain }}"
+  ldap_base_dn: "{{ ldap_internal_base_dn }}"
+  ldap_admin_password: "{{ ldap_admin_password }}"
+  ldap_readonly_user: "true"
+  ldap_readonly_user_username: "readonly"
+  ldap_readonly_user_password: "{{ ldap_readonly_user_password }}"
+  ldap_config_password: "{{ ldap_config_password }}"
+
+ldap_external:
+  ldap_organisation: "Dettonville LLC"
+  ldap_domain: "{{ external_domain }}"
+  ldap_base_dn: "dc=dettonville,dc=org"
+  ldap_admin_password: "{{ ldap_admin_password }}"
+  ldap_readonly_user: "true"
+  ldap_readonly_user_username: "readonly"
+  ldap_readonly_user_password: "{{ ldap_readonly_user_password }}"
+  ldap_config_password: "{{ ldap_config_password }}"
+
+ca_root:
+  domainName: "{{ ca_root_cn }}"
+  commonName: "{{ ca_root_cn }}"
+  country: "US"
+  state: "New York"
+  locality: "New York"
+  organization: "Dettonville LLC"
+  organizationalUnit: "Research"
+  email: "admin@dettonville.org"
+
+ca_root_cn: "ca-root"
+
+pki_caroot_cert: "{{ ca_root_cn }}.pem"
+pki_caroot_key: "{{ ca_root_cn }}-key.pem"
+
+trust_ca_cert_extension: "pem"
+
+# where to deploy the finalized cert files to on the ansible control node
+ca_keyring_base_dir: "{{ '~/pki' | expanduser }}"
+ca_keyring_certs_dir: "{{ ca_keyring_base_dir }}/certs"
+ca_keyring_keys_dir: "{{ ca_keyring_base_dir }}/keys"
+
+
+ca_intermediate_certs_list_static:
+  - commonName: "ca.dettonville.int"
+    domainName: "dettonville.int"
+    signerName: "{{ ca_root_cn }}"
+    country: US
+    state: "New York"
+    locality: "NYC"
+    organization: "Dettonville Internal"
+    organizationalUnit: "Research & Technology"
+    email: "admin@dettonville.int"
+
+  - commonName: "ca.johnson.int"
+    domainName: "johnson.int"
+    signerName: "{{ ca_root_cn }}"
+    country: US
+    state: "New York"
+    locality: "CSH"
+    organization: "Johnsonville Internal"
+    organizationalUnit: "Mostly Impractical"
+    email: "admin@johnson.int"
+#    ca_csr_profile: "domain"
+#    ca_csr_profile: "intermediate_ca"
+
+#ca_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain']) | select('defined') | unique }}"
+ca_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['docker_stack_internal_domain']) | select('defined') | unique }}"
+
+ca_intermediate_certs_list_dynamic: |
+  [
+    {% for domain in ca_domains_dynamic %}
+    {
+      'commonName': "ca.{{ domain }}",
+      'domainName': "{{ domain }}",
+      'signerName': "ca.{{ ('.').join(domain.split('.')[1::]) }}"
+    },
+    {% endfor %}
+  ]
+
+ca_intermediate_certs_list: "{{ ca_intermediate_certs_list_static + ca_intermediate_certs_list_dynamic }}"
+
+stepca_root_list: "{{ ca_intermediate_certs_list_static }}"
+
+ca_service_routes_list: |
+  [
+    {% for domain in ca_domains_dynamic %}
+    {
+      'route': "{{ domain }}",
+      'signerName': "ca.{{ domain }}"
+    },
+    {% endfor %}
+  ]
+

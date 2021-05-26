@@ -1,0 +1,133 @@
+---
+
+- name: "sign_cert:{{ inventory_hostname }} | Display cacert_keyring_host"
+  debug:
+    var: cacert_keyring_host
+
+- name: "sign_cert:{{ inventory_hostname }} | Perform cacert validations"
+  include_tasks: validate_stepca_cert.yml
+
+- name: "sign_cert:{{ inventory_hostname }} | Sign cert"
+  when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or ca_force_create|bool
+  become: yes
+  become_user: root
+  remote_user: root
+#  remote_user: "{{ ansible_ssh_user }}"
+  delegate_to: "{{ cacert_keyring_host }}"
+  vars:
+    become: yes
+    become_user: root
+    ansible_remote_tmp: "/tmp/.ansible"
+    ansible_python_interpreter: "{{ hostvars[cacert_keyring_inventory_hostname].ansible_python_interpreter }}"
+  block:
+
+    - name: "sign_cert:{{ inventory_hostname }} | Create config json"
+      template:
+        backup: yes
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - { src: "ca/ca-config.json.j2", dest: "{{ keyring_cacerts_base_dir }}/ca-config.json" }
+        - { src: "ca/ca-cacert-csr.json.j2", dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_info.commonName }}.json" }
+
+    - name: "sign_cert:{{ inventory_hostname }} | Generating server csr config file [{{ ca_cert_cn }}.json]"
+      template:
+    #    src: "certs/csr-server-cert.json.j2"
+        src: "ca/ca-cert-csr.json.j2"
+        dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_cn }}.json"
+
+    - name: "sign_cert:{{ inventory_hostname }} | Generating signed server certificate {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      changed_when: no
+      shell: >-
+        cfssl gencert \
+        --config={{ keyring_cacerts_base_dir }}/ca-config.json \
+        -profile={{ ca_csr_profile }} \
+        -ca={{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} \
+        -ca-key={{ ca_signer_cacerts_dir }}/{{ ca_signer_key }} \
+        {{ ca_cert_cn }}.json \
+        | cfssljson -bare {{ ca_cert_cn }}
+      args:
+        chdir: "{{ keyring_cacerts_dir }}"
+#            creates: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+
+    - name: "sign_cert:{{ inventory_hostname }} | Create server cert chain pem file for root signer"
+      changed_when: no
+      when: ca_signer_is_root|bool
+      shell: >-
+        cat {{ keyring_cacerts_dir }}/{{ ca_cert }} \
+        {{ ca_root_cacerts_dir }}/{{ ca_root_cert }} > {{ ca_cert_chain }}
+      args:
+        chdir: "{{ keyring_cacerts_dir }}"
+#            creates: "{{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+
+    - name: "sign_cert:{{ inventory_hostname }} | Create server cert chain pem file for non-root signer"
+      changed_when: no
+      when: ca_signer_is_root|bool == False
+      shell: >-
+        cat {{ keyring_cacerts_dir }}/{{ ca_cert }} \
+        {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert_chain }} > {{ ca_cert_chain }}
+      args:
+        chdir: "{{ keyring_cacerts_dir }}"
+#            creates: "{{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+
+    - name: "sign_cert:{{ inventory_hostname }} | Get cert chain info for {{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+      changed_when: no
+      shell: "openssl crl2pkcs7 -nocrl -certfile {{ keyring_cacerts_dir }}/{{ ca_cert_chain }} | openssl pkcs7 -print_certs -noout"
+      register: ca_chain_info
+
+    - name: "sign_cert:{{ inventory_hostname }} | Display cert chain info for {{ ca_cert_chain }}"
+      debug: var=ca_chain_info.stdout_lines
+
+      ## ref: https://www.tailored.cloud/devops/how-to-filter-and-map-lists-in-ansible/
+    - name: "sign_cert:{{ inventory_hostname }} | Get cert chain issuer info"
+      vars:
+#        regexp: 'value=\"([^issuer]+)'
+#        regexp: '^issuer'
+        regexp: '^subject'
+      set_fact:
+#        ca_cert_issuers: "{{ ca_chain_info.stdout.split('\n') | select('match', regexp) | unique }}"
+        ca_cert_issuers: "{{ ca_chain_info.stdout_lines | select('match', regexp) | list | unique }}"
+
+    - name: "sign_cert:{{ inventory_hostname }} | Display cert chain issuers"
+      debug:
+        var: ca_cert_issuers
+
+    ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
+    - name: "sign_cert:{{ inventory_hostname }} | Get ca certificate info"
+      openssl_certificate_info:
+        path: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      register: cacert_result
+
+    - name: "sign_cert:{{ inventory_hostname }} | Display cacert_result"
+      when: cacert_display_cacert_result
+      debug: var=cacert_result
+
+    - name: "sign_cert:{{ inventory_hostname }} | Assert cert info for {{ inventory_hostname }} is valid"
+      assert:
+        that:
+          # issuer and issuer_strict
+          - cacert_result.issuer.organizationName == "{{ ca_signer_cert_info.organization }}"
+          - cacert_result.issuer.commonName == "{{ ca_signer_cert_info.commonName }}"
+          - cacert_result.subject.organizationName == "{{ ca_cert_info.organization }}"
+          - cacert_result.subject.commonName == "{{ ca_cert_info.commonName }}"
+          # has_expired
+          - not cacert_result.expired
+
+    - name: "sign_cert:{{ inventory_hostname }} | Validate signed by root cert"
+      changed_when: no
+      when: ca_signer_is_root|bool
+      shell: "openssl verify -CAfile {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+
+    - name: "sign_cert:{{ inventory_hostname }} | Perform intermediate cert validations"
+      when: ca_signer_is_root|bool == False
+      block:
+
+        - name: "sign_cert:{{ inventory_hostname }} | Validate server and intermediate cert chain"
+          changed_when: no
+          shell: "openssl verify -CAfile {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert_chain }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+
+        ## ref: https://www.shellhacks.com/ansible-when-variable-is-defined-exists-empty-true/
+        - name: "sign_cert:{{ inventory_hostname }} | Validate signed by root and intermediate cert"
+          changed_when: no
+          when: ca_cert_issuers|length == 3
+          shell: "openssl verify -CAfile {{ ca_root_cacerts_dir }}/{{ ca_root_cert }} -untrusted {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"

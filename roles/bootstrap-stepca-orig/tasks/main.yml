@@ -1,0 +1,41 @@
+---
+- include_vars: "{{ ansible_os_family }}.yml"
+
+- name: "Ensure openssl is installed"
+  package:
+    name: openssl
+    state: present
+
+- name: Create and validate intermediate certificates
+  when: ca_init|bool # defaults to false ...
+  vars:
+    ca_cert_type: "intermediate-ca"
+  include_tasks: create_cert.yml
+  loop: "{{ ca_intermediate_certs_list | map(attribute='commonName') | list }}"
+  loop_control:
+    loop_var: cert_node
+
+- name: Create and validate certificates for service routes
+  when: ca_certify_routes|bool # defaults to false ...
+  vars:
+    ca_cert_type: "service-route"
+  include_tasks: create_cert.yml
+  loop: "{{ ca_service_routes | list }}"
+  loop_control:
+    loop_var: cert_node
+
+- name: Create and validate certificates for nodes
+  when: ca_certify_nodes|bool # defaults to false ...
+  include_tasks: create_cert.yml
+  loop: "{{ groups['cert_node'] }}"
+  loop_control:
+    loop_var: cert_node
+
+#- name: "Fetch certs and keys"
+##  when: ca_update_certrepo|bool
+#  include_tasks: "get_cert_repo.yml"
+
+#- name: "Update cert repo"
+#  when: ca_update_certrepo|bool
+#  include_tasks: "update_cert_repo.yml"
+#

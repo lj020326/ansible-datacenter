@@ -1,0 +1,46 @@
+---
+
+- debug:
+    var: item
+
+# Set a version for this new box.
+- name: "Get image for {{ item.name }}"
+  when: not item.iso_url.endswith('.jigdo')
+  get_url:
+    url: "{{ item.iso_url }}"
+    dest: "{{ osimage_dir }}/{{ item.iso_file }}"
+    checksum: "{{ item.iso_checksum | d(omit) }}"
+#  register: fetch_image_info
+
+- name: "Fetch JIGDO iso"
+  when: item.iso_url.endswith('.jigdo')
+  block:
+
+    - name: "Create jigdo-lite settings"
+      template:
+        src: "jigdo-lite.conf.j2"
+        dest: "~/.jigdo-lite"
+        backup: yes
+
+    ## ref: http://atterer.org/jigdo/jigdo-lite.html
+    ## ref: https://tldp.org/HOWTO/Debian-Jigdo/faq.html#WGETOPTIONS
+    ## ref: https://askubuntu.com/questions/1226707/how-to-throttle-jigdo-lites-download-rate
+    - name: "Get JIGDO image for {{ item.name }}"
+      command: "jigdo-lite --noask {{ item.iso_url }}"
+      args:
+        chdir: "{{ osimage_dir }}"
+        creates: "{{ osimage_dir }}/{{ item.iso_file }}"
+      register: jigdo_status
+      failed_when: jigdo_status.rc not in [0,3]
+
+- name: "Ensure path exists for {{ vmware_images_dir }}/{{ item.name }}"
+  file:
+    state: directory
+    path: "{{ vmware_images_dir }}/{{ item.name }}"
+##    mode: 0755
+
+- name: Clone image to vmware iso storage
+  copy:
+    src: "{{ osimage_dir }}/{{ item.iso_file }}"
+    dest: "{{ vmware_images_dir }}/{{ item.name }}/{{ item.iso_file }}"
+##    mode: 0755

@@ -1,0 +1,121 @@
+---
+- gather_facts: False
+  name: Manage IDRAC Settings for Dell PowerEdge Servers.
+  hosts: idrac_hosts
+  user: root
+  become: true
+  tasks:
+
+    - name: Get Existing iDRAC IP Address
+      raw: racadm get iDRAC.IPv4.Address
+      register: idrac_ip
+    - name: debug - Get Existing iDRAC IP Address
+      debug: var=idrac_ip.stdout
+      failed_when: "'ERROR' in idrac_ip.stdout or 'Invalid' in idrac_ip.stdout" 
+
+    - name: Get Existing iDRAC.NIC.DNSRacName
+      raw: racadm get iDRAC.NIC.DNSRacName
+      register: idrac_rac_name
+    - name: debug - Get Existing iDRAC.NIC.DNSRacName
+      debug: var=idrac_rac_name.stdout
+      failed_when: "'ERROR' in idrac_rac_name.stdout or 'Invalid' in idrac_rac_name.stdout" 
+      #ignore_errors: true
+
+    - name: Set iDRAC.NIC.DNSRacName
+      raw : racadm set iDRAC.NIC.DNSRacName "{{idrac_racname}}"
+      when: idrac_racname not in idrac_rac_name.stdout  
+      register: result
+      failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout" 
+
+    - name: Get Existing iDRAC.NIC.DNSDomainName
+      raw: racadm get iDRAC.NIC.DNSDomainName
+      register: idrac_domain_name
+    - name: debug - Get Existing iDRAC.NIC.DNSDomainName
+      debug: var=idrac_domain_name.stdout
+      failed_when: "'ERROR' in idrac_domain_name.stdout or 'Invalid' in idrac_domain_name.stdout" 
+
+    - name: Set iDRAC.NIC.DNSDomainName
+      raw : racadm set iDRAC.NIC.DNSDomainName "{{idrac_domainname}}"
+      when: idrac_domainname not in idrac_domain_name.stdout
+      register: result
+      failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout" 
+
+    - name: Get Existing iDRAC.IPv4.Netmask
+      raw: racadm get iDRAC.IPv4.Netmask
+      register: idrac_netmask_value
+    - name: debug - Get Existing iDRAC.IPv4.Netmask
+      debug: var=idrac_netmask_value.stdout
+      failed_when: "'ERROR' in idrac_netmask_value.stdout or 'Invalid' in idrac_netmask_value.stdout" 
+
+    - name: Set iDRAC.IPv4.Netmask
+      raw : racadm set iDRAC.IPv4.Netmask "{{idrac_netmask}}"
+      when: idrac_netmask not in idrac_netmask_value.stdout
+      register: result
+      failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout" 
+
+    - name: Get Existing iDRAC.IPv4.Gateway
+      raw: racadm get iDRAC.IPv4.Gateway
+      register: idrac_gateway_value
+    - name: debug - Get Existing iDRAC.IPv4.Gateway
+      debug: var=idrac_gateway_value.stdout
+      failed_when: "'ERROR' in idrac_gateway_value.stdout or 'Invalid' in idrac_gateway_value.stdout" 
+
+    - name: Set iDRAC.IPv4.Gateway
+      raw : racadm set iDRAC.IPv4.Gateway "{{idrac_gateway}}"
+      when: idrac_gateway not in idrac_gateway_value.stdout
+      register: result
+      failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout" 
+
+    - name: Get Existing iDRAC.IPv4.DNS1
+      raw: racadm get iDRAC.IPv4.DNS1
+      register: idrac_dns1_value
+    - name: debug - Get Existing iDRAC.IPv4.DNS1
+      debug: var=idrac_dns1_value.stdout
+      failed_when: "'ERROR' in idrac_dns1_value.stdout or 'Invalid' in idrac_dns1_value.stdout" 
+
+    - name: Set iDRAC.IPv4.DNS1
+      raw : racadm set iDRAC.IPv4.DNS1 "{{idrac_dns1}}"
+      when: idrac_dns1 not in idrac_dns1_value.stdout
+      register: result
+      failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout" 
+      
+    - name: Get Existing iDRAC.IPv4.DNS2
+      raw: racadm get iDRAC.IPv4.DNS2
+      register: idrac_dns2_value
+    - name: debug - Get Existing iDRAC.IPv4.DNS2
+      debug: var=idrac_dns2_value.stdout
+      failed_when: "'ERROR' in idrac_dns2_value.stdout or 'Invalid' in idrac_dns2_value.stdout" 
+
+    - name: Set iDRAC.IPv4.DNS2
+      raw : racadm set iDRAC.IPv4.DNS2 "{{idrac_dns2}}"
+      when: idrac_dns2 not in idrac_dns2_value.stdout 
+      register: result
+      failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout" 
+
+    - name: Set DHCP to Disable on iDRAC.IPv4.DHCPEnable
+      raw: racadm set iDRAC.IPv4.DHCPEnable 0
+      register: idrac_dhcp_disbale
+    - name: debug - Set DHCP to Disable on iDRAC.IPv4.DHCPEnable 
+      debug: var=idrac_dhcp_disbale.stdout
+      failed_when: "'ERROR' in idrac_dhcp_disbale.stdout or 'Invalid' in idrac_dhcp_disbale.stdout" 
+    
+    - name: Set DNS from DHCP to Disable on iDRAC.IPv4.DNSFromDHCP
+      raw: racadm set iDRAC.IPv4.DNSFromDHCP 0
+      register: idrac_dns_disbale
+    - name: debug - Set DNS from DHCP to Disable on iDRAC.IPv4.DNSFromDHCP
+      debug: var=idrac_dns_disbale.stdout
+      failed_when: "'ERROR' in idrac_dns_disbale.stdout or 'Invalid' in idrac_dns_disbale.stdout" 
+
+    - name: Enable IPMI on iDRAC
+      raw: racadm set iDRAC.IPMILan.Enable 1
+      register: idrac_ipmi_enable
+    - name: debug - Enable IPMI on iDRAC
+      debug: var=idrac_ipmi_enable.stdout
+      failed_when: "'ERROR' in idrac_ipmi_enable.stdout or 'Invalid' in idrac_ipmi_enable.stdout" 
+
+    - name: Enable LifeController State
+      raw: racadm set LifecycleController.LCAttributes.LifecycleControllerState 1
+      register: lifecontroller_state
+    - name: debug - Enable LifeController State
+      debug: var=lifecontroller_state.stdout
+      failed_when: "'ERROR' in lifecontroller_state.stdout or 'Invalid' in lifecontroller_state.stdout"

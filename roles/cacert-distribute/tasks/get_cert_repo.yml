@@ -1,0 +1,108 @@
+---
+
+- name: Set fact for ssh_key_dir
+  set_fact:
+    ssh_key_dir: "{{ git_ssh_private_keyfile.split('/')[0:-1]|join('/') }}"
+
+- name: "get_cert_repo | Ensure ssh dir exists at {{ ssh_key_dir }}"
+  become: no
+  delegate_to: "localhost"
+  file:
+    path: "{{ ssh_key_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: "get_cert_repo | Check if git private ssh key exist in {{ git_ssh_private_keyfile }}"
+  become: no
+  delegate_to: "localhost"
+  stat:
+    path: "{{ git_ssh_private_keyfile }}"
+  register: private_key
+
+## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
+- name: "get_cert_repo | Ensure git private key is present at {{ git_ssh_private_keyfile }}"
+  when: not (private_key.stat.exists | bool)
+  become: no
+  delegate_to: "localhost"
+  copy:
+    content: "{{ admin_ssh_private_key }}"
+    dest: "{{ git_ssh_private_keyfile }}"
+    mode: 0600
+
+- name: "get_cert_repo | Ensure keyring dirs exist in {{ ca_keyring_base_dir }}"
+  become: no
+  delegate_to: "localhost"
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode | d('0755') }}"
+  with_items:
+    - { path: "{{ ca_keyring_certs_dir }}" }
+    - { path: "{{ ca_keyring_keys_dir }}", mode: '0700' }
+
+- name: "get_cert_repo | Check if cert repo exists at {{ ca_keyring_repo_dir }}"
+  become: no
+  delegate_to: "localhost"
+  stat:
+    path: "{{ ca_keyring_certs_dir }}"
+  register: repo_dir
+
+#- name: "get_cert_repo | Display status for directory {{ ca_keyring_certs_dir }}"
+#  become: no
+#  delegate_to: "localhost"
+#  debug:
+#    var: repo_dir
+
+- name: "get_cert_repo | Clone cert repo"
+  when: not (repo_dir.stat.exists | bool)
+  become: no
+  delegate_to: "localhost"
+  block:
+
+    - name: "get_cert_repo | Configure git global config for user.name"
+      become: no
+      delegate_to: "localhost"
+      community.general.git_config:
+        scope: global
+        name: user.name
+        value: "{{ ca_keyring_repo_user }}"
+
+    - name: "get_cert_repo | Configure git global config for user.email"
+      become: no
+      delegate_to: "localhost"
+      community.general.git_config:
+        scope: global
+        name: user.email
+        value: "{{ ca_keyring_repo_email }}"
+
+    - name: "get_cert_repo | Clone ca-certs repo before updates to {{ ca_keyring_certs_dir }}"
+      become: no
+      delegate_to: "localhost"
+      git:
+        repo: "{{ ca_keyring_repo_url }}"
+        dest: "{{ ca_keyring_certs_dir }}"
+        version: "{{ ca_keyring_repo_branch }}"
+        update: "{{ ca_keyring_repo_keep_updated }}"
+        force: true
+        accept_hostkey: true
+        key_file: "{{ git_ssh_private_keyfile }}"
+
+- name: "get_cert_repo | Pull any updates from cert repo"
+  when: repo_dir.stat.exists | bool
+  become: no
+  delegate_to: "localhost"
+  block:
+
+    - name: "get_cert_repo | Update ca-certs repo before updates to {{ ca_keyring_certs_dir }}"
+#      become: no
+#      delegate_to: "localhost"
+      ignore_errors: yes
+      git:
+        repo: "{{ ca_keyring_repo_url }}"
+        dest: "{{ ca_keyring_certs_dir }}"
+        version: "{{ ca_keyring_repo_branch }}"
+        force: true
+        update: yes
+        clone: no
+        accept_hostkey: true
+        key_file: "{{ git_ssh_private_keyfile }}"

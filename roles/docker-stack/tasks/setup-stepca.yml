@@ -1,0 +1,30 @@
+---
+
+## ref: https://github.com/smallstep/certificates/blob/master/docs/questions.md#i-already-have-pki-in-place-can-i-use-this-with-my-own-root-certificate
+- name: "setup-stepca | Create ca-config file with step-ca profile"
+  template:
+    src: "stepca/ca-config.json.j2"
+    dest: "{{ keyring_cacerts_dir }}/stepca.json"
+    backup: yes
+
+- name: "create_cert:{{ inventory_hostname }} | Generating signed server certificate {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+  changed_when: no
+  shell: >-
+    cfssl sign \
+    --config={{ __docker_stack_appspecs__stepca_home_dir }}/certs/ca-config.json \
+    -profile=step-ca \
+    -ca={{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} \
+    -ca-key={{ ca_signer_cacerts_dir }}/{{ ca_signer_key }} \
+    -csr stepca.csr \
+    | cfssljson -bare stepca
+  args:
+    chdir: "{{ keyring_cacerts_dir }}"
+    creates: "{{ keyring_cacerts_dir }}/stepca.pem"
+
+- name: "Copy {{ keyring_cacerts_dir }}/stepca.pem to {{ __docker_stack_appspecs__stepca_home_dir}}/intermediate_ca.crt"
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  loop:
+    - { src: "{{ keyring_cacerts_dir }}/stepca.pem", dest: "{{ __docker_stack_appspecs__stepca_home_dir}}/certs/intermediate_ca.crt" }
+    - { src: "{{ keyring_cacerts_dir }}/stepca_key", dest: "{{ __docker_stack_appspecs__stepca_home_dir}}/secrets/intermediate_ca_key" }

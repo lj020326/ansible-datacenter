@@ -1,0 +1,79 @@
+---
+
+docker_stack_appspec_services__postgres:
+  ## ID management stack per:
+  ## ref: https://blog.exceptionerror.io/2018/08/29/openldap-keycloak-and-docker/
+  ## ref: https://hub.docker.com/_/postgres
+  postgres:
+    container_name: "postgres"
+#      image: postgres
+    image: "postgres:11"
+    ports:
+      - "{{ __docker_stack_appspecs__postgres_port }}:5432"
+    restart: "unless-stopped"
+    networks:
+      - net
+    volumes:
+      - "{{ docker_stack_dir }}/postgres/passwd:/etc/passwd:ro"
+      - "{{ docker_stack_dir }}/postgres/multiple-dbs:/docker-entrypoint-initdb.d"
+      - "{{ docker_stack_dir }}/postgres/config:/config"
+      - "{{ docker_stack_dir }}/postgres/data:/var/lib/postgresql/data"
+#        - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack_appspecs__postgres_databases | join(':') }}"
+      POSTGRES_USER: "{{ __docker_stack_appspecs__postgres_user }}"
+      POSTGRES_PASSWORD: "{{ __docker_stack_appspecs__postgres_password }}"
+#      healthcheck:
+#        test: "exit 0"
+    ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
+    healthcheck:
+      test: 'PGPASSWORD="{{ __docker_stack_appspecs__postgres_password }}" psql --host 127.0.0.1 --username {{ __docker_stack_appspecs__postgres_user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ## ref: https://github.com/khezen/compose-postgres/blob/master/docker-compose.yml
+  ## ref: https://stackoverflow.com/questions/53266285/connecting-pgadmin-to-postgres-in-docker
+  pgadmin:
+    container_name: pgadmin
+    image: "dpage/pgadmin4"
+    links:
+      - postgres
+    depends_on:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "{{ __docker_stack_appspecs__postgres_pgadmin_username }}"
+      PGADMIN_DEFAULT_PASSWORD: "{{ __docker_stack_appspecs__postgres_pgadmin_password }}"
+    volumes:
+#         - pgadmin:/root/.pgadmin
+      - "{{ docker_stack_dir }}/pgadmin:/root/.pgadmin"
+    ports:
+      - "{{ __docker_stack_appspecs__postgres_pgadmin_port }}:80"
+    restart: "unless-stopped"
+    networks:
+#        - postgres
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=pgadmin"
+      - "traefik.frontend.rule=Host:pgadmin.{{ docker_stack_internal_domain }}"
+      - "traefik.port=80"
+      - "traefik.docker.network={{ docker_stack_traefik_proxy_network }}"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost={{ docker_stack_internal_domain }}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
+
+docker_stack_appspec__postgres:
+  dirs: "{{ docker_stack_appspec_config_dirs__postgres | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__postgres | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__postgres | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__postgres | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__postgres | d([]) }}"
+  docker_services: "{{ docker_stack_appspec_services__postgres | d({}) }}"

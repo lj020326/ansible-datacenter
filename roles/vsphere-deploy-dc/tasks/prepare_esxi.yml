@@ -1,0 +1,27 @@
+---
+
+- name: "Configure VMware vSwitch"
+  vmware_vswitch:
+    hostname: "{{ item.0.hostname }}"
+    username: "{{ item.0.username | d(esxi_username) }}"
+    password: "{{ item.0.password | d(esxi_password) }}"
+    validate_certs: False
+    switch: "{{ item.1.switch_name }}"
+    nics: "{{ item.1.nics }}"
+    mtu: "{{ item.1.mtu }}"
+  loop: "{{ vcenter_physical_esx_hosts | subelements('switches', { 'skip_missing': true }) }}"
+
+- name: "prepare_esxi | Create physical ESX port groups"
+  when: vcenter.ip  ==  vc_mng.ip
+  vmware_portgroup:
+    hostname: "{{ item.0.hostname }}"
+    username: "{{ item.0.username | d(esxi_username) }}"
+    password: "{{ item.0.password | d(esxi_password) }}"
+    validate_certs: False
+    esxi_hostname: "{{ item.0.hostname }}"
+    switch_name: "{{ item.1.switch_name }}"
+    portgroup_name: "{{ item.1.portgroup_name }}"
+    vlan_id: "{{ item.1.vlan_id }}"
+    network_policy: "{{ item.1.network_policy }}"
+  loop: "{{ vcenter_physical_esx_hosts | subelements('portgroups', { 'skip_missing': true }) }}"
+#  no_log: true

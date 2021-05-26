@@ -1,0 +1,51 @@
+---
+
+docker_stack_appspec_services__keycloak:
+  ## ref: https://blog.exceptionerror.io/2018/08/29/openldap-keycloak-and-docker/
+  ## ref: https://github.com/wolfeidau/keycloak-docker-compose/blob/master/docker-compose.yml
+  ## ref: https://github.com/jboss-dockerfiles/keycloak/tree/master/docker-compose-examples
+  ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
+  keycloak:
+    container_name: "keycloak"
+    image: "{{ __docker_stack_appspecs__keycloak_image }}"
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: postgres
+      DB_DATABASE: "{{ __docker_stack_appspecs__keycloak_postgres_user }}"
+      DB_USER: "{{ __docker_stack_appspecs__keycloak_postgres_user }}"
+      DB_PASSWORD: "{{ __docker_stack_appspecs__keycloak_postgres_password }}"
+      KEYCLOAK_USER: "{{ __docker_stack_appspecs__keycloak_user }}"
+      KEYCLOAK_PASSWORD: "{{ __docker_stack_appspecs__keycloak_password }}"
+      KEYCLOAK_LOGLEVEL: DEBUG
+      PROXY_ADDRESS_FORWARDING: 'true'
+      #JDBC_PARAMS: "ssl=true"
+    ports:
+      - 8081:8080
+    volumes:
+      - "{{ __docker_stack_appspecs__keycloak_stack_dir }}/keycloak/themes:/opt/jboss/keycloak/themes/custome/:rw"
+#        - {{ __docker_stack_appspecs__keycloak_stack_dir }}/keycloak/data:/data
+      - keycloak_data:/data
+    labels:
+      traefik.enable: true
+      traefik.http.routers.keycloak.entrypoints: https
+      ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
+      #traefik.http.routers.keycloak.rule: Host(`auth.{{ docker_stack_external_domain }}`) || Host(`auth.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.keycloak.rule: Host(`auth.{{ docker_stack_external_domain }}`,`auth.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.keycloak_insecure.entrypoints: http
+      traefik.http.routers.keycloak_insecure.rule: Host(`auth.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.keycloak_insecure.middlewares: https-only@file
+      traefik.http.services.keycloak.loadbalancer.server.port: 8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/"]
+      interval: 5s
+      timeout: 2s
+      retries: 15
+

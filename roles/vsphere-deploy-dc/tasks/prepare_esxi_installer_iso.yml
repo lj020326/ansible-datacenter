@@ -1,0 +1,119 @@
+---
+
+- stat:
+    path: "{{vcenter_repo_dir}}/{{esx_custom_iso}}"
+  register: __iso_file
+  
+- name: "prepare_esxi_installer_iso | Create custom ISO"
+  when: __iso_file.stat.exists == False
+  block:
+
+    - name: "prepare_esxi_installer_iso | Ensure xorriso is intalled"
+      package:
+        name: xorriso
+        state: present
+
+    - name: "prepare_esxi_installer_iso | Create temporary ESX ISO Directory"
+      file:
+        path: "{{vcenter_install_tmp_dir}}/ESX"
+        state: directory
+
+    - name: "prepare_esxi_installer_iso | Fix permissions on {{vcenter_install_tmp_dir}}/ESX"
+      file:
+        path: "{{vcenter_install_tmp_dir}}/ESX"
+        mode: "+w"
+
+    - name: "prepare_esxi_installer_iso | Extract ISO image"
+      command: >
+        xorriso -ecma119_map lowercase -osirrox on
+        -indev {{ vcenter_repo_dir }}/{{ esx_iso }}
+        -extract /
+        {{vcenter_install_tmp_dir}}/ESX
+
+    - name: "prepare_esxi_installer_iso | Update permissions on {{vcenter_install_tmp_dir}}/ESX"
+      file:
+        path: "{{vcenter_install_tmp_dir}}/ESX"
+        ## ref: https://superuser.com/questions/1024677/ansible-how-to-recursively-set-directory-and-file-permissions
+        mode: "u=rwX,g=rX,o=rX"
+
+    - name: "prepare_esxi_installer_iso | Edit boot.cfg for pre 6.7"
+      replace:
+        dest: "{{vcenter_install_tmp_dir}}/ESX/boot.cfg"
+        regexp: "kernelopt=runweasel"
+        replace: "kernelopt=ks=cdrom:/KS.CFG"
+
+    - name: "prepare_esxi_installer_iso | Edit boot.cfg for post 6.7"
+      replace:
+        dest: "{{vcenter_install_tmp_dir}}/ESX/boot.cfg"
+        regexp: 'kernelopt=cdromBoot runweasel'
+        replace: 'kernelopt=cdromBoot ks=cdrom:/KS.CFG'
+
+    - name: "prepare_esxi_installer_iso | Create empty KS file"
+      file:
+        path: "{{vcenter_install_tmp_dir}}/ESX/KS.CFG"
+        state: touch
+
+    - name: "prepare_esxi_installer_iso | Update KS file"
+      blockinfile:
+        path: "{{vcenter_install_tmp_dir}}/ESX/KS.CFG"
+        block: |
+          vmaccepteula
+          rootpw --iscrypted {{nested_host_credentials.password | password_hash('sha512') }}
+          install --firstdisk --overwritevmfs --novmfsondisk
+          network --bootproto=dhcp --device=vmnic0 --addvmportgroup=0
+          reboot
+
+          %firstboot --interpreter=busybox
+          vim-cmd hostsvc/enable_ssh
+          vim-cmd hostsvc/start_ssh
+          vim-cmd hostsvc/enable_esx_shell
+          vim-cmd hostsvc/start_esx_shell
+
+    - name: "prepare_esxi_installer_iso | Burn an ISO image"
+      command: >
+        xorrisofs -relaxed-filenames -J -R
+        -o {{vcenter_repo_dir}}/{{esx_custom_iso}}
+        -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table
+        {{vcenter_install_tmp_dir}}/ESX/
+      args:
+        chdir: '{{vcenter_install_tmp_dir}}/ESX/'
+
+    - name: "prepare_esxi_installer_iso | Update permissions on {{vcenter_repo_dir}}/{{esx_custom_iso}}"
+      file:
+        path: "{{vcenter_repo_dir}}/{{esx_custom_iso}}"
+        mode: "755"
+
+    - name: "prepare_esxi_installer_iso | Fix permissions before delete on {{vcenter_install_tmp_dir}}/ESX"
+      file:
+        path: "{{vcenter_install_tmp_dir}}/ESX"
+        mode: "+w"
+        recurse: yes
+
+    - name: "prepare_esxi_installer_iso | Clean ESX ISO Directory"
+      file:
+        path: "{{vcenter_install_tmp_dir}}/ESX/"
+        state: absent
+
+    - name: "prepare_esxi_installer_iso | Delete ISO file on a datastore at {{ vcenter_iso_dir }}/{{ esx_custom_iso }}"
+      ignore_errors: yes
+      vsphere_file:
+        hostname: "{{ nested_vcenter.hostname }}"
+        username: "{{ nested_vcenter.username }}"
+        password: "{{ nested_vcenter.password }}"
+        validate_certs: false
+        datacenter: "{{ nested_vcenter.datacenter }}"
+        datastore: "{{ nested_vcenter.datastore }}"
+        path: "{{ vcenter_iso_dir }}/{{ esx_custom_iso }}"
+        state: absent
+
+- name: "prepare_esxi_installer_iso | Upload the ISO to the Datastore"
+  vsphere_copy:
+    hostname: "{{ nested_vcenter.hostname }}"
+    username: "{{ nested_vcenter.username }}"
+    password: "{{ nested_vcenter.password }}"
+    datacenter: "{{ nested_vcenter.datacenter }}"
+    validate_certs: false
+    datastore: "{{ nested_vcenter.datastore }}"
+    path: "{{ vcenter_iso_dir }}/{{ esx_custom_iso }}"
+    src: "{{vcenter_repo_dir}}/{{ esx_custom_iso }}"
+

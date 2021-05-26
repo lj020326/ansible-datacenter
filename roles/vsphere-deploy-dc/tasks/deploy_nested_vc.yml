@@ -1,0 +1,291 @@
+---
+
+- name: Check if vCenter already exists so install steps can be skipped
+  uri:
+#    url: "https://{{ nested_vcenter.ip }}/ui/"
+    url: "https://{{ nested_vcenter.fqdn }}:5480/"
+    method: GET
+    status_code: 200
+    timeout: 2
+    validate_certs: False
+  ignore_errors: True
+  register: vcenter_response
+
+- set_fact:
+    vcenter_exists={{vcenter_response.status == 200}}
+
+- name: Fix permissions before delete
+  command: chmod -R +w {{vcenter_install_tmp_dir}}/VCSA
+  ignore_errors: yes
+  when: not vcenter_exists
+
+- name: Clean VCSA ISO Directory
+  file:
+    path: '{{vcenter_install_tmp_dir}}/VCSA'
+    state: absent
+  when: not vcenter_exists
+
+- name: Extract VCSA ISO image
+  command: xorriso -ecma119_map lowercase -osirrox on -indev {{vc_iso}} -extract / {{vcenter_install_tmp_dir}}/VCSA
+  when: not vcenter_exists
+
+- name: Fix VCSA directory permissions
+  command: "{{item}}"
+  with_items:
+    - chmod -R 777 {{vcenter_install_tmp_dir}}/VCSA
+  when: not vcenter_exists
+
+- name: "Create JSON template file for VCSA {{ deploy_version }} with embeded PSC"
+  template:
+    src: "embedded_vCSA_on_VC_{{ deploy_version }}.json.j2"
+    dest: "{{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+
+- name: Perform VC CLI Install
+  command: "./vcsa-deploy install --accept-eula --no-esx-ssl-verify {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+  args:
+    chdir: '{{vcenter_install_tmp_dir}}/VCSA/vcsa-cli-installer/lin64/'
+  when: not vcenter_exists
+  async: 3600
+  poll: 0
+  register: vcenter_result
+
+- name: Remove Nested vcenter CDROM
+  vmware_guest:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    validate_certs: no
+    name: "{{ environment_tag }}-{{ item.key }}"
+    cdrom:
+      type: client
+  with_dict: "{{ nested_hosts }}"
+
+- name: Change nested_host hostnames
+  vmware_vm_shell:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    datacenter: "{{ hosting_vcenter.datacenter }}"
+    validate_certs: false
+    vm_id: "{{ environment_tag }}-{{ item.key }}"
+    vm_username: "{{ nested_host_credentials.user }}"
+    vm_password: "{{ nested_host_credentials.password }}"
+    vm_shell: /bin/esxcli
+    vm_shell_args: "system hostname set --fqdn={{ environment_tag }}-{{ item.key }}.{{ domain }}"
+    vm_shell_env:
+    - "PATH=/bin"
+    - "VAR=test"
+    vm_shell_cwd: "/tmp"
+  with_dict: "{{ nested_hosts }}"
+  async: 7200
+  poll: 0
+  register: hname
+
+- name: Result check for configuring hostname
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  with_items: "{{ hname.results }}"
+  retries: 10
+
+- name: Set VLAN to Management portgroup
+  vmware_vm_shell:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    datacenter: "{{ hosting_vcenter.datacenter }}"
+    validate_certs: false
+    vm_id: "{{ environment_tag }}-{{ item.key }}"
+    vm_username: "{{ nested_host_credentials.user }}"
+    vm_password: "{{ nested_host_credentials.password }}"
+    vm_shell: /bin/esxcli
+    vm_shell_args: "network vswitch standard portgroup set --portgroup-name='Management Network' --vlan-id={{ nested_clusters[item.value.nested_cluster].mgmt_vlan }}"
+    vm_shell_env:
+    - "PATH=/bin"
+    - "VAR=test"
+    vm_shell_cwd: "/tmp"
+  with_dict: "{{ nested_hosts }}"
+  async: 7200
+  poll: 0
+  register: hvlan
+
+- name: Result check for setting VLAN
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  with_items: "{{ hvlan.results }}"
+  retries: 10
+
+- name: Set vmk0 ip addresses
+  vmware_vm_shell:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    datacenter: "{{ hosting_vcenter.datacenter }}"
+    validate_certs: false
+    vm_id: "{{ environment_tag }}-{{ item.key }}"
+    vm_username: "{{ nested_host_credentials.user }}"
+    vm_password: "{{ nested_host_credentials.password }}"
+    vm_shell: /bin/esxcli
+    vm_shell_args: "network ip interface ipv4 set --interface-name=vmk0 --ipv4={{ item.value.ip }} --netmask={{ item.value.mask }} --type=static"
+    vm_shell_env:
+    - "PATH=/bin"
+    - "VAR=test"
+    vm_shell_cwd: "/tmp"
+  with_dict: "{{ nested_hosts }}"
+  async: 7200
+  poll: 0
+  register: hip
+
+- name: Result check for setting vmk0 ip addresses
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  with_items: "{{ hip.results }}"
+  retries: 10
+
+- name: Set default gw
+  vmware_vm_shell:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    datacenter: "{{ hosting_vcenter.datacenter }}"
+    validate_certs: false
+    vm_id: "{{ environment_tag }}-{{ item.key }}"
+    vm_username: "{{ nested_host_credentials.user }}"
+    vm_password: "{{ nested_host_credentials.password }}"
+    vm_shell: /bin/esxcfg-route
+    vm_shell_args: " -a default {{ item.value.gw }}"
+    vm_shell_env:
+    - "PATH=/bin"
+    - "VAR=test"
+    vm_shell_cwd: "/tmp"
+  with_dict: "{{ nested_hosts }}"
+  async: 7200
+  poll: 0
+  register: hgw
+
+- name: Result check for setting default gw
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  with_items: "{{ hgw.results }}"
+  retries: 10
+
+- name: Set search domain
+  vmware_vm_shell:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    datacenter: "{{ hosting_vcenter.datacenter }}"
+    validate_certs: false
+    vm_id: "{{ environment_tag }}-{{ item.key }}"
+    vm_username: "{{ nested_host_credentials.user }}"
+    vm_password: "{{ nested_host_credentials.password }}"
+    vm_shell: /bin/esxcli
+    vm_shell_args: "network ip dns search add --domain={{ domain}}"
+    vm_shell_env:
+    - "PATH=/bin"
+    - "VAR=test"
+    vm_shell_cwd: "/tmp"
+  with_dict: "{{ nested_hosts }}"
+  async: 7200
+  poll: 0
+  register: hsd
+
+- name: Result check for setting a search domain
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  with_items: "{{ hsd.results }}"
+  retries: 10
+
+- name: Set a DNS Server
+  vmware_vm_shell:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    datacenter: "{{ hosting_vcenter.datacenter }}"
+    validate_certs: false
+    vm_id: "{{ environment_tag }}-{{ item.key }}"
+    vm_username: "{{ nested_host_credentials.user }}"
+    vm_password: "{{ nested_host_credentials.password }}"
+    vm_shell: /bin/esxcli
+    vm_shell_args: "network ip dns server add --server={{ dns1 }}"
+    vm_shell_env:
+    - "PATH=/bin"
+    - "VAR=test"
+    vm_shell_cwd: "/tmp"
+  with_dict: "{{ nested_hosts }}"
+  async: 7200
+  poll: 0
+  register: hdns
+
+- name: Disable SSH Warnings
+  vmware_vm_shell:
+    hostname: "{{ hosting_vcenter.ip }}"
+    username: "{{ hosting_vcenter.username }}"
+    password: "{{ hosting_vcenter.password }}"
+    datacenter: "{{ hosting_vcenter.datacenter }}"
+    validate_certs: false
+    vm_id: "{{ environment_tag }}-{{ item.key }}"
+    vm_username: "{{ nested_host_credentials.user }}"
+    vm_password: "{{ nested_host_credentials.password }}"
+    vm_shell: /bin/vim-cmd
+    vm_shell_args: "hostsvc/advopt/update UserVars.SuppressShellWarning long 1"
+    vm_shell_env:
+    - "PATH=/bin"
+    - "VAR=test"
+    vm_shell_cwd: "/tmp"
+  with_dict: "{{ nested_hosts }}"
+  async: 7200
+  poll: 0
+  register: hwrn
+
+- name: Result check for setting a DNS Server
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  with_items: "{{ hdns.results }}"
+  retries: 10
+
+- debug: msg="The vCenter deployment can take a long time.\nYou can check progress at https://{{nested_vcenter.ip}}:5480 after about 20 minutes.\nFor detailed output browse to the most recent folder starting with vcsaCliInstaller under {{vcenter_install_tmp_dir}} and follow vcsa-cli-installer.log "
+  when: not vcenter_exists
+
+- name: Result check for deployment of vCenter task
+  async_status:
+    jid: "{{ vcenter_result.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 240
+  delay: 15
+  when: not vcenter_exists
+
+- name: Check the vSphere API is online
+  command: "curl -k --silent -v https://{{ nested_vcenter.ip }}/ui/"
+  register: result
+  until: result.stdout.find("<title>vSphere Client</title>") != -1
+  retries: 120
+  delay: 5
+  changed_when: false
+  when: not vcenter_exists
+
+- name: Wait 30 seconds for the vCenter to settle
+  pause: seconds=30
+  when: not vcenter_exists
+
+- name: Delete the temporary JSON template file
+  file:
+    path: "{{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+    state: absent
+
+- name: Clean VCSA ISO Directory
+  file:
+    path: "{{vcenter_install_tmp_dir}}/VCSA/"
+    state: absent

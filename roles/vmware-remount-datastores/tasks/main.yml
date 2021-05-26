@@ -1,0 +1,38 @@
+---
+
+- name: "Install common pip libs"
+  when: (vcenter_python_pip_depends is defined and not(vcenter_python_pip_depends is none))
+  pip:
+    name: "{{ vcenter_python_pip_depends }}"
+    state: latest
+    extra_args: --user
+
+- name: "Remove/Unmount Datastores"
+  vmware_host_datastore:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    validate_certs: no
+    datastore_name: '{{ item.0.name }}'
+    esxi_hostname: '{{ item.1 | d(omit) }}'
+    state: absent
+#  delegate_to: localhost
+  loop: "{{ vmware_host_datastores | subelements('esxi_hosts', { 'skip_missing': true }) }}"
+
+## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_host_datastore_module.html
+- name: "Mount NFS datastores"
+  vmware_host_datastore:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    validate_certs: no
+    datastore_name: '{{ item.0.name }}'
+    datastore_type: '{{ item.0.type }}'
+    nfs_server: '{{ item.0.server }}'
+    nfs_path: '{{ item.0.path }}'
+    nfs_ro: no
+    esxi_hostname: '{{ item.1 | d(omit) }}'
+    state: present
+#  delegate_to: localhost
+  loop: "{{ vmware_host_datastores | subelements('esxi_hosts', { 'skip_missing': true }) }}"
+

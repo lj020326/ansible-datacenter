@@ -1,0 +1,124 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+{{ ansible_managed|comment }}
+
+    {% if item.name is defined %}
+NAME={{ item.name }}
+    {% else -%}
+NAME={{ item.device }}
+    {% endif -%}
+    {% if item.uuid is defined %}
+UUID={{ item.uuid }}
+    {% endif -%}
+DEVICE={{ item.device }}
+    {% if 'bootproto' in item %}
+    {% endif %}
+    {% if 'type' in item %}
+TYPE={{ item.type }}
+    {% endif %}
+    {% if 'devicetype' in item %}
+DEVICETYPE={{ item.devicetype }}
+    {% endif %}
+    {% if 'bootproto' in item %}
+BOOTPROTO={{ item.bootproto }}
+    {% endif %}
+    {% if 'ipv6init' in item %}
+IPV6INIT={{ item.ipv6init | bool | ternary("yes", "no") }}
+    {% endif %}
+    {% if 'mtu' in item and item['mtu'] %}
+MTU={{ item.mtu }}
+    {% endif %}
+    {% if 'onboot' in item %}
+ONBOOT={{ item.onboot | bool | ternary("yes", "no") }}
+    {% else %}
+ONBOOT=yes
+    {% endif %}
+    {% if 'networkmanager' in item %}
+NM_CONTROLLED={{ item.networkmanager | bool | ternary("yes", "no") }}
+    {% elif item.nm_controlled is defined %}
+NM_CONTROLLED={{ item.nm_controlled | bool | ternary("yes", "no") }}
+    {% else %}
+NM_CONTROLLED=yes
+    {% endif -%}
+    {% if 'ip' in item %}
+IPADDR={{ item.ip }}
+    {% endif %}
+    {% if item.address is defined %}
+IPADDR={{ item.address }}
+    {% endif -%}
+    {% if 'netmask' in item %}
+NETMASK={{ item.netmask }}
+    {% endif %}
+    {% if 'prefix' in item %}
+PREFIX={{ item.prefix }}
+    {% endif %}
+    {% if 'hwaddr' in item %}
+    {% if 'broadcast' in item %}
+BROADCAST={{ item.broadcast }}
+    {% endif %}
+HWADDR={{ item.hwaddr }}
+    {% endif %}
+    {% if 'gateway' in item %}
+GATEWAY={{ item.gateway }}
+    {% endif %}
+    {% if item.ipv6_gateway is defined %}
+IPV6_DEFAULTGW="{{ item.ipv6_gateway }}"
+    {% endif -%}
+    {% if item.defroute is defined %}
+DEFROUTE={{ item.defroute | bool | ternary("yes", "no") }}
+    {% endif -%}
+
+    {% if 'dns1' in item %}
+DNS1={{ item.dns1 }}
+    {% endif %}
+    {% if 'dns2' in item %}
+DNS2={{ item.dns2 }}
+    {% endif %}
+    {% if item.dns_nameservers is defined %}
+        {% for dns_nameserver in item.dns_nameservers %}
+DNS{{ loop.index }}={{ dns_nameserver }}
+        {% endfor %}
+    {% endif -%}
+    {% if 'bridge' in item %}
+BRIDGE={{ item.bridge }}
+    {% endif %}
+
+    {% if item.type is defined and item.type=="Vlan" %}
+    {% include  "ethernet_RedHat_vlan_options.j2" %}
+    {% endif -%}
+
+    {% if item.userctl is defined %}
+USERCTL={{ item.userctl | bool | ternary("yes", "no") }}
+    {%   else %}
+USERCTL=no
+    {% endif -%}
+
+    {% if item.stp is defined %}
+STP={{ item.stp | bool | ternary("yes", "no") }}
+    {% endif -%}
+
+
+    {% for param in (item.network_additional_params | default([]) | sort) %}
+{{ param|upper }}={{ item.network_additional_params[param] }}
+    {% endfor %}
+    {% if 'bondmaster' in item %}
+    {%   if item.bondmaster == item.device %}
+    {%     if 'type' not in item %}
+TYPE=Bond
+    {%     endif %}
+BONDING_MASTER=yes
+    {% include "RedHat_bond_options.j2" %}
+    {%   else %}
+MASTER={{ item.bondmaster }}
+SLAVE=yes
+    {%   endif %}
+    {% endif %}
+    {% if 'ovsbridge' in item %}
+OVS_BRIDGE={{ item.ovsbridge }}
+    {% endif %}
+
+    {% if 'bridging_opts' in item %}
+BRIDGING_OPTS={{ item.bridging_opts }}
+    {% endif %}
+    {% if item.firewalld_zone is defined %}
+ZONE={{ item.firewalld_zone }}
+    {% endif %}

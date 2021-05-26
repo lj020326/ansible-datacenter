@@ -1,0 +1,35 @@
+---
+
+- name: "Gather facts for all hosts to apply OS specific group vars for them"
+  tags: always
+  hosts: all
+  become: yes
+  connection: local
+  tasks:
+    - name: Classify hosts depending on their OS distribution
+      group_by:
+        key: os_{{ ansible_facts['distribution']|d('Unknown') }}
+    - name: Classify hosts depending on their OS distribution-version
+      group_by:
+        key: os_{{ ansible_facts['distribution']|d('Unknown') }}_{{ ansible_facts['distribution_major_version']|d('Unknown') }}
+    - name: Print env var debug information
+      debug:
+        msg:
+          - "ansible_host={{ ansible_host }}"
+          - "ansible_hostname={{ ansible_hostname | d('') }}"
+          - "ansible_fqdn={{ ansible_fqdn | d('') }}"
+          - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
+          - "ansible_os_family={{ ansible_os_family | d('unknown') }}"
+          - "ansible_distribution={{ ansible_distribution | d('unknown') }}"
+          - "ansible_distribution_major_version={{ ansible_distribution_major_version | d('unknown') }}"
+          - "ansible_python_interpreter={{ ansible_python_interpreter | d('unknown') }}"
+      tags: debug_ansible_env
+
+- name: "Bootstrap linux on vm template"
+  hosts: all
+  become: yes
+  connection: local
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-linux

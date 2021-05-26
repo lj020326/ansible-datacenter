@@ -1,0 +1,115 @@
+---
+
+- name: "deploy_vcenter | Check if vCenter already exists so install steps can be skipped"
+  uri:
+#    url: "https://{{ vcenter.fqdn }}/ui/"
+    url: "https://{{ vcenter.fqdn }}:5480/"
+    method: GET
+    status_code: 200
+    timeout: 2
+    validate_certs: False
+  ignore_errors: True
+  register: vcenter_response
+
+- set_fact:
+    vcenter_exists={{vcenter_response.status == 200}}
+
+- name: "deploy_vcenter | Perform VCenter deployment"
+  when: not vcenter_exists
+  block:
+
+    # We use a single directory to mount the vCSA ISO and we first need to determine whether the
+    #  directory already exists
+    - name: "deploy_vcenter | Retrieve info about the mount directory"
+      stat: path="{{ vcenter_mount_dir }}"
+      register: mount_dir_stat_first
+
+    # If the mount directory doesn't already exist it is created
+    - name: "deploy_vcenter | Create the mount directory {{ vcenter_mount_dir }}"
+      file:
+        path: "{{ vcenter_mount_dir }}"
+        state: directory
+        mode: 0755
+      when: mount_dir_stat_first.stat.exists == False
+
+    # We run stat again to get info about the mount directory post-creation. This info will be used
+    #  within when statements to make sure that the directory exists and isn't already being used.
+    #  It's a crude check and I would like to devise a better method.
+    - name: "deploy_vcenter | Retrieve info about the mount directory"
+      stat: path="{{ vcenter_mount_dir }}"
+      register: mount_dir_stat_created
+
+    - name: "deploy_vcenter | Mount the VCSA installer ISO"
+      mount:
+        path: "{{ vcenter_mount_dir }}"
+        src: "{{ vcenter_repo_dir }}/{{ vcsa_iso}}"
+        fstype: iso9660
+        opts: ro,noauto
+        state: mounted
+      when: mount_dir_stat_created.stat.wusr == True
+
+    - name: "deploy_vcenter | Set FQDN fact for vCenter"
+      set_fact:
+    #    deploy_version: "{{ vcsa_iso | regex_replace('^.+(MASK-.+?)\\.+','\\\1') }}"
+        deploy_minor_version: "{{ vcsa_iso | regex_search('VMware-VCSA-all-(.+)-.*.iso', '\\1') | first }}"
+        install_no_ssl_arg: "--no-ssl-certificate-verification"
+
+    - debug:
+        var: deploy_minor_version
+
+    - name: "deploy_vcenter | Set FQDN fact for vCenter"
+      set_fact:
+        deploy_version: "{{ deploy_minor_version.split('.')[0:2] | join('.') }}"
+
+    - debug:
+        var: deploy_version
+
+    ## ref: https://www.mattallford.com/2017/vsphere-6-5-cli-vcsa-external-deployment-walkthrough/
+    - name: "deploy_vcenter | Set FQDN fact for vCenter"
+      when: deploy_version=="6.5"
+      set_fact:
+        install_no_ssl_arg: "--no-esx-ssl-verify"
+
+#    - name: "deploy_vcenter | Set appliance dependent variables"
+#      include_vars: '{{ vcenter_appliance_type }}.yml'
+
+    - name: "deploy_vcenter | Create JSON template file for VCSA {{ deploy_version }} with embeded PSC"
+      template:
+        src: "embedded_vCSA_on_ESXi_{{ deploy_version }}.json.j2"
+        dest: "{{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+
+    #- name: "deploy_vcenter | Deploy the vCenter appliance for type => {{ vcenter_appliance_type }}"
+    #  command: "{{ deploy_cmd }}"
+    #  register: deploy_ovf_cmd_result
+    ##  ignore_errors: True
+    ##  failed_when: "'Monitor failed:' in deploy_ovf_cmd_result.stdout or deploy_ovf_cmd_result.rc > 0"
+
+    - debug:
+        msg: "Next step will take about 20 minutes if VC has not been previously deployed, so go grab some coffee !!!"
+
+    - name: "deploy_vcenter | Perform VC CLI Install"
+#      command: "./vcsa-deploy install --accept-eula {{ install_no_ssl_arg }} --acknowledge-ceip {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+      command: "./vcsa-deploy install --accept-eula {{ install_no_ssl_arg }} {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+      args:
+        chdir: "{{ vcenter_mount_dir }}/vcsa-cli-installer/lin64/"
+      register: vcdeploy
+    #  ignore_errors: True
+
+    #- name: "deploy_vcenter | Unmount VCSA installer"
+    #  action: "mount name={{ vcenter_mount_dir }} src='{{ esx_iso }}' fstype=iso9660 state=absent"
+
+    - name: "deploy_vcenter | Unmount the VCSA installer ISO"
+      mount:
+        path: "{{ vcenter_mount_dir }}"
+        src: "{{ vcenter_repo_dir }}/{{ vcsa_iso}}"
+        fstype: iso9660
+    #    state: unmounted
+        state: absent
+
+    - name: "deploy_vcenter | Delete the temporary JSON template file"
+      file:
+        path: "{{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+        state: absent
+
+- name: "Configure vcenter"
+  include_tasks: configure_vcenter.yml

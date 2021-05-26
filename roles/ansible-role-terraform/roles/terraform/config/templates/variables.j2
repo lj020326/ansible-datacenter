@@ -1,0 +1,53 @@
+
+
+#jinja2: lstrip_blocks: "True (or False)", trim_blocks: "True (or False)"
+
+#### DC AND CLUSTER
+# Set vpshere datacenter
+variable "vcenter" {
+  description = "vCenter configuration paramaters"
+  type        = map
+  default = {
+      user       = "{{ vcenter_user }}"
+      password   = "{{ vcenter_password }}"
+      address    = "{{ vcenter_address }}"
+      datacenter = "{{ vcenter_datacenter }}"
+      cluster    = "{{ vcenter_cluster }}"
+  }
+}
+
+variable "allow_unverified_ssl" {
+  default = "{{ vcenter_allow_unverified_ssl|lower }}"
+  type    = bool
+}
+
+#### GLOBAL NETWORK PARAMS
+variable "dns_servers" {
+  default = ["8.8.8.8", "8.8.4.4"]
+}
+{% if vm_config is defined %}
+variable vms {
+  description = "VM configuration"
+  type        = map
+  default = {
+  {% for vm in vm_config %}
+    {{ vm.hostname }} = {
+      hostname       = "{{ vm.hostname }}"
+      vcpu           = "{{ vm.hardware.vcpu }}"
+      ram            = "{{ vm.hardware.ram }}"
+      disk_datastore = "{{ vm.hardware.datastore }}"
+      disk_size      = "{{ vm.hardware.disk_size }}"
+      template_image = "{{ vm.template}}"
+      network = {
+        domain        = "{{ vm.domain }}"
+        vdsport       = "{{ vm.network.vdsport }}"
+        ipv4_address  = "{{ vm.network.ip_address }}"
+        prefix_length = "{{ vm.network.ip_netmask }}"
+        gateway       = "{{ vm.network.ip_gateway }}"
+      }
+    }{% if not loop.last %},{% endif %}
+    
+  {% endfor %}  
+  }
+}
+{% endif %}

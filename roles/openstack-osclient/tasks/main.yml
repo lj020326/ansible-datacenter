@@ -1,0 +1,94 @@
+---
+
+- name: Configure osclient auth configs (clouds.yaml + openrc)
+  block:
+
+    ## ref: https://github.com/larsks/openstack-ansible/blob/master/playbook.yml
+    - name: read openstack credentials into variables
+      tags:
+        - openstack-client
+      include_role:
+        name: osclient
+      vars:
+        credentials_file: /etc/kolla/admin-openrc.sh
+        credentials_fact: admin_creds
+
+    - name: "Display openstack client auth info"
+      debug: msg={{ admin_creds }}
+
+    ## ref: https://arrfab.net/posts/2017/Oct/11/using-ansible-openstack-modules-on-centos-7/
+    #- name: Ensure required pkgs for ansible openstack client
+    #  package:
+    #    name: python2-shade
+    #    state: present
+
+    #- name: Ensuring local directory to hold the os-client-config file
+    #  file:
+    #    path: /etc/openstack
+    #    state: directory
+    #    owner: root
+    #    group: root
+
+    #- name: Add clouds.yaml for os-client-config for further actions
+    #  template:
+    #    src: osclient/clouds.yaml.j2
+    ##    dest: /etc/openstack/clouds.yaml
+    #    dest: /etc/openstack/clouds.yaml
+    #    owner: root
+    #    group: root
+    #    mode: 0700
+
+    - name: Create OpenStack client configuration directory
+      file:
+        dest: "{{ openstack_osclient_config_dir_dest }}"
+        owner: "{{ openstack_osclient_config_dir_owner }}"
+        group: "{{ openstack_osclient_config_dir_group }}"
+        mode: "{{ openstack_osclient_config_dir_mode }}"
+        state: directory
+      tags:
+        - openstack_openrc-install
+
+    - name: Create os configs
+      vars:
+        openrc_os_tenant_name: "{{admin_creds.tenant_name}}"
+        openrc_os_project_name: "{{admin_creds.project_name}}"
+        openrc_os_user_domain_name: "{{admin_creds.user_domain_name}}"
+        openrc_os_project_domain_name: "{{ admin_creds.project_domain_name }}"
+        openrc_os_username: "{{admin_creds.username}}"
+        openrc_os_password: "{{admin_creds.password}}"
+      tags:
+        - openstack_openrc-config
+      block:
+        - name: Create openrc file
+          template:
+            src: osclient/openrc.j2
+            dest: "{{ openrc_file_dest }}"
+            owner: "{{ openrc_file_owner }}"
+            group: "{{ openrc_file_group }}"
+            mode: "{{ openrc_file_mode }}"
+
+        ### ref: https://github.com/openstack/openstack-ansible-openstack_openrc
+        - name: Create clouds.yaml file
+          template:
+            src: osclient/clouds.yaml.j2
+            dest: "{{ openrc_clouds_yml_file_dest }}"
+            owner: "{{ openrc_clouds_yml_file_owner }}"
+            group: "{{ openrc_clouds_yml_file_group }}"
+            mode: "{{ openrc_clouds_yml_file_mode }}"
+
+    - name: "Setup openrc for {{ ansible_local_user }}"
+      copy:
+        src: "{{ openrc_file_dest }}"
+        dest: "/home/{{ ansible_local_user }}"
+        owner: "{{ ansible_local_user }}"
+        group: "{{ ansible_local_user }}"
+        remote_src: yes
+
+    - name: "Setup cloud config for {{ ansible_local_user }}"
+      copy:
+        backup: yes
+        src: "{{ ansible_env.HOME }}/.config"
+        dest: "/home/{{ ansible_local_user }}"
+        owner: "{{ ansible_local_user }}"
+        group: "{{ ansible_local_user }}"
+        remote_src: yes

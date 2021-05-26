@@ -1,0 +1,111 @@
+---
+
+- name: Set fact git_ssh_pvt_key
+  become: no
+  set_fact:
+    git_ssh_pvt_key: "{{ git_ssh_private_keyfile }}"
+
+- name: Display git_ssh_pvt_key
+  debug:
+    msg:
+      - "git_ssh_private_keyfile={{ git_ssh_private_keyfile }}"
+      - "git_ssh_pvt_key={{ git_ssh_pvt_key }}"
+
+## Build source and upload image to local registry
+## ref: https://github.com/wangsha/docker-build-image/blob/master/tasks/docker_private_registry.yml
+- name: "Get {{ docker_image.image_name }} source code"
+  become: yes
+  git:
+    repo: "{{ docker_image.source_repo }}"
+    accept_hostkey: yes
+    dest: "{{ docker_image.source_directory }}"
+    version: "{{ docker_image.version }}"
+    key_file: "{{ git_ssh_private_keyfile }}"
+#    key_file: "{{ git_ssh_pvt_key }}"
+##    recursive: "{{ docker_image.recursive | default(omit) }}"
+#    recursive: "{{ docker_image.recursive | default(false) }}"
+#    depth: 1
+
+## ref: https://oak-tree.tech/blog/devops-ansible-git-ssh-timeout
+- name: "Add submodules for {{ docker_image.image_name }}"
+  when: docker_image.git_submodules | default(false) |bool
+  shell: git submodule update --init --recursive --depth 50
+  args:
+    chdir: "{{ docker_image.source_directory }}"
+
+#- name: Remove docker image {{ docker_registry }}/{{ docker_image.image_name }}:{{ docker_image.image_tag }}
+#  when: docker_image.force_build is defined and docker_image.force_build
+#  docker_image:
+#    state: absent
+#    force: yes
+#    name: "{{ docker_registry }}/{{ docker_image.image_name }}"
+#    repository: "{{ docker_registry }}/{{ docker_image.image_name }}"
+#    tag: "{{ docker_image.image_tag }}"
+#    ignoreerrors: yes
+
+- name: "Building image using docker-compose"
+#  when: "'build_with_compose' in docker_image and docker_image.build_with_compose|bool == True"
+  when: "'docker_compose' in docker_image"
+  block:
+
+    - name: "Set the docker compose template"
+      set_fact:
+        docker_compose_tpl: "{{ docker_image.docker_compose }}"
+      when: "'docker_compose' in docker_image"
+
+    ## ref: http://www.mydailytutorials.com/ansible-template-module-examples/
+    - name: "Install docker-compose template"
+      when: "'docker_compose' in docker_image"
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+#        owner: "{{ docker_user_username }}"
+#        group: "{{ docker_user_group }}"
+      with_items:
+        - { src: "docker-compose.yml.j2", dest: "{{ docker_image.build_directory }}/{{ docker_image_compose_file }}" }
+
+    - name: "Build docker_compose image {{ docker_image.image_name }}"
+#      when: "'compose_file' in docker_image"
+      docker_compose:
+        project_src: "{{ docker_image.build_directory }}"
+        build: yes
+        restarted: no
+#        files: [ "{{ docker_image.compose_file | default(omit) }}" ]
+        files: [ "{{ docker_image_compose_file }}" ]
+
+#      register: output
+#
+#    - name: "**** docker-compose output"
+#      debug:
+#        var: output
+
+    - name: "Tag and push docker image to {{ docker_registry }}/{{ docker_image.image_name }}:{{ docker_image.image_tag }}"
+      docker_image:
+        push: yes
+        name: "{{ docker_registry }}/{{ docker_image.image_name }}"
+        state: present
+        source: local
+        force_tag: yes
+        repository: "{{ docker_registry }}/{{ docker_image.image_name }}"
+        tag: "{{ docker_image.image_tag }}"
+
+
+- name: "Build docker image {{ docker_registry }}/{{ docker_image.image_name }}:{{ docker_image.image_tag }}"
+#  when: "'build_with_compose' not in docker_image or docker_image.build_with_compose|bool == False"
+  when: "'docker_compose' not in docker_image"
+  docker_image:
+    name: "{{ docker_registry }}/{{ docker_image.image_name }}"
+    state: present
+    source: build
+    force_source: yes
+    force_tag: yes
+    repository: "{{ docker_registry }}/{{ docker_image.image_name }}"
+    tag: "{{ docker_image.image_tag }}"
+    push: yes
+    build:
+      pull: yes
+      path: "{{ docker_image.build_directory | d(omit) }}"
+      dockerfile: "{{ docker_image.dockerfile | d(omit) }}"
+
+- name: "push docker image {{ docker_registry }}/{{ docker_image.image_name }}:{{ docker_image.image_tag }} to {{ docker_registry }}"
+  shell: "docker push {{ docker_registry }}/{{ docker_image.image_name }}:{{ docker_image.image_tag }}"

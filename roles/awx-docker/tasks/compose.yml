@@ -1,0 +1,68 @@
+---
+- name: Create {{ awx_inventory_dir }} directory
+  file:
+    path: "{{ awx_inventory_dir }}"
+    state: directory
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+
+- name: Create {{ awx_docker_compose_dir }} directory
+  file:
+    path: "{{ awx_docker_compose_dir }}"
+    state: directory
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+
+- name: Create Redis socket directory
+  file:
+    path: "{{ awx_docker_compose_dir }}/redis_socket"
+    state: directory
+    mode: 0777
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+
+- name: Create Docker Compose Configuration
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ awx_docker_compose_dir }}/{{ item }}"
+    mode: 0600
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+  with_items:
+    - environment.sh
+    - credentials.py
+    - settings.py
+    - docker-compose.yml
+    - nginx.conf
+    - redis.conf
+  register: awx_compose_config
+
+- name: Set redis config to other group readable to satisfy redis-server
+  file:
+    path: "{{ awx_docker_compose_dir }}/redis.conf"
+    mode: 0666
+
+- name: Render SECRET_KEY file
+  copy:
+    content: "{{ awx_secret_key }}"
+    dest: "{{ awx_docker_compose_dir }}/SECRET_KEY"
+    mode: 0600
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+  register: awx_secret_key
+
+- block:
+    - name: Start the containers
+      docker_compose:
+        project_src: "{{ awx_docker_compose_dir }}"
+        restarted: "{{ awx_compose_config is changed or awx_secret_key is changed }}"
+      register: awx_compose_start
+
+    - name: Update CA trust in awx_web container
+      command: docker exec awx_web '/usr/bin/update-ca-trust'
+      when: awx_compose_config.changed or awx_compose_start.changed
+
+    - name: Update CA trust in awx_task container
+      command: docker exec awx_task '/usr/bin/update-ca-trust'
+      when: awx_compose_config.changed or awx_compose_start.changed
+  when: awx_compose_start_containers|bool

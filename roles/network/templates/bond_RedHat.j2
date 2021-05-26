@@ -1,0 +1,67 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+{{ ansible_managed|comment }}
+
+{% if item.name is defined %}
+NAME={{ item.name }}
+{% else -%}
+NAME={{ item.device }}
+{% endif -%}
+DEVICE={{ item.device }}
+USERCTL=no
+TYPE=Bond
+{% if item.bonding_master is defined %}
+BONDING_MASTER={{ item.bonding_master }}
+{% endif -%}
+
+{% if item.bootproto != 'dhcp' %}
+BOOTPROTO={{ item.bootproto|default('static') }}
+    {% if item.address is defined %}
+IPADDR={{ item.address }}
+    {% endif -%}
+
+    {% if item.netmask is defined %}
+NETMASK={{ item.netmask }}
+    {% endif -%}
+
+    {% if item.gateway is defined %}
+GATEWAY={{ item.gateway }}
+    {% endif -%}
+
+    {% include "RedHat_bond_options.j2" %}
+
+{% endif -%}
+
+{% if item.dns_nameservers is defined %}
+    {% for dns_nameserver in item.dns_nameservers %}
+DNS{{ loop.index }}={{ dns_nameserver }}
+    {% endfor %}
+{% endif -%}
+
+{% if item.bootproto == 'dhcp' %}
+{% include "RedHat_bond_options.j2" %}
+BOOTPROTO=dhcp
+{% endif -%}
+
+{% if item.onboot is defined %}
+ONBOOT={{ item.onboot | bool | ternary("yes", "no") }}
+{% endif -%}
+
+{% if item.nm_controlled is defined %}
+NM_CONTROLLED={{ item.nm_controlled }}
+{% endif -%}
+
+{% if item.defroute is defined %}
+DEFROUTE={{ item.defroute | bool | ternary("yes", "no") }}
+{% endif -%}
+
+{% if item.mtu is defined %}
+MTU={{ item.mtu }}
+{% endif -%}
+
+{% if item.bridge is defined %}
+BRIDGE={{ item.bridge }}
+{% endif -%}
+
+{% if item.firewalld_zone is defined %}
+ZONE={{ item.firewalld_zone }}
+{% endif -%}

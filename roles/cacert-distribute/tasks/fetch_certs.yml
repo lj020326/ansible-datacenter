@@ -1,0 +1,107 @@
+---
+
+- name: "fetch_certs | Remove all existing old CA certs and keys"
+  when: ca_reset_local_certs
+#  shell: "/bin/rm -rf {{ ca_local_cert_dir }}/*"
+#  shell: "/bin/rm -rf {{ ca_local_key_dir }}/*"
+  file:
+    state: absent
+    path: "{{ item }}"
+  loop:
+    - "{{ ca_local_cert_dir }}"
+    - "{{ ca_local_key_dir }}"
+    - "{{ pki_key_dir }}"
+
+- name: "fetch_certs | Ensure local cert dirs exist"
+  file:
+    state: directory
+    path: "{{ item }}"
+  loop:
+    - "{{ ca_local_cert_dir }}"
+    - "{{ ca_local_key_dir }}"
+    - "{{ pki_key_dir }}"
+
+- name: "fetch_certs | Fetch root ca-cert to {{ ca_local_cert_dir }}"
+  shell: >
+    rsync -arP -e 'ssh -o StrictHostKeyChecking=no'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ item.src }}
+    {{ item.dest }}
+  with_items:
+    - src: "{{ keyring_cacerts_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
+      dest: "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}"
+
+- name: "fetch_certs | Fetch certs to {{ ca_local_cert_dir }}"
+  shell: "rsync -arP -e'ssh -o StrictHostKeyChecking=no' {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ item.src }} {{ item.dest }}"
+#  args:
+#    warn: False
+  with_items:
+    - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}.pem"
+      dest: "{{ ca_local_cert_dir }}/{{ inventory_hostname }}.pem"
+    - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}.chain.pem"
+      dest: "{{ ca_local_cert_dir }}/{{ inventory_hostname }}.chain.pem"
+
+## ref: debops.hashicorps/tasks
+## ref: https://unix.stackexchange.com/questions/240814/rsync-with-different-user
+- name: "fetch_certs | Synchronize cert key to {{ ca_local_key_dir }}"
+  shell: >
+    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+    --rsync-path 'sudo -u root rsync'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ item.src }}
+    {{ item.dest }}
+  loop:
+    - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
+      dest: "{{ ca_local_key_dir }}/{{ inventory_hostname }}-key.pem"
+    - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
+      dest: "{{ pki_key_dir }}/{{ inventory_hostname }}-key.pem"
+
+- name: "fetch_certs | Synchronize ca intermediate certs to {{ ca_local_cert_dir }}"
+  when: item.domainName in ca_domains_hosted
+  shell: >
+    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}.pem
+    {{ ca_local_cert_dir }}/{{ item.commonName }}.pem
+  loop: "{{ ca_intermediate_cert_list }}"
+
+- name: "fetch_certs | Synchronize ca intermediate cert keys to {{ ca_local_key_dir }}"
+  when: item.domainName in ca_domains_hosted
+  shell: >
+    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+    --rsync-path 'sudo -u root rsync'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}-key.pem
+    {{ ca_local_key_dir }}/{{ item.commonName }}-key.pem
+  loop: "{{ ca_intermediate_cert_list }}"
+
+## ref: https://unix.stackexchange.com/posts/175673/timeline
+- name: "fetch_certs | Synchronize service route certs to {{ ca_local_cert_dir }}"
+  shell: >
+    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.pem
+    {{ ca_local_cert_dir }}/{{ item.route }}.pem
+  loop: "{{ ca_service_routes_list }}"
+
+- name: "fetch_certs | Synchronize service route cert chains to {{ ca_local_cert_dir }}"
+  shell: >
+    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.chain.pem
+    {{ ca_local_cert_dir }}/{{ item.route }}.chain.pem
+  loop: "{{ ca_service_routes_list }}"
+
+## ref: debops.hashicorps/tasks
+## ref: https://unix.stackexchange.com/questions/240814/rsync-with-different-user
+- name: "fetch_certs | Synchronize service route keys to {{ ca_local_key_dir }}"
+  when: item.route in ca_domains_hosted
+  shell: >
+    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+    --rsync-path 'sudo -u root rsync'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
+    {{ ca_local_key_dir }}/{{ item.route }}-key.pem
+  loop: "{{ ca_service_routes_list }}"
+
+- name: "fetch_certs | Synchronize service route key to trust dir at {{ pki_key_dir }}"
+  when: item.route in ca_domains_hosted
+  shell: >
+    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+    --rsync-path 'sudo -u root rsync'
+    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
+    {{ pki_key_dir }}/{{ item.route }}-key.pem
+  loop: "{{ ca_service_routes_list }}"

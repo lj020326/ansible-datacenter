@@ -1,0 +1,161 @@
+{
+  "ca": {
+    "serialPrefix": {{ 255 | random(seed=ansible_fqdn) }},
+    "rsaProfile": "rsaEE",
+    "ecdsaProfile": "ecdsaEE",
+    "debugAddr": "127.0.0.1:9997",
+    "tls": {
+      "caCertFile": "certs/grpc/ca.crt",
+      "certFile": "certs/grpc/stepca-ca.crt",
+      "keyFile": "certs/grpc/stepca-ca.key"
+    },
+    "saService": {
+      "serverAddress": "stepca-sa.{{ ansible_fqdn }}:{{ app_conf.sa.network.grpc }}",
+      "timeout": "15s"
+    },
+    "grpcCA": {
+      "address": "127.0.0.1:{{ app_conf.ca.network.grpc.ca }}",
+      "clientNames": [
+        "stepca-ra.{{ ansible_fqdn }}"
+      ]
+    },
+    "grpcOCSPGenerator": {
+      "address": "127.0.0.1:{{ app_conf.ca.network.grpc.ocsp }}",
+      "clientNames": [
+        "ocsp-updater.{{ ansible_fqdn }}",
+        "orphan-finder.{{ ansible_fqdn }}"
+      ]
+    },
+    "Issuers": [{
+      "File": "certs/web/{{ issuing_ca_keyname }}",
+      "CertFile": "certs/web/{{ issuing_ca_crtname }}"
+    }],
+    "expiry": "{{ ca_policies.valid_duration }}",
+    "backdate": "1h",
+    "lifespanOCSP": "96h",
+    "maxNames": 10,
+    "hostnamePolicyFile": "config/policy_hostname.yml",
+    "weakKeyFile": "config/weak_keys.json",
+    "cfssl": {
+      "signing": {
+        "profiles": {
+          "rsaEE": {
+            "usages": [
+              "digital signature",
+              "key encipherment",
+              "server auth",
+              "client auth"
+            ],
+            "backdate": "1h",
+            "ca_constraint": { "is_ca": false },
+            "issuer_urls": [
+              "http://{{ api_domain }}/acme/issuer-cert"
+            ],
+            "ocsp_url": "http://{{ ca_policies.ocsp_domain }}",
+            "crl_url": "",
+            "expiry": "{{ ca_policies.valid_duration }}",
+            "policies": [
+              {
+                "ID": "2.23.140.1.2.1"
+              },
+              {
+                "ID": "{{ ca_policies.cp_oid }}",
+                "Qualifiers": [{
+{% if ca_policies.cps_url | d("") | length %}
+                  "type": "id-qt-cps",
+                  "value": "{{ ca_policies.cps_url }}"
+{% endif %}
+{% if ca_policies.cp_usernotice | d("") | length %}
+                },
+                {
+                  "type": "id-qt-unotice",
+                  "value": "{{ ca_policies.cp_usernotice }}"
+{% else %}
+                }]
+{% endif %}
+              }
+            ],
+            "CSRWhitelist": {
+              "PublicKeyAlgorithm": true,
+              "PublicKey": true,
+              "SignatureAlgorithm": true
+            },
+            "ClientProvidesSerialNumbers": true,
+            "allowed_extensions": [ "1.3.6.1.5.5.7.1.24" ],
+            "lint_error_level": "pass",
+            "ignored_lints": [
+              "n_subject_common_name_included"
+            ]
+          },
+          "ecdsaEE": {
+            "usages": [
+              "digital signature",
+              "server auth",
+              "client auth"
+            ],
+            "backdate": "1h",
+            "ca_constriant": { "is_ca": false },
+            "issuer_urls": [
+              "http://{{ api_domain }}/acme/issuer-cert"
+            ],
+            "ocsp_url": "http://{{ ca_policies.ocsp_domain }}",
+            "crl_url": "",
+            "expiry": "{{ ca_policies.valid_duration }}",
+            "policies": [
+              {
+                "ID": "2.23.140.1.2.1"
+              },
+              {
+                "ID": "{{ ca_policies.cp_oid }}",
+                "Qualifiers": [{
+{% if ca_policies.cps_url | d("") | length %}
+                  "type": "id-qt-cps",
+                  "value": "{{ ca_policies.cps_url }}"
+{% endif %}
+{% if ca_policies.cp_usernotice | d("") | length %}
+                },
+                {
+                  "type": "id-qt-unotice",
+                  "value": "{{ ca_policies.cp_usernotice }}"
+{% else %}
+                }]
+{% endif %}
+              }
+            ],
+            "CSRWhitelist": {
+              "PublicKeyAlgorithm": true,
+              "PublicKey": true,
+              "SignatureAlgorithm": true
+            },
+            "ClientProvidesSerialNumbers": true,
+            "allowed_extensions": [ "1.3.6.1.5.5.7.1.24" ],
+            "lint_error_level": "pass",
+            "ignored_lints": [
+              "n_subject_common_name_included"
+            ]
+          }
+        }
+      }
+    },
+    "maxConcurrentRPCServerRequests": 10000,
+    "orphanQueueDir": "/tmp/orphaned-certs",
+    "features": {
+{% for k, v in app_conf.ra.features.items() %}
+      "{{ k }}": {{ v | lower }}{{ ',' if not loop.last else '' }}
+{% endfor %}
+    }
+  },
+
+  "pa": {
+    "challenges": {
+      "http-01": true,
+      "dns-01": true,
+      "tls-alpn-01": true
+    }
+  },
+
+  "syslog": {
+    "stdoutlevel": 6,
+    "sysloglevel": 4
+  }
+}

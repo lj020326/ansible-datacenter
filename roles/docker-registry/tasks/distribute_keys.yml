@@ -1,0 +1,54 @@
+---
+
+- name: "Ensures {{ ca_default_ssl_certs_dir }} and {{ ca_default_ssl_key_dir }} dirs exist"
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0655
+    recurse: yes
+  with_items:
+  - "{{ ca_default_ssl_certs_dir }}"
+  - "{{ ca_default_ssl_key_dir }}"
+
+- name: "Distribute {{ inventory_hostname }}-priv-key.pem to {{ ca_default_ssl_key_dir }}/{{ inventory_hostname }}"
+  copy: src="{{ ca_distribution_certs_dir }}/{{ inventory_hostname }}-priv-key.pem" dest="{{ ca_default_ssl_key_dir }}/{{ inventory_hostname }}-priv-key.pem"
+
+- name: "Distribute {{ inventory_hostname }}-cert.pem to {{ ca_default_ssl_certs_dir }}/{{ inventory_hostname }}"
+  copy: src="{{ ca_distribution_certs_dir }}/{{ inventory_hostname }}-cert.pem" dest="{{ ca_default_ssl_certs_dir }}/{{ inventory_hostname }}-cert.pem"
+
+
+# Root CA key/cert
+
+- name: "copy {{ ca_key }} to {{ ca_default_ssl_key_dir }}"
+  copy:
+    src: "{{ ca_distribution_certs_dir }}/{{ item }}"
+    dest: "{{ ca_default_ssl_key_dir }}/{{ item }}"
+  with_items:
+  - "{{ ca_key }}"
+
+- name: "copy {{ ca_cert }} to {{ ca_default_ssl_certs_dir }}"
+  copy:
+    src: "{{ ca_distribution_certs_dir }}/{{ item }}"
+    dest: "{{ ca_default_ssl_certs_dir }}/{{ item }}"
+  with_items:
+  - "{{ ca_cert }}"
+  register: trust_ca_cacertinstalled
+
+- shell: "ls -lR {{ item }}"
+  with_items:
+  - "{{ ca_default_ssl_key_dir }}/{{ inventory_hostname }}-priv-key.pem"
+  - "{{ ca_default_ssl_certs_dir }}/{{ inventory_hostname }}-cert.pem"
+  register: ls
+  when: debug is defined
+
+- debug: var=item.stdout_lines
+  with_items:
+  - "{{ ls.results }}"
+  when: debug is defined
+
+- name: "update CA trust: {{trust_ca_update_trust_cmd}}"
+  command: '{{trust_ca_update_trust_cmd}}'
+  when: trust_ca_cacertinstalled is changed
+

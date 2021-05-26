@@ -1,0 +1,43 @@
+---
+
+docker_stack_appspec_services__redis:
+  # Redis - Key-value Store
+  redis:
+    container_name: redis
+    image: redis:6.0.6
+    restart: unless-stopped
+    entrypoint: "redis-server --appendonly yes --requirepass {{ __docker_stack_appspecs__redis_password }} --maxmemory {{ __docker_stack_appspecs__redis_max_memory }} --maxmemory-policy allkeys-lru"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: "{{ timezone }}"
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+    volumes:
+      - "{{ __docker_stack_appspecs__redis_stack_dir }}/redis:/data"
+
+  # Redis Commander - Redis Management Tool
+  rediscommander:
+    container_name: rediscommander
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      REDIS_HOST: redis
+      REDIS_PASSWORD: "{{ __docker_stack_appspecs__redis_password }}"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.rediscommander-rtr.entrypoints: https
+      traefik.http.routers.rediscommander-rtr.rule: HostHeader(`rediscom.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+      traefik.http.routers.rediscommander-rtr.middlewares: chain-authelia@file
+      ## HTTP Services
+      traefik.http.routers.rediscommander-rtr.service: rediscommander-svc
+      traefik.http.services.rediscommander-svc.loadbalancer.server.port: 8081
+

@@ -1,0 +1,53 @@
+
+- name: Install mdadm and xfsprogs packages
+  yum: name={{ item }} state=installed
+  with_items:
+  - mdadm
+  - xfsprogs
+
+- name: Check if RAID0 device exists
+  command: /usr/sbin/mdadm --detail /dev/md0
+  register: md0_result
+  ignore_errors: true
+
+- name: Create RAID0 device
+  command: mdadm --create --verbose {{ raid_device }} --chunk=256 --level=0 --name=data --raid-devices={{ ssd_devices|length }} {{ ssd_devices|join(' ') }}
+  when: md0_result|failed
+
+- name: Create filesystem
+  filesystem:
+    fstype: xfs
+    dev: "{{ raid_device }}"
+    opts: -K
+  when: md0_result|failed
+
+- name: Create mountpoint
+  file:
+    path: "{{ raid_mountpoint }}"
+    state: directory
+  when: md0_result|failed
+
+- name: Mount RAID
+  mount:
+    name: "{{ raid_mountpoint }}"
+    src: "{{ raid_device }}"
+    fstype: xfs
+    state: mounted
+    passno: 2
+    opts: defaults,nofail,discard
+  when: md0_result|failed
+    
+- name: Build udev rules for physical SSDs
+  lineinfile: dest=/etc/udev/rules.d/99-ssd.rules create=yes line='SUBSYSTEM=="block", ACTION=="add|change", KERNEL=="{{ item | regex_replace('^/dev/(.*)$', '\\1') }}", ATTR{bdi/read_ahead_kb}="8", ATTR{queue/scheduler}="noop"'
+  with_items: "{{ ssd_devices }}"
+  when: md0_result|failed
+  
+- name: Build udev rules for RAID device
+  lineinfile: dest=/etc/udev/rules.d/99-ssd.rules create=yes line='SUBSYSTEM=="block", ACTION=="add|change", KERNEL=="{{ raid_device | regex_replace('^/dev/(.*)$', '\\1') }}", ATTR{bdi/read_ahead_kb}="8"'
+  when: md0_result|failed 
+
+- name: Reload udev rules
+  shell: "udevadm control --reload-rules && udevadm trigger"
+
+- debug: var=md0_result.stdout_lines
+  when: md0_result|succeeded

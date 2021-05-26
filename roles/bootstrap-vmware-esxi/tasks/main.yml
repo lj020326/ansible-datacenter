@@ -1,0 +1,24 @@
+---
+
+#- debug:
+#    var: ansible_ssh_private_key_file
+
+- name: "Run locally"
+  delegate_to: localhost
+  block:
+    - name: "Test ESXi connectivity for root"
+      shell: "ssh -oStrictHostKeyChecking=no -oPreferredAuthentications=publickey -i {{ ansible_ssh_private_key_file }} {{ ansible_user }}@{{ inventory_hostname }}.{{ ca_domain }} -C 'echo success'"
+      ignore_errors: yes
+      register: login_enabled
+
+    - debug:
+        var: login_enabled
+
+#    - debug:
+#        var: vmware_esxi_password
+
+    ## ref: https://kb.vmware.com/s/article/1002866
+    - name: "Add ssh auth key to ESXi servers"
+    #  when: item.stdout.find("success") != -1
+      when: login_enabled.rc != 0
+      shell: "sshpass -p '{{ vmware_esxi_password }}' ssh -oStrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }}.{{ ca_domain }} -C 'echo {{ admin_ssh_public_key }} >> /etc/ssh/keys-{{ ansible_user }}/authorized_keys'"

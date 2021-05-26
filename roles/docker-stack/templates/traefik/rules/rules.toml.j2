@@ -1,0 +1,30 @@
+
+## ref: https://stackoverflow.com/questions/46245684/how-to-get-traefik-to-redirect-to-specific-non-docker-port-from-inside-docker
+## ref: https://www.smarthomebeginner.com/traefik-reverse-proxy-tutorial-for-docker/#Proxying_Non-Docker_Host_System_Apps
+#loglevel = "ERROR"
+loglevel = "INFO"
+
+[backends]
+{% if "nginx" in docker_stack_services %}
+[backends.nginx]
+        [backends.nginx.servers.nginx]
+            url = "{{ docker_stack_nginx_backend }}"
+{% endif %}
+{% if "awx" in docker_stack_services %}
+        [backends.awx.servers.awx]
+            url = "{{ docker_stack_awx_backend }}"
+{% endif %}
+
+[frontends]
+{% if "nginx" in docker_stack_services %}
+        [frontends.frontend-nginx]
+                backend = "nginx"
+        [frontends.frontend-nginx.routes.frontend-nginx]
+                rule = "Host:{{ docker_stack_external_domain }},www.{{ docker_stack_external_domain }},www.{{ docker_stack_internal_domain }}"
+{% endif %}
+{% if "awx" in docker_stack_services %}
+        [frontends.frontend-awx]
+                backend = "awx"
+        [frontends.frontend-awx.routes.frontend-awx]
+                rule = "Host:awx.{{ docker_stack_internal_domain }}"
+{% endif %}

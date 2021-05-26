@@ -1,0 +1,199 @@
+---
+
+vcenter_hostname: "vcenter.example.local"
+vcenter_username: "administrator"
+vcenter_password: "password"
+
+#govc_path: /tmp
+#govc_version: "0.12.1"
+govc_version: "0.23.0"
+govc_path: /usr/local/bin
+govc_file: "{{govc_path}}/govc"
+
+# esx or vcenter host and credentials
+govc_host: "{{ vcenter_hostname }}"
+govc_username: "{{ vcenter_username }}"
+govc_password: "{{ vcenter_password }}"
+govc_insecure: 1
+
+govc_environment:
+  GOVC_HOST: "{{ govc_host }}"
+  GOVC_URL: "https://{{ govc_host }}/sdk"
+  GOVC_USERNAME: "{{ govc_username }}"
+  GOVC_PASSWORD: "{{ govc_password }}"
+  GOVC_INSECURE: "{{ govc_insecure }}"
+#  GOVC_DATASTORE: "{{ govc_datastore }}"
+
+# alternativly, use govc_url
+# govc_url:  https://user:pass@host/sdk
+
+deploy_vm_domain: "dettonville.int"
+
+#deploy_vm_create_async_delay: 5
+deploy_vm_create_async_delay: 20
+
+#deploy_vm_create_async_retries: 600
+deploy_vm_create_async_retries: 1000
+
+deploy_vm_nameservers:
+  addresses: [192.168.0.1]
+  search:
+    - "{{ deploy_vm_domain }}"
+
+deploy_vm_os_info:
+  ubuntu18:
+    name: vmware-template-ubuntu18
+    network_service: systemd-networkd
+  ubuntu20:
+    name: vmware-template-ubuntu20
+    network_service: systemd-networkd
+  centos7:
+    name: vmware-template-centos7
+    network_service: NetworkManager
+  centos8:
+    name: vmware-template-centos8
+    network_service: NetworkManager
+
+vmware_vm_datacenter: "datacenter01"
+vmware_vm_default_host: "esx01.example.int"
+
+vmware_vm_gateway_ip: 192.168.0.1
+
+vmware_spec_defaults:
+  name: vm-01
+  os: ubuntu20
+  datastore: "datastore01"
+  folder: "/{{ vmware_vm_datacenter }}/vm"
+  datastore_folder: "vm"
+  host: "{{ vmware_vm_default_host }}"
+  services:
+    - motd
+  network_type: dhcp
+  netmask: 255.255.255.0
+  gateway: "{{ vmware_vm_gateway_ip }}"
+  disk_size: 50
+  mem: 1024
+  guest_domain: "{{ deploy_vm_domain }}"
+  dns_servers:
+    - 192.168.0.1
+  dns_suffix:
+    - "example.int"
+    - "example.local"
+
+#deploy_vm: "{{ groups['ipaserver'] }}"
+#deploy_vm: []
+#deploy_vm: "{{ groups['none'] }}"
+#deploy_cts: "{{ groups['none'] }}"
+deploy_vm: []
+deploy_cts: []
+
+deploy_vm_workdir: "/tmp/deploy_vm_workdir"
+
+deploy_vm_username: "{{ ansible_ssh_user }}"
+
+vm_controller: "vmware"
+
+vmware_vm_name: "vm-01"
+vm_mac_address: "00:50:56:00:00:00"
+vmware_vm_folder: /DC1/vm/
+#vmware_vm_guest_id: centos64Guest
+vmware_vm_guest_id: ubuntu64Guest
+vmware_vm_size_gb: 16
+vmware_vm_disk_type: thick
+vmware_vm_datastore: "datastore"
+vmware_vm_memory_mb: 1024
+vmware_vm_num_cpus: 1
+vmware_vm_scsi: paravirtual
+#vmware_vm_scsi: lsilogic
+
+vmware_vm_disks:
+  - size_gb: 16
+    type: thick
+    datastore: "esx2_ds2"
+
+vmware_vm_hardware:
+  memory_mb: "{{ vmware_vm_memory_mb }}"
+  num_cpus: "{{ vmware_vm_num_cpus }}"
+  scsi: "{{ vmware_vm_scsi }}"
+
+vmware_vm_networks:
+  - name: VM Network
+#      mac: aa:bb:dd:aa:00:14
+    mac: "{{ vm_mac_address }}"
+#      ip: 10.10.10.100
+#      netmask: 255.255.255.0
+#      device_type: vmxnet3
+    device_type: e1000
+#      type: static
+
+vm_ip_addr:
+vm_ip_mask:
+vm_ip_gw:
+vm_ip_dns:
+#vm_ip_type: 'static'
+vm_ip_type: 'dhcp'
+
+
+vm_imagebuild_user: "vm_imagebuilder"
+vm_image_pwd: "password"
+vm_image_sudo_pwd: "password"
+
+vm_hostname: "{{ inventory_hostname }}"
+vm_instance_id: "{{ vm_hostname }}"
+vm_fqdn: "{{ vm_hostname }}.{{ ca_domain }}"
+vm_ssh_pub_keys: []
+
+vm_ip_network: "192.168.20"
+vm_ip_suffix: 60
+
+## ref: https://github.com/DBarthe/ansible-libvirt-cloudinit/blob/master/roles/common/defaults/main.yml
+base_dir: /var/lib/libvirt/managed
+cloud_init_dir: "{{ base_dir }}/cloud_init"
+cloud_init_src_dir: "{{ cloud_init_dir }}/src/{{ vm_instance_id }}"
+cloud_init_iso_dir: "{{ cloud_init_dir }}/iso"
+
+vm_templates_dir:  "{{ base_dir }}/templates"
+vm_images_dir: "{{ base_dir }}/images"
+
+deploy_vm_python_pip_depends:
+  - pyVmomi
+
+ostemplate: 'gluster:vztmpl/centos-7-ssh-sudo_20180909.tar.gz'
+proxmox_node: 'gold'
+tftp_server: 'repo.lan.nathancurry.com'
+
+defaults:
+  balloon: '1024'
+  cores: '1'
+  cpus: '1'
+  disk:
+    ct: '2'
+    vm: '10'
+  format: 'qcow2'
+  memory:
+    ct: '1024'
+    vm: '2048'
+  nameserver: '10.3.3.2'
+  net: '{"net0":"virtio,bridge=vmbr0"}'
+  netif: '{"net0":"name=eth0,ip=dhcp,ip6=dhcp,bridge=vmbr0"}'
+  node: 'gold'
+  onboot: true
+  ostype: 'l26'
+  pubkey: ''
+  scsihw: 'virtio-scsi-pci'
+  searchdomain: 'lan.nathancurry.com'
+  storage:
+    gluster: 'gluster'
+    lvm: 'local-lvm'
+  swap:
+    ct: '0'
+    vm: '4'
+  type: centos
+  virtio: '{"virtio0":"gluster:10,cache=none,discard=on,format=qcow2"}'
+
+## pxe defaults
+kickstart_tftpdir: /var/lib/tftpboot
+pxe_default_distro: ubuntu20
+pxe_default_installer: ubuntu20-autoinstall-cloudinit.ipxe
+
+

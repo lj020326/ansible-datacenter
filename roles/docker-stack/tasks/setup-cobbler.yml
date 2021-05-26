@@ -1,0 +1,42 @@
+---
+
+## ref: https://blog.container-solutions.com/cobbler-in-a-docker-container
+- name: ensure cobbler templates are present
+  template:
+    src: "cobbler/{{ item }}.template"
+#    dest: "{{ docker_stack_dir }}/cobbler/etc/{{ item }}.template"
+    dest: "{{ docker_cobbler_etcdir }}/{{ item }}.template"
+  with_items:
+    - dhcp
+    - dnsmasq
+    - named
+    - rsync
+    - secondary
+    - tftpd
+    - zone
+#  notify: restart cobblerd
+#    when: cobbler_templates_force | bool
+
+## ref: https://serverfault.com/questions/578544/deploying-a-folder-of-template-files-using-ansible
+- name: Install cobbler kickstart files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ docker_cobbler_appdir }}/kickstarts/{{ item | basename }}"
+  with_fileglob:
+    - "files/cobbler/kickstarts/*"
+
+- name: Install cobbler settings
+  copy:
+    src: "{{ item }}"
+    dest: "{{ docker_stack_dir }}/cobbler/{{ item | basename }}"
+  with_fileglob:
+    - "files/cobbler/*"
+
+- name: Install cobbler kickstart templates
+  template:
+    src: "{{ item }}"
+#    dest: "{{ docker_stack_dir }}/cobbler/var/lib/cobbler/kickstarts/{{ item | basename | regex_replace('.j2$','') }}"
+    dest: "{{ docker_cobbler_appdir }}/kickstarts/{{ item | basename | regex_replace('.j2$','') }}"
+  with_fileglob:
+    - "../templates/cobbler/kickstarts/*.j2"
+

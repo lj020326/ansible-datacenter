@@ -1,0 +1,42 @@
+
+- block:
+
+  - name: Disable firewall
+    service:
+      name: firewalld
+      state: stopped
+      enabled: no
+
+  #- name: Remove Firewalld Package
+  #  package:
+  #    name: firewalld
+  #    state: absent
+
+  when: not firewalld_enabled | bool
+
+- name: "Configure firewalld"
+  when: firewalld_enabled | bool
+  block:
+
+  - name: Allow services through the firewall
+    ansible.posix.firewalld:
+      service: "{{ item }}"
+      zone: "{{ firewalld_default_zone }}"
+      permanent: yes
+      state: enabled
+      immediate: yes
+    with_items:
+      "{{ firewalld_exposed_services }}"
+    notify: "reload firewalld"
+
+  - name: Allow ports through the firewall
+    ansible.posix.firewalld:
+      port: "{{ item }}"
+      zone: "{{ firewalld_default_zone }}"
+      permanent: true
+      state: enabled
+      immediate: yes
+    with_items:
+      "{{ firewalld_exposed_ports }}"
+    notify: "reload firewalld"
+

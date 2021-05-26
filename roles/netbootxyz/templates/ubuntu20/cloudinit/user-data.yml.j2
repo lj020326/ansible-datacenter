@@ -1,0 +1,100 @@
+#cloud-config
+
+## ref: https://askubuntu.com/questions/1235723/automated-20-04-server-installation-using-pxe-and-live-server-image
+
+autoinstall:
+  version: 1
+  # use interactive-sections to avoid an automatic reboot
+  #interactive-sections:
+  #  - locale
+  apt:
+    # even set to no/false, geoip lookup still happens
+    #geoip: no
+    preserve_sources_list: false
+    primary:
+    - arches: [amd64, i386]
+      uri: http://us.archive.ubuntu.com/ubuntu
+    - arches: [default]
+      uri: http://ports.ubuntu.com/ubuntu-ports
+
+  identity:
+    hostname: "{{ pxe_vm_hostname }}"
+    username: "{{ pxe_vm_username }}"
+    password: "{{ pxe_vm_admin_pwd | password_hash('sha512')}}"
+
+  keyboard: {layout: us, variant: ''}
+  locale: en_US.UTF-8
+  # interface name will probably be different
+  network:
+    network:
+      version: 2
+      ethernets:
+        ens32:
+          critical: true
+          dhcp-identifier: mac
+          dhcp4: true
+          nameservers:
+            addresses: [192.168.0.1]
+            search: [johnson.int]
+
+  ssh:
+    allow-pw: true
+    authorized-keys: []
+    install-server: true
+
+## ref: https://cloudinit.readthedocs.io/en/latest/topics/examples.html
+ssh_authorized_keys:
+- ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMX0dPcvoiLIR3qdv+FXLE/yia1RYga28TBQcy762y/I5dgNs1hKNr9lCGlWj08Miiazb/BUS7OD9Pby+c4SK4BOwdqn/LMAGKe23JbMlhCVSwEll8U/ojW1Nm0OrfOnK6CIjkf8lXsTG0hh8DC7QGzGALeQJUpLMQpTvrWk2dJ66jGOFNnqVcJGiVIRuSreFoSbWGyOUbJ6wbXKKLUk+0uD3eAMc6pMDvP3cyhSBlfJce6gB7XzmVrnCSFYJK+s12WcseQa9HeInNgyHdhpinfn1bGMdOLEQz/bhviKosKg8e4L2i3pC3w+tJCGs36b5OmKZDkElfR8+LtuYyX6Rb lee.james.johnson@gmail.com
+
+## ref: https://git.launchpad.net/cloud-init/tree/doc/examples/cloud-config-user-groups.txt?h=ubuntu/focal
+groups:
+  - ubuntu: [root,sys]
+  - cloud-users
+
+users:
+  - default
+  - name: administrator
+    lock_passwd: false
+#    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    passwd: $1$SaltSalt$YhgRYajLPrYevs14poKBQ0
+#      passwd: $6$galwr3z4QiEm5cLC$0pdzk3tb1/HZEeqzFAHmVf2n4t2k4EmvpYF.qQ4xrVLKQBBME67ct8cxKtlE.0VuY7garyarjnHPyFi/lhqp11
+#      ssh-authorized-keys:
+#      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMX0dPcvoiLIR3qdv+FXLE/yia1RYga28TBQcy762y/I5dgNs1hKNr9lCGlWj08Miiazb/BUS7OD9Pby+c4SK4BOwdqn/LMAGKe23JbMlhCVSwEll8U/ojW1Nm0OrfOnK6CIjkf8lXsTG0hh8DC7QGzGALeQJUpLMQpTvrWk2dJ66jGOFNnqVcJGiVIRuSreFoSbWGyOUbJ6wbXKKLUk+0uD3eAMc6pMDvP3cyhSBlfJce6gB7XzmVrnCSFYJK+s12WcseQa9HeInNgyHdhpinfn1bGMdOLEQz/bhviKosKg8e4L2i3pC3w+tJCGs36b5OmKZDkElfR8+LtuYyX6Rb lee.james.johnson@gmail.com
+#
+
+## Add users to the system. Users are added after groups are added.
+### ref: https://cloudinit.readthedocs.io/en/0.7.8/topics/examples.html
+#user-data:
+#  groups:
+#    - ubuntu: [root,sys]
+#    - cloud-users
+#
+#  users:
+#    - default
+#    - name: administrator
+#      lock_passwd: false
+#      sudo: ['ALL=(ALL) NOPASSWD:ALL']
+#      groups: sudo
+#      shell: /bin/bash
+#      passwd: $1$SaltSalt$YhgRYajLPrYevs14poKBQ0
+##      passwd: $6$galwr3z4QiEm5cLC$0pdzk3tb1/HZEeqzFAHmVf2n4t2k4EmvpYF.qQ4xrVLKQBBME67ct8cxKtlE.0VuY7garyarjnHPyFi/lhqp11
+##      ssh-authorized-keys:
+##      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMX0dPcvoiLIR3qdv+FXLE/yia1RYga28TBQcy762y/I5dgNs1hKNr9lCGlWj08Miiazb/BUS7OD9Pby+c4SK4BOwdqn/LMAGKe23JbMlhCVSwEll8U/ojW1Nm0OrfOnK6CIjkf8lXsTG0hh8DC7QGzGALeQJUpLMQpTvrWk2dJ66jGOFNnqVcJGiVIRuSreFoSbWGyOUbJ6wbXKKLUk+0uD3eAMc6pMDvP3cyhSBlfJce6gB7XzmVrnCSFYJK+s12WcseQa9HeInNgyHdhpinfn1bGMdOLEQz/bhviKosKg8e4L2i3pC3w+tJCGs36b5OmKZDkElfR8+LtuYyX6Rb lee.james.johnson@gmail.com
+#
+## write_files:
+##   # override the kernel package
+##   - path: /run/kernel-meta-package
+##     content: |
+##       linux-virtual
+##     owner: root:root
+##     permissions: "0644"
+##   # attempt to also use an answers file by providing a file at the default path.  It did not seem to have any effect
+##   #- path: /subiquity_config/answers.yaml
+##   #  content: |
+##   #    InstallProgress:
+##   #      reboot: no
+##   #  owner: root:root
+##   #  permissions: "0644"

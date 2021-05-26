@@ -1,0 +1,68 @@
+{# Set up VirtualHosts - servername and documentroot are required. #}
+{% for vhost in apache_vhosts_awstats %}
+<VirtualHost 127.0.0.1:7070>
+  #ServerName {{ vhost.servername }}
+{% if vhost.serveradmin is defined %}
+  ServerAdmin {{ vhost.serveradmin }}
+{% endif %}
+
+  #DocumentRoot {{ vhost.documentroot }}
+  #SetHandler cgi-script
+  #Options +ExecCGI -Multiviews
+
+  Alias /awstatsclasses "/usr/share/awstats/classes/"
+  Alias /awstatscss "/usr/share/awstats/css/"
+  Alias /awstats-icon "/usr/share/awstats/icon/"
+  
+  <IfVersion < 2.3>
+     ScriptAlias /stats /usr/lib/cgi-bin/awstats.pl
+  </IfVersion>   
+  <IfVersion >= 2.3>
+      ScriptAlias /stats /usr/lib/cgi-bin/
+   </IfVersion>  
+
+  #Same as in awstats.*.conf
+  <Directory /usr/lib/cgi-bin/>
+    DirectoryIndex awstats.pl
+    UseCanonicalName off
+  #  AuthName "Statistiques awstats"
+  #  AuthType Basic
+  #  Require valid-user
+  #  AuthUserFile /che/min/.passwdstats
+    Options +ExecCGI
+    AllowOverride None
+    Order allow,deny
+    <IfVersion < 2.3>
+      Order allow,deny
+      Allow from 127.0.0.1
+    </IfVersion> 
+    <IfVersion >= 2.3>
+      Require all granted
+    </IfVersion>
+    
+  </Directory>
+  
+  #<Directory /usr/share/awstats/icon>
+  #  Options +Indexes +Multiviews +FollowSymLinks
+  #  AllowOverride None
+  #  Order allow,deny    
+  #  Allow from all
+  ##  Allow from 127.0.0.1    
+  #</Directory>  
+
+  #In order to access like http://stats.mydomain.com
+  #instead of http://www.mydomain.com/cgi-bin/awstats.pl?config=http-www.mydomain.com
+  RewriteEngine On
+  RewriteRule ^http(.*)$ /awstats.pl?config=http$1 [PT]
+  
+{% if vhost.extra_parameters is defined %}
+  {{ vhost.extra_parameters }}
+{% endif %}
+
+  LogLevel warn
+  ErrorLog {{ apache_log_path }}/awstats_error.log
+  CustomLog {{ apache_log_path }}/awstats_access.log combined
+
+</VirtualHost>
+
+{% endfor %}
