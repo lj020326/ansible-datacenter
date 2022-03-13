@@ -1,0 +1,192 @@
+---
+
+## ref: https://devops.stackexchange.com/questions/11481/doing-map-and-filter-of-a-list-of-dictionaries-in-ansible
+## possible alternative to custom filter:
+## https://gist.github.com/halberom/9bfe009c9a3df5d64c7bb505a7700430
+- name: "Initialize homedir for users"
+  set_fact:
+    linux_users: "{{ linux_users | add_homedir | list }}"
+
+#- name: "Display linux_users"
+#  debug:
+#    var: linux_users
+
+- name: "Ensure group exist with correct gid"
+#  when: item.gid is defined
+#  no_log: yes
+  group:
+    name: "{{ item.name }}"
+    gid: "{{ item.gid | d(omit) }}"
+    state: present
+#  loop: "{{ linux_users | subelements('groups', { 'skip_missing': true }) }}"
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
+- name: "Add users with groups"
+#  no_log: yes
+  user:
+    state: present
+    name: "{{ item.name }}"
+    system: "{{ item.system | d(false) }}"
+    shell: /bin/bash
+    append: "{{ True if item.groups is defined else False }}"
+    uid: "{{ item.uid | d(omit) }}"
+    group: "{{ item.gid | default(omit) }}"
+    groups: "{{ item.groups | default(omit) }}"
+    password: "{{ item.hashed_password | d(item.password | d(omit) | password_hash('sha512')) }}"
+    generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
+    ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
+    ssh_key_file: "{{ item.ssh_key_file | d(omit) }}"
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+## ref: https://github.com/selivan/ansible-set-user-password-expire/blob/master/passwords-set-expire.yml
+- name: "Check users password valid days"
+  shell: getent shadow "{{ item.name }}" | cut -d':' -f5
+  register: users_pw_valid
+  changed_when: False
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+## ref: https://github.com/ansible/ansible/issues/5564
+- name: "Display user password valid days"
+  debug:
+    msg: "output = {{ item.stdout }}"
+#  with_items: "{{ users_pw_valid.results }}"
+  loop: "{{ users_pw_valid.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+### ref: https://github.com/ansible/ansible/issues/5564
+#- name: "Display user password valid days"
+#  debug:
+##    var: users_pw_valid
+##    var: users_pw_valid.results|map(attribute='stdout')|map('default','')
+#    var: users_pw_valid.results|map(attribute='stdout')
+
+- name: "Set users password valid days"
+  shell: chage -M "{{ item.password_valid_days }}" "{{ item.name }}"
+#  when: item.stdout is defined and item.stdout != {{ user_password_valid_time }}
+#  loop: users_pw_valid.results
+  when:
+    - item.password_valid_days is defined
+    - users_pw_valid.results[user_idx].stdout is defined
+    - users_pw_valid.results[user_idx].stdout != item.password_valid_days
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+    index_var: user_idx
+
+- name: "Add to sudoers"
+#  no_log: yes
+  copy:
+    dest: /etc/sudoers.d/{{ item.name }}
+    mode: "0644"
+    content: |
+             {{ item.name }}  ALL=(ALL) ALL
+             {{ item.name }}  ALL=(ALL) NOPASSWD: ALL
+             {{ item.name }}  ALL=(root) NOPASSWD:/usr/bin/supervisorctl
+             Defaults !requiretty
+             #
+  when: item.system|d(False)==True
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+#- name: Allow ttyless sudo
+#  lineinfile: dest=/etc/sudoers regexp=requiretty state=absent
+
+- name: Add .ssh directories
+#  no_log: yes
+  file:
+#    path: "/home/{{ item.name }}/.ssh"
+    path: "{{ item.homedir }}/.ssh"
+    state: directory
+    mode: 0700
+    owner: "{{ item.name }}"
+    group: "{{ item.group|default(item.name) }}"
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Add user SSH authorized keys
+#  no_log: yes
+  when: item.auth_key is defined
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.auth_key }}"
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+### ref: https://stackoverflow.com/questions/49964657/looping-using-with-fileglob
+#- name: Add user SSH cred keys
+#  when: user.keyfiles is defined
+#  include_tasks: "copy_user_keys.yml"
+#  loop: "{{ linux_users }}"
+#  loop_control:
+#    label: "{{ user.name }}"
+#    loop_var: user
+
+
+- name: Add user SSH private key
+#  no_log: yes
+  when: item.ssh_keypair.private is defined
+  copy:
+    content: "{{ item.ssh_keypair.private }}"
+#    dest: "/home/{{ item.name }}/.ssh/id_rsa"
+    dest: "{{ item.homedir }}/.ssh/id_rsa"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0600"
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Add user SSH public key
+#  no_log: yes
+  when: item.ssh_keypair.public is defined
+  copy:
+    content: "{{ item.ssh_keypair.public }}"
+#    dest: "/home/{{ item.name }}/.ssh/id_rsa.pub"
+    dest: "{{ item.homedir }}/.ssh/id_rsa.pub"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0600"
+  loop: "{{ linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Copy bash env files to home folder
+#  no_log: yes
+  copy:
+    backup: yes
+    src: "{{ item[1] }}"
+    dest: "{{ item[0].homedir }}/"
+    mode: "0644"
+    owner: "{{ item[0].name }}"
+    force: yes
+  loop: "{{ all_users | product( lookup('fileglob', 'bashenv/.*', wantlist=True)) | list }}"
+  loop_control:
+    label: "Copy {{ item[1] | basename }} for {{ item[0].name }}"
+  tags:
+    - user-updatebash
+
+- name: Copy bashlib files to home folder
+#  no_log: yes
+  copy:
+    backup: yes
+    src: "{{ item[1] }}"
+    dest: "{{ item[0].homedir }}/.bashlib/"
+    mode: "0644"
+    owner: "{{ item[0].name }}"
+    force: yes
+  loop: "{{ all_users | product( lookup('fileglob', 'bashenv/.bashlib/*', wantlist=True)) | list }}"
+  loop_control:
+    label: "Copy {{ item[1] | basename }} for {{ item[0].name }}"
+  tags:
+    - user-updatebash

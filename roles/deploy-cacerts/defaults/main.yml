@@ -1,0 +1,103 @@
+---
+ansible_local_user: "{{ lookup('env', 'USER') }}"
+
+hostname_internal_domain: "example.local"
+hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
+hostname_name_short: "{{ inventory_hostname_short }}"
+
+git_ssh_private_keyfile: ~/.ssh/id_rsa
+
+cacert_keyring_host: "ca01.example.int"
+
+ca_force_create: no
+ca_force_distribute_nodes: no
+#ca_reset_local_certs: yes
+ca_reset_local_certs: no
+
+ca_fetch_certs: yes
+
+# where to generate the certs
+keyring_cacerts_base_dir: /usr/share/ca-certs
+#keyring_cacerts_base_dir: "{{ '~/ca-certs' | expanduser }}"
+
+keyring_cacerts_dir: /usr/share/ca-certs
+
+stepca_host_url: https://stepca.example.int/
+stepca_root_ca_fingerprint: avkagkskgkkakgkkakg0099sbiskksgskl99bisjbjskgllslggskk
+
+ca_key_dir: /etc/ssl/private
+
+ca_backup_conf: yes
+
+ca_root_cn: "ca-root"
+pki_caroot_cert: "{{ ca_root_cn }}.pem"
+pki_caroot_key: "{{ ca_root_cn }}-key.pem"
+
+pki_cert_dir: /etc/ssl/certs
+pki_key_dir: /etc/ssl/private
+
+## used by distribution vars
+ca_local_cert_dir: /usr/local/ssl/certs
+ca_local_key_dir: /usr/local/ssl/private
+
+ca_java_keystore_enabled: yes
+ca_java_keystore_pass: changeit
+
+trust_ca_cert_extension: "pem"
+
+#keyring_admin_user: "{{ ansible_user }}"
+#keyring_admin_user: "{{ ansible_local_user }}"
+keyring_admin_user: "{{ ansible_ssh_user }}"
+
+# where to deploy the finalized cert files to on the ansible control node
+ca_keyring_base_dir: "{{ '~/pki' | expanduser }}"
+
+ca_keyring_certs_dir: "{{ ca_keyring_base_dir }}/certs"
+ca_keyring_keys_dir: "{{ ca_keyring_base_dir }}/keys"
+
+ca_keyring_repo_url: ssh://git@gitea.example.int:2222/infra/cacerts.git
+ca_keyring_repo_dir: "{{ ca_keyring_certs_dir }}"
+ca_keyring_repo_branch: master
+ca_keyring_repo_keep_updated: yes
+
+ca_keyring_repo_user: "{{ keyring_admin_user }}@{{ ansible_fqdn }}"
+ca_keyring_repo_email: "ca_root@example.int"
+
+ca_cert: ca.pem
+ca_key: ca-key.pem
+
+##
+##
+ca_domain: "example.com"
+#ca_provisioner: "{{ ca_domain }}"
+ca_provisioner: "acme"
+
+ca_domains_hosted: []
+
+ca_root_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_root.domainName }}"
+ca_root_cert: "{{ ca_root_cn }}.pem"
+ca_root_key: "{{ ca_root_cn }}-key.pem"
+
+ca_intermediate_certs_list:
+  - domainName: "example.com"
+    commonName: ca.example.com
+
+### ref: https://stackoverflow.com/questions/37287013/how-to-convert-a-dictionary-of-dictionaries-into-a-list-of-dictionaries-in-a-ans
+#ca_intermediate_cert_list: "{{ ca_intermediate_certs.values() | list }}"
+
+ca_service_routes_list:
+  - route: route-1.example.com
+  - route: route-2.example.com
+
+#pki_self_sign: True
+
+ca_trust_info:
+  Debian:
+    cacert_dir: /usr/local/share/ca-certificates
+    ca_update_cmd: update-ca-certificates
+    ca_filename: ca-bundle.crt
+
+  RedHat:
+    cacert_dir: /etc/pki/ca-trust/source/anchors
+    ca_update_cmd: update-ca-trust extract
+    ca_filename: ca-bundle.crt

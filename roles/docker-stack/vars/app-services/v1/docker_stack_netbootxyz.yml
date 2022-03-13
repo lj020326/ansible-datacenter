@@ -1,0 +1,46 @@
+---
+
+docker_stack_appspec_services__netbootxyz:
+  ## ref: https://blog.linuxserver.io/2019/12/16/netboot-xyz-docker-network-boot-server-pxe/
+  netbootxyz:
+    container_name: "netbootxyz"
+    image: "{{ __docker_stack_appspecs__netbootxyz_image }}"
+#    privileged: true
+    ports:
+      - "69:69/udp"  ## TFTP server for serving IPXE boot files and menus
+      - "9080:80/tcp"  ## NGINX server for hosting custom netboot.xyz assets locally
+      - "3000:3000"  ## netboot.xyz web application for customizing local menus and pulling in remote assets
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+#        - "{{ docker_stack_dir }}/netbootxyz:/config"
+      - "{{ __docker_stack_appspecs__netbootxyz_config_dir }}:/config"
+      - "{{ __docker_stack_appspecs__netbootxyz_assets_dir }}:/assets"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=netbootxyz"
+      - "traefik.frontend.rule=Host:pxe.{{ docker_stack_internal_domain }}"
+      - "traefik.port=3000"
+      - "traefik.docker.network={{ docker_stack_traefik_proxy_network }}"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
+
+docker_stack_appspec__netbootxyz:
+  dirs: "{{ docker_stack_appspec_config_dirs__netbootxyz | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__netbootxyz | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__netbootxyz | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__netbootxyz | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__netbootxyz | d([]) }}"
+  docker_services: "{{ docker_stack_appspec_services__netbootxyz | d({}) }}"

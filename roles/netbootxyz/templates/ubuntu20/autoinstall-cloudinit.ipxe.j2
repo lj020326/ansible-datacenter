@@ -1,0 +1,43 @@
+#!ipxe
+#set ubuntu_mirror http://${66}:9080
+set ubuntu_mirror http://{{ pxe_server_ip }}:9080
+set dist_dir {{ item.0.pxe_dist_dir }}
+set netboot_dir ${dist_dir}/netboot/casper
+set squash_url ${ubuntu_mirror}/${netboot_dir}/filesystem.squashfs
+set kernel_url ${ubuntu_mirror}/${dist_dir}
+#set preseedurl ${kernel_url}/preseed.cfg
+#set preseedurl ${kernel_url}/cloud.cfg
+set preseedurl ${kernel_url}/autoinstall/
+
+set nfsrooturl {{ pxe_server_ip }}:/export/netboot/
+set nfs_server_ip {{ pxe_server_ip }}
+set nfs_path /export/netboot
+
+## ref: https://www.turnkeylinux.org/forum/support/20090127/pxe-boot
+imgfree
+kernel ${ubuntu_mirror}/${netboot_dir}/vmlinuz
+initrd ${ubuntu_mirror}/${netboot_dir}/initrd
+imgargs vmlinuz \
+    initrd=initrd \
+    boot=casper \
+    root=/dev/nfs \
+    ip=dhcp \
+    netboot=nfs \
+    toram \
+    locale=en_US.UTF-8 \
+    hostname={{ dhcp_hostname | default() }} \
+    keyboard-configuration/layoutcode=us \
+    languagechooser/language-name=English \
+    auto-install/enable=true \
+    autoinstall \
+    auto=true \
+    autopart \
+    priority=critical \
+    nfsroot=${nfsrooturl} \
+    ds=nocloud-net;s=${preseedurl} \
+    vga=normal \
+    --- quiet
+
+echo
+boot
+exit

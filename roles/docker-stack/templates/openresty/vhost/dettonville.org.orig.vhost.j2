@@ -1,0 +1,349 @@
+upstream wordpress {
+    ip_hash;
+    server wordpress.johnson.int:80;
+    server wordpress1.johnson.int:80;
+#    keepalive 5;
+}
+
+upstream wordpress-ssl {
+    server wordpress.johnson.int:443;
+#    keepalive 5;
+}
+
+server {
+       listen 8080;
+       server_name dettonville.org;
+       return 301 $scheme://www.dettonville.org$request_uri;
+#       return 301 $scheme://www.$servername$request_uri;
+}
+
+# server {
+#       listen 8443;
+#       server_name dettonville.org;
+# #      return 301 $scheme://www.$servername$request_uri;
+#       return 301 $scheme://www.dettonville.org$request_uri;
+# }
+
+server {
+       listen 8080;
+
+       server_name www.dettonville.org;
+       limit_conn arbeit 32;
+
+#       root /var/www/dettonville.org;
+
+#       access_log /var/log/nginx/dettonville.org.access.log;
+##       error_log /var/log/nginx/dettonville.org.error.log;
+#       error_log /var/log/nginx/dettonville.org.error.log debug;
+
+#       access_log /var/log/nginx/access.log;
+##       error_log /var/log/nginx/error.log;
+
+#       include global/restrictions.conf;
+
+#       index index.php index.html;
+
+    ## See the blacklist.conf file at the parent dir: /etc/nginx.
+    ## Deny access based on the User-Agent header.
+    if ($bad_bot) {
+        return 444;
+    }
+
+    ## Deny access based on the Referer header.
+    if ($bad_referer) {
+        return 444;
+    }
+
+    ## Protection against illegal HTTP methods. Out of the box only HEAD,
+    ## GET and POST are allowed.
+    if ($not_allowed_method) {
+        return 405;
+    }
+
+       # ## Only allow GET, HEAD and POST request methods
+       # if ($request_method !~ ^(GET|HEAD|POST)$ ) {
+       #          return 403;
+       # }
+
+    ## If you're using a Nginx version greater or equal to 1.1.4 then
+    ## you can use keep alive connections to the upstream be it
+    ## FastCGI or Apache. If that's not the case comment out the line below.
+    fastcgi_keep_conn on; # keep alive to the FCGI upstream
+
+    ## Uncomment if you're proxying to Apache for handling PHP.
+    proxy_http_version 1.1; # keep alive to the Apache upstream
+
+
+       # This block will catch static file requests, such as images, css, js
+       # The ?: prefix is a 'non-capturing' mark, meaning we do not require
+       # the pattern to be captured into $1 which should help improve performance
+       location ~* \.(?:ico|css|js|gif|jpe?g|png)$ {
+        # Some basic cache-control for static files to be sent to the browser
+          proxy_buffering           on;
+          expires 5d;
+          add_header Pragma public;
+          add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+        }
+
+#       location ~* \.(jpg|png|gif|jpeg|css|js|mp3|wav|swf|mov|doc|pdf|xls|ppt|docx|pptx|xlsx)$ {
+#               proxy_buffering           on;
+#              proxy_cache_valid 200 120m;
+#               expires 864000;
+#       }
+
+#        location /favicon.ico {
+#            alias /var/www/dettonville.org/favicon.ico;
+#        }
+
+       location ^~ /classweb {
+                proxy_pass http://moodle.johnson.int;
+#                include /etc/nginx/proxy_params;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+       }
+
+       location ^~ /ipython {
+                proxy_pass http://jupyter.johnson.int:8888;
+#                include /etc/nginx/proxy_params;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+
+            # WebSocket support
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+#            proxy_read_timeout 86400;
+
+        }
+
+       location ^~ /webwork {
+                proxy_pass http://wwqs.johnson.int;
+#                include /etc/nginx/proxy_params;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+       }
+
+       location ~^/mathforum/.* {
+                rewrite ^/mathforum/(.*)$  /questions/math/$1  break;
+                proxy_pass http://wordpress;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+        }
+
+       # location ^~ /mathforum/.* {
+       #           rewrite ^/mathforum/?$  $scheme://$host/forum/math last;
+       #           rewrite ^/mathforum/(.*)$  $scheme://$host/forum/math/$1  last;
+       #        }
+
+       # location ~^/mathforum/.* {
+       #                rewrite ^/mathforum/(.*)$  /$1  break;
+       #          proxy_pass http://osqa.johnson.int;
+       #          include /etc/nginx/proxy_params;
+       # }
+
+       # location ^~ /mathforum {
+       #          proxy_pass http://osqa.johnson.int;
+       #          include /etc/nginx/proxy_params;
+       # }
+
+       # location ^~ /upfiles {
+       #          proxy_pass http://osqa.johnson.local;
+       #          include /etc/nginx/proxy_params;
+       # }
+
+       # location ^~ /mathforum/upfiles {
+       #          proxy_pass http://osqa.johnson.local/upfiles;
+       #          include /etc/nginx/proxy_params;
+       # }
+
+       ## store
+       # location ^~ /shop {
+       #          proxy_pass http://192.168.0.62;
+       #                allow   192.168.0.0/16;
+       #          include /etc/nginx/proxy_params;
+       # }
+
+       ## default htdocs
+       location ^~ / {
+                proxy_pass http://wordpress;
+#                include /etc/nginx/proxy_params;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+#               include global/wordpress.conf;
+       }
+
+   ## All other errors get the generic error page
+      error_page 400 401 402 403 404 405 406 407
+                 408 409 410 411 412 413 414 415 416 417 495 496 497
+                 500 501 502 503 504 505 506 507 /error_page.html;
+#      location = /error_page.html {
+#                root /var/www/dettonville.org/html;
+##               root html;
+##      internal;
+#      }
+
+#      location /img/ {
+#                alias /var/www/img/;
+##               root html;
+##      internal;
+#      }
+
+      # # more_headers module (http)
+      # # moved this to proxy_params
+      more_clear_headers 'Server'; # removes server information
+      more_clear_headers 'X-Powered-By'; # removes server information
+
+}
+
+server {
+       listen 8443;
+
+       server_name www.dettonville.org;
+       limit_conn arbeit 32;
+
+#       root /var/www/dettonville.org;
+
+#       access_log /var/log/nginx/dettonville.org.access.log;
+##       error_log /var/log/nginx/dettonville.org.error.log;
+#       error_log /var/log/nginx/dettonville.org.error.log debug;
+
+#       access_log /var/log/nginx/access.log;
+##       error_log /var/log/nginx/error.log;
+
+        ssl on;
+        ssl_certificate /etc/nginx/ssl/certs/dettonville_org/dettonville_org.cert_chain.crt;
+        ssl_certificate_key /etc/nginx/ssl/private/dettonville.org.key;
+
+#       include global/restrictions.conf;
+#       index index.php index.html;
+
+    ## See the blacklist.conf file at the parent dir: /etc/nginx.
+    ## Deny access based on the User-Agent header.
+    if ($bad_bot) {
+        return 444;
+    }
+    ## Deny access based on the Referer header.
+    if ($bad_referer) {
+        return 444;
+    }
+
+    ## Protection against illegal HTTP methods. Out of the box only HEAD,
+    ## GET and POST are allowed.
+    if ($not_allowed_method) {
+        return 405;
+    }
+
+       # ## Only allow GET, HEAD and POST request methods
+       # if ($request_method !~ ^(GET|HEAD|POST)$ ) {
+       #          return 403;
+       # }
+
+    ## If you're using a Nginx version greater or equal to 1.1.4 then
+    ## you can use keep alive connections to the upstream be it
+    ## FastCGI or Apache. If that's not the case comment out the line below.
+    fastcgi_keep_conn on; # keep alive to the FCGI upstream
+
+    ## Uncomment if you're proxying to Apache for handling PHP.
+    proxy_http_version 1.1; # keep alive to the Apache upstream
+
+
+       # This block will catch static file requests, such as images, css, js
+       # The ?: prefix is a 'non-capturing' mark, meaning we do not require
+       # the pattern to be captured into $1 which should help improve performance
+       location ~* \.(?:ico|css|js|gif|jpe?g|png)$ {
+        # Some basic cache-control for static files to be sent to the browser
+          expires 5d;
+          add_header Pragma public;
+          add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+        }
+
+#        location /favicon.ico {
+#            alias /var/www/img/favicon.ico;
+#        }
+
+       location ^~ /classweb {
+                proxy_pass http://moodle.johnson.local;
+#                include /etc/nginx/proxy_params;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+       }
+
+       location ^~ /webwork {
+                proxy_pass http://wwqs.johnson.local;
+#                include /etc/nginx/proxy_params;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+       }
+
+       location ^~ /questions {
+                rewrite ^/questions$  /questions/  last;
+#               rewrite ^/questions$  /questions/  break;
+                proxy_pass https://wordpress-ssl;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+        }
+
+#        location /questions {
+# #             rewrite ^/.*  $scheme://$host/questions/ permanent;
+#              rewrite ^/.*  $scheme://$server_name/questions/ permanent;
+#       }
+
+       # location ~* ^/qa-theme/.* {
+       #                rewrite ^/qa-theme/(.*)$  /questions/qa-theme/$1  break;
+       #          proxy_pass https://wordpress-ssl;
+       #          include /etc/nginx/proxy.conf;
+       #        }
+
+       # location ~* ^/qa-content/.* {
+       #                rewrite ^/qa-content/(.*)$  /questions/qa-content/$1  break;
+       #          proxy_pass https://wordpress-ssl;
+       #          include /etc/nginx/proxy.conf;
+       #        }
+
+#       location ~^/forum/.* {
+#       location ~^/forum/.* {
+       location /forum/ {
+                rewrite ^/forum/(.*)$  /questions/$1  break;
+                proxy_pass https://wordpress-ssl/;
+#                include /etc/nginx/proxy.conf;
+        }
+
+       location ~^/mathforum/.* {
+                rewrite ^/mathforum/(.*)$  /forum/math/$1  break;
+                proxy_pass https://wordpress-ssl;
+#                include /etc/nginx/proxy.conf;
+                include proxy.conf;
+        }
+
+       ## default htdocs
+       location ^~ / {
+           proxy_pass https://wordpress-ssl;
+#           include /etc/nginx/proxy_params_ssl;
+            add_header              Front-End-Https   on;
+           fastcgi_param HTTPS on;
+#           include /etc/nginx/proxy.conf;
+           include proxy.conf;
+#          include global/wordpress.conf;
+       }
+
+#   ## All other errors get the generic error page
+#      error_page 400 401 402 403 404 405 406 407
+#                 408 409 410 411 412 413 414 415 416 417 495 496 497
+#                 500 501 502 503 504 505 506 507 /error_page.html;
+#      location  /error_page.html {
+#                root /var/www/dettonville.org/html;
+##               root html;
+##      internal;
+#      }
+#
+#      location /img/ {
+#                alias /var/www/img/;
+#      }
+
+      # # more_headers module (http)
+      # # moved this to proxy_params
+      more_clear_headers 'Server'; # removes server information
+      more_clear_headers 'X-Powered-By'; # removes server information
+
+}
+

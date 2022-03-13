@@ -1,0 +1,136 @@
+
+version: "3.7"
+
+networks:
+  {{ docker_stack_networks | to_nice_yaml(indent=2) | indent(2) }}
+
+volumes:
+  {{ docker_stack_volumes | to_nice_yaml(indent=2) | indent(2) }}
+
+configs:
+  {{ docker_stack_configs | to_nice_yaml(indent=2) | indent(2) }}
+
+services:
+
+## ref: https://github.com/IronicBadger/ansible-role-docker-compose-generator/blob/master/templates/docker-compose.yml.j2
+{% for service in __docker_stack_services %}
+{% if service in docker_stack_services_tpl and docker_stack_services_tpl[service]|length > 0 %}
+  ########################
+  ## {{ service | upper }} SERVICES
+{% for key, container in docker_stack_services_tpl[service].items() %}
+{% if (container.active | d(True)) %}
+  {{ container.service_name if container.service_name is defined else key }}:
+    image: {{ container.image }}
+    container_name: {{ container.container_name | default(container.service_name)| default(key) }}
+{% if container.extra_hosts is defined %}
+    extra_hosts:
+{% for host in container.extra_hosts %}
+      - {{ host }}
+{% endfor %}
+{% endif %}
+{% if container.user is defined %}
+    user: {{ container.user }}
+{% endif %}
+{% if container.network_mode is defined %}
+    network_mode: {{ container.network_mode }}
+{% endif %}
+{% if container.privileged is defined %}
+    privileged: {{ container.privileged }}
+{% endif %}
+{% if container.cap_add is defined %}
+    cap_add:
+{% for cap in container.cap_add %}
+      - {{ cap }}
+{% endfor %}
+{% endif %}
+{% if container.devices is defined %}
+    devices:
+{% for device in container.devices %}
+      - {{ device }}
+{% endfor %}
+{% endif %}
+{% if container.networks is defined %}
+    networks:
+{% for network in container.networks %}
+      - {{ network }}
+{% endfor %}
+{% endif %}
+{% if container.ports is defined %}
+    ports:
+      {{ container.ports | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{% if container.depends_on is defined %}
+    depends_on:
+{% for dependent in container.depends_on %}
+      - {{ dependent }}
+{% endfor %}
+{% endif %}
+{% if container.links is defined %}
+    links:
+{% for link in container.links %}
+      - {{ link }}
+{% endfor %}
+{% endif %}
+{% if container.hostname is defined %}
+    hostname: {{ container.hostname }}
+{% endif %}
+{% if container.mem_limit is defined %}
+    mem_limit: {{ container.mem_limit }}
+{% endif %}
+{% if container.restart is defined %}
+    restart: {{ container.restart }}
+{% endif %}
+{% if container.command is defined %}
+{% if container.command is string %}
+    command: {{ container.command }}
+{% else %}
+    command:
+      {{ container.command | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{% endif %}
+{% if container.entrypoint is defined %}
+    entrypoint: {{ container.entrypoint }}
+{% endif %}
+{% if container.security_opt is defined %}
+    security_opt:
+{% for sec_opt in container.security_opt %}
+      - {{ sec_opt }}
+{% endfor %}
+{% endif %}
+{% if container.shm_size is defined %}
+    shm_size: {{ container.shm_size }}
+{% endif %}
+{% if container.dns is defined %}
+    dns:
+{% for dns_entry in container.dns %}
+      - {{ dns_entry }}
+{% endfor %}
+{% endif %}
+{% if ( container.environment is defined ) or ( container.include_global_env_vars is defined and container.include_global_env_vars) %}
+    environment:
+{% if container.include_global_env_vars | default(false) %}
+      ## global envs
+      {{ global_env_vars | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{% if container.environment is defined %}
+      ## app envs
+      {{ container.environment | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{%- endif %}
+{% if container.volumes is defined %}
+    volumes:
+{% for volume in container.volumes %}
+      - {{ volume }}
+{% endfor %}
+{% endif %}
+{% if container.labels is defined %}
+    labels:
+      {{ container.labels | to_nice_yaml(indent=2) | indent(6) }}
+{% endif %}
+
+{% endif %}
+{% endfor %}
+
+{% endif %}
+{% endfor %}
+

@@ -1,0 +1,49 @@
+---
+
+docker_stack_appspec_services__gitea:
+  ## ref: https://docs.gitea.io/en-us/install-with-docker/
+  ## ref: https://git.habd.as/comfusion/high-tea/src/branch/master/docker-compose.yml
+  gitea:
+    container_name: gitea
+#      image: gitea/gitea:1.6
+    image: "gitea/gitea:latest"
+    depends_on:
+      - postgres
+    environment:
+      USER_UID: "{{ docker_user_uid }}"
+      USER_GID: "{{ docker_user_gid }}"
+      ROOT_URL: "{{ __docker_stack_appspecs__gitea_root_url }}"
+      DOMAIN: "{{ __docker_stack_appspecs__gitea_domain }}"
+      SSH_DOMAIN: "gitea.{{ __docker_stack_appspecs__gitea_domain }}"
+      DB_TYPE: "postgres"
+      DB_HOST: "postgres:{{ __docker_stack_appspecs__gitea_postgres_port }}"
+      DB_NAME: "{{ __docker_stack_appspecs__gitea_postgres_user }}"
+      DB_USER: "{{ __docker_stack_appspecs__gitea_postgres_user }}"
+      DB_PASSWD: "{{ __docker_stack_appspecs__gitea_postgres_password }}"
+      ## ref: https://github.com/go-gitea/gitea/issues/5475#issuecomment-446467498
+      GIT_SSL_NO_VERIFY: "true"
+#      restart: always
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    volumes:
+      - "{{ __docker_stack_appspecs__gitea_stack_dir }}/gitea:/data"
+#        - "{{ docker_stack_host_ca_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+#      - "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_internal_domain }}.chain.pem:/etc/ssl/certs/ca-certificates.crt:ro"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "{{ __docker_stack_appspecs__gitea_ssh_port }}:22"
+      - "{{ __docker_stack_appspecs__gitea_http_port }}:3000"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.gitea.entrypoints: https
+      traefik.http.routers.gitea.rule: Host(`gitea.{{ __docker_stack_appspecs__gitea_domain }}`)
+      traefik.http.routers.gitea.service: gitea-svc
+      ## Middlewares
+#      traefik.http.routers.gitea.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.services.gitea-svc.loadbalancer.server.port: 3000
+

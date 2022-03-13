@@ -1,0 +1,37 @@
+---
+  - name: Create Caddy service account
+    user:
+      name: '{{ caddy_user }}'
+      password: '*'
+      shell: /sbin/nologin
+      home: '{{ caddy_install_root }}'
+      system: yes
+
+  - name: Getting Caddy 2
+    unarchive:
+      url: '{{ caddy_bin_url }}'
+      remote_src: yes
+      dest: '{{ caddy_install_root }}'
+      owner: '{{ caddy_user }}'
+      group: '{{ caddy_user }}'
+      mode: u=rwx,go=rx
+
+  - name: Installing systemd service
+    template:
+      dest: /etc/systemd/system/caddy2.service
+      src: caddy2.service
+
+  - name: Creating Caddyfile
+    copy:
+      dest: '{{ caddy_install_root }}/Caddyfile'
+      content: '{{ caddy_file }}'
+      owner: '{{ caddy_user }}'
+      group: '{{ caddy_user }}'
+      mode: ug=rw,o=r
+
+  - name: Starting service
+    systemd:
+      daemon-reload: yes
+      name: caddy2
+      enabled: yes
+      state: restarted

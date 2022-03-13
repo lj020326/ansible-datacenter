@@ -1,0 +1,45 @@
+{
+  "va": {
+    "userAgent": "stepca verfication agent",
+    "debugAddr": "127.0.0.1:9995",
+    "maxConcurrentRPCServerRequests": 10000,
+    "dnsTries": 3,
+    "dnsResolvers": [
+{% for resolver in app_conf.va.network.dns_resolvers %}
+      "{{ resolver }}"{{ ',' if not loop.last else '' }}
+{% endfor %}
+    ],
+    "issuerDomain": "{{ ca_policies.caa_domain }}",
+    "tls": {
+      "caCertFile": "certs/grpc/ca.crt",
+      "certFile": "certs/grpc/stepca-va.crt",
+      "keyFile": "certs/grpc/stepca-va.key"
+    },
+    "grpc": {
+      "address": "127.0.0.1:{{ app_conf.va.network.grpc }}",
+      "maxConcurrentStreams": 2000,
+      "clientNames": [
+        "stepca-ra.{{ ansible_fqdn }}"
+      ]
+    },
+    "features": {
+{% for k, v in app_conf.va.features.items() %}
+      "{{ k }}": {{ v | lower }}{{ ',' if not loop.last else '' }}
+{% endfor %}
+    },
+    "accountURIPrefixes": [
+      "https://{{ api_domain }}/acme/acct",
+      "http://127.0.0.1:{{ app_conf.wfe2.network.http }}/acme/acct"
+    ]
+  },
+
+  "syslog": {
+    "stdoutlevel": 6,
+    "sysloglevel": 4
+  },
+
+  "common": {
+    "dnsTimeout": "1s",
+    "dnsAllowLoopbackAddresses": true
+  }
+}

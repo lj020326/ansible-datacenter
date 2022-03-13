@@ -1,0 +1,68 @@
+---
+
+- name: ZOOKEEPER | Removing dependencies
+  package:
+    name: "zookeeper"
+    state: absent
+
+- name: ZOOKEEPER | Installing dependencies
+  package:
+    name: "{{ zookeeper_required_libs }}"
+    state: present
+  tags:
+    skip_ansible_lint
+
+- name: ZOOKEEPER | Ensure ZooKeeper group
+  group:
+    name: "{{ zookeeper_group }}"
+
+- name: ZOOKEEPER | Ensure ZooKeeper user
+  user:
+    name: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    home: /bin/false
+  ignore_errors: true
+
+- name: ZOOKEEPER | Create install path
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+  with_items:
+    - "{{ zookeeper_install_path }}"
+    - "{{ zookeeper_conf_dir }}"
+    - "{{ zookeeper_data_dir }}"
+    - "{{ zookeeper_log_dir }}"
+
+- name: ZOOKEEPER | Check ZooKeeper version
+  shell: |
+    set -o pipefail && \
+    echo status | nc localhost 2181
+  register: zookeeper_check
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+
+- name: ZOOKEEPER | Untar ZooKeeper
+  unarchive:
+    extra_opts: ['--strip-components=1']
+    src: "{{ zookeeper_url }}"
+    remote_src: true
+    dest: "{{ zookeeper_install_path }}"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+  when: "zookeeper_force_reinstall or zookeeper_check is failed or zookeeper_version not in zookeeper_check.stdout"
+
+- name: ZOOKEEPER | Create systemd service
+  template:
+    src: zookeeper.service.j2
+    dest: /etc/systemd/system/zookeeper.service
+  notify:
+    - Restart zookeeper
+
+- name: ZOOKEEPER | Remove upstart service
+  file:
+    path: /etc/init.d/zookeeper
+    state: absent

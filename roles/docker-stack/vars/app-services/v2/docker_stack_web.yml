@@ -1,0 +1,71 @@
+---
+
+docker_stack_appspec_services__web:
+
+  # Traefik - Custom Error Pages
+  traefik-error-pages:
+    container_name: traefik-error-pages
+    image: guillaumebriday/traefik-custom-error-pages
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    labels:
+      - "traefik.enable=true"
+      # HTTP Routers
+      - "traefik.http.routers.traefik-error-pages-rtr.entrypoints=https"
+      - "traefik.http.routers.traefik-error-pages-rtr.rule=HostRegexp(`{host:.+}`)"
+      - "traefik.http.routers.traefik-error-pages-rtr.priority=1"
+      # Middlewares
+      - "traefik.http.routers.traefik-error-pages-rtr.middlewares=traefik-error-pages"
+      - "traefik.http.middlewares.traefik-error-pages.errors.service=traefik-error-pages-svc"
+      - "traefik.http.middlewares.traefik-error-pages.errors.status=401,403,404,429,500,502,503"
+      - "traefik.http.middlewares.traefik-error-pages.errors.query=/{status}.html"
+      # HTTP Services
+      - "traefik.http.routers.traefik-error-pages-rtr.service=traefik-error-pages-svc"
+      - "traefik.http.services.traefik-error-pages-svc.loadbalancer.server.port=80"
+
+  ## ref: https://github.com/htpcBeginner/docker-traefik
+  # Nginx - Web Server
+  nginx:
+    container_name: nginx
+    image: nginx:1.18
+    restart: unless-stopped
+    user: "{{ docker_user_uid }}:{{ docker_user_gid }}"
+    depends_on:
+      - php7
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /var/log/nginx:/var/log/nginx
+      - "{{ docker_stack_dir }}/nginx:/etc/nginx"
+      - "{{ docker_stack_dir }}/shared/.htpassd:/shared/.htpasswd"
+      - "{{ docker_stack_dir }}/sites/shb/html:/var/www/html/shb"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers SHB
+      traefik.http.routers.nginx-shb-rtr.entrypoints: https
+      traefik.http.routers.nginx-shb-rtr.rule: HostHeader(`nginx.{{ docker_stack_internal_domain }}`) || HostHeader(`www.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+      traefik.http.routers.nginx-shb-rtr.middlewares: shb-redirect,chain-authelia-wp@file
+      # Redirect shb non-www to www middleware
+      traefik.http.middlewares.shb-redirect.redirectregex.regex: "^https?://{{ docker_stack_internal_domain }}/(.*)"
+      traefik.http.middlewares.shb-redirect.redirectregex.replacement: "https://www.{{ docker_stack_internal_domain }}/$${1}"
+      traefik.http.middlewares.shb-redirect.redirectregex.permanent: true
+      ## HTTP Services
+      traefik.http.routers.nginx-shb-rtr.service: nginx-svc
+      traefik.http.services.nginx-svc.loadbalancer.server.port: 80
+
+  # PHP - Hypertext Preprocessor
+  php7:
+    container_name: php7
+    image: "{{ __docker_stack_appspec__web_image }}"
+    restart: unless-stopped
+    user: "{{ docker_user_uid }}:{{ docker_user_gid }}" # allows upgrading WP and plugins
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - {{ docker_stack_dir }}/sites/shb/html:/var/www/html/shb
+      - {{ docker_stack_dir }}/php/php7:/usr/local/etc/php
+

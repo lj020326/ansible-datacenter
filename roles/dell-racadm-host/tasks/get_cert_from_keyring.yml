@@ -1,0 +1,55 @@
+---
+
+- name: "get_certs_from_keyring:{{ inventory_hostname }} | Copy certs to local/controller distribution dir"
+  delegate_to: "{{ cacert_keyring_host }}"
+  block:
+    - name: "get_certs_from_keyring:{{ inventory_hostname }} | Ensure {{ ca_keyring_certs_dir }} exists"
+      become: no
+      delegate_to: "localhost"
+      file:
+        path: "{{ ca_keyring_certs_dir }}"
+        state: directory
+        mode: 0755
+#        owner: "{{ ansible_local_user }}"
+#        group: "{{ ansible_local_user }}"
+#        mode: 0655
+#        recurse: yes
+
+    - name: "get_certs_from_keyring:{{ inventory_hostname }} | Copy certs from ca_keyring to ansible machine for distribution"
+      vars:
+        remote_user: "{{ ansible_keyring_user }}"
+      fetch:
+        src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ hostname_name_full }}.pem"
+        dest: "{{ ca_keyring_certs_dir }}/{{ hostname_name_full }}.pem"
+        mode: "644"
+        flat: yes
+
+    - name: "get_certs_from_keyring:{{ inventory_hostname }} | Update private key for distribution"
+      file:
+        path: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+#        mode: "640"
+#        mode: og+rw
+        mode: og+r
+
+    - name: "get_certs_from_keyring:{{ inventory_hostname }} | Copy private keys from ca_keyring to ansible machine for distribution"
+      vars:
+        remote_user: "{{ ansible_keyring_user }}"
+      fetch:
+        src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
+        dest: "{{ ca_keyring_certs_dir }}/{{ inventory_hostname }}-key.pem"
+        mode: "600"
+        flat: yes
+
+#    - name: "get_certs_from_keyring:{{ inventory_hostname }} | Copy ca root certs"
+#      vars:
+#        remote_user: "{{ ansible_keyring_user }}"
+#      fetch:
+#        src: "{{ ca_root_cacerts_dir }}/{{ item }}"
+#        dest: "{{ ca_keyring_certs_dir }}/{{ item }}"
+#        mode: "644"
+#        flat: yes
+#      with_items:
+#        - "{{ ca_root_cert }}"
+#    #    - "{{ ca_root_key }}"

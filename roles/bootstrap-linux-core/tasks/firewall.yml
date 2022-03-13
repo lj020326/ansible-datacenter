@@ -1,0 +1,84 @@
+---
+
+- name: Installing Firewall Package
+  package:
+    name: firewalld
+    state: present
+
+- name: Enable firewall
+  service: name=firewalld state=started enabled=yes
+
+- name: "Create zone [{{ firewalld_default_zone }}]"
+  ansible.posix.firewalld:
+    zone: "{{ firewalld_default_zone }}"
+    permanent: yes
+    immediate: yes
+    state: enabled
+
+- name: "Get default zone info"
+  command: firewall-cmd --get-default-zone
+  ignore_errors: true
+  changed_when: False
+  failed_when: False
+  register: default_zone
+
+- name: "Set zone [{{firewalld_default_zone}}] as default zone"
+  when: "firewalld_default_zone not in default_zone.stdout"
+  command: firewall-cmd --set-default-zone="{{ firewalld_default_zone }}"
+  notify:
+    - reload firewalld
+
+- name: "Set sources for zone [{{firewalld_default_zone}}]"
+  command: firewall-cmd --permanent --zone="{{ firewalld_default_zone }}" --add-source="{{ item }}"
+  with_items: "{{ firewalld_default_zone_networks }}"
+  notify:
+    - reload firewalld
+
+- name: Allow services through the firewall
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    zone: "{{ firewalld_default_zone }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  with_items:
+    "{{ firewalld_services }}"
+  notify:
+    - reload firewalld
+
+- name: Allow ports through the firewall
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    zone: "{{ firewalld_default_zone }}"
+    permanent: true
+    state: enabled
+    immediate: yes
+  with_items:
+    "{{ firewalld_ports }}"
+  notify:
+    - reload firewalld
+
+#- name: Enable firewall for my ip
+#  tags:
+#    - firewall
+#  ansible.posix.firewalld: rich_rule='rule family="ipv4"
+#                        source address="{{ item[1] }}"
+#                        service name="ssh" accept'
+#             permanent={{ item[0] }} state=enabled
+#  with_nested:
+#    - ['yes', 'no']
+#    - deployer_ssh_allowed_ips
+
+#- name: Disable global ssh
+#  tags:
+#    - firewall
+#  ansible.posix.firewalld: service=ssh permanent={{ item }} state=disabled
+#  with_items: ['yes', 'no']
+
+#- name: Bounce firewalld
+#  tags:
+#    - firewall
+#  service: name=firewalld state=restarted
+
+
+

@@ -1,0 +1,30 @@
+---
+
+- name: "connect_physical_esx_to_vc | Add ESXi Host to VCSA"
+  when: vcenter.ip  ==  vc_mng.ip
+  vmware_host:
+    hostname: "{{ vc_mng.hostname }}"
+    username: "{{ vc_mng.username }}"
+    password: "{{ vc_mng.password }}"
+    datacenter_name: "{{ vc_mng.datacenter }}"
+    validate_certs: false
+    cluster_name: "{{ item.cluster | d(omit) }}"
+    esxi_hostname: "{{ item.hostname }}"
+    esxi_username: "{{ item.username | d(esxi_username) }}"
+    esxi_password: "{{ item.password | d(esxi_password) }}"
+    state: present
+#  no_log: yes
+  with_items: "{{ vcenter_physical_esx_hosts }}"
+
+- name: "connect_physical_esx_to_vc | Add ESXi license and assign to the ESXi host"
+  when: vcenter.ip  ==  vc_mng.ip
+  vcenter_license:
+    hostname: "{{ vc_mng.hostname }}"
+    username: "{{ vc_mng.username }}"
+    password: "{{ vc_mng.password }}"
+    esxi_hostname: "{{ item.hostname }}"
+    license: "{{ vsphere_licenses[item.hostname] | d(esxi_license) }}"
+    state: present
+    validate_certs: False
+#  no_log: yes
+  with_items: "{{ vcenter_physical_esx_hosts }}"

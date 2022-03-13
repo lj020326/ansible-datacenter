@@ -1,0 +1,187 @@
+---
+python_target_dist: "3.7"
+python_major_version: "{{ python_target_dist.split('.')[0] }}"
+
+#python_dists:
+#  - version: 3.6
+##    major_version: 3
+#  - version: 2.7
+##    major_version: 2
+
+## COMMON CONFIGS
+#common_configs_default_path: /bin:/sbin:/usr/bin:/usr/sbin
+#common_configs_default_path: /bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
+#common_configs_default_path: /bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+#common_configs_default_path: /bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+common_configs_default_path: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+#common_configs_default_path: ~/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+common_config__init_network: no
+
+common_required_pip_libs:
+  - pyyaml
+  - jinja2
+#  - netaddr
+  - passlib
+  - cryptography
+  - pyOpenSSL
+
+common_packages_custom: []
+
+## COMMON PACKAGES
+grub_config: "/etc/default/grub"
+
+#figurine_force_config: no
+figurine_force_config: yes
+figurine_name: "$(hostname)"
+
+deployer_ssh_allowed_ips:
+  - 127.0.0.1
+
+network_name_servers:
+  - 192.168.0.1
+
+bootstrap_user: administrator
+
+## firewall settings
+firewalld_default_zone: internal
+firewalld_enabled: yes
+
+firewalld_ports:
+  - 10000/tcp
+
+firewalld_services:
+  - name: ssh
+
+firewalld_default_zone_networks:
+  ## localhost
+  - 127.0.0.0/8
+  ## docker
+  - 172.0.0.0/8
+  ## internal networks
+  - "10.0.0.0/8"
+  - 192.168.0.0/16
+
+apt_repositories: []
+
+## hostname
+hostname_internal_domain: "example.local"
+hostname_hosts_file_location: "/etc/hosts"
+hostname_hosts_template: 'hosts.j2'
+hostname_hosts_backup: yes
+
+#hostname_name_full: "{{ inventory_hostname }}"
+#hostname_name_short: "{{ inventory_hostname_short }}"
+#hostname_name_full: "{{ ansible_fqdn }}"
+#hostname_name_short: "{{ ansible_hostname }}"
+
+#hostname_name_full: "{{ hostvars[inventory_hostname]['ansible_fqdn'] }}"
+#hostname_name_full: "{{ inventory_hostname }}"
+hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
+hostname_name_short: "{{ inventory_hostname_short }}"
+
+hostname_hosts:
+  - ip: "{{ ansible_default_ipv4.address }}"
+    name: "{{ hostname_name_full }}"
+    aliases: [ "{{ hostname_name_short }}" ]
+
+## user configs
+admin_sudo_groups:
+  Debian: sudo
+  Ubuntu: sudo
+  CentOS: wheel
+
+admin_sudo_group:  "{{ admin_sudo_groups[ansible_distribution] }}"
+
+systemd_sysctl_execstart: "/lib/systemd/systemd-sysctl"
+#systemd_sysctl_execstart: "/usr/lib/systemd/systemd-sysctl"
+
+common_config__network:
+  network:
+    version: 2
+    renderer: networkd
+    ethernets:
+      ens160:
+        dhcp4: yes
+        dhcp6: yes
+        ## ref: https://www.oxcrag.net/2019/02/07/creating-a-working-ubuntu-18-04-vmware-template/
+        dhcp-identifier: mac
+#        set-name: ens192
+
+
+linux_users: []
+#linux_users:
+##  - name: deployer
+#  - name: ansible
+#    system: yes
+#    groups: "{{ admin_sudo_group }}"
+#    generate_ssh_key: yes
+#
+#    ## How to use Credentials in AWX playbook
+#    ## Using custom credential to store public ssh keys (for now)
+#    ## ref: https://groups.google.com/forum/#!topic/awx-project/ce95ooS2sp0
+#    ## ref: https://termlen0.github.io/2019/06/08/observations/
+#    auth_key: "{{ admin_ssh_public_key }}"
+#    common_configs_default_path: "{{ common_configs_default_path }}"
+#    hashed_password: "{{ sha512_hashed_admin_password }}"
+#    uid: 1001
+#    gid: 1001
+#
+#  - name: administrator
+#    system: yes
+#    groups: "{{ admin_sudo_group }}"
+#    generate_ssh_key: no
+#    auth_key: "{{ admin_ssh_public_key }}"
+#    ssh_keypair:
+#      private: '{{ admin_ssh_private_key }}'
+#      public: '{{ admin_ssh_public_key }}'
+#    common_configs_default_path: "{{ common_configs_default_path }}"
+#    hashed_password: "{{ sha512_hashed_admin_password }}"
+#    uid: 1000
+#    gid: 1000
+
+#root_user:
+#  - name: root
+#    homedir: /root
+
+#all_users: "{{ linux_users + root_user }}"
+all_users: "{{ linux_users }}"
+
+admin_ssh_public_keyfile: ""
+admin_ssh_public_key: ""
+
+linux_backup_script_dir: "/opt/scripts"
+linux_fwbackups_dir: "/srv/backups/fwbackups"
+linux_backups_dir: "/srv/backups"
+linux_backups_log_dir: "/var/log/backups"
+
+linux_backup_script_dirs:
+  - { path: "{{ linux_backup_script_dir }}", recurse: yes  }
+  - { path: "{{ linux_fwbackups_dir }}", recurse: yes }
+  - { path: "{{ linux_backups_dir }}" }
+  - { path: "{{ linux_backups_dir }}/records/daily" }
+  - { path: "{{ linux_backups_dir }}/records/monthly" }
+  - { path: "{{ linux_backups_log_dir }}" }
+
+linux_backup_scripts:
+  - { src: 'scripts/backups/run-backups.py', dest: "{{ linux_backup_script_dir }}"}
+  - { src: 'scripts/backups/backups.yml', dest: "{{ linux_backup_script_dir }}"}
+  - { src: 'scripts/backups/run-daily-backup.sh', dest: "{{ linux_backup_script_dir }}"}
+  - { src: 'scripts/backups/run-monthly-backup.sh', dest: "{{ linux_backup_script_dir }}"}
+  - { src: 'scripts/backups/job-backup-incremental.sh', dest: "{{ linux_backup_script_dir }}"}
+  - { src: 'scripts/backups/rsync-incremental-backup-local', dest: "{{ linux_backup_script_dir }}"}
+  - { src: 'scripts/backups/fwbackup.sh', dest: "{{ linux_backup_script_dir }}"}
+
+linux_backup_script_config_tpls:
+  - { src: 'scripts/backups.cfg.j2', dest: "/root/.backups.cfg", mode: "0600", backup: yes }
+  - { src: 'scripts/fwbackup.conf.j2', dest: "/root/.fwbackup.cfg", mode: "0600", backup: yes }
+
+common_node_mounts: []
+common_node_mounts_tmpdir:
+  - name: "/tmp"
+    src: "tmpfs"
+    fstype: "tmpfs"
+    options: 'size=512m,defaults,noatime,nosuid,nodev,mode=1777'
+#    options: 'size=2G,defaults,noatime,nosuid,nodev,mode=1777'
+common_node_mounts_additional: []
+

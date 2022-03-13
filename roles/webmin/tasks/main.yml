@@ -1,0 +1,112 @@
+---
+
+- include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+- name: "Installing Packages required by webmin"
+  package:
+    name: "{{ webmin_packages }}"
+    state: present
+
+# It makes perl automatically answer "yes" when CPAN asks "Would you like to configure as much as possible automatically? [yes]"
+- name: webmin | Install automatically perl module PERL_MM_USE_DEFAULT
+  shell: "echo $PERL_MM_USE_DEFAULT"
+  changed_when: no
+  environment:
+   PERL_MM_USE_DEFAULT: 1
+
+- name: webmin | Echo PERL_MM_USE_DEFAULT again
+  shell: "echo $PERL_MM_USE_DEFAULT"
+  changed_when: no
+
+- name: webmin | Check perl
+  shell: perl -e 'use FileHandle; print $FileHandle::VERSION'
+  changed_when: no
+  become: true
+
+- name: webmin | Install Debian/Ubuntu webmin dependencies
+#  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu')
+  when: ansible_os_family == 'Debian'
+  block:
+
+    - name: webmin | Install webmin mandatory dependencies
+      package:
+        state: present
+        name:
+          - apt-transport-https
+          - libapache2-mod-fcgid
+          - webalizer
+#          - webmin-virtualmin-git
+
+    - name: webmin | Add Optional channel (Debian)
+      template:
+        src: webmin.debian.repo.j2
+        dest: /etc/apt/sources.list.d/webmin.repo.list
+        mode: "0644"
+
+    - name: webmin | Addkey webmin
+      apt_key:
+        url: "{{ webmin_repo_key_url }}"
+        state: present
+
+    ## ref: https://www.redpill-linpro.com/sysadvent/2017/12/24/ansible-system-updates.html
+    ## ref: https://www.cyberciti.biz/faq/ansible-apt-update-all-packages-on-ubuntu-debian-linux/#:~:text=Upgrading%20all%20apt%20packages%20using%20Ansible&text=dist%20force_apt_get%3Dyes-,Where%2C,apt%2Dget%20instead%20of%20aptitude.
+    - name: webmin | Update apt-get repo and cache
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+
+#    - name: webmin | Upgrade all packages
+#      apt:
+#        upgrade: dist
+#        force_apt_get: yes
+
+#    - name: webmin | Install webmin package using apt
+#      apt:
+#        name: webmin
+#        state: latest
+#        update_cache: yes
+
+- name: webmin | Install CentOS/RedHat webmin dependencies
+  when: (ansible_distribution == 'CentOS' or (ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'))
+  block:
+
+    - name: webmin | Add Optional channel (RedHat)
+      template:
+        src: webmin.centos.repo.j2
+        dest: /etc/yum.repos.d/webmin.repo
+        mode: "0644"
+
+    ## ref: https://stackoverflow.com/questions/38327406/how-to-install-yum-repository-key-with-ansible
+    ## ref: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-webmin-on-centos-7
+    - name: webmin | Add yum repository key
+      rpm_key:
+        key: "{{ webmin_repo_key_url }}"
+
+    ## ref: https://www.redpill-linpro.com/sysadvent/2017/12/24/ansible-system-updates.html
+    ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/builtin/yum_module.html
+    - name: Update yum repo and cache
+      yum:
+        name: '*'
+        state: latest
+        update_cache: yes
+
+- name: webmin | Install webmin package
+  package:
+    name: webmin
+    state: present
+#    state: latest
+#    update_cache: yes
+#  changed_when: no
+
+- name: webmin | Remove duplicate entry.
+#  when: ( ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu' )
+  when: ansible_os_family == 'Debian'
+  file: name=/etc/apt/sources.list.d/{{ item }} state=absent
+  become: true
+  with_items: webmin_repo_files
+
+

@@ -1,0 +1,31 @@
+---
+
+docker_stack_appspec_services__netbootxyz:
+  ## ref: https://blog.linuxserver.io/2019/12/16/netboot-xyz-docker-network-boot-server-pxe/
+  netbootxyz:
+    container_name: "netbootxyz"
+    image: "{{ __docker_stack_appspecs__netbootxyz_image }}"
+#    privileged: true
+    ports:
+      - "69:69/udp"  ## TFTP server for serving IPXE boot files and menus
+      - "9080:80/tcp"  ## NGINX server for hosting custom netboot.xyz assets locally
+      - "3000:3000"  ## netboot.xyz web application for customizing local menus and pulling in remote assets
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+#        - "{{ docker_stack_dir }}/netbootxyz:/config"
+      - "{{ __docker_stack_appspecs__netbootxyz_config_dir }}:/config"
+      - "{{ __docker_stack_appspecs__netbootxyz_assets_dir }}:/assets"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.netbootxyz.entrypoints: https
+      traefik.http.routers.netbootxyz.rule: Host(`pxe.{{ docker_stack_internal_domain }}`)
+      traefik.http.services.netbootxyz.loadbalancer.server.port: 443
+      traefik.http.services.netbootxyz.loadbalancer.server.scheme: https
+

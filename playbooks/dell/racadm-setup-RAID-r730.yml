@@ -1,0 +1,124 @@
+
+##################################################################################
+#
+# Dell PowerEdge R730 servers: 
+#    > Configure the RAID-1 using first two disks
+#    > Convert all other 10 SSDs to Non-RAID disks
+#  
+# 1. Reset the Existing RAID on the server
+# 2. Create a job, Restart the server and then wait for job to be completed
+# 3. Setup RAID-1 with : Write Through, No Read Ahead, Default Disk cache policy
+#                        and Stripe size 64k   
+# 4. Convert the other SSDs to NON-Raid disks
+# 5. Create a job, Restart the server and then wait for job to be completed 
+#
+##################################################################################
+
+- gather_facts: false
+  name: RAID-1 Configuration on Dell Power Edge R730 servers
+  hosts: idrac_hosts
+  user: root
+  become: yes
+
+  tasks:
+
+    - name: Reset RAID Controller
+      raw: racadm raid resetconfig:RAID.Integrated.1-1
+      register: raidreset_status
+      #failed_when: '"ERROR" in raidreset_status.stdout'
+    - name: debug | Reset RAID Controller
+      debug: var=raidreset_status.stdout
+
+    - name: Create a Job RAID Controller Reset
+      raw: racadm jobqueue create RAID.Integrated.1-1
+      register: raidreset_job
+      failed_when: '"ERROR" in raidreset_status.stdout'
+      #failed_when: "'STOR023' in 'raidreset_job'"
+    - name: debug | Create a Job RAID Controller Reset
+      debug: var=raidreset_job.stdout
+
+    - name: Powercycle the server to execute the job created RAID Controller Reset
+      raw: racadm serveraction powercycle
+      register: raidreset_reboot
+      when: raidreset_job != ''
+      #failed_when: '"ERROR" in raidreset_job.stdout_lines'
+    - name: debug | Powercycle the server to execute the job created RAID Controller Reset
+      debug: var=raidreset_reboot.stdout
+
+    - name: Wait for RAID Reset job to be completed
+      raw: racadm jobqueue view
+      register: raidreset_jobstatus
+      until: raidreset_jobstatus.stdout.find("Running") <= 0 and raidreset_jobstatus.stdout.find("Scheduled") <= 0 and raidreset_jobstatus.stdout.find("New") <= 0
+      retries: 20
+      delay: 30
+      when: '"Server power operation successful" in raidreset_reboot.stdout'
+    - name: debug | Wait for RAID Reset job to be completed
+      debug: var=raidreset_jobstatus.stdout
+
+    - name: Checking whether RAID reset deleted all the Virtual Disks
+      raw: racadm raid get vdisks
+      register: vdisks_status
+    - name: debug | Checking whether RAID reset deleted all the Virtual Disks
+      debug: var=vdisks_status.stdout  
+
+    - name: Setup Hardware RAID-1 across first two disks
+      raw: racadm raid createvd:RAID.Integrated.1-1 -rl r1 -wp wt -rp nra -dcp default -ss 64k -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1
+      register: vdisk_raid1_status
+      failed_when: '"Disk.Virtual" in vdisks_status.stdout'
+      #failed_when: '"Disk.Virtual.0:RAID.Integrated.1-1" in vdisks_status.stdout_lines' 
+    - name: debug | Setup Hardware RAID-1 across first two disks
+      debug: var=vdisk_raid1_status.stdout
+
+    - name: Converting SSDs into NON-RAID disks
+      raw: racadm raid converttononraid:Disk.Bay."{{ item }}":Enclosure.Internal.0-1:RAID.Integrated.1-1
+      register: nonraid_status
+      with_items:
+        - 2
+        - 3
+        - 4  
+        - 5 
+        - 6
+        - 7  
+        - 8
+        - 9
+        - 10
+        - 11  
+      failed_when: '"ERROR" in nonraid_status.stdout'
+    - name: debug | Converting SSDs into NON-RAID disks
+      debug: msg="{{ nonraid_status.results | map(attribute='stdout') | list }}"
+
+    - name: Create a job for RAID-1 configuration 
+      raw: racadm jobqueue create RAID.Integrated.1-1
+      register: vdisk_raid1_job
+      failed_when: '"ERROR" in vdisk_raid1_job.stdout'
+    - name: debug | Create a job for RAID-1 configuration 
+      debug: var=vdisk_raid1_job.stdout
+
+    - name: Powercycle the server to execute RAID-1 configuration
+      raw: racadm serveraction powercycle
+      register: raid1_reboot
+      when: vdisk_raid1_job != ''
+      #failed_when: '"ERROR" in raid1_reboot.stdout'
+    - name: debug | Powercycle the server to execute RAID-1 configuration
+      debug: var=raid1_reboot.stdout
+
+    - name: Wait for RAID-1 job to be completed
+      raw: racadm jobqueue view
+      register: vdisk_raid1_jobstatus
+      until: vdisk_raid1_jobstatus.stdout.find("Running") <= 0 and vdisk_raid1_jobstatus.stdout.find("Scheduled") <= 0 and vdisk_raid1_jobstatus.stdout.find("New") <= 0
+      retries: 30
+      delay: 30
+      when: '"Server power operation successful" in raid1_reboot.stdout'
+    - name: debug | Wait for RAID-1 job to be completed
+      debug: var=vdisk_raid1_jobstatus.stdout
+
+    # pause for 30 seconds
+    - name: sleep for 30 seconds and continue with play
+      wait_for: timeout=30
+      delegate_to: localhost
+
+    - name: Clear All the Jobs
+      raw: racadm jobqueue delete --all
+      register: result_jobqueue
+    - name: debug | Clear All the Jobs
+      debug: var=result_jobqueue.stdout

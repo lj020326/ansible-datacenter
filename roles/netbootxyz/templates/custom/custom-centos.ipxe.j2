@@ -1,0 +1,89 @@
+#!ipxe
+
+## ref: https://github.com/samip5/netboot.xyz-custom/blob/master/custom.ipxe#L3
+## ref: https://github.com/netbootxyz/netboot.xyz/issues/333
+
+# CentOS Operating System
+# http://www.centos.org
+
+isset ${dhcp-server} && set ipparam ip=dhcp || set ipparam ip=${ip}::${gateway}:${netmask}:::none nameserver=${dns}
+set ipparam BOOTIF=${netX/mac} ${ipparam}
+
+goto ${menu} ||
+
+:centos
+clear osversion
+set os CentOS
+menu ${os} - ${arch}
+item 8.1.1911 ${space} ${os} 8.1
+item 8.0.1905 ${space} ${os} 8.0
+item 8-stream ${space} ${os} 8.0 Stream
+item 7 ${space} ${os} 7
+isset ${osversion} || choose osversion || goto linux_menu
+echo ${cls}
+set dir ${centos_base_dir}/${osversion}/BaseOS/${arch}/os
+iseq ${osversion} 7 && set dir ${centos_base_dir}/${osversion}/os/${arch} ||
+set repo ${centos_mirror}/${dir}
+goto boottype
+
+:boottype
+set ova ${os} ${osversion}
+menu ${os} ${arch} boot type
+item graphical ${ova} graphical installer
+item text ${ova} text based installer
+item rescue ${ova} rescue
+item kickstart ${ova} set kickstart url [ ${ksurl} ]
+item kickstart_device ${ova} set ksdevice [ ${ksdevice} ]
+isset ${bt} || choose bt || goto centos
+echo ${cls}
+iseq ${bt} text && goto text ||
+iseq ${bt} rescue && goto rescue ||
+iseq ${bt} kickstart && goto kickstart ||
+iseq ${bt} kickstart_device && goto kickstart_device ||
+goto bootos_images
+
+:text
+set params text ||
+goto bootos_images
+
+:rescue
+set params rescue ||
+goto bootos_images
+
+:kickstart
+echo -n Specify kickstart URL for ${os} ${osversion}: && read ksurl
+set params inst.ks=${ksurl} ||
+clear bt
+goto boottype
+
+:kickstart_device
+echo -n Specify ksdevice param for ${os} ${osversion}: && read ksdevice
+set ksdevice ${ksdevice} ||
+clear bt
+goto boottype
+
+:bootos_images
+imgfree
+kernel ${centos_mirror}/${dir}/images/pxeboot/vmlinuz repo=${repo} ${params} ${console} ${ipparam} initrd=initrd.img
+initrd ${centos_mirror}/${dir}/images/pxeboot/initrd.img
+echo
+echo MD5sums:
+md5sum vmlinuz initrd.img
+boot
+goto linux_menu
+
+:linux_menu
+clear menu
+exit 0
+
+
+:option_tails
+set github_url https://github.com/netbootxyz/debian-core-10/releases/download/4.19.67-2-04fe0fb9/
+set remote_url https://files.samip.fi/pxe-boot/Tails/v4.0/live/
+kernel ${github_url}vmlinuz boot=live fetch=${remote_url}filesystem.squashfs initrd=initrd nopersistence noprompt timezone=Europe/Helsinki block.events_dfl_poll_msecs=1000 splash noautologin module=Tails slab_nomerge slub_debug=FZP mce=0 vsyscall=none page_poison=1 mds=full,nosmt
+initrd ${github_url}initrd
+boot || goto custom_exit
+
+:custom_exit
+chain utils.ipxe
+exit

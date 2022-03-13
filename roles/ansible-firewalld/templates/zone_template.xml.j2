@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone{% if item.target is defined %} target="{{ item.target }}"{% endif %}>
+  <short>{{ item.short|default(item.name)|upper  }}</short>
+{% if item.description is defined %}
+  <description>{{ item.description }}</description>
+{% endif %}
+{% for tag in item %}
+{# Settings which can be used several times #}
+{% if tag in ['interface','source','service','port','protocol','icmp-block','forward-port','source-port'] %}
+{% for subtag in item[tag] %}
+  <{{ tag }}{% for name,value in subtag.items() %} {{ name }}="{{ value }}"{% endfor %}/>
+{% endfor %}
+{# Settings which can be used once #}
+{% elif tag in ['icmp-block-inversion','masquerade'] and item[tag] == True %}
+  <{{ tag }}/>
+{% endif %}
+{% endfor %}
+{# Beginn rich rule #}
+{% for rule in item.rule|default([]) %}
+  <rule{% if rule.family is defined %} family="{{ rule.family }}"{% endif %}>
+{% for tag in rule %}
+{% if tag in ['source','destination','service','port','icmp-block','icmp-type','masquerade','forward-port'] %}
+    <{{ tag }}{% for name,value in tag.items()|default({}) %} {{ name }}="{{ value }}"{% endfor %}/>
+{% elif tag in ['log','audit','accept','drop','mark','reject'] %}
+    <{{ tag }}{% for name,value in tag.items() %} {{ name }}="{{ value }}"{% endfor %}>
+{% endif %}
+{% if tag.limit is defined %}
+      <limit value="{{ tag.limit }}"/>
+{% endif %}
+    </{{ tag }}>
+{% endfor %}
+  </rule>
+{# End rich rule #}
+{% endfor %}
+</zone>

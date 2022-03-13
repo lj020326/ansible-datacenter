@@ -1,0 +1,188 @@
+---
+
+- include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+- name: Install firewalld and firewalld-python packages
+  package:
+    name: "{{ firewalld_packages }}"
+    state: present
+
+#- name: Setup firewalld
+#  when: firewalld_install
+#  block:
+#    - name: Install firewalld
+#      package:
+#        name: firewalld
+#        state: present
+#
+#    - name: Install python-firewall on CentOS/RedHat
+#      package:
+#        name: python3-firewall
+#        state: present
+#      when: ansible_distribution in ['CentOS','RedHat']
+#
+#    - name: Install python3-firewall on Fedora
+#      package:
+#        name: python3-firewall
+#      when: ansible_distribution == "Fedora"
+
+- name: Configure firewalld.conf
+  ini_file:
+    path: "{{ firewalld_conf_file }}"
+    no_extra_spaces: yes
+    section: ''
+    option: "{{ item.key }}"
+    value: "{{ item.value }}"
+  with_dict: "{{ firewalld_conf }}"
+  notify: reload firewalld
+
+- name: Manage firewalld zones
+  block:
+    - name: Configure firewalld zones
+      template:
+        src: zone_template.xml.j2
+        dest: /etc/firewalld/zones/{{ item.name }}.xml
+        backup: yes
+      with_items: "{{ firewalld_zones }}"
+      notify: reload firewalld
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Get zones in /etc/firewalld/zones
+      shell: ls -1 /etc/firewalld/zones/ | grep -E .xml$
+      register: get_firewalld_zones
+      changed_when: false
+      failed_when: false
+
+    - name: Remove unmanaged zones in /etc/firewalld/zones
+      file:
+        path: "/etc/firewalld/zones/{{ item }}"
+        state: absent
+      with_items: "{{ get_firewalld_zones.stdout_lines }}"
+      notify: reload firewalld
+      when: item|replace('.xml','') not in firewalld_zones|map(attribute='name')|list
+
+- name: Manage firewalld ipsets
+  block:
+    - name: Configure firewalld ipsets
+      template:
+        src: ipset_template.xml.j2
+        dest: /etc/firewalld/ipsets/{{ item.name }}.xml
+        backup: yes
+      with_items: "{{ firewalld_ipsets }}"
+      notify: reload firewalld
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Get ipsets in /etc/firewalld/ipsets
+      shell: ls -1 /etc/firewalld/ipsets/ | grep -E .xml$
+      register: get_firewalld_ipsets
+      changed_when: false
+      failed_when: false
+
+    - name: Remove unmanaged ipsets in /etc/firewalld/ipsets
+      file:
+        path: "/etc/firewalld/ipsets/{{ item }}"
+        state: absent
+      with_items: "{{ get_firewalld_ipsets.stdout_lines }}"
+      notify: reload firewalld
+      when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
+
+- name: Manage firewalld services
+  block:
+    - name: Configure firewalld custom services
+      when: "'port' in item"
+      template:
+        src: service_template.xml.j2
+        dest: /etc/firewalld/services/{{ item.name }}.xml
+        backup: yes
+      with_items: "{{ firewalld_services }}"
+      notify: reload firewalld
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: display firewalld vars
+      when:
+        - firewalld_zones|flatten|d([])|count>0
+        - firewalld_services|flatten|d([])|count>0
+      debug:
+        msg:
+          - "firewalld_zones: {{ firewalld_zones | to_nice_json }}"
+          - "firewalld_services: {{ firewalld_services | to_nice_json }}"
+          - "firewalld_ports: {{ firewalld_ports | to_nice_json }}"
+
+#    - name: display firewalld vars
+#      when:
+#        - firewalld_zones|flatten|d([])|count>0
+#        - firewalld_services|flatten|d([])|count>0
+#      debug:
+#        msg:
+#          - "zone: {{ item.0.name }}"
+#          - "service: {{ item.1.name }}"
+#      with_nested:
+#        - "{{ firewalld_zones|flatten }}"
+#        - "{{ firewalld_services|flatten }}"
+#      loop_control:
+#        label: "{{ item.0.name }} - {{ item.1.name }}"
+
+    ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html
+    - name: Configure firewalld services
+      when: 
+        - firewalld_zones|flatten|d([])|count>0
+        - firewalld_services|flatten|d([])|count>0
+      ansible.posix.firewalld:
+        zone: "{{ item.0.name }}"
+        service: "{{ item.1.name }}"
+        permanent: true
+        state: enabled
+        immediate: yes
+      with_nested:
+        - "{{ firewalld_zones|flatten }}"
+        - "{{ firewalld_services|flatten }}"
+      loop_control:
+        label: "{{ item.0.name }} - {{ item.1.name }}"
+      notify: reload firewalld
+
+    - name: Get services in /etc/firewalld/services
+      shell: ls -1 /etc/firewalld/services/ | grep -E .xml$
+      register: get_firewalld_services
+      changed_when: false
+      failed_when: false
+
+    - name: Remove unmanaged services in /etc/firewalld/services
+      file:
+        path: "/etc/firewalld/services/{{ item }}"
+        state: absent
+      with_items: "{{ get_firewalld_services.stdout_lines }}"
+      notify: reload firewalld
+      when: item|replace('.xml','') not in firewalld_services|map(attribute='name')|list
+
+- name: Start and enable firewalld
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Configure running firewalld
+  ansible.posix.firewalld:
+    immediate: "{{ item.immediate|default('yes') }}"
+    interface: "{{ item.interface|default(omit) }}"
+    masquerade: "{{ item.masquerade|default(omit) }}"
+    permanent: "{{ item.permanent|default('no') }}"
+    port: "{{ item.port|default(omit) }}"
+    rich_rule: "{{ item.rich_rule|default(omit) }}"
+    service: "{{ item.service|default(omit) }}"
+    source: "{{ item.source|default(omit) }}"
+    state: "{{ item.state|default('enabled') }}"
+    zone: "{{ item.zone|default(omit) }}"
+  with_items: "{{ firewalld }}"
+
+## We need this task to ensure firewall rules are loaded before
+## the following tasks/roles run because they may need active firewall rules
+- name: Flush all handlers
+  meta: flush_handlers

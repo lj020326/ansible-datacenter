@@ -1,0 +1,86 @@
+---
+## source: https://raw.githubusercontent.com/goetzrieger/ansible-labs-summit2020/master/content/ansible-collections/4-using-collections-from-tower/simple_git.yml
+## ref: https://dettonville.blog/p/collections-in-ansible-tower/
+
+- name: Create a simple SSH-based Git server
+  hosts: localhost
+  become: true
+  gather_facts: false
+
+  vars:
+    git_user: git
+    projects_dir: projects
+    git_project: tower_collections
+    username: "{{ ansible_user }}"  # just because we run it on localhost
+    reference_user: ec2-user
+
+  tasks:
+
+  - name: slurp the reference user's authorized keys
+    slurp:
+      src: /home/{{ reference_user }}/.ssh/authorized_keys
+    register: git_authorized_key
+
+  - name: install some additional convenience software on the control node
+    package:
+      name:
+      - tree
+      - git
+      state: latest
+
+  - name: make sure git-shell is in /etc/shells
+    lineinfile:
+      dest: /etc/shells
+      line: /usr/bin/git-shell
+
+  - name: git user '{{ git_user }}' exists and uses git-shell
+    user:
+      name: "{{ git_user }}"
+      comment: "Git server user"
+      shell: /usr/bin/git-shell
+
+  - name: add the slurped authorized keys to the git user
+    authorized_key:
+      user: "{{ git_user }}"
+      state: present
+      key: "{{ git_authorized_key['content'] | b64decode }}"
+
+  - name: define projects directory variable
+    set_fact:
+      projects_dir: "/home/{{ git_user }}/projects"
+
+  - name: Ensure projects directory exists and has the correct access rights
+    file:
+      path: "{{ projects_dir }}"
+      owner: "{{ git_user }}"
+      group: "{{ git_user }}"
+      recurse: yes
+      mode: ug+rwX
+      state: directory
+
+  # If the directory exists, we don't want to blow away its
+  # contents, because it's probably got valid repo data in it!
+
+  - name: Check Git project directory for existence
+    stat:
+      path: "{{ projects_dir }}/{{ git_project }}.git"
+    register: git_proj_dir
+
+  - name: Create empty {{ git_project }}.git bare repository if missing
+    command: git init --bare {{ projects_dir }}/{{ git_project }}.git
+    when: not (git_proj_dir.stat.isdir is defined and git_proj_dir.stat.isdir)
+
+  - name: Ensure {{ git_project }}.git owned by git
+    file:
+      path: "{{ projects_dir }}/{{ git_project }}.git"
+      owner: "{{ git_user }}"
+      group: "{{ git_user }}"
+      recurse: yes
+      mode: ug+rwX
+      state: directory
+
+  - name: add student to {{ git_user }} group
+    user:
+      name: "{{ username }}"
+      groups: "{{ git_user }}"  # group has been created with the user of same name
+      append: true

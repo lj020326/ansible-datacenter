@@ -1,0 +1,52 @@
+upstream backend {
+    ip_hash;
+    server wordpress.johnson.int:80;
+#    keepalive 5;
+}
+
+upstream backend-ssl {
+    server wordpress.johnson.int:443;
+#    keepalive 5;
+}
+
+server {
+    listen 80;
+
+    ## default htdocs
+    location / {
+        proxy_pass http://backend/;
+        proxy_set_header                X-Real-IP       $remote_addr;
+        proxy_set_header                X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header                X-NginX-Proxy true;
+    }
+
+    # # more_headers module (http)
+    # # moved this to proxy_params
+    more_clear_headers 'Server'; # removes server information
+    more_clear_headers 'X-Powered-By'; # removes server information
+
+}
+
+server {
+    listen 443;
+
+    ssl on;
+    ssl_certificate /etc/nginx/ssl/certs/dettonville_org/dettonville_org.cert_chain.crt;
+    ssl_certificate_key /etc/nginx/ssl/private/dettonville.org.key;
+
+    ## default htdocs
+    location / {
+       proxy_pass https://backend-ssl/;
+        add_header              Front-End-Https   on;
+        proxy_set_header                X-Real-IP       $remote_addr;
+        proxy_set_header                X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header                X-NginX-Proxy true;
+    }
+
+    # # more_headers module (http)
+    # # moved this to proxy_params
+    more_clear_headers 'Server'; # removes server information
+    more_clear_headers 'X-Powered-By'; # removes server information
+
+}
+

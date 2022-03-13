@@ -1,0 +1,238 @@
+---
+
+#include_vars: media-vars.yml
+
+docker_stack_base_services:
+  - base
+
+docker_stack_services: []
+
+__docker_stack_services: "{{ (docker_stack_base_services + docker_stack_services|d([])) | unique }}"
+
+docker_stack_proxy_services: []
+#__docker_stack_proxy_services: "{{ docker_stack_proxy_services | d([]) }}"
+__docker_stack_proxy_services: "{{ (docker_stack_base_services + docker_stack_proxy_services|d([])) | unique }}"
+
+#docker_stack_traefik_version: v1
+docker_stack_traefik_version: v2
+
+docker_stack_traefik_http: 80
+docker_stack_traefik_https: 443
+docker_stack_traefik_https_suffix: "{{ ':' + docker_stack_traefik_https|string if docker_stack_traefik_https|string != '443' else '' }}"
+
+docker_stack_traefik_ssh: 2022
+
+docker_stack_acme_http_challenge_proxy_port: 8980
+
+docker_stack_compose_http_timeout: 120
+
+docker_stack_ldap_admin_password: "password"
+docker_stack_ldap_config_password: "passsword"
+docker_stack_ldap_server: "ldap.example.int"
+
+docker_stack_run_services: yes
+#docker_stack_run_services: no
+
+docker_stack_traefik_proxy_network: "traefik_public"
+
+docker_stack_networks: {}
+
+
+#docker_stack_volumes:
+#  prometheus: {}
+#  grafana: {}
+#  alertmanager: {}
+#  keycloak_data: {}
+##  bacula_pgdata: {}
+##  postgres_data:
+##      driver: local
+##  gitea:
+##    driver: local
+
+docker_stack_volumes: {}
+
+docker_stack_configs: {}
+
+#docker_stack_configs:
+#  dockerd_config:
+#    file: ./dockerd-exporter/Caddyfile
+#  node_rules:
+#    file: ./prometheus/rules/swarm_node.rules.yml
+#  task_rules:
+#    file: ./prometheus/rules/swarm_task.rules.yml
+
+##
+## container user
+docker_user_username: container-user
+docker_user_password: container-user
+docker_user_group: container-user
+docker_user_uid: 1006
+docker_user_gid: 1006
+
+#docker_user_username: docker-user
+#docker_user_password: docker-user
+#docker_user_group: docker-user
+
+#docker_group_gid: 497
+docker_group_gid: 991
+
+## docker stack vars
+#docker_stack_dir: "{{ docker_user_home }}/docker"
+docker_stack_dir: "{{ docker_user_home }}/docker/{{ inventory_hostname }}"
+docker_stack_compose_file: "{{ docker_stack_dir }}/docker-compose.yml"
+docker_stack_remove_orphans: yes
+
+ca_cert_bundle: "/etc/pki/tls/certs/ca-bundle.crt"
+#ca_cert_bundle: "/etc/ssl/certs/ca-certificates.crt"
+ca_java_keystore: /etc/pki/ca-trust/extracted/java/cacerts
+
+docker_stack_host_ca_bundle: "{{ ca_cert_bundle }}"
+
+docker_stack_internal_root_domain: "example.int"
+docker_stack_external_root_domain: "example.com"
+
+docker_stack_service_route_name: "{{ inventory_hostname_short }}"
+#docker_stack_internal_domain: "{{ inventory_hostname }}.{{ docker_stack_internal_root_domain }}"
+#docker_stack_external_domain: "{{ inventory_hostname }}.{{ docker_stack_external_root_domain }}"
+docker_stack_internal_domain: "{{ docker_stack_service_route_name }}.{{ docker_stack_internal_root_domain }}"
+docker_stack_external_domain: "{{ docker_stack_service_route_name }}.{{ docker_stack_external_root_domain }}"
+#docker_stack_external_domain: "{{ docker_stack_external_root_domain }}"
+
+docker_stack_enable_external_route: no
+
+awx_orig_enabled: no
+awx_orig_docker_compose_dir: "{{ awx_inventory_dir }}/awxcompose-orig"
+awx_orig_postgres_data_dir: "{{ awx_inventory_dir }}/pgdocker-orig"
+awx_orig_host_port: 11080
+awx_orig_host_port_ssl: 11443
+awx_orig_memcached_port: "12211"
+awx_orig_pg_port: 6432
+awx_orig_container_prefix: "awx_orig"
+
+docker_stack_awx_backend: "http://{{ docker_stack_internal_domain }}:{{ awx_host_port }}"
+docker_stack_awx_orig_backend: "http://{{ docker_stack_internal_domain }}:{{ awx_orig_host_port }}"
+docker_stack_nginx_backend: "https://nginx.example.int"
+
+docker_stack_stepca_use_host_cacerts: no
+docker_stack_stepca_enable_signed: no
+docker_stack_stepca_ca_force_create: no
+
+ca_domains_hosted:
+  - "{{ docker_stack_internal_domain }}"
+
+pki_cert_dir: /etc/ssl/certs
+pki_key_dir: /etc/ssl/private
+
+## SSL settings
+docker_stack_internal_ssl_cert_dir: /usr/local/ssl/certs
+docker_stack_internal_ssl_certkey_dir: /usr/local/ssl/private
+#docker_stack_internal_ssl_certkey_dir: "/etc/ssl/private"
+#docker_stack_internal_ssl_cert_dir: "/etc/ssl/crt"
+
+#docker_stack_ssl_internal_cacert_file: "ca.{{ docker_stack_internal_root_domain }}.pem"
+docker_stack_ssl_internal_root_cacert_file: "ca.{{ docker_stack_internal_root_domain }}.pem"
+docker_stack_ssl_internal_cacert_file: "ca.{{ docker_stack_internal_domain }}.pem"
+
+#docker_stack_ssl_internal_cert_file: "{{ hostname_name_full }}.pem"
+docker_stack_ssl_internal_cert_file: "{{ docker_stack_internal_domain }}.chain.pem"
+#docker_stack_ssl_internal_cert_file: "{{ docker_stack_internal_domain }}.pem"
+
+#docker_stack_ssl_internal_privatekey_file: "{{ hostname_name_full }}-key.pem"
+docker_stack_ssl_internal_privatekey_file: "{{ docker_stack_internal_domain }}-key.pem"
+
+docker_stack_external_ssl_cert_dir: "{{ docker_stack_dir }}/shared/certs"
+docker_stack_external_ssl_certkey_dir: "{{ docker_stack_dir }}/shared/certs"
+
+docker_stack_ssl_external_cert_file: "{{ docker_stack_external_domain }}.pem"
+docker_stack_ssl_external_privatekey_file: "{{ docker_stack_external_domain }}-key.pem"
+
+
+cloudflare_email: "user@example.com"
+cloudflare_apikey: "000000000000000000000000000000011111"
+
+docker_stack_script_dir: "/opt/scripts"
+
+docker_stack_wordpress_db_user: "wordpress"
+docker_stack_wordpress_db_password: "passswOrd"
+
+docker_stack_phpmyadmin_port: 8802
+
+
+docker_stack_vmware_data_dir: /export/data/vmware
+
+docker_stack_api_port: "2375"
+
+docker_stack_app_config_dirs: {}
+
+docker_stack_config_dirs: []
+
+docker_stack_app_config_tpls: {}
+
+docker_stack_app_config_files: {}
+
+docker_stack_config_files: []
+
+docker_stack_script_dirs:
+  - { path: "{{ docker_stack_script_dir }}", recurse: yes  }
+
+docker_stack_scripts:
+#  - { src: 'files/mono_image/entrypoint.sh', dest: "{{ docker_stack_script_dir }}/mono-entrypoint.sh" }
+  - { src: 'files/scripts/certs/validate_ssl_endpoint.sh', dest: "{{ docker_stack_dir }}/shared/validate_ssl_endpoint.sh" }
+#  - { src: 'scripts/backups/run-backups.py', dest: "{{ docker_stack_script_dir }}"}
+#  - { src: 'scripts/backups/backups.yml', dest: "{{ docker_stack_script_dir }}"}
+#  - { src: 'scripts/backups/run-daily-backup.sh', dest: "{{ docker_stack_script_dir }}"}
+#  - { src: 'scripts/backups/run-monthly-backup.sh', dest: "{{ docker_stack_script_dir }}"}
+#  - { src: 'scripts/backups/job-backup-incremental.sh', dest: "{{ docker_stack_script_dir }}"}
+#  - { src: 'scripts/backups/rsync-incremental-backup-local', dest: "{{ docker_stack_script_dir }}"}
+#  - { src: 'scripts/backups/fwbackup.sh', dest: "{{ docker_stack_script_dir }}"}
+  - { src: 'scripts/docker/docker-utils.sh', dest: "{{ docker_stack_dir }}", mode: "0770"}
+  - { src: 'scripts/reset-openldap.sh', dest: "{{ docker_stack_dir }}", mode: "0770"}
+
+docker_stack_script_config_tpls: []
+#  - { src: 'scripts/backups.cfg.j2', dest: "/root/.backups.cfg", mode: "0600" }
+#  - { src: 'scripts/fwbackup.conf.j2', dest: "/root/.fwbackup.cfg", mode: "0600" }
+
+docker_stack_email_from: "admin@example.com"
+docker_stack_email_to: "admin@example.com"
+docker_stack_smtp: "mail.example.int"
+
+docker_stack_firewalld_enabled: yes
+
+docker_stack_firewalld_services: []
+
+docker_stack_firewalld_app_services: {}
+
+docker_stack_firewalld_app_ports: {}
+
+#overwrite_configs: yes
+## used from setting up registry service instance
+#docker_stack_registry_service_name: "registry"
+docker_stack_registry_service_domain: "{{ docker_stack_internal_domain }}"
+
+## used from running stack
+docker_stack_registry_endpoint: "example.local:5000"
+docker_stack_registry_login: yes
+docker_stack_registry_username: user
+docker_stack_registry_password: password
+
+docker_stack_services_tpl: {}
+
+docker_stack_base_services_tpl: "{{ docker_stack_services_defaults['base'] }}"
+
+docker_stack_config_tpls: []
+
+docker_stack_container_configs: {}
+
+#docker_stack_container_configs:
+#  sonarr:
+#    command: |
+#      certmgr -add -c -v -m Trust /config/certs/{{ docker_stack_internal_domain }}.chain.cer
+#      certmgr -list -c -m Trust
+#  radarr:
+#    command: |
+#      certmgr -add -c -v -m Trust /config/certs/{{ docker_stack_internal_domain }}.chain.cer
+#  lidarr:
+#    command: |
+#      certmgr -add -c -v -m Trust /config/certs/{{ docker_stack_internal_domain }}.chain.cer
+
+

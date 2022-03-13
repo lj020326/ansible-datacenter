@@ -1,0 +1,152 @@
+#jinja2: lstrip_blocks: True
+
+## ref: https://debugthis.dev/posts/2020/04/setting-up-ansible-awx-using-a-docker-environment-part-2-the-docker-compose-approach/
+## ref: https://github.com/geerlingguy/awx-container/blob/master/docker-compose.yml
+
+#version: '2'
+version: '3'
+services:
+
+  web:
+    image: {{ awx_web_docker_actual_image }}
+    container_name: {{ awx_container_prefix }}_web
+    depends_on:
+      - redis
+      {% if awx_pg_hostname is not defined %}
+      - postgres
+      {% endif %}
+    {% if (awx_host_port is defined) or (awx_host_port_ssl is defined) %}
+    ports:
+      {% if awx_ssl_certificate is defined %}
+      - "{{ awx_host_port_ssl }}:8053"
+      {% endif %}
+      - "{{ awx_host_port }}:8052"
+    {% endif %}
+    hostname: {{ awx_web_hostname }}
+    user: root
+    restart: unless-stopped
+    volumes:
+      {{ awx_web_volumes | to_nice_yaml | indent(6) }}
+      {% if awx_project_data_dir is defined %}
+      - "{{ awx_project_data_dir}}:/var/lib/awx/projects:rw"
+      {% endif %}
+    {% if awx_custom_venv_dir is defined %}
+      - "{{ awx_custom_venv_dir }}:{{ awx_custom_venv_dir }}:rw"
+    {% endif %}
+    {% if awx_ca_trust_dir is defined %}
+      - "{{ awx_ca_trust_dir }}:/etc/pki/ca-trust/source/anchors:ro"
+    {% endif %}
+    {% if awx_ssl_certificate is defined %}
+      - "{{ awx_ssl_certificate }}:/etc/nginx/awxweb.pem:ro"
+    {% endif %}
+    {% if (awx_container_search_domains is defined) and (',' in awx_container_search_domains) %}
+    {% set awx_container_search_domains_list = awx_container_search_domains.split(',') %}
+    dns_search:
+    {% for awx_container_search_domain in awx_container_search_domains_list %}
+      - {{ awx_container_search_domain }}
+    {% endfor %}
+    {% elif awx_container_search_domains is defined %}
+    dns_search: "{{ awx_container_search_domains }}"
+    {% endif %}
+    {% if (awx_alternate_dns_servers is defined) and (',' in awx_alternate_dns_servers) %}
+    {% set awx_alternate_dns_servers_list = awx_alternate_dns_servers.split(',') %}
+    dns:
+    {% for awx_alternate_dns_server in awx_alternate_dns_servers_list %}
+      - {{ awx_alternate_dns_server }}
+    {% endfor %}
+    {% elif awx_alternate_dns_servers is defined %}
+    dns: "{{ awx_alternate_dns_servers }}"
+    {% endif %}
+    environment:
+      http_proxy: {{ awx_http_proxy | default('') }}
+      https_proxy: {{ awx_https_proxy | default('') }}
+      no_proxy: {{ awx_no_proxy | default('') }}
+
+  task:
+    image: {{ awx_task_docker_actual_image }}
+    container_name: {{ awx_container_prefix }}_task
+    depends_on:
+      - redis
+      - web
+      {% if awx_pg_hostname is not defined %}
+      - postgres
+      {% endif %}
+    hostname: {{ awx_task_hostname }}
+    user: root
+    restart: unless-stopped
+    command: ["/usr/bin/launch_awx_task.sh"]
+    volumes:
+      {{ awx_task_volumes | to_nice_yaml | indent(6) }}
+    {% if awx_project_data_dir is defined %}
+      - "{{ awx_project_data_dir }}:/var/lib/awx/projects:rw"
+    {% endif %}
+    {% if awx_custom_venv_dir is defined %}
+      - "{{ awx_custom_venv_dir }}:{{ awx_custom_venv_dir }}:rw"
+    {% endif %}
+    {% if awx_ca_trust_dir is defined %}
+      - "{{ awx_ca_trust_dir }}:/etc/pki/ca-trust/source/anchors:ro"
+    {% endif %}
+    {% if awx_ssl_certificate is defined %}
+      - "{{ awx_ssl_certificate }}:/etc/nginx/awxweb.pem:ro"
+    {% endif %}
+    {% if (awx_container_search_domains is defined) and (',' in awx_container_search_domains) %}
+    {% set awx_container_search_domains_list = awx_container_search_domains.split(',') %}
+    dns_search:
+    {% for awx_container_search_domain in awx_container_search_domains_list %}
+      - {{ awx_container_search_domain }}
+    {% endfor %}
+    {% elif awx_container_search_domains is defined %}
+    dns_search: "{{ awx_container_search_domains }}"
+    {% endif %}
+    {% if (awx_alternate_dns_servers is defined) and (',' in awx_alternate_dns_servers) %}
+    {% set awx_alternate_dns_servers_list = awx_alternate_dns_servers.split(',') %}
+    dns:
+    {% for awx_alternate_dns_server in awx_alternate_dns_servers_list %}
+      - {{ awx_alternate_dns_server }}
+    {% endfor %}
+    {% elif awx_alternate_dns_servers is defined %}
+    dns: "{{ awx_alternate_dns_servers }}"
+    {% endif %}
+    environment:
+      AWX_SKIP_MIGRATIONS: "1"
+      http_proxy: {{ awx_http_proxy | default('') }}
+      https_proxy: {{ awx_https_proxy | default('') }}
+      no_proxy: {{ awx_no_proxy | default('') }}
+      SUPERVISOR_WEB_CONFIG_PATH: '/etc/supervisord.conf'
+
+  redis:
+    image: {{ awx_redis_image }}
+    container_name: {{ awx_container_prefix }}_redis
+    restart: unless-stopped
+    environment:
+      http_proxy: {{ awx_http_proxy | default('') }}
+      https_proxy: {{ awx_https_proxy | default('') }}
+      no_proxy: {{ awx_no_proxy | default('') }}
+    command: ["/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - "{{ awx_docker_compose_dir }}/redis.conf:/usr/local/etc/redis/redis.conf:ro"
+      - "{{ awx_docker_compose_dir }}/redis_socket:/var/run/redis/:rw"
+
+  {% if awx_pg_hostname is not defined %}
+  postgres:
+    image: {{ awx_postgresql_image }}
+    container_name: {{ awx_container_prefix }}_postgres
+    restart: unless-stopped
+    volumes:
+      - {{ awx_postgres_data_dir }}/{{ awx_postgresql_version }}/data/:/var/lib/postgresql/data/pgdata:Z
+#    ports:
+#      - "{{ awx_pg_port }}:5432"
+    environment:
+      POSTGRES_USER: {{ awx_pg_username }}
+      POSTGRES_PASSWORD: {{ awx_pg_password }}
+      POSTGRES_DB: {{ awx_pg_database }}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      http_proxy: {{ awx_http_proxy | default('') }}
+      https_proxy: {{ awx_https_proxy | default('') }}
+      no_proxy: {{ awx_no_proxy | default('') }}
+  {% endif %}
+
+volumes:
+  supervisor-socket:
+  rsyslog-socket:
+  rsyslog-config:

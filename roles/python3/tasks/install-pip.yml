@@ -1,0 +1,49 @@
+---
+
+- name: "Check for existing pip"
+  stat:
+    path: "/usr/local/bin/pip{{ python_major_version }}"
+  register: pip_path
+#  ignore_errors: true
+
+#- name: install pip3
+#  when: "not pip_path.stat.exists"
+#  command: "curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python{{ python_target_dist }} get-pip.py"
+
+## ref: https://github.com/William-Yeh/ansible-uwsgi/blob/master/tasks/install-pip.yml
+- name: check to see if pip is already installed
+  command: "pip --version"
+  ignore_errors: true
+  register: pip_is_installed
+  changed_when: false
+
+- block:
+  when: pip_is_installed.rc != 0
+
+    - name: download get-pip.py
+      get_url: url=https://bootstrap.pypa.io/get-pip.py  dest=/tmp
+
+    - name: install pip
+      command: "python{{ python_target_dist }} /tmp/get-pip.py"
+
+    - name: delete get-pip.py
+      file: state=absent path=/tmp/get-pip.py
+
+    - name: Install config settings
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+    #    force: "{{ overwrite_configs }}"
+        mode: 0664
+      with_items:
+        - {src: 'pip.conf.j2', dest: "/etc/pip.conf"}
+
+
+- name: upgrade pip
+  pip:
+    name: pip
+    state: latest
+
+#- name: Install Virtualenv
+#  pip:
+#    name: "virtualenv"

@@ -1,0 +1,69 @@
+---
+
+## Debugging purposes: print all internal variables
+## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
+- name: "Debug: Print internal variables"
+#  hosts: all
+  hosts: server_node
+  ## https://issues.jenkins-ci.org/browse/JENKINS-54557
+  ignore_unreachable: yes
+  ignore_errors: yes
+  become: yes
+  remote_user: "{{ bootstrap_username }}"
+  # vars_files:
+  #   - vars/secrets.yml
+  vars:
+    ## ref: https://stackoverflow.com/questions/23074412/how-to-set-host-key-checking-false-in-ansible-inventory-file
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+    ansible_ssh_user: "{{ bootstrap_username }}"
+  tasks:
+
+    - name: Classify hosts depending on their OS distribution
+      changed_when: no
+      group_by:
+        key: os_{{ ansible_facts['distribution']|d('Unknown') }}
+
+    - name: Classify hosts depending on their OS distribution-version
+      changed_when: no
+      group_by:
+        key: os_{{ ansible_facts['distribution']|d('Unknown') }}_{{ ansible_facts['distribution_major_version']|d('Unknown') }}
+
+    - name: Print env var debug information
+      changed_when: no
+      tags: debug_ansible_env
+      debug:
+        msg:
+          - "ansible_host={{ ansible_host }}"
+          - "ansible_hostname={{ ansible_hostname | d('') }}"
+          - "ansible_fqdn={{ ansible_fqdn | d('') }}"
+          - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
+          - "ansible_os_family={{ ansible_os_family | d('unknown') }}"
+          - "ansible_distribution={{ ansible_distribution | d('unknown') }}"
+          - "ansible_distribution_release={{ ansible_distribution_release | d('unknown') }}"
+          - "ansible_distribution_major_version={{ ansible_distribution_major_version | d('unknown') }}"
+          - "ansible_python_interpreter={{ ansible_python_interpreter | d('unknown') }}"
+          - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('unknown') }}"
+          - "group_names={{ group_names | d('') }}"
+          - "ntp_servers={{ ntp_servers | d('') }}"
+          - "ca_domain={{ ca_domain | d('unknown') }}"
+          - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"
+          # - "ca_intermediate_certs_list={{ ca_intermediate_certs_list | d('') }}"
+          - "ca_subdomain={{ ca_subdomain | d('') }}"
+          - "ca_keyring_certs_dir={{ ca_keyring_certs_dir }}"
+          - "internal_domain={{ internal_domain | d('unknown') }}"
+          - "docker_stack_external_domain={{ docker_stack_external_domain | d('') }}"
+          - "docker_stack_internal_domain={{ docker_stack_internal_domain | d('') }}"
+          - "ca_intermediate_certs_config={{ ca_intermediate_certs_config | to_nice_json }}"
+
+    - name: "Print domain vars"
+      debug:
+        msg: "{{item}}"
+      loop:
+        - "ca_routes_dynamic: {{ca_routes_dynamic}}"
+        - "ca_service_routes_list: {{ca_service_routes_list}}"
+        - "ca_intermediate_certs_list_dynamic: {{ca_intermediate_certs_list_dynamic}}"
+        - "ca_intermediate_certs_list: {{ca_intermediate_certs_list}}"
+        - "bind_zone_hosts_dynamic: {{bind_zone_hosts_dynamic}}"
+        - "ca_internal_domains_dynamic: {{ca_internal_domains_dynamic}}"
+        - "ca_domains_dynamic: {{ca_domains_dynamic}}"
+

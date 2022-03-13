@@ -1,0 +1,37 @@
+---
+
+- set_fact:
+    log_prefix_local: "setup-registry |"
+
+- name: "{{ log_prefix_local }} Install htpasswd deps with pip"
+  pip:
+    name: passlib[bcrypt]
+
+- name: "{{ log_prefix_local }} Display docker registry vars"
+  debug:
+    msg: 
+      - "__docker_stack_appspecs__registry_enable_auth: {{ __docker_stack_appspecs__registry_enable_auth }}"
+      - "__docker_stack_appspecs__registry_auth_path: {{ __docker_stack_appspecs__registry_auth_path }}"
+      - "__docker_stack_appspecs__registry_auth_file: {{ __docker_stack_appspecs__registry_auth_file }}"
+      # - "__docker_stack_appspecs__registry_users: {{ __docker_stack_appspecs__registry_users | to_nice_json }}"
+      - "__docker_stack_appspecs__registry_env: {{ __docker_stack_appspecs__registry_env | to_nice_json }}"
+
+- name: "{{ log_prefix_local }} Remove registry, if it exists"
+  docker_container:
+    name: "{{ __docker_stack_appspecs__registry_container_name }}"
+    container_default_behavior: compatibility
+#    container_default_behavior: no_defaults
+    state: absent
+
+- name: "{{ log_prefix_local }} Configure {{ __docker_stack_appspecs__registry_auth_file }} users file"
+  when: __docker_stack_appspecs__registry_enable_auth | bool
+  no_log: yes
+  community.general.htpasswd:
+    path: "{{ __docker_stack_appspecs__registry_auth_path }}/{{ __docker_stack_appspecs__registry_auth_file }}"
+    name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    owner: "root"
+    group: "root"
+    mode: "0600"
+    crypt_scheme: "bcrypt"
+  with_items: "{{ __docker_stack_appspecs__registry_users }}"

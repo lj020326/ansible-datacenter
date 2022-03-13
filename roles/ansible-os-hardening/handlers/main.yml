@@ -1,0 +1,42 @@
+---
+#******************************************************************************
+# Role: linux-hardening
+# File: handlers/main.yml
+#******************************************************************************
+- name: os-harden-restart-ntp
+  service:
+    name: "{{ ntp_service }}"
+    state: restarted
+
+- name: os-harden-restart-ssh
+  service:
+    name: "{{ ssh_service}}"
+    state: restarted
+
+- name: os-harden-reload sysctl.conf
+  command: /sbin/sysctl -p
+
+- name: os-harden-flush routes
+  command: /sbin/sysctl -w net.ipv4.route.flush=1
+
+
+##
+## ansible-os-hardening handlers below
+##
+
+- name: os-harden-update-initramfs
+  command: 'update-initramfs -u'
+
+- name: os-harden-grub2-mkconfig
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  when: >
+    not (ansible_virtualization_type is defined and
+          (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
+        )
+
+- name: os-harden-update-grub
+  command: update-grub
+  when: >
+    not (ansible_virtualization_type is defined and
+          (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
+        )

@@ -1,0 +1,144 @@
+---
+
+__docker_stack_appspecs__auth_stack_dir: "{{ docker_stack_dir | d('/home/user/docker-dirs') }}"
+
+__docker_stack_appspecs__auth_google_client_id: "{{ docker_stack_auth_google_client_id | d('123456789.apps.googleusercontent.com') }}"
+__docker_stack_appspecs__auth_google_client_secret: "{{ docker_stack_auth_google_client_secret | d('gooaogogoaogogooagoaogoag') }}"
+
+## generate random secret
+## openssl rand -hex 16
+## or
+## ref: https://www.browserling.com/tools/random-string
+__docker_stack_appspecs__auth_oauth_secret: "{{ docker_stack_auth_oauth_secret | d('3cf04360c9731d1f41fe2a8d4b12b05c') }}"
+
+__docker_stack_appspecs__auth_redis_password: "{{ docker_stack_redis_password | d('passwword') }}"
+
+__docker_stack_appspecs__auth_whitelist: "{{ docker_stack_auth_whitelist | d('myemail@email.com') }}"
+
+__docker_stack_appspecs__auth_authelia_log_level: "{{ docker_stack_authelia_log_level | d('debug') }}"
+__docker_stack_appspecs__auth_authelia_jwt_secret: "{{ docker_stack_authelia_jwt_secret | d('3615e483f78c6033f84fde66e91c0456') }}"
+__docker_stack_appspecs__auth_authelia_default_redirection_url: "{{ docker_stack_authelia_default_redirection_url | d('https://public.example.com') }}"
+__docker_stack_appspecs__auth_authelia_session_secret: "{{ docker_stack_authelia_session_secret | d('7f13fa0013960e339419424106490a05') }}"
+__docker_stack_appspecs__auth_authelia_domain: "{{ docker_stack_authelia_domain | d('example.com') }}"
+__docker_stack_appspecs__auth_authelia_encryption_key: "{{ docker_stack_authelia_encryption_key | d('3615e483f78c6033f84fde66e91c0456') }}"
+
+##
+## Use to create argon2id hash -> https://argon2.online/
+## or
+## docker run authelia/authelia:latest authelia hash-password YOUR_PASSWORD
+##
+
+# Password is 'authelia'
+#__docker_stack_appspecs__auth_authelia_password: "{{ docker_stack_authelia_password | d('$6$rounds=50000$BpLnfgDsc2WD8F2q$Zis.ixdg9s/UOJYrs56b5QEZFiZECu0qZVNsIYxBaNJ7ucIL.nlxVCT5tqh8KHG8X4tlwCFm5r6NTOZZ5qRFN/') }}"
+# Password is 'passsw0rd'
+__docker_stack_appspecs__auth_authelia_password: "{{ docker_stack_authelia_password | d('$argon2id$v=19$m=48,t=2,p=6$SWR2NHRmeFdXa2NJRXN0VQ$UYB9BefZ3B1mvvi9sTEGtw') }}"
+
+__docker_stack_appspecs__auth_authelia_users_default:
+  admin:
+    displayname: "Admin User"
+    password: "{{ __docker_stack_appspecs__auth_authelia_password }}"
+    email: admin@example.com
+    groups:
+      - admins
+      - dev
+
+__docker_stack_appspecs__auth_authelia_authentication_backend_default:
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 1
+      salt_length: 16
+      parallelism: 8
+      # blocks this much of the RAM. Tune this.
+      memory: 1024
+
+__docker_stack_appspecs__auth_authelia_access_control_default:
+  default_policy: deny
+  rules:
+    # Rules applied to everyone
+    - domain:
+        - authelia.example.com
+        - public.example.com
+      policy: bypass
+    - domain: traefik.example.com
+      policy: one_factor
+    - domain: secure.example.com
+      policy: two_factor
+
+__docker_stack_appspecs__auth_authelia_totp_default:
+  issuer: authelia.com
+  period: 30
+  skew: 1
+
+__docker_stack_appspecs__auth_authelia_notifier_default:
+  smtp:
+    username: test
+    # This secret can also be set using the env variables AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE
+    password: password
+    host: mail.example.com
+    port: 25
+    sender: admin@example.com
+
+__docker_stack_appspecs__auth_authelia_session_default:
+  name: authelia_session
+  # This secret can also be set using the env variables AUTHELIA_SESSION_SECRET_FILE
+  secret: "{{ __docker_stack_appspecs__auth_authelia_session_secret }}"
+  expiration: 3600 # 1 hour
+  inactivity: 300 # 5 minutes
+  domain: "{{ __docker_stack_appspecs__auth_authelia_domain }}" # Should match whatever your root protected domain is
+
+  redis:
+    host: redis
+    port: 6379
+    # This secret can also be set using the env variables AUTHELIA_SESSION_REDIS_PASSWORD_FILE
+    # password: authelia
+    password: "{{ __docker_stack_appspecs__auth_redis_password }}"
+
+__docker_stack_appspecs__auth_authelia_regulation_default:
+  max_retries: 10
+  find_time: 120
+  ban_time: 300
+
+__docker_stack_appspecs__auth_authelia_storage_default:
+  encryption_key: "{{ __docker_stack_appspecs__auth_authelia_encryption_key }}"
+  local:
+    path: /config/db.sqlite3
+
+
+__docker_stack_appspecs__auth_authelia_users: "{{ docker_stack_authelia_users | d(__docker_stack_appspecs__auth_authelia_users_default) }}"
+
+__docker_stack_appspecs__auth_authelia_notifier: "{{ docker_stack_authelia_notifier | d(__docker_stack_appspecs__auth_authelia_notifier_default) }}"
+
+__docker_stack_appspecs__auth_authelia_totp: "{{ docker_stackauthelia_totp | d(__docker_stack_appspecs__auth_authelia_totp_default) }}"
+
+__docker_stack_appspecs__auth_authelia_authentication_backend: "{{ docker_stack_authelia_authentication_backend | d(__docker_stack_appspecs__auth_authelia_authentication_backend_default) }}"
+
+__docker_stack_appspecs__auth_authelia_access_control: "{{ docker_stack_authelia_access_control | d(__docker_stack_appspecs__auth_authelia_access_control_default) }}"
+
+__docker_stack_appspecs__auth_authelia_session: "{{ docker_stack_authelia_session | d(__docker_stack_appspecs__auth_authelia_session_default) }}"
+
+__docker_stack_appspecs__auth_authelia_regulation: "{{ docker_stack_authelia_regulation | d(__docker_stack_appspecs__auth_authelia_regulation_default) }}"
+
+__docker_stack_appspecs__auth_authelia_storage: "{{ docker_stack_authelia_storage | d(__docker_stack_appspecs__auth_authelia_storage_default) }}"
+
+
+docker_stack_appspec_config_dirs__auth:
+  - { path: "{{ __docker_stack_appspecs__auth_stack_dir }}" }
+  - { path: "{{ __docker_stack_appspecs__auth_stack_dir }}/authelia"}
+#  - { path: "{{ __docker_stack_appspecs__auth_stack_dir }}/authelia/data"}
+
+docker_stack_appspec_config_tpls__auth:
+  - { src: 'authelia/configuration.yml.j2', dest: "{{ __docker_stack_appspecs__auth_stack_dir }}/authelia/configuration.yml"}
+  - { src: 'authelia/users_database.yml.j2', dest: "{{ __docker_stack_appspecs__auth_stack_dir }}/authelia/users_database.yml"}
+
+
+docker_stack_appspec__auth:
+  dirs: "{{ docker_stack_appspec_config_dirs__auth | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__auth | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__auth | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__auth | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__auth | d([]) }}"
+  networks: "{{ docker_stack_appspec_networks__auth | d({}) }}"
+  volumes: "{{ docker_stack_appspec_volumes__auth | d({}) }}"
+  docker_services: "{{ docker_stack_appspec_services__auth | d({}) }}"

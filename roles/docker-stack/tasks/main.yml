@@ -1,0 +1,52 @@
+---
+
+- name: "Setup docker user facts"
+  include_tasks: init-stack-vars.yml
+
+- name: "Setup firewalld config"
+  when: docker_stack_firewalld_enabled | default(True) | bool
+  include_tasks: setup-firewalld.yml
+
+- name: "Setup docker service dirs and configs"
+  include_tasks: setup-service-configs.yml
+
+- name: "Setup certs"
+  when: "'base' in __docker_stack_services"
+  include_tasks: setup-certs.yml
+
+- name: "Setup scripts"
+  include_tasks: setup-scripts.yml
+
+- name: "Setup docker app specific configs"
+  block:
+
+    - name: "Setup stepca certs"
+      when: "'stepca' in __docker_stack_services"
+#      when:
+#        - docker_stack_stepca_enable_signed
+#        - "'stepca' in __docker_stack_services"
+      vars:
+        ansible_python_interpreter: "{{ ansible_python_docker_interpreter }}"
+      include_tasks: setup-stepca.yml
+
+    - name: "Setup registry"
+      when: "'registry' in __docker_stack_services"
+      include_tasks: setup-registry.yml
+
+    - name: "Setup awx services"
+      when: "'awx' in __docker_stack_proxy_services"
+      include_tasks: setup-awx.yml
+
+#    - name: "Setup step-ca services"
+#      when: "'stepca' in __docker_stack_services"
+#      include_tasks: setup-stepca.yml
+
+    - name: "Setup cobbler dirs and configs"
+      when: "'cobbler' in __docker_stack_services"
+      include_tasks: setup-cobbler.yml
+
+- name: "Setup docker stack services"
+  when: docker_stack_run_services|bool
+  vars:
+    ansible_python_interpreter: "{{ ansible_python_docker_interpreter }}"
+  include_tasks: setup-services.yml

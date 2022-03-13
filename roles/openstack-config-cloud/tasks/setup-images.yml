@@ -1,0 +1,31 @@
+---
+
+## ref: https://github.com/larsks/openstack-ansible/blob/master/playbook.yml
+## ref: https://www.redhat.com/en/blog/full-stack-automation-ansible-and-openstack
+
+- name: Create images file directory ({{ openstack_images_dir }}) if not exists
+  file:
+    path: "{{ openstack_images_dir }}"
+    state: directory
+    recurse: yes
+    mode: 0755
+    owner: "{{ ansible_local_user }}"
+    group: "{{ ansible_local_user }}"
+
+- name: Download images
+  become: True
+  become_user: "{{ ansible_local_user }}"
+  get_url:
+    dest: "{{ openstack_images_dir }}/{{ item.filename }}"
+    url: "{{ item.url }}"
+  with_items: "{{ openstack_images }}"
+
+- name: Upload images to glance
+  os_image:
+    name: "{{ item.name }}"
+    filename: "{{ openstack_images_dir }}/{{ item.filename }}"
+    container_format: "{{ item.container_format | default(omit) }}"
+    disk_format: "{{ item.disk_format | default(omit) }}"
+    is_public: yes
+    state: present
+  with_items: "{{ openstack_images }}"

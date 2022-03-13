@@ -1,0 +1,36 @@
+---
+
+## ref: https://github.com/Praqma/smallstep-ca-demo/blob/master/docker-compose.yaml
+docker_stack_appspec_services__stepca:
+
+  step-ca:
+    image: "{{ __docker_stack_appspecs__stepca_image }}"
+#    image: smallstep/step-ca:latest
+    container_name: "step-ca"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    environment:
+      STEPCA_GID: "{{ docker_user_gid }}"
+      STEPCA_UID: "{{ docker_user_uid }}"
+      DNS_NAMES: "{{ __docker_stack_appspecs__stepca_dns_names }}"
+      DEFAULT_CERT_VALIDITY: "{{ __docker_stack_appspecs__stepca_default_cert_validity }}"
+      MAX_CERT_VALIDITY: "{{ __docker_stack_appspecs__stepca_max_cert_validity }}"
+      PASSWORD: "{{ __docker_stack_appspecs__stepca_password }}"
+      CA_NAME: "{{ __docker_stack_appspecs__stepca_ca_name }}"
+    ports:
+      - "{{ __docker_stack_appspecs__stepca_port }}:8443"
+    volumes:
+#      - step:/home/step
+#      - "{{ __docker_stack_appspecs__stepca_base_dir }}/passwd:/etc/passwd:ro"
+#      - "{{ __docker_stack_appspecs__stepca_base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack_appspecs__stepca_home_dir }}:/home/step"
+    restart: unless-stopped
+    stop_grace_period: 30s
+    labels:
+      traefik.enable: true
+      traefik.http.routers.stepca.entrypoints: https
+      traefik.http.routers.stepca.rule: Host(`stepca.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.stepca.service: stepca-svc
+      traefik.http.services.stepca-svc.loadbalancer.server.port: 8443
+      traefik.http.services.stepca-svc.loadbalancer.server.scheme: https
+

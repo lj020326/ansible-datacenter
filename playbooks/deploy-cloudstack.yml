@@ -1,0 +1,68 @@
+---
+
+## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
+## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
+## ref: https://github.com/ansible/ansible/issues/20360
+- name: "Gather facts for all hosts to apply OS specific group vars for them"
+  tags: always
+#  hosts: all
+  hosts: server_node
+  become: yes
+  become_method: sudo
+  become_user: root
+  remote_user: "{{ bootstrap_username }}"
+  vars_files:
+    - vars/secrets.yml
+  tasks:
+    - name: Classify hosts depending on their OS distribution
+      group_by:
+        key: os_{{ ansible_facts['distribution'] }}
+    - name: Print env var debug information
+      debug:
+        var: ansible_python_interpreter
+      tags: debug_ansible_env
+
+## Debugging purposes: print all internal variables
+## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
+- name: "Debug: Print all internal variables"
+#  hosts: localhost
+#  hosts: all
+  hosts: server_node
+  tags:
+    - debug-env-vars
+  tasks:
+    - name: Print env var debug information
+      vars:
+        msg: |
+          Environment Variables ("environment"):
+          --------------------------------
+          {{ environment | to_nice_json }}
+      debug:
+        msg: "{{ msg.split('\n') }}"
+      tags: debug_info
+
+- name: "Install Apache Cloudstack Compute"
+  tags:
+    - cloudstack-compute
+  hosts:
+    - cloudstack_compute
+  become: True
+  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: cloudstack-common
+
+- name: "Install Apache Cloudstack Master"
+  tags:
+    - cloudstack-master
+  hosts: cloudstack_master
+  become: True
+  become_method: sudo
+  become_user: root
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: cloudstack-common
+    - role: cloudstack-master
+

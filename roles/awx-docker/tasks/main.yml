@@ -1,0 +1,79 @@
+---
+
+- name: "Check docker vars"
+  include_tasks: check_docker.yml
+
+- name: "Build docker image"
+  include_tasks: build_image.yml
+  when: awx_dockerhub_base is not defined
+
+- name: "Push docker image"
+  include_tasks: push_image.yml
+  when: awx_docker_registry is defined and awx_dockerhub_base is not defined
+
+- name: Generate broadcast websocket secret
+  set_fact:
+    broadcast_websocket_secret: "{{ lookup('password', '/dev/null', length=128) }}"
+  run_once: true
+  no_log: true
+
+- name: Check for existing Postgres data
+  stat:
+    path: "{{ awx_postgres_data_dir }}/pgdata/PG_VERSION"
+  register: pg_version_file
+
+- name: Record Postgres version
+  set_fact:
+    old_pg_version: "{{ lookup('file', awx_postgres_data_dir + '/pgdata/PG_VERSION') }}"
+  when: pg_version_file.stat.exists
+
+- name: Determine whether to upgrade postgres
+  set_fact:
+    upgrade_postgres: "{{ old_pg_version is defined and old_pg_version == '9.6' }}"
+
+- name: Set up new postgres paths pre-upgrade
+  file:
+    state: directory
+    path: "{{ item }}"
+    recurse: true
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+  when: upgrade_postgres | bool
+  with_items:
+    - "{{ awx_postgres_data_dir }}/10/data"
+
+- name: Stop AWX before upgrading postgres
+#  docker_service:
+  docker_compose:
+    project_src: "{{ awx_docker_compose_dir }}"
+    stopped: true
+  when: upgrade_postgres | bool
+
+- name: Upgrade Postgres
+  shell: |
+    docker run --rm \
+      -v {{ awx_postgres_data_dir }}/pgdata:/var/lib/postgresql/9.6/data \
+      -v {{ awx_postgres_data_dir }}/10/data:/var/lib/postgresql/10/data \
+      -e PGUSER={{ awx_pg_username }} -e POSTGRES_INITDB_ARGS="-U {{ awx_pg_username }}" \
+      tianon/postgres-upgrade:9.6-to-10 --username={{ awx_pg_username }}
+  when: upgrade_postgres | bool
+
+- name: Copy old pg_hba.conf
+  copy:
+    src: "{{ awx_postgres_data_dir + '/pgdata/pg_hba.conf' }}"
+    dest: "{{ awx_postgres_data_dir + '/10/data/' }}"
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+  when: upgrade_postgres | bool
+
+- name: Remove old data directory
+  file:
+    path: "{{ awx_postgres_data_dir + '/pgdata' }}"
+    state: absent
+  when: awx_compose_start_containers|bool
+
+- name: "Set Image"
+  import_tasks: set_image.yml
+
+- name: "Run docker services"
+  import_tasks: compose.yml

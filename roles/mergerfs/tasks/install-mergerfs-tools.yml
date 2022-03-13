@@ -1,0 +1,45 @@
+---
+
+## ref: https://github.com/xattr/xattr/blob/master/INSTALLING.txt
+## ref:
+- name: "Install xattr"
+  pip:
+    name: "xattr"
+    state: present
+#    extra_args: --user
+
+- name: check to see if mergerfs-tools is already installed
+  command: "mergerfs.ctl info"
+  ignore_errors: true
+  register: mergerfs_tools_is_installed
+  changed_when: false
+
+- name: "Install mergerfs-tools"
+  when: mergerfs_tools_is_installed.rc != 0
+  block:
+
+    - name: "Check for existing mergerfs-tools src dir"
+      stat:
+        path: "{{ mergerfs_tools_src_dir }}"
+      register: mergerfs_tools_path
+    #  ignore_errors: true
+
+    ## ref: https://github.com/trapexit/mergerfs-tools/issues/47#issuecomment-333294102
+    - name: mergerfs-tools | clone git repo
+      when: not mergerfs_tools_path.stat.exists
+      git:
+        repo: https://github.com/trapexit/mergerfs-tools
+        dest: "{{ mergerfs_tools_src_dir }}"
+        force: yes
+
+    - name: mergerfs-tools | make
+      when: not mergerfs_tools_path.stat.exists
+      become: true
+      become_method: sudo
+      shell: make -f Makefile
+      args:
+        chdir: "{{ mergerfs_tools_src_dir }}"
+      changed_when: False
+      failed_when: False
+
+

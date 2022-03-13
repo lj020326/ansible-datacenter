@@ -1,0 +1,75 @@
+---
+- name: Add the OS specific varibles
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+#- name: Update System Packages
+#  package:
+#    name: '*'
+#    state: latest
+#    update_cache: yes
+
+## ref: https://docs.ansible.com/ansible/latest/modules/pip_module.html
+- name: Installing Common Ansible Packages
+  when: ansible_common_packages | length > 0
+  package:
+    name: '{{ ansible_common_packages }}'
+    state: present
+#    update_cache: yes
+
+- name: ensure {{ required_pip_libs | join(", ") }} is installed
+  become: Yes
+  become_user: "{{ ansible_local_user }}"
+  ## ref: https://github.com/plone/ansible.plone_server/issues/86
+  ## ref: https://docs.ansible.com/ansible/2.5/user_guide/become.html
+  ## ref: http://toroid.org/ansible-ssh-pipelining
+#  vars:
+#    ansible_ssh_pipelining: yes
+  pip:
+    name: "{{ required_pip_libs }}"
+    state: present
+    extra_args: "--user"
+#    executable: "{{ os_pip_bin }}"
+    executable: "{{ ansible_pip_interpreter }}"
+#    virtualenv_site_packages: yes
+
+#- name: Create ansible repo dir
+#  file:
+#    path: "{{ item }}"
+#    state: directory
+#    owner: "{{ ansible_local_user }}"
+#    group: "{{ ansible_local_user }}"
+##    group: "users"
+##    mode: 0755
+##      recurse: yes
+#  with_items:
+#    - "{{ ansible_repo_directory }}"
+#
+#- name: "get {{ ansible_repo_name }} repo source code"
+#  become: Yes
+#  become_user: "{{ ansible_local_user }}"
+#  ## ref: https://github.com/plone/ansible.plone_server/issues/86
+#  ## ref: https://docs.ansible.com/ansible/2.5/user_guide/become.html
+#  ## ref: http://toroid.org/ansible-ssh-pipelining
+#  vars:
+#    ansible_ssh_pipelining: yes
+#  git:
+#    repo: "{{ ansible_repo_source }}"
+#    accept_hostkey: yes
+#    dest: "{{ ansible_repo_source_directory }}"
+#    version: "{{ ansible_repo_source_version }}"
+#
+#- name: Update ansible dir
+#  file:
+#    path: "{{ item }}"
+#    state: directory
+#    owner: "{{ ansible_local_user }}"
+#    group: "{{ ansible_local_user }}"
+##    group: "users"
+##    mode: 0755
+#    recurse: yes
+#  with_items:
+#    - "{{ ansible_repo_directory }}"

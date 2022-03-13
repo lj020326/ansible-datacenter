@@ -1,0 +1,109 @@
+---
+
+docker_stack_appspec_services__wordpress:
+  wordpressdb:
+    container_name: wordpressdb
+    # this is the database used by Wordpress
+    image: mysql:5.7
+    restart: always
+    user: "{{ docker_user_uid }}:{{ docker_user_gid }}"
+    ports:
+      - "{{ __docker_stack_appspecs__wordpress_mysql_port }}:3306"
+    networks:
+      - net
+    environment:
+      # Connect WordPrerss to the database
+      MYSQL_DATABASE: wordpressdb
+      MYSQL_USER: "{{ __docker_stack_appspecs__wordpress_db_user }}"
+      MYSQL_PASSWORD: "{{ __docker_stack_appspecs__wordpress_db_password }}"
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      # Persist the database on disk
+#      - "./db:/var/lib/mysql"
+      - "{{ docker_stack_dir }}/wordpress/db:/var/lib/mysql"
+
+  ## ref: https://medium.com/@thibaut.deveraux/a-docker-compose-file-to-install-wordpress-with-a-traefik-reverse-proxy-an-ssl-certificate-and-a-e878c2a03a17
+  ## ref: https://serverfault.com/questions/987673/traefik-wordpress-redirecting
+  ## ref: https://github.com/docker-library/wordpress/pull/142
+  ## ref: https://github.com/moby/moby/issues/8674
+  ## ref: https://github.com/moby/moby/issues/38664
+  ## ref: https://github.com/moby/moby/issues/8460
+  ## ref: https://stackoverflow.com/questions/39329732/specify-sysctl-values-using-docker-compose/41496841
+  ## ref: https://hub.docker.com/_/wordpress?tab=tags&page=1&ordering=last_updated
+  wordpress:
+    container_name: wordpress
+#    image: "wordpress:latest"
+    image: "wordpress:php7.4-fpm-alpine"
+    restart: "unless-stopped"
+    user: "{{ docker_user_uid }}:{{ docker_user_gid }}"
+#    sysctls:
+#    - net.ipv4.ip_unprivileged_port_start=0
+#    privileged: true
+#    depends_on:
+#      - mariadb
+    depends_on:
+      - wordpressdb
+    links:
+      - wordpressdb:db
+    ports:
+      - "{{ __docker_stack_appspecs__wordpress_http_port }}:80"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    environment:
+      TZ: "{{ timezone }}"
+      # Connect wordpress to the database
+      WORDPRESS_DB_HOST: "db:{{ __docker_stack_appspecs__wordpress_mysql_port }}"
+      WORDPRESS_DB_NAME: wordpressdb
+      WORDPRESS_DB_USER: "{{ __docker_stack_appspecs__wordpress_db_user }}"
+      WORDPRESS_DB_PASSWORD: "{{ __docker_stack_appspecs__wordpress_db_password }}"
+      WORDPRESS_CONFIG_EXTRA: |
+              define('WP_SITEURL', '{{ __docker_stack_appspecs__wordpress_siteurl }}');
+              define('WP_HOME','{{ __docker_stack_appspecs__wordpress_siteurl }}');
+    volumes:
+      - "{{ docker_stack_dir }}/wordpress/html:/var/www/html"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=wordpress"
+#      - "traefik.port=80"
+#      - "traefik.protocol=http"
+      - "traefik.port=443"
+      - "traefik.protocol=https"
+      - "traefik.docker.network={{ docker_stack_traefik_proxy_network }}"
+
+      ## ref: https://serverfault.com/questions/987673/traefik-wordpress-redirecting
+#      - "traefik.http.routers.wordpress-https.rule=Host(`example.com`) && PathPrefix(`/myblog`)"
+#      - "traefik.http.routers.wordpress-http.rule=Host(`example.com`) && PathPrefix(`/myblog`)"
+#
+#      - "traefik.http.routers.wordpress-http.rule=Host:wp.{{ __docker_stack_appspecs__wordpress_external_domain }},wp.{{ __docker_stack_appspecs__wordpress_internal_domain }}"
+#      - "traefik.http.routers.wordpress-https.rule=Host:wp.{{ __docker_stack_appspecs__wordpress_external_domain }},wp.{{ __docker_stack_appspecs__wordpress_internal_domain }}"
+#      - "traefik.http.routers.wordpress-http.entrypoints=http"
+#      - "traefik.http.routers.wordpress-https.entrypoints=https"
+      - "traefik.http.routers.wordpress-https.middlewares=sslheaders@file"
+##        - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+##        - "traefik.http.services.wordpress.loadbalancer.server.port=80"
+#        - "traefik.http.routers.wordpress-https.tls"
+
+#      - "traefik.frontend.rule=Host:{{ __docker_stack_appspecs__wordpress_external_domain }},www.{{ __docker_stack_appspecs__wordpress_external_domain }},wp.{{ __docker_stack_appspecs__wordpress_internal_domain }}"
+#      - "traefik.frontend.rule=Host:{{ __docker_stack_appspecs__wordpress_external_domain }},wp.{{ __docker_stack_appspecs__wordpress_external_domain }},wp.{{ __docker_stack_appspecs__wordpress_internal_domain }}"
+#      - "traefik.frontend.rule=Host:wp.{{ __docker_stack_appspecs__wordpress_external_domain }},wp.{{ __docker_stack_appspecs__wordpress_internal_domain }}"
+      - "traefik.frontend.rule=Host:wp.{{ __docker_stack_appspecs__wordpress_internal_domain }}"
+      - "traefik.frontend.entrypoints=https"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost={{ __docker_stack_appspecs__wordpress_internal_domain }}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
+
+
+docker_stack_appspec__wordpress:
+  dirs: "{{ docker_stack_appspec_config_dirs__wordpress | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__wordpress | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__wordpress | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__wordpress | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__wordpress | d([]) }}"
+  docker_services: "{{ docker_stack_appspec_services__wordpress | d({}) }}"

@@ -1,0 +1,91 @@
+---
+- name: Create {{ awx_inventory_dir }} directory
+  file:
+    path: "{{ awx_inventory_dir }}"
+    state: directory
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+
+- name: Create {{ awx_docker_compose_dir }} directory
+  file:
+    path: "{{ awx_docker_compose_dir }}"
+    state: directory
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+
+- name: Create Redis socket directory
+  file:
+    path: "{{ awx_docker_compose_dir }}/redis_socket"
+    state: directory
+    mode: 0777
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+
+- name: Set redis config to other group readable to satisfy redis-server
+  file:
+    path: "{{ awx_docker_compose_dir }}/redis.conf"
+    mode: 0777
+
+- name: Create Docker Compose Configuration
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ awx_docker_compose_dir }}/{{ item.file }}"
+    mode: "{{ item.mode|d('0600') }}"
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+    backup: yes
+  loop: "{{ awx_container_config_templates }}"
+  register: awx_compose_config
+
+- name: Render SECRET_KEY file
+  copy:
+    content: "{{ awx_secret_key }}"
+    dest: "{{ awx_docker_compose_dir }}/SECRET_KEY"
+    mode: 0600
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+  register: awx_secret_key
+
+- name: "Start the awx containers"
+  when: awx_compose_start_containers|bool
+  block:
+
+    - debug:
+        var: awx_docker_compose_dir
+
+    - name: Remove AWX containers before migrating postgres so that the old postgres container does not get used
+      docker_compose:
+        project_src: "{{ awx_docker_compose_dir }}"
+        state: absent
+      ignore_errors: true
+
+    - name: Run migrations in task container
+      shell: docker-compose run --rm --service-ports task awx-manage migrate --no-input
+      args:
+        chdir: "{{ awx_docker_compose_dir }}"
+
+    - name: Start the containers
+      docker_compose:
+        project_src: "{{ awx_docker_compose_dir }}"
+        restarted: "{{ awx_compose_config is changed or awx_secret_key is changed }}"
+        state: present
+      register: awx_compose_start
+
+    - name: Update CA trust in awx_web container
+      command: "docker exec {{ awx_container_prefix }}_web '/usr/bin/update-ca-trust'"
+      when: awx_compose_config.changed or awx_compose_start.changed
+
+    - name: Update CA trust in awx_task container
+      command: "docker exec {{ awx_container_prefix }}_task '/usr/bin/update-ca-trust'"
+      when: awx_compose_config.changed or awx_compose_start.changed
+
+    - name: Wait for launch script to create user
+      wait_for:
+        timeout: 10
+#      delegate_to: localhost
+
+    - name: Create Preload data
+      command: "docker exec {{ awx_container_prefix }}_task bash -c '/usr/bin/awx-manage create_preload_data'"
+      when: awx_create_preload_data|bool
+      register: awx_cdo
+      changed_when: "'added' in awx_cdo.stdout"

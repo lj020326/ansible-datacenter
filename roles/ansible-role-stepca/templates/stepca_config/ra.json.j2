@@ -1,0 +1,92 @@
+{
+  "ra": {
+    "maxConcurrentRPCServerRequests": 10000,
+    "maxContactsPerRegistration": 3,
+    "debugAddr": "127.0.0.1:9993",
+    "rateLimitPoliciesFilename": "config/policy_ratelimit.yml",
+    "weakKeyFile": "config/weak_keys.json",
+    "hostnamePolicyFile": "config/policy_hostname.yml",
+    "blockedKeyFile": "config/blocked_keys.yml",
+    "maxNames": 100,
+    "reuseValidAuthz": true,
+    "authorizationLifetimeDays": 30,
+    "pendingAuthorizationLifetimeDays": 7,
+    "orderLifetime": "168h",
+    "issuerCertPath":  "certs/web/{{ issuing_ca_crtname }}",
+    "DoNotForceCN": true,
+    "tls": {
+      "caCertFile": "certs/grpc/ca.crt",
+      "certFile": "certs/grpc/stepca-ra.crt",
+      "keyFile": "certs/grpc/stepca-ra.key"
+    },
+    "vaService": {
+      "serverAddress": "stepca-va.{{ ansible_fqdn }}:{{ app_conf.va.network.grpc }}",
+      "timeout": "20s"
+    },
+    "caService": {
+      "serverAddress": "stepca-ca.{{ ansible_fqdn }}:{{ app_conf.ca.network.grpc.ca }}",
+      "timeout": "15s"
+    },
+    "saService": {
+      "serverAddress": "stepca-sa.{{ ansible_fqdn }}:{{ app_conf.sa.network.grpc }}",
+      "timeout": "15s"
+    },
+    "publisherService": {
+      "serverAddress": "stepca-publisher.{{ ansible_fqdn }}:{{ app_conf.publisher.network.grpc }}",
+      "timeout": "15s"
+    },
+    "grpc": {
+      "address": "127.0.0.1:{{ app_conf.ra.network.grpc }}",
+      "clientNames": [
+        "stepca-wfe2.{{ ansible_fqdn }}",
+        "admin-revoker.{{ ansible_fqdn }}"
+      ]
+    },
+    "CTLogGroups2": [
+      {
+        "name": "Local CT log instance",
+        "stagger": "500ms",
+        "logs": [
+          {
+{% if ctlog_sharding | bool %}
+            "shards": [
+{% for shard in ctlog_shards %}
+              {
+                "uri": "http://127.0.0.1:{{ ctfe_server_http }}/{{ shard.prefix }}",
+                "key": "@@TOBEREPLACED@@",
+                "windowStart": "{{ shard.start }}",
+                "windowEnd": "{{ shard.end }}"
+              }{{ ',' if not loop.last }}
+{% endfor %}
+            ],
+{% else %}
+            "uri": "http://127.0.0.1:{{ ctfe_server_http }}/{{ ctlog_shards[0].prefix if stepca_ca_server else "" }}",
+            "key": "@@TOBEREPLACED@@",
+{% endif %}
+            "submitFinalCert": true
+          }
+        ]
+      }
+    ],
+    "InformationalCTLogs": [
+    ],
+    "features": {
+{% for k, v in app_conf.ra.features.items() %}
+      "{{ k }}": {{ v | lower }}{{ ',' if not loop.last else '' }}
+{% endfor %}
+    }
+  },
+
+  "pa": {
+    "challenges": {
+      "http-01": true,
+      "dns-01": true,
+      "tls-alpn-01": true
+    }
+  },
+
+  "syslog": {
+    "stdoutlevel": 6,
+    "sysloglevel": 4
+  }
+}

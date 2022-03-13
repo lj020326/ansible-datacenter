@@ -1,0 +1,178 @@
+---
+
+docker_config: {}
+docker__edition: "ce"
+docker__channel: ["stable"]
+docker__version: ""
+docker__state: "present"
+
+docker__compose_version: ""
+
+#docker__users: ["{{ ansible_env.SUDO_USER | d('root') }}"]
+docker__users: ["{{ ansible_env.USER | d('root') }}"]
+
+docker__registries: []
+
+docker__default_daemon_json: []
+#docker__default_daemon_json: |
+#  "log-driver": "journald"
+
+docker__daemon_json: ""
+
+docker__daemon_flags:
+  - "-H unix://"
+
+docker__daemon_environment: []
+
+docker__systemd_override: ""
+
+docker__cron_jobs_prune_flags: "af"
+docker__cron_jobs:
+  - name: "Docker disk clean up"
+    job: "docker system prune -{{ docker__cron_jobs_prune_flags }} > /dev/null 2>&1"
+    schedule: ["0", "0", "*", "*", "0"]
+    cron_file: "docker-disk-clean-up"
+    user: "{{ (docker__users | first) | d('root') }}"
+
+#docker__package_dependencies:
+#  - "apt-transport-https"
+#  - "ca-certificates"
+#  - "cron"
+#  - "gnupg2"
+#  - "software-properties-common"
+#
+#docker__apt_key_id: "9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
+#docker__apt_key_url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+#docker__apt_repository: >
+#  deb [arch=amd64]
+#  https://download.docker.com/linux/{{ ansible_distribution | lower }}
+#  {{ ansible_distribution_release }} {{ docker__channel | join (' ') }}
+
+docker__pip_dependencies:
+  - "python-setuptools"
+  - "python{{ '3' if ansible_python.version.major == 3 else '' }}-pip"
+
+docker__pip_virtualenv: "/usr/local/lib/docker/virtualenv"
+
+docker__default_pip_packages:
+  - name: "docker"
+    state: "{{ docker__pip_docker_state }}"
+    virtual_env_state: "{{ docker__pip_docker_state }}"
+  - name: "docker-compose"
+    version: "{{ docker__compose_version | d(omit) }}"
+    path: "/usr/local/bin/docker-compose"
+    src: "{{ docker__pip_virtualenv + '/bin/docker-compose' }}"
+#    state: "absent"
+    state: "{{ docker__pip_docker_compose_state }}"
+    virtual_env_state: "{{ docker__pip_docker_compose_state }}"
+docker__pip_packages: []
+
+docker__pip_docker_state: "present"
+docker__pip_docker_compose_state: "present"
+#docker__pip_docker_compose_state: "forcereinstall"
+
+### firewall
+docker_server__unencrypted_tcp_port: '2375'
+docker_server__tls_tcp_port: '2376'
+docker_firewalld_ports:
+  - "{{ docker_server__unencrypted_tcp_port }}/tcp"
+  - "{{ docker_server__tls_tcp_port }}/tcp"
+
+#ansible_python_docker_interpreter: "/usr/bin/env python-docker"
+ansible_python_docker_interpreter: "/usr/local/bin/python-docker"
+
+### setup docker app user
+
+#
+## admin user
+docker_user_username: container-user
+docker_user_password: container-user
+docker_user_group: container-user
+docker_user_shell: /bin/bash
+docker_user_sudo_access: no
+
+#docker_user_home: "/home/{{docker_user_username}}"
+
+docker_user_groups:
+  CentOS: &rhgroups
+    - adm
+    - cdrom
+#    - dip
+    - docker
+  Fedora: *rhgroups
+  Scientific: *rhgroups
+
+  Debian: &debgroups
+    - adm
+    - cdrom
+    - dip
+    - plugdev
+    - docker
+  Ubuntu: *debgroups
+
+docker_sudo_group:
+  CentOS: &rhsudogroup wheel
+  Fedora: *rhsudogroup
+  Scientific: *rhsudogroup
+  Debian: &debsudogroup sudo
+  Ubuntu: *debsudogroup
+
+## consistent with docker setup role (avinetworks.docker)
+## defaults file for avinetworks.docker
+docker_options:
+  api-cors-header: "{{ docker_api_cors_header | default(None) }}"
+  authorization-plugins: "{{ docker_authorization_plugins | default(None) }}"
+  bip: "{{ docker_bip | default(None) }}"
+  bridge: "{{ docker_bridge | default(None) }}"
+  cgroup-parent: "{{ docker_cgroup_parent | default(None) }}"
+  cluster-store: "{{ docker_cluster_store | default(None) }}"
+  cluster-store-opts: "{{ docker_cluster_store_opts | default(None) }}"
+  cluster-advertise: "{{ docker_cluster_advertise | default(None) }}"
+  debug: "{{ docker_debug | default(None) }}"
+  default-gateway: "{{ docker_default_gateway | default(None) }}"
+  default-gateway-v6: "{{ docker_default_gateway_v6 | default(None) }}"
+  default-runtime: "{{ docker_default_runtime | default(None) }}"
+  default-ulimits: "{{ docker_default_ulimits | default(None) }}"
+  disable-legacy-registry: "{{ docker_disable_legacy_registry | default(None) }}"
+  dns: "{{ docker_dns | default(None) }}"
+  dns-opts: "{{ docker_dns_opts | default(None) }}"
+  dns-search: "{{ docker_dns_search | default(None) }}"
+  exec-opts: "{{ docker_exec_opts | default(None) }}"
+  exec-root: "{{ docker_exec_root | default(None) }}"
+  fixed-cidr: "{{ docker_fixed_cidr | default(None) }}"
+  fixed-cidr-v6: "{{ docker_fixed_cidr_v6 | default(None) }}"
+  graph: "{{ docker_graph | default(None) }}"
+  group: "{{ docker_group | default(None) }}"
+  hosts: "{{ docker_hosts | default(None) }}"
+  icc: "{{ docker_icc | default(None) }}"
+  insecure-registries: "{{ docker_insecure_registries | default(None) }}"
+  ip: "{{ docker_ip | default(None) }}"
+  iptables: "{{ docker_iptables | default(None) }}"
+  ipv6: "{{ docker_ipv6 | default(None) }}"
+  ip-forward: "{{ docker_ip_forward | default(None) }}"
+  ip-masq: "{{ docker_ip_masq | default(None) }}"
+  labels: "{{ docker_labels | default(None) }}"
+  live-restore: "{{ docker_live_restore | default(None) }}"
+  log-driver: "{{ docker_log_driver | default(None) }}"
+  log-level: "{{ docker_log_level | default(None) }}"
+  log-opts: "{{ docker_log_opts | default(None) }}"
+  max-concurrent-downloads: "{{ docker_max_concurrent_downloads | default(None) }}"
+  max-concurrent-uploads: "{{ docker_max_concurrent_uploads | default(None) }}"
+  mtu: "{{ docker_mtu | default(None) }}"
+  oom-score-adjust: "{{ docker_oom_score_adjust | default(None) }}"
+  pidfile: "{{ docker_pidfile | default(None) }}"
+  raw-logs: "{{ docker_raw_logs | default(None) }}"
+  registry-mirrors: "{{ docker_registry_mirrors | default(None) }}"
+  runtimes: "{{ docker_runtimes | default(None) }}"
+  selinux-enabled: "{{ docker_selinux_enabled | default(None) }}"
+  swarm-default-advertise-addr: "{{ docker_swarm_default_advertise_addr | default(None) }}"
+  storage-driver: "{{ docker_storage_driver | default(None) }}"
+  storage-opts: "{{ docker_storage_opts | default(None) }}"
+  tls: "{{ docker_tls | default(None) }}"
+  tlscacert: "{{ docker_tlscacert | default(None) }}"
+  tlscert: "{{ docker_tlscert | default(None) }}"
+  tlskey: "{{ docker_tlskey | default(None) }}"
+  tlsverify: "{{ docker_tlsverify | default(None) }}"
+  userland-proxy: "{{ docker_userland_proxy | default(None) }}"
+  userns-remap: "{{ docker_userns_remap | default(None) }}"
+

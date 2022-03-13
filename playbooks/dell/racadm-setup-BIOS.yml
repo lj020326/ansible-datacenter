@@ -1,0 +1,232 @@
+--- # Base iDRAC config for Dell PowerEdge R620, R630 and R730xd servers. 
+- gather_facts: false
+  name: Basic iDRAC configuration
+  hosts: idrac_hosts
+  become_user: root
+  become: yes
+  vars:
+    target_array:
+      - { target: 'BIOS.SysProfileSettings.SysProfile', job_target: 'Bios.Setup.1-1', target_set: 'SysProfile', value: 'PerfOptimized' }
+      - { target: 'bios.biosbootsettings.BootMode', job_target: 'Bios.Setup.1-1', target_set: 'BootMode', value: 'Bios' }
+      - { target: 'nic.nicconfig.1.LegacyBootProto', job_target: 'NIC.Integrated.1-1-1', target_set: 'LegacyBootProto', value: 'NONE' }
+      - { target: 'nic.nicconfig.3.LegacyBootProto', job_target: 'NIC.Integrated.1-3-1', target_set: 'LegacyBootProto', value: 'PXE' }
+  tasks:
+
+    - name: Add Dell System Update Repository_OSIndependent
+      connection: local
+      yum_repository:
+        name: dell-system-update_independent
+        description: dell-system-update_independent
+        file: dell_system_repos
+        baseurl: http://linux.dell.com/repo/hardware/dsu/os_independent/
+        gpgcheck: yes
+        gpgkey: http://linux.dell.com/repo/hardware/dsu/public.key
+        enabled: yes
+        exclude: dell-system-update*.i386
+        state: present
+
+
+    - name: Add Dell System Update Repository_OSDependent
+      connection: local
+      yum_repository:
+        name: dell-system-update_dependent
+        description: dell-system-update_dependent
+        file: dell_system_repos
+        mirrorlist: http://linux.dell.com/repo/hardware/dsu/mirrors.cgi?osname=el$releasever&basearch=$basearch&native=1
+        gpgcheck: yes
+        gpgkey: http://linux.dell.com/repo/hardware/dsu/public.key
+        enabled: yes
+        state: present
+
+
+    - name: Install Dell iDRAC and All server Utilities
+      connection: local
+      yum:
+        name: srvadmin-all
+        state: present
+
+
+    - name: Install Dell iDRAC RACADM
+      connection: local
+      yum:
+        name: srvadmin-idracadm7
+        state: present
+
+#    - name: Check for any Scheduled Jobs
+#      raw: racadm jobqueue view
+#      register: pre_jobqueue_status
+#    - name: debug - Check for any Scheduled Jobs
+#      debug: var=pre_jobqueue_status.stdout_lines
+#
+#    - name: Reboot the iDRAC to complete the Scheduled jobs
+#      raw: racadm serveraction powercycle
+#      register: reboot_status
+#      failed_when: "'ERROR' in reboot_status.stdout or 'Invalid' in reboot_status.stdout"       
+#      when: 'pre_jobqueue_status.stdout != "" and (pre_jobqueue_status.stdout.find("Scheduled") >=0 or pre_jobqueue_status.stdout.find("New") >=0)' 
+#    - name: debug - Reboot the iDRAC to complete the Scheduled jobs
+#      debug: var=reboot_status.stdout
+#
+#    - name: Wait for all the jobs to be completed
+#      raw: racadm jobqueue view
+#      register: pre_jobqueue_completion
+#      until: pre_jobqueue_completion.stdout.find("Running") <= 0 and pre_jobqueue_completion.stdout.find("Scheduled") <= 0 and pre_jobqueue_completion.stdout.find("New") <= 0
+#      retries: 20
+#      delay: 30
+#    - name: debug - Wait for all the jobs to be completed 
+#      debug: var=pre_jobqueue_completion.stdout_lines
+#
+    - name: Get Status of the Target
+      raw: racadm get "{{ item.target }}"
+      with_items:
+        - "{{ target_array }}"
+      register: target_status
+
+#    - debug: msg="{{ target_array | map(attribute='target_set') | list }}""<-->""{{ target_status.results | map(attribute='stdout') | list }}"
+    - debug: msg="{{ target_array | map(attribute='target_set') | list }}"
+    - debug: msg="{{ target_status.results | map(attribute='stdout_lines') | list }}"
+
+    #- debug: var=item.stdout_lines
+    #  with_items:
+    #    - "{{ target_status.results }}"
+    #- meta: end_play
+
+    #- debug:
+        #var: item.0.target_set,item.1.stdout_lines 
+        #msg: "{{item.0|map(attribute='target_set')}}{{item.1|map(attribute='stdout_lines')}}"
+    #  with_together:
+    #    - "{{ target_array }}"
+    #    - "{{ target_status.results }}"
+
+    #- meta: end_play
+
+    - name: Executing the racadm set on the targets to have the expected value
+      raw: racadm set "{{ item.0.target }}" "{{ item.0.value }}"
+      #when: '("Pending" in {{item.1.stdout_lines}}) or ({{item.0.target_set}}"="{{item.0.value}} not in {{item.1.stdout_lines}})'
+      #failed_when: '"ERROR" in item.1.stdout or "Invalid" in item.1.stdout'
+      failed_when: '"ERROR" in set_status.stdout or "Invalid" in set_status.stdout'
+      when: "'Pending' in item.1.stdout_lines or ( (item.0.target_set ~ '=' ~ item.0.value) not in item.1.stdout_lines )"
+      with_together:
+        - "{{ target_array }}"
+        - "{{ target_status.results }}"
+      register: set_status
+   
+    - debug:
+        msg="{{ set_status.results | map(attribute='stdout') | list }}"
+
+
+#    - debug:
+#        msg: "{{ item.1.stdout }}"
+#      when: item.1.changed  == true
+##      changed_when: true
+## '"{{ item.changed == true }}"'
+#      failed_when: '"ERROR" in "{{ item.1.item }}"'
+##      with_items: "{{ set_status.results }}" 
+#      with_together:
+#        - "{{ target_array }}"
+#        - "{{ set_status.results }}"
+
+
+    - name: Creating a job for the new target change
+      #connection: local
+      #shell: /bin/echo 'racadm jobqueue create "{{ item.0.job_target }}"'
+      raw: racadm jobqueue create "{{ item.0.job_target }}"
+      register: jobcreate_status
+      when: item.1.changed == true
+      failed_when: '"ERROR" in "{{ item.1.item }}"'
+      with_together:
+        - "{{ target_array }}"
+        - "{{ set_status.results }}"
+
+    - meta: end_play
+
+    - debug:
+        msg: "{{ item.1.item }}"
+      when: item.1.changed  == True
+#      failed_when: '"ERROR" in "{{ item.1.item }}"'
+      with_together:
+        - "{{ target_array }}"
+        - "{{ jobcreate_status.results }}"
+
+
+    - name: Powercycle the server for the new job execution
+      #connection: local
+      #shell: /bin/echo 'racadm serveraction powercycle'
+      raw: racadm serveraction powercycle
+      when: item.1.changed  == True
+      with_together:
+        - "{{ target_array }}"
+        - "{{ jobcreate_status.results }}"
+      register: reboot_status
+
+    - debug: var=reboot_status.results.stdout 
+      #when: '"serveraction"
+
+    - debug: msg="{{ reboot_status.results|map(attribute='stdout')|list }}"
+
+
+    - name: Wait for all the jobs to be completed
+      raw: racadm jobqueue view
+      register: jobqueue_completion
+      until: jobqueue_completion.stdout.find("Running") <= 0 and jobqueue_completion.stdout.find("Scheduled") <= 0 and jobqueue_completion.stdout.find("New") <= 0
+      #until: jobqueue_completion.stdout_lines.find("Percent") >= 0 and jobqueue_completion.stdout_lines.find("Completed") >= 0 and jobqueue_completion.stdout_lines.find("Scheduled") <= 0
+      retries: 20
+      delay: 30
+      when: '"Server power operation successful" in "{{ reboot_status.results|map(attribute="stdout")|list }}"'
+      #with_items:
+      #  - "{{ reboot_status.results }}"
+
+    - debug: var=jobqueue_completion
+
+
+    - name: Clear All the Jobs
+      raw: racadm jobqueue delete --all
+      register: result_jobqueue
+
+    - debug: var=result_jobqueue
+
+    - name: racadm Boot Sequence Status
+      raw: racadm get BIOS.BiosBootSettings.BootSeq
+      register: get_bootseq_status
+
+    - debug: var=get_bootseq_status
+
+    - name: Change Boot Sequence Status, If it doesn't match the required preset
+      raw: racadm set BIOS.BiosBootSettings.BootSeq "HardDisk.List.1-1,NIC.Integrated.1-3-1"
+      register: set_bootseq_status
+      failed_when: '"ERROR" in set_bootseq_status.stdout or "BOOT016" in set_bootseq_status.stdout'
+      when: '"HardDisk.List.1-1,NIC.Integrated.1-3-1" not in get_bootseq_status.stdout or "Pending" in get_bootseq_status.stdout'
+
+    - debug: var=set_bootseq_status
+
+
+    - name: Create a job for boot sequence change
+      raw: racadm jobqueue create BIOS.Setup.1-1
+      register: jobstatus_set_bootseq
+      failed_when: '"ERROR" in jobstatus_set_bootseq.stdout'
+      when: set_bootseq_status | changed
+
+    - debug: var=jobstatus_set_bootseq
+#    - meta: end_play
+    - name: Powercycle the server for the Boot Sequence Job Execution
+      raw: racadm serveraction powercycle
+      register: reboot_status
+      failed_when: '"ERROR" in reboot_status.stdout'
+      when: '(jobstatus_set_bootseq | changed) and "Successfully scheduled a job" in jobstatus_set_bootseq.stdout'
+
+    - debug: var=reboot_status
+
+    - name: Wait for Boot Sequence Job to be completed
+      raw: racadm jobqueue view
+      register: jobqueue_completion
+      until: jobqueue_completion.stdout.find("Running") <= 0 and jobqueue_completion.stdout.find("Scheduled") <= 0 and jobqueue_completion.stdout.find("New") <= 0
+      retries: 20
+      delay: 30
+      when: '(reboot_status | changed) and "Server power operation successful" in reboot_status.stdout'
+
+    - debug: var=jobqueue_completion
+
+    - name: Clear All the Jobs
+      raw: racadm jobqueue delete --all
+      register: result_jobqueue
+
+    - debug: var=result_jobqueue

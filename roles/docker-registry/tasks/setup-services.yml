@@ -1,0 +1,95 @@
+---
+
+#- name: Install latest docker py with pip
+#  pip:
+#    name: docker
+
+- name: Create secure docker registry with auth enabled
+  when: registry_enable_auth
+  docker_container:
+    name: "{{ registry_container_name }}"
+    image: registry:2
+    restart_policy: unless-stopped
+    container_default_behavior: compatibility
+#    container_default_behavior: no_defaults
+    volumes:
+      - "{{ registry_cert_path }}:/certs"
+      - "{{ registry_auth_path }}:/auth"
+      - "{{ registry_config_path }}/config.yml:/etc/docker/registry/config.yml:ro"
+    env:
+      REGISTRY_HTTP_TLS_CERTIFICATE: "/certs/{{ registry_cert_file }}"
+      REGISTRY_HTTP_TLS_KEY: "/certs/{{ registry_key_file }}"
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "{{ registry_realm }}"
+      REGISTRY_AUTH_HTPASSWD_PATH: "/auth/{{ registry_auth_file }}"
+    ports:
+      - "{{ registry_host_port }}:{{ registry_container_port }}"
+  register: output
+
+- name: Create secure docker registry without auth enabled
+  when: not registry_enable_auth
+  docker_container:
+    name: "{{ registry_container_name }}"
+    image: registry:2
+    restart_policy: unless-stopped
+    container_default_behavior: compatibility
+#    container_default_behavior: no_defaults
+    volumes:
+      - "{{ registry_cert_path }}:/certs"
+      - "{{ registry_auth_path }}:/auth"
+      - "{{ registry_config_path }}/config.yml:/etc/docker/registry/config.yml:ro"
+    env:
+      REGISTRY_HTTP_TLS_CERTIFICATE: "/certs/{{ registry_cert_file }}"
+      REGISTRY_HTTP_TLS_KEY: "/certs/{{ registry_key_file }}"
+    ports:
+      - "{{ registry_host_port }}:{{ registry_container_port }}"
+  register: output
+
+## ref: https://github.com/ansible/ansible/issues/31377
+- name: Setup registry frontend container
+  docker_container:
+    name: registry-frontend
+#    hostname: registry-frontend
+    state: started
+    restart_policy: always
+    image: konradkleine/docker-registry-frontend:v2
+    container_default_behavior: compatibility
+#    container_default_behavior: no_defaults
+    links: "{{registry_container_name}}:registry"
+    ports:
+      - "{{ registry_frontend_port }}:443"
+    volumes:
+      - "{{ registry_cert_path }}/{{ registry_cert_file }}:/etc/apache2/server.crt:ro"
+      - "{{ registry_cert_path }}/{{ registry_key_file }}:/etc/apache2/server.key:ro"
+    env:
+      ENV_DOCKER_REGISTRY_HOST: registry
+      ENV_DOCKER_REGISTRY_PORT: "{{ registry_host_port }}"
+      ENV_USE_SSL: "yes"
+      ENV_DOCKER_REGISTRY_USE_SSL: "1"
+      FRONTEND_BROWSE_ONLY_MODE: "false"
+      ENV_REGISTRY_PROXY_FQDN: "{{ registry_proxy_fqdn }}"
+      ENV_REGISTRY_PROXY_PORT: "443"
+
+- block: ## Test docker registry
+  - name: Wait for registry to start
+    wait_for:
+      host: 127.0.0.1
+      port: "{{ registry_host_port }}"
+
+  - command: "{% raw %}docker inspect --format='{{ .State.Running }}' registry{% endraw %}"
+    register: container_state
+
+  - name: Should be running
+    assert:
+      that:
+        - container_state.stdout == 'true'
+
+  ## can also test using curl
+  ## curl -u testuser:testpassword -vkIsS https://media.johnson.int:5000/v2/
+  - name: Authenticate each user
+    when: registry_enable_auth
+    community.docker.docker_login:
+      registry_url: "https://localhost:5000"
+      username: "{{ item.username }}"
+      password: "{{ item.password }}"
+    with_items: "{{ registry_users }}"

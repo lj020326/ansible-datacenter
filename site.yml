@@ -1,0 +1,821 @@
+---
+
+## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
+## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
+## ref: https://github.com/ansible/ansible/issues/20360
+- name: "Gather facts for all hosts to apply OS specific group vars for them"
+  tags: always
+#  hosts: all
+  hosts: server_node
+  ## https://issues.jenkins-ci.org/browse/JENKINS-54557
+  ignore_unreachable: yes
+  ignore_errors: yes
+  become: yes
+  remote_user: "{{ bootstrap_username }}"
+  vars_files:
+    - vars/secrets.yml
+  vars:
+    ## ref: https://stackoverflow.com/questions/23074412/how-to-set-host-key-checking-false-in-ansible-inventory-file
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+    ansible_ssh_user: "{{ bootstrap_username }}"
+  tasks:
+    - name: Classify hosts depending on their OS distribution
+      changed_when: no
+      group_by:
+        key: os_{{ ansible_facts['distribution']|d('Unknown') }}
+
+    - name: Classify hosts depending on their OS distribution-version
+      changed_when: no
+      group_by:
+        key: os_{{ ansible_facts['distribution']|d('Unknown') }}_{{ ansible_facts['distribution_major_version']|d('Unknown') }}
+
+    - name: Print env var debug information
+      changed_when: no
+      tags: debug_ansible_env
+      debug:
+        msg:
+          - "ansible_host={{ ansible_host }}"
+          - "ansible_hostname={{ ansible_hostname | d('') }}"
+          - "ansible_fqdn={{ ansible_fqdn | d('') }}"
+          - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
+          - "ansible_os_family={{ ansible_os_family | d('unknown') }}"
+          - "ansible_distribution={{ ansible_distribution | d('unknown') }}"
+          - "ansible_distribution_release={{ ansible_distribution_release | d('unknown') }}"
+          - "ansible_distribution_major_version={{ ansible_distribution_major_version | d('unknown') }}"
+          - "ansible_python_interpreter={{ ansible_python_interpreter | d('unknown') }}"
+          - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('unknown') }}"
+          - "group_names={{ group_names | d('') }}"
+          - "ntp_servers={{ ntp_servers | d('') }}"
+          - "ca_domain={{ ca_domain | d('unknown') }}"
+          - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"
+          # - "ca_intermediate_certs_list={{ ca_intermediate_certs_list | d('') }}"
+          - "ca_subdomain={{ ca_subdomain | d('') }}"
+          - "ca_keyring_certs_dir={{ ca_keyring_certs_dir }}"
+          - "internal_domain={{ internal_domain | d('unknown') }}"
+          - "docker_stack_external_domain={{ docker_stack_external_domain | d('') }}"
+          - "docker_stack_internal_domain={{ docker_stack_internal_domain | d('') }}"
+          - "ca_intermediate_certs_config={{ ca_intermediate_certs_config | to_nice_json }}"
+
+    - name: "Print domain vars"
+      debug:
+        msg: "{{item}}"
+      loop:
+        - "ca_routes_dynamic: {{ca_routes_dynamic}}"
+        - "ca_service_routes_list: {{ca_service_routes_list}}"
+        - "ca_intermediate_certs_list_dynamic: {{ca_intermediate_certs_list_dynamic}}"
+        - "ca_intermediate_certs_list: {{ca_intermediate_certs_list}}"
+        - "bind_zone_hosts_dynamic: {{bind_zone_hosts_dynamic}}"
+        - "ca_internal_domains_dynamic: {{ca_internal_domains_dynamic}}"
+        - "ca_domains_dynamic: {{ca_domains_dynamic}}"
+
+
+
+## Debugging purposes: print all environment variables
+## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
+- name: "Debug: Print environment variables"
+#  hosts: all
+  hosts: server_node
+  tags:
+    - display-envvars
+    - debug-envvars
+    - debug-env-vars
+  tasks:
+    - name: Print env var debug information
+      vars:
+        msg: |
+          Environment Variables ("environment"):
+          --------------------------------
+          {{ environment | to_nice_json }}
+      debug:
+        msg: "{{ msg.split('\n') }}"
+      tags: debug_info
+
+## Debugging purposes: print all internal variables
+## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
+- name: "Debug: Print internal variables"
+#  hosts: all
+  hosts: server_node
+  tags:
+    - debug-vars
+    - display-vars
+  tasks:
+    - name: "Print env var debug information for {{ inventory_hostname }}"
+      debug:
+        var: hostvars[inventory_hostname]
+    #   tags:
+    #     - debug-hostvars
+    #     - display-hostvars
+
+    - name: "Print ca_domains_dynamic"
+      debug:
+        var: ca_domains_dynamic
+      tags:
+        - debug-domain-vars
+        - display-domain-vars
+    - name: "Print bind_zone_hosts_dynamic"
+      debug:
+        var: bind_zone_hosts_dynamic
+      tags:
+        - debug-domain-vars
+        - display-domain-vars
+    - name: "Print ca_intermediate_certs_config"
+      debug:
+        var: ca_intermediate_certs_config
+      tags:
+        - debug-domain-vars
+        - display-domain-vars
+    - name: "Print ca_intermediate_certs_list_dynamic"
+      debug:
+        var: ca_intermediate_certs_list_dynamic
+      tags:
+        - debug-domain-vars
+        - display-domain-vars
+    - name: "Print ca_intermediate_certs_list"
+      debug:
+        var: ca_intermediate_certs_list
+      tags:
+        - debug-domain-vars
+        - display-domain-vars
+    - name: "Print ca_service_routes_list"
+      debug:
+        var: ca_service_routes_list
+      tags:
+        - debug-domain-vars
+        - display-domain-vars
+#    - name: Print env var debug information
+#      vars:
+#        msg: |
+#          Inventory Variables for {{ inventory_hostname }}:
+#          --------------------------------
+#          {{ hostvars[inventory_hostname] | to_nice_json }}
+#      debug:
+#        msg: "{{ msg.split('\n') }}"
+#      tags: debug_info
+
+##
+## make sure this is running as bootstrap user
+## get pwd for this user using the --ask-pass directive,
+## and not the --ask-become-pass which is used for the sudo once logged in
+##
+## ref: https://stackoverflow.com/questions/41771725/ansible-2-1-2-playbook-pass-ssh-password-and-sudo-password-as-command-line-args
+## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
+##
+- name: "Bootstrap users"
+#  hosts: server_node:!vmware_nested_esx
+  hosts: linux_server_node
+  vars_files:
+    - vars/secrets.yml
+  vars:
+    ansible_ssh_user: "{{ bootstrap_username }}"
+#    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tags:
+    - bootstrap-user
+  become: yes
+#  become_method: sudo
+  remote_user: "{{ bootstrap_username }}"
+  gather_facts: false
+  roles:
+    - role: bootstrap-user
+
+## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
+## ref: https://github.com/nathancurry/homelab.ansible/tree/master
+- name: "Configure nameservers"
+  hosts: nameserver
+  gather_facts: true
+  become: true
+  tags:
+    - bootstrap-nameserver
+    - bootstrap-bind
+    - bind-node
+    - deploy-vm
+  vars_files:
+    - vars/secrets.yml
+  vars:
+    firewalld_ports: [ "{{ bind_firewalld_ports }}" ]
+  roles:
+#    - role: chronyclient
+#    - role: bertvv.bind
+#      tags: [bootstrap-bind]
+#    - role: bertvv.dhcp
+#      tags: [bootstrap-dhcp]
+    - role: ansible-role-bind
+#      tags: [ 'bootstrap-bind' ]
+#    - role: ansible-role-dhcp
+#      tags: [ 'bootstrap-dhcp' ]
+#    - role: repoclient
+    - role: firewall-config
+      tags: [ 'firewall-config-nameserver' ]
+
+- name: "Bootstrap linux"
+#  hosts: server_node:!vmware_esx_host
+  hosts: linux_server_node
+  tags:
+    - bootstrap-linux
+    - bootstrap-node-core
+    - bootstrap-node
+#    - deploy-vm
+  become: yes
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-linux
+
+## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
+- name: "Bootstrap CI/CD node"
+  hosts: cicd_node
+  tags:
+    - bootstrap
+    - bootstrap-cicd
+    - bootstrap-cicd-node
+    - cicd-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  vars:
+    firewalld_ports: [ "{{ cicd_firewalld_ports }}" ]
+  roles:
+    - role: firewall-config
+      tags: [ firewall-config-cicd ]
+    - role: geerlingguy.git
+    - role: gantsign.maven
+    - role: geerlingguy.ansible
+    - role: geerlingguy.packer
+    - role: jenkins-swarm-agent
+    - role: ansible-role-inspec
+    - role: ansible-role-govc
+    - role: ansible-role-ovftool
+
+- name: "Setup Jenkins Agent"
+  hosts: jenkins_agent
+  tags:
+    - bootstrap-jenkins-agent
+    - deploy-jenkins-agent
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: jenkins-swarm-agent
+    - role: ansible-role-inspec
+      tags: [ bootstrap-inspec ]
+
+- name: "Setup iscsi clients"
+  hosts:
+    - iscsi_client
+  tags:
+    - bootstrap
+    - bootstrap-iscsi
+    - iscsi-client
+  become: yes
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: iscsi-client
+
+- name: "Setup ntp clients"
+  hosts:
+    - ntp_client
+  tags:
+    - bootstrap-ntp
+    - bootstrap-ntp-client
+  become: yes
+  roles:
+    - role: geerlingguy.ntp
+
+
+## ref: https://blog.ktz.me/combining-zfs-with-other-filesystems-using-mergerfs/
+## ref: https://selfhostedhome.com/combining-different-sized-drives-with-mergerfs-and-snapraid/
+- name: "Setup mergerfs nodes"
+  hosts: mergerfs
+  tags:
+    - mergerfs
+    - bootstrap-mergerfs
+  vars_files:
+    - vars/secrets.yml
+  become: True
+#  become_method: sudo
+  roles:
+    - role: ansible-role-snapraid
+    - role: ansible-role-hddtemp
+#    - role: rossmcdonald.telegraf
+      ignore_errors: true
+#    - role: sanoid
+#    - role: syncoid
+    - role: mergerfs
+
+- name: "Install veeam-agent"
+  hosts: veeam_agent
+  become: true
+  vars_files:
+    - vars/secrets.yml
+  vars:
+    firewalld_ports: [ "{{ veeam_firewalld_ports }}" ]
+  tags:
+    - bootstrap-veeam
+    - bootstrap-veeam-agent
+    - setup-veeam-agent
+    - install-veeam-agent
+  roles:
+    - ansible.veeam-agent
+    - role: firewall-config
+      tags: [ 'firewall-config-veeamagent' ]
+
+- name: "Configure veeam-agent jobs"
+  hosts: veeam_agent
+  become: true
+  vars_files:
+    - vars/secrets.yml
+  tags:
+    - config-veeam-agent
+#    - bootstrap-veeam
+#    - bootstrap-veeam-agent
+  roles:
+    - ansible.veeam-agent-config
+
+
+#- name: "Bootstrap ldap client"
+#  hosts: ldap_client
+#  vars_files:
+#    - vars/secrets.yml
+#  tags:
+#    - bootstrap
+#    - bootstrap-node
+#    - ldap-client
+#  become: True
+#  become_method: sudo
+##  remote_user: "{{ bootstrap_username }}"
+##  gather_facts: false
+#  roles:
+##    - role: ldap-auth-client
+#    - role: ldap-client
+
+- name: "Bootstrap ansible node"
+  hosts: ansible_controller
+  tags:
+    - bootstrap
+    - bootstrap-admin
+    - bootstrap-ansible
+    - ansible-controller
+  become: True
+#  become_method: sudo
+#  vars_files:
+#    - vars/secrets.yml
+  roles:
+    - role: geerlingguy.ansible
+    - role: geerlingguy.git
+    - role: ansible-controller
+
+
+## setup step-ca pki, create CA certs and install CA certs
+- name: "Configure Step-ca cli for step clients"
+  hosts: step_ca_cli
+  tags:
+    - bootstrap-stepca
+    - bootstrap-stepca-cli
+#    - bootstrap-caroot
+#    - bootstrap-cacert
+  roles:
+    - role: ansible-role-stepca
+
+
+## setup pki, create CA certs and install CA certs
+##
+## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
+## ref: https://github.com/shelleg/ansible-role-ca/
+- name: "Setup ca_root and cacerts"
+  hosts: ca_keyring
+  gather_facts: false
+#  collections:
+#    - lvrfrc87.git_acp
+#  vars_files:
+#    - vars/secrets.yml
+  tags:
+    - bootstrap-keyring
+#    - bootstrap-cacert
+    - caroot
+    - caroot-create
+    - ca-keyring
+    - casigners-create
+#    - cacerts
+#    - cacerts-create
+#    - cacerts-update
+  become: yes
+#  become_method: sudo
+  roles:
+    - role: githubixx.cfssl
+#      vars:
+#        ansible_python_interpreter: "{{ os_python3_interpreter }}"
+    - role: bootstrap-keyring
+      tags: [cacerts-create]
+#      vars:
+#        ansible_python_interpreter: "{{ os_python_interpreter }}"
+
+- name: "Create CA certs for cert_node"
+#  hosts: server_node,!vmware_esx_host
+#  hosts: server_node
+#  hosts: linux_server_node
+  hosts: cert_node
+#  hosts: linux_server_node,cert_node
+  gather_facts: false
+  vars_files:
+    - vars/secrets.yml
+  tags:
+    - bootstrap-node
+    - bootstrap-cacert
+    - cacerts
+    - cacerts-update
+  become: yes
+#  become_method: sudo
+  roles:
+    - role: cacert-node
+
+- name: "Deploy CA certs to cert_node"
+#  hosts: server_node,!vmware_esx_host
+#  hosts: server_node
+#  hosts: linux_server_node,!dhcp_hosts
+  hosts: linux_server_node
+  gather_facts: false
+  vars_files:
+    - vars/secrets.yml
+  tags:
+    - bootstrap-node
+    - bootstrap-cacert
+    - cacerts
+    - cacerts-distribute
+    - cacerts-deploy
+    - cacerts-update
+    - deploy-cacerts
+  become: yes
+#  become_method: sudo
+  roles:
+    - role: deploy-cacerts
+
+- name: "Bootstrap kvm hosts"
+  hosts: kvm_host
+  gather_facts: false
+  become: yes
+  tags:
+    - bootstrap-kvm
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: mrlesmithjr.ansible-kvm
+
+## ref: https://docs.ansible.com/ansible/latest/modules/vmware_guest_module.html
+- name: "Deploy VM"
+  hosts:
+    - deploy_vm_node
+  tags:
+    - deploy-vm
+  gather_facts: false
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: ansible-role-govc
+    - role: deploy-vm
+
+
+## possibly need to install docker_service dependencies first
+## ref: https://github.com/avinetworks/ansible-role-docker
+## ref: https://github.com/suzuki-shunsuke/ansible-docker_service-dep/blob/master/tasks/main.yml
+## ref: https://github.com/ansible/ansible/issues/29510
+## ref: https://github.com/nickjj/ansible-docker
+- name: "Bootstrap docker nodes"
+  hosts: docker
+  vars_files:
+    - vars/secrets.yml
+  tags:
+    - bootstrap
+    - docker
+    - bootstrap-docker
+  become: True
+#  become_method: sudo
+  roles:
+    - role: avinetworks.docker
+    - role: docker-deploy-registry-certs
+      tags:
+        - deploy-docker-registry-certs
+        - deploy-registry-certs
+        - cacerts-update
+    - role: docker-config
+      tags:
+        - bootstrap-docker-config
+        - docker-config
+
+###########################
+# docker_registry install #
+###########################
+
+- name: "Create, tag and push docker images (ldap, jenkins, etc) to registry"
+  hosts:
+    - docker_image_builder
+  tags:
+    - bootstrap
+    - bootstrap-registry
+    - bootstrap-docker-images
+    - bootstrap-docker-admin-node
+    - docker-build-images
+    - build-docker-images
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: geerlingguy.git
+    - role: docker-image-builder
+
+
+- name: "Setup docker control plane node"
+  hosts:
+    - docker_control_node
+  tags:
+    - bootstrap-docker-stack
+    - bootstrap-docker-control-node
+    - docker-control-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: docker-stack
+
+- name: "Setup docker admin node : mail, nfs, docker (traefik, portainer, watchdog, ldap, etc)"
+  hosts:
+    - docker_admin_node
+  tags:
+    - bootstrap
+    - bootstrap-docker-stack
+    - bootstrap-docker-admin-node
+    - docker-stack
+    - docker-admin-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: docker-stack
+
+- name: "Setup docker media node"
+  hosts:
+    - docker_media_node
+  tags:
+    - bootstrap-docker-stack
+    - bootstrap-docker-media-node
+    - docker-media-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: docker-stack
+
+- name: "Setup docker ml node"
+  hosts: docker_ml_node
+  tags:
+    - bootstrap-docker-stack
+    - bootstrap-docker-ml-node
+    - docker-ml-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: docker-stack
+
+## ref: https://github.com/lae/ansible-role-proxmox
+- name: "Deploy ProxMox Cluster"
+  hosts: proxmox
+  tags:
+    - bootstrap-proxmox
+  become: True
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: ansible-role-proxmox
+      pve_group: proxmox
+#      pve_reboot_on_kernel_update: true
+
+
+- name: "Deploy VSphere Datacenter"
+  hosts:
+    - deploy_vsphere_dc
+  tags:
+    - deploy-vsphere-dc
+    - vsphere-deploy-dc
+#  gather_facts: false
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: vsphere-deploy-dc
+
+- name: "Bootstrap VMware ESXi servers"
+  hosts: vmware_physical_esx_host
+  tags:
+    - bootstrap-vmware-esxi
+    - deploy-vsphere-dc
+    - vsphere-deploy-dc
+  gather_facts: false
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-vmware-esxi
+    - role: vmware-esxi-hostconf
+
+- name: "VMware Upgrade ESXi servers"
+  hosts: vmware_physical_esx_host
+  tags:
+    - upgrade-vmware-esxi
+  gather_facts: false
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: vmware-upgrade-esxi
+
+- name: "VMware Remount VM Datastores"
+  hosts: deploy_vm_node
+  become: True
+  tags:
+    - remount-vmware-datastores
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: vmware-remount-datastores
+
+- name: "Bootstrap openstack"
+  hosts:
+    - openstack_kolla_node
+  tags:
+    - bootstrap
+    - bootstrap-openstack
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - name: Configure openstack deploy node
+      role: bootstrap-openstack
+
+- name: "Bootstrap k8s cluster"
+  hosts: k8s_cluster
+  tags:
+    - bootstrap
+    - bootstrap-k8s
+  become: True
+#  become_method: sudo
+  vars:
+    firewalld_ports: [ "{{ kube_firewalld_ports }}" ]
+  roles:
+    - role: firewall-config
+      tags: [ firewall-config-k8s ]
+
+## must first run the kolla-ansible (bootstrap-servers|prechecks|deploy)
+- name: "Bootstrap openstack cloud"
+  hosts:
+    - openstack_kolla_node
+  tags:
+    - bootstrap-openstack-cloud
+    - openstack-cloud
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  vars:
+    ansible_python_interpreter: "{{ ansible_openstack_python_interpreter }}"
+  roles:
+
+    - name: Configure openstack client
+      tags:
+        - bootstrap-openstack-osclient
+        - openstack-osclient
+      role: openstack-osclient
+      vars:
+        openstack_cloud_name: "{{ openstack_admin_cloud_name | default(omit) }}"
+
+    - name: Configure openstack environment
+      role: openstack-config-cloud
+      tags:
+        - openstack-cloud-config
+
+- name: Install AWX
+  hosts: docker_awx_node
+  tags:
+    - bootstrap
+    - bootstrap-awx
+    - docker-awx-node
+    - cacerts-update
+  become: true
+  vars:
+    ansible_python_interpreter: "{{ ansible_python_docker_interpreter }}"
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - awx-docker
+
+## fog-server
+## ref: https://github.com/ceph/ceph-cm-ansible/tree/master/roles/fog-server
+- name: Install FOG server
+  hosts: fog_server
+  become: true
+  tags:
+    - fog-server
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - fog-server
+#  vars_prompt:
+#    - name: "fog_force"
+#      prompt: "\nWARNING: It is not safe to run this role on a running FOG server that\nhas or may have scheduled tasks.\nDo you want to forcefully install/update/restart FOG? (yes|no)"
+#      default: "no"
+#      private: no
+
+- name: "Setup nginx"
+  hosts: nginx_service
+  tags:
+    - nginx-service
+  become: True
+#  become_method: sudo
+  roles:
+    - role: nginx-service
+
+
+- name: Bootstrap iDRAC Automation
+  hosts: dell_idrac_hosts
+#  connection: local
+  tags:
+    - bootstrap-dell-idrac-hosts
+    - bootstrap-idrac-hosts
+    - bootstrap-idrac
+    - dell-idrac-hosts
+  strategy: free
+  user: root
+  become: yes
+  gather_facts: false
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: dell-racadm-host
+
+# ref: https://dell.github.io/dellemc-openmanage-ansible-modules/GUID-EA8B2754-D62E-4D2C-8951-636D49B0CAA5.html
+- name: Get iDRAC LC Ready Status
+  hosts: dell_idrac_hosts
+  tags:
+    - dell-idrac-get-host-info
+  connection: local
+  gather_facts: False
+  collections:
+    - dellemc.openmanage
+  vars_files:
+    - vars/secrets.yml
+  tasks:
+    - name: Get hardware inventory
+#      dellemc_get_system_inventory:
+      idrac_system_info:
+        idrac_ip:  "{{ idrac_ip }}"
+        idrac_port: '443'
+        idrac_user:  "{{ idrac_user }}"
+        idrac_password:  "{{ idrac_password }}"
+
+    ## ref: https://github.com/dell/dellemc-openmanage-ansible-modules/blob/collections/playbooks/idrac/idrac_lifecycle_controller_status_info.yml
+    - name: Check LC Ready Status
+#      dellemc_get_lcstatus:
+      idrac_lifecycle_controller_status_info:
+        idrac_ip:   "{{ idrac_ip }}"
+        idrac_port: '443'
+        idrac_user: "{{ idrac_user }}"
+        idrac_password:  "{{ idrac_password }}"
+
+## ref: https://github.com/jonas-werner/ansible-playbooks/blob/master/set_ntp_values.yml
+- name: Change iDRAC NTP Attributes
+  hosts: dell_idrac_hosts
+  tags:
+    - dell-idrac-config-ntp
+  connection: local
+  gather_facts: False
+  vars:
+#    ntpserver1: "1.jp.pool.ntp.org"
+#    ntpserver1: "192.168.0.1"
+    ntpserver1: "{{ gateway_ip4_subnet_1_2 }}.0.1"
+
+  vars_files:
+    - vars/secrets.yml
+  tasks:
+
+    - name: Enable NTP and set NTP server and Time zone attributes in iDRAC
+      idrac_redfish_config:
+        category: Manager
+        command: SetManagerAttributes
+        resource_id: iDRAC.Embedded.1
+        manager_attributes:
+          NTPConfigGroup.1.NTPEnable: "Enabled"
+          NTPConfigGroup.1.NTP1: "{{ ntpserver1 }}"
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ idrac_user }}"
+        password: "{{ idrac_password }}"
+
+

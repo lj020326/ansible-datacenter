@@ -1,0 +1,68 @@
+---
+
+- name: "caroot | Set Fact keyring_cacerts_dir"
+  set_fact:
+#    ca_domain: "{{ ca_root.domainName }}"
+    keyring_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_root.domainName }}"
+    ca_cert: "{{ ca_root.domainName }}.pem"
+    ca_key: "{{ ca_root.domainName }}-key.pem"
+
+- name: "caroot | Display ca info"
+  debug:
+    msg:
+      - "ca_domain={{ ca_domain }}"
+      - "keyring_cacerts_dir={{ keyring_cacerts_dir }}"
+      - "ca_root={{ ca_root }}"
+      - "ca_root_names={{ ca_root_names }}"
+      - "ca_cert={{ ca_cert }}"
+      - "ca_key={{ ca_key }}"
+
+- name: "create_caroot | Perform cacert validations"
+  include_tasks: validate_cacerts.yml
+
+- name: "create_caroot | Create intermediate certificate authority key pair and CSR"
+  when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or ca_force_create|bool
+  block:
+
+  - name: "caroot | Create domain configuration directories"
+    file:
+      path: "{{ keyring_cacerts_dir }}"
+      state: directory
+      owner: root
+      group: root
+      mode: 0755
+
+  - name: "caroot | Create CA CSR json"
+    template:
+      src: "ca/ca-root-csr.json.j2"
+      dest: "{{ keyring_cacerts_dir }}/{{ ca_root.commonName }}.json"
+      mode: 0600
+
+  ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
+  ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
+  - name: "caroot | Create certificate authority key pair and CSR"
+    shell: "cfssl genkey -initca {{ ca_root.commonName }}.json | cfssljson -bare {{ ca_root.commonName }}"
+    args:
+      chdir: "{{ keyring_cacerts_dir }}"
+  #    creates: "{{ keyring_cacerts_dir }}/{{ pki_caroot_key }}"
+
+## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
+- name: "caroot | Get ca root certificate info"
+  openssl_certificate_info:
+#    path: /etc/ssl/crt/ansible.com.crt
+    path: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+  register: cacert_result
+
+- name: "caroot | Display ca root cert info"
+  debug: var=cacert_result
+
+- name: "caroot | Assert CA root cert info is valid"
+  assert:
+    that:
+      # issuer and issuer_strict
+      - cacert_result.issuer.commonName == "{{ ca_root.commonName }}"
+      - cacert_result.issuer.organizationName == "{{ ca_root.organization }}"
+      - cacert_result.subject.commonName == "{{ ca_root.commonName }}"
+      - cacert_result.subject.organizationName == "{{ ca_root.organization }}"
+      # has_expired
+      - not cacert_result.expired

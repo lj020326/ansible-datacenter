@@ -1,0 +1,51 @@
+---
+
+- name: Install pip3
+  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu')
+  tags:
+    - package
+    - pip
+  package:
+    state: present
+    name:
+      - python3-pip
+
+#- name: Install virtualenvwrapper
+#  command: pip install {{ item }}
+#  with_items:
+#    - virtualenv
+#    - virtualenvwrapper
+
+## ref: https://docs.ansible.com/ansible/latest/modules/pip_module.html
+- name: Install virtualenvwrapper
+  tags:
+    - pip
+  pip:
+    name:
+      - virtualenv
+      - virtualenvwrapper
+
+- name: create directory to store virtualenvs
+  tags:
+    - pip
+  file:
+    path: /home/{{ deployer_username }}/virtualenvs
+    state: directory
+    mode: 0755
+    owner: "{{ deployer_username }}"
+    group: "{{ deployer_username }}"
+
+#- name: copy .bashrc to home folder
+#  copy:
+#    src: bashrc
+#    dest: /home/{{ deployer_username }}/.bashrc
+#    mode: 0644
+#    owner: "{{ deployer_username }}"
+
+- name: insert/update configuration using a local file and validate it
+  tags:
+    - pip
+  blockinfile:
+    block: "{{ lookup('file', 'bashrc') }}"
+    dest: /home/{{ deployer_username }}/.bashrc
+    backup: yes

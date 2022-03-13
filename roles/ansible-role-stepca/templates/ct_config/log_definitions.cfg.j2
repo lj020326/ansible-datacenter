@@ -1,0 +1,25 @@
+{%- macro __config_frags(item) %}
+config {
+        log_id: {{ item.id }}
+        prefix: "{{ item.prefix }}"
+        roots_pem_file: "{{ ct_install_root + "/config/" + item.root }}"
+        public_key: {
+               der: "{{ lookup("file", secret + "/certificates/" + ansible_fqdn + "/ctlog/" + item.prefix + ".pub") | decap_pem | rawb64decode | dump_byte_string }}"
+        }
+        private_key: {
+                [type.googleapis.com/keyspb.PrivateKey] {
+                        der: "{{ lookup("file", secret + "/certificates/" + ansible_fqdn + "/ctlog/" + item.prefix + ".key") | decap_pem | rawb64decode | dump_byte_string }}"
+                }
+        }
+{% if item.start | d(0) > 0 %}
+        not_after_start: <second:{{ (item.start | to_datetime).strftime("%s") }}>
+{% endif %}
+{% if item.end | d(0) > 0 %}
+        not_after_limit: <second:{{ (item.end | to_datetime).strftime("%s") }}>
+{% endif %}
+        max_merge_delay_sec: 86400
+}
+{%- endmacro %}
+{% for shard in __all_shards %}
+{{ __config_frags(shard) }}
+{% endfor %}

@@ -1,0 +1,63 @@
+---
+- include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Display keyring_admin_user
+  debug:
+    var: keyring_admin_user
+
+- name: Get CA common facts
+  include_tasks: get_ca_common_facts.yml
+
+- name: "Ensure python libs are installed for {{ ansible_pip_interpreter }}"
+  when: keyring_required_pip_libs is defined and keyring_required_pip_libs | count > 0
+  pip:
+    name: "{{ keyring_required_pip_libs }}"
+    state: present
+    extra_args: "--user"
+#    executable: "{{ ansible_pip_interpreter }}"
+    executable: pip3
+
+- name: "Ensure openssl is installed"
+  package:
+    name: openssl
+    state: present
+
+- name: Create and validate ca root certificate
+  when: ca_init|bool # defaults to false ...
+  vars:
+    ca_cert_type: "root-ca"
+  include_tasks: create_caroot.yml
+
+- name: Create and validate intermediate certificates
+  when: ca_init|bool # defaults to false ...
+  vars:
+    ca_cert_type: "intermediate-ca"
+  include_tasks: create_cert.yml
+  loop: "{{ ca_intermediate_certs_list | map(attribute='commonName') | list }}"
+  loop_control:
+    loop_var: cert_node
+
+- name: Create and validate certificates for service routes
+  when: ca_certify_routes|bool # defaults to false ...
+  vars:
+    ca_cert_type: "service-route"
+  include_tasks: create_cert.yml
+  loop: "{{ ca_service_routes | list }}"
+  loop_control:
+    loop_var: cert_node
+
+- name: Create and validate certificates for nodes
+  when: ca_certify_nodes|bool # defaults to false ...
+  include_tasks: create_cert.yml
+  loop: "{{ groups['cert_node'] }}"
+  loop_control:
+    loop_var: cert_node
+
+#- name: "Fetch certs and keys"
+##  when: ca_update_certrepo|bool
+#  include_tasks: "get_cert_repo.yml"
+#
+#- name: "Update cert repo"
+#  when: ca_update_certrepo|bool
+#  include_tasks: "update_cert_repo.yml"
+

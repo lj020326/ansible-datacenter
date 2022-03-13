@@ -1,0 +1,24 @@
+---
+
+- name: Set the firewall services
+  when:
+    - docker_stack_app_configs[item].firewalld_services is defined
+    - docker_stack_app_configs[item].firewalld_services | length > 0
+  set_fact:
+    docker_stack_firewalld_services: "{{ docker_stack_app_configs[item].firewalld_services | flatten | unique }}"
+  with_items: "{{ __docker_stack_services }}"
+
+- name: Set the firewall ports
+  when:
+    - docker_stack_app_configs[item].firewalld_ports is defined
+    - docker_stack_app_configs[item].firewalld_ports | length > 0
+  set_fact:
+    docker_stack_firewalld_ports: "{{ docker_stack_app_configs[item].firewalld_ports | flatten | unique }}"
+  with_items: "{{ __docker_stack_services }}"
+
+- name: configure firewall for docker stack apps
+  include_role:
+    name: firewall-config
+  vars:
+    firewalld_services: [ "{{ docker_stack_firewalld_services | default(omit) }}" ]
+    firewalld_ports: [ "{{ docker_stack_firewalld_ports | default(omit) }}" ]

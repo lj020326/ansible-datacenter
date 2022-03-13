@@ -1,0 +1,26 @@
+---
+
+- name: "get_cert_facts | Set ca_intermediate_certs fact"
+  set_fact:
+    ca_intermediate_certs: "{{ ca_intermediate_certs|default({}) | combine( { item.commonName: item } )  }}"
+  loop: "{{ ca_intermediate_certs_list }}"
+
+- name: "get_cert_facts | Set ca_signer_certs"
+  set_fact:
+    ca_signer_certs: "{{ { ca_root_cn: ca_root } | combine(ca_intermediate_certs) }}"
+    ## ref: https://stackoverflow.com/questions/37287013/how-to-convert-a-dictionary-of-dictionaries-into-a-list-of-dictionaries-in-a-ans
+    ca_intermediate_cert_list: "{{ ca_intermediate_certs.values() | list }}"
+
+- name: "get_cert_facts | Set ca_intermediate_certs_by_domain fact"
+  set_fact:
+    ca_intermediate_certs_by_domain: "{{ ca_intermediate_certs_by_domain|default({}) | combine( { item.domainName: item } ) }}"
+  loop: "{{ ca_intermediate_certs_list }}"
+
+- name: "get_cert_facts | Set ca_service_routes fact"
+  set_fact:
+    ca_service_routes: "{{ ca_service_routes|default({}) | combine( { item.route: item } ) }}"
+  loop: "{{ ca_service_routes_list }}"
+
+- name: "get_cert_facts | Set ca_fetch_domains_list"
+  set_fact:
+    ca_fetch_domains_list: "{{ (ca_domains_hosted + ca_intermediate_certs_by_domain.keys()|list)|flatten|unique }}"

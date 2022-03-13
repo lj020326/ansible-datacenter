@@ -1,0 +1,245 @@
+---
+ansible_local_user: "{{ lookup('env', 'USER') }}"
+
+## vars for ansible-role-ca
+cacert_keyring_host: "node01.example.int"
+
+required_pip_libs:
+  - pexpect
+  - cryptography
+  - pyOpenSSL
+
+#required_pip_libs: []
+
+cacert_display_cacert_result: no
+
+git_ssh_private_keyfile: ~/.ssh/id_rsa
+
+ca_init: yes
+ca_certify_nodes: yes
+ca_certify_routes: yes
+#ca_force_create: no
+#ca_force_certify_nodes: no
+
+#ca_force_create: yes
+ca_force_create: no
+ca_force_certify_nodes: no
+ca_force_distribute_nodes: no
+
+ca_fetch_certs: yes
+ca_wildcard: no
+
+# where to generate the certs
+keyring_cacerts_base_dir: /usr/share/ca-certs
+#keyring_cacerts_base_dir: "{{ '~/ca-certs' | expanduser }}"
+
+keyring_cacerts_dir: /usr/share/ca-certs
+
+ca_key_dir: /etc/ssl/private
+
+ca_backup_conf: yes
+
+pki_cert_dir: /etc/ssl/certs
+pki_key_dir: /etc/ssl/private
+
+ca_root_cn: "ca-root"
+pki_caroot_cert: "{{ ca_root_cn }}.pem"
+pki_caroot_key: "{{ ca_root_cn }}-key.pem"
+
+## used by distribution vars
+ca_local_cert_dir: /usr/local/ssl/certs
+ca_local_key_dir: /usr/local/ssl/private
+
+ca_java_keystore_enabled: yes
+ca_java_keystore_pass: changeit
+
+trust_ca_cert_extension: "pem"
+
+#keyring_admin_user: "{{ ansible_user }}"
+#keyring_admin_user: "{{ ansible_local_user }}"
+keyring_admin_user: "{{ ansible_ssh_user }}"
+
+# where to deploy the finalized cert files to on the ansible control node
+ca_keyring_base_dir: "{{ '~/pki' | expanduser }}"
+ca_keyring_certs_dir: "{{ ca_keyring_base_dir }}/certs"
+ca_keyring_keys_dir: "{{ ca_keyring_base_dir }}/keys"
+
+#ca_keyring_certs_dir: "{{ ca_local_cert_dir }}"
+#ca_keyring_keys_dir: "{{ ca_local_key_dir }}"
+
+ca_keyring_repo_url: ssh://git@gitea.example.int:2222/infra/cacerts.git
+ca_keyring_repo_dir: "{{ ca_keyring_certs_dir }}"
+ca_keyring_repo_branch: master
+ca_keyring_repo_keep_updated: yes
+
+ca_keyring_repo_user: "{{ keyring_admin_user }}@{{ ansible_fqdn }}"
+ca_keyring_repo_email: "ca_root@example.int"
+
+ca_cert: ca.pem
+ca_key: ca-key.pem
+
+# how long should remain before we generate a new CA cert ?
+ca_cert_expiration_panic_threshold: 604800 # 1 week
+
+##
+##
+ca_domain: "example.com"
+
+ca_domains_hosted: []
+
+ca_root:
+  domainName: "{{ ca_root_cn }}"
+  commonName: "Example LLC"
+  country: "US"
+  state: "New York"
+  locality: "New York"
+  organization: "Example LLC"
+  organizationalUnit: "Research"
+  email: "caroot@example.com"
+
+ca_root_csr_tpl:
+  CN: "{{ ca_root.commonName }}"
+#  hosts: "{{ ca_root.sans|default([]) + ca_root.altips|default([]) }}"
+  key: "{{ ca_key_spec }}"
+  names: "{{ ca_root_names }}"
+
+ca_root_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_root.domainName }}"
+ca_root_cert: "{{ ca_root_cn }}.pem"
+ca_root_key: "{{ ca_root_cn }}-key.pem"
+
+ca_intermediate_certs_list:
+  - domainName: "example.com"
+    commonName: ca.example.com
+    sans:
+      - ca-dr.example.com
+    altips:
+      - 192.168.0.1
+    country: US
+    state: "New York"
+    locality: "New York"
+    organization: "Example LLC"
+    organizationalUnit: "Research"
+    email: "ca-admin@example.com"
+
+ca_service_routes_list:
+  - route: route-1.example.com
+  - route: route-2.example.com
+
+### ref: https://stackoverflow.com/questions/37287013/how-to-convert-a-dictionary-of-dictionaries-into-a-list-of-dictionaries-in-a-ans
+#ca_intermediate_cert_list: "{{ ca_intermediate_certs.values() | list }}"
+
+#pki_self_sign: True
+
+ca_key_spec:
+  algo: rsa
+  size: 2048
+
+#pki_ca: "{{ ca_intermediate_certs[ca_domain] }}"
+
+ca_root_names:
+  - C: "{{ ca_root.country }}"
+    ST: "{{ ca_root.state }}"
+    L: "{{ ca_root.locality }}"
+    O: "{{ ca_root.organization }}"
+    OU: "{{ ca_root.organizationalUnit }}"
+
+ca_intermediate_default_profile: "intermediate_ca"
+ca_cacert_default_profile: "server"
+
+## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
+## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
+## ref: https://github.com/entercloudsuite/ansible-cfssl/blob/master/defaults/main.yml
+## ref: https://gist.github.com/jdeathe/7f7bb957a4e8e0304f0df070f3cbcbee
+ca_intermediate_config_tpl:
+  signing:
+    default:
+      expiry: 8760h
+    profiles:
+      intermediate_ca:
+        ca_constraint:
+          is_ca: true
+#          max_path_len: 0
+#          max_path_len_zero: true
+        expiry: 43800h
+        usages:
+          - signing
+          - digital signature
+          - key encipherment
+          - cert sign
+          - crl sign
+          - server auth
+          - client auth
+      stepca:
+        expiry: 87660h
+        usages:
+          - signing
+      domain:
+        ca_constraint:
+          is_ca: true
+        expiry: 43800h
+        usages:
+          - signing
+          - key encipherment
+          - cert sign
+          - crl sign
+          - server auth
+          - client auth
+      cluster:
+        ca_constraint:
+          is_ca: true
+        expiry: 8760h
+        usages:
+          - signing
+          - key encipherment
+          - cert sign
+          - crl sign
+          - server auth
+          - client auth
+      development:
+        expiry: 8760h
+        usages:
+          - signing
+          - key encipherment
+          - cert sign
+          - crl sign
+        ca_constraint:
+          is_ca: true
+      server:
+        expiry: 8760h
+        usages:
+        - signing
+        - key encipherment
+        - server auth
+      client:
+        expiry: 8760h
+        usages:
+        - signing
+        - key encipherment
+        - client auth
+      client-server:
+        expiry: 8760h
+        usages:
+        - signing
+        - digital signing
+        - key encipherment
+        - server auth
+        - client auth
+      peer:
+        expiry: 8760h
+        usages:
+        - signing
+        - digital signing
+        - key encipherment
+        - server auth
+        - client auth
+
+ca_trust_info:
+  Debian:
+    cacert_dir: /usr/local/share/ca-certificates
+    ca_update_cmd: update-ca-certificates
+    ca_filename: ca-bundle.crt
+
+  RedHat:
+    cacert_dir: /etc/pki/ca-trust/source/anchors
+    ca_update_cmd: update-ca-trust extract
+    ca_filename: ca-bundle.crt

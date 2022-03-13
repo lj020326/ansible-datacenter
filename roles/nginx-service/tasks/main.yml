@@ -1,0 +1,25 @@
+---
+
+- name: Allow nginx ports through the firewall
+  when: firewalld_enabled | bool
+  tags: [ firewall-config-nginx ]
+  include_role:
+    name: firewall-config
+  vars:
+    firewalld_ports: [ "{{ nginx_firewalld_ports | default(omit) }}" ]
+
+- name: Install nginx systemd unit file
+  template:
+    src: "config-openresty.service.j2"
+    dest: "/etc/systemd/system/openresty.service"
+
+- name: enable service openresty and ensure it is not masked
+  systemd:
+    name: openresty
+    enabled: yes
+    masked: no
+
+- name: Make sure openresty service is running
+  systemd:
+    name: openresty
+    state: started

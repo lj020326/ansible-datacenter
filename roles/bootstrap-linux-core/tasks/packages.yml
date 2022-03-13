@@ -1,0 +1,54 @@
+---
+
+- name: "Install Debian packages"
+  when: ansible_os_family == "Debian"
+  block:
+
+    - name: Update Debian repositories
+      when: apt_repositories|d([])|length>0
+      apt_repository:
+        repo: "{{ item }}"
+        state: present
+      loop: "{{ apt_repositories }}"
+
+    - name: Update apt-get repo and cache
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+    #    cache_valid_time: 3600
+
+- name: Update yum repo and cache
+  when: ansible_os_family == "RedHat"
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+
+- name: "get_cert_facts | Set ca_fetch_domains_list"
+  set_fact:
+    __common_packages: "{{ common_packages|d([]) + common_packages_custom|d([]) | sort | unique }}"
+
+- debug:
+    var: __common_packages
+
+- name: Installing Common Packages
+  package:
+    name: "{{ __common_packages }}"
+    state: latest
+#    state: present
+#    update_cache: yes
+
+- name: Install common pip libs
+  when: common_required_pip_libs|d([])|length>0
+  pip:
+    name: "{{ common_required_pip_libs }}"
+    state: present
+    extra_args: --user
+    executable: "{{ ansible_pip_interpreter }}"
+
+#- name: Install snap packages
+#  when: ansible_distribution in ["Debian", "Ubuntu"]
+#  snap:
+#      name:
+#        - core
+#        - jq

@@ -1,0 +1,39 @@
+---
+
+#docker_stack_appspec_config_tpls__grafana:
+#  ## ref: https://github.com/ansible/ansible/issues/22358
+#  - { src: "caddy/Caddyfile.j2", dest: "{{ __docker_stack_appspecs__grafana_stack_dir }}/dockerd-exporter/Caddyfile" }
+
+## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
+docker_stack_appspec_services__grafana:
+
+  # Grafana - Graphical data visualization for InfluxDB data
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #   - "$GRAFANA_PORT:3000"
+    user: "{{ docker_user_uid }}:{{ docker_user_gid }}"
+    volumes:
+      - "{{ __docker_stack_appspecs__grafana_stack_dir }}/grafana:/var/lib/grafana"
+    environment:
+      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel,grafana-piechart-panel"
+      GF_SECURITY_ADMIN_USER: "{{ __docker_stack_appspecs__grafana_admin_user }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ __docker_stack_appspecs__grafana_admin_password }}"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.grafana-rtr.entrypoints: https
+      traefik.http.routers.grafana-rtr.rule: Host(`grafana.{{ docker_stack_internal_domain }}`)
+#      ## Middlewares
+#      traefik.http.routers.grafana-rtr.middlewares: chain-oauth@file
+      ## HTTP Services
+      traefik.http.routers.grafana-rtr.service: grafana-svc
+      traefik.http.services.grafana-svc.loadbalancer.server.port: 3000
+
+

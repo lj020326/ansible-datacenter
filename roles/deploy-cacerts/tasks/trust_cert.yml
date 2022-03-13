@@ -1,0 +1,106 @@
+---
+
+- name: "trust_cert | ensure trust dir exists for {{ trust_ca_cacert_dir }}"
+  file:
+    state: directory
+    path: "{{ trust_ca_cacert_dir }}"
+
+- name: "trust_cert | Remove all existing old CA certs from {{ trust_ca_cacert_dir }}"
+  when: ca_force_distribute_nodes or ca_force_create
+  shell: "/bin/rm -rf {{ trust_ca_cacert_dir }}/*"
+
+### ref: https://stackoverflow.com/questions/37043442/how-to-add-certificate-authority-file-in-centos-7
+### ref: https://www.techrepublic.com/article/how-to-install-ca-certificates-in-ubuntu-server/
+### ref: https://gist.github.com/aseigneurin/4902819f17218340d11f
+- name: "trust_cert | Copy root cert to {{ trust_ca_cacert_dir }} for importing"
+  copy_remotely:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}", dest: "{{ trust_ca_cacert_dir }}/{{ ca_root_cn }}.{{ trust_ca_cert_extension }}" }
+  register: trust_ca_cacertinstalled
+
+- name: "trust_cert | trust client and intermediate certs"
+  when: "'vm_template' not in group_names"
+  block:
+
+    - name: "trust_cert | Copy client to {{ trust_ca_cacert_dir }} for importing"
+      copy_remotely:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - { src: "{{ ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem", dest: "{{ trust_ca_cacert_dir }}/{{ hostname_name_full }}.{{ trust_ca_cert_extension }}" }
+
+    - name: "trust_cert | Copy intermediate certs to {{ trust_ca_cacert_dir }} for importing"
+      copy_remotely:
+        src: "{{ ca_local_cert_dir }}/{{ item }}.pem"
+        dest: "{{ trust_ca_cacert_dir }}/{{ item }}.{{ trust_ca_cert_extension }}"
+      loop: "{{ ca_intermediate_certs | list }}"
+
+    - name: "trust_cert | Copy service route certs to {{ trust_ca_cacert_dir }} for importing"
+      copy_remotely:
+        src: "{{ ca_local_cert_dir }}/{{ item.route }}.pem"
+        dest: "{{ trust_ca_cacert_dir }}/{{ item.route }}.{{ trust_ca_cert_extension }}"
+      loop: "{{ ca_service_routes_list }}"
+
+#- name: "trust_cert | Get list of certs"
+#  shell: "ls -lR {{ trust_ca_cacert_dir }}/"
+#  register: ls
+#  changed_when: false
+#
+#- debug: var=ls.stdout_lines
+#  when: debug is defined
+
+## need to research for centos how to add multiple CAs - if even possible
+## ref: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/security_hardening/using-shared-system-certificates_security-hardening
+## ref: https://techjourney.net/update-add-ca-certificates-bundle-in-redhat-centos/
+- name: "trust_cert | update CA trust: {{ trust_ca_update_trust_cmd }}"
+  command: '{{ trust_ca_update_trust_cmd }}'
+#  when: trust_ca_cacertinstalled is changed or ca_force_distribute_nodes|bool
+
+#- name: convert to pkcs12
+#  command: openssl pkcs12 -export -in {{ ca_path }}/{{ cert_node.domainName }}/{{ cert_node.commonName }}.crt -inkey {{ ca_path }}/{{ cert_node.domainName}}/{{ cert_node.commonName }}.key -out {{ ca_path }}/{{ cert_node.domainName }}/{{ cert_node.commonName }}.p12 -name "{{ cert_node.commonName }}" -passout pass:{{ keystore_password }}
+
+## WORKS on ubuntu20 with openjdk-11
+##keytool -importcert -v -storepass changeit   -noprompt   -alias ca-root   -cacerts -file /usr/local/ssl/certs/ca-root.pem
+
+#- name: "trust_cert | Add service cert to keystore"
+#  when: ca_java_keystore_enabled|bool
+#  command: |
+#    keytool -importcert \
+#      -storepass {{ ca_java_keystore_pass }} \
+#      -keystore {{ ca_java_keystore }} \
+#      -noprompt \
+#      -alias {{ item.route }} \
+#      -file {{ ca_local_cert_dir }}/{{ item.route }}.pem
+#  register: shell_cmd
+#  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
+#  loop: "{{ ca_service_routes_list }}"
+
+#- name: "trust_cert | Add root ca root and host certs to keystore"
+#  when: ca_java_keystore_enabled|bool
+#  command: |
+#    keytool -importcert -v \
+#      -storepass {{ ca_java_keystore_pass }} \
+#      -noprompt \
+#      -cacerts \
+#      -alias {{ item.cn }} \
+#      -file {{ item.path }}
+#  register: shell_cmd
+#  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
+#  loop:
+#    - { cn: "{{ ca_root_cn }}", path: "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}" }
+##    - { cn: "{{ inventory_hostname }}", path: "{{ ca_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
+
+- name: "trust_cert | Add service cert to keystore"
+  when: ca_java_keystore_enabled|bool
+  command: |
+    keytool -importcert -v \
+      -storepass {{ ca_java_keystore_pass }} \
+      -noprompt \
+      -cacerts \
+      -alias {{ item.route }} \
+      -file {{ ca_local_cert_dir }}/{{ item.route }}.pem
+  register: shell_cmd
+  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
+  loop: "{{ ca_service_routes_list }}"

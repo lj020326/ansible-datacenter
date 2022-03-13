@@ -1,0 +1,133 @@
+#!ipxe
+###
+### {{ site_name }} custom menu example
+###
+
+:custom
+clear custom_choice
+menu This is a Test Menu
+item --gap This is the first sub menu
+item ubuntu2004-cloudinit ${space} Loading cloudinit ubuntu 20.04
+item ubuntu2004 ${space} Loading preseeded ubuntu 20.04
+item ubuntu2004-live ${space} Loading live booting preseeded ubuntu 20.04
+item option_one ${space} Loading a kernel and initrd
+item option_two ${space} Loading an ISO
+item --gap This is a second sub menu
+item option_three ${space} Loads another custom sub menu
+item option_four ${space} This is option four
+choose custom_choice || goto custom_exit
+echo ${cls}
+goto ${custom_choice}
+goto custom_exit
+
+:ubuntu2004-cloudinit
+set installer ubuntu20-autoinstall
+chain ${installer}.ipxe || goto error
+
+echo
+boot
+exit
+
+:ubuntu2004
+#set ubuntu_mirror http://pxeboot.johnson.int:9080
+set ubuntu_mirror http://192.168.0.15:9080
+set dir pxe/ubuntu/20.04
+set squash_url ${ubuntu_mirror}/${dir}/filesystem.squashfs
+#set preseedurl ${ubuntu_mirror}/${dir}/preseed.cfg
+set preseedurl ${ubuntu_mirror}/${dir}/local-sources.seed
+set kernel_url ${ubuntu_mirror}/${dir}/
+
+## from https://www.tecmint.com/install-ubuntu-via-pxe-server-using-local-dvd-sources/
+#set install_params auto=true url=${preseedurl} vga=788 initrd=ubuntu-installer/amd64/initrd.gz --- quiet
+set install_params auto=true url=${preseedurl}
+kernel ${ubuntu_mirror}/${dir}/vmlinuz ${install_params} -- quiet ${params} initrd=initrd
+initrd ${ubuntu_mirror}/${dir}/initrd
+
+## from ubuntu.ipxe
+set install_params auto=true priority=critical preseed/url=${preseedurl}
+#kernel ${ubuntu_mirror}/${dir}/vmlinuz ${install_params} ${mirrorcfg} ${console} -- quiet ${params} initrd=initrd.gz
+#initrd ${ubuntu_mirror}/${dir}/initrd
+echo
+boot || goto custom_exit
+
+:ubuntu2004-live
+#set ubuntu_mirror http://pxeboot.johnson.int:9080
+set ubuntu_mirror http://192.168.0.15:9080
+set dir pxe/ubuntu/20.04
+set squash_url ${ubuntu_mirror}/${dir}/filesystem.squashfs
+set preseedurl ${ubuntu_mirror}/${dir}/preseed.cfg
+set kernel_url ${ubuntu_mirror}/${dir}/
+
+## ref: https://www.turnkeylinux.org/forum/support/20090127/pxe-boot
+imgfree
+kernel ${ubuntu_mirror}/${dir}/vmlinuz
+initrd ${ubuntu_mirror}/${dir}/initrd
+#imgargs vmlinuz boot=casper di-live single noinithooks ip=dhcp netboot=http fetch=${squash_url}
+imgargs vmlinuz boot=casper di-live single noinithooks ip=dhcp netboot=http fetch=${squash_url} initrd=initrd
+
+## ref: https://blog.linuxserver.io/2019/12/16/netboot-xyz-docker-network-boot-server-pxe/
+#imgfree
+#kernel ${kernel_url}vmlinuz ip=dhcp boot=casper netboot=url url=${squash_url} initrd=initrd
+#initrd ${kernel_url}initrd
+
+## from live-ubuntu.ipxe
+#set install_params auto=true priority=critical preseed/url=${preseedurl}
+#kernel ${ubuntu_mirror}/${dir}/vmlinuz ip=dhcp boot=casper netboot=http fetch=${squash_url} initrd=initrd
+#initrd ${ubuntu_mirror}/${dir}/initrd
+#kernel ${kernel_url}vmlinuz ip=dhcp boot=casper netboot=url url=${squash_url} initrd=initrd
+#initrd ${kernel_url}initrd
+
+echo
+boot || goto custom_exit
+
+
+## ref: https://blog.scottlowe.org/2015/05/20/fully-automated-ubuntu-install/
+:ubuntu2004-live-scott
+#set ubuntu_mirror http://pxeboot.johnson.int:9080
+set ubuntu_mirror http://192.168.0.15:9080
+set dir pxe/ubuntu/20.04
+set squash_url ${ubuntu_mirror}/${dir}/filesystem.squashfs
+set preseedurl ${ubuntu_mirror}/${dir}/preseed.cfg
+set kernel_url ${ubuntu_mirror}/${dir}/
+
+imgfree
+kernel ${ubuntu_mirror}/${dir}/vmlinuz
+ipappend 1
+append initrd=${ubuntu_mirror}/${dir}/initrd ksdevice=eth0 \
+locale=en_US.UTF-8 keyboard-configuration/layoutcode=us \
+interface=eth0 hostname=unassigned \
+url=${preseedurl} \
+live-installer/net-image=${squash_url}
+
+#initrd ${ubuntu_mirror}/${dir}/initrd
+#imgargs vmlinuz boot=casper di-live single noinithooks ip=dhcp netboot=http fetch=${squash_url}
+#imgargs vmlinuz boot=casper di-live single noinithooks ip=dhcp netboot=http fetch=${squash_url} initrd=initrd
+
+
+echo
+boot || goto custom_exit
+
+
+
+:option_one
+kernel http://path.to/vmlinuz
+initrd http://path.to/initrd
+imgargs vmlinuz put_kernel_img_args_here
+boot || goto custom_exit
+
+:option_two
+kernel {{ memdisk_location }} raw iso
+initrd http://path.to/iso
+boot || goto custom_exit
+
+:option_three
+echo Chains into another menu...
+chain custom1.ipxe || goto custom
+
+:error
+echo Error occured, press any key to return to menu ...
+prompt
+goto menu.ipxe
+
+:custom_exit
+exit

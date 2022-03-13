@@ -1,0 +1,151 @@
+---
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Display cert node info"
+  debug:
+    msg:
+      - "cert_node={{ cert_node }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get intermediate CA cert info"
+  when: ca_cert_type == "intermediate-ca"
+  block:
+
+    - name: "get_cert_facts:{{ ca_cert_type }} | Set ca_cert_info fact"
+      set_fact:
+        ca_cert_local_info: "{{ ca_intermediate_certs[cert_node] }}"
+
+    - name: "get_cert_facts:{{ ca_cert_type }} | Get cert csr profile info"
+      set_fact:
+        ca_csr_profile: "{{ ca_cert_info.ca_csr_profile | default(ca_intermediate_default_profile) }}"
+
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get service route cert info"
+  when: ca_cert_type == "service-route"
+  block:
+
+    - name: "get_cert_facts:{{ ca_cert_type }} | Set service route info"
+      set_fact:
+        ca_cert_route_info: "{{ ca_service_routes[cert_node] }}"
+
+    - name: "get_cert_facts:{{ ca_cert_type }} | Get service route csr profile info"
+      set_fact:
+        ca_csr_profile: "{{ ca_cert_route_info['ca_csr_profile'] | default(ca_cacert_default_profile) }}"
+
+    - name: "get_cert_facts:{{ ca_cert_type }} | Set service-route ca_cert_info fact"
+      set_fact:
+        ca_cert_local_info:
+          commonName: "{{ ca_cert_route_info.route }}"
+          domainName: "{{ ca_cert_route_info.route }}"
+          signerName: "{{ ca_cert_route_info.signerName }}"
+          fqdn: "{{ ca_cert_route_info.route }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get cert info"
+  when: ca_cert_type == "cert"
+  block:
+
+    - name: "get_cert_facts:{{ ca_cert_type }} | Set cert profile"
+      set_fact:
+        ca_csr_profile: "{{ hostvars[cert_node]['ca_csr_profile'] | default(ca_cacert_default_profile) }}"
+
+    - name: "get_cert_facts:{{ ca_cert_type }} | Set cert ca_cert_info fact"
+      set_fact:
+        ca_cert_local_info:
+          commonName: "{{ hostvars[cert_node]['ca_common_name'] | default(cert_node) }}"
+          domainName: "{{ hostvars[cert_node]['ca_domain'] }}"
+#          signerName: "{{ ca_intermediate_certs_by_domain[ca_cert_domain].commonName | default(ca_root_cn) }}"
+          signerName: "{{ ca_intermediate_certs_by_domain[hostvars[cert_node]['ca_domain']].commonName | default(ca_root_cn) }}"
+          fqdn: "{{ hostvars[cert_node]['ca_common_name'] | default(cert_node) }}.{{ hostvars[cert_node]['ca_domain'] }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Display ca_cert_local_info"
+  debug:
+    msg:
+      - "cert_node={{ cert_node }}"
+      - "ca_cert_local_info={{ ca_cert_local_info }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get ca_signer_cert_cn"
+  set_fact:
+    ca_signer_cert_cn: "{{ ca_cert_local_info.signerName | default(ca_root_cn) }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get cert facts"
+  set_fact:
+    ca_signer_is_root: "{{ True if ca_signer_cert_cn == ca_root_cn else False | bool }}"
+    ca_parent_domain: "{{ ('.').join(ca_cert_local_info.domainName.split('.')[1::]) }}"
+    ca_cert_domain: "{{ ca_cert_local_info.domainName }}"
+    ca_cert_cn: "{{ ca_cert_local_info.commonName }}"
+    ca_cert_fqdn: "{{ ca_cert_local_info.fqdn | default(ca_cert_local_info.commonName) }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get signer cert info"
+  set_fact:
+    ca_signer_cert_info: "{{ ca_signer_certs[ca_signer_cert_cn] }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get parent signer cert info"
+  set_fact:
+    ca_signer_parent_cert_info: "{{ ca_signer_certs[ca_signer_cert_info.signerName | default(ca_root_cn)] | default(ca_root) }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get signer cert info combined with parent signer info"
+  set_fact:
+    ca_signer_cert_info: "{{ ca_root | combine(ca_signer_parent_cert_info) | combine(ca_signer_cert_info) }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Get signer domain name"
+  set_fact:
+    ca_signer_domain: "{{ ca_signer_cert_info.domainName }}"
+    ca_signer_parent_cn: "{{ ca_signer_parent_cert_info.commonName }}"
+    ca_signer_parent_domain: "{{ ca_signer_parent_cert_info.domainName }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Set ca_cert_info fact"
+  set_fact:
+    ca_cert_info: "{{ ca_root | combine(ca_signer_parent_cert_info) | combine(ca_signer_cert_info) | combine(ca_cert_local_info) }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Set CA facts"
+  set_fact:
+    ca_cert: "{{ ca_cert_cn }}.pem"
+    ca_key: "{{ ca_cert_cn }}-key.pem"
+    ca_cert_chain: "{{ ca_cert_cn }}.chain.pem"
+    ca_signer_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_signer_cert_info.domainName }}"
+    ca_signer_cert: "{{ ca_signer_cert_info.commonName }}.pem"
+    ca_signer_key: "{{ ca_signer_cert_info.commonName }}-key.pem"
+#    ca_signer_cert_chain: "{{ ca_signer_cert_info.commonName }}.chain.pem"
+    ca_signer_cert_chain: "{{ ca_signer_cert_info.commonName + '.chain.pem' if ca_signer_is_root==False else ca_signer_cert_info.commonName + '.pem' }}"
+    keyring_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_cert_info.domainName }}"
+    ca_cert_names:
+      - C: "{{ ca_cert_info.country }}"
+        ST: "{{ ca_cert_info.state }}"
+        L: "{{ ca_cert_info.locality }}"
+        O: "{{ ca_cert_info.organization }}"
+        OU: "{{ ca_cert_info.organizationalUnit }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Set fact for ca_cert_csr_tpl"
+  set_fact:
+    ca_cacert_csr_tpl:
+      CN: "{{ ca_cert_info.commonName }}"
+      key: "{{ ca_key_spec }}"
+      names: "{{ ca_cert_names }}"
+    ca_cert_csr_tpl:
+      CN: "{{ ca_cert_info.commonName }}"
+      hosts: "{{ ( ca_cert_info.sans|default([ '127.0.0.1', ca_cert_fqdn, '*.' + ca_cert_fqdn ]) + ca_cert_info.altips|default([]) ) }}"
+      key: "{{ ca_key_spec }}"
+      names: "{{ ca_cert_names }}"
+
+- name: "get_cert_facts:{{ ca_cert_type }} | Display final cert info"
+  debug:
+    msg:
+      - "ca_cert={{ ca_cert }}"
+      - "ca_key={{ ca_key }}"
+      - "keyring_cacerts_dir={{ keyring_cacerts_dir }}"
+      - "ca_cert_cn={{ ca_cert_cn }}"
+      - "ca_cert_domain={{ ca_cert_domain }}"
+      - "ca_cert_fqdn={{ ca_cert_fqdn }}"
+      - "ca_cert_info={{ ca_cert_info }}"
+      - "ca_cert_names={{ ca_cert_names }}"
+      - "ca_cert_csr_tpl={{ ca_cert_csr_tpl }}"
+      - "ca_cert_chain={{ ca_cert_chain }}"
+      - "ca_signer_cert_cn={{ ca_signer_cert_cn }}"
+      - "ca_signer_domain={{ ca_signer_domain }}"
+      - "ca_signer_parent_cn={{ ca_signer_parent_cn }}"
+      - "ca_signer_parent_domain={{ ca_signer_parent_domain }}"
+      - "ca_signer_cacerts_dir={{ ca_signer_cacerts_dir }}"
+      - "ca_signer_cert={{ ca_signer_cert }}"
+      - "ca_signer_key={{ ca_signer_key }}"
+      - "ca_signer_cert_chain={{ ca_signer_cert_chain }}"
+      - "ca_signer_cert_info={{ ca_signer_cert_info }}"
+      - "ca_signer_is_root={{ ca_signer_is_root }}"
+

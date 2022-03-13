@@ -1,0 +1,27 @@
+---
+- name: Install the required packages in Debian derivatives
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ network_pkgs }}"
+  environment: "{{ env }}"
+  when: network_check_packages|bool
+
+- name: Make sure the include line is there in interfaces file
+  lineinfile:
+    regexp: '^source\ {{ net_path | regex_escape() }}/\*'
+    line: "source {{ net_path }}/*"
+    dest: /etc/network/interfaces
+    state: present
+    insertafter: EOF
+
+- name: Create the directory for interface cfg files
+  file:
+    path: "{{ net_path }}"
+    state: directory
+
+# Restart Network Interfaces (deconfigurate & reconfigurate interfaces)
+- include_tasks: restartscript.yml
+#  when: network_allow_service_restart|bool and ansible_os_family == 'Debian'
+  when: network_allow_service_restart|bool
+

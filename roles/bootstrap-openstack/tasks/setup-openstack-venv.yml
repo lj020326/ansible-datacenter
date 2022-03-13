@@ -1,0 +1,46 @@
+---
+
+- name: Ensure openstack venv dir exists
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default( omit ) }}"
+    group: "{{ item.owner | default( omit ) }}"
+    mode: "{{ item.mode | default( omit ) }}"
+    recurse: "{{ item.recurse | default( omit ) }}"
+  with_items:
+    - { path: "{{ openstack_venv_path }}", owner: "root", group: "root", recurse: yes }
+
+- name: "Setup requirements.txt in {{ openstack_venv_path }}"
+  when: openstack_venv_use_requirements_template|bool
+  template:
+    src: "requirements.txt.j2"
+    dest: "{{ openstack_venv_path }}/requirements.txt"
+
+- name: Install Virtualenv
+  pip:
+    name: "virtualenv"
+    state: present
+    extra_args: "--user"
+    executable: pip3
+
+- name: install python packages into openstack virtualenv at ({{ openstack_venv_path }})
+  when: openstack_venv_use_requirements_template|bool
+  pip:
+    requirements: "{{ openstack_venv_path }}/requirements.txt"
+    virtualenv: "{{ openstack_venv_path }}"
+    virtualenv_site_packages: yes
+#    virtualenv_command: python -m venv
+#    virtualenv_python: python3
+#    virtualenv_python: python{{ openstack_python_dist_version }}
+
+- name: Install Python packages into openstack virtualenv at ({{ openstack_venv_path }}) using config vars
+  when:
+    - not (openstack_venv_use_requirements_template|bool)
+    - item.name | d()
+  pip:
+    name: >
+      {{ item.name }}{% if item.version | d() %}=={{ item.version }}{% endif %}
+    virtualenv: "{{ openstack_venv_path }}"
+    state: "{{ item.state | d('present') }}"
+  loop: "{{ openstack_client_pip_packages }}"

@@ -1,0 +1,42 @@
+---
+
+## ref: https://smallstep.com/docs/step-ca/certificate-authority-server-production#the-standalone-step-renewal-daemon
+## ref: https://dev.to/kkentzo/deploying-a-service-using-ansible-and-systemd-4n11
+## ref: https://stackoverflow.com/questions/35984151/how-to-create-new-system-service-by-ansible-playbook
+
+## ref: https://smallstep.com/docs/step-ca/getting-started#initialize-your-certificate-authority
+- name: "Stepca | Bootstap step cli configuration"
+  changed_when: no
+  shell: step ca bootstrap --force --ca-url {{ stepca_host_url }} --fingerprint {{ stepca_root_ca_fingerprint }}
+
+#- name: Stepca | Create step group
+#  group:
+#    name: step
+#    state: present
+#
+#- name: Stepca | Create Step-ca service account
+#  user:
+#    name: '{{ stepca_svc_user }}'
+#    groups: step
+#    password: '*'
+#    shell: /sbin/nologin
+#    append: yes
+#    state: present
+#    create_home: no
+#    system: yes
+
+- name: "Stepca | Setup systemd service file to server"
+  template:
+    src: stepca-renew.service.j2
+    dest: /etc/systemd/system/stepca-renew.service
+    owner: root
+    group: root
+  notify:
+    - reload systemctl
+
+- name: Stepca | Start stepca renewal service
+#  when: "'vm_template' not in group_names"
+  service:
+    name: stepca-renew.service
+    state: started
+    enabled: yes

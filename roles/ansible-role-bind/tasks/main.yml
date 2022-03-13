@@ -1,0 +1,80 @@
+# roles/bind/tasks/main.yml
+---
+
+# Initialise distribution-specific variables
+- name: Source specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+  tags: bind,pretask
+
+- name: Check whether `bind_zone_master_server_ip` was set
+  assert:
+    that: bind_zone_master_server_ip is defined
+
+- name: Install BIND
+  package:
+    pkg: "{{ item }}"
+    state: present
+  with_items:
+    - "{{ bind_packages }}"
+  tags: bind
+
+- name: Ensure runtime cache directories referenced in config exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ bind_owner }}"  
+    group: "{{ bind_group }}"
+    mode: 0770
+    setype: named_cache_t
+  with_items:
+    - "{{ bind_dir }}/dynamic"
+    - "{{ bind_dir }}/data"
+    - "{{ bind_dir }}/slaves"
+  tags: bind
+
+- name: Ensure runtime zone directories referenced in config exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ bind_owner }}"  
+    group: "{{ bind_group }}"
+    mode: 0770
+    setype: named_zone_t
+  with_items:
+    - "{{ bind_zone_dir }}"
+  tags: bind
+
+- name: Create serial, based on UTC UNIX time
+  command: date -u +%s
+  register: timestamp
+  changed_when: false
+  run_once: true
+  check_mode: false
+  tags: bind
+
+- name: Perform common BIND configurations
+  include_tasks: common.yml
+
+- name: Set up the machine as a master DNS server
+  vars:
+    is_master: true
+    is_slave: false
+  include_tasks: master.yml
+  when: bind_zone_master_server_ip in ansible_all_ipv4_addresses
+
+- name: Set up the machine as a slave DNS server
+  vars:
+    is_master: false
+    is_slave: true
+  include_tasks: slave.yml
+  when: bind_zone_master_server_ip not in ansible_all_ipv4_addresses
+
+- name: Restart BIND service
+  service:
+    name: "{{ bind_service }}"
+    state: restarted
+    enabled: true
+  tags: bind

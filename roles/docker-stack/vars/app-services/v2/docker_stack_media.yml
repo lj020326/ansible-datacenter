@@ -1,0 +1,1012 @@
+---
+
+docker_stack_appspec_services__media:
+
+  ## Heimdall - unified Web interface
+  ## ref: https://git.sogenius.io/hos/mediaflix/blob/master/docker-compose.yml
+  heimdall:
+    image: "linuxserver/heimdall:latest"
+    container_name: heimdall
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/heimdall:/config"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+#    ports:
+#      - 80:80
+#      - 443:443
+#    mem_limit: 4096m
+    restart: unless-stopped
+    labels:
+      traefik.enable: true
+      traefik.http.routers.heimdall.entrypoints: https
+      traefik.http.routers.heimdall.rule: Host(`heimdall.{{ docker_stack_external_domain }}`, `{{ docker_stack_external_domain }}`)
+#      ## Middlewares
+#      traefik.http.routers.heimdall.middlewares: chain-no-auth@file # No Authentication
+#      traefik.http.routers.heimdall.middlewares: chain-authelia@file # Authelia
+      traefik.http.routers.heimdall.middlewares: chain-oauth@file # Google OAuth 2.0
+#      traefik.http.services.heimdall.loadbalancer.server.port: 443
+#      traefik.http.services.heimdall.loadbalancer.server.scheme: https
+
+  ## internal
+  heimdall-internal:
+    image: "linuxserver/heimdall:latest"
+    container_name: heimdall-internal
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/heimdall-int:/config"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+    restart: unless-stopped
+    labels:
+      traefik.enable: true
+      traefik.http.routers.heimdall_int.entrypoints: https
+      traefik.http.routers.heimdall_int.rule: Host(`heimdall.{{ docker_stack_internal_domain }}`)
+#      traefik.http.services.heimdall_int.loadbalancer.server.port: 443
+#      traefik.http.services.heimdall_int.loadbalancer.server.scheme: https
+#      traefik.http.routers.heimdall_int.middlewares: chain-authelia@file
+      traefik.http.routers.heimdall_int.middlewares: chain-no-auth@file
+
+  ######### DOWNLOADERS ##########
+
+  ## TODO: replace this with separate openvpn container that can be used for transmission/sabnzbd/etc
+  ## ref: see response #8 here:
+  ##   https://plexguide.com/threads/howto-use-single-and-central-vpn-container-for-all-your-other-apps.2563/
+  ## ref: https://github.com/bubuntux/nordvpn (no longer works with this traefik docker-compose config)
+  ## ref: https://forum.openmediavault.org/index.php/Thread/22164-Running-containers-through-an-OpenVPN-container/
+  ## ref: https://raw.githubusercontent.com/dperson/openvpn-client/master/docker-compose.yml
+  ## ref: https://registry.hub.docker.com/r/bubuntux/nordvpn/tags
+  ## ref: https://github.com/azinchen/nordvpn
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/c5b06477dc9d245ceb9caea5d702c2614fc7fece/docker-compose-t2-obsolete.yml
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
+  ## ref: https://docs.linuxserver.io/images/docker-openvpn-as
+  openvpn:
+    image: "{{ __docker_stack_appspecs__media_openvpn_image }}"
+    container_name: openvpn
+    cap_add:
+      - net_admin
+    devices:
+      - /dev/net/tun
+    dns:
+      - 8.8.4.4
+      - 8.8.8.8
+    restart: unless-stopped
+    networks:
+      - vpn
+      - "{{ docker_stack_traefik_proxy_network }}"
+    ports:
+      - "{{ __docker_stack_appspecs__media_bittorrent_port }}:8168"
+#      - "{{ __docker_stack_appspecs__media_openvpn_http_port }}:80"
+##      - "{{ __docker_stack_appspecs__media_sabnzbd_port }}:8080"
+#      - "{{ __docker_stack_appspecs__media_bittorrent_port }}:9091"
+#      - "6881:6881"
+#      - "6881:6881/udp"
+    environment:
+      USER: "{{ __docker_stack_appspecs__media_openvpn_username }}"
+      PASS: "{{ __docker_stack_appspecs__media_openvpn_password }}"
+      TZ: "{{ timezone }}"
+      COUNTRY: "United_States"
+      CATEGORY: "P2P"
+      RANDOM_TOP: 10
+      RECREATE_VPN_CRON: "5 */3 * * *"
+      NETWORK: "{{ __docker_stack_appspecs__media_openvpn_network }}"
+      OPENVPN_OPTS: '--pull-filter ignore "ping-restart" --ping-exit 180'
+
+  ## ref: https://plexguide.com/threads/howto-use-single-and-central-vpn-container-for-all-your-other-apps.2563/ (works)
+  ## ref: https://github.com/gwmullin/docker_stuff/blob/master/docker-compose.yml
+  ## ref: https://hub.docker.com/r/dperson/transmission/
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/c5b06477dc9d245ceb9caea5d702c2614fc7fece/docker-compose-t2-obsolete.yml
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
+  transmission:
+    active: no
+    image: "{{ __docker_stack_appspecs__media_transmission_image }}"
+    container_name: transmission
+    depends_on:
+      - openvpn
+    restart: always
+    environment:
+      USERID: "{{ docker_user_uid }}"
+      GROUPID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      TRUSER: "{{ __docker_stack_appspecs__media_transmission_rpc_username }}"
+      TRPASSWD: "{{ __docker_stack_appspecs__media_transmission_rpc_password }}"
+    network_mode: service:openvpn
+#    networks:
+#      - "{{ docker_stack_traefik_proxy_network }}"
+#      - vpn
+#    ports:
+#      - "{{ __docker_stack_appspecs__media_bittorrent_port }}:9091"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_downloads }}:/var/lib/transmission-daemon/downloads"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/transmission:/var/lib/transmission-daemon/info"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.transmission.entrypoints: https
+      traefik.http.routers.transmission.rule: Host(`transmission.{{ docker_stack_internal_domain }}`)
+      traefik.http.services.transmission.loadbalancer.server.port: 9091
+
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/c5b06477dc9d245ceb9caea5d702c2614fc7fece/docker-compose-t2-obsolete.yml
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
+  qbittorrent:
+    image: "{{ __docker_stack_appspecs__media_qbittorrent_image }}"
+    container_name: qbittorrent
+    depends_on:
+      - openvpn
+    restart: always
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      WEBUI_PORT: 8168
+    network_mode: service:openvpn
+#    networks:
+#      - "{{ docker_stack_traefik_proxy_network }}"
+#      - vpn
+#    ports:
+#      - "{{ __docker_stack_appspecs__media_bittorrent_port }}:9091"
+#      - "6881:6881"
+#      - "6881:6881/udp"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/qbittorrent:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.transmission.entrypoints: https
+      traefik.http.routers.transmission.rule: Host(`qbittorrent.{{ docker_stack_internal_domain }}`)
+      traefik.http.services.transmission.loadbalancer.server.port: 8168
+
+  ## SABnzbd – Usenet (NZB) Downloader
+  sabnzbd:
+    active: no
+#    image: linuxserver/sabnzbd
+    image: linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    depends_on:
+      - openvpn
+    restart: always
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    network_mode: service:openvpn
+#    networks:
+#      - "{{ docker_stack_traefik_proxy_network }}"
+#      - vpn
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/sabnzbd:/config"
+##      - "{{ __docker_stack_appspecs__media_downloads_complete }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_downloads_incomplete }}:/incomplete-downloads"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers Auth Bypass
+      traefik.http.routers.sabnzbd-rtr-bypass.entrypoints: https
+      traefik.http.routers.sabnzbd-rtr-bypass.rule: Host(`sabnzbd.{{ docker_stack_internal_domain }}`) && Query(`apikey`, `{{ __docker_stack_appspecs__media_sabnzbd_apikey }}`)
+      traefik.http.routers.sabnzbd-rtr-bypass.priority: 100
+      ## HTTP Routers Auth
+      traefik.http.routers.sabnzbd-rtr.entrypoints: https
+      traefik.http.routers.sabnzbd-rtr.rule: Host(`sabnzbd.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.sabnzbd-rtr.priority: 99
+      ## Middlewares
+      traefik.http.routers.sabnzbd-rtr-bypass.middlewares: chain-no-auth@file
+#      traefik.http.routers.sabnzbd-rtr.middlewares: chain-oauth@file
+      ## HTTP Services
+      traefik.http.routers.sabnzbd-rtr.service: sabnzbd-svc
+      traefik.http.routers.sabnzbd-rtr-bypass.service: sabnzbd-svc
+      traefik.http.services.sabnzbd-svc.loadbalancer.server.port: 8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+
+
+  # Sonarr – TV Show Download and Management
+  ## load certs using custom entrypoint.sh
+  ## ref: https://tyk.io/docs/frequently-asked-questions/add-custom-certificates-to-docker-images/
+  sonarr:
+    hostname: sonarr
+    image: "{{ __docker_stack_appspecs__media_sonarr_image }}"
+    container_name: "sonarr"
+#    depends_on:
+#      - transmission
+#        - sabnzbd
+    restart: "unless-stopped"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    entrypoint: /entrypoint.sh
+    volumes:
+      - "{{ docker_stack_script_dir }}/mono-entrypoint.sh:/entrypoint.sh"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/sonarr:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_tv_path }}:/tv"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ __docker_stack_appspecs__media_scripts_dir }}:/scripts"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.sonarr.entrypoints: https
+      traefik.http.routers.sonarr.rule: Host(`sonarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.sonarr_insecure.entrypoints: http
+      traefik.http.routers.sonarr_insecure.rule: Host(`sonarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.sonarr_insecure.middlewares: https-only@file
+      traefik.http.services.sonarr.loadbalancer.server.port: 8989
+
+  # Radarr – Movie Download and Management
+  radarr:
+    image: "{{ __docker_stack_appspecs__media_radarr_image }}"
+    container_name: "radarr"
+#    depends_on:
+#      - transmission
+#        - sabnzbd
+#      mem_limit: 500m
+#      ports:
+#        - "XXXX:7878"
+    restart: "unless-stopped"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    ## ref: https://stackoverflow.com/questions/41299514/docker-compose-define-mount-for-bind-mount-and-managed-mount
+    ## ref: https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation
+    volumes:
+#      - "/etc/localtime:/etc/localtime:ro"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/radarr:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_movies_path }}:/movies"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.radarr.entrypoints: https
+      traefik.http.routers.radarr.rule: Host(`radarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.radarr_insecure.entrypoints: http
+      traefik.http.routers.radarr_insecure.rule: Host(`radarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.radarr_insecure.middlewares: https-only@file
+      traefik.http.services.radarr.loadbalancer.server.port: 7878
+
+  #LIDARR - Music Download and Management
+  lidarr:
+    image: "{{ __docker_stack_appspecs__media_lidarr_image }}"
+    hostname: lidarr
+    container_name: "lidarr"
+#    depends_on:
+#      - transmission
+#        - sabnzbd
+#      mem_limit: 300m
+    restart: "unless-stopped"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+#      - "/etc/localtime:/etc/localtime:ro"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/lidarr:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_music_path }}:/music"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.lidarr.entrypoints: https
+      traefik.http.routers.lidarr.rule: Host(`lidarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.lidarr_insecure.entrypoints: http
+      traefik.http.routers.lidarr_insecure.rule: Host(`lidarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.lidarr_insecure.middlewares: https-only@file
+      traefik.http.services.lidarr.loadbalancer.server.port: 8686
+
+  # Bazarr - Subtitle Management
+  bazarr:
+    image: "{{ __docker_stack_appspecs__media_bazarr_image }}"
+    container_name: bazarr
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #  - "$BAZARR_PORT:6767"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_nas_path }}:/nas"
+#      - type: bind
+#        source: "{{ __docker_stack_appspecs__media_nas_path }}"
+#        target: "/nas"
+#        bind:
+#          propagation: "rshared"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/bazarr:/config"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.bazarr-rtr.entrypoints: https
+      traefik.http.routers.bazarr-rtr.rule: Host(`bazarr.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+#      traefik.http.routers.bazarr-rtr.middlewares: chain-oauth@file
+      traefik.http.routers.bazarr-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.routers.bazarr-rtr.service: bazarr-svc
+      traefik.http.services.bazarr-svc.loadbalancer.server.port: 6767
+
+  # Picard - Music Library Tagging and Management
+  picard:
+    active: no
+    image: mikenye/picard:latest
+    container_name: picard
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #   - "$PICARD_PORT:5800"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - /dev/shm:/dev/shm
+      - "{{ __docker_stack_appspecs__media_config_dir }}/picard:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}/wip_media:/wip_media"
+      - "{{ __docker_stack_appspecs__media_music_path }}:/music"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+#      - $USERDIR/Downloads/wip_media:/wip_media:rw
+#      - $DOCKERDIR/picard:/config:rw
+#      - /media/ds918/media/music:/music:rw
+    environment:
+      USER_ID: "{{ docker_user_uid }}"
+      GROUP_ID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      UMASK: 002
+      DISPLAY_WIDTH: 1600
+      DISPLAY_HEIGHT: 960
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.picard-rtr.entrypoints: https
+      traefik.http.routers.picard-rtr.rule: Host(`picard.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+#      traefik.http.routers.picard-rtr.middlewares: chain-oauth@file
+      traefik.http.routers.picard-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.routers.picard-rtr.service: picard-svc
+      traefik.http.services.picard-svc.loadbalancer.server.port: 5800
+
+  readarr:
+#      image: "linuxserver/readarr"
+#    image: "ghcr.io/linuxserver/readarr:nightly"
+    image: "linuxserver/readarr:nightly"
+    container_name: "readarr"
+#    depends_on:
+#      - transmission
+#        - sabnzbd
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+#      ports:
+#        - 5299:5299
+    restart: unless-stopped
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/readarr:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_books_path }}:/books"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+#        - "{{ __docker_stack_appspecs__media_nas_path }}:/remote_media"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.readarr.entrypoints: https
+      traefik.http.routers.readarr.rule: Host(`readarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.readarr_insecure.entrypoints: http
+      traefik.http.routers.readarr_insecure.rule: Host(`readarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.readarr_insecure.middlewares: https-only@file
+      traefik.http.services.readarr.loadbalancer.server.port: 8787
+
+  lazylibrarian:
+#    active: no
+#      image: "linuxserver/lazylibrarian"
+    image: "linuxserver/lazylibrarian:latest"
+    container_name: "lazylibrarian"
+#    depends_on:
+#      - transmission
+#        - sabnzbd
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      DOCKER_MODS: "linuxserver/calibre-web:calibre" #optional
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+#      ports:
+#        - 5299:5299
+    restart: unless-stopped
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/lazylibrarian:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_books_path }}/readarr:/books"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+#        - "{{ __docker_stack_appspecs__media_nas_path }}:/remote_media"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.lazylibrarian.entrypoints: https
+      traefik.http.routers.lazylibrarian.rule: Host(`lazylibrarian.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.lazylibrarian_insecure.entrypoints: http
+      traefik.http.routers.lazylibrarian_insecure.rule: Host(`lazylibrarian.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.lazylibrarian_insecure.middlewares: https-only@file
+      traefik.http.services.lazylibrarian.loadbalancer.server.port: 5299
+
+
+  # Calibre-web  – Ebooks and Management (Plex of Ebooks)
+  calibre-web:
+    active: no
+    image: linuxserver/calibre-web
+    container_name: calibre-web
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #  - "$CALIBRE_WEB_PORT:8083"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/calibre-web:/config"
+      # - /media/ds918/media/books:/books
+      # - add path to calibre books folder
+      #- $DOCKERDIR/calibre/books:/books:rw
+      - "{{ __docker_stack_appspecs__media_books_path }}:/books"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      # set the path to converter tool to /app/calibre/ebook-convert
+      DOCKER_MODS: linuxserver/calibre-web:calibre
+      UMASK: 002
+    labels:
+      traefik.enable: true
+      ## HTTP Routers Auth
+      traefik.http.routers.calibre-web-rtr.entrypoints: https
+      traefik.http.routers.calibre-web-rtr.rule: Host(`calweb.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+#      traefik.http.routers.calibre-web-rtr.middlewares: chain-oauth@file
+      traefik.http.routers.calibre-web-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.routers.calibre-web-rtr.service: calibre-web-svc
+      traefik.http.services.calibre-web-svc.loadbalancer.server.port: 8083
+
+  # Calibre  – Ebooks and Management (Server)
+  calibre:
+    active: no
+    image: linuxserver/calibre
+    container_name: calibre
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #  - "$CALIBRE_PORT:8080" # Desktop GUI
+    #  - "$CALIBRE_PORT:8081" # Webserver GUI
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/calibre:/config"
+      #      - /media/ds918/media/books:/config/Calibre Library:rw
+      #- $USERDIR/Downloads:/downloads:rw
+      - "{{ __docker_stack_appspecs__media_books_path }}/calibre:/books"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      # GUAC_USER: abc #Gucamole user optional
+      #Guacamole password optional
+      # GUAC_PASS: 900150983cd24fb0d6963f7d28e17f72
+      UMASK_SET: 002 #optional
+      # CLI_ARGS: #optional
+    labels:
+      traefik.enable: true
+      ## HTTP Routers Auth
+      traefik.http.routers.calibre-rtr.entrypoints: https
+      traefik.http.routers.calibre-rtr.rule: Host(`calibre.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+#      traefik.http.routers.calibre-rtr.middlewares: chain-oauth@file
+      traefik.http.routers.calibre-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.routers.calibre-rtr.service: calibre-svc
+      traefik.http.services.calibre-svc.loadbalancer.server.port: 8080
+
+  # AirSonic - Music Server
+  airsonic:
+    active: no
+    container_name: airsonic
+    image: linuxserver/airsonic:latest
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #   - "$AIRSONIC_PORT:4040"
+    volumes:
+#       - /media:/nas:ro
+#      - $DOCKERDIR/airsonic/podcasts:/podcasts
+#      - $DOCKERDIR/airsonic/playlists:/playlists
+#      - $DOCKERDIR/airsonic/config:/config
+#      # - $DOCKERDIR/airsonic/config:/app/airsonic/config #Used to change log level for debugging
+#      - "{{ __docker_stack_appspecs__media_nas_path }}:/nas:ro"
+      - "{{ __docker_stack_appspecs__media_nas_path }}/music:/music"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/airsonic/config:/config"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/airsonic/podcasts:/podcasts"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/airsonic/playlists:/playlists"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      JAVA_OPTS: -Dserver.use-forward-headers=true
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.airsonic-rtr.entrypoints: https
+      traefik.http.routers.airsonic-rtr.rule: Host(`airsonic.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+      traefik.http.routers.airsonic-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.routers.airsonic-rtr.service: airsonic-svc
+      traefik.http.services.airsonic-svc.loadbalancer.server.port: 4040
+
+  # Emby - Media Server
+  embyms:
+    active: no
+    image: emby/embyserver:latest
+    container_name: embyms
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    devices:
+      - /dev/dri:/dev/dri # for harware transcoding
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "{{ __docker_stack_appspecs__media_emby_port }}:8096/tcp"
+      - "8920:8920/tcp"
+    volumes:
+#      - /etc/localtime:/etc/localtime:ro
+      - /dev/shm:/transcode
+      - "{{ __docker_stack_appspecs__media_config_dir }}/embyms:/config"
+      - "{{ __docker_stack_appspecs__media_nas_path }}:/nas"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+    environment:
+      UID: "{{ docker_user_uid }}"
+      GID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      HOSTNAME: "emby"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.embyms-rtr.entrypoints: https
+      traefik.http.routers.embyms-rtr.rule: Host(`emby.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+      traefik.http.routers.embyms-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.routers.embyms-rtr.service: embyms-svc
+      traefik.http.services.embyms-svc.loadbalancer.server.port: 8096
+
+  # Jellyfin - Media Server
+  jellyfin:
+    active: no
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    devices:
+      - /dev/dri:/dev/dri # for harware transcoding
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "{{ __docker_stack_appspecs__media_jellyfin_port }}:8096"
+      - "8921:8920" # Changed to 8921 - conflict with Emby
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      UMASK_SET: 022
+    volumes:
+      - /dev/shm:/ram_transcode
+      - "{{ __docker_stack_appspecs__media_config_dir }}/jellyfin:/config"
+      - "{{ __docker_stack_appspecs__media_nas_path }}:/nas"
+#      # Run in ro mode while upgrading JF
+#      - "{{ __docker_stack_appspecs__media_nas_path }}:/nas:ro"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.jellyfin-rtr.entrypoints: https
+      traefik.http.routers.jellyfin-rtr.rule: Host(`jf.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+      traefik.http.routers.jellyfin-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.routers.jellyfin-rtr.service: jellyfin-svc
+      traefik.http.services.jellyfin-svc.loadbalancer.server.port: 8096
+
+  ######### Converters ##########
+
+  # Handbrake - Video Conversion (Transcoding and compression)
+  handbrake:
+    active: no
+    image: jlesage/handbrake:latest
+    container_name: handbrake
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #   - "$HANDBRAKE_PORT:5800"
+    volumes:
+#      - $USERDIR/Downloads:/downloads:ro
+#      - $DOCKERDIR/handbrake/config:/config:rw
+#      - $DOCKERDIR/handbrake/watch:/watch:rw
+#      - $USERDIR/Downloads/wip_media:/output:rw
+      - "{{ __docker_stack_appspecs__media_config_dir }}/handbrake/config:/config:rw"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/handbrake/watch:/watch:rw"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads:ro"
+      - "{{ __docker_stack_appspecs__media_path }}/handbrake/output:/output:rw"
+    environment:
+      USER_ID: "{{ docker_user_uid }}"
+      GROUP_ID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      UMASK: 002
+      KEEP_APP_RUNNING: 1
+      CLEAN_TMP_DIR: 1
+      DISPLAY_WIDTH: 1600
+      DISPLAY_HEIGHT: 960
+      AUTOMATED_CONVERSION_KEEP_SOURCE: 1
+      VNC_PASSWORD: "{{ __docker_stack_appspecs__media_vnc_password }}"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.handbrake-rtr.entrypoints: https
+      traefik.http.routers.handbrake-rtr.rule: Host(`handbrake.{{ docker_stack_internal_domain }}`)
+      ## Middlewares
+#      traefik.http.routers.handbrake-rtr.middlewares: chain-oauth@file
+      ## HTTP Services
+      traefik.http.routers.handbrake-rtr.service: handbrake-svc
+      traefik.http.services.handbrake-svc.loadbalancer.server.port: 5800
+
+
+  # MKVToolNix - Video Editing (Remuxing - changing media container while keeping original source quality)
+  mkvtoolnix:
+    active: no
+    image: jlesage/mkvtoolnix:latest
+    container_name: mkvtoolnix
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #   - "$MKVTOOLNIX_PORT:5800"
+    volumes:
+#      - $USERDIR/Downloads:/downloads:rw
+#      - $DOCKERDIR/mkvtoolnix/config:/config:rw
+      - "{{ __docker_stack_appspecs__media_config_dir }}/mkvtoolnix/config:/config:rw"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads:rw"
+    environment:
+      USER_ID: "{{ docker_user_uid }}"
+      GROUP_ID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      UMASK: 002
+      KEEP_APP_RUNNING: 1
+      CLEAN_TMP_DIR: 1
+      DISPLAY_WIDTH: 1600
+      DISPLAY_HEIGHT: 960
+      VNC_PASSWORD: "{{ __docker_stack_appspecs__media_vnc_password }}"
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.mkvtoolnix-rtr.entrypoints: https
+      traefik.http.routers.mkvtoolnix-rtr.rule: Host(`mkvtoolnix.{{ docker_stack_internal_domain }}`)
+#      ## Middlewares
+#      traefik.http.routers.mkvtoolnix-rtr.middlewares: chain-oauth@file
+      ## HTTP Services
+      traefik.http.routers.mkvtoolnix-rtr.service: mkvtoolnix-svc
+      traefik.http.services.mkvtoolnix-svc.loadbalancer.server.port: 5800
+
+  # MakeMKV – MakeMKV is a format converter, otherwise called "transcoder".
+  #   It converts the video clips from proprietary (and usually encrypted) disc into a set of MKV files,
+  #   preserving most information but not changing it in any way.
+  #   The MKV format can store multiple video/audio tracks with all meta-information and preserve chapters.
+  # ref: https://github.com/jlesage/docker-makemkv
+
+  makemkv:
+    active: no
+    image: "jlesage/makemkv:latest"
+    hostname: makemkv
+    container_name: "makemkv"
+    restart: "unless-stopped"
+    environment:
+      USER_ID: "{{ docker_user_uid }}"
+      GROUP_ID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+#        - "/docker/appdata/makemkv:/config:rw"
+#        - "$HOME:/storage:ro"
+#        - "$HOME/MakeMKV/output:/output:rw"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/makemkv:/config:rw"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/storage:ro"
+      - "{{ __docker_stack_appspecs__media_path }}/makemkv/output:/output:rw"
+#      devices:
+#        - "/dev/sr0:/dev/sr0"
+#        - "/dev/sg2:/dev/sg2"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.makemkv.entrypoints: https
+      traefik.http.routers.makemkv.rule: Host(`makemkv.{{ docker_stack_internal_domain }}`)
+#      traefik.http.routers.makemkv_insecure.entrypoints: http
+#      traefik.http.routers.makemkv_insecure.rule: Host(`makemkv.{{ docker_stack_internal_domain }}`)
+#      traefik.http.routers.makemkv_insecure.middlewares: https-only@file
+      traefik.http.services.makemkv.loadbalancer.server.port: 5800
+
+
+######### SEARCHERS ##########
+  ## flaresolverr – Torrent Proxy
+  ## ref: https://github.com/FlareSolverr/FlareSolverr
+  ## ref: https://gist.github.com/FaintGhost/dff7aa5d8ad490cb9b82cf677865aaa9
+  flaresolverr:
+#    image: "linuxserver/flaresolverr:latest"
+    image: "ghcr.io/flaresolverr/flaresolverr:latest"
+    container_name: "flaresolverr"
+    restart: "unless-stopped"
+    environment:
+      TZ: "{{ timezone }}"
+      LOG_LEVEL: "info"
+      LOG_HTML: "false"
+      CAPTCHA_SOLVER: "none"
+    ports:
+      - "8191:8191"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+#    volumes:
+#      - "/etc/localtime:/etc/localtime:ro"
+#      - "{{ __docker_stack_appspecs__media_config_dir }}/flaresolverr:/config"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.flaresolverr.entrypoints: https
+      traefik.http.routers.flaresolverr.rule: Host(`flaresolverr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.flaresolverr_insecure.entrypoints: http
+      traefik.http.routers.flaresolverr_insecure.rule: Host(`flaresolverr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.flaresolverr_insecure.middlewares: https-only@file
+      traefik.http.services.flaresolverr.loadbalancer.server.port: 8191
+
+  ## prowlarr – Torrent Proxy
+  ## ref: https://github.com/linuxserver/docker-prowlarr
+  prowlarr:
+#    image: "linuxserver/prowlarr:latest"
+    image: "ghcr.io/linuxserver/prowlarr:develop"
+    container_name: "prowlarr"
+    restart: "unless-stopped"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/prowlarr:/config"
+      - "{{ __docker_stack_appspecs__media_downloads_watch }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.prowlarr.entrypoints: https
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.prowlarr_insecure.entrypoints: http
+      traefik.http.routers.prowlarr_insecure.rule: Host(`prowlarr.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.prowlarr_insecure.middlewares: https-only@file
+      traefik.http.services.prowlarr.loadbalancer.server.port: 9696
+
+  ### NZBHydra – NZB Meta Search
+  hydra:
+    active: no
+    image: "linuxserver/nzbhydra2:latest"
+    container_name: "hydra"
+    restart: "unless-stopped"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/hydra:/config"
+      - "{{ __docker_stack_appspecs__media_downloads }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.hydra.entrypoints: https
+      traefik.http.routers.hydra.rule: Host(`hydra.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.hydra_insecure.entrypoints: http
+      traefik.http.routers.hydra_insecure.rule: Host(`hydra.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.hydra_insecure.middlewares: https-only@file
+      traefik.http.services.hydra.loadbalancer.server.port: 5076
+
+  ## Jackett – Torrent Proxy
+  jackett:
+    image: "linuxserver/jackett:latest"
+    container_name: "jackett"
+    restart: "unless-stopped"
+#    mem_limit: 300m
+#    ports:
+#      - 9117:9117
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    depends_on:
+      - openvpn
+    network_mode: service:openvpn
+#    networks:
+#      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/jackett:/config"
+      - "{{ __docker_stack_appspecs__media_downloads_watch }}:/downloads"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.jackett.entrypoints: https
+      traefik.http.routers.jackett.rule: Host(`jackett.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.jackett_insecure.entrypoints: http
+      traefik.http.routers.jackett_insecure.rule: Host(`jackett.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.jackett_insecure.middlewares: https-only@file
+      traefik.http.services.jackett.loadbalancer.server.port: 9117
+
+  ## NextCloud – Your Own Cloud Storage
+  nextcloud:
+    container_name: nextcloud
+    image: "linuxserver/nextcloud:latest"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/nextcloud/config:/config"
+#        - "{{ docker_user_home }}/shared_data:/data"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/nextcloud/data:/data"
+#      - "{{ __docker_stack_appspecs__media_config_dir }}/nextcloud/certs:/etc/nginx/certs"
+#        - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ __docker_stack_appspecs__media_shared_data_dir }}:/shared"
+      - "{{ __docker_stack_appspecs__media_path }}:/media"
+#      - "{{ __docker_stack_appspecs__media_nas_path }}:/remote_media"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.nextcloud.entrypoints: https
+      traefik.http.routers.nextcloud.rule: Host(`nextcloud.{{ docker_stack_external_domain }}`,`nextcloud.{{ docker_stack_internal_domain }}`)
+#      traefik.http.routers.nextcloud_insecure.entrypoints: http
+#      traefik.http.routers.nextcloud_insecure.rule: Host(`nextcloud.{{ docker_stack_external_domain }}`,`nextcloud.{{ docker_stack_internal_domain }}`)
+#      traefik.http.routers.nextcloud_insecure.middlewares: https-only@file
+      traefik.http.services.nextcloud.loadbalancer.server.port: 443
+      traefik.http.services.nextcloud.loadbalancer.server.scheme: https
+#      ## ref: https://github.com/traefik/traefik/pull/7203/files
+#      traefik.http.services.nextcloud.loadbalancer.serversTransport: skipVerifyTransport
+#      traefik.http.serversTransports.skipVerifyTransport.serverName: "{{ docker_stack_internal_domain }}"
+#      traefik.http.serversTransports.skipVerifyTransport.insecureSkipVerify: true
+
+  ## Pydio – Your Own Cloud Storage
+  pydio:
+    active: no
+    container_name: pydio
+    hostname: pydio
+#      image: "linuxserver/pydio"
+    image: "linuxserver/pydio:latest"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/pydio:/config"
+#        - "{{ docker_user_home }}/shared_data:/data"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/pydio/data:/data"
+#        - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/shared"
+      - "{{ __docker_stack_appspecs__media_shared_data_dir }}:/shared"
+      - "{{ __docker_stack_appspecs__media_path }}:/media"
+#      - "{{ __docker_stack_appspecs__media_nas_path }}:/remote_media"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.pydio.entrypoints: https
+      traefik.http.routers.pydio.rule: Host(`pydio.{{ docker_stack_external_domain }}`,`pydio.{{ docker_stack_internal_domain }}`)
+      traefik.http.services.pydio.loadbalancer.server.port: 443
+      traefik.http.services.pydio.loadbalancer.server.scheme: https
+
+#  ## ref: https://hub.docker.com/r/linuxserver/thelounge
+#  ## ref: https://dev.to/adamkdean/setup-your-own-persistent-web-irc-client-3678
+#  thelounge:
+#    image: ghcr.io/linuxserver/thelounge
+#    container_name: thelounge
+#    environment:
+#      PUID: "{{ docker_user_uid }}"
+#      PGID: "{{ docker_user_gid }}"
+#      TZ: "{{ timezone }}"
+#    volumes:
+#      - "{{ __docker_stack_appspecs__media_config_dir }}/thelounge:/config"
+#    ports:
+#      - 9000:9000
+#    restart: unless-stopped
+#    networks:
+#      - "{{ docker_stack_traefik_proxy_network }}"
+#    labels:
+#      traefik.enable: true
+#      traefik.http.routers.thelounge.entrypoints: https
+#      traefik.http.routers.thelounge.rule: Host(`thelounge.{{ docker_stack_internal_domain }}`)
+#      traefik.http.services.thelounge.loadbalancer.server.port: 9000
+
+  ############################# UTILITIES
+
+  # Duplicati - Backup
+  duplicati:
+    active: no
+    image: linuxserver/duplicati:latest
+    container_name: duplicati
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    # ports:
+    #  - "$DUPLICATI_PORT:8200"
+    volumes:
+      - "{{ __docker_stack_appspecs__media_config_dir }}/duplicati:/config"
+      - "{{ __docker_stack_appspecs__media_nas_path }}:/nas"
+      - "{{ __docker_stack_appspecs__media_config_dir }}/shared:/userdir"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+      # CLI_ARGS: #optional
+    labels:
+      traefik.enable: true
+      ## HTTP Routers
+      traefik.http.routers.duplicati-rtr.entrypoints: https
+      traefik.http.routers.duplicati-rtr.rule: Host(`duplicati.{{ docker_stack_internal_domain }}`)
+      traefik.http.routers.duplicati-rtr.service: duplicati-svc
+      ## Middlewares
+#      traefik.http.routers.duplicati-rtr.middlewares: chain-oauth@file
+      traefik.http.routers.duplicati-rtr.middlewares: chain-no-auth@file
+      ## HTTP Services
+      traefik.http.services.duplicati-svc.loadbalancer.server.port: 8200
+

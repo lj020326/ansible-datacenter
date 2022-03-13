@@ -1,0 +1,55 @@
+---
+
+docker_stack_appspec_services__diag:
+
+  # SmokePing - Network latency Monitoring
+  smokeping:
+    image: linuxserver/smokeping:latest
+    container_name: smokeping
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    #    ports:
+    #     - "$SMOKEPING_PORT:80"
+    volumes:
+      - "{{ __docker_stack_appspecs__diag_stack_dir }}/smokeping/config:/config"
+      - "{{ __docker_stack_appspecs__diag_stack_dir }}/smokeping/data:/data"
+    environment:
+      PUID: "{{ docker_user_uid }}"
+      PGID: "{{ docker_user_gid }}"
+      TZ: "{{ timezone }}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.home=true"
+      - "traefik.backend=smokeping"
+      - "traefik.protocol=http"
+      - "traefik.port=80"
+      - "traefik.frontend.rule=Host:smokeping.{{ docker_stack_internal_domain }}"
+      - "traefik.frontend.headers.SSLHost=smokeping.{{ docker_stack_internal_domain }}"
+      - "traefik.docker.network={{ docker_stack_traefik_proxy_network }}"
+      - "traefik.frontend.passHostHeader=true"
+      - "traefik.frontend.headers.SSLForceHost=true"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.customResponseHeaders=X-Robots-Tag:noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex"
+      - "traefik.frontend.headers.customFrameOptionsValue=allow-from https:{{ docker_stack_internal_domain }}"
+#      - "traefik.frontend.auth.forward.address=http://oauth:4181"
+#      - "traefik.frontend.auth.forward.authResponseHeaders=X-Forwarded-User"
+#      - "traefik.frontend.auth.forward.trustForwardHeader=true"
+
+
+
+docker_stack_appspec__diag:
+  dirs: "{{ docker_stack_appspec_config_dirs__diag | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__diag | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__diag | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__diag | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__diag | d([]) }}"
+  networks: "{{ docker_stack_appspec_networks__diag | d({}) }}"
+  volumes: "{{ docker_stack_appspec_volumes__diag | d({}) }}"
+  docker_services: "{{ docker_stack_appspec_services__diag | d({}) }}"

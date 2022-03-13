@@ -1,0 +1,147 @@
+---
+
+- name: "Check for CA key existence (so we don't generate a new one on every run)"
+  delegate_to: "{{ cacert_keyring_host }}"
+#  remote_user: "{{ ansible_ssh_user }}"
+  block:
+
+    - name: "validate_cert | Check if {{ keyring_cacerts_dir }}/{{ ca_key }} certificate exists"
+#      remote_user: "{{ ansible_ssh_user }}"
+      stat:
+        path: "{{ keyring_cacerts_dir }}/{{ ca_key }}"
+      register: __key_file
+
+    - name: "validate_cert | Display __key_file"
+      debug:
+        msg: "__key_file={{ __key_file }}"
+
+    - name: "validate_cert | verify {{ keyring_cacerts_dir }}/{{ ca_key }} status"
+      debug: msg="{{ keyring_cacerts_dir }}/{{ ca_key }} is present
+                  - setting fact _ca_key_exists [ internal fact with _ prefix ] to yes - this role will not generate a new one"
+      when: __key_file.stat.exists | bool
+
+    - name: "validate_cert | set _ca_key_exists var to yes"
+      set_fact:
+        _ca_key_exists: "{{ __key_file.stat.exists | bool }}"
+
+#    - name: "validate_cert | set _ca_key_exists var to yes"
+#      set_fact:
+#        _ca_key_exists: yes
+
+  rescue:
+    - name: "validate_cert | rescue block - key exists ..."
+      debug: msg="{{ keyring_cacerts_dir }}/{{ ca_key }} is present
+                  (if you want a new one remove the existing one and rerun this role)
+                  - setting fact ca_key_exists to no"
+
+    - name: "validate_cert | set _ca_key_exists var to no"
+      set_fact:
+        _ca_key_exists: no
+
+  always:
+    - name: "validate_cert | Show _ca_key_exists value"
+      debug: msg="variable _ca_key_exists is set to {{ _ca_key_exists }}"
+
+- name: "Check for CA cert existence (so we don't generate a new onw on every run)"
+  delegate_to: "{{ cacert_keyring_host }}"
+  block:
+
+    - name: "validate_cert | Check if {{ ca_cert }} certificate exists"
+      stat: path="{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      register: cert_file
+
+    - name: "validate_cert | Display cert_file info"
+      debug:
+        msg: "cert_file={{ cert_file }}"
+
+    - name: "validate_cert | Check certificate expiration date [ Expecting more than a week before setting regeneration var ... ]"
+      changed_when: no
+      shell: "openssl x509 -checkend {{ ca_cert_expiration_panic_threshold }} -noout -in {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      when: cert_file and cert_file.stat.exists
+      register: cert_validity_exp_date
+
+    - name: "validate_cert | Display cert_validity_exp_date"
+      debug:
+        msg: "cert_validity_exp_date={{ cert_validity_exp_date }}"
+
+    - name: "validate_cert | Display cert_validity_exp_date message"
+      debug:
+        msg: "{{ keyring_cacerts_dir }}/{{ ca_cert }} is still valid no need to generate"
+      when: cert_validity_exp_date and cert_validity_exp_date.rc | default(0) == 0
+
+    - name: "validate_cert | set _ca_missing_or_invalid_cert to {{ cert_file.stat.exists }}"
+      set_fact:
+        _ca_missing_or_invalid_cert: "{{ not cert_file.stat.exists | bool }}"
+
+#    - set_fact:
+#        _ca_missing_or_invalid_cert: no
+
+  rescue:
+    - debug: msg="{{ keyring_cacerts_dir }}/{{ ca_cert }} is not valid due to invalid expiration date - ca_force_create will be set"
+    - set_fact:
+        ca_force_create: yes
+        _ca_missing_or_invalid_cert: yes
+
+  always:
+    - debug: var=_ca_key_exists
+    - debug: var=_ca_missing_or_invalid_cert
+    - debug: var=ca_force_create
+
+#- name: "Check if intermediate CA cert signature is valid (so we don't generate a new onw on every run)"
+#  when: ca_cert_type == "intermediate-ca"
+- name: "Check if CA cert signature is valid (so we don't generate a new on on every run)"
+  delegate_to: "{{ cacert_keyring_host }}"
+  when:
+    - not _ca_missing_or_invalid_cert
+  block:
+
+    ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
+    - name: "validate_cert | Get ca certificate info"
+      openssl_certificate_info:
+        path: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      register: cacert_result
+
+    - name: "validate_cert | Display cacert_result"
+      when: cacert_display_cacert_result
+      debug: var=cacert_result
+
+    - name: "validate_cert | Assert cert info is valid"
+      assert:
+        that:
+          # issuer and issuer_strict
+          - cacert_result.issuer.organizationName == "{{ ca_signer_cert_info.organization }}"
+          - cacert_result.issuer.commonName == "{{ ca_signer_cert_info.commonName }}"
+          - cacert_result.subject.organizationName == "{{ ca_cert_info.organization }}"
+          - cacert_result.subject.commonName == "{{ ca_cert_info.commonName }}"
+          # has_expired
+          - not cacert_result.expired
+
+    - name: "validate_cert | Validate signed by ca signer certs"
+      changed_when: no
+#      when: cert_file and cert_file.stat.exists
+#      shell: "openssl verify -CAfile {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      shell: "openssl verify -CAfile {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert_chain }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      register: cert_validity_signer
+
+    - name: "validate_cert | Display cert_validity_signer"
+      debug:
+        msg: "cert_validity_signer={{ cert_validity_signer }}"
+
+    - name: "validate_cert | Display cert_validity message"
+      debug:
+        msg: "{{ keyring_cacerts_dir }}/{{ ca_cert }} is still valid no need to generate"
+      when: cert_validity_signer and cert_validity_signer.rc | default(0) == 0
+
+    - set_fact:
+        _ca_missing_or_invalid_cert: no
+
+  rescue:
+    - debug: msg="{{ keyring_cacerts_dir }}/{{ ca_cert }} is not valid - ca_force_create will be set"
+    - set_fact:
+        ca_force_create: yes
+        _ca_missing_or_invalid_cert: yes
+
+  always:
+    - debug: var=_ca_key_exists
+    - debug: var=_ca_missing_or_invalid_cert
+    - debug: var=ca_force_create

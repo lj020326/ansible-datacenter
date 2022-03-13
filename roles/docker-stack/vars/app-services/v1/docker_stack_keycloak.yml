@@ -1,0 +1,67 @@
+---
+
+docker_stack_appspec_services__keycloak:
+  ## ref: https://blog.exceptionerror.io/2018/08/29/openldap-keycloak-and-docker/
+  ## ref: https://github.com/wolfeidau/keycloak-docker-compose/blob/master/docker-compose.yml
+  ## ref: https://github.com/jboss-dockerfiles/keycloak/tree/master/docker-compose-examples
+  ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
+  keycloak:
+    container_name: "keycloak"
+    image: "{{ __docker_stack_appspecs__keycloak_image }}"
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: postgres
+      DB_DATABASE: "{{ __docker_stack_appspecs__keycloak_postgres_user }}"
+      DB_USER: "{{ __docker_stack_appspecs__keycloak_postgres_user }}"
+      DB_PASSWORD: "{{ __docker_stack_appspecs__keycloak_postgres_password }}"
+      KEYCLOAK_USER: "{{ __docker_stack_appspecs__keycloak_user }}"
+      KEYCLOAK_PASSWORD: "{{ __docker_stack_appspecs__keycloak_password }}"
+      KEYCLOAK_LOGLEVEL: DEBUG
+      PROXY_ADDRESS_FORWARDING: 'true'
+      #JDBC_PARAMS: "ssl=true"
+    ports:
+      - 8081:8080
+    volumes:
+      - "{{ __docker_stack_appspecs__keycloak_stack_dir }}/keycloak/themes:/opt/jboss/keycloak/themes/custome/:rw"
+#        - {{ __docker_stack_appspecs__keycloak_stack_dir }}/keycloak/data:/data
+      - keycloak_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=keycloak"
+      - "traefik.port=8080"
+      - "traefik.frontend.rule=Host:auth.{{ __docker_stack_appspecs__keycloak_external_domain }},auth.{{ __docker_stack_appspecs__keycloak_internal_domain }}"
+#        - "traefik.frontend.rule=Host:keycloak.{{ __docker_stack_appspecs__keycloak_external_domain }},keycloak.{{ __docker_stack_appspecs__keycloak_internal_domain }}"
+#        - "traefik.frontend.rule=PathPrefix:/auth"
+      - "traefik.docker.network={{ docker_stack_traefik_proxy_network }}"
+#        - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost={{ __docker_stack_appspecs__keycloak_external_domain }}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+#        - "traefik.frontend.headers.frameDeny=true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/"]
+      interval: 5s
+      timeout: 2s
+      retries: 15
+
+
+docker_stack_appspec__keycloak:
+  dirs: "{{ docker_stack_appspec_config_dirs__keycloak | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__keycloak | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__keycloak | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__keycloak | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__keycloak | d([]) }}"
+  volumes: "{{ docker_stack_appspec_volumes__keycloak | d({}) }}"
+  docker_services: "{{ docker_stack_appspec_services__keycloak | d({}) }}"

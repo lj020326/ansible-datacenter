@@ -1,0 +1,34 @@
+---
+
+docker_stack_appspec_services__acmedns:
+  ## https://github.com/joohoi/acme-dns
+  ## https://raw.githubusercontent.com/joohoi/acme-dns/master/docker-compose.yml
+  acmedns:
+    container_name: acmedns
+    image: joohoi/acme-dns:latest
+#    user: "{{ docker_user_uid }}:{{ docker_user_gid }}"
+    restart: "unless-stopped"
+    ports:
+      - "{{ __docker_stack_appspecs__acmedns_dns_port }}:53"
+      - "{{ __docker_stack_appspecs__acmedns_dns_port }}:53/udp"
+#      - "80:80"
+#      - "443:443"
+      - "{{ __docker_stack_appspecs__acmedns_http_port }}:80"
+      - "{{ __docker_stack_appspecs__acmedns_https_port }}:443"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+      - net
+    volumes:
+#      - ./config:/etc/acme-dns:ro
+#      - ./data:/var/lib/acme-dns
+      - "{{ docker_stack_dir }}/acmedns/config:/etc/acme-dns:ro"
+      - "{{ docker_stack_dir }}/acmedns/data:/var/lib/acme-dns"
+      - "{{ __docker_stack_appspecs__acmedns_tls_cert_host_privkey }}:/etc/tls/privkey.pem"
+      - "{{ __docker_stack_appspecs__acmedns_tls_cert_host_fullchain }}:/etc/tls/fullchain.pem"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.acmedns.entrypoints: https
+      traefik.http.routers.acmedns.rule: Host(`{{ docker_stack_acmedns_domain }}`)
+#      traefik.http.services.acmedns.loadbalancer.server.port: 80
+      traefik.http.services.acmedns.loadbalancer.server.port: 443
+      traefik.http.services.acmedns.loadbalancer.server.scheme: https
