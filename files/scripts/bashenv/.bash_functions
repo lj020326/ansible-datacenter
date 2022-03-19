@@ -92,6 +92,7 @@ function add_winpath() {
 ## $ setenv-python 2 
 ## bash: =2: command not found
 ##
+unset -f setenv-python || true
 function setenv-python() {
 	python_version=${1:-"3WIN"}
 	add2path=${2:-0}
@@ -144,8 +145,11 @@ function setenv-python() {
 #	logDebug "PATH=$PATH"
 
 	export PYTHON=$PYTHON_BIN_DIR/python
+	alias .venv=". ./venv/${VENV_BINDIR}/activate"
+
 }
 
+unset -f get-certs || true
 function get-certs() {
 
     DATE=`date +%Y%m%d%H%M%S`
@@ -238,11 +242,13 @@ function blastdocs() {
     blastit && popd
 }
 
+unset -f meteor-list-depends || true
 function meteor-list-depends() {
 
     for p in `meteor list | grep '^[a-z]' | awk '{ print $1"@"$2 }'`; do echo "$p"; meteor show "$p" | grep -E "^  [a-z]"; echo; done
 }
 
+unset -f find-up || true
 function find-up () {
     path=$(pwd)
     while [[ "$path" != "" && ! -e "$path/$1" ]]; do
@@ -251,6 +257,7 @@ function find-up () {
     echo "$path"
 }
 
+unset -f cdnvm || true
 function cdnvm(){
     cd $@;
     nvm_path=$(find-up .nvmrc | tr -d '[:space:]')
@@ -293,3 +300,41 @@ function cdnvm(){
     fi
 }
 
+## make these function so they evaluate at time of exec and not upon shell startup
+## Prevent bash alias from evaluating statement at shell start
+## ref: https://stackoverflow.com/questions/13260969/prevent-bash-alias-from-evaluating-statement-at-shell-start
+#alias gitpull.="git pull origin $(git rev-parse --abbrev-ref HEAD)"
+#alias gitpush.="git push origin $(git rev-parse --abbrev-ref HEAD)"
+#alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
+
+unset -f gitpull. || true
+function gitpull.(){
+  git pull origin $(git rev-parse --abbrev-ref HEAD)
+}
+
+unset -f gitpush. || true
+function gitpush.(){
+  git push origin $(git rev-parse --abbrev-ref HEAD)
+}
+
+unset -f gitsetupstream. || true
+function gitsetupstream.(){
+  git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)
+}
+
+unset -f gitpushwork || true
+function gitpushwork(){
+  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git push bitbucket $(git rev-parse --abbrev-ref HEAD)
+}
+
+unset -f gitpullwork || true
+function gitpullwork(){
+  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git pull bitbucket $(git rev-parse --abbrev-ref HEAD)
+}
+
+unset -f getbranchhist || true
+function getbranchhist(){
+  ## How to get commit history for just one branch?
+  ## ref: https://stackoverflow.com/questions/16974204/how-to-get-commit-history-for-just-one-branch
+  git log $(git rev-parse --abbrev-ref HEAD)..
+}

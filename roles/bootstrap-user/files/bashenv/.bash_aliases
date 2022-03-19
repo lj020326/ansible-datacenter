@@ -84,18 +84,6 @@ alias sortfilesize='ls -Slhr'
 ## ref: https://www.howtogeek.com/howto/30184/10-ways-to-generate-a-random-password-from-the-command-line/
 alias genpwd='openssl rand -base64 8 | md5sum | head -c8;echo'
 
-alias gitpull='git pull origin'
-
-alias gitfold="bash folder.sh fold"
-alias gitunfold="bash folder.sh unfold"
-## ref: http://erikaybar.name/git-deleting-old-local-branches/
-alias gitcleanupoldlocal="git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D "
-
-## ref: https://stackoverflow.com/questions/1371261/get-current-directory-name-without-full-path-in-a-bash-script
-#alias gitaddorigin="git remote add origin ssh://git@gitea.admin.johnson.int:2222/gitadmin/${PWD##*/}.git && git push -u origin master"
-alias gitaddorigin="git remote add origin ssh://git@gitea.admin.dettonville.int:2222/infra/${PWD##*/}.git && git push -u origin master"
-alias gitsetupstream="git branch --set-upstream-to=origin/master"
-
 alias rsync1='rsync -argv --update --progress'
 alias rsync2='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
 alias rsync3='rsync -arv --no-links --update --progress --exclude=node_modules --exclude=venv'
@@ -159,7 +147,7 @@ alias getansiblelog="scp administrator@admin01.johnson.int:/home/administrator/r
 
 ## ref: https://askubuntu.com/questions/20865/is-it-possible-to-remove-a-particular-host-key-from-sshs-known-hosts-file
 alias sshclearhostkey='ssh-keygen -R'
-alias ssh-reset-keys="ssh-keygen -R ${TARGET_HOST}; ssh-keyscan -H ${TARGET_HOST}"
+alias sshresetkeys="ssh-keygen -R ${TARGET_HOST} && ssh-keyscan -H ${TARGET_HOST}"
 
 alias create-crypt-passwd="openssl passwd -1 "
 
@@ -170,14 +158,43 @@ alias startheroku='heroku local'
 # alias syncbashenv='rsync1 ${ANSIBLE_DC_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
 alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/install_bashrc.sh && .bash"
 
+alias gitcommitpush="git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin"
 #alias blastit="git add . ; git commit -m 'updates' ; git push origin"
 alias blastit="git pull origin && git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin"
+alias blastmain="git pull main && git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin main"
+alias blastgithub="git push github"
 alias blasthugo="hugo && blastit && pushd . && cd public && blastit && popd"
+
+## ref: https://stackoverflow.com/questions/6052005/how-can-you-git-pull-only-the-current-branch
 alias gitpullsub="git submodule update --recursive --remote"
 alias gitlog="git log --graph --branches --oneline"
 alias gitrebase="git rebase --interactive HEAD"
 
+alias gitpull='git pull origin'
+alias gitpush='git push origin'
+alias gitremovecached="git rm -r --cached . && git add . && git commit -am 'Remove ignored files' && git push origin"
+
+## ref: http://erikaybar.name/git-deleting-old-local-branches/
+alias gitcleanupoldlocal="git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D "
+
+## ref: https://stackoverflow.com/questions/1371261/get-current-directory-name-without-full-path-in-a-bash-script
+#alias gitaddorigin="git remote add origin ssh://git@gitea.admin.johnson.int:2222/gitadmin/${PWD##*/}.git && git push -u origin master"
+alias gitaddorigin="git remote add origin ssh://git@gitea.admin.dettonville.int:2222/infra/${PWD##*/}.git && git push -u origin master"
+#alias gitsetupstream="git branch --set-upstream-to=origin/master"
+
+## make these function so they evaluate at time of exec and not upon shell startup
+## Prevent bash alias from evaluating statement at shell start
+## ref: https://stackoverflow.com/questions/13260969/prevent-bash-alias-from-evaluating-statement-at-shell-start
+#alias gitpull.="git pull origin $(git rev-parse --abbrev-ref HEAD)"
+#alias gitpush.="git push origin $(git rev-parse --abbrev-ref HEAD)"
+#alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
+
+alias gitfold="bash folder.sh fold"
+alias gitunfold="bash folder.sh unfold"
+
 alias decrypt="ansible-vault decrypt"
+alias vaultdecrypt="ansible-vault decrypt --vault-password-file=~/.vault_pass"
+alias vaultencrypt="ansible-vault encrypt --vault-password-file=~/.vault_pass"
 
 alias kubelog='kubectl logs --all-namespaces -f'
 alias watchkube='watch -d "kubectl get pods --all-namespaces -o wide"'
@@ -257,7 +274,15 @@ fi
 
 ## work related
 alias cdworkdocs='cd ~/repos/silex/docs-internal'
-alias gitaddsilexkey="git config core.sshCommand 'ssh -i ~/.ssh/${SSH_KEY_WORK}'"
+alias cdtower='cd /h/Source/Ansible_Tower'
+alias cddcc='cd /h/Source/Ansible_Tower/dcc_common'
 
-alias sshopentlc='ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@studentvm.cpwws.example.opentlc.com'
+alias gitaddworkkey="git config core.sshCommand 'ssh -i ~/.ssh/${SSH_KEY_WORK}'"
+alias gitaddalsackey="git config core.sshCommand 'ssh -i ~/.ssh/id_ecdsa'"
+alias gitclonework="GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git clone"
+
+#alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@studentvm.${RH_VM_GUID}.example.opentlc.com"
+alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@${RH_VM_HOST}"
+alias sshopentlc-pw="sshpass -p ${RH_USER_PWD} ssh lab-user@${RH_VM_HOST}"
+alias sshopentlc-tower='ssh -i ~/.ssh/${SSH_KEY_REDHAT} ljohnson-silexdata.com@control.78cb.example.opentlc.com'
 

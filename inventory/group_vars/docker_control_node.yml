@@ -1,0 +1,193 @@
+---
+
+#time_server: 0.pool.ntp.org
+#time_server: 192.168.0.1
+time_server: "{{ gateway_ip4_subnet_1_2 }}.0.1"
+
+#docker_stack_run_services: no
+#docker_stack_traefik_version: v1
+#docker_stack_traefik_certprovider_qa: yes
+
+docker_stack_script_dir: "/opt/scripts"
+
+docker_stack_enable_external_route: yes
+
+docker_stack_service_route_name: "admin"
+#docker_stack_service_route_name: "control"
+
+docker_stack_external_domain: "{{ docker_stack_external_root_domain }}"
+
+#docker_stack_acmedns_tls_cert_host_privkey: "/etc/ssl/private/admin.dettonville.int-key.pem"
+#docker_stack_acmedns_tls_cert_host_fullchain: "/etc/ssl/certs/admin.dettonville.int.pem"
+#docker_stack_acmedns_tls_cert_host_privkey: "/etc/ssl/private/admin.johnson.int-key.pem"
+#docker_stack_acmedns_tls_cert_host_fullchain: "/etc/ssl/certs/admin.johnson.int.pem"
+
+docker_stack_acmedns_tls_cert_host_privkey: "/etc/ssl/private/{{ docker_stack_internal_domain }}-key.pem"
+docker_stack_acmedns_tls_cert_host_fullchain: "/etc/ssl/certs/{{ docker_stack_internal_domain }}.pem"
+
+#docker_stack_acmedns_domain: "dyn.{{ docker_stack_internal_domain }}"
+#docker_stack_acmedns_domain: "acmedns.{{ docker_stack_internal_domain }}"
+#docker_stack_acmedns_domain: "{{ docker_stack_internal_domain }}"
+docker_stack_acmedns_domain: "acmedns.{{ docker_stack_internal_domain }}"
+# zone name server
+#docker_stack_acmedns_nsname: "dyn.{{ docker_stack_internal_domain }}"
+docker_stack_acmedns_nsname: "{{ docker_stack_acmedns_domain }}"
+# admin email address, where @ is substituted with .
+docker_stack_acmedns_nsadmin: "admin.{{ docker_stack_internal_domain }}"
+
+docker_stack_acmedns_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+
+#docker_user_uid: 1006
+#docker_user_gid: 1006
+
+docker_stack_services:
+  - healthchecks
+  - registry
+  - openldap
+  - stepca
+  - acmedns
+  - jenkins
+  - jenkins_agent
+  - postgres
+  - keycloak
+  - gitea
+  - gitlab
+  - auth
+#  - samba
+  - redis
+  - grafana
+  - netbootxyz
+  - archiva
+  - netbootxyz
+#  - postfix
+#  - jenkins
+#  - samba
+#  - mariadb
+#  - fog
+#  - bind
+#  - cobbler
+
+docker_stack_proxy_services:
+  - awx
+  - awx_orig
+  - wordpress
+#  - nginx
+
+docker_stack_volumes:
+#  prometheus: {}
+#  grafana: {}
+#  alertmanager: {}
+#  bacula_pgdata: {}
+  keycloak_data: {}
+
+common_packages_custom:
+  - sshpass
+
+#external_domain: "{{ external_root_domain }}"
+#docker_stack_external_domain: "{{ external_domain }}"
+#
+#docker_stack_registry_service_common_name: "{{ docker_stack_internal_domain }}"
+
+#docker_stack_stepca_use_host_cacerts: no
+#docker_stack_stepca_use_host_cacerts: yes
+
+#docker_stack_stepca_enable_signed: no
+docker_stack_stepca_enable_signed: yes
+
+#docker_stack_stepca_ca_force_create: no
+docker_stack_stepca_ca_force_create: yes
+
+
+docker_stack_archiva_http_port: 4080
+
+docker_stack_wordpress_backend: "http://wordpress.johnson.int:80"
+
+## JENKINS
+docker_stack_jenkins_ldap_host: "{{ ldap_internal_host }}"
+docker_stack_jenkins_ldap_base_dn: "{{ ldap_internal_base_dn }}"
+
+#docker_stack_jenkins_image: "media.johnson.local:5000/jenkins-docker:latest"
+
+docker_stack_jenkins_agent_image: "media.johnson.int:5000/jenkins-docker-cicd-agent:latest"
+#docker_stack_jenkins_agent_jenkins_url: "https://jenkins.admin.johnson.int"
+#docker_stack_jenkins_agent_tunnel: "jenkins.admin.johnson.int:9000"
+#docker_stack_jenkins_agent_jenkins_host: "jenkins.admin.johnson.int"
+docker_stack_jenkins_agent_jenkins_host: "jenkins.{{ docker_stack_internal_domain }}"
+docker_stack_jenkins_agent_jenkins_url: "https://{{ docker_stack_jenkins_agent_jenkins_host }}"
+docker_stack_jenkins_agent_tunnel: "{{ docker_stack_jenkins_agent_jenkins_host }}:9000"
+docker_stack_jenkins_agent_workdir: "/home/jenkins/agent"
+docker_stack_jenkins_agent_secret: "gogoggogogogogogogogoogg"
+
+docker_stack_jenkins_swarm_image: "media.johnson.int:5000/jenkins-swarm-agent:latest"
+docker_stack_jenkins_swarm_username: "{{ jenkins_agent_username }}"
+docker_stack_jenkins_swarm_password: "{{ jenkins_agent_password }}"
+
+docker_stack_keycloak_postgres_user: keycloak
+docker_stack_keycloak_postgres_password: "password"
+
+docker_stack_gitea_http_port: 3080
+docker_stack_gitea_ssh_port: 2222
+docker_stack_gitea_postgres_user: gitea
+docker_stack_gitea_postgres_password: password
+
+docker_stack_stepca_root_cacert: "{{ ca_local_cert_dir }}/ca.{{ docker_stack_internal_domain }}.pem"
+docker_stack_stepca_root_cacert_key: "{{ ca_local_key_dir }}/ca.{{ docker_stack_internal_domain }}-key.pem"
+
+docker_stack_stepca_cacert: "{{ ca_local_cert_dir }}/{{ docker_stack_internal_domain }}.pem"
+docker_stack_stepca_cacert_key: "{{ ca_local_key_dir }}/{{ docker_stack_internal_domain }}-key.pem"
+
+docker_stack_postgres_databases:
+  - "{{ docker_stack_keycloak_postgres_user }},{{ docker_stack_keycloak_postgres_password }}"
+  - "{{ docker_stack_gitea_postgres_user }},{{ docker_stack_gitea_postgres_password }}"
+
+## SAMBA
+samba_data_path: /data
+samba_server: samba.johnson.int
+samba_mail_domain: dettonville.org
+
+### AWX
+
+
+### PXE
+
+docker_stack_netbootxyz_root_dir: "/export/data/netbootxyz"
+docker_stack_netbootxyz_config_dir: "{{ docker_stack_netbootxyz_root_dir }}/config"
+docker_stack_netbootxyz_assets_dir: "{{ docker_stack_netbootxyz_root_dir }}/assets"
+
+pxe_root_dir: "{{ docker_stack_netbootxyz_root_dir }}"
+pxe_config_dir: "{{ docker_stack_netbootxyz_config_dir }}"
+pxe_assets_dir: "{{ docker_stack_netbootxyz_assets_dir }}"
+
+#kickstart_tftpdir: /var/lib/tftpboot
+kickstart_tftpdir: "{{ pxe_config_dir }}/menus"
+
+### DOCKER ADMIN JOBS - EG, BACKUPS
+docker_stack_admin_jobs:
+  - name: "hourly docker restart job"
+    minute: "10"
+    hour: "*"
+    job: "cd {{ docker_stack_dir }} && /usr/local/bin/docker-compose up -d"
+
+  - name: "hourly docker restart job"
+    minute: "5"
+    hour: "*/6"
+    job: "cd {{ docker_stack_dir }} && /usr/local/bin/docker-compose restart jenkins"
+
+#  - name: "daily fw backups job"
+#    special_time: daily
+#    job: "{{ docker_stack_script_dir }}/fwbackup.sh 2>&1 | tee -a {{ linux_backups_log_dir }}/fwbackup_daily.log"
+#
+#  - name: "daily backups job"
+##    special_time: daily
+##    job: "{{ docker_stack_script_dir }}/job-backup-incremental.sh DAILY /data/Records {{ docker_stack_backups_dir }}/records/daily 2>&1 | tee -a {{ linux_backups_log_dir }}/backup_records_daily.log"
+#    minute: "5"
+#    hour: "18"
+##    job: "bash -x {{ docker_stack_script_dir }}/run-daily-backup.sh"
+#    job: "python3 {{ docker_stack_script_dir }}/run-backups.py daily"
+#
+#  - name: "monthly backups job"
+#    special_time: monthly
+##    job: "{{ docker_stack_script_dir }}/job-backup-incremental.sh  MONTHLY /data/Records {{ docker_stack_backups_dir }}/records/monthly 2>&1 | tee -a {{ linux_backups_log_dir }}/backup_records_monthly.log"
+##    job: "bash -x {{ docker_stack_script_dir }}//run-monthly-backup.sh"
+#    job: "python3 {{ docker_stack_script_dir }}/run-backups.py monthly"
+#

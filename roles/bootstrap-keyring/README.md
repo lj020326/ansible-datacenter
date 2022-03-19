@@ -157,7 +157,7 @@ when: ca_distribute_keys is defined
 
 - name: "set CA_SUBJECT var"
   set_fact:
-    ca_subject: '/C={{ ca_country }}/ST={{ ca_state }}/L={{ ca_locality }}/O={{ ca_organization }}/OU={{ ca_organizationalUnit }}/CN={{ ca_commonName }}/emailAddress={{ ca_email }}'
+    ca_subject: '/C={{ ca_country }}/ST={{ ca_state }}/L={{ ca_locality }}/O={{ ca_organization }}/OU={{ ca_organizationalUnit }}/CN={{ ca_signer_common_name }}/emailAddress={{ ca_email }}'
    when: ca_subject is not defined
 
 - name: "Generate private key && Create root CA files"
