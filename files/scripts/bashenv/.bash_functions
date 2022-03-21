@@ -210,10 +210,10 @@ function get-certs() {
 ## ref: https://stackoverflow.com/questions/42635253/display-received-cert-with-curl
 ## example usage: 
 ##
-##   seecert admin2.johnson.int 5000
+##   certinfo admin2.johnson.int 5000
 ##
-unset -f seecert || true
-function seecert () {
+unset -f certinfo || true
+function certinfo () {
   nslookup $1
   (openssl s_client -showcerts -servername $1 -connect $1:$2 <<< "Q" | openssl x509 -text | grep "DNS After")
 }
@@ -228,6 +228,41 @@ function create-git-project() {
     git init --bare
     cd ..
     chown -R git.git $project.git
+}
+
+unset -f gitcommitpush || true
+function gitcommitpush() {
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git add . && \
+  git commit -am 'updates from ${HOSTNAME}' && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
+}
+
+unset -f gitremovecached || true
+function gitremovecached() {
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git rm -r --cached . && \
+  git add . && \
+  git commit -am 'Remove ignored files' && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
+}
+
+
+unset -f blastit || true
+function blastit() {
+  ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
+  ## https://stackoverflow.com/questions/46514831/how-read-the-current-upstream-for-a-git-branch
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git pull ${REMOTE} ${REMOTE_BRANCH} && \
+  git add . && \
+  git commit -am 'updates from ${HOSTNAME}' && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
 ## ref: https://superuser.com/questions/154332/how-do-i-unset-or-get-rid-of-a-bash-function

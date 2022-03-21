@@ -6,7 +6,8 @@
 - name: "Gather facts for all hosts to apply OS specific group vars for them"
   tags: always
 #  hosts: all
-  hosts: server_node
+#  hosts: server_node
+  hosts: server_node:!server_offline
   ## https://issues.jenkins-ci.org/browse/JENKINS-54557
   ignore_unreachable: yes
   ignore_errors: yes
@@ -29,11 +30,21 @@
       group_by:
         key: os_{{ ansible_facts['distribution']|d('Unknown') }}_{{ ansible_facts['distribution_major_version']|d('Unknown') }}
 
+#    - name: Classify hosts depending on their internal domain
+#      changed_when: no
+#      group_by:
+#        key: ca_domain_{{ ('_').join( inventory_hostname.split('.')[1::]|reverse ) | d(internal_domain) }}
+
     - name: Print env var debug information
       changed_when: no
-      tags: debug_ansible_env
+      tags: debug_vars
       debug:
         msg:
+          - "inventory_hostname={{ inventory_hostname | d('unknown') }}"
+          - "inventory_hostname_short={{ inventory_hostname_short | d('unknown') }}"
+          - "internal_subdomain={{ internal_subdomain | d('') }}"
+          - "internal_domain={{ internal_domain | d('unknown') }}"
+          - "netbase__hostname={{ netbase__hostname }}"
           - "ansible_host={{ ansible_host }}"
           - "ansible_hostname={{ ansible_hostname | d('') }}"
           - "ansible_fqdn={{ ansible_fqdn | d('') }}"
@@ -46,27 +57,41 @@
           - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('unknown') }}"
           - "group_names={{ group_names | d('') }}"
           - "ntp_servers={{ ntp_servers | d('') }}"
-          - "ca_domain={{ ca_domain | d('unknown') }}"
-          - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"
-          # - "ca_intermediate_certs_list={{ ca_intermediate_certs_list | d('') }}"
-          - "ca_subdomain={{ ca_subdomain | d('') }}"
-          - "ca_keyring_certs_dir={{ ca_keyring_certs_dir }}"
-          - "internal_domain={{ internal_domain | d('unknown') }}"
           - "docker_stack_external_domain={{ docker_stack_external_domain | d('') }}"
           - "docker_stack_internal_domain={{ docker_stack_internal_domain | d('') }}"
+          - "ca_domain={{ ca_domain | d('unknown') }}"
+          - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"
+
+    - name: Print env var debug information
+      when: debug_cacerts
+      changed_when: no
+      tags:
+          - debug_vars
+          - debug_cacerts
+      debug:
+        msg:
+          - "ca_domains_dynamic={{ ca_domains_dynamic | to_nice_json }}"
+          - "ca_service_routes_list={{ ca_service_routes_list | to_nice_json }}"
           - "ca_intermediate_certs_config={{ ca_intermediate_certs_config | to_nice_json }}"
+          - "ca_intermediate_certs_list_dynamic={{ ca_intermediate_certs_list_dynamic | to_nice_json }}"
+          - "ca_intermediate_certs_list={{ ca_intermediate_certs_list | to_nice_json }}"
+          - "ca_internal_domains_dynamic={{ ca_internal_domains_dynamic | to_nice_json }}"
+          - "ca_routes_dynamic={{ ca_routes_dynamic | to_nice_json }}"
+
+- name: "Display bind info"
+  tags:
+    - bootstrap-bind
+    - deploy-vm
+  hosts: bind_master
+  ignore_unreachable: yes
+  ignore_errors: yes
+  tasks:
 
     - name: "Print domain vars"
+      when: inventory_hostname in groups['bind_master'] or inventory_hostname in groups['bind_slave']
       debug:
-        msg: "{{item}}"
-      loop:
-        - "ca_routes_dynamic: {{ca_routes_dynamic}}"
-        - "ca_service_routes_list: {{ca_service_routes_list}}"
-        - "ca_intermediate_certs_list_dynamic: {{ca_intermediate_certs_list_dynamic}}"
-        - "ca_intermediate_certs_list: {{ca_intermediate_certs_list}}"
-        - "bind_zone_hosts_dynamic: {{bind_zone_hosts_dynamic}}"
-        - "ca_internal_domains_dynamic: {{ca_internal_domains_dynamic}}"
-        - "ca_domains_dynamic: {{ca_domains_dynamic}}"
+        msg:
+          - "bind_zone_hosts_dynamic={{ bind_zone_hosts_dynamic | to_nice_json }}"
 
 
 
@@ -74,7 +99,8 @@
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print environment variables"
 #  hosts: all
-  hosts: server_node
+#  hosts: server_node
+  hosts: server_node:!server_offline
   tags:
     - display-envvars
     - debug-envvars
@@ -94,7 +120,8 @@
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print internal variables"
 #  hosts: all
-  hosts: server_node
+#  hosts: server_node
+  hosts: server_node:!server_offline
   tags:
     - debug-vars
     - display-vars

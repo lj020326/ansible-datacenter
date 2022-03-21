@@ -8,40 +8,40 @@ One of the most versatile utilities developed is rsync, however; learning to eff
 
 On the one hand, you can simply type rsync —[daemon](http://en.wikipedia.org/wiki/Daemon_%28computer_software%29 "Daemon (computer software)") and it will start a rsync daemon running on [TCP port](http://en.wikipedia.org/wiki/Port_number "Port number") 873. But without the appropriate rsyncd.conf things can get a little messy. In addition, if you reboot the ‘server’ the process will not restart automatically. The worst thing is to have a system that has been operational for several months suddenly stop because someone rebooted the hardware and no one remembered that the process needed to be relaunched. Personally, I think it is much better to have the system offer some more resiliency by automating this process.
 
-On the Mac, unfortunately inetd is no longer a viable option, thus you need to use launchd and launchdctl to load your [XML](http://en.wikipedia.org/wiki/XML "XML") described process file. So, I created the following [plist](http://en.wikipedia.org/wiki/Property_list "Property list") ([property list](http://en.wikipedia.org/wiki/Property_list "Property list")) file that I installed as root into /Library/LaunchDaemon.
+On the Mac, unfortunately inetd is no longer a viable option, thus you need to use launchd and launchdctl to load your [XML](http://en.wikipedia.org/wiki/XML "XML") described process file. So, I created the following [plist](http://en.wikipedia.org/wiki/Property_list "Property list") ([property list](http://en.wikipedia.org/wiki/Property_list "Property list")) file that I installed as root into /Library/LaunchDaemon.
 
 ```
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-        <key>Disabled</key>
-        <false/>
-        <key>Label</key>
-        <string>org.samba.rsync</string>
-        <key>Program</key>
-        <string>/opt/local/bin/rsync</string>
-        <key>ProgramArguments</key>
-        <array>
-                <string>/opt/local/bin/rsync</string>
-                <string>--daemon</string>
-                <string>--config=/usr/local/etc/rsyncd/rsyncd.conf</string>
-        </array>
-        <key>inetdCompatibility</key>
-        <dict>
-                <key>Wait</key>
-                <false/>
-        </dict>
-                <key>Sockets</key>
-                <dict>
-                        <key>Listeners</key>
-                        <dict>
-                                <key>SockServiceName</key>
-                                <string>rsync</string>
-                                <key>SockType</key>
-                                <string>stream</string>
-                        </dict>
-                </dict>
+        <key>Disabled</key>
+        <false/>
+        <key>Label</key>
+        <string>org.samba.rsync</string>
+        <key>Program</key>
+        <string>/opt/local/bin/rsync</string>
+        <key>ProgramArguments</key>
+        <array>
+                <string>/opt/local/bin/rsync</string>
+                <string>--daemon</string>
+                <string>--config=/usr/local/etc/rsyncd/rsyncd.conf</string>
+        </array>
+        <key>inetdCompatibility</key>
+        <dict>
+                <key>Wait</key>
+                <false/>
+        </dict>
+                <key>Sockets</key>
+                <dict>
+                        <key>Listeners</key>
+                        <dict>
+                                <key>SockServiceName</key>
+                                <string>rsync</string>
+                                <key>SockType</key>
+                                <string>stream</string>
+                        </dict>
+                </dict>
 </dict>
 </plist>
 ```
@@ -75,14 +75,14 @@ max connections = 4
 syslog facility = local5
 
 [mk]
-        path = /Volumes/Data/home/mikel/stuff
-        comment = Mikel King Repository
-                uid = www
-                gid = www
-        list = yes
-                read only = no
-        auth users = mking
-        secrets file = /usr/local/etc/rsyncd/mking.secrets
+        path = /Volumes/Data/home/mikel/stuff
+        comment = Mikel King Repository
+                uid = www
+                gid = www
+        list = yes
+                read only = no
+        auth users = mking
+        secrets file = /usr/local/etc/rsyncd/mking.secrets
 ```
 
 Once I have completed the basic setup it’s time to launch the daemon. To do this we need to use launchdctl to load the plist into the lauchd registry. I find it is easiest to use pushed to temporarily move to /Library/LaunchDaemons and run the command locally as follows;
@@ -101,24 +101,24 @@ This above command will connect to the rsync daemon, which is a geeky way of say
 
 ```
 isis:~ $ ps ax |grep rsync
-85366   ??  Ss     0:00.00 /usr/libexec/launchproxy /opt/local/bin/rsync --daemon --config=/usr/local/etc/rsyncd/rsyncd.conf
+85366   ??  Ss     0:00.00 /usr/libexec/launchproxy /opt/local/bin/rsync --daemon --config=/usr/local/etc/rsyncd/rsyncd.conf
 ```
 
 As soon as the connection to rsync has completed it’s transaction the daemon will end it’s run allowing those cycles and ram to return to the pool of resources that the server needs to use for doing other things like serving Minecraft or WordPress web sites. The following is an example of what it looks like from the client perspective,which in geek speak is basically a way of saying what happened on my laptop;
 
 ```
-djehuty: mking$ rsync  --stats  mking@olivent.com::mk
+djehuty: mking$ rsync  --stats  mking@olivent.com::mk
 Password:
-drwxrwxrwt         374 2011/11/19 11:39:11 .
--rw-r--r--      382258 2011/11/10 22:16:56 ThumbtackMap.png
--rwxr-xr-x          71 2011/07/30 00:48:29 addRoute
--rw-r--r--      255809 2011/10/24 09:03:27 mk-mib.jpg
--rw-r--r--       78922 2011/11/03 14:47:54 rei-press-mug.png
--rw-r--r--        1362 2011/07/29 23:56:50 rsyncd.conf
--rw-r--r--      681399 2011/11/18 15:03:15 stargate.png
--rw-r--r--       66468 2011/11/01 15:04:52 terminal.app.png
--rw-r--r--         715 2011/11/18 18:19:07 tftp.plist
--rw-r--r--       10274 2011/11/18 17:42:13 admin-ssh-bundle.tbz
+drwxrwxrwt         374 2011/11/19 11:39:11 .
+-rw-r--r--      382258 2011/11/10 22:16:56 ThumbtackMap.png
+-rwxr-xr-x          71 2011/07/30 00:48:29 addRoute
+-rw-r--r--      255809 2011/10/24 09:03:27 mk-mib.jpg
+-rw-r--r--       78922 2011/11/03 14:47:54 rei-press-mug.png
+-rw-r--r--        1362 2011/07/29 23:56:50 rsyncd.conf
+-rw-r--r--      681399 2011/11/18 15:03:15 stargate.png
+-rw-r--r--       66468 2011/11/01 15:04:52 terminal.app.png
+-rw-r--r--         715 2011/11/18 18:19:07 tftp.plist
+-rw-r--r--       10274 2011/11/18 17:42:13 admin-ssh-bundle.tbz
 
 Number of files: 10
 Number of files transferred: 0
@@ -132,8 +132,8 @@ File list transfer time: 0.000 seconds
 Total bytes sent: 61
 Total bytes received: 300
 
-sent 61 bytes  received 300 bytes  144.40 bytes/sec
-total size is 1477278  speedup is 4092.18
+sent 61 bytes  received 300 bytes  144.40 bytes/sec
+total size is 1477278  speedup is 4092.18
 ```
 
 As you can see I am running rsync on my laptop with the –stats option which yields this handy output of what transpired during the session. After issuing the rsync command it prompts me for my password on the rsync server for that resource, which rsync calls a module. Assuming that I am listed in the module definition in rsyncd.conf as an auth user and enter the correct password noted in the appropriate “secrets” file then rsyncd will send the appropriate data to rsync on my laptop.

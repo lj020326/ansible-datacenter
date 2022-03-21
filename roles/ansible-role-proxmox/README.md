@@ -76,19 +76,19 @@ eventually look like this, but yours does not have to follow all of the steps:
 ```
 lab-cluster/
 ├── files
-│   └── pve01
-│       ├── lab-node01.local.key
-│       ├── lab-node01.local.pem
-│       ├── lab-node02.local.key
-│       ├── lab-node02.local.pem
-│       ├── lab-node03.local.key
-│       └── lab-node03.local.pem
+│   └── pve01
+│       ├── lab-node01.local.key
+│       ├── lab-node01.local.pem
+│       ├── lab-node02.local.key
+│       ├── lab-node02.local.pem
+│       ├── lab-node03.local.key
+│       └── lab-node03.local.pem
 ├── group_vars
-│   ├── all
-│   └── pve01
+│   ├── all
+│   └── pve01
 ├── inventory
 ├── roles
-│   └── requirements.yml
+│   └── requirements.yml
 ├── site.yml
 └── templates
     └── interfaces-pve01.j2

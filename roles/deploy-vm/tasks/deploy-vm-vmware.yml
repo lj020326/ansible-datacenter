@@ -18,7 +18,7 @@
 
 - name: "Set node specifics for vmware_spec_node_info fact"
   set_fact:
-    vmware_spec_node_info: "{{ vmware_spec_node_info | combine({ item: {'name': item, 'guest_domain': (hostvars[item]['ca_domain']) } }, recursive=True ) | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
+    vmware_spec_node_info: "{{ vmware_spec_node_info | combine({ item: {'name': item, 'guest_domain': (hostvars[item]['vm_guest_domain']) } }, recursive=True ) | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
   loop: "{{ groups['vmware_vm'] }}"
 
 - name: "Set static node IP on vmware_spec_node_info fact"
@@ -43,7 +43,7 @@
   debug:
       var: vmware_spec_nodes
 
-- name: "Set virtual_machines_by_name fact"
+- name: "Set  vmware_vm_info_by_name fact"
   set_fact:
     virtual_machines_by_name: "{{ virtual_machines_by_name|default({}) | combine( { item.guest_name: item } ) }}"
   loop: "{{ vm_facts.virtual_machines }}"
@@ -53,63 +53,60 @@
       var: virtual_machines_by_name
 
 - name: "Clone from Template and Customize Virtual Machine"
-  vmware_guest:
-    hostname: "{{ vcenter_hostname }}"
-    username: "{{ vcenter_username }}"
-    password: "{{ vcenter_password }}"
-    validate_certs: no
-    datacenter: "{{ vmware_vm_datacenter }}"
-    cluster: "{{ item.cluster | d(omit) }}"
-    esxi_hostname: "{{ item.host if item.cluster is not defined else omit }}"
-    folder: "{{ item.folder }}"
-    name: "{{ item.name }}"
-    state: poweredon
-#    state: poweredoff
-    template: "{{ deploy_vm_os_info[item.os].name }}"
-    notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
-    disk:
-    - size_gb: "{{ item.disk_size }}"
-      type: thin
-      datastore: "{{ item.datastore }}"
-    hardware:
-      memory_mb: "{{ item.mem }}"
-      num_cpus: 2
-      scsi: paravirtual
-    wait_for_ip_address: yes
-  loop: "{{ vmware_spec_nodes }}"
-#  delegate_to: localhost
-  register: deploy_results
   when: virtual_machines_by_name[item.name] is not defined
-  ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
-  async: 2000
-#  poll: 10
-  poll: 0
+  block:
 
-- name: "Display deploy_results (initial)"
-  when: virtual_machines_by_name[item.name] is not defined
-  debug:
-      var: deploy_results
+    - name: "Clone from Template and Customize Virtual Machine"
+      vmware_guest:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter: "{{ vmware_vm_datacenter }}"
+        cluster: "{{ item.cluster | d(omit) }}"
+        esxi_hostname: "{{ item.host if item.cluster is not defined else omit }}"
+        folder: "{{ item.datastore_folder }}"
+        name: "{{ item.name }}"
+#        state: poweredon
+        state: poweredoff
+        template: "{{ deploy_vm_os_info[item.os].name }}"
+        notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+        disk: "{{ vmware_vm_disks }}"
+        hardware: "{{ vmware_vm_hardware }}"
+        wait_for_ip_address: yes
+      loop: "{{ vmware_spec_nodes }}"
+    #  delegate_to: localhost
+      register: deploy_results
+      when: virtual_machines_by_name[item.name] is not defined
+      ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
+      async: 2000
+    #  poll: 10
+      poll: 0
 
-## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_async.html
-## ref: https://itspyworld.blogspot.com/2020/07/ansible-deploy-multiple-vm-from.html
-## ref: https://blog.crisp.se/2018/01/27/maxwenzin/how-to-run-ansible-tasks-in-parallel
-- name: Wait for VM creation to finish
-  async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ deploy_results.results }}"
-  when: item.ansible_job_id is defined
-  register: job_result
-  until: job_result.finished
-  # Check every 5 seconds. Adjust as you like.
-  delay: "{{ deploy_vm_create_async_delay }}"
-  # Retry up to 10 times. Adjust as needed.
-  retries: "{{ deploy_vm_create_async_retries }}"
+    - name: "Display deploy_results (initial)"
+      debug:
+          var: deploy_results
 
-- name: "Display job_result"
-  debug:
-      var: job_result
+    ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_async.html
+    ## ref: https://itspyworld.blogspot.com/2020/07/ansible-deploy-multiple-vm-from.html
+    ## ref: https://blog.crisp.se/2018/01/27/maxwenzin/how-to-run-ansible-tasks-in-parallel
+    - name: Wait for VM creation to finish
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ deploy_results.results }}"
+      when: item.ansible_job_id is defined
+      register: job_result
+      until: job_result.finished
+      # Check every 5 seconds. Adjust as you like.
+      delay: "{{ deploy_vm_create_async_delay }}"
+      # Retry up to 10 times. Adjust as needed.
+      retries: "{{ deploy_vm_create_async_retries }}"
 
-- name: Gather vm_facts for new devices, if they have been cloned
+    - name: "Display job_result"
+      debug:
+          var: job_result
+
+- name: Gather vm_facts for VMs
   vmware_vm_info:
     hostname: "{{ vcenter_hostname }}"
     username: "{{ vcenter_username }}"
@@ -117,9 +114,9 @@
     validate_certs: False
   register: vm_facts
 
-- name: "Set virtual_machines_by_name fact"
+- name: "Set  vmware_vm_info_by_name fact"
   set_fact:
-    virtual_machines_by_name: "{{ virtual_machines_by_name|default({}) | combine( { item.guest_name: item } ) }}"
+     vmware_vm_info_by_name: "{{  vmware_vm_info_by_name|default({}) | combine( { item.guest_name: item } ) }}"
   loop: "{{ vm_facts.virtual_machines }}"
 
 - name: "Configure VMs"
@@ -157,7 +154,7 @@
 #    group: "{{ item.services }}"
 #    groups: "{{ item.services + ['vmware_guest_auto', 'server_vm_dynamic_ip'] }}"
     groups: "{{ vm_groups[item.name] }}"
-#    ansible_ssh_host: "{{ virtual_machines_by_name[item.name]['ip_address'] }}"
+#    ansible_ssh_host: "{{  vmware_vm_info_by_name[item.name]['ip_address'] }}"
 #    ansible_ssh_host: "{{ item.name }}.{{ item.guest_domain }}"
     ansible_ssh_host: "{{ hostvars[item.name]['ansible_default_ipv4']['address'] | d(hostvars[item.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
     ansible_ssh_port: "{{ ansible_ssh_port | d(omit) }}"

@@ -12,13 +12,26 @@
 - debug:
     var: bind_zone_domains
 
+- debug:
+    var: bind_zone_name
+
+- set_fact:
+    bind_domain_group: "ca_domain_{{ '_'.join( bind_zone_name.split('.')|reverse ) }}"
+
+- debug:
+    var: bind_domain_group
+
+- debug:
+    var: groups[bind_domain_group]
+
 - name: Read forward zone hashes
   shell: 'grep -s "^; Hash:" {{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.view }}_{% endif %}{{ item.name }} || true'
   changed_when: false
   check_mode: false
   register: forward_hashes_temp
-  with_items:
-    - "{{ bind_zone_domains }}"
+#  with_items:
+#    - "{{ bind_zone_domains }}"
+  loop: "{{ bind_zone_domains }}"
   run_once: true
   loop_control:
     label: "{{ item.name }}"
@@ -109,8 +122,7 @@
     setype: named_zone_t
     validate: 'named-checkzone -d {{ item.name }} %s'
     backup: "{{ bind_backup_conf }}"
-  with_items:
-    - "{{ bind_zone_domains }}"
+  loop: "{{ bind_zone_domains }}"
   loop_control:
     label: "{{ item.name }}"
   notify: reload bind
