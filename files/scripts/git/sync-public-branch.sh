@@ -15,7 +15,6 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
 PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
-PROJECT_DIR2="$( cd "$SCRIPT_DIR/../../../../ansible-datacenter-backup/" && pwd )"
 
 #EXCLUDES="--exclude=.git"
 #EXCLUDES+="--exclude=.idea"
@@ -57,7 +56,6 @@ echo "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
 TMP_DIR="$(mktemp -d -p ~)"
 
 echo "PROJECT_DIR=${PROJECT_DIR}"
-echo "PROJECT_DIR2=${PROJECT_DIR2}"
 echo "TMP_DIR=${TMP_DIR}"
 
 ## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible

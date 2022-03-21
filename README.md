@@ -204,7 +204,7 @@ To setup/configure samba server node
 Note: We now use the samba docker container to run the samba server and no longer build on the VM.
 
 ```bash
-ansible-playbook site.yml --tags bootstrap-samba-server
+ansible-playbook site.yml --tags docker-samba-node
 ```
 
 To configure samba client node

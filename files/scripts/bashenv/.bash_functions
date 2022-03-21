@@ -296,6 +296,23 @@ function cdnvm(){
 #alias gitpush.="git push origin $(git rev-parse --abbrev-ref HEAD)"
 #alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
 
+unset -f gitshowupstream || true
+function gitshowupstream(){
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  echo ${REMOTE_AND_BRANCH}
+}
+
+unset -f gitsetupstream. || true
+function gitsetupstream(){
+  NEW_REMOTE={$1:"origin"}
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  echo LOCAL_BRANCH=${LOCAL_BRANCH} && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git branch --set-upstream-to=${NEW_REMOTE}/${LOCAL_BRANCH}
+}
+
 unset -f gitpull || true
 function gitpull(){
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
@@ -312,10 +329,6 @@ function gitpush(){
   git push ${REMOTE} ${REMOTE_BRANCH}
 }
 
-unset -f gitsetupstream. || true
-function gitsetupstream(){
-  git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)
-}
 
 unset -f gitpushwork || true
 function gitpushwork(){

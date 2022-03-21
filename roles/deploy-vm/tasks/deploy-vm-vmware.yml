@@ -18,7 +18,8 @@
 
 - name: "Set node specifics for vmware_spec_node_info fact"
   set_fact:
-    vmware_spec_node_info: "{{ vmware_spec_node_info | combine({ item: {'name': item, 'guest_domain': (hostvars[item]['vm_guest_domain']) } }, recursive=True ) | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
+#    vmware_spec_node_info: "{{ vmware_spec_node_info | combine({ item: {'name': item, 'guest_domain': (hostvars[item]['vm_guest_domain']) } }, recursive=True ) | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
+    vmware_spec_node_info: "{{ vmware_spec_node_info | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
   loop: "{{ groups['vmware_vm'] }}"
 
 - name: "Set static node IP on vmware_spec_node_info fact"
@@ -53,58 +54,55 @@
       var: virtual_machines_by_name
 
 - name: "Clone from Template and Customize Virtual Machine"
+  vmware_guest:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: no
+    datacenter: "{{ vmware_vm_datacenter }}"
+    cluster: "{{ item.cluster | d(omit) }}"
+    esxi_hostname: "{{ item.host if item.cluster is not defined else omit }}"
+    folder: "{{ item.datastore_folder }}"
+    name: "{{ item.name }}"
+#    state: poweredon
+#    state: poweredoff
+    state: present
+    template: "{{ deploy_vm_template_info[item.template_id].name }}"
+    notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+    disk: "{{ item.disks }}"
+    hardware: "{{ item.hardware }}"
+    wait_for_ip_address: yes
+  loop: "{{ vmware_spec_nodes }}"
+#  delegate_to: localhost
+  register: deploy_results
   when: virtual_machines_by_name[item.name] is not defined
-  block:
+  ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
+  async: 2000
+#  poll: 10
+  poll: 0
 
-    - name: "Clone from Template and Customize Virtual Machine"
-      vmware_guest:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
-        datacenter: "{{ vmware_vm_datacenter }}"
-        cluster: "{{ item.cluster | d(omit) }}"
-        esxi_hostname: "{{ item.host if item.cluster is not defined else omit }}"
-        folder: "{{ item.datastore_folder }}"
-        name: "{{ item.name }}"
-#        state: poweredon
-        state: poweredoff
-        template: "{{ deploy_vm_os_info[item.os].name }}"
-        notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
-        disk: "{{ vmware_vm_disks }}"
-        hardware: "{{ vmware_vm_hardware }}"
-        wait_for_ip_address: yes
-      loop: "{{ vmware_spec_nodes }}"
-    #  delegate_to: localhost
-      register: deploy_results
-      when: virtual_machines_by_name[item.name] is not defined
-      ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
-      async: 2000
-    #  poll: 10
-      poll: 0
+- name: "Display deploy_results (initial)"
+  debug:
+      var: deploy_results
 
-    - name: "Display deploy_results (initial)"
-      debug:
-          var: deploy_results
+## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_async.html
+## ref: https://itspyworld.blogspot.com/2020/07/ansible-deploy-multiple-vm-from.html
+## ref: https://blog.crisp.se/2018/01/27/maxwenzin/how-to-run-ansible-tasks-in-parallel
+- name: Wait for VM creation to finish
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ deploy_results.results }}"
+  when: item.ansible_job_id is defined
+  register: job_result
+  until: job_result.finished
+  # Check every 5 seconds. Adjust as you like.
+  delay: "{{ deploy_vm_create_async_delay }}"
+  # Retry up to 10 times. Adjust as needed.
+  retries: "{{ deploy_vm_create_async_retries }}"
 
-    ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_async.html
-    ## ref: https://itspyworld.blogspot.com/2020/07/ansible-deploy-multiple-vm-from.html
-    ## ref: https://blog.crisp.se/2018/01/27/maxwenzin/how-to-run-ansible-tasks-in-parallel
-    - name: Wait for VM creation to finish
-      async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ deploy_results.results }}"
-      when: item.ansible_job_id is defined
-      register: job_result
-      until: job_result.finished
-      # Check every 5 seconds. Adjust as you like.
-      delay: "{{ deploy_vm_create_async_delay }}"
-      # Retry up to 10 times. Adjust as needed.
-      retries: "{{ deploy_vm_create_async_retries }}"
-
-    - name: "Display job_result"
-      debug:
-          var: job_result
+- name: "Display job_result"
+  debug:
+      var: job_result
 
 - name: Gather vm_facts for VMs
   vmware_vm_info:
