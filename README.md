@@ -12,10 +12,14 @@ Prerequisites
 git clone https://github.com/lj020326/ansible-datacenter.git
 ```
 
-2. Setup galaxy roles to be used: *This is internally performed by script if using to run on remote ansible/control node
+2. Setup galaxy collections/roles to be used: *This is internally performed by script if using to run on remote ansible/control node
 
 ```
-ansible-galaxy install --force -r requirements.yml
+## install collections
+ansible-galaxy collection install -r ./collections/requirements.yml
+
+## install roles
+ansible-galaxy install -r ./roles/requirements.yml
 ```
 
 3. Add host info to hosts.ini inventory and ping the nodes
