@@ -15,9 +15,14 @@ trap 'rm -fr "$TMP_DIR"' EXIT
 
 CONFIRM=0
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
-echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
-PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
+#pushd .
+
+#cd $(git rev-parse --show-cdup)
+#PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
+#PROJECT_DIR="./$(git rev-parse --show-cdup)"
+PROJECT_DIR="$( pwd . )"
+#eval PROJECT_DIR=$PROJECT_DIR
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a PRIVATE_CONTENT_ARRAY
@@ -44,6 +49,7 @@ printf -v EXCLUDE_AND_REMOVE '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"
 EXCLUDE_AND_REMOVE="${EXCLUDE_AND_REMOVE%,}"
 echo "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
 
+echo "SCRIPT_DIR=${SCRIPT_DIR}"
 echo "PROJECT_DIR=${PROJECT_DIR}"
 echo "TMP_DIR=${TMP_DIR}"
 

@@ -380,7 +380,7 @@ function blastit() {
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   git pull ${REMOTE} ${REMOTE_BRANCH} && \
   git add . && \
-  git commit -am 'updates from ${HOSTNAME}' && \
+  git commit -am "updates from ${HOSTNAME}" && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
