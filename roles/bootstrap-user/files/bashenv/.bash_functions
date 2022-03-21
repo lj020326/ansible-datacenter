@@ -210,10 +210,10 @@ function get-certs() {
 ## ref: https://stackoverflow.com/questions/42635253/display-received-cert-with-curl
 ## example usage: 
 ##
-##   seecert admin2.johnson.int 5000
+##   certinfo admin2.johnson.int 5000
 ##
-unset -f seecert || true
-function seecert () {
+unset -f certinfo || true
+function certinfo () {
   nslookup $1
   (openssl s_client -showcerts -servername $1 -connect $1:$2 <<< "Q" | openssl x509 -text | grep "DNS After")
 }
@@ -230,17 +230,6 @@ function create-git-project() {
     chown -R git.git $project.git
 }
 
-## ref: https://superuser.com/questions/154332/how-do-i-unset-or-get-rid-of-a-bash-function
-unset -f blastdocs || true
-function blastdocs() {
-    pushd . && cd ~/docs && git pull origin
-    if [ -f save/phone.txt ]; then
-#        cp -p save/phone.txt . && \
-#        ansible-vault encrypt phone.txt --output ${TO}/.bash_secrets --vault-password-file ~/.vault_pass
-        ansible-vault encrypt save/phone.txt --output phone.txt --vault-password-file ~/.vault_pass
-    fi
-    blastit && popd
-}
 
 unset -f meteor-list-depends || true
 function meteor-list-depends() {
@@ -307,20 +296,39 @@ function cdnvm(){
 #alias gitpush.="git push origin $(git rev-parse --abbrev-ref HEAD)"
 #alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
 
-unset -f gitpull. || true
-function gitpull.(){
-  git pull origin $(git rev-parse --abbrev-ref HEAD)
-}
-
-unset -f gitpush. || true
-function gitpush.(){
-  git push origin $(git rev-parse --abbrev-ref HEAD)
+unset -f gitshowupstream || true
+function gitshowupstream(){
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  echo ${REMOTE_AND_BRANCH}
 }
 
 unset -f gitsetupstream. || true
-function gitsetupstream.(){
-  git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)
+function gitsetupstream(){
+  NEW_REMOTE={$1:"origin"}
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  echo LOCAL_BRANCH=${LOCAL_BRANCH} && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git branch --set-upstream-to=${NEW_REMOTE}/${LOCAL_BRANCH}
 }
+
+unset -f gitpull || true
+function gitpull(){
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git pull ${REMOTE} ${REMOTE_BRANCH}
+}
+
+unset -f gitpush. || true
+function gitpush(){
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git push ${REMOTE} ${REMOTE_BRANCH}
+}
+
 
 unset -f gitpushwork || true
 function gitpushwork(){
@@ -332,3 +340,55 @@ function gitpullwork(){
   GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git pull bitbucket $(git rev-parse --abbrev-ref HEAD)
 }
 
+unset -f getbranchhist || true
+function getbranchhist(){
+  ## How to get commit history for just one branch?
+  ## ref: https://stackoverflow.com/questions/16974204/how-to-get-commit-history-for-just-one-branch
+  git log $(git rev-parse --abbrev-ref HEAD)..
+}
+
+unset -f gitcommitpush || true
+function gitcommitpush() {
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git add . && \
+  git commit -am 'updates from ${HOSTNAME}' && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
+}
+
+unset -f gitremovecached || true
+function gitremovecached() {
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git rm -r --cached . && \
+  git add . && \
+  git commit -am 'Remove ignored files' && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
+}
+
+unset -f blastit || true
+function blastit() {
+  ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
+  ## https://stackoverflow.com/questions/46514831/how-read-the-current-upstream-for-a-git-branch
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git pull ${REMOTE} ${REMOTE_BRANCH} && \
+  git add . && \
+  git commit -am 'updates from ${HOSTNAME}' && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
+}
+
+## ref: https://superuser.com/questions/154332/how-do-i-unset-or-get-rid-of-a-bash-function
+unset -f blastdocs || true
+function blastdocs() {
+    pushd . && cd ~/docs && git pull origin
+    if [ -f save/phone.txt ]; then
+#        cp -p save/phone.txt . && \
+#        ansible-vault encrypt phone.txt --output ${TO}/.bash_secrets --vault-password-file ~/.vault_pass
+        ansible-vault encrypt save/phone.txt --output phone.txt --vault-password-file ~/.vault_pass
+    fi
+    blastit && popd
+}

@@ -84,17 +84,19 @@ alias sortfilesize='ls -Slhr'
 ## ref: https://www.howtogeek.com/howto/30184/10-ways-to-generate-a-random-password-from-the-command-line/
 alias genpwd='openssl rand -base64 8 | md5sum | head -c8;echo'
 
+## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible
+## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
+alias rsync0='rsync -ar --info=progress2 --links --delete --update'
 alias rsync1='rsync -argv --update --progress'
-alias rsync2='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
-alias rsync3='rsync -arv --no-links --update --progress --exclude=node_modules --exclude=venv'
-alias rsync4='rsync -arv --no-links --update --progress --exclude=node_modules'
+#alias rsync2='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
+alias rsync2='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv}'
+
+#alias rsyncnew='rsync -arv --no-links --update --progress --exclude=node_modules --exclude=venv /jdrive/media/torrents/completed/new /x/save/movies/; rm /jdrive/media/torrents/completed/new/*'
+alias rsyncmirror='rsync -ar --info=progress2 --delete --update'
+alias rsyncmirror2='rsync -arv --delete --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
 
 ## ref: https://stackoverflow.com/questions/352098/how-can-i-pretty-print-json-in-a-shell-script
 alias prettyjson='python3 -m json.tool'
-
-#alias rsyncnew='rsync -arv --no-links --update --progress --exclude=node_modules --exclude=venv /jdrive/media/torrents/completed/new /x/save/movies/; rm /jdrive/media/torrents/completed/new/*'
-alias rsyncmirror='rsync -arv --delete --no-links --update --progress'
-alias rsyncmirror2='rsync -arv --delete --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
 
 ## ref: https://stackoverflow.com/questions/19551908/finding-duplicate-files-according-to-md5-with-bash
 ## ref: https://superuser.com/questions/259148/bash-find-duplicate-files-mac-linux-compatible
@@ -107,9 +109,9 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 
 alias dnsreset="ipconfig //flushdns"
 
-alias sshesx01='ssh root@esx01.johnson.int'
-alias sshesx02='ssh root@esx02.johnson.int'
-alias sshesx2='ssh root@esx2.johnson.int'
+alias sshesx00='ssh root@esx00.dettonville.int'
+alias sshesx01='ssh root@esx01.dettonville.int'
+alias sshesx02='ssh root@esx02.dettonville.int'
 
 alias sshmedia='ssh administrator@media.johnson.int'
 alias sshplex='ssh administrator@plex.johnson.int'
@@ -158,21 +160,26 @@ alias startheroku='heroku local'
 # alias syncbashenv='rsync1 ${ANSIBLE_DC_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
 alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/install_bashrc.sh && .bash"
 
-alias gitcommitpush="git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin"
-#alias blastit="git add . ; git commit -m 'updates' ; git push origin"
-alias blastit="git pull origin && git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin"
-alias blastmain="git pull main && git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin main"
+## see function for more dynamic/robust version of the same shortcut
+alias blastit-="git pull origin && git add . && git commit -am 'updates from ${HOSTNAME}' && git push origin"
+#alias blastmain="git pull main && git add . && git commit -am 'updates from ${HOSTNAME}' && git push origin main"
 alias blastgithub="git push github"
-alias blasthugo="hugo && blastit && pushd . && cd public && blastit && popd"
+alias blasthugo="hugo && blastit. && pushd . && cd public && blastit. && popd"
 
 ## ref: https://stackoverflow.com/questions/6052005/how-can-you-git-pull-only-the-current-branch
 alias gitpullsub="git submodule update --recursive --remote"
-alias gitlog="git log --graph --branches --oneline"
-alias gitrebase="git rebase --interactive HEAD"
 
-alias gitpull='git pull origin'
-alias gitpush='git push origin'
-alias gitremovecached="git rm -r --cached . && git add . && git commit -am 'Remove ignored files' && git push origin"
+#alias gitpull-='git pull origin'
+#alias gitpush-='git push origin'
+#alias gitcommitpush-="git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin"
+#alias gitremovecached-="git rm -r --cached . && git add . && git commit -am 'Remove ignored files' && git push origin"
+
+## ref: https://www.cloudsavvyit.com/13904/how-to-view-commit-history-with-git-log/
+alias gitlog="git log --graph --branches --oneline"
+alias gitgraph='git log --graph --oneline --decorate'
+alias gitrebase="git rebase --interactive HEAD"
+alias gitrewind="git reset --hard HEAD && git clean -d -f"
+
 
 ## ref: http://erikaybar.name/git-deleting-old-local-branches/
 alias gitcleanupoldlocal="git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D "

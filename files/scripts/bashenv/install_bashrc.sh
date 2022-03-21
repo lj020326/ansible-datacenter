@@ -12,18 +12,18 @@ HOME_DIR="${HOME}"
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
-PROJECT_DIR="$( cd "$SRC_DIR/../../../" && pwd )"
+PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
 PROJECT_DIR2="~/repos/silex/alsac/ansible-dcc"
 ## expand ~ for rsync to work correctly
 #PROJECT_DIR2="$( cd "$PROJECT_DIR2" && pwd )"
 eval PROJECT_DIR2=$PROJECT_DIR2
 
-#SECRETS_DIR="$( cd "$SRC_DIR/../../private/env/" && pwd )"
-SECRETS_DIR="${PROJECT_DIR}/files/private/env/"
+#SECRETS_DIR="$( cd "$SCRIPT_DIR/../../private/env/" && pwd )"
+SECRETS_DIR="${PROJECT_DIR}/files/private/env"
 export ANSIBLE_VAULT_PASSWORD_FILE=$HOME/.vault_pass
 
 #REPO_DIR1="./roles/bootstrap-user/files/bashenv"
-#REPO_DIR1="$( cd "$SRC_DIR/../../../roles/bootstrap-user/files/bashenv/" && pwd )"
+#REPO_DIR1="$( cd "$SCRIPT_DIR/../../../roles/bootstrap-user/files/bashenv/" && pwd )"
 REPO_DIR1="${PROJECT_DIR}/roles/bootstrap-user/files/bashenv"
 REPO_DIR2="${PROJECT_DIR2}/files/scripts/bashenv"
 REPO_DIR3="${PROJECT_DIR2}/roles/bootstrap-user/files/bashenv"
@@ -38,6 +38,8 @@ BACKUP_REPO_DIR3="${REPO_DIR3}/save"
 
 echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 echo "HOME_DIR=[${HOME_DIR}]"
+echo "PROJECT_DIR=[${PROJECT_DIR}]"
+echo "PROJECT_DIR2=[${PROJECT_DIR2}]"
 echo "FROM=[${FROM}]"
 echo "FROM2=[${FROM2}]"
 echo "REPO_DIR1=[${REPO_DIR1}]"
@@ -45,7 +47,7 @@ echo "REPO_DIR2=[${REPO_DIR2}]"
 echo "REPO_DIR3=[${REPO_DIR3}]"
 echo "SECRETS_DIR=[${SECRETS_DIR}]"
 
-if [ ! -d $SRC_DIR ]; then
+if [ ! -d $SCRIPT_DIR ]; then
     echo "SCRIPT_DIR not found at ${SCRIPT_DIR}, exiting..."
     exit 1
 fi
@@ -113,7 +115,10 @@ fi
 if [ "${SECRETS_DIR}/.bash_secrets" -nt "${HOME_DIR}/.bash_secrets" ]; then
   echo "deploying secrets ${SECRETS_DIR}/.bash_secrets"
   ## Do not need to specify password file since defined in ansible.cfg
-  ansible-vault decrypt ${SECRETS_DIR}/.bash_secrets --output ${TO}/.bash_secrets --vault-password-file ~/.vault_pass
+  decrypt_cmd="ansible-vault decrypt ${SECRETS_DIR}/.bash_secrets --output ${HOME_DIR}/.bash_secrets --vault-password-file ${HOME_DIR}/.vault_pass"
+  echo $decrypt_cmd
+  eval $decrypt_cmd
+#  ansible-vault decrypt ${SECRETS_DIR}/.bash_secrets --output ${TO}/.bash_secrets --vault-password-file ~/.vault_pass
 #  ansible-vault decrypt ${SECRETS_DIR}/.bash_secrets --output ${TO}/.bash_secrets
   chmod 600 ~/.bash_secrets
 fi

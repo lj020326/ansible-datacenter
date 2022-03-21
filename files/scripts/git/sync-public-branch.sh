@@ -4,6 +4,9 @@
 # exit when any command fails
 set -e
 
+## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
+TMP_DIR="$(mktemp -d -p ~)"
+
 # keep track of the last executed command
 trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 # echo an error message before exiting
@@ -15,17 +18,6 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
 PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
-
-#EXCLUDES="--exclude=.git"
-#EXCLUDES+="--exclude=.idea"
-#EXCLUDES+="--exclude=.vscode"
-#EXCLUDES+=" --exclude=venv"
-#EXCLUDES+=" --exclude=private"
-#EXCLUDES+=" --exclude=**/secrets.yml"
-#EXCLUDES+=" --exclude=.vault_pass"
-#EXCLUDES+=" --exclude=vault"
-#EXCLUDES+=" --exclude=/save"
-#EXCLUDES+=" --exclude=*.log"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a PRIVATE_CONTENT_ARRAY
@@ -51,9 +43,6 @@ echo "EXCLUDES=${EXCLUDES}"
 printf -v EXCLUDE_AND_REMOVE '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"
 EXCLUDE_AND_REMOVE="${EXCLUDE_AND_REMOVE%,}"
 echo "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
-
-## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
-TMP_DIR="$(mktemp -d -p ~)"
 
 echo "PROJECT_DIR=${PROJECT_DIR}"
 echo "TMP_DIR=${TMP_DIR}"
@@ -94,9 +83,10 @@ git checkout public
 echo "Removing files cached in git"
 git rm -r --cached .
 
+echo "Removing existing non-dot files for clean sync"
 rm -fr *
 
-echo "mirror ${TMP_DIR} to project dir $PROJECT_DIR"
+echo "Mirror ${TMP_DIR} to project dir $PROJECT_DIR"
 #echo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
 rsync_cmd="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
 echo "${rsync_cmd}"
