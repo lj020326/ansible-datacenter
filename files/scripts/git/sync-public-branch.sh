@@ -125,12 +125,12 @@ LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
 REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
 IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
 echo "Staging changes:" && \
-git add -A && \
+git add -A || true && \
 echo "Committing changes:" && \
-git commit -am "group updates to public branch" && \
+git commit -am "group updates to public branch" || true && \
 echo "Pushing branch '${LOCAL_BRANCH}' to remote origin branch '${LOCAL_BRANCH}':" && \
-git push -f origin ${LOCAL_BRANCH} && \
+git push -f origin ${LOCAL_BRANCH} || true && \
 echo "Pushing public branch update to github repository (as main branch):" && \
-git push -f github public:main && \
+git push -f github public:main || true && \
 echo "Finally, checkout master branch:" && \
 git checkout master
