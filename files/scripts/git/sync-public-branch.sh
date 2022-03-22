@@ -68,7 +68,7 @@ RSYNC_OPTS_GIT_UPDATE=(
 )
 
 git fetch --all
-#git checkout master
+git checkout master
 
 #RSYNC_OPTS=${RSYNC_OPTS_GIT_MIRROR[@]}
 
