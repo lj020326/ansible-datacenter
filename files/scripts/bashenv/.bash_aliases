@@ -161,13 +161,16 @@ alias startheroku='heroku local'
 alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/install_bashrc.sh && .bash"
 
 ## see function for more dynamic/robust version of the same shortcut
-alias blastit-="git pull origin && git add . && git commit -am 'updates from ${HOSTNAME}' && git push origin"
+#alias blastit-="git pull origin && git add . && git commit -am 'updates from ${HOSTNAME}' && git push origin"
 #alias blastmain="git pull main && git add . && git commit -am 'updates from ${HOSTNAME}' && git push origin main"
 alias blastgithub="git push github"
 alias blasthugo="hugo && blastit. && pushd . && cd public && blastit. && popd"
 
 ## ref: https://stackoverflow.com/questions/6052005/how-can-you-git-pull-only-the-current-branch
 alias gitpullsub="git submodule update --recursive --remote"
+
+## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
+alias gitmerge="git merge-no-edit"
 
 #alias gitpull-='git pull origin'
 #alias gitpush-='git push origin'
