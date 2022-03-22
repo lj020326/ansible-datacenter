@@ -1,0 +1,144 @@
+#################################################################################
+# Power off VMs (poweroffvms.ps1)
+#
+# This is a complete update to my previous shutdown script.  No longer do we
+# loop through the esx hosts and shut down VMs per host.  We now just shut them
+# all down up front.  Also, no more $vmstoleaveon variable.  I'm assuming here 
+# that your vCenter is not virtual.  If it is you can most likely grab version
+# 1 of this script and take the code to leave the vCenter host till last.  Maybe
+# someday I'll get around to updating it to merge the two...but for now, this is
+# it!
+#
+# This script does have a 'partner' script that powers the VMs back on, you can
+# grab that script at http://blog.mwpreston.net/shares/
+#
+# Created By: Mike Preston, 2012 - With a whole lot of help from Eric Wright 
+#                                  (@discoposse)
+#
+# Variables:  $mysecret - a secret word to actually make the script run, stops 
+#                         the script from running when double click DISASTER
+#             $vcenter - The IP/DNS of your vCenter Server
+#             $username/password - credentials for your vCenter Server
+#             $filename - path to csv file to store powered on vms
+			  used for the poweronvms.ps1 script.
+#             $cluster - Name of specific cluster to target within vCenter
+#             $datacenter - Name of specific datacenter to target within vCenter
+#
+#
+# Usage: ./poweroffvms.ps1 "keyword"
+#        Intended to be ran in the command section of the APC Powerchute Network
+#        Shutdown program before the shutdown sequence has started.
+#
+#################################################################################
+
+param($keyword)
+
+Add-PSSnapin VMware.VimAutomation.Core
+#some variables
+$vcenter = "vcenterServer"
+$username = "user"
+$password = "password"
+$cluster = "clusterName"
+$datacenter = "datacenterName"
+$filename = "c:\path\to\poweredonvms.csv"
+$mysecret = "kerfuffle"
+
+Write-Host "A Powerchute network shutdown command has been sent to the vCenter Server." -Foregroundcolor yellow
+Write-Host "This script will shutdown all of the VMs and hosts located in $datacenter" -Foregroundcolor yellow
+Write-Host "Upon completion, this server ($vcenter) will also be shutdown gracefully" -Foregroundcolor yellow
+Write-Host ""
+Write-Host "This script has also has a counterpart (powervmsbackon.ps1) which should" -Foregroundcolor yellow
+Write-Host "be setup to run during the startup of this machine ($vcenter). " -Foregroundcolor yellow
+Write-Host "This will ensure that your VMs are powered back on once power is restored!" -Foregroundcolor yellow
+Sleep 5
+
+if ($keyword -ne $mysecret) 
+{ 
+    Write-Host "You haven't passed the proper detonation sequence...ABORTING THE SCRIPT" -ForegroundColor red
+    exit
+}
+
+#connect to vcenter
+Write-Host "Connecting to vCenter - $vcenter ...." -nonewline
+$success = Connect-VIServer $vcenter -username $username -Password $password
+if ($success) { Write-Host "Connected!" -Foregroundcolor Green }
+else
+{
+    Write-Host "Something is wrong, Aborting script" -Foregroundcolor Red
+    exit
+}
+Write-Host ""
+
+
+#Get a list of all powered on VMs - used for powering back on....
+Get-VM -Location $cluster | where-object {$_.PowerState -eq "PoweredOn" } | Select Name | Export-CSV $filename
+
+#change DRS Automation level to partially automated...
+Write-Host "Changing cluster DRS Automation Level to Partially Automated" -Foregroundcolor green
+Get-Cluster $cluster | Set-Cluster -DrsAutomation PartiallyAutomated -confirm:$false 
+#change the HA Level
+Write-Host ""
+Write-Host "Disabling HA on the cluster..." -Foregroundcolor green
+Write-Host ""
+Get-Cluster $cluster | Set-Cluster -HAEnabled:$false -confirm:$false 
+
+#get VMs again (we will do this again instead of parsing the file in case a VM was powered in the nanosecond that it took to get here.... :)
+Write-Host ""
+Write-Host "Retrieving a list of powered on guests...." -Foregroundcolor Green
+Write-Host ""
+$poweredonguests = Get-VM -Location $cluster | where-object {$_.PowerState -eq "PoweredOn" }
+
+#and now, let's start powering off some guests....
+ForEach ( $guest in $poweredonguests ) 
+{
+    Write-Host "Processing $guest ...." -ForegroundColor Green
+    Write-Host "Checking for VMware tools install" -Foregroundcolor Green
+    $guestinfo = get-view -Id $guest.ID
+    if ($guestinfo.config.Tools.ToolsVersion -eq 0)
+    {
+        Write-Host "No VMware tools detected in $guest , hard power this one" -ForegroundColor Yellow
+        Stop-VM $guest -confirm:$false
+    }
+    else
+    {
+       write-host "VMware tools detected.  I will attempt to gracefully shutdown $guest"
+       $vmshutdown = $guest | shutdown-VMGuest -Confirm:$false
+    }   
+}
+
+#Lets wait a minute or so for shutdowns to complete
+Write-Host ""
+Write-Host "Giving VMs 2 minutes before resulting in hard poweroff"
+Write-Host ""
+Sleep 120
+
+
+#Now, let's go back through again to see if anything is still powered on and shut it down if it is
+Write-Host "Beginning Phase 2 - anything left on....night night..." -ForegroundColor red
+Write-Host ""
+#get our list of guests still powered on...
+$poweredonguests = Get-VM -Location $cluster | where-object {$_.PowerState -eq "PoweredOn" }
+ForEach ( $guest in $poweredonguests ) 
+{
+    Write-Host "Processing $guest ...." -ForegroundColor Green
+    #no checking for toosl, we just need to blast it down...
+    write-host "Shutting down $guest - I don't care, it just needs to be off..." -ForegroundColor Yellow
+    Stop-VM $guest -confirm:$false
+}
+
+#wait 30 seconds
+Write-Host "Waiting 30 seconds and then proceding with host power off"
+Write-Host ""
+Sleep 30
+
+#and now its time to slam down the hosts - I've chosen to go by datacenter here but you could put the cluster
+#  There are some standalone hosts in the datacenter that I would also like to shutdown, those vms are set to
+# start and stop with the host, so i can just shut those hosts down and they will take care of the vm shutdown ;)
+
+$esxhosts = Get-VMHost -Location $cluster
+foreach ($esxhost in $esxhosts)
+{
+    #Shutem all down
+    Write-Host "Shutting down $esxhost" -ForegroundColor Green
+    $esxhost | Foreach {Get-View $_.ID} | Foreach {$_.ShutdownHost_Task($TRUE)}
+}
