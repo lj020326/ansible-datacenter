@@ -171,6 +171,7 @@ alias gitpullsub="git submodule update --recursive --remote"
 
 ## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
 alias gitmerge="git merge-no-edit"
+alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout master && git merge-no-edit -X theirs main"
 
 #alias gitpull-='git pull origin'
 #alias gitpush-='git push origin'
