@@ -1,8 +1,8 @@
 [core]
         repositoryformatversion = 0
-        filemode = false
+        filemode = true
         bare = false
         logallrefupdates = true
-        symlinks = false
-        ignorecase = true
+        symlinks = true
+#        ignorecase = true
         sshCommand = ssh -i ~/.ssh/id_ecdsa
