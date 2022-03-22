@@ -285,9 +285,9 @@ function gitcommitpush() {
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   echo "Staging changes:" && \
-  git add . && \
+  git add . || true && \
   echo "Committing changes:" && \
-  git commit -am 'updates from ${HOSTNAME}' && \
+  git commit -am 'updates from ${HOSTNAME}' || true && \
   echo "Pushing local branch ${LOCAL_BRANCH} to remote ${REMOTE} branch ${REMOTE_BRANCH}:" && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
