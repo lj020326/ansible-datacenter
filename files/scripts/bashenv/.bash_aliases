@@ -191,7 +191,9 @@ alias gitcleanupoldlocal="git branch -vv | grep 'origin/.*: gone]' | awk '{print
 ## ref: https://stackoverflow.com/questions/1371261/get-current-directory-name-without-full-path-in-a-bash-script
 #alias gitaddorigin="git remote add origin ssh://git@gitea.admin.johnson.int:2222/gitadmin/${PWD##*/}.git && git push -u origin master"
 alias gitaddorigin="git remote add origin ssh://git@gitea.admin.dettonville.int:2222/infra/${PWD##*/}.git && git push -u origin master"
+
 #alias gitsetupstream="git branch --set-upstream-to=origin/master"
+alias gitsetupstream="git branch --set-upstream-to="
 
 ## make these function so they evaluate at time of exec and not upon shell startup
 ## Prevent bash alias from evaluating statement at shell start

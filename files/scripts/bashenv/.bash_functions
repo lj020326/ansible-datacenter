@@ -236,7 +236,7 @@ function gitshowupstream(){
 }
 
 unset -f gitsetupstream. || true
-function gitsetupstream(){
+function gitsetupstream.(){
   NEW_REMOTE={$1:"origin"}
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
   echo LOCAL_BRANCH=${LOCAL_BRANCH} && \
@@ -253,7 +253,7 @@ function gitpull(){
   git pull ${REMOTE} ${REMOTE_BRANCH}
 }
 
-unset -f gitpush. || true
+unset -f gitpush || true
 function gitpush(){
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
