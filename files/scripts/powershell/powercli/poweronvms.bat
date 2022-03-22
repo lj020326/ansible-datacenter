@@ -1,0 +1,1 @@
+powershell.exe -psc "C:\Program Files (x86)\VMware\Infrastructure\vSphere PowerCLI\vim.psc1" -File "C:\apps\powershell\powercli\poweronvms.ps1"

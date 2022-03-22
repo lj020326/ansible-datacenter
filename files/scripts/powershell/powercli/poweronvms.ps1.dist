@@ -1,0 +1,114 @@
+#################################################################################
+# Power On the Powered Off VMs (poweronvms.ps1)
+#
+# This script is a partner script to the poweroffvms.ps1 script.  Basically this
+# script will look at the csv file that was dumped by poweroffvms.ps1 and power
+# on all of the VMs in the file.  It's meant to be run automatically on startup
+# but don't worry, it won't always try and power things on, it only will go if
+# the power off dump file exists.
+#
+# This script does have a 'partner' script that powers the VMs off, you can
+# grab that script at http://blog.mwpreston.net/shares/
+#
+# Created By: Mike Preston, 2012 - With a whole lot of help from Eric Wright 
+#                                  (@discoposse)
+#
+# Variables:  $vcenter - The IP/DNS of your vCenter Server
+#             $username/password - credentials for your vCenter Server
+#             $filename - name of the file that poweroffvms.ps1 dumps
+#             $myImportantVMs - list of VMS to be powered on first
+#
+#
+# Usage: ./poweronvms.ps1
+#       
+#
+#################################################################################
+
+Add-PSSnapin VMware.VimAutomation.Core
+
+#some variables
+$vcenter = "vCenterServer"
+$username = "user"
+$password = "Password"
+$filename = "c:\path\to\poweredonguests.csv"
+$myImportantVMs = "SQLSERVER01", "DHCPSERVER02"
+
+#check if the power on file exists - if it does, then there was a power outage... or someone ran it manually GRRRRR
+Write-Host "Checking to see if Power Off dump file exists....." -nonewline
+Sleep 2
+if (Test-Path $filename)
+{
+    Write-Host "File Found" -Foregroundcolor green
+    Write-Host ""
+    $date = ( get-date ).ToString('yyyyMMdd-HHmmss')
+    #now we must check to see if vCenter service is running, if not, we need to wait....
+    Write-Host "Checking for vCenter Service..." -nonewline
+    Sleep 2
+    while ((Get-Service vpxd).Status -ne "Running")
+    {
+        Write-Host "." -nonewline
+        Sleep 2
+        Write-Host "." -nonewline
+        Sleep 2
+        Write-Host "." -nonewline
+        Sleep 2 
+    }
+    Write-Host "Service has Started!" -ForegroundColor Green 
+    #connect to vcenter
+    Sleep 5
+    Write-Host "Connecting to vCenter Server..." -nonewline
+    Sleep 3
+    $success = Connect-VIServer $vcenter -username $username -Password $password
+    if ($success) 
+    { 
+        Write-Host "Connected" -ForegroundColor Green 
+    }
+    else 
+    { 
+        Write-Host "ISSUES, aborting script" -Foregroundcolor Red 
+        exit
+    }
+    Write-Host ""
+    Write-Host "Starting the most important VMs first (Phase 1)" -ForegroundColor Green
+    Write-Host ""
+    foreach ($iVM in $myImportantVMs)
+    {
+        Write-Host "Powering on $iVM ..." -nonewline
+        Start-VM $iVM
+        Sleep 5
+        Write-Host "DONE" -Foregroundcolor Green   
+    }
+    Write-Host ""
+    Write-Host "Starting the remaining VMs" -ForegroundColor Green
+    Write-Host ""
+    #read file and start VMs every 5 seconds...
+    $vms = Import-CSV $filename
+    foreach ($vm in $vms)
+    {
+        $vmname = $vm.Name
+        if ($myImportantVMs -notcontains $vmName)
+        {
+            Start-VM $vm.Name
+            Write-Host "Powering on $vmName " 
+            sleep 5
+            Write-Host "DONE" 
+        }
+        else
+        {
+            Write-Host "Skipping $vmname - already powered on in phase 1" -Foregroundcolor yellow
+        }
+    }
+    Write-Host "Power on completed, I will now rename the dump file...." -nonewline
+    $DateStamp = get-date -uformat "%Y-%m-%d@%H-%M-%S"  
+    $fileObj = get-item $fileName
+    $extOnly = $fileObj.extension
+    $nameOnly = $fileObj.Name.Replace( $fileObj.Extension,'')
+    rename-item "$fileName" "$nameOnly-$DateStamp$extOnly"
+    Write-Host "DONE" -foregroundcolor green
+    Write-Host "File has been renamed to $nameOnly-$DateStamp$extOnly"   
+}
+else
+{
+    Write-Host "File Not Found - aborting..." -Foregroundcolor green
+    exit
+}
