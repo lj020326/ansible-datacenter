@@ -1,11 +1,11 @@
 
 ansible-datacenter
-------
+===
 
 This is an ansible playbook that will configure your datacenter based on roles on Ubuntu/Centos linux servers.
 
-Prerequisites
--------------
+
+## Prerequisites
 
 1.  Clone this Ansible deployment playbook
 ```
@@ -39,10 +39,9 @@ The vault file used has to have the name private_vars.yml. Ensure your editor en
 Running the command above will ask you for a password to encrypt with, and open an editor. In that file set the variables highlighted in the secrets.yml.example file.
 
 
-Usage
------
+## Command Line Usage
 
-# Setup and Run the datacenter playbook roles
+### Setup and Run the datacenter playbook roles
 
 ## Run playbooks
 
@@ -177,8 +176,77 @@ ansible-playbook site.yml --tags remount-vmware-datastores
 ansible-playbook site.yml --tags upgrade-vmware-esxi
 ```
 
-Other useful commands
----------------------
+
+## Jenkins Pipeline Usage
+
+### Site Root folder
+
+A root folder for the ansible-datacenter environment can be setup similar to the following.
+[Site Root](./screenshots/ansible-datacenter-0-toplevel.png)
+
+### Inventory Environment folders
+
+Then setup folders for each environment defined in the inventory similar to the following.
+![Site Environments](./screenshots/ansible-datacenter-1a-env-dev.png)
+
+### Jenkins Pipelines to run Ansible tags
+
+Each job folder corresponds to a tag defined in the site.yml playbook.
+
+To make setting up each folder consistent and simple as possible, the jobs all are exactly the same except the folder name.
+They all use the following pipeline definition.
+![Jenkins Pipeline](./screenshots/ansible-datacenter-1b-jenkins-pipeline-definition-ansible-tags.png)
+
+### Ansible Pipeline Parameters
+
+All jobs use the same 2 parameters for the limit hosts directive and debug.
+![Job Parameters](./screenshots/ansible-datacenter-2b-deploy-vm-params.png)
+
+### Run for defined site.yml tags
+
+The job history for the tag execution is readily/easily viewable.
+![Job Run History](./screenshots/ansible-datacenter-4-deploy-cacerts.png)
+
+Another job just created to bootstrap linux machines.
+![Job Run History](./screenshots/ansible-datacenter-3a-bootstrap-linux.png)
+
+Specify host(s) or leave blank to run across all hosts for the group(s) defined for the play(s) associated with the tag.
+![Job Parameters](./screenshots/ansible-datacenter-3b-bootstrap-linux-params.png)
+
+See the job console for all ansible pipeline input values and play output.
+![Job Parameters](./screenshots/ansible-datacenter-3c-bootstrap-linux-console.png)
+
+The [pipeline job console output](./screenshots/ansible-datacenter-3d-bootstrap-linux-console.md).
+
+Another job just created to bootstrap docker stacks onto machines.
+![Job Run History](./screenshots/ansible-datacenter-5-bootstrap-dockerstack.png)
+
+
+## Ansible Role Development Pipelines
+
+### Role Development Root Folder
+
+Setup root folder.
+![Site Environments](./screenshots/ansible-datacenter-10-CICD-dev-pipelines.png)
+
+### Role Development Root Folder
+
+Setup jenkins CICD pipeline folders for each repository.
+![Site Environments](./screenshots/ansible-datacenter-10-CICD-dev-pipelines2.png)
+
+The jenkins CICD branch strategy folder is used to automatically pick up the respective branches and merge strategy.
+![Site Environments](./screenshots/ansible-datacenter-10-CICD-dev-pipelines3.png)
+
+![Site Environments](./screenshots/ansible-datacenter-11-CICD-branches.png)
+
+![Site Environments](./screenshots/ansible-datacenter-12-CICD-branches-params.png)
+
+![Site Environments](./screenshots/ansible-datacenter-13-CICD-branches-console.png)
+
+
+
+
+## Other useful 
 
 To run play on a group
 
