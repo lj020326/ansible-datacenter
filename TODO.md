@@ -451,10 +451,13 @@ ANSIBLE DATACENTER TODO
 
 ## Issues
 
-  esx00 host crash
+  * esx00 host crash
 
     - 7:20:19 AM Size of scratch partition 6194203b-3a42f95f-c222-002590bdc802 is too small. Recommended scratch partition size is 4532 MiB
     - 7:20:19 AM File system [datastore1, 6194203a-0d147132-f0d5-002590bdc802] on volume 6194203a-e868ebeb-e39b-002590bdc802 has been mounted in rw mode on this host. 
 
+    Resolution:
+    * https://vinfrastructure.it/2017/12/esxi-6-5-scratch-partition-issues/
+    
 
  

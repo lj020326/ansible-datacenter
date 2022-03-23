@@ -243,6 +243,8 @@ Setup jenkins CICD pipeline folders for each repository.
 ![Site Environments](./screenshots/ansible-datacenter-10-CICD-dev-pipelines2.png)
 
 The jenkins CICD branch strategy folder is used to automatically pick up the respective branches and merge strategy.
+We are using a clone of the [public ansible repo here](https://github.com/lj020326/ansible-configvars-examples). 
+Once the pipeline is configured with the repo, jenkins will scan the repo branches for the existance of the Jenkinsfile and then setup the corresponding branch folders used to run ansible for each branch.
 ![Site Environments](./screenshots/ansible-datacenter-10-CICD-dev-pipelines3.png)
 
 ![Site Environments](./screenshots/ansible-datacenter-11-CICD-branches.png)
@@ -422,7 +424,7 @@ ansible all -m debug -a var=groups['ca_domain']
 
 ansible-playbook site.yml --tags bootstrap-bind
 ansible-playbook site.yml --tags bootstrap-cacerts
-ansible-playbook site.yml --tags deploy-cacerts
+ansible-playbook site.yml --tags deploy-cacert
 ansible-playbook site.yml --tags docker-control-node
 ansible-playbook site.yml --tags docker-admin-node
 ansible-playbook site.yml --tags docker-media-node
