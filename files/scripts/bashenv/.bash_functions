@@ -298,12 +298,12 @@ unalias gitcommitpush 1>/dev/null 2>&1
 unset -f gitcommitpush || true
 function gitcommitpush() {
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
-  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   echo "Staging changes:" && \
   git add . || true && \
-  COMMENT="$(LANG=C git -c color.status=false status \
+  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
+  COMMENT_BODY="$(LANG=C git -c color.status=false status \
       | sed -n -r -e '1,/Changes to be committed:/ d' \
             -e '1,1 d' \
             -e '/^Untracked files:/,$ d' \
@@ -311,7 +311,7 @@ function gitcommitpush() {
             -e '/./p' \
             | sed -e '/git restore/ d')" && \
   echo "Committing changes:" && \
-  git commit -am "${COMMENT_PREFIX} - ${COMMENT}" || true && \
+  git commit -am "${COMMENT_PREFIX} - ${COMMENT_BODY}" || true && \
   echo "Pushing local branch ${LOCAL_BRANCH} to remote ${REMOTE} branch ${REMOTE_BRANCH}:" && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
@@ -320,18 +320,10 @@ unalias gitremovecached 1>/dev/null 2>&1
 unset -f gitremovecached || true
 function gitremovecached() {
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
-  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   git rm -r --cached . && \
   git add . && \
-  COMMENT="$(LANG=C git -c color.status=false status \
-      | sed -n -r -e '1,/Changes to be committed:/ d' \
-            -e '1,1 d' \
-            -e '/^Untracked files:/,$ d' \
-            -e 's/^\s*//' \
-            -e '/./p' \
-            | sed -e '/git restore/ d')" && \
   echo "Committing changes:" && \
   git commit -am "${COMMENT_PREFIX} - Remove ignored files" || true && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
@@ -346,20 +338,22 @@ function blastit() {
   ## https://stackoverflow.com/questions/35010953/how-to-automatically-generate-commit-message
 
   # LANG=C.UTF-8 or any UTF-8 English locale supported by your OS may be used
-  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   git pull ${REMOTE} ${REMOTE_BRANCH} && \
+  echo "Staging changes:" && \
   git add . && \
-  COMMENT="$(LANG=C git -c color.status=false status \
+  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
+  COMMENT_BODY="$(LANG=C git -c color.status=false status \
       | sed -n -r -e '1,/Changes to be committed:/ d' \
             -e '1,1 d' \
             -e '/^Untracked files:/,$ d' \
             -e 's/^\s*//' \
             -e '/./p' \
             | sed -e '/git restore/ d')" && \
-  git commit -am "${COMMENT_PREFIX} - ${COMMENT}" || true && \
+  echo "Committing changes:" && \
+  git commit -am "${COMMENT_PREFIX} - ${COMMENT_BODY}" || true && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
