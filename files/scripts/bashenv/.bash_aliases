@@ -180,7 +180,8 @@ alias gitmergemain="git fetch --all && git checkout main && git reset --hard HEA
 
 ## ref: https://www.cloudsavvyit.com/13904/how-to-view-commit-history-with-git-log/
 alias gitlog="git log --graph --branches --oneline"
-alias gitgraph='git log --graph --oneline --decorate'
+alias gitgraph="git log --graph --oneline --decorate"
+alias gitgraphall="git log --graph --all --oneline --decorate"
 alias gitrebase="git rebase --interactive HEAD"
 alias gitrewind="git reset --hard HEAD && git clean -d -f"
 
