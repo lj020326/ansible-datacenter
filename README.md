@@ -95,7 +95,7 @@ ansible-playbook site.yml --tags bootstrap-kvm
 ansible-playbook site.yml --tags bootstrap-ldap-client
 ansible-playbook site.yml --tags bootstrap-linux
 ansible-playbook site.yml --tags bootstrap-mergerfs
-ansible-playbook site.yml --tags bootstrap-node-core
+ansible-playbook site.yml --tags bootstrap-linux-core
 ansible-playbook site.yml --tags bootstrap-ntp
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
@@ -139,12 +139,12 @@ The jenkins pipeline is responsible for building VM template images using packer
 The vm image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildVmTemplate.groovy).
 
 ```bash
-ansible-playbook site.yml --tags bootstrap-node --limit admin02
+ansible-playbook site.yml --tags bootstrap-linux --limit admin02
 ```
 
 Bootstrap node network config *should not be necessary since this is mostly done in deploy-VM
 ```bash
-ansible-playbook site.yml --tags bootstrap-node-network --limit node01
+ansible-playbook site.yml --tags bootstrap-network --limit node01
 ```
 
 Docker stack plays
@@ -158,7 +158,7 @@ Useful commands to build/update/configure datacenter:
 ```bash
 ansible-playbook site.yml --tags bootstrap-bind
 ansible-playbook site.yml --tags bootstrap-docker
-ansible-playbook site.yml --tags bootstrap-node-core
+ansible-playbook site.yml --tags bootstrap-linux-core
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
 ansible-playbook site.yml --tags bootstrap-user
@@ -231,8 +231,8 @@ working with openstack deploy node setup
 ansible -i inventory/hosts.ini openstack -m ping
 ansible -i inventory/hosts-openstack.ini openstack -m ping
 
-ansible-playbook site.yml --tags bootstrap-node --limit ubuntu18
-ansible-playbook site.yml --tags bootstrap-node-network --limit node01
+ansible-playbook site.yml --tags bootstrap-linux --limit vmub2201
+ansible-playbook site.yml --tags bootstrap-network --limit node01
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-deploy-node
 ansible-playbook site.yml --tags bootstrap-user --limit ubuntu18
@@ -268,7 +268,7 @@ openstack server create --image cirros --flavor m1.tiny --key-name mykey --netwo
 
 Other useful plays
 ```bash
-ansible-playbook site.yml --tags bootstrap-node-mounts --limit media
+ansible-playbook site.yml --tags bootstrap-linux-mounts --limit media
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
 ansible-playbook site.yml --tags bootstrap-openstack-deploy-node

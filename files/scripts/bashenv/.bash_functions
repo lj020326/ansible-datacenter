@@ -1,7 +1,15 @@
 
-local logPrefix=".bash_functions"
-logDebug "configuring shell functions..."
+#local logPrefix=".bash_functions"
+#logDebug "configuring shell functions..."
 
+unalias add_winpath 1>/dev/null 2>&1
+unalias setenv-python 1>/dev/null 2>&1
+unalias get-certs 1>/dev/null 2>&1
+unalias certinfo 1>/dev/null 2>&1
+unalias create-git-project 1>/dev/null 2>&1
+unalias meteor-list-depends 1>/dev/null 2>&1
+unalias find-up 1>/dev/null 2>&1
+unalias cdnvm 1>/dev/null 2>&1
 
 ## ref: https://gist.github.com/vby/ef4d72e6ae51c64acbe7790ca7d89606#file-msys2-bashrc-sh
 unset -f add_winpath || true
@@ -228,6 +236,8 @@ function cdnvm(){
 #alias gitpush.="git push origin $(git rev-parse --abbrev-ref HEAD)"
 #alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
 
+
+unalias gitshowupstream 1>/dev/null 2>&1
 unset -f gitshowupstream || true
 function gitshowupstream(){
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
@@ -235,6 +245,7 @@ function gitshowupstream(){
   echo ${REMOTE_AND_BRANCH}
 }
 
+unalias gitsetupstream. 1>/dev/null 2>&1
 unset -f gitsetupstream. || true
 function gitsetupstream.(){
   NEW_REMOTE={$1:"origin"}
@@ -245,6 +256,7 @@ function gitsetupstream.(){
   git branch --set-upstream-to=${NEW_REMOTE}/${LOCAL_BRANCH}
 }
 
+unalias gitpull 1>/dev/null 2>&1
 unset -f gitpull || true
 function gitpull(){
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
@@ -253,6 +265,7 @@ function gitpull(){
   git pull ${REMOTE} ${REMOTE_BRANCH}
 }
 
+unalias gitpush 1>/dev/null 2>&1
 unset -f gitpush || true
 function gitpush(){
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
@@ -261,17 +274,19 @@ function gitpush(){
   git push ${REMOTE} ${REMOTE_BRANCH}
 }
 
-
+unalias gitpushwork 1>/dev/null 2>&1
 unset -f gitpushwork || true
 function gitpushwork(){
   GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git push bitbucket $(git rev-parse --abbrev-ref HEAD)
 }
 
+unalias gitpullwork 1>/dev/null 2>&1
 unset -f gitpullwork || true
 function gitpullwork(){
   GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git pull bitbucket $(git rev-parse --abbrev-ref HEAD)
 }
 
+unalias getbranchhist 1>/dev/null 2>&1
 unset -f getbranchhist || true
 function getbranchhist(){
   ## How to get commit history for just one branch?
@@ -279,6 +294,7 @@ function getbranchhist(){
   git log $(git rev-parse --abbrev-ref HEAD)..
 }
 
+unalias gitcommitpush 1>/dev/null 2>&1
 unset -f gitcommitpush || true
 function gitcommitpush() {
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
@@ -287,12 +303,20 @@ function gitcommitpush() {
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   echo "Staging changes:" && \
   git add . || true && \
+  COMMENT="$(LANG=C git -c color.status=false status \
+      | sed -n -r -e '1,/Changes to be committed:/ d' \
+            -e '1,1 d' \
+            -e '/^Untracked files:/,$ d' \
+            -e 's/^\s*//' \
+            -e '/./p' \
+            | sed -e '/git restore/ d')" && \
   echo "Committing changes:" && \
-  git commit -am "${COMMENT_PREFIX} - updates from ${HOSTNAME}" || true && \
+  git commit -am "${COMMENT_PREFIX} - ${COMMENT}" || true && \
   echo "Pushing local branch ${LOCAL_BRANCH} to remote ${REMOTE} branch ${REMOTE_BRANCH}:" && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
+unalias gitremovecached 1>/dev/null 2>&1
 unset -f gitremovecached || true
 function gitremovecached() {
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
@@ -301,25 +325,46 @@ function gitremovecached() {
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   git rm -r --cached . && \
   git add . && \
+  COMMENT="$(LANG=C git -c color.status=false status \
+      | sed -n -r -e '1,/Changes to be committed:/ d' \
+            -e '1,1 d' \
+            -e '/^Untracked files:/,$ d' \
+            -e 's/^\s*//' \
+            -e '/./p' \
+            | sed -e '/git restore/ d')" && \
+  echo "Committing changes:" && \
   git commit -am "${COMMENT_PREFIX} - Remove ignored files" || true && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
+unalias blastit 1>/dev/null 2>&1
 unset -f blastit || true
 function blastit() {
+
   ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
   ## https://stackoverflow.com/questions/46514831/how-read-the-current-upstream-for-a-git-branch
-  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  ## https://stackoverflow.com/questions/35010953/how-to-automatically-generate-commit-message
+
+  # LANG=C.UTF-8 or any UTF-8 English locale supported by your OS may be used
   COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   git pull ${REMOTE} ${REMOTE_BRANCH} && \
   git add . && \
-  git commit -am "${COMMENT_PREFIX} - updates from ${HOSTNAME}" || true && \
+  COMMENT="$(LANG=C git -c color.status=false status \
+      | sed -n -r -e '1,/Changes to be committed:/ d' \
+            -e '1,1 d' \
+            -e '/^Untracked files:/,$ d' \
+            -e 's/^\s*//' \
+            -e '/./p' \
+            | sed -e '/git restore/ d')" && \
+  git commit -am "${COMMENT_PREFIX} - ${COMMENT}" || true && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
 ## ref: https://superuser.com/questions/154332/how-do-i-unset-or-get-rid-of-a-bash-function
+unalias blastdocs 1>/dev/null 2>&1
 unset -f blastdocs || true
 function blastdocs() {
     pushd . && cd ~/docs && git pull origin
@@ -332,7 +377,9 @@ function blastdocs() {
 }
 
 ## https://stackoverflow.com/questions/38892599/change-commit-message-for-specific-commit
-change-commit-msg(){
+unalias change-commit-msg 1>/dev/null 2>&1
+unset -f change-commit-msg || true
+function change-commit-msg(){
 
   commit="$1"
   newmsg="$2"

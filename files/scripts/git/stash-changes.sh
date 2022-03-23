@@ -6,8 +6,6 @@ set -e
 
 UNSTASH=0
 
-## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
-TMP_DIR="$(mktemp -d -p ./save)"
 
 # keep track of the last executed command
 trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
@@ -23,6 +21,10 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 PROJECT_DIR=$(git rev-parse --show-toplevel)
 LOCAL_BRANCH="$(git symbolic-ref --short HEAD)"
 BRANCH_SHORT=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2)
+
+echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
+echo "PROJECT_DIR=${PROJECT_DIR}"
+echo "BRANCH_SHORT=${BRANCH_SHORT}"
 
 usage() {
   retcode=${1-1}
@@ -75,6 +77,8 @@ if [ $UNSTASH -eq 1 ]; then
   exit 0
 fi
 
+## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
+TMP_DIR="$(mktemp -d -p ./save)"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY
@@ -88,9 +92,6 @@ printf -v EXCLUDES '%s,' "${EXCLUDES_ARRAY[@]}"
 EXCLUDES="${EXCLUDES%,}"
 echo "EXCLUDES=${EXCLUDES}"
 
-echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
-echo "PROJECT_DIR=${PROJECT_DIR}"
-echo "BRANCH_SHORT=${BRANCH_SHORT}"
 echo "TMP_DIR=${TMP_DIR}"
 
 #exit 0
