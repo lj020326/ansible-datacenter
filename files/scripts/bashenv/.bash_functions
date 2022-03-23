@@ -330,3 +330,22 @@ function blastdocs() {
     fi
     blastit && popd
 }
+
+## https://stackoverflow.com/questions/38892599/change-commit-message-for-specific-commit
+change-commit-msg(){
+
+  commit="$1"
+  newmsg="$2"
+  branch=${3-$(git rev-parse --abbrev-ref HEAD)}
+
+  git checkout $commit && \
+  echo "commit new msg $newmsg" && \
+  git commit --amend -m "$newmsg" && \
+  echo "git cherry-pick $commit..$branch" && \
+  git cherry-pick $commit..$branch && \
+  echo "git branch -f $branch" && \
+  git branch -f $branch && \
+  echo "git checkout $branch" && \
+  git checkout $branch
+
+}

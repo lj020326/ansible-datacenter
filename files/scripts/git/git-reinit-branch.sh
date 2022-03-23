@@ -20,7 +20,7 @@ usage() {
   exit ${retcode}
 }
 
-while getopts "hf" opt; do
+while getopts "yhf" opt; do
     case "${opt}" in
         y) CONFIRM=1 ;;
         h) usage 1 ;;
