@@ -282,12 +282,13 @@ function getbranchhist(){
 unset -f gitcommitpush || true
 function gitcommitpush() {
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   echo "Staging changes:" && \
   git add . || true && \
   echo "Committing changes:" && \
-  git commit -am 'updates from ${HOSTNAME}' || true && \
+  git commit -am "${COMMENT_PREFIX} - updates from ${HOSTNAME}" || true && \
   echo "Pushing local branch ${LOCAL_BRANCH} to remote ${REMOTE} branch ${REMOTE_BRANCH}:" && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
@@ -295,11 +296,12 @@ function gitcommitpush() {
 unset -f gitremovecached || true
 function gitremovecached() {
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   git rm -r --cached . && \
   git add . && \
-  git commit -am 'Remove ignored files' || true && \
+  git commit -am "${COMMENT_PREFIX} - Remove ignored files" || true && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
@@ -308,11 +310,12 @@ function blastit() {
   ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
   ## https://stackoverflow.com/questions/46514831/how-read-the-current-upstream-for-a-git-branch
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   git pull ${REMOTE} ${REMOTE_BRANCH} && \
   git add . && \
-  git commit -am "updates from ${HOSTNAME}" || true && \
+  git commit -am "${COMMENT_PREFIX} - updates from ${HOSTNAME}" || true && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 

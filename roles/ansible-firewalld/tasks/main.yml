@@ -109,12 +109,16 @@
     - name: display firewalld vars
       when:
         - firewalld_zones|flatten|d([])|count>0
-        - firewalld_services|flatten|d([])|count>0
       debug:
         msg:
           - "firewalld_zones: {{ firewalld_zones | to_nice_json }}"
+
+    - name: display firewalld vars
+      when:
+        - firewalld_services|flatten|d([])|count>0
+      debug:
+        msg:
           - "firewalld_services: {{ firewalld_services | to_nice_json }}"
-          - "firewalld_ports: {{ firewalld_ports | to_nice_json }}"
 
 #    - name: display firewalld vars
 #      when:
@@ -133,6 +137,23 @@
     ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html
     - name: Configure firewalld services
       when: 
+        - firewalld_zones|flatten|d([])|count>0
+        - firewalld_services|flatten|d([])|count>0
+      ansible.posix.firewalld:
+        zone: "{{ item.0.name }}"
+        service: "{{ item.1.name }}"
+        permanent: true
+        state: enabled
+        immediate: yes
+      with_nested:
+        - "{{ firewalld_zones|flatten }}"
+        - "{{ firewalld_services|flatten }}"
+      loop_control:
+        label: "{{ item.0.name }} - {{ item.1.name }}"
+      notify: reload firewalld
+
+    - name: Configure firewalld services
+      when:
         - firewalld_zones|flatten|d([])|count>0
         - firewalld_services|flatten|d([])|count>0
       ansible.posix.firewalld:
