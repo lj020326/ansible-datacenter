@@ -286,6 +286,18 @@ function gitpullwork(){
   GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git pull bitbucket $(git rev-parse --abbrev-ref HEAD)
 }
 
+unalias gitpushpublic 1>/dev/null 2>&1
+unset -f gitpushwork || true
+function gitpushwork(){
+  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_PUBLIC}' git push github $(git rev-parse --abbrev-ref HEAD)
+}
+
+unalias gitpullpublic 1>/dev/null 2>&1
+unset -f gitpullpublic || true
+function gitpullpublic(){
+  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_PUBLIC}' git pull github $(git rev-parse --abbrev-ref HEAD)
+}
+
 unalias getbranchhist 1>/dev/null 2>&1
 unset -f getbranchhist || true
 function getbranchhist(){
@@ -403,7 +415,7 @@ function gitmergebranch(){
   git fetch --all && \
   echo "Checkout ${MERGE_BRANCH}" && \
   git checkout ${MERGE_BRANCH} && \
-  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${MERGE_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
   echo "Pull ${REMOTE} ${REMOTE_BRANCH}" && \
   git pull ${REMOTE} ${REMOTE_BRANCH} && \
