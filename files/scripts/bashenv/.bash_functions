@@ -287,8 +287,8 @@ function gitpullwork(){
 }
 
 unalias gitpushpublic 1>/dev/null 2>&1
-unset -f gitpushwork || true
-function gitpushwork(){
+unset -f gitpushpublic || true
+function gitpushpublic(){
   GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_PUBLIC}' git push github $(git rev-parse --abbrev-ref HEAD)
 }
 
