@@ -179,10 +179,18 @@ ansible-playbook site.yml --tags upgrade-vmware-esxi
 
 ## Jenkins Pipeline Usage
 
+### Setup pipeline automation library used by all jenkins jobs
+The pipeline automation library used can be found [here](https://github.com/lj020326/pipeline-automation-lib).
+[The pipeline automation library](https://github.com/lj020326/pipeline-automation-lib) defines the shared jenkins templates that are used throughout all of the jenkins ansible pipelines.  
+
+Configure the library in jenkins as seen below.
+![Jenkins - Configure shared Pipeline Automation Library](./screenshots/ansible-datacenter-00-pipeline-library.png)
+
+
 ### Site Root folder
 
 A root folder for the ansible-datacenter environment can be setup similar to the following.
-[Site Root](./screenshots/ansible-datacenter-0-toplevel.png)
+![Site Root](./screenshots/ansible-datacenter-0-toplevel.png)
 
 ### Inventory Environment folders
 
