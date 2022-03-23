@@ -390,3 +390,25 @@ function change-commit-msg(){
   git checkout $branch
 
 }
+
+## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
+git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
+unalias gitmergebranch 1>/dev/null 2>&1
+unset -f gitmergebranch || true
+function gitmergebranch(){
+
+  MERGE_BRANCH="${1-public}" && \
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  echo "Fetch all" && \
+  git fetch --all && \
+  echo "Checkout ${MERGE_BRANCH}" && \
+  git checkout ${MERGE_BRANCH} && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  echo "Pull ${REMOTE} ${REMOTE_BRANCH}" && \
+  git pull ${REMOTE} ${REMOTE_BRANCH} && \
+  echo "Checkout ${LOCAL_BRANCH}" && \
+  git checkout ${LOCAL_BRANCH} && \
+  echo "Merge ${MERGE_BRANCH}" && \
+  git merge-no-edit -X theirs ${MERGE_BRANCH}
+}
