@@ -277,25 +277,25 @@ function gitpush(){
 unalias gitpushwork 1>/dev/null 2>&1
 unset -f gitpushwork || true
 function gitpushwork(){
-  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git push bitbucket $(git rev-parse --abbrev-ref HEAD)
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_WORK}" git push bitbucket $(git rev-parse --abbrev-ref HEAD)
 }
 
 unalias gitpullwork 1>/dev/null 2>&1
 unset -f gitpullwork || true
 function gitpullwork(){
-  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_WORK}' git pull bitbucket $(git rev-parse --abbrev-ref HEAD)
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_WORK}" git pull bitbucket $(git rev-parse --abbrev-ref HEAD)
 }
 
 unalias gitpushpublic 1>/dev/null 2>&1
 unset -f gitpushpublic || true
 function gitpushpublic(){
-  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_PUBLIC}' git push github $(git rev-parse --abbrev-ref HEAD)
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_PUBLIC}" git push github $(git rev-parse --abbrev-ref HEAD)
 }
 
 unalias gitpullpublic 1>/dev/null 2>&1
 unset -f gitpullpublic || true
 function gitpullpublic(){
-  GIT_SSH_COMMAND='ssh -i ~/.ssh/${SSH_KEY_PUBLIC}' git pull github $(git rev-parse --abbrev-ref HEAD)
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_PUBLIC}" git pull github $(git rev-parse --abbrev-ref HEAD)
 }
 
 unalias getbranchhist 1>/dev/null 2>&1
