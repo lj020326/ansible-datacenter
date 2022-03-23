@@ -1395,7 +1395,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:49:12  TASK [****-role-stepca : Setup step ca server] ******************************
 11:49:12  skipping: [vmu20-01]
 11:49:12  
-11:49:12  TASK [Run deploy-cacertss] *****************************************************
+11:49:12  TASK [Run deploy-cacerts] *****************************************************
 11:49:12  
 11:49:12  TASK [deploy-cacerts : include_vars] *******************************************
 11:49:12  ok: [vmu20-01]

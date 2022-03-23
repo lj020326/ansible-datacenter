@@ -424,7 +424,7 @@ ansible all -m debug -a var=groups['ca_domain']
 
 ansible-playbook site.yml --tags bootstrap-bind
 ansible-playbook site.yml --tags bootstrap-cacerts
-ansible-playbook site.yml --tags deploy-cacert
+ansible-playbook site.yml --tags deploy-cacerts
 ansible-playbook site.yml --tags docker-control-node
 ansible-playbook site.yml --tags docker-admin-node
 ansible-playbook site.yml --tags docker-media-node
