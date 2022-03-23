@@ -2,59 +2,11 @@
 ANSIBLE DATACENTER TODO
 ====
 
-[ ] 2022
+# 2022 Goals
 
-    [ ] Setup awx with ansible-datacenter
-        [ ] run original work config that now has task/job related issues along side of new clean config
-        [ ] ansible-datacenter - setup dev branch and corresponding job templates in awx
-        [ ] ansible-datacenter - move ldif to secrets
+## CICD Infrastructure Automation Priorities
 
-        AWX do not load group vars after add_host · Issue #11793 · ansible/awx
-            https://github.com/ansible/awx/issues/11793
-        Inventory group vars are not loaded · Issue #761 · ansible/awx
-            https://github.com/ansible/awx/issues/761
-        Inventory not including all group_vars when using multiple children (or all group)
-            https://github.com/ansible/awx/issues/2574
-
-        Ansible and Ansible Tower: best practices from the field
-            http://www.juliosblog.com/ansible-and-ansible-tower-best-practices-from-the-field/
-
-        awx & venv - Managing infrastructure using Ansible Tower | XLAB Steampunk blog
-            https://steampunk.si/blog/managing-infrastructure-using-ansible-tower/
-
-        good example awx playbook with groups
-            https://murrahjm.github.io/Source-Control-and-the-Tower-Project/
-
-        Automating the automation — Ansible Tower configuration as code
-            https://www.redhat.com/en/blog/automating-automation-%E2%80%94-ansible-tower-configuration-code
-
-        Well Structured Content Repositories :: Ansible Labs for Red Hat Summi
-            https://people.redhat.com/grieger/summit2020_labs/ansible-tower-advanced/10-structured-content/
-
-        Changing variable precedence in Ansible
-            https://medium.com/opsops/changing-variable-precedence-in-ansible-a86c0c8373d7
-
-        Playbook Variable | Ansible | Datacadamia
-            https://datacadamia.com/infra/ansible/variable
-
-        Ansible: Variables scope and precedence
-            https://digitalis.io/blog/ansible/ansible-variables-scope-and-precedence/
-
-        Workshop Exercise - Using Variables
-            https://aap2.demoredhat.com/exercises/ansible_rhel/1.4-variables/
-
-        ansible/test-playbooks: playbook-tests
-            https://github.com/ansible/test-playbooks
-
-        Developing and Testing Ansible Roles with Molecule and Podman
-            https://www.ansible.com/blog/developing-and-testing-ansible-roles-with-molecule-and-podman-part-1
-
-        Managing Windows servers with Ansible Tower
-            https://4sysops.com/archives/managing-windows-servers-with-ansible-tower/
-
-
-        https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
-        http://vcloud-lab.com/entries/devops/step-by-step-guide-to-configure-first-project-job-template-on-ansible-awx-tower
+* Migrate configs and service delivary to more flexible/modern approach described [here](./doc/common-way-to-manage-configurations-for-multiple environments-and-clouds.md)
 
     [ ] Setup DHCP for multiple scopes/zone (DEV/QA/PROD)
 
@@ -114,7 +66,7 @@ ANSIBLE DATACENTER TODO
         https://restlessdata.com.au/p/updating-a-blog-theme/
         https://github.com/mrjoh3/blog
 
-[ ] Datacenter items:
+## Datacenter Priorities
 
     [X] add chef inspec to buildVmTemplate pipeline - performs checks before completing build
 
@@ -441,12 +393,38 @@ ANSIBLE DATACENTER TODO
                 UUID=a80be579-2ca7-4e8e-8462-11a33b6eac97       /mnt/disk0091   ext4    defaults        0       0
                 UUID=1f5751ab-9553-49a2-9168-f8ae37e11455       /mnt/disk0092   ext4    defaults        0       0
 
-[ ] neat motd / display
-    https://github.com/arsham/figurine
+    [ ] Setup awx with ansible-datacenter
+        [ ] run original work config that now has task/job related issues along side of new clean config
+        [ ] ansible-datacenter - setup dev branch and corresponding job templates in awx
+        [ ] ansible-datacenter - move ldif to secrets
 
-[ ] Setup new dettonville.org
+* [AWX do not load group vars after add_host · Issue #11793 · ansible/awx](https://github.com/ansible/awx/issues/11793)
+* [Inventory group vars are not loaded · Issue #761 · ansible/awx](https://github.com/ansible/awx/issues/761)
+* [Inventory not including all group_vars when using multiple children (or all group)](https://github.com/ansible/awx/issues/2574)
+* [Ansible and Ansible Tower: best practices from the field](http://www.juliosblog.com/ansible-and-ansible-tower-best-practices-from-the-field/)
+* [awx & venv - Managing infrastructure using Ansible Tower | XLAB Steampunk blog](https://steampunk.si/blog/managing-infrastructure-using-ansible-tower/)
 
-    [ ] migrate wordpress to hugo
+* [good example awx playbook with groups](https://murrahjm.github.io/Source-Control-and-the-Tower-Project/)
+* [Automating the automation — Ansible Tower configuration as code](https://www.redhat.com/en/blog/automating-automation-%E2%80%94-ansible-tower-configuration-code)
+* [Well Structured Content Repositories :: Ansible Labs for Red Hat Summi](https://people.redhat.com/grieger/summit2020_labs/ansible-tower-advanced/10-structured-content/)
+* [Changing variable precedence in Ansible](https://medium.com/opsops/changing-variable-precedence-in-ansible-a86c0c8373d7)
+* [Playbook Variable | Ansible | Datacadamia](https://datacadamia.com/infra/ansible/variable)
+* [Ansible: Variables scope and precedence](https://digitalis.io/blog/ansible/ansible-variables-scope-and-precedence/)
+* [Workshop Exercise - Using Variables](https://aap2.demoredhat.com/exercises/ansible_rhel/1.4-variables/)
+* [ansible/test-playbooks: playbook-tests](https://github.com/ansible/test-playbooks)
+* [Developing and Testing Ansible Roles with Molecule and Podman](https://www.ansible.com/blog/developing-and-testing-ansible-roles-with-molecule-and-podman-part-1)
+* [Managing Windows servers with Ansible Tower](https://4sysops.com/archives/managing-windows-servers-with-ansible-tower/)
+* https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
+* http://vcloud-lab.com/entries/devops/step-by-step-guide-to-configure-first-project-job-template-on-ansible-awx-tower
+
+### Off the beaten path/Asides
+
+    [ ] neat motd / display
+        https://github.com/arsham/figurine
+    
+    [P] Setup new dettonville.org
+    
+        [P] migrate wordpress to hugo
 
 
 ## Issues
