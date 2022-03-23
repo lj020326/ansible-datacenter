@@ -215,7 +215,7 @@ All jobs use the same 2 parameters for the limit hosts directive and debug.
 The job history for the tag execution is readily/easily viewable.
 ![Job Run History](./screenshots/ansible-datacenter-4-deploy-cacerts.png)
 
-Another job just created to bootstrap linux machines.
+Here is the bootstraps linux job history.
 ![Job Run History](./screenshots/ansible-datacenter-3a-bootstrap-linux.png)
 
 Specify host(s) or leave blank to run across all hosts for the group(s) defined for the play(s) associated with the tag.
