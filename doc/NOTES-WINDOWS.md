@@ -21,6 +21,9 @@ Enable-PSRemoting
       [<CommonParameters>]
 ```
 
+### How to enable winRM for older powershell versions < v7.0
+If using older version of powershell, use [this script](https://github.com/ansible/ansible/blob/devel/examples/scripts/ConfigureRemotingForAnsible.ps1) to enable/setup winRM listeners.
+
 ### Verify connectivity [2]
 
 Before connecting to remote server it is necessary to test remote WINRM connectivity with PowerShell. We need to use Test- WS command for it.
@@ -41,7 +44,7 @@ ProductVersion      :    OS: 0.0.0 SP: 0.0 Stack: 3.0
 
 If PSremoting is not enabled or WinRM is blocked by the firewall, you will get an error message.
 
-If using older version of powershell, use the following script:
+
 
 
 ## 
