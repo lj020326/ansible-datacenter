@@ -12,7 +12,7 @@ ANSIBLE DATACENTER TODO
 
 ## CICD Infrastructure Automation Priorities
 
-[ ] Migrate configs and service delivary to more flexible/modern approach described [here](./doc/common-way-to-manage-configurations-for-multiple environments-and-clouds.md)
+[ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./doc/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
 [ ] Setup DEV, QA and PROD openshift clusters
 
@@ -25,11 +25,7 @@ ANSIBLE DATACENTER TODO
   * https://univirt.wordpress.com/2020/04/29/a-basic-lab-setup-using-vyos-on-vsphere/
   * http://keithlee.ie/2018/11/05/pks-nsx-t-home-lab-part-3-core-vms/
   * http://keithlee.ie/2018/11/08/pks-nsx-t-home-lab-part-4-configuring-pfsense-router/
-
-[ ] Setup BIND/DHCP for multiple scopes/zone (DEV/QA/PROD)
-
-[ ] Setup BIND/DHCP for multiple scopes/zone (DEV/QA/PROD)
-
+  
 [ ] Add functionality to deploy-vm role to support deployment from ovf template in ansible:
     https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
 
