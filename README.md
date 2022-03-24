@@ -200,9 +200,10 @@ Then setup folders for each environment defined in the inventory similar to the 
 ### Jenkins Pipelines to run Ansible tags
 
 Each job folder corresponds to a tag defined in the site.yml playbook.
+![Ansible Tags](./screenshots/ansible-datacenter-1aa-tags.png)
 
 To make setting up each folder consistent and simple as possible, the jobs all are exactly the same except the folder name.
-They all use the following pipeline definition.
+The job folders all use the same pipeline definition as seen below.  Using this method, whenever a new ansible tag is created, adding a corresponding jenkins job folder is as easy as copying an existing one and naming it respectively to match the newly created ansible tag. 
 ![Jenkins Pipeline](./screenshots/ansible-datacenter-1b-jenkins-pipeline-definition-ansible-tags.png)
 
 ### Ansible Pipeline Parameters
