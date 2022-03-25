@@ -64,7 +64,7 @@ Param (
     [switch]$GlobalHttpFirewallAccess,
     [switch]$DisableBasicAuth = $false,
     [switch]$EnableCredSSP,
-    [string]$CertPath = "C:\temp",
+    [string]$CertPath = "$env:TMP",
     [string]$Username = "ansible",
     [string]$Password = "P@ssword123"
 )
