@@ -22,12 +22,19 @@
     - name: Classify hosts depending on their OS distribution
       changed_when: no
       group_by:
-        key: os_{{ ansible_facts['distribution']|d('Unknown') }}
+        key: os_{{ ansible_facts['distribution']|d('Unknown') | replace('-','_') }}
 
     - name: Classify hosts depending on their OS distribution-version
+      when: ansible_os_family!="Windows"
       changed_when: no
       group_by:
-        key: os_{{ ansible_facts['distribution']|d('Unknown') }}_{{ ansible_facts['distribution_major_version']|d('Unknown') }}
+        key: os_{{ ansible_facts['distribution']|d('Unknown') }}_{{ ansible_facts['distribution_major_version']|d('Unknown') | replace('-','_') }}
+
+    - name: Classify hosts depending on their OS distribution-version
+      when: ansible_os_family=="Windows"
+      changed_when: no
+      group_by:
+        key: os_{{ ansible_os_family }}_{{ ansible_facts['distribution_major_version']|d('Unknown') | replace('-','_') }}
 
 #    - name: Classify hosts depending on their internal domain
 #      changed_when: no
@@ -46,6 +53,7 @@
           - "netbase__hostname={{ netbase__hostname }}"
           - "ansible_host={{ ansible_host }}"
           - "ansible_hostname={{ ansible_hostname | d('') }}"
+          - "ansible_port={{ ansible_port | d('') }}"
           - "ansible_fqdn={{ ansible_fqdn | d('') }}"
           - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
           - "ansible_os_family={{ ansible_os_family | d('unknown') }}"
@@ -99,7 +107,7 @@
 - name: "Debug: Print environment variables"
 #  hosts: all
 #  hosts: server_node
-  hosts: server_node:!server_offline
+  hosts: server_node:!node_offline
   tags:
     - display-envvars
     - debug-envvars
@@ -120,7 +128,7 @@
 - name: "Debug: Print internal variables"
 #  hosts: all
 #  hosts: server_node
-  hosts: server_node:!server_offline
+  hosts: server_node:!node_offline
   tags:
     - debug-vars
     - display-vars

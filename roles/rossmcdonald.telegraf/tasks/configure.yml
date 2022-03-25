@@ -1,0 +1,66 @@
+---
+- name: Retrieve ec2 facts
+  ec2_metadata_facts:
+  when: telegraf_aws_tags
+
+- name: Retrieve all ec2 tags on the instance
+  ec2_tag:
+    region: "{{ ansible_ec2_placement_region }}"
+    resource: "{{ ansible_ec2_instance_id }}"
+    state: list
+  when: telegraf_aws_tags
+  register: ec2_tags
+
+- name: Set templatized Telegraf configuration
+  template:
+    src: "{{ telegraf_configuration_template }}"
+    dest: "{{ telegraf_configuration_dir }}/telegraf.conf"
+    force: yes
+    backup: yes
+    owner: telegraf
+    group: telegraf
+    mode: 0744
+  when: telegraf_template_configuration
+  # If config changes, restart telegraf and confirm it remained running
+  notify:
+    - "restart telegraf"
+    - "pause"
+    - "check status"
+    - "assert running"
+
+- name: Test for sysvinit script
+  stat:
+    path: /etc/init.d/telegraf
+  register: telegraf_sysvinit_script
+
+- name: Modify user Telegraf should run as [sysvinit]
+  replace:
+    path: /etc/init.d/telegraf
+    regexp: USER=.*
+    replace: USER={{ telegraf_runas_user }}
+  when: telegraf_runas_user != "telegraf" and telegraf_sysvinit_script.stat.exists
+
+- name: Modify group Telegraf should run as [sysvinit]
+  replace:
+    path: /etc/init.d/telegraf
+    regexp: GROUP=.*
+    replace: GROUP={{ telegraf_runas_group }}
+  when: telegraf_runas_group != "telegraf" and telegraf_sysvinit_script.stat.exists
+
+- name: Create systemd service directory [systemd]
+  file:
+    path: /etc/systemd/system/telegraf.service.d
+    state: directory
+  when: telegraf_runas_user != "telegraf" and not telegraf_sysvinit_script.stat.exists
+
+- name: Modify user Telegraf should run as [systemd]
+  template:
+    src: systemd/system/telegraf.service.d/override.conf
+    dest: /etc/systemd/system/telegraf.service.d/override.conf
+  when: telegraf_runas_user != "telegraf" and not telegraf_sysvinit_script.stat.exists
+  register: telegraf_unit_file_updated
+
+- name: Reload systemd configuration [systemd]
+  systemd:
+    daemon_reload: yes
+  when: telegraf_unit_file_updated is defined and telegraf_unit_file_updated.changed

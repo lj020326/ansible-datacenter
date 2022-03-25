@@ -1,0 +1,34 @@
+---
+
+- name: Reload the SSH service
+  service:
+    name: "{{ sshd_service }}"
+    state: reloaded
+  when:
+    - sshd_allow_reload|bool
+    - ansible_virtualization_type|default(None) != 'docker'
+    - ansible_virtualization_type|default(None) != 'podman'
+    - ansible_virtualization_type|default(None) != 'containerd'
+    - ansible_virtualization_type|default(None) != 'VirtualPC'  # for Github Actions
+    - ansible_connection != 'chroot'
+    - ansible_os_family != 'AIX'
+  listen: reload_sshd
+
+# sshd on AIX cannot be 'reloaded', it must be Stopped+Started.
+# It's dangerous to do this in two tasks.. you're stopping SSH and then trying to SSH back in to start it.
+# Instead, use a dirty shell script:
+#  https://www.ibm.com/developerworks/community/blogs/brian/entry/scripting_the_stop_and_restart_of_src_controlled_processes_on_aix6
+- name: Reload sshd Service (AIX)
+  shell: |
+    set -eu
+    if set -o | grep pipefail 2>&1 /dev/null ; then
+      set -o pipefail
+    fi
+    stopsrc -s sshd
+    until $(lssrc -s sshd | grep -q inoperative); do sleep 1; done
+    startsrc -s sshd
+  listen: reload_sshd
+  changed_when: false
+  when:
+    - sshd_allow_reload|bool
+    - ansible_os_family == 'AIX'

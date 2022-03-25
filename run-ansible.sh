@@ -13,7 +13,7 @@ TARGET_DIR=${PWD}
 GIT_REMOTE_URL=$(git ls-remote --get-url origin)
 
 RUN_LOCAL=1
-RUN_VENV=0
+RUN_VENV=1
 
 DEBUG_LEVEL=0
 if [[ "$-" == *x* ]]; then
@@ -30,7 +30,7 @@ usage() {
   echo "" 1>&2
   echo "  Options:" 1>&2
   echo "     -R      : use default remote host to run the following ansible commands, defaults to \"${REMOTE_HOST}\"" 1>&2
-  echo "     -V      : use virtualenv to run ansible instead of OS version" 1>&2
+  echo "     -n      : use OS ansible and do NOT bootstrap/use a virtualenv to run ansible" 1>&2
   echo "     -r HOST : set remote host used to run the following ansible commands" 1>&2
   echo "     -g URL  : set git repo URL for the site.yml playbook to use" 1>&2
   echo "     -b URL  : set git repo branch for the site.yml playbook to use" 1>&2
@@ -170,7 +170,7 @@ run_command_wrapper_fn() {
   exit ${?}
 }
 
-while getopts "g:b:r:t:RVhx" opt; do
+while getopts "g:b:r:t:Rlhx" opt; do
   case "${opt}" in
   g) GIT_REMOTE_URL="${OPTARG}" ;;
   b) GIT_BRANCH_NAME="${OPTARG}" ;;
@@ -180,7 +180,7 @@ while getopts "g:b:r:t:RVhx" opt; do
       ;;
   t) TARGET_DIR="${OPTARG}" ;;
   R) RUN_LOCAL=0 ;;
-  V) RUN_VENV=1 ;;
+  n) RUN_VENV=0 ;;
   x) DEBUG=1 ;;
   h) usage 1 ;;
   \?) usage 2 ;;

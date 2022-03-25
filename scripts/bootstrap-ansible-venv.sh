@@ -14,7 +14,7 @@ VENV_PYTHON_INTERPRETER="/usr/bin/python3"
 #VENV_COMMAND="virtualenv --python=${VENV_PYTHON_INTERPRETER} --system-site-packages venv"
 VENV_COMMAND="virtualenv --python=${VENV_PYTHON_INTERPRETER} venv"
 
-UNAME=$(/bin/uname -s | tr "[:upper:]" "[:lower:]")
+UNAME=$(uname -s | tr "[:upper:]" "[:lower:]")
 SSH_COMMON_ARGS=""
 SUDO_CMD="sudo"
 
@@ -26,7 +26,8 @@ linux*)
   PLATFORM=Linux
   ;;
 darwin*)
-  VENV_COMMAND="python -m venv --system-site-packages venv"
+#  VENV_COMMAND="python -m venv --system-site-packages venv"
+  VENV_COMMAND="python -m venv venv"
   PLATFORM=DARWIN
   ;;
 cygwin* | mingw64* | mingw32* | msys*)

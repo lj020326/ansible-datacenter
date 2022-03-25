@@ -41,6 +41,16 @@ Running the command above will ask you for a password to encrypt with, and open 
 
 ## Command Line Usage
 
+### Display/Debug any vars
+
+```bash
+ansible all -m debug -a var=groups['ca_domain']
+ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_port
+ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_winrm_transport
+ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_host
+```
+
+
 ### Setup and Run the datacenter playbook roles
 
 ## Run playbooks
@@ -58,23 +68,28 @@ ansible-playbook site.yml --tags docker-media-node
 
 Run plays for specific configuration needed
 
-Use to run ansible commands from ansible/control node:
+To run ansible commands from ansible/control node:
 
 ```bash
 ansible -v -m ping
 ansible -m ping ubuntu18
 ```
 
-Run a simple play test
+Run play for specific node:
 
 ```bash
 ansible-playbook site.yml --tags display-hostvars --limit admin01
+ansible-playbook site.yml --tags install-cacerts --limit media01
 ```
+
 
 Run a play for a specific group of nodes:
 
 ```bash
-ansible-playbook site.yml -t display-envvars -e "pattern=os_CentOS"
+ansible-playbook site.yml --tags install-cacerts --limit windows
+ansible-playbook site.yml --tags install-cacerts --limit os_Ubuntu
+ansible-playbook site.yml -t display-hostvars -l os_CentOS
+ansible-playbook site.yml -t display-hostvars -l docker
 ```
 
 E.g., Run site setup play on control node with a tag from windows/msys shell.
@@ -107,19 +122,14 @@ ansible-playbook site.yml --tags build-docker-images
 ansible-playbook site.yml --tags deploy-cacerts
 ansible-playbook site.yml --tags deploy-vm
 ansible-playbook site.yml --tags deploy-vsphere-dc
-ansible-playbook site.yml --tags display-hostvarsansible-playbook site.yml --tags docker-admin-node
+ansible-playbook site.yml --tags display-hostvars
+ansible-playbook site.yml --tags docker-admin-node
 ansible-playbook site.yml --tags docker-control-node
 ansible-playbook site.yml --tags docker-media-node
 ansible-playbook site.yml --tags docker-samba-node
 ansible-playbook site.yml --tags deploy-nfs-service
 ansible-playbook site.yml --tags remount-vmware-datastores
 ansible-playbook site.yml --tags upgrade-vmware-esxi
-```
-
-Run play for specific node:
-
-```
-ansible-playbook site.yml --tags install-cacerts --limit media01.example.int
 ```
 
 Setup vsphere dc

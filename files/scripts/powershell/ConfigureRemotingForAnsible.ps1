@@ -64,9 +64,9 @@ Param (
     [switch]$GlobalHttpFirewallAccess,
     [switch]$DisableBasicAuth = $false,
     [switch]$EnableCredSSP,
-    [string]$certPath = "C:\temp",
-    [string]$username = "ansible",
-    [string]$password = "P@ssword123"
+    [string]$CertPath = "C:\temp",
+    [string]$Username = "ansible",
+    [string]$Password = "P@ssword123"
 )
 
 Function Write-ProgressLog {
@@ -135,7 +135,7 @@ Function New-LegacySelfSignedCert {
     Param (
         [string]$SubjectName,
         [int]$ValidDays = 1095,
-        [string]$certPath
+        [string]$CertPath = "C:\temp"
     )
 
     $hostnonFQDN = $env:computerName
@@ -199,68 +199,22 @@ Function New-LegacySelfSignedCert {
     $certdata = $enrollment.CreateRequest(0)
     $enrollment.InstallResponse(2, $certdata, 0, "")
 
+    $certFile="$certPath\cert.pem"
+    [System.IO.File]::WriteAllLines($certFile, $certdata)
+
 #    # extract/return the thumbprint from the generated cert
 #    $parsed_cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
 #    $parsed_cert.Import([System.Text.Encoding]::UTF8.GetBytes($certdata))
 
-    # Export the public key
-#    $pem_output = @()
-#    $pem_output += "-----BEGIN CERTIFICATE-----"
-#    $pem_output += [System.Convert]::ToBase64String($certdata) -replace ".{64}", "$&`n"
-#    $pem_output += "-----END CERTIFICATE-----"
-#    [System.IO.File]::WriteAllLines("$certPath\cert.pem", $pem_output)
-    [System.IO.File]::WriteAllLines("$certPath\cert.pem", $certdata)
-
     # Import key into Machine's store
     $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
-    $cert.Import("$certPath\cert.pem")
+    $cert.Import($certFile)
 
     # Export the private key in a PFX file
     [System.IO.File]::WriteAllBytes("$certPath\cert.pfx", $cert.Export("Pfx"))
 
-    return $cert.Thumbprint
-}
-
-## ref: https://stackoverflow.com/questions/71443402/error-creating-a-self-signed-certificate-for-use-with-winrm-https
-Function New-SelfSignedCert2 {
-
-    Param (
-        [string]$SubjectName,
-        [int]$ValidDays = 1095,
-        [string]$certPath,
-        [string]$username
-    )
-
-    # Delete all HTTPS listeners
-    Get-ChildItem -Path WSMan:\localhost\Listener | Where-Object { $_.Keys -contains "Transport=HTTPS" } | Remove-Item -Recurse -Force
-
-#    # Set the name of the local user that will have the key mapped
-#    $username = "ansible"
-#    $certPath = "C:\temp"
-
-    # Instead of generating a file, the cert will be added to the personal
-    # LocalComputer folder in the certificate store
-    $cert = New-SelfSignedCertificate -Type Custom `
-        -Subject "CN=$SubjectName" `
-        -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.2","2.5.29.17={text}upn=$username@localhost") `
-        -KeyUsage DigitalSignature,KeyEncipherment `
-        -KeyAlgorithm RSA `
-        -KeyLength 2048
-
-    # Export the public key
-    $pem_output = @()
-    $pem_output += "-----BEGIN CERTIFICATE-----"
-    $pem_output += [System.Convert]::ToBase64String($cert.RawData) -replace ".{64}", "$&`n"
-    $pem_output += "-----END CERTIFICATE-----"
-    [System.IO.File]::WriteAllLines("$certPath\cert.pem", $pem_output)
-
-    # Export the private key in a PFX file
-    [System.IO.File]::WriteAllBytes("$certPath\cert.pfx", $cert.Export("Pfx"))
-
-    # Import key into Machine's store
-    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
-    $cert.Import("$certPath\cert.pem")
-
+    write-host "Importing certificate to the Certificate Store"
+    ## https://docs.ansible.com/ansible/latest/user_guide/windows_winrm.html#import-a-certificate-to-the-certificate-store
     $store_name = [System.Security.Cryptography.X509Certificates.StoreName]::Root
     $store_location = [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
     $store = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Store -ArgumentList $store_name, $store_location
@@ -279,38 +233,73 @@ Function New-SelfSignedCert2 {
     $store.Add($cert)
     $store.Close()
 
-    # Map the certificate to the Ansible user
-#    $username = "ansible"
-#    $password = ConvertTo-SecureString -String "P@ssword123" -AsPlainText -Force
-#    $credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $password
+
+    return $cert.Thumbprint
+}
+
+## ref: https://stackoverflow.com/questions/71443402/error-creating-a-self-signed-certificate-for-use-with-winrm-https
+Function New-SelfSignedCert2 {
+
+    Param (
+        [string]$SubjectName,
+        [int]$ValidDays = 1095,
+        [string]$CertPath,
+        [string]$Username
+    )
+
+    # Delete all HTTPS listeners
+    Get-ChildItem -Path WSMan:\localhost\Listener | Where-Object { $_.Keys -contains "Transport=HTTPS" } | Remove-Item -Recurse -Force
+
+    # Instead of generating a file, the cert will be added to the personal
+    # LocalComputer folder in the certificate store
+    $cert = New-SelfSignedCertificate -Type Custom `
+        -Subject "CN=$SubjectName" `
+        -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.2","2.5.29.17={text}upn=$Username@localhost") `
+        -KeyUsage DigitalSignature,KeyEncipherment `
+        -KeyAlgorithm RSA `
+        -KeyLength 2048
+
+    # Export the public key
+    $pem_output = @()
+    $pem_output += "-----BEGIN CERTIFICATE-----"
+    $pem_output += [System.Convert]::ToBase64String($cert.RawData) -replace ".{64}", "$&`n"
+    $pem_output += "-----END CERTIFICATE-----"
+    [System.IO.File]::WriteAllLines("$certPath\cert.pem", $pem_output)
+
+    # Export the private key in a PFX file
+    [System.IO.File]::WriteAllBytes("$certPath\cert.pfx", $cert.Export("Pfx"))
+
+    # Import key into Machine's store
+    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
+    $cert.Import("$certPath\cert.pem")
+
+    ## https://docs.ansible.com/ansible/latest/user_guide/windows_winrm.html#import-a-certificate-to-the-certificate-store
+    $store_name = [System.Security.Cryptography.X509Certificates.StoreName]::Root
+    $store_location = [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+    $store = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Store -ArgumentList $store_name, $store_location
+    $store.Open("MaxAllowed")
+    $store.Add($cert)
+    $store.Close()
+
+    # Import the client certificate
+    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
+    $cert.Import("$certPath\cert.pem")
+
+    $store_name = [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPeople
+    $store_location = [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+    $store = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Store -ArgumentList $store_name, $store_location
+    $store.Open("MaxAllowed")
+    $store.Add($cert)
+    $store.Close()
 
     # This is the issuer thumbprint which in the case of a self generated cert
     # is the public key thumbprint, additional logic may be required for other
     # scenarios
-    $thumbprint = (Get-ChildItem -Path cert:\LocalMachine\root | Where-Object { $_.Subject -eq "CN=$username" }).Thumbprint
-
-#    New-Item -Path WSMan:\localhost\ClientCertificate `
-#        -Subject "$username@localhost" `
-#        -URI * `
-#        -Issuer $thumbprint `
-#        -Credential $credential `
-#        -Force
-#
-#    # Create a new HTTPS listener
-#    $selector_set = @{
-#        Address = "*"
-#        Transport = "HTTPS"
-#    }
-#    $value_set = @{
-#        CertificateThumbprint = "$thumbprint"
-#    }
-#
-#    New-WSManInstance -ResourceURI "winrm/config/Listener" -SelectorSet $selector_set -ValueSet $value_set
+    $thumbprint = (Get-ChildItem -Path cert:\LocalMachine\root | Where-Object { $_.Subject -eq "CN=$Username" }).Thumbprint
 
     return $cert.Thumbprint
 
 }
-
 
 Function Enable-GlobalHttpFirewallAccess {
     Write-Verbose "Forcing global HTTP firewall access"
@@ -452,31 +441,58 @@ if ($token_value -ne 1) {
     New-ItemProperty -Path $token_path -Name $token_prop_name -Value 1 -PropertyType DWORD > $null
 }
 
+
 ## ref: https://www.scriptinglibrary.com/languages/powershell/create-a-local-admin-account-with-powershell/
 ## ref: https://github.com/PaoloFrigo/scriptinglibrary
 ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/files/scripts/powershell/Create-NewLocalAdmin.ps1
-$passwordSec = ConvertTo-SecureString -String $password -AsPlainText -Force
-$credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $passwordSec
+$PasswordSec = ConvertTo-SecureString -String $Password -AsPlainText -Force
+$credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Username, $PasswordSec
 
+## ref: https://stackoverflow.com/questions/49595003/checking-if-a-local-user-account-group-exists-or-not-with-powershell
 $ObjLocalUser = $null
 
 try {
-    Write-Verbose "Searching for $($username) in LocalUser DataBase"
-    $ObjLocalUser = Get-LocalUser $username
-    Write-Verbose "User $($username) was found"
+    Write-Verbose "Searching for $($Username) in LocalUser DataBase"
+    $ObjLocalUser = Get-LocalUser $Username
+    Write-Verbose "User $($Username) was found"
+
+
+    ## Test if password has changed - if so, set new password
+    ## ref: https://community.idera.com/database-tools/powershell/powertips/b/tips/posts/verifying-local-user-account-passwords
+    ## test password
+    Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+    $type = [DirectoryServices.AccountManagement.ContextType]::Machine
+    $PrincipalContext = [DirectoryServices.AccountManagement.PrincipalContext]::new($type)
+    $ValidAccount = $PrincipalContext.ValidateCredentials($UserName,$Password)
+    If (-not($ValidAccount)) {
+        write-host "Password does not match - setting new password."
+        try
+        {
+            Set-LocalUser -Name $Username -Password $PasswordSec
+        }
+        catch {
+            "Error setting password for user $Username" | Write-Error
+            Exit # Stop Powershell!
+        }
+    }
+    else {
+        write-host "Successfully authenticated with domain $domain.name"
+    }
+
 }
 catch [Microsoft.PowerShell.Commands.UserNotFoundException] {
-    "User $($username) was not found" | Write-Warning
+    "User $($Username) was not found" | Write-Warning
 }
 catch {
-    "An unspecifed error occured" | Write-Error
+    "An unspecifed error occured in finding user $Username" | Write-Error
     Exit # Stop Powershell!
 }
 
 #Create the user if it was not found (Example)
 if (!$ObjLocalUser) {
-    Write-Verbose "Creating new local admin user $username already active."
-    Create-NewLocalAdmin -NewLocalAdmin $username -Password $Password -Verbose
+    Write-Verbose "Creating new local admin user $Username already active."
+
+    Create-NewLocalAdmin -NewLocalAdmin $Username -Password $PasswordSec -Verbose
 }
 
 # Make sure there is a SSL listener.
@@ -497,15 +513,16 @@ If (!($listeners | Where-Object { $_.Keys -like "TRANSPORT=HTTPS" }) -or $ForceN
 #    }
 #    else {
 ##        $thumbprint = New-SelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
-#        $thumbprint = New-SelfSignedCert2 -SubjectName $SubjectName -ValidDays $CertValidityDays, $certPath, $username
+#        $thumbprint = New-SelfSignedCert2 -SubjectName $SubjectName -ValidDays $CertValidityDays -CertPath $CertPath -Username $Username
 #    }
 
-    $thumbprint = New-LegacySelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
+    $thumbprint = New-LegacySelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays -CertPath $CertPath
     Write-HostLog "Self-signed SSL certificate generated; thumbprint: $thumbprint"
 
-    # Map the certificate to the Ansible user
+    write-host "Mapping the certificate to the $Username Account"
+    ## https://docs.ansible.com/ansible/latest/user_guide/windows_winrm.html#mapping-a-certificate-to-an-account
     New-Item -Path WSMan:\localhost\ClientCertificate `
-        -Subject "$username@localhost" `
+        -Subject "$Username@localhost" `
         -URI * `
         -Issuer $thumbprint `
         -Credential $credential `
@@ -535,30 +552,6 @@ If (!($listeners | Where-Object { $_.Keys -like "TRANSPORT=HTTPS" }) -or $ForceN
 }
 Else {
     Write-Verbose "SSL listener is already active."
-
-#    # Force a new SSL cert on Listener if the $ForceNewSSLCert
-#    If ($ForceNewSSLCert) {
-#
-#        # We cannot use New-SelfSignedCertificate on 2012R2 and earlier
-##        $thumbprint = New-LegacySelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
-#        $thumbprint = New-SelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
-#        Write-HostLog "Self-signed SSL certificate generated; thumbprint: $thumbprint"
-#
-#        $valueset = @{
-#            CertificateThumbprint = $thumbprint
-#            Hostname = $SubjectName
-#        }
-#
-#        # Delete the listener for SSL
-#        $selectorset = @{
-#            Address = "*"
-#            Transport = "HTTPS"
-#        }
-#        Remove-WSManInstance -ResourceURI 'winrm/config/Listener' -SelectorSet $selectorset
-#
-#        # Add new Listener with new SSL cert
-#        New-WSManInstance -ResourceURI 'winrm/config/Listener' -SelectorSet $selectorset -ValueSet $valueset
-#    }
 }
 
 # Check for basic authentication.
@@ -605,7 +598,19 @@ $fwtest1 = netsh advfirewall firewall show rule name="Allow WinRM HTTPS"
 $fwtest2 = netsh advfirewall firewall show rule name="Allow WinRM HTTPS" profile=any
 If ($fwtest1.count -lt 5) {
     Write-Verbose "Adding firewall rule to allow WinRM HTTPS."
-    netsh advfirewall firewall add rule profile=any name="Allow WinRM HTTPS" dir=in localport=5986 protocol=TCP action=allow
+#    netsh advfirewall firewall add rule profile=any name="Allow WinRM HTTPS" dir=in localport=5986 protocol=TCP action=allow
+
+    ## ref: https://adamtheautomator.com/winrm-ssl/
+    $FirewallParam = @{
+        DisplayName = 'Windows Remote Management (HTTPS-In)'
+        Direction = 'Inbound'
+        LocalPort = 5986
+        Protocol = 'TCP'
+        Action = 'Allow'
+        Program = 'System'
+    }
+    New-NetFirewallRule @FirewallParam
+
     Write-ProgressLog "Added firewall rule to allow WinRM HTTPS."
 }
 ElseIf (($fwtest1.count -ge 5) -and ($fwtest2.count -lt 5)) {
