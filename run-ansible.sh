@@ -4,12 +4,7 @@
 
 #DEBUG=0
 REMOTE_USER=administrator
-#REMOTE_HOST=admin01.dettonville.int
-#REMOTE_HOST=admin02.dettonville.int
-#REMOTE_HOST=control01.dettonville.int
-#REMOTE_HOST=control01.johnson.int
-#REMOTE_HOST=vcontrol01.dettonville.int
-REMOTE_HOST=control02.johnson.int
+REMOTE_HOST=vcontrol01.johnson.int
 
 #RUN_CMD=$(basename ${0})
 
@@ -17,7 +12,8 @@ TARGET_DIR=${PWD}
 #GIT_REMOTE_URL=$(git config --get remote.origin.url)
 GIT_REMOTE_URL=$(git ls-remote --get-url origin)
 
-RUN_LOCAL=0
+RUN_LOCAL=1
+RUN_VENV=0
 
 DEBUG_LEVEL=0
 if [[ "$-" == *x* ]]; then
@@ -33,7 +29,12 @@ usage() {
   echo "Usage: ${0} [options] [CLI commands]" 1>&2
   echo "" 1>&2
   echo "  Options:" 1>&2
-  echo "     -r HOST : set remote host used to run the following ansible commands, defaults to \"${REMOTE_HOST}\"" 1>&2
+  echo "     -R      : use default remote host to run the following ansible commands, defaults to \"${REMOTE_HOST}\"" 1>&2
+  echo "     -V      : use virtualenv to run ansible instead of OS version" 1>&2
+  echo "     -r HOST : set remote host used to run the following ansible commands" 1>&2
+  echo "     -g URL  : set git repo URL for the site.yml playbook to use" 1>&2
+  echo "     -b URL  : set git repo branch for the site.yml playbook to use" 1>&2
+  echo "     -t DIR  : set git repo target directory to clone to for the site.yml playbook to use" 1>&2
   echo "" 1>&2
   echo "  Required:" 1>&2
   echo "     command:    ansible [ansible options]" 1>&2
@@ -42,11 +43,13 @@ usage() {
   echo "                 shell_command [shell_command options]" 1>&2
   echo "" 1>&2
   echo "  Examples:" 1>&2
-  echo "     ${0} ansible -i inventory/hosts.ini all -m ping"
-  echo "     ${0} ansible -i inventory/hosts.ini openstack -m ping"
   echo "     ${0} ansible -m ping all"
-  echo "     ${0} -r localhost ansible -i inventory/hosts.ini all -m ping"
-  echo "     ${0} -r ${REMOTE_HOST} ansible -i inventory/hosts.ini -m ping"
+  echo "     ${0} -r REMOTE_HOST ansible -i inventory/dev/hosts.ini -m ping"
+  echo "     ${0} -R ansible -i inventory/dev/hosts.ini -m ping"
+  echo "     ${0} ansible -i inventory/dev/hosts.ini all -m ping"
+  echo "     ${0} ansible -i inventory/dev/hosts.ini openstack -m ping"
+  echo "     ${0} ansible windows -i inventory/dev/hosts.ini -m win_ping"
+  echo "     ${0} ansible -i inventory/dev/hosts.ini all -m ping"
   echo "     ${0} ansible-playbook site.yml --tags bootstrap-node --limit admin2"
   echo "     ${0} ansible-playbook site.yml --tags bootstrap-node-network --limit node01"
   echo "     ${0} ansible-playbook site.yml --tags bootstrap-node-mounts --limit media"
@@ -118,16 +121,23 @@ run_command_wrapper_fn() {
 
   if [[ "${RUN_CMD}" == *"kolla-ansible"* ]]; then
     VENV_INIT="${OPENSTACK_VENV_PATH}/bin/activate"
-    COMMAND_ARRAY+=("source ${VENV_INIT}")
+    if [[ ${RUN_VENV} -eq 1 ]]; then
+      COMMAND_ARRAY+=("source ${VENV_INIT}")
+    fi
     COMMAND_ARRAY+=("source ${BOOTSTRAP_KOLLA_ENV}")
   elif [[ "${RUN_CMD}" == *"ansible-playbook"* ]]; then
     VENV_INIT="${GIT_REPO_DIR}/venv/bin/activate"
-    COMMAND_ARRAY+=("bash ${DEBUG_FLAG} ${BOOTSTRAP_VENV_SCRIPT}")
-    COMMAND_ARRAY+=("source ${VENV_INIT}")
+    if [[ ${RUN_VENV} -eq 1 ]]; then
+      COMMAND_ARRAY+=("bash ${DEBUG_FLAG} ${BOOTSTRAP_VENV_SCRIPT}")
+      COMMAND_ARRAY+=("source ${VENV_INIT}")
+    fi
     COMMAND_ARRAY+=("[ ! -f ${ANSIBLE_LOG} ] || rm ${ANSIBLE_LOG}")
   elif [[ "${RUN_CMD}" == *"ansible"* ]]; then
     VENV_INIT="${GIT_REPO_DIR}/venv/bin/activate"
-    COMMAND_ARRAY+=("source ${VENV_INIT}")
+    if [[ ${RUN_VENV} -eq 1 ]]; then
+      COMMAND_ARRAY+=("bash ${DEBUG_FLAG} ${BOOTSTRAP_VENV_SCRIPT}")
+      COMMAND_ARRAY+=("source ${VENV_INIT}")
+    fi
     COMMAND_ARRAY+=("[ ! -f ${ANSIBLE_LOG} ] || rm ${ANSIBLE_LOG}")
   fi
   COMMAND_ARRAY+=("echo '############# RUN COMMAND #######################'")
@@ -160,13 +170,17 @@ run_command_wrapper_fn() {
   exit ${?}
 }
 
-while getopts "g:b:r:t:lhx" opt; do
+while getopts "g:b:r:t:RVhx" opt; do
   case "${opt}" in
   g) GIT_REMOTE_URL="${OPTARG}" ;;
   b) GIT_BRANCH_NAME="${OPTARG}" ;;
-  r) REMOTE_HOST="${OPTARG}" ;;
+  r)
+      RUN_LOCAL=0
+      REMOTE_HOST="${OPTARG}"
+      ;;
   t) TARGET_DIR="${OPTARG}" ;;
-  l) RUN_LOCAL=1 ;;
+  R) RUN_LOCAL=0 ;;
+  V) RUN_VENV=1 ;;
   x) DEBUG=1 ;;
   h) usage 1 ;;
   \?) usage 2 ;;

@@ -26,6 +26,7 @@ linux*)
   PLATFORM=Linux
   ;;
 darwin*)
+  VENV_COMMAND="python -m venv --system-site-packages venv"
   PLATFORM=DARWIN
   ;;
 cygwin* | mingw64* | mingw32* | msys*)
@@ -65,6 +66,14 @@ if [ -f requirements.txt ]; then
 fi
 
 INSTALL_GALAXY_REQ=0
+if [ -f collections/requirements.yml ]; then
+  echo "Installing galaxy collections/requirements.yml..."
+  INSTALL_GALAXY_REQ=1
+  REQ_FILE=collections/requirements.yml
+  ansible-galaxy collection install ${FORCE_ARG} -r ${REQ_FILE}
+
+fi
+
 if [ -f roles/requirements.yml ]; then
   echo "Installing galaxy roles/requirements.yml..."
   INSTALL_GALAXY_REQ=1

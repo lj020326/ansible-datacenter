@@ -14,7 +14,9 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 ## expect to be run at the project root
 #PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
 #PROJECT_DIR="$( pwd . )"
-PROJECT_DIR=$(git rev-parse --show-toplevel)
+#PROJECT_DIR=$(git rev-parse --show-toplevel)
+
+PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
 
 #PROJECT_DIR2="~/repos/silex/alsac/ansible-dcc"
 ## expand ~ for rsync to work correctly

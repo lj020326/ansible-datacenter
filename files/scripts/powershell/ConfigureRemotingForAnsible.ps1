@@ -63,12 +63,15 @@ Param (
     [switch]$ForceNewSSLCert,
     [switch]$GlobalHttpFirewallAccess,
     [switch]$DisableBasicAuth = $false,
-    [switch]$EnableCredSSP
+    [switch]$EnableCredSSP,
+    [string]$certPath = "C:\temp",
+    [string]$username = "ansible",
+    [string]$password = "P@ssword123"
 )
 
 Function Write-ProgressLog {
     $Message = $args[0]
-    Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 1 -Message $Message
+    #Write-EventLog -LogName Application -Source $EventSource -EntryType Information -EventId 1 -Message $Message
 }
 
 Function Write-VerboseLog {
@@ -83,10 +86,56 @@ Function Write-HostLog {
     Write-ProgressLog $Message
 }
 
-Function New-LegacySelfSignedCert {
+function Create-NewLocalAdmin {
+    [CmdletBinding()]
+    param (
+        [string] $NewLocalAdmin,
+        [securestring] $Password
+    )
+    begin {
+    }
+    process {
+        New-LocalUser "$NewLocalAdmin" -Password $Password -FullName "$NewLocalAdmin" -Description "Temporary local admin"
+        Write-Verbose "$NewLocalAdmin local user crated"
+        Add-LocalGroupMember -Group "Administrators" -Member "$NewLocalAdmin"
+        Write-Verbose "$NewLocalAdmin added to the local administrator group"
+    }
+    end {
+    }
+}
+
+Function New-SelfSignedCert {
     Param (
         [string]$SubjectName,
         [int]$ValidDays = 1095
+    )
+
+    $hostnonFQDN = $env:computerName
+    $hostFQDN = [System.Net.Dns]::GetHostByName(($env:computerName)).Hostname
+
+    ## ref: https://docs.microsoft.com/en-us/powershell/module/pki/new-selfsignedcertificate?view=windowsserver2022-ps
+    ## ref: https://adamtheautomator.com/winrm-ssl/
+    $certObj = New-SelfSignedCertificate `
+        -Type Custom `
+        -Subject "CN=$SubjectName" `
+        -TextExtension '2.5.29.37={text}1.3.6.1.5.5.7.3.1' `
+        -DnsName "$hostnonFQDN", "$hostFQDN" `
+        -KeyUsage DigitalSignature `
+        -KeyAlgorithm RSA `
+        -KeyLength 4096 `
+        -NotBefore (Get-Date).AddDays(-1) `
+        -NotAfter (Get-Date).AddDays($ValidDays)
+
+    Write-Host  "certObj=$certObj"
+
+    return $certObj.Thumbprint
+}
+
+Function New-LegacySelfSignedCert {
+    Param (
+        [string]$SubjectName,
+        [int]$ValidDays = 1095,
+        [string]$certPath
     )
 
     $hostnonFQDN = $env:computerName
@@ -150,12 +199,118 @@ Function New-LegacySelfSignedCert {
     $certdata = $enrollment.CreateRequest(0)
     $enrollment.InstallResponse(2, $certdata, 0, "")
 
-    # extract/return the thumbprint from the generated cert
-    $parsed_cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
-    $parsed_cert.Import([System.Text.Encoding]::UTF8.GetBytes($certdata))
+#    # extract/return the thumbprint from the generated cert
+#    $parsed_cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+#    $parsed_cert.Import([System.Text.Encoding]::UTF8.GetBytes($certdata))
 
-    return $parsed_cert.Thumbprint
+    # Export the public key
+#    $pem_output = @()
+#    $pem_output += "-----BEGIN CERTIFICATE-----"
+#    $pem_output += [System.Convert]::ToBase64String($certdata) -replace ".{64}", "$&`n"
+#    $pem_output += "-----END CERTIFICATE-----"
+#    [System.IO.File]::WriteAllLines("$certPath\cert.pem", $pem_output)
+    [System.IO.File]::WriteAllLines("$certPath\cert.pem", $certdata)
+
+    # Import key into Machine's store
+    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
+    $cert.Import("$certPath\cert.pem")
+
+    # Export the private key in a PFX file
+    [System.IO.File]::WriteAllBytes("$certPath\cert.pfx", $cert.Export("Pfx"))
+
+    return $cert.Thumbprint
 }
+
+## ref: https://stackoverflow.com/questions/71443402/error-creating-a-self-signed-certificate-for-use-with-winrm-https
+Function New-SelfSignedCert2 {
+
+    Param (
+        [string]$SubjectName,
+        [int]$ValidDays = 1095,
+        [string]$certPath,
+        [string]$username
+    )
+
+    # Delete all HTTPS listeners
+    Get-ChildItem -Path WSMan:\localhost\Listener | Where-Object { $_.Keys -contains "Transport=HTTPS" } | Remove-Item -Recurse -Force
+
+#    # Set the name of the local user that will have the key mapped
+#    $username = "ansible"
+#    $certPath = "C:\temp"
+
+    # Instead of generating a file, the cert will be added to the personal
+    # LocalComputer folder in the certificate store
+    $cert = New-SelfSignedCertificate -Type Custom `
+        -Subject "CN=$SubjectName" `
+        -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.2","2.5.29.17={text}upn=$username@localhost") `
+        -KeyUsage DigitalSignature,KeyEncipherment `
+        -KeyAlgorithm RSA `
+        -KeyLength 2048
+
+    # Export the public key
+    $pem_output = @()
+    $pem_output += "-----BEGIN CERTIFICATE-----"
+    $pem_output += [System.Convert]::ToBase64String($cert.RawData) -replace ".{64}", "$&`n"
+    $pem_output += "-----END CERTIFICATE-----"
+    [System.IO.File]::WriteAllLines("$certPath\cert.pem", $pem_output)
+
+    # Export the private key in a PFX file
+    [System.IO.File]::WriteAllBytes("$certPath\cert.pfx", $cert.Export("Pfx"))
+
+    # Import key into Machine's store
+    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
+    $cert.Import("$certPath\cert.pem")
+
+    $store_name = [System.Security.Cryptography.X509Certificates.StoreName]::Root
+    $store_location = [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+    $store = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Store -ArgumentList $store_name, $store_location
+    $store.Open("MaxAllowed")
+    $store.Add($cert)
+    $store.Close()
+
+    # Import the client certificate
+    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
+    $cert.Import("$certPath\cert.pem")
+
+    $store_name = [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPeople
+    $store_location = [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+    $store = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Store -ArgumentList $store_name, $store_location
+    $store.Open("MaxAllowed")
+    $store.Add($cert)
+    $store.Close()
+
+    # Map the certificate to the Ansible user
+#    $username = "ansible"
+#    $password = ConvertTo-SecureString -String "P@ssword123" -AsPlainText -Force
+#    $credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $password
+
+    # This is the issuer thumbprint which in the case of a self generated cert
+    # is the public key thumbprint, additional logic may be required for other
+    # scenarios
+    $thumbprint = (Get-ChildItem -Path cert:\LocalMachine\root | Where-Object { $_.Subject -eq "CN=$username" }).Thumbprint
+
+#    New-Item -Path WSMan:\localhost\ClientCertificate `
+#        -Subject "$username@localhost" `
+#        -URI * `
+#        -Issuer $thumbprint `
+#        -Credential $credential `
+#        -Force
+#
+#    # Create a new HTTPS listener
+#    $selector_set = @{
+#        Address = "*"
+#        Transport = "HTTPS"
+#    }
+#    $value_set = @{
+#        CertificateThumbprint = "$thumbprint"
+#    }
+#
+#    New-WSManInstance -ResourceURI "winrm/config/Listener" -SelectorSet $selector_set -ValueSet $value_set
+
+    return $cert.Thumbprint
+
+}
+
 
 Function Enable-GlobalHttpFirewallAccess {
     Write-Verbose "Forcing global HTTP firewall access"
@@ -224,6 +379,7 @@ $myWindowsPrincipal = new-object System.Security.Principal.WindowsPrincipal($myW
 # Get the security principal for the Administrator role
 $adminRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
 
+
 # Check to see if we are currently running "as Administrator"
 if (-Not $myWindowsPrincipal.IsInRole($adminRole)) {
     Write-Output "ERROR: You need elevated Administrator privileges in order to run this script."
@@ -237,7 +393,8 @@ If (-Not $EventSource) {
 }
 
 If ([System.Diagnostics.EventLog]::Exists('Application') -eq $False -or [System.Diagnostics.EventLog]::SourceExists($EventSource) -eq $False) {
-    New-EventLog -LogName Application -Source $EventSource
+    #New-EventLog -LogName Application -Source $EventSource
+    #Write-EventLog -LogName Application -Source $EventSource
 }
 
 # Detect PowerShell version.
@@ -279,6 +436,8 @@ Else {
     Write-Verbose "PS Remoting is already enabled."
 }
 
+
+
 # Ensure LocalAccountTokenFilterPolicy is set to 1
 # https://github.com/ansible/ansible/issues/42978
 $token_path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
@@ -293,22 +452,81 @@ if ($token_value -ne 1) {
     New-ItemProperty -Path $token_path -Name $token_prop_name -Value 1 -PropertyType DWORD > $null
 }
 
+## ref: https://www.scriptinglibrary.com/languages/powershell/create-a-local-admin-account-with-powershell/
+## ref: https://github.com/PaoloFrigo/scriptinglibrary
+## ref: https://github.com/lj020326/ansible-datacenter/blob/main/files/scripts/powershell/Create-NewLocalAdmin.ps1
+$passwordSec = ConvertTo-SecureString -String $password -AsPlainText -Force
+$credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $passwordSec
+
+$ObjLocalUser = $null
+
+try {
+    Write-Verbose "Searching for $($username) in LocalUser DataBase"
+    $ObjLocalUser = Get-LocalUser $username
+    Write-Verbose "User $($username) was found"
+}
+catch [Microsoft.PowerShell.Commands.UserNotFoundException] {
+    "User $($username) was not found" | Write-Warning
+}
+catch {
+    "An unspecifed error occured" | Write-Error
+    Exit # Stop Powershell!
+}
+
+#Create the user if it was not found (Example)
+if (!$ObjLocalUser) {
+    Write-Verbose "Creating new local admin user $username already active."
+    Create-NewLocalAdmin -NewLocalAdmin $username -Password $Password -Verbose
+}
+
 # Make sure there is a SSL listener.
 $listeners = Get-ChildItem WSMan:\localhost\Listener
-If (!($listeners | Where-Object { $_.Keys -like "TRANSPORT=HTTPS" })) {
+If (!($listeners | Where-Object { $_.Keys -like "TRANSPORT=HTTPS" }) -or $ForceNewSSLCert) {
+
     # We cannot use New-SelfSignedCertificate on 2012R2 and earlier
+
+#    ## ref: https://docs.microsoft.com/en-us/windows/win32/sysinfo/operating-system-version
+#    ## ref: https://ss64.com/ps/syntax-ver.html
+#    ## ref: https://devblogs.microsoft.com/scripting/use-powershell-to-find-operating-system-version/
+#    $major_os_version = [System.Environment]::OSVersion.Version.Major
+#    Write-Host  "major_os_version=$major_os_version"
+#
+#    If ($major_os_version -le 6)
+#    {
+#        $thumbprint = New-LegacySelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
+#    }
+#    else {
+##        $thumbprint = New-SelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
+#        $thumbprint = New-SelfSignedCert2 -SubjectName $SubjectName -ValidDays $CertValidityDays, $certPath, $username
+#    }
+
     $thumbprint = New-LegacySelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
     Write-HostLog "Self-signed SSL certificate generated; thumbprint: $thumbprint"
+
+    # Map the certificate to the Ansible user
+    New-Item -Path WSMan:\localhost\ClientCertificate `
+        -Subject "$username@localhost" `
+        -URI * `
+        -Issuer $thumbprint `
+        -Credential $credential `
+        -Force
 
     # Create the hashtables of settings to be used.
     $valueset = @{
         Hostname = $SubjectName
         CertificateThumbprint = $thumbprint
     }
+    $valueset
 
     $selectorset = @{
         Transport = "HTTPS"
         Address = "*"
+    }
+    $selectorset
+
+    If (($listeners | Where-Object { $_.Keys -like "TRANSPORT=HTTPS" }) -and $ForceNewSSLCert) {
+        Write-Verbose "SSL listener is already active, removing existing cert and replacing with new cert"
+        Remove-WSManInstance -ResourceURI 'winrm/config/Listener' -SelectorSet $selectorset
     }
 
     Write-Verbose "Enabling SSL listener."
@@ -318,28 +536,29 @@ If (!($listeners | Where-Object { $_.Keys -like "TRANSPORT=HTTPS" })) {
 Else {
     Write-Verbose "SSL listener is already active."
 
-    # Force a new SSL cert on Listener if the $ForceNewSSLCert
-    If ($ForceNewSSLCert) {
-
-        # We cannot use New-SelfSignedCertificate on 2012R2 and earlier
-        $thumbprint = New-LegacySelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
-        Write-HostLog "Self-signed SSL certificate generated; thumbprint: $thumbprint"
-
-        $valueset = @{
-            CertificateThumbprint = $thumbprint
-            Hostname = $SubjectName
-        }
-
-        # Delete the listener for SSL
-        $selectorset = @{
-            Address = "*"
-            Transport = "HTTPS"
-        }
-        Remove-WSManInstance -ResourceURI 'winrm/config/Listener' -SelectorSet $selectorset
-
-        # Add new Listener with new SSL cert
-        New-WSManInstance -ResourceURI 'winrm/config/Listener' -SelectorSet $selectorset -ValueSet $valueset
-    }
+#    # Force a new SSL cert on Listener if the $ForceNewSSLCert
+#    If ($ForceNewSSLCert) {
+#
+#        # We cannot use New-SelfSignedCertificate on 2012R2 and earlier
+##        $thumbprint = New-LegacySelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
+#        $thumbprint = New-SelfSignedCert -SubjectName $SubjectName -ValidDays $CertValidityDays
+#        Write-HostLog "Self-signed SSL certificate generated; thumbprint: $thumbprint"
+#
+#        $valueset = @{
+#            CertificateThumbprint = $thumbprint
+#            Hostname = $SubjectName
+#        }
+#
+#        # Delete the listener for SSL
+#        $selectorset = @{
+#            Address = "*"
+#            Transport = "HTTPS"
+#        }
+#        Remove-WSManInstance -ResourceURI 'winrm/config/Listener' -SelectorSet $selectorset
+#
+#        # Add new Listener with new SSL cert
+#        New-WSManInstance -ResourceURI 'winrm/config/Listener' -SelectorSet $selectorset -ValueSet $valueset
+#    }
 }
 
 # Check for basic authentication.
