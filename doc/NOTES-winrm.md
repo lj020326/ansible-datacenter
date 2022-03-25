@@ -69,6 +69,11 @@ If you’re already running remote commands with PowerShell Remoting (PSRemoting
 
 ### Configuring WinRM with a Self-Signed Certificate [^5]
 
+```
+powershell.exe -ExecutionPolicy ByPass -File .\ConfigureRemotingForAnsible.ps1 -ForceNewSSLCert -Password P@ssword123
+```
+
+The newly created ansible user cert will be written to $env:TMP.
 
 
 ## 
@@ -93,6 +98,17 @@ PS WSMan:\localhost\Client>
 
 ## Reference
 
+* https://docs.ansible.com/ansible/latest/user_guide/windows_setup.html
+* https://docs.microsoft.com/en-us/azure/developer/ansible/vm-configure-windows?tabs=ansible
+* https://www.bloggingforlogging.com/2017/11/23/using-packer-to-create-windows-images/
+* https://docs.microsoft.com/en-us/azure/developer/ansible/vm-configure-windows?tabs=ansible
+* https://github.com/ansible/ansible/blob/devel/examples/scripts/ConfigureRemotingForAnsible.ps1
+* https://newbedev.com/powershell-v2-remoting-how-do-you-enable-unencrypted-traffic
+* http://woshub.com/powershell-remoting-over-https/
+* http://www.dhruvsahni.com/verifying-winrm-connectivity
+
+## Footnotes
+
 [^1]: [pywinrm](https://docs.ansible.com/ansible/latest/user_guide/windows_winrm.html#what-is-winrm)
 
 [^2]: [Enable-PSRemoting (Microsoft.PowerShell.Core) - PowerShell | Microsoft Docs](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/enable-psremoting)
@@ -102,3 +118,4 @@ PS WSMan:\localhost\Client>
 [^4]: [Verifying WinRM Connectivity](http://www.dhruvsahni.com/verifying-winrm-connectivity)
 
 [^5]: [How to Set up PSRemoting with WinRM and SSL [Step by Step]](https://adamtheautomator.com/winrm-ssl/)
+

@@ -181,7 +181,7 @@ while getopts "g:b:r:t:Rlhx" opt; do
   t) TARGET_DIR="${OPTARG}" ;;
   R) RUN_LOCAL=0 ;;
   n) RUN_VENV=0 ;;
-  x) DEBUG=1 ;;
+  x) DEBUG_LEVEL=1 ;;
   h) usage 1 ;;
   \?) usage 2 ;;
   :)

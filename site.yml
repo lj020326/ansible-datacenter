@@ -19,22 +19,28 @@
     ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
     ansible_ssh_user: "{{ bootstrap_username }}"
   tasks:
+
+    - name: Set os_vers_key
+      set_fact:
+        os_vers_key: os_{{ ansible_os_family }}_{{ (ansible_facts['distribution']|d('Unknown')) | replace(' ','_') }}
+
+    - name: Set os_key for windows
+      when: ansible_os_family!="Windows"
+      set_fact:
+        os_vers_key: os_{{ ansible_os_family }}_{{ (ansible_facts['distribution']|d('Unknown')).replace('-','_') }}
+
+    - debug:
+        var: os_vers_key
+
     - name: Classify hosts depending on their OS distribution
       changed_when: no
       group_by:
-        key: os_{{ ansible_facts['distribution']|d('Unknown') | replace('-','_') }}
+        key: "os_{{ ( ansible_facts['distribution'] |d('Unknown') | replace('-','_')) if ansible_os_family!='Windows' else ansible_os_family }}"
 
     - name: Classify hosts depending on their OS distribution-version
-      when: ansible_os_family!="Windows"
       changed_when: no
       group_by:
-        key: os_{{ ansible_facts['distribution']|d('Unknown') }}_{{ ansible_facts['distribution_major_version']|d('Unknown') | replace('-','_') }}
-
-    - name: Classify hosts depending on their OS distribution-version
-      when: ansible_os_family=="Windows"
-      changed_when: no
-      group_by:
-        key: os_{{ ansible_os_family }}_{{ ansible_facts['distribution_major_version']|d('Unknown') | replace('-','_') }}
+        key: "{{ os_vers_key }}"
 
 #    - name: Classify hosts depending on their internal domain
 #      changed_when: no

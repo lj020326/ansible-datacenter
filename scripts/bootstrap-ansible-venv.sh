@@ -27,11 +27,11 @@ linux*)
   ;;
 darwin*)
 #  VENV_COMMAND="python -m venv --system-site-packages venv"
-  VENV_COMMAND="python -m venv venv"
+  VENV_COMMAND="python -m venv ./venv"
   PLATFORM=DARWIN
   ;;
 cygwin* | mingw64* | mingw32* | msys*)
-  VENV_COMMAND="python -m venv --system-site-packages venv"
+  VENV_COMMAND="python -m venv --system-site-packages ./venv"
   #      SSH_COMMON_ARGS="ControlMaster=no -o ControlPersist=2m -o ServerAliveInterval=50"
   SUDO_CMD=""
   PLATFORM=MSYS
@@ -41,17 +41,21 @@ cygwin* | mingw64* | mingw32* | msys*)
   ;;
 esac
 
-if [ ! -d ${ANSIBLE_PLAYBOOK_HOME}/venv ]; then
+if [ ! -d ./venv ]; then
   echo "Creating python venv..."
   ${VENV_COMMAND}
   if [ $? -ne 0 ]; then
     echo "virtualenv creation failed [$?] quitting ..."
     exit 1
   fi
-#    . venv/bin/activate
+#    . ./venv/bin/activate
 fi
 
-. venv/bin/activate
+echo "##########################################"
+echo "VENV_COMMAND=$VENV_COMMAND"
+echo "##########################################"
+
+. ./venv/bin/activate
 pip install --upgrade pip
 
 if [ -f requirements.txt ]; then
@@ -67,18 +71,18 @@ if [ -f requirements.txt ]; then
 fi
 
 INSTALL_GALAXY_REQ=0
-if [ -f collections/requirements.yml ]; then
+if [ -f ./collections/requirements.yml ]; then
   echo "Installing galaxy collections/requirements.yml..."
   INSTALL_GALAXY_REQ=1
-  REQ_FILE=collections/requirements.yml
+  REQ_FILE=./collections/requirements.yml
   ansible-galaxy collection install ${FORCE_ARG} -r ${REQ_FILE}
 
 fi
 
-if [ -f roles/requirements.yml ]; then
+if [ -f ./roles/requirements.yml ]; then
   echo "Installing galaxy roles/requirements.yml..."
   INSTALL_GALAXY_REQ=1
-  REQ_FILE=roles/requirements.yml
+  REQ_FILE=./roles/requirements.yml
 elif [ -f requirements.yml ]; then
   echo "Installing galaxy requirements.yml..."
   INSTALL_GALAXY_REQ=1
