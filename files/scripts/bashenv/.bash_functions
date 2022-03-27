@@ -424,3 +424,17 @@ function gitmergebranch(){
   echo "Merge ${MERGE_BRANCH}" && \
   git merge-no-edit -X theirs ${MERGE_BRANCH}
 }
+
+unalias gitclonework2 1>/dev/null 2>&1
+unset -f gitclonework2 || true
+function gitclonework2(){
+  GIT_REPO="${1}" && \
+  REPO_DIR=$(basename ${GIT_REPO%.*}) && \
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_WORK2}" git clone ${GIT_REPO} && \
+  pushd . && \
+  cd $REPO_DIR && \
+  git config core.sshCommand "ssh -i ~/.ssh/${SSH_KEY_WORK2}" && \
+  popd
+}
+
+

@@ -99,6 +99,10 @@ PS WSMan:\localhost\Client>
 ## Reference
 
 * https://docs.ansible.com/ansible/latest/user_guide/windows_setup.html
+* https://docs.ansible.com/ansible/latest/user_guide/windows_winrm.html
+* https://www.ansible.com/blog/connecting-to-a-windows-host
+* https://stackoverflow.com/questions/38259422/in-ansible-how-to-connect-to-windows-host
+* https://stackoverflow.com/questions/45696024/how-to-connect-to-windows-node-using-openssh-and-ansible
 * https://docs.microsoft.com/en-us/azure/developer/ansible/vm-configure-windows?tabs=ansible
 * https://www.bloggingforlogging.com/2017/11/23/using-packer-to-create-windows-images/
 * https://docs.microsoft.com/en-us/azure/developer/ansible/vm-configure-windows?tabs=ansible
@@ -106,6 +110,7 @@ PS WSMan:\localhost\Client>
 * https://newbedev.com/powershell-v2-remoting-how-do-you-enable-unencrypted-traffic
 * http://woshub.com/powershell-remoting-over-https/
 * http://www.dhruvsahni.com/verifying-winrm-connectivity
+* https://stackoverflow.com/questions/66671945/ansible-playbook-error-the-powershell-shell-family-is-incompatible-with-the-sud
 
 ## Footnotes
 

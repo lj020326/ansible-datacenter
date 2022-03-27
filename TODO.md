@@ -12,6 +12,19 @@ ANSIBLE DATACENTER TODO
 
 ## CICD Infrastructure Automation Priorities
 
+* https://learn.hashicorp.com/tutorials/consul/service-mesh-zero-trust-network?in=consul/gs-consul-service-mesh
+* https://learn.hashicorp.com/tutorials/consul/get-started-create-datacenter?in=consul/getting-started
+* https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
+* https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2/
+* https://github.com/lj020326/cicd-paas-example
+* https://traefik.io/blog/integrating-consul-connect-service-mesh-with-traefik-2-5/
+* https://dzone.com/articles/platform-as-code-with-openshift-amp-terraform
+* https://pypi.org/project/deploy-to-kubernetes/
+* https://www.budgetsmarthome.co.uk/2021/05/15/containers-and-service-discovery-part-2/
+* https://www.budgetsmarthome.co.uk/2021/03/24/containers-and-service-discovery/
+
+
+
 [ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./doc/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
 [ ] Setup DEV, QA and PROD openshift clusters

@@ -1,0 +1,52 @@
+---
+
+- name: Create organizations
+  tower_organization:
+    name: "{{ item.name }}"
+    description: "{{ item.description | d(omit) }}"
+    galaxy_credentials: "{{ galaxy_credentials | d(omit) }}"
+    state: "{{ item.state | d(omit) }}"
+  loop: "{{ tower_organization }}"
+
+- name: Create inventories
+  tower_inventory:
+    name: "{{ item.1.name }}"
+    description: "{{ item.1.description | d(omit) }}"
+    organization: "{{ item.0.name }}"
+    host_filter: "{{ item.1.host_filter | d(omit) }}"
+    instance_groups: "{{ item.1.instance_groups | d(omit) }}"
+    state: "{{ item.1.state | d(omit) }}"
+  loop: "{{ tower_organization | subelements('inventories', { 'skip_missing': true }) }}"
+  loop_control:
+    label: "org:[{{ item.0.name }}] => inventory:[{{ item.1.name }}]"
+
+- name: Create projects
+  tower_project:
+    name: "{{ item.1.name }}"
+    organization: "{{ item.0.name }}"
+    description: "{{ item.1.description | d(omit) }}"
+    scm_type: "{{ item.1.scm_type | d(omit) }}"
+    scm_url: "{{ item.1.scm_url | d(omit) }}"
+    scm_branch: "{{ item.1.scm_branch | d(omit) }}"
+    state: "{{ item.1.state | d('present') }}"
+  loop: "{{ tower_organization | subelements('projects', { 'skip_missing': true }) }}"
+  loop_control:
+    label: "org:[{{ item.0.name }}] => project:[{{ item.1.name }}]"
+
+- name: Create teams
+  tower_project:
+    name: "{{ item.1.name }}"
+    organization: "{{ item.0.name }}"
+    description: "{{ item.1.description | d(omit) }}"
+    state: "{{ item.1.state | d(omit) }}"
+  loop: "{{ tower_organization | subelements('teams', { 'skip_missing': true }) }}"
+  loop_control:
+    label: "org:[{{ item.0.name }}] => team:[{{ item.1.name }}]"
+
+- name: Create project templates
+  include_tasks: create-project-templates.yml
+  loop: "{{ tower_organization | subelements('projects', { 'skip_missing': true }) }}"
+  loop_control:
+    label: "org:[{{ item.0.name }}] => team:[{{ item.1.name }}]"
+    loop_var: tower_project_template
+
