@@ -2,6 +2,21 @@
 Setting up AWX
 ===
 
+## Setting up Execution Environments (the right way)
+
+* [Creating Execution Environments](https://weiyentan.github.io/2021/creating-execution-environments/)
+* [Execution Environments](https://ansible-runner.readthedocs.io/en/latest/execution_environments/)
+
+* https://github.com/ansible/test-playbooks/tree/master/test_collections
+* https://github.com/ansible/test-playbooks/blob/master/test_collections/test_tower_inventory_source.j2
+* https://github.com/ansible/test-playbooks/blob/master/tower_collection_smoke.yml
+* https://github.com/ansible/test-playbooks
+
+## Using AWX API with SoapMan
+
+* https://www.unixarena.com/2019/03/ansible-tower-awx-trigger-ansible-job-using-rest-api.html/
+
+
 ## Setup on-prem Galaxy
 
 * [LUMC/galaxy-launcher: A project to launch the galaxy docker image easily using ansible](https://github.com/LUMC/galaxy-launcher)

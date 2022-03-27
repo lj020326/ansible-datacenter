@@ -18,7 +18,8 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 #PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
 #PROJECT_DIR="$( pwd . )"
-PROJECT_DIR=$(git rev-parse --show-toplevel)
+#PROJECT_DIR=$(git rev-parse --show-toplevel)
+PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a PRIVATE_CONTENT_ARRAY

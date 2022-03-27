@@ -18,7 +18,9 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 #PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
 #PROJECT_DIR="$( pwd . )"
-PROJECT_DIR=$(git rev-parse --show-toplevel)
+#PROJECT_DIR=$(git rev-parse --show-toplevel)
+PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
+
 LOCAL_BRANCH="$(git symbolic-ref --short HEAD)"
 BRANCH_SHORT=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2)
 

@@ -6,7 +6,7 @@
 - name: "Gather facts for all hosts to apply OS specific group vars for them"
   tags: always
   hosts: all:!node_offline
-#  hosts: server_node:!node_offline
+#  hosts: compute_node:!node_offline
   ## https://issues.jenkins-ci.org/browse/JENKINS-54557
   ignore_unreachable: yes
   ignore_errors: yes
@@ -20,27 +20,54 @@
     ansible_ssh_user: "{{ bootstrap_username }}"
   tasks:
 
-    - name: Set os_vers_key
+    - name: Set os info
       set_fact:
-        os_vers_key: os_{{ ansible_os_family }}_{{ (ansible_facts['distribution']|d('Unknown')) | replace(' ','_') }}
+        os_family: "{{ 'os_linux' if ansible_os_family|d('') in ['Debian', 'Redhat'] else ansible_os_family|d('') }}"
+        os_distribution: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}"
+        os_distribution_version: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace(' ','_') }}"
 
-    - name: Set os_key for windows
-      when: ansible_os_family!="Windows"
+    - name: Set os info for windows for vmware esx
+      when: ansible_os_family|d('')=='VMkernel'
       set_fact:
-        os_vers_key: os_{{ ansible_os_family }}_{{ (ansible_facts['distribution']|d('Unknown')).replace('-','_') }}
+        os_family: "os_esxi"
+        os_distribution: "{{ os_family }}"
+        os_distribution_version: "{{ os_family }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace(' ','_') }}"
 
-    - debug:
-        var: os_vers_key
+    - name: Set os info for windows for vmware vcenter
+      when: ansible_os_family|d('')=='VMware Photon'
+      set_fact:
+        os_family: "os_vsphere"
+        os_distribution: "{{ os_family }}"
+        os_distribution_version: "{{ os_family }}_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
 
-    - name: Classify hosts depending on their OS distribution
+    - name: Set os info for windows
+      when: ansible_os_family|d('')=="Windows"
+      set_fact:
+        os_family: "os_windows"
+        os_distribution: "{{ os_family }}"
+        os_distribution_version: "os_{{ ansible_os_family | lower }}_{{ ansible_facts['distribution']|d('Unknown') | lower | replace(' ','_') | regex_replace('(microsoft_|windows_)', '') }}"
+
+    - name: Display os group classification info
+      debug:
+        msg:
+         - "os_family={{ os_family }}"
+         - "os_distribution={{ os_distribution }}"
+         - "os_distribution_version={{ os_distribution_version }}"
+
+    - name: Group hosts based on os_family
       changed_when: no
       group_by:
-        key: "os_{{ ( ansible_facts['distribution'] |d('Unknown') | replace('-','_')) if ansible_os_family!='Windows' else ansible_os_family }}"
+        key: "{{ os_family }}"
 
-    - name: Classify hosts depending on their OS distribution-version
+    - name: Group hosts based on os_distribution
       changed_when: no
       group_by:
-        key: "{{ os_vers_key }}"
+        key: "{{ os_distribution }}"
+
+    - name: Group hosts based on os_distribution_version
+      changed_when: no
+      group_by:
+        key: "{{ os_distribution_version }}"
 
 #    - name: Classify hosts depending on their internal domain
 #      changed_when: no
@@ -48,8 +75,6 @@
 #        key: ca_domain_{{ ('_').join( inventory_hostname.split('.')[1::]|reverse ) | d(internal_domain) }}
 
     - name: Print env var debug information
-      changed_when: no
-      tags: debug_vars
       debug:
         msg:
           - "inventory_hostname={{ inventory_hostname | d('unknown') }}"
@@ -77,7 +102,6 @@
 
     - name: Print env var debug information
       when: debug_cacerts
-      changed_when: no
       tags:
           - debug_vars
           - debug_cacerts
@@ -112,8 +136,8 @@
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print environment variables"
 #  hosts: all
-#  hosts: server_node
-  hosts: server_node:!node_offline
+#  hosts: compute_node
+  hosts: compute_node:!node_offline
   tags:
     - display-envvars
     - debug-envvars
@@ -133,8 +157,8 @@
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print internal variables"
 #  hosts: all
-#  hosts: server_node
-  hosts: server_node:!node_offline
+#  hosts: compute_node
+  hosts: compute_node:!node_offline
   tags:
     - debug-vars
     - display-vars
@@ -201,8 +225,8 @@
 ## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
 ##
 - name: "Bootstrap users"
-#  hosts: server_node:!vmware_nested_esx
-  hosts: linux_server_node
+#  hosts: compute_node:!vmware_nested_esx
+  hosts: os_linux
   vars_files:
     - vars/secrets.yml
   vars:
@@ -247,8 +271,8 @@
       tags: [ 'firewall-config-nameserver' ]
 
 - name: "Bootstrap linux"
-#  hosts: server_node:!vmware_esx_host
-  hosts: linux_server_node
+#  hosts: compute_node:!vmware_esx_host
+  hosts: os_linux
   tags:
     - bootstrap-linux
     - bootstrap-node-core
@@ -453,11 +477,11 @@
 #        ansible_python_interpreter: "{{ os_python_interpreter }}"
 
 - name: "Create CA certs for cert_node"
-#  hosts: server_node,!vmware_esx_host
-#  hosts: server_node
-#  hosts: linux_server_node
+#  hosts: compute_node,!vmware_esx_host
+#  hosts: compute_node
+#  hosts: os_linux
   hosts: cert_node
-#  hosts: linux_server_node,cert_node
+#  hosts: os_linux,cert_node
   gather_facts: false
   vars_files:
     - vars/secrets.yml
@@ -472,10 +496,10 @@
     - role: cacert-node
 
 - name: "Deploy CA certs to cert_node"
-#  hosts: server_node,!vmware_esx_host
-#  hosts: server_node
-#  hosts: linux_server_node,!dhcp_hosts
-  hosts: linux_server_node
+#  hosts: compute_node,!vmware_esx_host
+#  hosts: compute_node
+#  hosts: os_linux,!dhcp_hosts
+  hosts: os_linux
   gather_facts: false
   vars_files:
     - vars/secrets.yml
@@ -858,4 +882,72 @@
         username: "{{ idrac_user }}"
         password: "{{ idrac_password }}"
 
+##
+## Tower config
+##
 
+## ref: https://www.ansible.com/blog/introducing-the-awx-collection
+- name: Playbook for Using a Variety of Tower Modules
+  hosts: localhost
+#  hosts: control_node
+  tags:
+    - bootstrap-tower
+  gather_facts: false
+  collections:
+    - awx.awx
+#  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  tasks:
+    - name: Create a new organization
+      tower_organization:
+        name: "New Org"
+        description: "test org"
+        state: present
+
+    - name: Create an Inventory
+      tower_inventory:
+        name: "New Inventory"
+        description: "test inv"
+        organization: "New Org"
+        state: present
+
+    - name: Create a Host
+      tower_host:
+        name: "New Host"
+        inventory: "New Inventory"
+        state: present
+        variables:
+          foo: bar
+
+    - name: Create a Project
+      tower_project:
+        name: "New Project"
+        organization: "New Org"
+        scm_type: git
+        scm_url: https://github.com/ansible/test-playbooks.git
+
+    - name: Create a Team
+      tower_team:
+        name: "Test Team"
+        description: "test team"
+        organization: "New Org"
+        state: present
+        validate_certs: false
+
+    - name: Create a Job Template
+      tower_job_template:
+        name: "Job Template to Launch"
+        project: "New Project"
+        inventory: "New Inventory"
+        playbook: debug.yml
+        ask_extra_vars: yes
+
+    - name: Launch the Job Template (w/ extra_vars)!
+      tower_job_launch:
+        job_template: "Job Template to Launch"
+        extra_vars:
+          var1: My First Variable
+          var2: My Second Variable
+          var3: My Third Variable

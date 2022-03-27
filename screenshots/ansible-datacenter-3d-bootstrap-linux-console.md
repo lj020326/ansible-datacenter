@@ -212,8 +212,8 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:59  ├── ldap_client.yml -> ../../group_vars/ldap_client.yml
 11:46:59  ├── linux_ip_dhcp.yml -> ../../group_vars/linux_ip_dhcp.yml
 11:46:59  ├── linux_ip_static.yml -> ../../group_vars/linux_ip_static.yml
-11:46:59  ├── linux_server_baremetal.yml -> ../../group_vars/linux_server_baremetal.yml
-11:46:59  ├── linux_server_node.yml -> ../../group_vars/linux_server_node.yml
+11:46:59  ├── os_linux_baremetal.yml -> ../../group_vars/os_linux_baremetal.yml
+11:46:59  ├── os_linux.yml -> ../../group_vars/os_linux.yml
 11:46:59  ├── mergerfs.yml -> ../../group_vars/mergerfs.yml
 11:46:59  ├── nameserver.yml -> ../../group_vars/nameserver.yml
 11:46:59  ├── ntp_client.yml -> ../../group_vars/ntp_client.yml
@@ -283,7 +283,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:45:04    - ****_distribution_major_version=20
 11:45:04    - ****_python_interpreter=/usr/bin/python3
 11:45:04    - ****_pip_interpreter=pip3
-11:45:04    - group_names=['ca_domain', 'ca_domain_int_johnson', 'cert_node', 'deploy_vm', 'dhcp_client_mac_interface', 'dhcp_hosts', 'esxi', 'ldap_client', 'linux_ip_dhcp', 'linux_server_node', 'nfs_service', 'ntp_client', 'os_Ubuntu', 'os_Ubuntu_20', 'postfix_client', 'server_node', 'server_vm', 'step_ca_cli', 'stepca_certs', 'vmware_flavor_ubuntu20_small', 'vmware_linux_ip_dhcp', 'vmware_ubuntu20_dhcp', 'vmware_ubuntu20_dhcp_int_johnson', 'vmware_ubuntu20_int_johnson', 'vmware_vm', 'vmware_vm_dhcp', 'vmware_vm_linux']
+11:45:04    - group_names=['ca_domain', 'ca_domain_int_johnson', 'cert_node', 'deploy_vm', 'dhcp_client_mac_interface', 'dhcp_hosts', 'esxi', 'ldap_client', 'linux_ip_dhcp', 'os_linux', 'nfs_service', 'ntp_client', 'os_Ubuntu', 'os_Ubuntu_20', 'postfix_client', 'server_node', 'server_vm', 'step_ca_cli', 'stepca_certs', 'vmware_flavor_ubuntu20_small', 'vmware_linux_ip_dhcp', 'vmware_ubuntu20_dhcp', 'vmware_ubuntu20_dhcp_int_johnson', 'vmware_ubuntu20_int_johnson', 'vmware_vm', 'vmware_vm_dhcp', 'vmware_vm_linux']
 11:45:04    - ntp_servers=['10.0.0.1 prefer iburst']
 11:45:04    - docker_stack_external_domain=
 11:45:04    - docker_stack_internal_domain=
