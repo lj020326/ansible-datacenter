@@ -1,0 +1,172 @@
+---
+
+##
+## Remove roles
+##
+
+- name: Flatten the list of roles
+  set_fact:
+    tower_role_list: "{{ _role_list|from_yaml }}"
+  vars:
+    _role_list: |-
+      {% for i in tower_organizations %}
+      {% if "teams" in i %}
+      {% for j in i.teams %}
+      {% if "roles" in j %}
+      {% for k in j.roles %}
+      - {{ k | combine( { 'team': j.name, 'state': 'absent' } ) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Display tower_role_list
+  debug:
+    var: tower_role_list
+
+- name: Remove team roles
+  tower_role: "{{ item }}"
+  loop: "{{ tower_role_list }}"
+
+
+
+##
+## Remove role-to-team memberships
+##
+
+- name: Flatten the tower_role_membership_list
+  set_fact:
+    tower_role_membership_list: "{{ _tower_role_membership_list|from_yaml }}"
+  vars:
+    _tower_role_membership_list: |-
+      {% for i in tower_organizations %}
+      {% if "teams" in i %}
+      {% for j in i.teams %}
+      - {{ { 'target_team': j.name, 'team': j.name, 'role': 'member', 'state': 'absent' } }}
+      - {{ { 'team': j.name, 'organization': i.name, 'role': 'execute', 'state': 'absent' } }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Display tower_role_membership_list
+  debug:
+    var: tower_role_membership_list
+
+- name: Remove team role memberships
+  tower_role: "{{ item }}"
+  loop: "{{ tower_role_membership_list }}"
+
+
+##
+## Remove job_templates
+##
+
+- name: Flatten the list of templates
+  set_fact:
+    tower_template_list: "{{ _template_list|from_yaml }}"
+  vars:
+    _template_list: |-
+      {% for i in tower_organizations %}
+      {% if "projects" in i %}
+      {% for j in i.projects %}
+      {% if "job_templates" in j %}
+      {% for k in j.job_templates %}
+      - {{ k | combine( { 'organization': i.name, 'project': j.name, 'state': 'absent' } ) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Display tower_template_list
+  debug:
+    var: tower_template_list
+
+- name: Remove project job templates
+  tower_job_template: "{{ item }}"
+  loop: "{{ tower_template_list }}"
+
+
+
+##
+## Remove teams
+##
+
+
+- name: Remove teams
+  tower_team:
+    name: "{{ item.1.name }}"
+    organization: "{{ item.0.name }}"
+    state: "absent"
+  loop: "{{ tower_organizations | subelements('teams', { 'skip_missing': true }) }}"
+  loop_control:
+    label: "org:[{{ item.0.name }}] => team:[{{ item.1.name }}]"
+
+
+
+##
+## Remove projects
+##
+
+- name: Remove projects
+  tower_project:
+    name: "{{ item.1.name }}"
+    organization: "{{ item.0.name }}"
+    state: "absent"
+  loop: "{{ tower_organizations | subelements('projects', { 'skip_missing': true }) }}"
+  loop_control:
+    label: "org:[{{ item.0.name }}] => project:[{{ item.1.name }}]"
+
+##
+## Remove inventories
+##
+
+
+- name: Remove inventories
+  tower_inventory:
+    name: "{{ item.1.name }}"
+    organization: "{{ item.0.name }}"
+    state: "absent"
+  loop: "{{ tower_organizations | subelements('inventories', { 'skip_missing': true }) }}"
+  loop_control:
+    label: "org:[{{ item.0.name }}] => inventory:[{{ item.1.name }}]"
+
+
+##
+## Remove credentials
+##
+
+
+- name: Flatten the list of credentials
+  set_fact:
+    tower_credential_list: "{{ _credential_list|from_yaml }}"
+  vars:
+    _credential_list: |-
+      {% for i in tower_organizations %}
+      {% if "credentials" in i %}
+      {% for j in i.credentials %}
+      - {{ j | combine( { 'organization': i.name, 'state': 'absent' } ) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Display tower_credential_list
+  debug:
+    var: tower_credential_list
+
+- name: Remove org credentials
+  tower_credential: "{{ item }}"
+  loop: "{{ tower_credential_list }}"
+
+
+##
+## Remove organizations
+##
+
+- name: Remove organizations
+  tower_organization:
+    name: "{{ item.name }}"
+    state: "absent"
+  loop: "{{ tower_organizations }}"
+
