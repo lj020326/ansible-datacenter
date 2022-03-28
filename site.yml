@@ -1,5 +1,26 @@
 ---
 
+- name: "Determine nodes that are offline"
+  tags: always
+  hosts: all:!node_offline
+  ignore_unreachable: yes
+  ignore_errors: yes
+  gather_facts: no
+  tasks:
+    ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
+    - name: ping test
+      shell: ping -c 1 -w 2 {{ ansible_host }}
+      delegate_to: localhost
+      register: ping_test
+      changed_when: no
+      ignore_errors: true
+
+    - name: Add hosts failing ping test to group 'offline'
+      when: ping_test.rc!=0
+      add_host:
+        name: '{{ inventory_hostname }}'
+        groups: node_offline
+
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
@@ -10,19 +31,19 @@
   ## https://issues.jenkins-ci.org/browse/JENKINS-54557
   ignore_unreachable: yes
   ignore_errors: yes
-#  become: yes
-  remote_user: "{{ bootstrap_username }}"
+##  become: yes
+#  remote_user: "{{ bootstrap_username }}"
+#  vars:
+#    ## ref: https://stackoverflow.com/questions/23074412/how-to-set-host-key-checking-false-in-ansible-inventory-file
+#    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+#    ansible_ssh_user: "{{ bootstrap_username }}"
   vars_files:
     - vars/secrets.yml
-  vars:
-    ## ref: https://stackoverflow.com/questions/23074412/how-to-set-host-key-checking-false-in-ansible-inventory-file
-    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
-    ansible_ssh_user: "{{ bootstrap_username }}"
   tasks:
 
     - name: Set os info
       set_fact:
-        os_family: "{{ 'os_linux' if ansible_os_family|d('') in ['Debian', 'Redhat'] else ansible_os_family|d('') }}"
+        os_family: "{{ 'os_linux' if ansible_os_family|d('') in ['Debian', 'Redhat'] else ansible_os_family|d('Unknown') }}"
         os_distribution: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}"
         os_distribution_version: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace(' ','_') }}"
 
@@ -30,22 +51,22 @@
       when: ansible_os_family|d('')=='VMkernel'
       set_fact:
         os_family: "os_esxi"
-        os_distribution: "{{ os_family }}"
-        os_distribution_version: "{{ os_family }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace(' ','_') }}"
+        os_distribution: "esxi"
+        os_distribution_version: "os_esxi_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace(' ','_') }}"
 
     - name: Set os info for windows for vmware vcenter
       when: ansible_os_family|d('')=='VMware Photon'
       set_fact:
         os_family: "os_vsphere"
-        os_distribution: "{{ os_family }}"
-        os_distribution_version: "{{ os_family }}_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
+        os_distribution: "vsphere"
+        os_distribution_version: "os_vsphere_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
 
     - name: Set os info for windows
       when: ansible_os_family|d('')=="Windows"
       set_fact:
         os_family: "os_windows"
-        os_distribution: "{{ os_family }}"
-        os_distribution_version: "os_{{ ansible_os_family | lower }}_{{ ansible_facts['distribution']|d('Unknown') | lower | replace(' ','_') | regex_replace('(microsoft_|windows_)', '') }}"
+        os_distribution: "windows"
+        os_distribution_version: "os_windows_{{ ansible_facts['distribution']|d('Unknown') | lower | replace(' ','_') | regex_replace('(microsoft_|windows_)', '') }}"
 
     - name: Display os group classification info
       debug:
@@ -666,7 +687,7 @@
 
 - name: "Deploy VSphere Datacenter"
   hosts:
-    - deploy_vsphere_dc
+    - vsphere_control_node
   tags:
     - deploy-vsphere-dc
     - vsphere-deploy-dc
@@ -895,59 +916,9 @@
   gather_facts: false
   collections:
     - awx.awx
-#  become: True
-#  become_method: sudo
   vars_files:
     - vars/secrets.yml
-  tasks:
-    - name: Create a new organization
-      tower_organization:
-        name: "New Org"
-        description: "test org"
-        state: present
-
-    - name: Create an Inventory
-      tower_inventory:
-        name: "New Inventory"
-        description: "test inv"
-        organization: "New Org"
-        state: present
-
-    - name: Create a Host
-      tower_host:
-        name: "New Host"
-        inventory: "New Inventory"
-        state: present
-        variables:
-          foo: bar
-
-    - name: Create a Project
-      tower_project:
-        name: "New Project"
-        organization: "New Org"
-        scm_type: git
-        scm_url: https://github.com/ansible/test-playbooks.git
-
-    - name: Create a Team
-      tower_team:
-        name: "Test Team"
-        description: "test team"
-        organization: "New Org"
-        state: present
-        validate_certs: false
-
-    - name: Create a Job Template
-      tower_job_template:
-        name: "Job Template to Launch"
-        project: "New Project"
-        inventory: "New Inventory"
-        playbook: debug.yml
-        ask_extra_vars: yes
-
-    - name: Launch the Job Template (w/ extra_vars)!
-      tower_job_launch:
-        job_template: "Job Template to Launch"
-        extra_vars:
-          var1: My First Variable
-          var2: My Second Variable
-          var3: My Third Variable
+  environment:
+    CONTROLLER_VERIFY_SSL: no
+  roles:
+    - role: ansible-tower-org
