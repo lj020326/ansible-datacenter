@@ -1,0 +1,285 @@
+---
+
+##
+## Create organizations
+##
+
+- name: Create organizations
+  when: tower_organizations|length>0
+  tower_organization:
+    name: "{{ item.name }}"
+    description: "{{ item.description | d(omit) }}"
+    galaxy_credentials: "{{ galaxy_credentials | d(omit) }}"
+    state: "{{ tower_resource_state }}"
+  loop: "{{ tower_organizations }}"
+
+##
+## Create credentials
+##
+
+- name: Flatten the list of organization credentials
+  set_fact:
+    tower_credential_list: "{{ _credential_list|from_yaml }}"
+  vars:
+    _credential_list: |-
+      {% for i in tower_organizations %}
+      {% if "credentials" in i %}
+      {% for j in i.credentials %}
+      - {{ { 'organization': i.name, 'state': tower_resource_state } | combine(j) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of credentials
+  set_fact:
+    tower_credential_list: "{{ tower_credential_list|d([]) + tower_credentials|d([]) }}"
+
+- name: Display tower_credential_list
+  debug:
+    var: tower_credential_list
+
+- name: Create org credentials
+  tower_credential: "{{ item }}"
+  changed_when: no
+  loop: "{{ tower_credential_list }}"
+
+
+
+##
+## Create inventories
+##
+
+- name: Flatten the list of organization inventories
+  set_fact:
+    tower_inventory_list: "{{ _inventory_list|d([])|from_yaml }}"
+  vars:
+    _inventory_list: |-
+      {% for i in tower_organizations %}
+      {% if "inventories" in i %}
+      {% for j in i.inventories %}
+      - {{ { 'organization': i.name, 'state': tower_resource_state } | combine(j) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of inventories
+  set_fact:
+    tower_inventory_list: "{{ tower_inventory_list|d([]) + tower_inventories|d([]) }}"
+
+- name: Display tower_inventory_list
+  debug:
+    var: tower_inventory_list
+
+- name: Create inventories
+  when: tower_inventory_list|d([])|length>0
+  tower_inventory: "{{ item }}"
+  loop: "{{ tower_inventory_list }}"
+
+#
+#- name: Create inventories
+#  tower_inventory:
+#    name: "{{ item.1.name }}"
+#    organization: "{{ item.0.name }}"
+#    description: "{{ item.1.description | d(omit) }}"
+#    host_filter: "{{ item.1.host_filter | d(omit) }}"
+#    instance_groups: "{{ item.1.instance_groups | d(omit) }}"
+#    state: "{{ tower_resource_state }}"
+#  loop: "{{ tower_organizations | subelements('inventories', { 'skip_missing': true }) }}"
+#  loop_control:
+#    label: "org:[{{ item.0.name }}] => inventory:[{{ item.1.name }}]"
+
+
+##
+## Create projects
+##
+
+
+- name: Flatten the list of organization projects
+  set_fact:
+    tower_project_list: "{{ _project_list|d([])|from_yaml }}"
+  vars:
+    _project_list: |-
+      {% for i in tower_organizations %}
+      {% if "projects" in i %}
+      {% for j in i.projects %}
+      {% set copy=j.copy() %}{% set removed=copy.pop('job_templates') %}
+      - {{ { 'organization': i.name, 'state': tower_resource_state } | combine(copy) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of projects
+  set_fact:
+    tower_project_list: "{{ tower_project_list|d([]) + tower_projects|d([]) }}"
+
+- name: Display tower_project_list
+  debug:
+    var: tower_project_list
+
+- name: Create projects
+  when: tower_project_list|d([])|length>0
+  tower_project: "{{ item }}"
+  loop: "{{ tower_project_list }}"
+
+
+#- name: Create projects
+#  tower_project:
+#    name: "{{ item.1.name }}"
+#    organization: "{{ item.0.name }}"
+#    description: "{{ item.1.description | d(omit) }}"
+#    scm_type: "{{ item.1.scm_type | d(omit) }}"
+#    scm_url: "{{ item.1.scm_url | d(omit) }}"
+#    scm_branch: "{{ item.1.scm_branch | d(omit) }}"
+#    state: "{{ item.1.state | d('present') }}"
+#  loop: "{{ tower_organizations | subelements('projects', { 'skip_missing': true }) }}"
+#  loop_control:
+#    label: "org:[{{ item.0.name }}] => project:[{{ item.1.name }}]"
+
+
+
+##
+## Create job_templates
+##
+
+- name: Flatten the list of templates
+  set_fact:
+    tower_template_list: "{{ _template_list|d([])|from_yaml }}"
+  vars:
+    _template_list: |-
+      {% for i in tower_organizations %}
+      {% if "projects" in i %}
+      {% for j in i.projects %}
+      {% if "job_templates" in j %}
+      {% for k in j.job_templates %}
+      - {{ { 'organization': i.name, 'project': j.name } | combine(k) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of job_templates
+  set_fact:
+    tower_template_list: "{{ tower_template_list|d([]) + tower_templates|d([]) }}"
+
+- name: Display tower_template_list
+  debug:
+    var: tower_template_list
+
+- name: Create project job templates
+  when: tower_template_list|d([])|length>0
+  tower_job_template: "{{ item }}"
+  loop: "{{ tower_template_list }}"
+
+
+
+##
+## Create teams
+##
+
+
+- name: Flatten the list of organization teams
+  set_fact:
+    tower_team_list: "{{ _team_list|d([])|from_yaml }}"
+  vars:
+    _team_list: |-
+      {% for i in tower_organizations %}
+      {% if "teams" in i %}
+      {% for j in i.teams %}
+      {% set copy=j.copy() %}
+      {% set removed=copy.pop('roles') %}
+      {% set removed=copy.pop('team_role') %}
+      {% set removed=copy.pop('organization_role') %}
+      - {{ { 'organization': i.name, 'state': tower_resource_state } | combine(copy) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of teams
+  set_fact:
+    tower_team_list: "{{ tower_team_list|d([]) + tower_teams|d([]) }}"
+
+- name: Display tower_team_list
+  debug:
+    var: tower_team_list
+
+- name: Create teams
+  when: tower_team_list|d([])|length>0
+  tower_team: "{{ item }}"
+  loop: "{{ tower_team_list }}"
+
+
+#- name: Create teams
+#  tower_team:
+#    name: "{{ item.1.name }}"
+#    organization: "{{ item.0.name }}"
+#    description: "{{ item.1.description | d(omit) }}"
+#    state: "{{ tower_resource_state }}"
+#  loop: "{{ tower_organizations | subelements('teams', { 'skip_missing': true }) }}"
+#  loop_control:
+#    label: "org:[{{ item.0.name }}] => team:[{{ item.1.name }}]"
+
+
+
+##
+## Create role-to-team memberships
+##
+
+- name: Flatten the tower_role_membership_list
+  set_fact:
+    tower_role_membership_list: "{{ _tower_role_membership_list|d([])|from_yaml }}"
+  vars:
+    _tower_role_membership_list: |-
+      {% for i in tower_organizations %}
+      {% if "teams" in i %}
+      {% for j in i.teams %}
+      - {{ { 'target_team': j.name, 'team': j.name, 'role': j.team_role|d('member'), 'state': tower_resource_state } }}
+      - {{ { 'team': j.name, 'organization': i.name, 'role': j.organization_role|d('execute'), 'state': tower_resource_state } }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Display tower_role_membership_list
+  debug:
+    var: tower_role_membership_list
+
+- name: Create team role memberships
+  when: tower_role_membership_list|d([])|length>0
+  tower_role: "{{ item }}"
+  loop: "{{ tower_role_membership_list }}"
+
+
+##
+## Create roles
+##
+
+- name: Flatten the list of roles
+  set_fact:
+    tower_role_list: "{{ _role_list|from_yaml }}"
+  vars:
+    _role_list: |-
+      {% for i in tower_organizations %}
+      {% if "teams" in i %}
+      {% for j in i.teams %}
+      {% if "roles" in j %}
+      {% for k in j.roles %}
+      - {{ { 'target_team': j.name } | combine(k) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of roles
+  set_fact:
+    tower_team_list: "{{ tower_role_list|d([]) + tower_roles|d([]) }}"
+
+- name: Display tower_role_list
+  debug:
+    var: tower_role_list
+
+- name: Create roles
+  tower_role: "{{ item }}"
+  loop: "{{ tower_role_list }}"
+
+
