@@ -26,6 +26,7 @@ declare -a PRIVATE_CONTENT_ARRAY
 PRIVATE_CONTENT_ARRAY+=('**/private/***')
 PRIVATE_CONTENT_ARRAY+=('**/save/***')
 PRIVATE_CONTENT_ARRAY+=('**/secrets.yml')
+PRIVATE_CONTENT_ARRAY+=('**/*secrets.yml')
 PRIVATE_CONTENT_ARRAY+=('.vault_pass')
 PRIVATE_CONTENT_ARRAY+=('***/*vault*')
 PRIVATE_CONTENT_ARRAY+=('*.log')
@@ -87,8 +88,8 @@ git checkout public
 echo "Removing files cached in git"
 git rm -r --cached .
 
-echo "Removing existing non-dot files for clean sync"
-rm -fr *
+#echo "Removing existing non-dot files for clean sync"
+#rm -fr *
 
 echo "Mirror ${TMP_DIR} to project dir $PROJECT_DIR"
 #echo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"

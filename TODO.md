@@ -25,7 +25,7 @@ ANSIBLE DATACENTER TODO
 
 
 
-[ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./doc/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+[ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
 [ ] Setup DEV, QA and PROD openshift clusters
 

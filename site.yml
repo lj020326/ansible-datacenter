@@ -95,7 +95,16 @@
 #      group_by:
 #        key: ca_domain_{{ ('_').join( inventory_hostname.split('.')[1::]|reverse ) | d(internal_domain) }}
 
-    - name: Print env var debug information
+
+## ref: https://stackoverflow.com/questions/62213910/run-only-tasks-with-a-certain-tag-or-untagged
+- name: "Determine nodes that are offline"
+  hosts: all:!node_offline
+  ignore_unreachable: yes
+  ignore_errors: yes
+  gather_facts: no
+  tasks:
+
+    - name: Display important common variable information
       debug:
         msg:
           - "inventory_hostname={{ inventory_hostname | d('unknown') }}"
@@ -121,11 +130,15 @@
           - "ca_domain={{ ca_domain | d('unknown') }}"
           - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"
 
-    - name: Print env var debug information
-      when: debug_cacerts
-      tags:
-          - debug_vars
-          - debug_cacerts
+- name: "Display cert info"
+  tags:
+    - bootstrap-keyring
+    - deploy-cacerts
+  hosts: control_node
+  ignore_unreachable: yes
+  ignore_errors: yes
+  tasks:
+    - name: Print cert chain information
       debug:
         msg:
           - "ca_domains_dynamic={{ ca_domains_dynamic | to_nice_json }}"
@@ -236,6 +249,20 @@
 #      debug:
 #        msg: "{{ msg.split('\n') }}"
 #      tags: debug_info
+
+
+
+- name: Get linux os configs
+  hosts: os_linux:!node_offline
+  tags:
+    - fetch-linux-os-configs
+  gather_facts: false
+  roles:
+    - role: fetch-linux-os-configs
+
+
+
+
 
 ##
 ## make sure this is running as bootstrap user
@@ -436,13 +463,13 @@
 ##    - role: ldap-auth-client
 #    - role: ldap-client
 
-- name: "Bootstrap ansible node"
+- name: "Bootstrap ansible control node"
   hosts: ansible_controller
   tags:
     - bootstrap
     - bootstrap-admin
     - bootstrap-ansible
-    - ansible-controller
+    - bootstrap-ansible
   become: True
 #  become_method: sudo
 #  vars_files:
@@ -450,7 +477,8 @@
   roles:
     - role: geerlingguy.ansible
     - role: geerlingguy.git
-    - role: ansible-controller
+    - role: ansible-init-locale
+    - role: bootstrap-ansible
 
 
 ## setup step-ca pki, create CA certs and install CA certs
@@ -497,29 +525,26 @@
 #      vars:
 #        ansible_python_interpreter: "{{ os_python_interpreter }}"
 
-- name: "Create CA certs for cert_node"
-#  hosts: compute_node,!vmware_esx_host
-#  hosts: compute_node
-#  hosts: os_linux
-  hosts: cert_node
-#  hosts: os_linux,cert_node
-  gather_facts: false
-  vars_files:
-    - vars/secrets.yml
-  tags:
-    - bootstrap-node
-    - bootstrap-cacert
-    - cacerts
-    - cacerts-update
-  become: yes
-#  become_method: sudo
-  roles:
-    - role: cacert-node
+#- name: "Create CA certs for cert_node"
+##  hosts: compute_node,!vmware_esx_host
+##  hosts: compute_node
+##  hosts: os_linux
+#  hosts: cert_node
+##  hosts: os_linux,cert_node
+#  gather_facts: false
+#  vars_files:
+#    - vars/secrets.yml
+#  tags:
+#    - bootstrap-node
+#    - bootstrap-cacert
+#    - cacerts
+#    - cacerts-update
+#  become: yes
+##  become_method: sudo
+#  roles:
+#    - role: cacert-node
 
 - name: "Deploy CA certs to cert_node"
-#  hosts: compute_node,!vmware_esx_host
-#  hosts: compute_node
-#  hosts: os_linux,!dhcp_hosts
   hosts: os_linux
   gather_facts: false
   vars_files:
@@ -908,12 +933,12 @@
 ##
 
 ## ref: https://www.ansible.com/blog/introducing-the-awx-collection
-- name: Playbook for Using a Variety of Tower Modules
+- name: Playbook to create tower resource configs
 #  hosts: localhost
   hosts: tower_control_node
   tags:
     - bootstrap-tower
-    - bootstrap-tower-orgs
+    - bootstrap-tower-resources
   gather_facts: false
   collections:
     - awx.awx
@@ -922,23 +947,40 @@
   environment:
     CONTROLLER_VERIFY_SSL: no
   roles:
-    - role: ansible-tower-org
+    - role: ansible-tower-resources
 
 
 ## ref: https://www.ansible.com/blog/introducing-the-awx-collection
-- name: Playbook for Using a Variety of Tower Modules
+- name: Playbook to remove tower resource configs
 #  hosts: localhost
   hosts: tower_control_node
   tags:
-    - remove-tower-orgs
+    - remove-tower-resources
   gather_facts: false
   collections:
     - awx.awx
-  vars:
-    tower_org_action: "remove"
   vars_files:
     - vars/secrets.yml
   environment:
     CONTROLLER_VERIFY_SSL: no
   roles:
-    - role: ansible-tower-org
+    - role: ansible-tower-resources
+      vars:
+        tower_resource_state: absent
+
+
+
+- name: Playbook to export tower resource configs
+  hosts: localhost
+  tags:
+    - export-tower-resources
+  gather_facts: false
+  collections:
+    - awx.awx
+  tasks:
+    - name: Export all resources
+      tower_export:
+        all: yes
+#        teams: "TEST - Test Team 1"
+
+

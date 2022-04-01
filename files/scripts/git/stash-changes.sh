@@ -5,7 +5,7 @@
 set -e
 
 UNSTASH=0
-
+CONFIRM=0
 
 # keep track of the last executed command
 trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
@@ -13,18 +13,23 @@ trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
 #trap 'rm -fr "$TMP_DIR"' EXIT
 
-CONFIRM=0
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+SCRIPT_NAME=`basename $0`
+
+if [ ! -z "$(git status --porcelain)" ]; then
+  echo "git repo not clean/found in ${pwd}"
+  exit
+fi
 
 #PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
 #PROJECT_DIR="$( pwd . )"
-#PROJECT_DIR=$(git rev-parse --show-toplevel)
-PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
+PROJECT_DIR=$(git rev-parse --show-toplevel)
+#PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
 
 LOCAL_BRANCH="$(git symbolic-ref --short HEAD)"
 BRANCH_SHORT=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2)
 
-echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
+#echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 echo "PROJECT_DIR=${PROJECT_DIR}"
 echo "BRANCH_SHORT=${BRANCH_SHORT}"
 
@@ -80,6 +85,7 @@ if [ $UNSTASH -eq 1 ]; then
 fi
 
 ## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
+mkdir -p save
 TMP_DIR="$(mktemp -d -p ./save)"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string

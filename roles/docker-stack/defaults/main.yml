@@ -101,13 +101,48 @@ docker_stack_external_domain: "{{ docker_stack_service_route_name }}.{{ docker_s
 docker_stack_enable_external_route: no
 
 awx_orig_enabled: no
+awx_orig_dockerhub_version: "17.1.0"
+awx_orig_web_image: "awx"
+awx_orig_task_image: "awx"
+awx_orig_postgresql_version: "14.2"
+
 awx_orig_docker_compose_dir: "{{ awx_inventory_dir }}/awxcompose-orig"
+awx_orig_project_data_dir: "{{ awx_orig_docker_compose_dir }}/projects"
 awx_orig_postgres_data_dir: "{{ awx_inventory_dir }}/pgdocker-orig"
-awx_orig_host_port: 11080
-awx_orig_host_port_ssl: 11443
-awx_orig_memcached_port: "12211"
+awx_orig_host_port: 10080
+awx_orig_host_port_ssl: 10443
+awx_orig_memcached_port: 11211
 awx_orig_pg_port: 6432
+#awx_orig_pg_port: 7432
 awx_orig_container_prefix: "awx_orig"
+awx_orig_pg_password: awxpass
+
+awx_orig_container_config_templates:
+  - file: environment.sh
+    mode: "0600"
+  - file: credentials.py
+    mode: "0600"
+  - file: docker-compose.yml
+    mode: "0600"
+  - file: nginx.conf
+    mode: "0600"
+  - file: redis.conf
+    mode: "0664"
+  - file: settings.py
+    mode: "0664"
+
+awx_orig_web_volumes:
+  - supervisor-socket:/var/run/supervisor
+  - rsyslog-socket:/var/run/awx-rsyslog/
+  - rsyslog-config:/var/lib/awx/rsyslog/
+  - "{{ awx_docker_compose_dir }}/SECRET_KEY:/etc/tower/SECRET_KEY"
+  - "{{ awx_docker_compose_dir }}/environment.sh:/etc/tower/conf.d/environment.sh"
+  - "{{ awx_docker_compose_dir }}/credentials.py:/etc/tower/conf.d/credentials.py"
+#      - "{{ awx_docker_compose_dir }}/settings.py:/etc/tower/conf.d/settings.py"
+  - "{{ awx_docker_compose_dir }}/nginx.conf:/etc/nginx/nginx.conf:ro"
+  - "{{ awx_docker_compose_dir }}/redis_socket:/var/run/redis/:rw"
+
+
 
 docker_stack_awx_backend: "http://{{ docker_stack_internal_domain }}:{{ awx_host_port }}"
 docker_stack_awx_orig_backend: "http://{{ docker_stack_internal_domain }}:{{ awx_orig_host_port }}"

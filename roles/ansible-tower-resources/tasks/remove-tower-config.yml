@@ -14,7 +14,7 @@
       {% for j in i.teams %}
       {% if "roles" in j %}
       {% for k in j.roles %}
-      - {{ { 'target_team': j.name, 'state': tower_resource_state } | combine(k) }}
+      - {{ k | combine({ 'team': j.name, 'state': tower_resource_state }) }}
       {% endfor %}
       {% endif %}
       {% endfor %}
@@ -23,43 +23,22 @@
 
 - name: Combine lists of roles
   set_fact:
-    tower_team_list: "{{ tower_role_list|d([]) + tower_roles|d([]) }}"
+    tower_role_list: "{{ tower_role_list|d([]) + tower_roles|d([]) }}"
+
+- name: "Set tower_role_list state"
+  set_fact:
+    tower_role_list: "{{ tower_role_list | map('combine', {'state': tower_resource_state }) }}"
 
 - name: Display tower_role_list
   debug:
     var: tower_role_list
 
 - name: Remove roles
+  when: tower_role_list|length>0
   tower_role: "{{ item }}"
   loop: "{{ tower_role_list }}"
-
-
-##
-## Remove role-to-team memberships
-##
-
-- name: Flatten the tower_role_membership_list
-  set_fact:
-    tower_role_membership_list: "{{ _tower_role_membership_list|d([])|from_yaml }}"
-  vars:
-    _tower_role_membership_list: |-
-      {% for i in tower_organizations %}
-      {% if "teams" in i %}
-      {% for j in i.teams %}
-      - {{ { 'target_team': j.name, 'team': j.name, 'role': j.team_role|d('member'), 'state': tower_resource_state } }}
-      - {{ { 'team': j.name, 'organization': i.name, 'role': j.organization_role|d('execute'), 'state': tower_resource_state } }}
-      {% endfor %}
-      {% endif %}
-      {% endfor %}
-
-- name: Display tower_role_membership_list
-  debug:
-    var: tower_role_membership_list
-
-- name: Remove team role memberships
-  when: tower_role_membership_list|d([])|length>0
-  tower_role: "{{ item }}"
-  loop: "{{ tower_role_membership_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
 
 
 ##
@@ -87,6 +66,10 @@
   set_fact:
     tower_team_list: "{{ tower_team_list|d([]) + tower_teams|d([]) }}"
 
+- name: "Set tower_team_list state"
+  set_fact:
+    tower_team_list: "{{ tower_team_list | map('combine', {'state': tower_resource_state }) }}"
+
 - name: Display tower_team_list
   debug:
     var: tower_team_list
@@ -95,6 +78,8 @@
   when: tower_team_list|d([])|length>0
   tower_team: "{{ item }}"
   loop: "{{ tower_team_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
 
 
 
@@ -112,7 +97,7 @@
       {% for j in i.projects %}
       {% if "job_templates" in j %}
       {% for k in j.job_templates %}
-      - {{ { 'organization': i.name, 'project': j.name } | combine(k) }}
+      - {{ k | combine( { 'organization': i.name, 'project': j.name, 'state': 'absent' } ) }}
       {% endfor %}
       {% endif %}
       {% endfor %}
@@ -135,6 +120,8 @@
   when: tower_template_list|d([])|length>0
   tower_job_template: "{{ item }}"
   loop: "{{ tower_template_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
 
 
 ##
@@ -160,6 +147,10 @@
   set_fact:
     tower_project_list: "{{ tower_project_list|d([]) + tower_projects|d([]) }}"
 
+- name: "Set tower_project_list state"
+  set_fact:
+    tower_project_list: "{{ tower_project_list | map('combine', {'state': tower_resource_state }) }}"
+
 - name: Display tower_project_list
   debug:
     var: tower_project_list
@@ -168,6 +159,8 @@
   when: tower_project_list|d([])|length>0
   tower_project: "{{ item }}"
   loop: "{{ tower_project_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
 
 
 ##
@@ -191,6 +184,10 @@
   set_fact:
     tower_inventory_list: "{{ tower_inventory_list|d([]) + tower_inventories|d([]) }}"
 
+- name: "Set tower_inventory_list state"
+  set_fact:
+    tower_inventory_list: "{{ tower_inventory_list | map('combine', {'state': tower_resource_state }) }}"
+
 - name: Display tower_inventory_list
   debug:
     var: tower_inventory_list
@@ -199,6 +196,8 @@
   when: tower_inventory_list|d([])|length>0
   tower_inventory: "{{ item }}"
   loop: "{{ tower_inventory_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
 
 
 ##
@@ -222,6 +221,10 @@
   set_fact:
     tower_credential_list: "{{ tower_credential_list|d([]) + tower_credentials|d([]) }}"
 
+- name: "Set tower_credential_list state"
+  set_fact:
+    tower_credential_list: "{{ tower_credential_list | map('combine', {'state': tower_resource_state }) }}"
+
 - name: Display tower_credential_list
   debug:
     var: tower_credential_list
@@ -230,6 +233,8 @@
   tower_credential: "{{ item }}"
   changed_when: no
   loop: "{{ tower_credential_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
 
 
 
@@ -243,4 +248,6 @@
     name: "{{ item.name }}"
     state: "{{ tower_resource_state }}"
   loop: "{{ tower_organizations }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
 

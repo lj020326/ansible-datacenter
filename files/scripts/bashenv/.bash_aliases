@@ -88,8 +88,10 @@ alias genpwd='openssl rand -base64 8 | md5sum | head -c8;echo'
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
 alias rsync0='rsync -ar --info=progress2 --links --delete --update'
 alias rsync1='rsync -argv --update --progress'
-#alias rsync2='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
-alias rsync2='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv}'
+alias rsync2='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
+alias rsync3='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv --exclude=save'
+#alias rsync2='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv}'
+#alias rsync3='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv,**/save}'
 
 #alias rsyncnew='rsync -arv --no-links --update --progress --exclude=node_modules --exclude=venv /jdrive/media/torrents/completed/new /x/save/movies/; rm /jdrive/media/torrents/completed/new/*'
 alias rsyncmirror='rsync -ar --info=progress2 --delete --update'
@@ -304,4 +306,6 @@ alias sshopentlc-tower='ssh -i ~/.ssh/${SSH_KEY_REDHAT} ljohnson-silexdata.com@c
 
 alias sshtest1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST1}"
 alias sshtest2="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST2}"
+alias sshatrnextd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRNEXTDS1S4}"
+alias sshatrup1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRUP1S4}"
 

@@ -23,7 +23,6 @@ Define each tower resource under the configuration root node 'tower_resources':
   * projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module). 
     * job_templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module). 
   * teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module). 
-      When defining an organization team, specify the team_role ('member','admin',etc) and organization_role ('execute','read', etc) 
     * roles - list of role maps containing the [role definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/role_module.html#ansible-collections-awx-awx-role-module).
 
 The following conditional actions are observed upon execution of the role:
@@ -33,7 +32,9 @@ The following conditional actions are observed upon execution of the role:
 * If any object exists in the tower runtime environment and is not defined by 'name' in the 'tower_resources' map, the object will not be changed or removed. 
 * Upon setting the tower_resource_state to 'absent', any object with same 'name' that already exists in the tower runtime environment will be removed.  <b>Be judicious/careful when utilizing tower object removal.</b>
 
-## Example 1 - 2 organizations
+** NOTE: if the 'state' variable is defined for any object, it will be overridden and ignored with precedence given to the 'tower_config_state' variable which defaults to 'present'.
+
+## Example 1: 2 organizations
 
 In the following example, the yaml definition will create 2 organizations.
 
@@ -68,7 +69,7 @@ tower_resources:
 
 ```
 
-## Example 2 - 2 organizations, with elaboration for team roles
+## Example 2: 2 organizations, with elaboration for team roles
 
 In the next example, the definition for the second organization 'New Org2' is elaborated to include team roles as defined.
 
@@ -77,11 +78,9 @@ tower_resources:
     organizations:
       - name: "TEST - New Org111"
         description: "test org"
-        state: present
     
       - name: "TEST - New Org222"
         description: "test org"
-        state: present
     
         credentials:
           - name: 'TEST - Example password'
@@ -89,7 +88,6 @@ tower_resources:
             inputs:
               vault_password: 'new_password'
           - name: "TEST - SCM Credential"
-            state: present
             credential_type: Source Control
             inputs:
               username: joe
@@ -112,9 +110,6 @@ tower_resources:
         teams:
           - name: "TEST - Test Team 1"
             description: "test team"
-            team_role: 'member'
-            organization_role: 'execute'
-            state: present
             roles:
               - role: use
                 inventories:
@@ -130,7 +125,7 @@ tower_resources:
                 job_templates:
                 - "TEST - Job Template to Launch"
     
-#              ## if using ansible.tower - it may not support lists - change to singletons
+#              ## if using older ansible.tower collection versions, it may not support lists - in that case, change to singletons as follows
 #              - role: use
 #                inventory: "TEST - New Inventory"
 #              - role: use
@@ -155,6 +150,7 @@ Default: "present"
 tower_resources: (map of maps)
 **Default:** {} - empty map \
 
+* execution_environments - list of execution_environment maps containing the [execution environment definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/execution_environment_module.html#ansible-collections-awx-awx-execution-environment-module).
 * credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module). 
 * inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module). 
 * projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module). 
@@ -246,7 +242,8 @@ The following playbook creates 2 organizations and all defined resources.
 ```
 
 
-The following playbook remove 2 organizations and all defined resources.
+The following playbook removes the same resources defined in the prior bootstrap example playbook.
+Also note that while the resource definition below specifies 'state: present' for several objects, that they will be overridden since the role variable 'tower_resource_state' is used to determine the state for all defined objects.  In brief, do not use 'state'. 
 
 ```yaml
 ---
@@ -267,6 +264,10 @@ The following playbook remove 2 organizations and all defined resources.
         tower_resource_state: absent
     
         tower_resources:
+#          execution_environments:
+#            - name: "My EE"
+#              image: quay.io/ansible/awx-ee
+
           organizations:
               - name: "TEST - New Org111"
                 description: "test org"
@@ -324,3 +325,7 @@ The following playbook remove 2 organizations and all defined resources.
 ## Todo
 
 Comments and findings are welcome.
+
+## Reference
+
+* [Automated AWX Configuration](../../docs/awx-automated-configuration.md)

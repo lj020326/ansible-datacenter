@@ -1,4 +1,5 @@
 ---
+
 __docker_stack_appspecs__jenkins_stack_dir: "{{ docker_stack_dir | d('/home/user/docker-dirs') }}"
 __docker_stack_appspecs__jenkins_base_dir: "{{ docker_stack_jenkins_dir | d(__docker_stack_appspecs__jenkins_stack_dir + '/jenkins') }}"
 __docker_stack_appspecs__jenkins_agent_base_dir: "{{ docker_stack_jenkins_agent_dir | d(__docker_stack_appspecs__jenkins_stack_dir + '/jenkins_agent') }}"
@@ -21,9 +22,6 @@ __docker_stack_appspecs__jenkins_agent_ssh_port: "{{ docker_stack_jenkins_ssh_po
 __docker_stack_appspecs__jenkins_mgr_pwd_secret: "{{ docker_stack_jenkins_mgr_pwd_secret | d('00000000000000000000000') }}"
 
 ## ref: https://www.jenkins.io/blog/2020/05/11/docker-windows-agents/
-#__docker_stack_appspecs__jenkins_image: "jenkins/jenkins:lts"
-__docker_stack_appspecs__jenkins_image: "{{ docker_stack_jenkins_image | d(docker_stack_registry_endpoint + '/jenkins-docker:latest') }}"
-
 __docker_stack_appspecs__jenkins_agent_image_default: "registry.example.int:5000/jenkins-docker-cicd-agent:latest"
 __docker_stack_appspecs__jenkins_agent_image: "{{ docker_stack_jenkins_agent_image | d(__docker_stack_appspecs__jenkins_agent_image_default) }}"
 __docker_stack_appspecs__jenkins_agent_jenkins_url: "{{ docker_stack_jenkins_agent_jenkins_url | d('https://jenkins.example.int') }}"
@@ -31,51 +29,30 @@ __docker_stack_appspecs__jenkins_agent_tunnel: "{{ docker_stack_jenkins_agent_tu
 __docker_stack_appspecs__jenkins_agent_workdir: "{{ docker_stack_jenkins_agent_workdir | d('/home/jenkins/agent') }}"
 __docker_stack_appspecs__jenkins_agent_secret: "{{ docker_stack_jenkins_agent_secret | d('zzzzzsddfgsdfgfdg') }}"
 #__docker_stack_appspecs__jenkins_agent_name: "{{ docker_stack_jenkins_agent_name | d('docker-agent-01') }}"
-__docker_stack_appspecs__jenkins_agent_name: "{{ docker_stack_jenkins_agent_name | d('jenkins-agent-01') }}"
+__docker_stack_appspecs__jenkins_agent_name: "{{ docker_stack_jenkins_agent_name | d('jenkins-agent-'+inventory_hostname) }}"
 #__docker_stack_appspecs__jenkins_agent_image: "{{ docker_stack_jenkins_agent_image | d('example.int:5000/jenkins-docker-cicd-agent:latest') }}"
 
-__docker_stack_appspecs__jenkins_swarm_image_default: "registry.example.int:5000/jenkins-swarm-agent:latest"
-__docker_stack_appspecs__jenkins_swarm_image: "{{ docker_stack_jenkins_swarm_image | d(__docker_stack_appspecs__jenkins_swarm_image_default) }}"
-__docker_stack_appspecs__jenkins_swarm_username: "{{ docker_stack_jenkins_swarm_username | d('sa_swarm_agent') }}"
-__docker_stack_appspecs__jenkins_swarm_password: "{{ docker_stack_jenkins_swarm_password | d('swarm-password') }}"
-__docker_stack_appspecs__jenkins_swarm_num_executors: "{{ docker_stack_jenkins_swarm_num_executors | d(10) }}"
+__docker_stack_appspecs__jenkins_agent_data_dir: /data/datacenter/jenkins
 
-__docker_stack_appspecs__jenkins_ldap_host: "{{ docker_stack_jenkins_ldap_host | d('ldap.example.int:389')}}"
-__docker_stack_appspecs__jenkins_ldap_base_dn: "{{ docker_stack_jenkins_ldap_base_dn | d('dc=example,dc=int')}}"
-
-#__docker_stack_appspecs__jenkins_data_dir: /export/data/jenkins/osimages
-#__docker_stack_appspecs__jenkins_data_dir: /export/data/jenkins
-__docker_stack_appspecs__jenkins_data_dir: /data/datacenter/jenkins
-
-docker_stack_appspec_config_dirs__jenkins:
-  - { path: "{{ __docker_stack_appspecs__jenkins_base_dir }}" }
-  - { path: "{{ __docker_stack_appspecs__jenkins_base_dir }}/jenkins_home" }
-  - { path: "{{ __docker_stack_appspecs__jenkins_data_dir }}" }
-  - { path: "{{ __docker_stack_appspecs__jenkins_data_dir }}/osimages" }
+docker_stack_appspec_config_dirs__jenkins_agent:
   - { path: "{{ __docker_stack_appspecs__jenkins_agent_base_dir }}" }
   - { path: "{{ __docker_stack_appspecs__jenkins_agent_base_dir }}/jenkins_home" }
-  - { path: "{{ __docker_stack_appspecs__jenkins_swarm_base_dir }}" }
-  - { path: "{{ __docker_stack_appspecs__jenkins_swarm_base_dir }}/jenkins_home" }
 
-docker_stack_appspec_config_tpls__jenkins:
-  - { src: 'jenkins/config-group.conf.j2', dest: "{{ __docker_stack_appspecs__jenkins_base_dir }}/group" }
-  - { src: 'jenkins/config-passwd.conf.j2', dest: "{{ __docker_stack_appspecs__jenkins_base_dir }}/passwd" }
+docker_stack_appspec_config_tpls__jenkins_agent:
   - { src: 'jenkins/config-agent-group.conf.j2', dest: "{{ __docker_stack_appspecs__jenkins_agent_base_dir }}/group" }
   - { src: 'jenkins/config-agent-passwd.conf.j2', dest: "{{ __docker_stack_appspecs__jenkins_agent_base_dir }}/passwd" }
-  - { src: 'jenkins/config-agent-group.conf.j2', dest: "{{ __docker_stack_appspecs__jenkins_swarm_base_dir }}/group" }
-  - { src: 'jenkins/config-agent-passwd.conf.j2', dest: "{{ __docker_stack_appspecs__jenkins_swarm_base_dir }}/passwd" }
 
-docker_stack_firewalld_appspec_ports__jenkins:
+docker_stack_firewalld_appspec_ports__jenkins_agent:
   - "{{ __docker_stack_appspecs__jenkins_agent_tcp_port }}/tcp"
   - "{{ __docker_stack_appspecs__jenkins_agent_ssh_port }}/tcp"
 
 
-docker_stack_appspec__jenkins:
-  dirs: "{{ docker_stack_appspec_config_dirs__jenkins | d([]) }}"
-  files: "{{ docker_stack_appspec_config_files__jenkins | d([]) }}"
-  templates: "{{ docker_stack_appspec_config_tpls__jenkins | d([]) }}"
-  firewalld_services: "{{ docker_stack_firewalld_appspec_services__jenkins | d([]) }}"
-  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__jenkins | d([]) }}"
-  networks: "{{ docker_stack_appspec_networks__jenkins | d({}) }}"
-  volumes: "{{ docker_stack_appspec_volumes__jenkins | d({}) }}"
-  docker_services: "{{ docker_stack_appspec_services__jenkins | d({}) }}"
+docker_stack_appspec__jenkins_agent:
+  dirs: "{{ docker_stack_appspec_config_dirs__jenkins_agent | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__jenkins_agent | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__jenkins_agent | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__jenkins_agent | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__jenkins_agent | d([]) }}"
+  networks: "{{ docker_stack_appspec_networks__jenkins_agent | d({}) }}"
+  volumes: "{{ docker_stack_appspec_volumes__jenkins_agent | d({}) }}"
+  docker_services: "{{ docker_stack_appspec_services__jenkins_agent | d({}) }}"
