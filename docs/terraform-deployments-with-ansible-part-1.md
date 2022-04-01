@@ -158,4 +158,4 @@ Inspect the contents of the file **tcb.txt** after executing the command, which 
 
 Template playbook output
 
-We have covered all the information that we require for simplifying our Terraform configurations. In the [next part of this article](https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2.md "Terraform & Ansible"), we will use the concepts discussed here and build a Terraform plan that we can execute to provision infrastructure for different environments.
+We have covered all the information that we require for simplifying our Terraform configurations. In the [next part of this article](./terraform-deployments-with-ansible-part-2.md "Terraform & Ansible"), we will use the concepts discussed here and build a Terraform plan that we can execute to provision infrastructure for different environments.
