@@ -1,0 +1,29 @@
+---
+
+- name: "Stat OS config files"
+  stat:
+    path: "{{ item }}"
+  loop: "{{ fetch_linux_os_configs }}"
+  register: os_config_stats
+
+- name: Display os_config_stats
+  debug:
+    var: item.stat.exists
+  loop: "{{ os_config_stats.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Fetch OS distribution iso
+  when: item.1.stat.exists
+  slurp:
+    src: "{{ item.0 }}"
+  changed_when: no
+  with_together:
+    - "{{ fetch_linux_os_configs }}"
+    - "{{ os_config_stats.results }}"
+  register: os_configs
+
+- name: Display os_configs
+  debug:
+    var: item.content | b64decode
+  loop: "{{ os_configs.results }}"
