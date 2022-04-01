@@ -29,7 +29,7 @@ do
   ln -sf ../host_vars ./
   if [[ "${environment}" == "dev" ]]; then
     ln -sf ../*.ini ./
-    ln -sf ../*.py ./
+#    ln -sf ../*.py ./
   fi
 
   cd group_vars

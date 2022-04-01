@@ -66,7 +66,6 @@ RSYNC_OPTS_GIT_MIRROR=(
 RSYNC_OPTS_GIT_UPDATE=(
     -ari
     --links
-    --update
 )
 
 git fetch --all
