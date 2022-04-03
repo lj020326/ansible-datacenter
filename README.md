@@ -128,7 +128,7 @@ ansible-playbook site.yml --tags docker-control-node
 ansible-playbook site.yml --tags docker-media-node
 ansible-playbook site.yml --tags docker-samba-node
 ansible-playbook site.yml --tags deploy-nfs-service
-ansible-playbook site.yml --tags remount-vmware-datastores
+ansible-playbook site.yml --tags vmware-remount-datastores
 ansible-playbook site.yml --tags upgrade-vmware-esxi
 ```
 
@@ -182,7 +182,7 @@ ansible-playbook site.yml --tags docker-media-node
 ansible-playbook site.yml --tags fetch-osimages
 ansible-playbook site.yml --tags iscsi-client
 ansible-playbook site.yml --tags nfs-service
-ansible-playbook site.yml --tags remount-vmware-datastores
+ansible-playbook site.yml --tags vmware-remount-datastores
 ansible-playbook site.yml --tags upgrade-vmware-esxi
 ```
 

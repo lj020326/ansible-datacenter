@@ -243,53 +243,53 @@ Let’s execute the playbook on both the environments to test our implementation
 I have created a script that you can use to execute the playbook. Create a file named **start.sh** in the **infra** directory and populate it with the following code.
 
 ```
- 1tfstate='mytfstatestore'
- 2tfstaterg='tfstate-rg'
- 3location='australiaeast'
- 4
- 5# Install AZ CLI
- 6if ! command -v az >/dev/null; then
- 7    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
- 8fi
- 9
-10# Authenticate using service principal on CI
-11az login
-12az account set --subscription $1
-13
-14# Create TF state store resource group
-15if [ $(az group exists --name $tfstaterg) = false ]; then
-16    az group create --name $tfstaterg --location $location >/dev/null
-17fi
-18
-19# Create TF state store
-20if [ $(az storage account list --query '[].name' -o json | jq 'index( "$tfstate" )') ]; then
-21    az storage account create -n $tfstate -g $tfstaterg -l $location --sku Standard_LRS >/dev/null
-22    az storage container create -n tfstate --account-name $tfstate >/dev/null
-23fi
-24
-25# For TF backend store
-26export ARM_ACCESS_KEY=$(az storage account keys list -n $tfstate --query [0].value -o tsv)
-27
-28case $2 in
-29"init")
-30    ansible-playbook deploy.yaml -e env=$3 -e operation=init
-31    ;;
-32"destroy")
-33    ansible-playbook deploy.yaml -e env=$3 -e operation=destroy
-34    ;;
-35"create")
-36    ansible-playbook deploy.yaml -e env=$3 -e operation=create
-37    ;;
-38"create-plan" | *)
-39    ansible-playbook deploy.yaml -e env=$3 -e operation=create-plan
-40    if [ ! -f "/tf/plan.tfplan" ]; then
-41        (
-42            cd tf
-43            terraform show plan.tfplan
-44        )
-45    fi
-46    ;;
-47esac
+tfstate='mytfstatestore'
+tfstaterg='tfstate-rg'
+location='australiaeast'
+
+# Install AZ CLI
+if ! command -v az >/dev/null; then
+    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+fi
+ 
+# Authenticate using service principal on CI
+az login
+az account set --subscription $1
+
+# Create TF state store resource group
+if [ $(az group exists --name $tfstaterg) = false ]; then
+    az group create --name $tfstaterg --location $location >/dev/null
+fi
+
+# Create TF state store
+if [ $(az storage account list --query '[].name' -o json | jq 'index( "$tfstate" )') ]; then
+    az storage account create -n $tfstate -g $tfstaterg -l $location --sku Standard_LRS >/dev/null
+    az storage container create -n tfstate --account-name $tfstate >/dev/null
+fi
+
+# For TF backend store
+export ARM_ACCESS_KEY=$(az storage account keys list -n $tfstate --query [0].value -o tsv)
+
+case $2 in
+"init")
+    ansible-playbook deploy.yaml -e env=$3 -e operation=init
+    ;;
+"destroy")
+    ansible-playbook deploy.yaml -e env=$3 -e operation=destroy
+    ;;
+"create")
+    ansible-playbook deploy.yaml -e env=$3 -e operation=create
+    ;;
+"create-plan" | *)
+    ansible-playbook deploy.yaml -e env=$3 -e operation=create-plan
+    if [ ! -f "/tf/plan.tfplan" ]; then
+        (
+            cd tf
+            terraform show plan.tfplan
+        )
+    fi
+    ;;
+esac
 ```
 
 Terraform requires a state file to record the state of the infrastructure and configuration. Line 1 to 26 of the script creates a resource group, a storage account, and a container within the storage account to store the state. It will also install the Azure CLI if it is not already installed on your system. The connection key of the storage account is exposed to Terraform via the **ARM\_ACCESS\_KEY** environment variable. There are other approaches to configuring the azurerm backend you can read about on the [Terraform documentation website](https://www.terraform.io/docs/backends/types/azurerm.html).
