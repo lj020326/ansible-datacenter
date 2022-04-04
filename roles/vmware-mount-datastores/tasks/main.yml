@@ -1,7 +1,6 @@
 ---
 
 - name: "Install common pip libs"
-  become: True
   when: (vcenter_python_pip_depends is defined and not(vcenter_python_pip_depends is none))
   pip:
     name: "{{ vcenter_python_pip_depends }}"
@@ -26,22 +25,65 @@
   loop_control:
     label: "{{ item.1 }}"
 
-## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_host_datastore_module.html
-- name: "Mount NFS datastores"
-  vmware_host_datastore:
-    hostname: "{{ vcenter_hostname }}"
-    username: "{{ vcenter_username }}"
-    password: "{{ vcenter_password }}"
-    validate_certs: no
-    datastore_name: "{{ item.0.name }}"
-    datastore_type: "{{ item.0.type }}"
-    nfs_server: "{{ item.0.server }}"
-    nfs_path: "{{ item.0.path }}"
-    nfs_ro: no
-    esxi_hostname: "{{ hostvars[item.1].ansible_host | d(omit) }}"
-    state: present
-#  delegate_to: localhost
-  loop: "{{ vmware_host_datastores | subelements('esxi_hosts', { 'skip_missing': true }) }}"
-  loop_control:
-    label: "{{ item.1 }}"
+- name: Mount datastore
+  block:
+
+    ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_host_datastore_module.html
+    - name: "Mount NFS datastores"
+      vmware_host_datastore:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datastore_name: "{{ item.0.name }}"
+        datastore_type: "{{ item.0.type }}"
+        nfs_server: "{{ item.0.server }}"
+        nfs_path: "{{ item.0.path }}"
+        nfs_ro: no
+        esxi_hostname: "{{ hostvars[item.1].ansible_host | d(omit) }}"
+        state: present
+    #  delegate_to: localhost
+      loop: "{{ vmware_host_datastores | subelements('esxi_hosts', { 'skip_missing': true }) }}"
+      loop_control:
+        label: "{{ item.1 }}"
+      register: vmware_mount_status
+
+  rescue:
+    - name: Display vmware_mount_status
+      debug:
+        var: vmware_mount_status
+
+    - name: unmount datastore for problem hosts
+      when: item.failed
+      vmware_host_datastore:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datastore_name: "{{ item.item.0.name }}"
+        esxi_hostname: "{{ hostvars[item.item.1].ansible_host | d(omit) }}"
+        state: absent
+      loop: "{{ vmware_mount_status.results }}"
+      loop_control:
+        label: "{{ item.item.1 }} unmounting {{ item.item.0.name }}"
+
+    - name: remount datastore for problem hosts
+      when: item.failed
+      vmware_host_datastore:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datastore_name: "{{ item.item.0.name }}"
+        datastore_type: "{{ item.item.0.type }}"
+        nfs_server: "{{ item.item.0.server }}"
+        nfs_path: "{{ item.item.0.path }}"
+        nfs_ro: no
+        esxi_hostname: "{{ hostvars[item.item.1].ansible_host | d(omit) }}"
+        state: present
+      loop: "{{ vmware_mount_status.results }}"
+      loop_control:
+        label: "{{ item.item.1 }} mounting {{ item.item.0.name }}"
+
+
 
