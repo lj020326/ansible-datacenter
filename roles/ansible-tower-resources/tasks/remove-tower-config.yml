@@ -1,6 +1,73 @@
 ---
 
 ##
+## Remove SAML org-team maps
+##
+
+- name: Remove mappings from saml team-org map
+  when: tower_saml_team_org_maps|d([])|length>0
+  block:
+
+    - name: Create implied team maps from tower_teams
+      set_fact:
+        implied_team_org_maps: "{{ implied_team_org_maps|d([]) +  [ {'organization': item.organization, 'team': item.name } ] }}"
+      loop: "{{ tower_teams|d([]) }}"
+
+    - name: display implied_team_org_maps
+      debug:
+        var: implied_team_org_maps|d([])
+
+    - name: Get current the SAML settings
+      set_fact:
+        tower_saml_settings: "{{ lookup('awx.awx.tower_api', 'settings/saml') }}"
+
+    - name: Get current the SAML team attributes
+      set_fact:
+        tower_saml_team_attr: "{{ tower_saml_settings['SOCIAL_AUTH_SAML_TEAM_ATTR'] }}"
+
+    - name: Get current the SAML team maps
+      set_fact:
+        tower_saml_team_maps_current: "{{ tower_saml_team_attr['team_org_map']|d([]) }}"
+
+    - name: display tower_saml_team_maps_current
+      debug:
+        var: tower_saml_team_maps_current
+
+    - name: "Set tower_saml_team_maps_remove_by_paired_key fact"
+      set_fact:
+        tower_saml_team_maps_remove_by_paired_key: "{{ tower_saml_team_maps_remove_by_paired_key|default({}) | combine( { item.organization+'-'+item.team : item } ) }}"
+      loop: "{{ tower_saml_team_org_maps + implied_team_org_maps|d([]) }}"
+
+    - name: display tower_saml_team_maps_remove_by_paired_key
+      debug:
+        var: tower_saml_team_maps_remove_by_paired_key
+
+    - name: "Set tower_saml_team_maps_new_by_paired_key fact"
+      when: item.organization+'-'+item.team not in tower_saml_team_maps_remove_by_paired_key
+      set_fact:
+        tower_saml_team_maps_new_by_paired_key: "{{ tower_saml_team_maps_new_by_paired_key|default({}) | combine( { item.organization+'-'+item.team : item } ) }}"
+      loop: "{{ tower_saml_team_maps_current }}"
+
+    - name: display tower_saml_team_maps_new_by_paired_key
+      debug:
+        var: tower_saml_team_maps_new_by_paired_key
+
+    - name: "Create list of unique org-team maps"
+      set_fact:
+        tower_saml_team_maps_new_uniq: "{{ tower_saml_team_maps_new_by_paired_key.values() }}"
+
+    - name: display tower_saml_team_maps_new_uniq
+      debug:
+        var: tower_saml_team_maps_new_uniq
+
+    - name: Set new SAML team map
+      tower_settings:
+        settings:
+          SOCIAL_AUTH_SAML_TEAM_ATTR:
+            team_org_map: "{{ tower_saml_team_maps_new_uniq }}"
+
+
+##
 ## Remove roles
 ##
 
@@ -55,8 +122,6 @@
       {% for j in i.teams %}
       {% set copy=j.copy() %}
       {% set removed=copy.pop('roles') %}
-      {% set removed=copy.pop('team_role') %}
-      {% set removed=copy.pop('organization_role') %}
       - {{ { 'organization': i.name, 'state': tower_resource_state } | combine(copy) }}
       {% endfor %}
       {% endif %}

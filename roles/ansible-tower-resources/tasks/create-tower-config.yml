@@ -255,12 +255,67 @@
   tower_role: "{{ item }}"
   loop: "{{ tower_role_list }}"
 
+##
+## Create SAML org-team maps
+##
 
-## ref: https://stackoverflow.com/questions/71195987/how-to-retrieve-tower-configuration-from-playbook
-- name: Load the UI settings specifying the connection info
-  set_fact:
-    controller_settings: "{{ lookup('awx.awx.tower_api', 'settings/ldap') }}"
+- name: Add mappings to saml team-org map
+  when: tower_saml_team_org_maps|d([])|length>0
+  block:
 
-- name: debug
-  debug:
-     var: controller_settings["AUTH_LDAP_TEAM_MAP"]
+    - name: Create implied team maps from tower_teams
+      set_fact:
+        implied_team_org_maps: "{{ implied_team_org_maps|d([]) +  [ {'organization': item.organization, 'team': item.name } ] }}"
+      loop: "{{ tower_teams|d([]) }}"
+
+    - name: display implied_team_org_maps
+      debug:
+        var: implied_team_org_maps|d([])
+
+    - name: Get current the SAML settings
+      set_fact:
+        tower_saml_settings: "{{ lookup('awx.awx.tower_api', 'settings/saml') }}"
+
+    - name: Get current the SAML team attributes
+      set_fact:
+        tower_saml_team_attr: "{{ tower_saml_settings['SOCIAL_AUTH_SAML_TEAM_ATTR'] }}"
+
+    - name: Get current the SAML team maps
+      set_fact:
+        tower_saml_team_maps_current: "{{ tower_saml_team_attr['team_org_map']|d([]) }}"
+
+    - name: display tower_saml_team_maps_current
+      debug:
+        var: tower_saml_team_maps_current
+
+    - name: Set the new the SAML team maps
+      set_fact:
+        tower_saml_team_maps_new: "{{ tower_saml_team_maps_current|d([]) + tower_saml_team_org_maps + implied_team_org_maps|d([]) }}"
+
+    - name: display tower_saml_team_maps_new
+      debug:
+        var: tower_saml_team_maps_new
+
+    - name: "Set tower_saml_team_maps_new_by_paired_key fact to remove any duplicate org-team pairs"
+      set_fact:
+        tower_saml_team_maps_new_by_paired_key: "{{ tower_saml_team_maps_new_by_paired_key|default({}) | combine( { item.organization+'-'+item.team : item } ) }}"
+      loop: "{{ tower_saml_team_maps_new }}"
+
+    - name: display tower_saml_team_maps_new_by_paired_key
+      debug:
+        var: tower_saml_team_maps_new_by_paired_key
+
+    - name: "Create list of unique org-team maps"
+      set_fact:
+        tower_saml_team_maps_new_uniq: "{{ tower_saml_team_maps_new_by_paired_key.values() }}"
+
+    - name: display tower_saml_team_maps_new_uniq
+      debug:
+        var: tower_saml_team_maps_new_uniq
+
+    - name: Set new SAML team map
+      tower_settings:
+        settings:
+          SOCIAL_AUTH_SAML_TEAM_ATTR:
+            team_org_map: "{{ tower_saml_team_maps_new_uniq }}"
+
