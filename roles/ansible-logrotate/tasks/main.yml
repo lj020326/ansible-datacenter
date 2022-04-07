@@ -1,0 +1,66 @@
+---
+- name: add OS specific variables
+  include_vars: '{{ loop_vars }}'
+  with_first_found:
+    - files:
+        - '{{ distribution }}-{{ distribution_version }}.yml'
+        - '{{ distribution }}-{{ distribution_major_version }}.yml'
+        - '{{ distribution }}.yml'
+        - '{{ ansible_os_family }}.yml'
+        - '{{ ansible_system }}.yml'
+        - 'defaults.yml'
+      paths:
+        - 'vars'
+  loop_control:
+    loop_var: loop_vars
+  vars:
+    distribution: '{{ ansible_distribution }}'
+    distribution_version: '{{ ansible_distribution_version }}'
+    distribution_major_version: '{{ ansible_distribution_major_version }}'
+  tags:
+    - configuration
+    - packages
+
+- name: install logrotate packages
+  become: true
+  package:
+    name: '{{ logrotate_package }}'
+    state: present
+  register: register_install_package
+  until: register_install_package is succeeded
+  retries: 3
+  tags:
+    - packages
+
+- name: create logrotate configuration file
+  become: true
+  template:
+    src: 'etc/logrotate.conf.j2'
+    dest: '/etc/logrotate.conf'
+    owner: root
+    group: root
+    mode: 0644
+  tags:
+    - configuration
+  when: logrotate_global_config | bool
+
+- name: create logrotate application configuration files
+  become: true
+  template:
+    src: 'etc/logrotate.d/application.j2'
+    dest: '/etc/logrotate.d/{{ item.name }}'
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - '{{ logrotate_applications }}'
+  tags:
+    - configuration
+
+- name: symlink for hourly rotation
+  file:
+    path: '/etc/cron.hourly/logrotate'
+    src: '/etc/cron.daily/logrotate'
+    mode: 0644
+    state: link
+  when: logrotate_use_hourly_rotation | bool

@@ -188,6 +188,10 @@ It is quite simple and straightforward to get up and running with the AWX Collec
 ## Reference
 
 * [Introducing the AWX collection](https://www.ansible.com/blog/introducing-the-awx-collection)
+* [Creating Collections :: Ansible Labs for Red Hat Summit 2021](https://ansible-labs-crew.github.io/ansible-collections/5-creating-collections/)
+* [Ansible Galaxy](https://galaxy.ansible.com/awx/awx?extIdCarryOver=true&sc_cid=701f2000001OH7YAAW)
+* [Generating Diffs with Ansible | The NTC Mag](https://blog.networktocode.com/post/generating-diff-with-ansible/)
+* [Using Ansible as a Hardware Auditing Tool | New Relic](https://newrelic.com/blog/best-practices/ansible-auditing-tool)
+* 
 
 * https://docs.ansible.com/ansible/latest/collections/awx/awx/index.html
-* 

@@ -13,14 +13,13 @@
 #      - "ca_service_routes_list={{ ca_service_routes_list | to_nice_json }}"
 #      - "ca_fetch_domains_list={{ ca_fetch_domains_list | to_nice_json }}"
 
-
 - name: "create_cert:{{ ca_cert_type }} | Create domain configuration directories"
   file:
     path: "{{ keyring_cacerts_dir }}"
     state: directory
     owner: root
     group: root
-#    mode: 0755
+    mode: 0755
 
 - name: "create_cert:{{ ca_cert_type }} | Perform cacert validations"
   include_tasks: validate_cacerts.yml
@@ -31,7 +30,7 @@
 #    backup: yes
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    mode: 0600
+    mode: 0644
   with_items:
     - { src: "ca/ca-config.json.j2", dest: "{{ keyring_cacerts_base_dir }}/ca-config.json" }
     - { src: "ca/ca-cacert-csr.json.j2", dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_info.commonName }}.json" }
@@ -39,7 +38,6 @@
 - name: "create_cert:{{ ca_cert_type }} | Generating server csr config file [{{ ca_cert_cn }}.json]"
   when: ca_cert_type != "intermediate-ca"
   template:
-#    src: "certs/csr-server-cert.json.j2"
     src: "ca/ca-cert-csr.json.j2"
     dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_cn }}.json"
 
@@ -64,6 +62,11 @@
         chdir: "{{ keyring_cacerts_dir }}"
 #        creates: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
 
+    - name: "Changing perm to 644 for {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      file:
+        dest: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+        mode: 644
+
     - name: "create_cert:{{ ca_cert_type }} | Create server cert chain pem file for root signer [{{ ca_cert_chain }}]"
       changed_when: no
       when: ca_signer_is_root|bool
@@ -83,6 +86,12 @@
       args:
         chdir: "{{ keyring_cacerts_dir }}"
 #        creates: "{{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+
+    - name: "Changing perm to 644 for {{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+      file:
+        dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+        mode: 644
+
 
 - name: "create_cert:{{ ca_cert_type }} | Get cert chain info for {{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
   changed_when: no

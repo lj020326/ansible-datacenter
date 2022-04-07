@@ -30,13 +30,13 @@ PRIVATE_CONTENT_ARRAY+=('**/*secrets.yml')
 PRIVATE_CONTENT_ARRAY+=('.vault_pass')
 PRIVATE_CONTENT_ARRAY+=('***/*vault*')
 PRIVATE_CONTENT_ARRAY+=('*.log')
-PRIVATE_CONTENT_ARRAY+=('**/.DS_Store')
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY
 EXCLUDES_ARRAY=('.git')
 EXCLUDES_ARRAY+=('.idea')
 EXCLUDES_ARRAY+=('.vscode')
+EXCLUDES_ARRAY+=('**/.DS_Store')
 EXCLUDES_ARRAY+=('venv')
 
 printf -v EXCLUDES '%s,' "${EXCLUDES_ARRAY[@]}"
@@ -100,6 +100,13 @@ rm -fr private/
 rm -fr files/private/
 rm -fr vars/secrets.yml
 rm -fr .vault_pass
+
+TO_REMOVE="${EXCLUDE_AND_REMOVE% }"
+cleanupPvt="rm -fr ${TO_REMOVE}"
+echo "${cleanupPvt}"
+#eval $cleanupPvt
+
+#exit 0
 
 echo "Update public files:"
 cp -p files/git/pub.gitignore .gitignore
