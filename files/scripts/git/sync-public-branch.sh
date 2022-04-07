@@ -110,8 +110,10 @@ eval $cleanupPvt
 
 #exit 0
 
-echo "Update public files:"
-cp -p files/git/pub.gitignore .gitignore
+if [ -e files/git/pub.gitignore ]; then
+  echo "Update public files:"
+  cp -p files/git/pub.gitignore .gitignore
+fi
 
 echo "Show changes before push:"
 git status
