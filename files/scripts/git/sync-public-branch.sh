@@ -102,11 +102,11 @@ rm -fr vars/secrets.yml
 rm -fr .vault_pass
 
 printf -v TO_REMOVE '%s ' "${PRIVATE_CONTENT_ARRAY[@]}"
-#TO_REMOVE="${TO_REMOVE%,}"
+TO_REMOVE="${TO_REMOVE% }"
 echo "TO_REMOVE=${TO_REMOVE}"
 cleanupPvt="rm -fr ${TO_REMOVE}"
 echo "${cleanupPvt}"
-#eval $cleanupPvt
+eval $cleanupPvt
 
 #exit 0
 
