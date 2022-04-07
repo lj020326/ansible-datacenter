@@ -96,10 +96,10 @@ rsync_cmd="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
 echo "${rsync_cmd}"
 eval $rsync_cmd
 
-rm -fr private/
-rm -fr files/private/
-rm -fr vars/secrets.yml
-rm -fr .vault_pass
+#rm -fr private/
+#rm -fr files/private/
+#rm -fr vars/secrets.yml
+#rm -fr .vault_pass
 
 printf -v TO_REMOVE '%s ' "${PRIVATE_CONTENT_ARRAY[@]}"
 TO_REMOVE="${TO_REMOVE% }"
