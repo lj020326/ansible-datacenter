@@ -3,7 +3,7 @@
 - name: "Determine nodes that are offline"
   tags: always
 #  hosts: all:!node_offline
-  hosts: compute_node:!node_offline
+  hosts: all,!node_offline,!local
   ignore_unreachable: yes
   ignore_errors: yes
   gather_facts: no
@@ -27,8 +27,9 @@
 ## ref: https://github.com/ansible/ansible/issues/20360
 - name: "Gather facts for all hosts to apply OS specific group vars for them"
   tags: always
-  hosts: all:!node_offline
 #  hosts: compute_node:!node_offline
+#  hosts: all:!node_offline
+  hosts: all,!node_offline,!local
   ## https://issues.jenkins-ci.org/browse/JENKINS-54557
   ignore_unreachable: yes
   ignore_errors: yes
@@ -151,10 +152,10 @@
           - "ca_routes_dynamic={{ ca_routes_dynamic | to_nice_json }}"
 
 - name: "Display bind info"
+  hosts: bind_master
   tags:
     - bootstrap-bind
     - deploy-vm
-  hosts: bind_master
   ignore_unreachable: yes
   ignore_errors: yes
   tasks:
@@ -299,8 +300,6 @@
 
 
 
-
-
 ##
 ## make sure this is running as bootstrap user
 ## get pwd for this user using the --ask-pass directive,
@@ -355,14 +354,43 @@
     - role: firewall-config
       tags: [ 'firewall-config-nameserver' ]
 
+
+
+- name: "Bootstrap kvm hosts"
+  hosts: kvm_host
+  gather_facts: false
+  become: yes
+  tags:
+    - bootstrap-kvm
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: mrlesmithjr.ansible-kvm
+
+## ref: https://docs.ansible.com/ansible/latest/modules/vmware_guest_module.html
+- name: "Deploy VM"
+  hosts:
+    - vmware_control_node
+  tags:
+    - deploy-vm
+  gather_facts: false
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: ansible-role-govc
+    - role: deploy-vm
+
+
+
 - name: "Bootstrap linux"
-  hosts: os_linux:!local
-#  hosts: os_linux
+  hosts: os_linux,!local
   tags:
     - bootstrap-linux
     - bootstrap-node-core
     - bootstrap-node
-#    - deploy-vm
+    - deploy-vm
   become: yes
 #  become_method: sudo
   vars_files:
@@ -370,9 +398,21 @@
   roles:
     - role: bootstrap-linux
 
+
+- name: "Bootstrap logrotate"
+  hosts: os_linux,!local
+  tags:
+    - bootstrap-logrotate
+  become: yes
+#  become_method: sudo
+  roles:
+    - role: ansible-logrotate
+
+
+
 ## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
 - name: "Bootstrap CI/CD node"
-  hosts: cicd_node
+  hosts: cicd_node,!local
   tags:
     - bootstrap
     - bootstrap-cicd
@@ -411,8 +451,7 @@
       tags: [ bootstrap-inspec ]
 
 - name: "Setup iscsi clients"
-  hosts:
-    - iscsi_client
+  hosts: iscsi_client
   tags:
     - bootstrap
     - bootstrap-iscsi
@@ -424,8 +463,7 @@
     - role: iscsi-client
 
 - name: "Setup ntp clients"
-  hosts:
-    - ntp_client
+  hosts: ntp_client,!local
   tags:
     - bootstrap-ntp
     - bootstrap-ntp-client
@@ -597,33 +635,6 @@
 #  become_method: sudo
   roles:
     - role: deploy-cacerts
-
-- name: "Bootstrap kvm hosts"
-  hosts: kvm_host
-  gather_facts: false
-  become: yes
-  tags:
-    - bootstrap-kvm
-  vars_files:
-    - vars/secrets.yml
-  roles:
-    - role: mrlesmithjr.ansible-kvm
-
-## ref: https://docs.ansible.com/ansible/latest/modules/vmware_guest_module.html
-- name: "Deploy VM"
-  hosts:
-    - vmware_control_node
-  tags:
-    - deploy-vm
-  gather_facts: false
-  become: True
-#  become_method: sudo
-  vars_files:
-    - vars/secrets.yml
-  roles:
-    - role: ansible-role-govc
-    - role: deploy-vm
-
 
 ## possibly need to install docker_service dependencies first
 ## ref: https://github.com/avinetworks/ansible-role-docker
