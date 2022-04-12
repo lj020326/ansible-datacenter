@@ -2,7 +2,6 @@
 
 - name: "Determine nodes that are offline"
   tags: always
-#  hosts: all:!node_offline
   hosts: all,!node_offline,!local
   ignore_unreachable: yes
   ignore_errors: yes
@@ -100,7 +99,7 @@
 
 
 - name: Display important common variable information
-  hosts: all:!node_offline
+  hosts: all,!local,!node_offline
   ignore_unreachable: yes
   ignore_errors: yes
   gather_facts: no
@@ -133,12 +132,12 @@
           - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"
 
 - name: "Display cert info"
+  hosts: control_node,!local
+  ignore_unreachable: yes
+  ignore_errors: yes
   tags:
     - bootstrap-keyring
     - deploy-cacerts
-  hosts: control_node
-  ignore_unreachable: yes
-  ignore_errors: yes
   tasks:
     - name: Print cert chain information
       debug:
@@ -171,9 +170,7 @@
 ## Debugging purposes: print all environment variables
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print environment variables"
-#  hosts: all
-#  hosts: compute_node
-  hosts: compute_node:!node_offline
+  hosts: compute_node,!node_offline
   tags:
     - display-envvars
     - debug-envvars
@@ -190,7 +187,7 @@
       tags: debug_info
 
 
-- hosts: all
+- hosts: all,!node_offline
   gather_facts: true
   tags:
     - debug-hostvars
@@ -228,9 +225,7 @@
 ## Debugging purposes: print all internal variables
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print internal variables"
-#  hosts: all
-#  hosts: compute_node
-  hosts: compute_node:!node_offline
+  hosts: compute_node,!node_offline
   tags:
     - debug-vars
     - display-vars
@@ -291,7 +286,7 @@
 
 
 - name: Get linux os configs
-  hosts: os_linux:!node_offline
+  hosts: os_linux,!local,!node_offline
   tags:
     - fetch-linux-os-configs
   gather_facts: false
@@ -310,7 +305,7 @@
 ##
 - name: "Bootstrap users"
 #  hosts: compute_node:!vmware_nested_esx
-  hosts: os_linux
+  hosts: os_linux,!local,!node_offline
   vars_files:
     - vars/secrets.yml
   vars:
@@ -418,6 +413,7 @@
     - bootstrap-cicd
     - bootstrap-cicd-node
     - cicd-node
+    - deploy-vm
   become: True
 #  become_method: sudo
   vars_files:
@@ -873,20 +869,6 @@
       tags:
         - openstack-cloud-config
 
-- name: Install AWX
-  hosts: docker_awx_node
-  tags:
-    - bootstrap
-    - bootstrap-awx
-    - docker-awx-node
-    - cacerts-update
-  become: true
-  vars:
-    ansible_python_interpreter: "{{ ansible_python_docker_interpreter }}"
-  vars_files:
-    - vars/secrets.yml
-  roles:
-    - awx-docker
 
 ## fog-server
 ## ref: https://github.com/ceph/ceph-cm-ansible/tree/master/roles/fog-server

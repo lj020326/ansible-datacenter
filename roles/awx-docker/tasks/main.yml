@@ -3,13 +3,14 @@
 - name: "Check docker vars"
   include_tasks: check_docker.yml
 
-- name: "Build docker image"
-  include_tasks: build_image.yml
-  when: awx_dockerhub_base is not defined
-
-- name: "Push docker image"
-  include_tasks: push_image.yml
-  when: awx_docker_registry is defined and awx_dockerhub_base is not defined
+## The build image is now done directly from the awx repo pipeline
+#- name: "Build docker image"
+#  include_tasks: build_image.yml
+#  when: awx_dockerhub_base is not defined
+#
+#- name: "Push docker image"
+#  include_tasks: push_image.yml
+#  when: awx_docker_registry is defined and awx_dockerhub_base is not defined
 
 - name: Generate broadcast websocket secret
   set_fact:
@@ -49,31 +50,42 @@
     stopped: true
   when: upgrade_postgres | bool
 
-- name: Upgrade Postgres
-  shell: |
-    docker run --rm \
-      -v {{ awx_postgres_data_dir }}/pgdata:/var/lib/postgresql/9.6/data \
-      -v {{ awx_postgres_data_dir }}/10/data:/var/lib/postgresql/10/data \
-      -e PGUSER={{ awx_pg_username }} -e POSTGRES_INITDB_ARGS="-U {{ awx_pg_username }}" \
-      tianon/postgres-upgrade:9.6-to-10 --username={{ awx_pg_username }}
-  when: upgrade_postgres | bool
+#- name: Upgrade Postgres
+#  shell: |
+#    docker run --rm \
+#      -v {{ awx_postgres_data_dir }}/pgdata:/var/lib/postgresql/9.6/data \
+#      -v {{ awx_postgres_data_dir }}/10/data:/var/lib/postgresql/10/data \
+#      -e PGUSER={{ awx_pg_username }} -e POSTGRES_INITDB_ARGS="-U {{ awx_pg_username }}" \
+#      tianon/postgres-upgrade:9.6-to-10 --username={{ awx_pg_username }}
+#  when: upgrade_postgres | bool
+#
+#- name: Copy old pg_hba.conf
+#  copy:
+#    src: "{{ awx_postgres_data_dir + '/pgdata/pg_hba.conf' }}"
+#    dest: "{{ awx_postgres_data_dir + '/10/data/' }}"
+#    owner: "{{ docker_user_username }}"
+#    group: "{{ docker_user_group }}"
+#  when: upgrade_postgres | bool
+#
+#- name: Remove old data directory
+#  file:
+#    path: "{{ awx_postgres_data_dir + '/pgdata' }}"
+#    state: absent
+#  when: awx_compose_start_containers|bool
+#
+#- name: "Set Image"
+#  import_tasks: set_image.yml
 
-- name: Copy old pg_hba.conf
-  copy:
-    src: "{{ awx_postgres_data_dir + '/pgdata/pg_hba.conf' }}"
-    dest: "{{ awx_postgres_data_dir + '/10/data/' }}"
-    owner: "{{ docker_user_username }}"
-    group: "{{ docker_user_group }}"
-  when: upgrade_postgres | bool
-
-- name: Remove old data directory
-  file:
-    path: "{{ awx_postgres_data_dir + '/pgdata' }}"
-    state: absent
-  when: awx_compose_start_containers|bool
-
-- name: "Set Image"
-  import_tasks: set_image.yml
+- name: display awx image info
+  debug:
+    msg:
+      - "awx_web_image={{ awx_web_image }}"
+      - "awx_task_image={{ awx_task_image }}"
+      - "awx_version={{ awx_version }}"
+      - "awx_docker_registry={{ awx_docker_registry }}"
+      - "awx_docker_registry_repository={{ awx_docker_registry_repository }}"
+      - "awx_web_docker_actual_image={{ awx_web_docker_actual_image }}"
+      - "awx_task_docker_actual_image={{ awx_task_docker_actual_image }}"
 
 - name: "Run docker services"
   import_tasks: compose.yml
