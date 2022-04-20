@@ -291,6 +291,7 @@ fi
 
 ## work related
 alias cdworkdocs='cd ~/repos/silex/docs-internal'
+alias cdalsac='cd ~/repos/silex/alsac'
 alias cdtower='cd /h/Source/Ansible_Tower'
 alias cddcc='cd /h/Source/Ansible_Tower/dcc_common'
 

@@ -1,0 +1,59 @@
+---
+
+# Takes a while for migrations to finish
+- name: Wait for the dev environment to be ready
+  uri:
+#    url: "http://localhost:8013/api/v2/ping/"
+    url: "http://localhost:{{ awx_host_port }}/api/v2/ping/"
+  register: _result
+  until: _result.status == 200
+  retries: 120
+  delay: 5
+
+- name: Reset admin password
+  shell: |
+    docker exec -i {{ awx_container_prefix }}_task bash <<EOSH
+      awx-manage update_password --username=admin --password={{ awx_admin_password }}
+      awx-manage create_preload_data
+    EOSH
+
+- block:
+    - name: Launch Demo Job Template
+      awx.awx.job_launch:
+        name: Demo Job Template
+        wait: yes
+        validate_certs: no
+        controller_host: "http://localhost:{{ awx_host_port }}"
+        controller_username: "admin"
+        controller_password: "{{ awx_admin_password }}"
+  rescue:
+    - name: Get list of project updates and jobs
+      uri:
+        url: "http://localhost:{{ awx_host_port }}/api/v2/{{ resource }}/"
+        user: admin
+        password: "{{ awx_admin_password }}"
+        force_basic_auth: yes
+      register: job_lists
+      loop:
+        - project_updates
+        - jobs
+      loop_control:
+        loop_var: resource
+
+    - name: Get all job and project details
+      uri:
+        url: "http://localhost:{{ awx_host_port }}{{ endpoint }}"
+        user: admin
+        password: "{{ awx_admin_password }}"
+        force_basic_auth: yes
+      loop: |
+        {{ job_lists.results | map(attribute='json') | map(attribute='results') | flatten | map(attribute='url') }}
+      loop_control:
+        loop_var: endpoint
+
+    - name: Re-emit failure
+      vars:
+        failed_task:
+          result: '{{ ansible_failed_result }}'
+      fail:
+        msg: '{{ failed_task }}'
