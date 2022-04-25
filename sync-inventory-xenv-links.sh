@@ -1,1 +1,1 @@
-files/scripts/git/sync-inventory-xenv-links.sh
+./files/scripts/git/sync-inventory-xenv-links.sh

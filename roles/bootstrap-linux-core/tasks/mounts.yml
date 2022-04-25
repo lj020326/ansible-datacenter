@@ -3,6 +3,10 @@
 - set_fact:
     __common_node_mounts: "{{ common_node_mounts|d([]) + common_node_mounts_tmpdir|d([]) + common_node_mounts_additional|d([]) }}"
 
+- name: "Display __common_node_mounts"
+  debug:
+    var: __common_node_mounts
+
 - name: Ensure mount dirs exist
   when: common_node_mounts is defined and common_node_mounts|length > 0
   file:
@@ -14,6 +18,7 @@
 ## ref: https://medium.com/@rohansadale/mounting-and-un-mounting-a-volume-in-ansible-37ebf64e3334
 - name: Add node mounts to fstab
   when: __common_node_mounts is defined and __common_node_mounts|length > 0
+#  when: item.options.find(",") >= 0 and item.options.find("nodev") == -1
   mount:
     name: "{{ item.name }}"
     src: "{{ item.src }}"
@@ -21,7 +26,6 @@
     opts: "{{ item.options | d(omit) }}"
     state: mounted
   with_items: "{{ __common_node_mounts }}"
-#  when: item.options.find(",") >= 0 and item.options.find("nodev") == -1
   register: mount_results
   failed_when: mount_results.failed and not ( mount_results.msg | regex_search("umount.* target is busy") )
 

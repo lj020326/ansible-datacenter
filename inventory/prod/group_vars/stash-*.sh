@@ -1,0 +1,1 @@
+files/scripts/git/stash-*.sh

@@ -437,4 +437,9 @@ function gitclonework2(){
   popd
 }
 
-
+unalias gitupdatesub 1>/dev/null 2>&1
+unset -f gitupdatesub || true
+function gitupdatesub(){
+  git submodule deinit -f . && \
+  git submodule update --init --recursive --remote
+}

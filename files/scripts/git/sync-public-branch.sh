@@ -90,11 +90,36 @@ git rm -r --cached .
 #echo "Removing existing non-dot files for clean sync"
 #rm -fr *
 
-echo "Mirror ${TMP_DIR} to project dir $PROJECT_DIR"
+echo "Copy ${TMP_DIR} to project dir $PROJECT_DIR"
 #echo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
 rsync_cmd="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
 echo "${rsync_cmd}"
 eval $rsync_cmd
+
+mirrorDirList="
+collections
+docs
+files
+filter_plugins
+inventory
+library
+playbooks
+roles
+screenshots
+scripts
+tests
+vars
+"
+
+
+IFS=$'\n'
+for dir in ${mirrorDirList}
+do
+  echo "Mirror ${TMP_DIR}/${dir}/ to project dir $PROJECT_DIR/${dir}/"
+  rsync_cmd="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} --delete --update --exclude=save ${TMP_DIR}/${dir}/ ${PROJECT_DIR}/${dir}/"
+  echo "${rsync_cmd}"
+  eval $rsync_cmd
+done
 
 #rm -fr private/
 #rm -fr files/private/

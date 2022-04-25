@@ -1,1 +1,1 @@
-files/scripts/git/stash-changes.sh
+./files/scripts/git/stash-changes.sh

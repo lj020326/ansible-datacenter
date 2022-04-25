@@ -1,1 +1,1 @@
-files/scripts/git/sync-public-branch.sh
+./files/scripts/git/sync-public-branch.sh

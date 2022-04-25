@@ -95,6 +95,36 @@
 
 - name: Manage firewalld services
   block:
+    - name: display firewalld_zones
+      debug:
+        msg:
+          - "firewalld_zones: {{ firewalld_zones | d([]) | to_nice_json }}"
+          - "firewalld_services: {{ firewalld_services | d([]) | to_nice_json }}"
+          - "firewalld_ports: {{ firewalld_ports | d([]) | to_nice_json }}"
+
+#    - name: display firewalld_services
+#      when:
+#        - firewalld_services|flatten|d([])|count>0
+#      debug:
+#        msg:
+#          - "firewalld_services: {{ firewalld_services | to_nice_json }}"
+
+#    - name: display firewalld vars
+#      when:
+#        - firewalld_zones|flatten|d([])|count>0
+#        - firewalld_services|flatten|d([])|count>0
+#      debug:
+#        msg:
+##          - "zone: {{ item.0.name }}"
+##          - "service: {{ item.1.name }}"
+#          - "zone: {{ item.0 | to_nice_json }}"
+#          - "service: {{ item.1 | to_nice_json }}"
+#      with_nested:
+#        - "{{ firewalld_zones|flatten }}"
+#        - "{{ firewalld_services|flatten }}"
+#      loop_control:
+#        label: "{{ item.0.name }} - {{ item.1.name }}"
+
     - name: Configure firewalld custom services
       when: "'port' in item"
       template:
@@ -106,45 +136,30 @@
       loop_control:
         label: "{{ item.name }}"
 
-    - name: display firewalld vars
-      when:
-        - firewalld_zones|flatten|d([])|count>0
-      debug:
-        msg:
-          - "firewalld_zones: {{ firewalld_zones | to_nice_json }}"
-
-    - name: display firewalld vars
-      when:
-        - firewalld_services|flatten|d([])|count>0
-      debug:
-        msg:
-          - "firewalld_services: {{ firewalld_services | to_nice_json }}"
-
-#    - name: display firewalld vars
+#    - name: Configure firewalld custom services via CLI
 #      when:
-#        - firewalld_zones|flatten|d([])|count>0
 #        - firewalld_services|flatten|d([])|count>0
-#      debug:
-#        msg:
-#          - "zone: {{ item.0.name }}"
-#          - "service: {{ item.1.name }}"
-#      with_nested:
-#        - "{{ firewalld_zones|flatten }}"
-#        - "{{ firewalld_services|flatten }}"
+#        - item.0.custom|d(false)
+#      command: "firewall-cmd --permanent --service={{ item.0.name }} --add-port={{ item.1.port }}/{{ item.1.protocol }}"
+#      loop: "{{ firewalld_services | subelements('port', { 'skip_missing': true }) }}"
 #      loop_control:
-#        label: "{{ item.0.name }} - {{ item.1.name }}"
+#        label: "{{ item.0.name }} - {{ item.1.port }}/{{ item.1.protocol }}"
+#      notify: reload firewalld
 
     ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html
     - name: Configure firewalld services
       when: 
         - firewalld_zones|flatten|d([])|count>0
         - firewalld_services|flatten|d([])|count>0
+        - item.0.custom|d(false)
       ansible.posix.firewalld:
         zone: "{{ item.0.name }}"
         service: "{{ item.1.name }}"
         permanent: true
         state: enabled
         immediate: yes
+      register: firewalld_result
+      failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
       with_nested:
         - "{{ firewalld_zones|flatten }}"
         - "{{ firewalld_services|flatten }}"
@@ -152,22 +167,26 @@
         label: "{{ item.0.name }} - {{ item.1.name }}"
       notify: reload firewalld
 
-    - name: Configure firewalld services
+    - name: Configure firewalld ports
       when:
-        - firewalld_zones|flatten|d([])|count>0
-        - firewalld_services|flatten|d([])|count>0
+        - firewalld_zones|d([])|flatten|count>0
+        - firewalld_ports|d([])|flatten|count>0
+#        - firewalld_ports is defined
       ansible.posix.firewalld:
+        # zone: "{{ firewalld_default_zone }}"
         zone: "{{ item.0.name }}"
-        service: "{{ item.1.name }}"
+        port: "{{ item.1 }}"
         permanent: true
         state: enabled
         immediate: yes
+      register: firewalld_result
+      failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
       with_nested:
         - "{{ firewalld_zones|flatten }}"
-        - "{{ firewalld_services|flatten }}"
+        - "{{ firewalld_ports|flatten }}"
       loop_control:
-        label: "{{ item.0.name }} - {{ item.1.name }}"
-      notify: reload firewalld
+        label: "{{ item.0.name }} - {{ item.1 }}"
+      notify: "reload firewalld"
 
     - name: Get services in /etc/firewalld/services
       shell: ls -1 /etc/firewalld/services/ | grep -E .xml$

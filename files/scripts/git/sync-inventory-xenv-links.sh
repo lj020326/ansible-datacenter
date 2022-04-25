@@ -44,3 +44,7 @@ do
   ln -sf ../../../group_vars/all.yml ./all/000_cross_env_vars.yml
 done
 
+echo "creating links for useful project scripts"
+cd ${PROJECT_DIR}
+ln -sf ./files/scripts/git/stash-*.sh ./
+ln -sf ./files/scripts/git/sync-*.sh ./
