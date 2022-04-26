@@ -111,7 +111,6 @@ tests
 vars
 "
 
-
 IFS=$'\n'
 for dir in ${mirrorDirList}
 do
