@@ -1,25 +1,124 @@
 ---
 
-- name: "Determine nodes that are offline"
-  tags: always
+- name: "Pre-check | Perform simple connectivity (ping) tests to pre-determine nodes that are offline"
   hosts: all,!node_offline,!local
+#  tags: always
+  become: yes
   ignore_unreachable: yes
-  ignore_errors: yes
+#  ignore_errors: yes
   gather_facts: no
   tasks:
-    ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
-    - name: ping test
-      shell: ping -c 1 -w 2 {{ ansible_host }}
-      delegate_to: localhost
-      register: ping_test
-      changed_when: no
-      ignore_errors: true
 
-    - name: Add hosts failing ping test to group 'offline'
-      when: ping_test.rc!=0
-      add_host:
-        name: '{{ inventory_hostname }}'
-        groups: node_offline
+    ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
+    - name: "Ping test via module"
+      block:
+
+        - name: "Ping test via module ping"
+#          when: "'linux' in group_names"
+          when: ansible_os_family|lower|d('') in ['debian', 'redhat']
+#          become: yes
+          action: ping
+          register: ping_test
+          changed_when: no
+
+        - name: "Ping test via module win_ping"
+#          when: "'windows' in group_names"
+          when: ansible_os_family|d('')|lower is search('windows')
+          action: win_ping
+          register: winping_test
+          changed_when: no
+
+        - name: "Ping test via module net_ping"
+          delegate_to: localhost
+          when:
+            - "'windows' not in group_names"
+            - "'linux' not in group_names"
+          net_ping:
+            dest: "{{ ansible_host }}"
+          register: netping_test
+          changed_when: no
+
+        - name: display ping test results
+          debug:
+            msg:
+              - "ping_test={{ ping_test | to_nice_json }}"
+              - "winping_test={{ winping_test | to_nice_json }}"
+              - "netping_test={{ netping_test | to_nice_json }}"
+
+        - name: "Setting ping_failed[1]"
+          delegate_to: localhost
+          when:
+            - not item.skipped|d(false)
+          set_fact:
+            ping_failed: "{{ item.unreachable|d(item.failed)|d(true) }}"
+          loop:
+            - "{{ ping_test }}"
+            - "{{ winping_test }}"
+            - "{{ netping_test }}"
+
+      rescue:
+
+        - name: "Additional tests via CLI"
+          block:
+
+            - name: ping test via CLI
+              delegate_to: localhost
+#              become: yes
+              command: "ping -c 1 -w 2 {{ ansible_host }}"
+              register: ping_cli_test
+              changed_when: no
+
+            - name: "Setting ping_failed"
+              set_fact:
+                ping_failed: "{{ ping_cli_test.failed }}"
+
+          rescue:
+            - name: alternative connection test via bash - this assumes we could not run ping for some bizarre reason
+              delegate_to: localhost
+              block:
+                - name: bash connectivity test
+#                  become: yes
+                  command: "timeout 3 bash -c '</dev/tcp/{{ ansible_host }}/22'"
+                  register: bash_connectivity_test
+                  changed_when: no
+                  ignore_errors: true
+
+                - name: "Setting ping_failed[2]"
+                  set_fact:
+                    ping_failed: "{{ bash_connectivity_test.failed }}"
+
+                - name: display test results
+                  debug:
+                    msg:
+                      - "ping_cli_test={{ ping_cli_test | to_nice_json }}"
+                      - "bash_connectivity_test={{ bash_connectivity_test | to_nice_json }}"
+
+    - name: Display ping_failed
+      debug:
+        var: ping_failed
+
+    - name: set ping_failed_host_list
+      delegate_to: localhost
+      run_once: True
+      block:
+
+        - name: set ping_failed_host_list
+          when: hostvars[item].ping_failed|d(true)
+          set_fact:
+            ping_failed_host_list: "{{ ping_failed_host_list|d([]) + [item] }}"
+          loop: "{{ ansible_play_hosts_all }}"
+
+        - name: Display ping_failed_host_list
+          debug:
+            var: ping_failed_host_list
+
+        - name: "Add hosts with ping_failed to group 'node_offline'"
+          add_host:
+            name: "{{ item }}"
+            groups: node_offline
+          loop: "{{ ping_failed_host_list }}"
+
+
 
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
@@ -44,7 +143,7 @@
 
     - name: Set os info
       set_fact:
-        os_family: "{{ 'os_linux' if ansible_os_family|d('') in ['Debian', 'Redhat'] else ansible_os_family|d('Unknown') }}"
+        os_family: "{{ 'os_linux' if ansible_os_family|lower|d('') in ['debian', 'redhat'] else ansible_os_family|d('Unknown') }}"
         os_distribution: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}"
         os_distribution_version: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace('.','_') | replace(' ','_') }}"
 
@@ -63,8 +162,7 @@
         os_distribution_version: "os_vsphere_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
 
     - name: Set os info for windows
-#      when: ansible_os_family|d('')=="Windows"
-      when: ansible_os_family|d('') is search("Windows")
+      when: ansible_os_family|d('')|lower is search('windows')
       set_fact:
         os_family: "os_windows"
         os_distribution: "windows"

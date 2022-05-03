@@ -309,4 +309,5 @@ alias sshtest1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST1}"
 alias sshtest2="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST2}"
 alias sshatrnextd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRNEXTDS1S4}"
 alias sshatrup1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRUP1S4}"
-
+alias sshtime5s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S1}"
+alias sshtime5s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S4}"
