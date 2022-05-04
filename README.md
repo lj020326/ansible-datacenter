@@ -48,11 +48,16 @@ The pipeline automation library used can be found [here](https://github.com/lj02
 Configure the library in jenkins as seen below.
 ![Jenkins - Configure shared Pipeline Automation Library](./screenshots/ansible-datacenter-00-pipeline-library.png)
 
-
 ### Site Root folder
 
 A root folder for the ansible-datacenter environment can be setup similar to the following.
 ![Site Root](./screenshots/ansible-datacenter-0-toplevel.png)
+
+### Ansible Vault file credential
+
+Setup the ansible vault file credential to be used by the ansible playbook pipeline and passed into every play.
+If using the aforementioned [pipeline-automation-library](https://github.com/lj020326/pipeline-automation-lib), make sure the credential ID is 'ansible-vault-pwd-file'.
+![Ansible Vault File Credential](./screenshots/ansible-datacenter-0b-vault-file-credential.png)
 
 ### Inventory Environment folders
 
