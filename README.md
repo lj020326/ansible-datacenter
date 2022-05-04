@@ -57,7 +57,7 @@ A root folder for the ansible-datacenter environment can be setup similar to the
 
 Setup the ansible vault file credential to be used by the ansible playbook pipeline and passed into every play.
 If using the aforementioned [pipeline-automation-library](https://github.com/lj020326/pipeline-automation-lib), make sure the credential ID is 'ansible-vault-pwd-file'.
-![Ansible Vault File Credential](./docs/screenshots/ansible-datacenter-0b-vault-file-credential.png)
+![Ansible Vault File Credential](./docs/screenshots/ansible-datacenter-0b-secret-file-credential.png)
 
 ### Inventory Environment folders
 
