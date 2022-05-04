@@ -39,154 +39,6 @@ The vault file used has to have the name private_vars.yml. Ensure your editor en
 Running the command above will ask you for a password to encrypt with, and open an editor. In that file set the variables highlighted in the secrets.yml.example file.
 
 
-## Command Line Usage
-
-### Display/Debug any vars
-
-```bash
-ansible all -m debug -a var=groups['ca_domain']
-ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_port
-ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_winrm_transport
-ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_host
-```
-
-
-### Setup and Run the datacenter playbook roles
-
-## Run playbooks
-
-Run site-setup play:
-
-`ansible-playbook site.yml`
-
-Run site-setup play with a tag:
-
-```
-ansible-playbook site.yml --tags docker-media-node
-```
-
-
-Run plays for specific configuration needed
-
-To run ansible commands from ansible/control node:
-
-```bash
-ansible -v -m ping
-ansible -m ping ubuntu18
-```
-
-Run play for specific node:
-
-```bash
-ansible-playbook site.yml --tags display-hostvars --limit admin01
-ansible-playbook site.yml --tags install-cacerts --limit media01
-```
-
-
-Run a play for a specific group of nodes:
-
-```bash
-ansible-playbook site.yml --tags install-cacerts --limit windows
-ansible-playbook site.yml --tags install-cacerts --limit os_Ubuntu
-ansible-playbook site.yml -t display-hostvars -l os_CentOS
-ansible-playbook site.yml -t display-hostvars -l docker
-```
-
-E.g., Run site setup play on control node with a tag from windows/msys shell.
-
-```
-ansible-playbook site.yml --tags bootstrap-ansible
-ansible-playbook site.yml --tags bootstrap-bind
-ansible-playbook site.yml --tags bootstrap-cacert
-ansible-playbook site.yml --tags bootstrap-caroot
-ansible-playbook site.yml --tags bootstrap-cicd
-ansible-playbook site.yml --tags bootstrap-docker
-ansible-playbook site.yml --tags bootstrap-docker-stack
-ansible-playbook site.yml --tags bootstrap-idrac
-ansible-playbook site.yml --tags bootstrap-jenkins-agent
-ansible-playbook site.yml --tags bootstrap-keyring
-ansible-playbook site.yml --tags bootstrap-kvm
-ansible-playbook site.yml --tags bootstrap-ldap-client
-ansible-playbook site.yml --tags bootstrap-linux
-ansible-playbook site.yml --tags bootstrap-mergerfs
-ansible-playbook site.yml --tags bootstrap-linux-core
-ansible-playbook site.yml --tags bootstrap-ntp
-ansible-playbook site.yml --tags bootstrap-openstack
-ansible-playbook site.yml --tags bootstrap-openstack-cloud
-ansible-playbook site.yml --tags bootstrap-postfix
-ansible-playbook site.yml --tags bootstrap-proxmox
-ansible-playbook site.yml --tags bootstrap-stepcli
-ansible-playbook site.yml --tags bootstrap-user
-ansible-playbook site.yml --tags bootstrap-vmware-esxi
-ansible-playbook site.yml --tags build-docker-images
-ansible-playbook site.yml --tags deploy-cacerts
-ansible-playbook site.yml --tags deploy-vm
-ansible-playbook site.yml --tags deploy-vsphere-dc
-ansible-playbook site.yml --tags display-hostvars
-ansible-playbook site.yml --tags docker-admin-node
-ansible-playbook site.yml --tags docker-control-node
-ansible-playbook site.yml --tags docker-media-node
-ansible-playbook site.yml --tags docker-samba-node
-ansible-playbook site.yml --tags deploy-nfs-service
-ansible-playbook site.yml --tags vmware-remount-datastores
-ansible-playbook site.yml --tags upgrade-vmware-esxi
-```
-
-Setup vsphere dc
-```bash
-ansible-playbook site.yml --tags deploy-vsphere-dc
-```
-
-Deploy VMs
-```bash
-ansible-playbook site.yml --tags deploy-vm
-```
-
-Bootstrap VM nodes if needed
-Note: This is not used any longer since this is now performed from the jenkins pipeline.
-The jenkins pipeline is responsible for building VM template images using packer.
-The vm image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildVmTemplate.groovy).
-
-```bash
-ansible-playbook site.yml --tags bootstrap-linux --limit admin02
-```
-
-Bootstrap node network config *should not be necessary since this is mostly done in deploy-VM
-```bash
-ansible-playbook site.yml --tags bootstrap-network --limit node01
-```
-
-Docker stack plays
-```bash
-ansible-playbook site.yml --tags docker-admin-node
-ansible-playbook site.yml --tags docker-media-node
-```
-
-Useful commands to build/update/configure datacenter:
-
-```bash
-ansible-playbook site.yml --tags bootstrap-bind
-ansible-playbook site.yml --tags bootstrap-docker
-ansible-playbook site.yml --tags bootstrap-linux-core
-ansible-playbook site.yml --tags bootstrap-openstack
-ansible-playbook site.yml --tags bootstrap-openstack-cloud
-ansible-playbook site.yml --tags bootstrap-user
-ansible-playbook site.yml --tags bootstrap-vmware-esxi
-ansible-playbook site.yml --tags build-docker-images
-ansible-playbook site.yml --tags cacerts-deploy
-ansible-playbook site.yml --tags deploy-vm
-ansible-playbook site.yml --tags deploy-vsphere-dc
-ansible-playbook site.yml --tags display-hostvars
-ansible-playbook site.yml --tags docker-admin-node
-ansible-playbook site.yml --tags docker-media-node
-ansible-playbook site.yml --tags fetch-osimages
-ansible-playbook site.yml --tags iscsi-client
-ansible-playbook site.yml --tags nfs-service
-ansible-playbook site.yml --tags vmware-remount-datastores
-ansible-playbook site.yml --tags upgrade-vmware-esxi
-```
-
-
 ## Jenkins Pipeline Usage
 
 ### Setup pipeline automation library used by all jenkins jobs
@@ -441,3 +293,152 @@ ansible-playbook site.yml --tags docker-admin-node
 ansible-playbook site.yml --tags docker-media-node
 gethist | grep remote | uniq >> ./README.md 
 ```
+
+
+## Command Line Usage
+
+### Display/Debug any vars
+
+```bash
+ansible all -m debug -a var=groups['ca_domain']
+ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_port
+ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_winrm_transport
+ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_host
+```
+
+
+### Setup and Run the datacenter playbook roles
+
+## Run playbooks
+
+Run site-setup play:
+
+`ansible-playbook site.yml`
+
+Run site-setup play with a tag:
+
+```
+ansible-playbook site.yml --tags docker-media-node
+```
+
+
+Run plays for specific configuration needed
+
+To run ansible commands from ansible/control node:
+
+```bash
+ansible -v -m ping
+ansible -m ping ubuntu18
+```
+
+Run play for specific node:
+
+```bash
+ansible-playbook site.yml --tags display-hostvars --limit admin01
+ansible-playbook site.yml --tags install-cacerts --limit media01
+```
+
+
+Run a play for a specific group of nodes:
+
+```bash
+ansible-playbook site.yml --tags install-cacerts --limit windows
+ansible-playbook site.yml --tags install-cacerts --limit os_Ubuntu
+ansible-playbook site.yml -t display-hostvars -l os_CentOS
+ansible-playbook site.yml -t display-hostvars -l docker
+```
+
+E.g., Run site setup play on control node with a tag from windows/msys shell.
+
+```
+ansible-playbook site.yml --tags bootstrap-ansible
+ansible-playbook site.yml --tags bootstrap-bind
+ansible-playbook site.yml --tags bootstrap-cacert
+ansible-playbook site.yml --tags bootstrap-caroot
+ansible-playbook site.yml --tags bootstrap-cicd
+ansible-playbook site.yml --tags bootstrap-docker
+ansible-playbook site.yml --tags bootstrap-docker-stack
+ansible-playbook site.yml --tags bootstrap-idrac
+ansible-playbook site.yml --tags bootstrap-jenkins-agent
+ansible-playbook site.yml --tags bootstrap-keyring
+ansible-playbook site.yml --tags bootstrap-kvm
+ansible-playbook site.yml --tags bootstrap-ldap-client
+ansible-playbook site.yml --tags bootstrap-linux
+ansible-playbook site.yml --tags bootstrap-mergerfs
+ansible-playbook site.yml --tags bootstrap-linux-core
+ansible-playbook site.yml --tags bootstrap-ntp
+ansible-playbook site.yml --tags bootstrap-openstack
+ansible-playbook site.yml --tags bootstrap-openstack-cloud
+ansible-playbook site.yml --tags bootstrap-postfix
+ansible-playbook site.yml --tags bootstrap-proxmox
+ansible-playbook site.yml --tags bootstrap-stepcli
+ansible-playbook site.yml --tags bootstrap-user
+ansible-playbook site.yml --tags bootstrap-vmware-esxi
+ansible-playbook site.yml --tags build-docker-images
+ansible-playbook site.yml --tags deploy-cacerts
+ansible-playbook site.yml --tags deploy-vm
+ansible-playbook site.yml --tags deploy-vsphere-dc
+ansible-playbook site.yml --tags display-hostvars
+ansible-playbook site.yml --tags docker-admin-node
+ansible-playbook site.yml --tags docker-control-node
+ansible-playbook site.yml --tags docker-media-node
+ansible-playbook site.yml --tags docker-samba-node
+ansible-playbook site.yml --tags deploy-nfs-service
+ansible-playbook site.yml --tags vmware-remount-datastores
+ansible-playbook site.yml --tags upgrade-vmware-esxi
+```
+
+Setup vsphere dc
+```bash
+ansible-playbook site.yml --tags deploy-vsphere-dc
+```
+
+Deploy VMs
+```bash
+ansible-playbook site.yml --tags deploy-vm
+```
+
+Bootstrap VM nodes if needed
+Note: This is not used any longer since this is now performed from the jenkins pipeline.
+The jenkins pipeline is responsible for building VM template images using packer.
+The vm image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildVmTemplate.groovy).
+
+```bash
+ansible-playbook site.yml --tags bootstrap-linux --limit admin02
+```
+
+Bootstrap node network config *should not be necessary since this is mostly done in deploy-VM
+```bash
+ansible-playbook site.yml --tags bootstrap-network --limit node01
+```
+
+Docker stack plays
+```bash
+ansible-playbook site.yml --tags docker-admin-node
+ansible-playbook site.yml --tags docker-media-node
+```
+
+Useful commands to build/update/configure datacenter:
+
+```bash
+ansible-playbook site.yml --tags bootstrap-bind
+ansible-playbook site.yml --tags bootstrap-docker
+ansible-playbook site.yml --tags bootstrap-linux-core
+ansible-playbook site.yml --tags bootstrap-openstack
+ansible-playbook site.yml --tags bootstrap-openstack-cloud
+ansible-playbook site.yml --tags bootstrap-user
+ansible-playbook site.yml --tags bootstrap-vmware-esxi
+ansible-playbook site.yml --tags build-docker-images
+ansible-playbook site.yml --tags cacerts-deploy
+ansible-playbook site.yml --tags deploy-vm
+ansible-playbook site.yml --tags deploy-vsphere-dc
+ansible-playbook site.yml --tags display-hostvars
+ansible-playbook site.yml --tags docker-admin-node
+ansible-playbook site.yml --tags docker-media-node
+ansible-playbook site.yml --tags fetch-osimages
+ansible-playbook site.yml --tags iscsi-client
+ansible-playbook site.yml --tags nfs-service
+ansible-playbook site.yml --tags vmware-remount-datastores
+ansible-playbook site.yml --tags upgrade-vmware-esxi
+```
+
