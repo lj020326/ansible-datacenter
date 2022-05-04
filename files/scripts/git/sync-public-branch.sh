@@ -105,7 +105,6 @@ inventory
 library
 playbooks
 roles
-screenshots
 scripts
 tests
 vars
