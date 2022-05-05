@@ -1,4 +1,7 @@
 
+Ansible: Getting list of failed hosts and using in a subsequent play
+===
+
 Handling the ansible inventory can have some frustrating characteristics – one of which is the difficulty in capturing lists of hosts which have failed and carrying out remedial operations.
 
 ##### First Attempt
@@ -164,3 +167,7 @@ Here’s the playbook in full –
 ```
 
 At the bottom is just a quick debug to print out the contents of each list. My plan here would be to create these groups for each task I need to check and use them to determine what subsequent plays to run on the hosts.
+
+## Reference
+
+* https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
