@@ -30,12 +30,6 @@ At a high level, there are two flavors of playbooks:<br>
   * API controller based - in this case the play is run locally on the ansible controller and specifies an API destination to send all related information regarding the ultimate target node.
 
 
-# Next Steps - Proof of Concepts (POCs)
-
-The goal for automation support for multiple environments can be achieved with a series of iterations, or proof of concepts (POCs), to be deployed into the runtime production tower environment.
-
-A recommended first set of POCs could look like the following:
-
 ## Separate playbook runtime environments per best practice
 
 * Set up implementation to derive environmental information based on ansible multi-env variable grouping [best practices referenced here](../../../../ansible/how-to-manage-multistage-environments-with-ansible.md).
