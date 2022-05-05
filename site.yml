@@ -1,14 +1,13 @@
 ---
 
-
 - name: "Pre-check | Perform simple connectivity (ping) tests to pre-determine nodes that are offline"
   hosts: all,!node_offline,!local
   tags: always
-  become: yes
+#  become: yes
   ignore_unreachable: yes
-#  ignore_errors: yes
-#  gather_facts: no
-  gather_facts: yes
+  gather_facts: no
+  vars_files:
+    - vars/secrets.yml
   tasks:
 
     ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
@@ -16,16 +15,15 @@
       block:
 
         - name: "Ping test via module ping"
-#          when: "'linux' in group_names"
-          when: ansible_os_family|d('')|lower in ['debian', 'redhat']
-#          become: yes
+#          when: ansible_os_family|d('')|lower in ['debian', 'redhat']
+          when: "'os_linux' in group_names"
           action: ping
           register: ping_test
           changed_when: no
 
         - name: "Ping test via module win_ping"
-#          when: "'windows' in group_names"
-          when: ansible_os_family|d('')|lower is search('windows')
+#          when: ansible_os_family|d('')|lower is search('windows')
+          when: "'os_windows' in group_names"
           action: win_ping
           register: winping_test
           changed_when: no
@@ -33,8 +31,8 @@
         - name: "Ping test via module net_ping"
           delegate_to: localhost
           when:
-            - "'windows' not in group_names"
-            - "'linux' not in group_names"
+            - "'os_windows' not in group_names"
+            - "'os_linux' not in group_names"
           net_ping:
             dest: "{{ ansible_host }}"
           register: netping_test
@@ -65,7 +63,7 @@
 
             - name: ping test via CLI
               delegate_to: localhost
-  #            become: yes
+              become: yes
               command: "ping -c 1 -w 2 {{ ansible_host }}"
               register: ping_cli_test
               changed_when: no
@@ -79,7 +77,7 @@
               delegate_to: localhost
               block:
                 - name: bash connectivity test
-  #                become: yes
+                  become: yes
                   command: "timeout 3 bash -c '</dev/tcp/{{ ansible_host }}/22'"
                   register: bash_connectivity_test
                   changed_when: no
@@ -95,32 +93,33 @@
                   set_fact:
                     ping_failed: "{{ bash_connectivity_test.unreachable|d(bash_connectivity_test.failed)|d(true) }}"
 
-
     - name: Display ping_failed
       debug:
         var: ping_failed
 
-    - name: set ping_failed_host_list
-      delegate_to: localhost
-      run_once: True
+    ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-unreachable-host-handling.md
+    - name: "Preliminary pre-check connection test host info"
+      run_once: true
       block:
 
-        - name: set ping_failed_host_list
+        - name: "Set unreachable_hosts"
           when: hostvars[item].ping_failed|d(true)
           set_fact:
-            ping_failed_host_list: "{{ ping_failed_host_list|d([]) + [item] }}"
+            unreachable_hosts: "{{ unreachable_hosts|d([]) + [item] }}"
           loop: "{{ ansible_play_hosts_all }}"
 
-        - name: Display ping_failed_host_list
+        - name: "Display pre-check connection info"
           debug:
-            var: ping_failed_host_list
+            msg:
+              - "ansible_play_hosts_all={{ ansible_play_hosts_all }}"
+              - "ansible_play_hosts={{ ansible_play_hosts }}"
+              - "unreachable_hosts={{ unreachable_hosts }}"
 
-        - name: "Add hosts with ping_failed to group 'node_offline'"
+        - name: "Add unreachable_hosts to group 'node_offline'"
           add_host:
             name: "{{ item }}"
             groups: node_offline
-          loop: "{{ ping_failed_host_list }}"
-
+          loop: "{{ unreachable_hosts }}"
 
 
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
@@ -288,7 +287,8 @@
       tags: debug_info
 
 
-- hosts: all,!node_offline
+- name: "Display hostvars"
+  hosts: all,!node_offline
   gather_facts: true
   tags:
     - debug-hostvars

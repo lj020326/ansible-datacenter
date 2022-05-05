@@ -282,8 +282,8 @@ container_user_name: "container-user"
 container_user_uid: 1102
 container_user_gid: 1102
 
-sha512_hashed_root_password: "{{ '00000000000000000000000000000000000000000' | password_hash('sha512') }}"
-sha512_hashed_admin_password: "{{ '00000000000000000000000000000000000000000' | password_hash('sha512') }}"
+sha512_hashed_root_password: "{{ '00000000000000000000000000000000000000000' | password_hash('sha512',65534 | random(seed=hash_seed) | string) }}"
+sha512_hashed_admin_password: "{{ '00000000000000000000000000000000000000000' | password_hash('sha512',65534 | random(seed=hash_seed) | string) }}"
 
 linux_users:
   - name: root
@@ -293,34 +293,35 @@ linux_users:
       private: '{{ admin_ssh_private_key }}'
       public: '{{ admin_ssh_public_key }}'
 
+  ## ref: https://unix.stackexchange.com/questions/343445/user-id-less-than-1000-on-centos-7
   - name: administrator
     system: yes
     groups: "{{ admin_sudo_group }}"
     generate_ssh_key: no
-    auth_key: "{{ admin_ssh_public_key }}"
     ssh_keypair:
       private: '{{ admin_ssh_private_key }}'
       public: '{{ admin_ssh_public_key }}'
+    auth_key: "{{ admin_ssh_public_key }}"
     hashed_password: "{{ sha512_hashed_admin_password }}"
-#    uid: 1100
-#    gid: 1100
+    uid: 400
+    gid: 400
     password_valid_days: 99999
 
   - name: ansible
     system: yes
     groups: "{{ admin_sudo_group }}"
-#    generate_ssh_key: yes
+    generate_ssh_key: no
     ssh_keypair:
-      private: '{{ admin_ssh_private_key }}'
-      public: '{{ admin_ssh_public_key }}'
+      private: '{{ ansible_ssh_private_keyfile }}'
+      public: '{{ ansible_ssh_public_keyfile }}'
     ## How to use Credentials in AWX playbook
     ## Using custom credential to store public ssh keys (for now)
     ## ref: https://groups.google.com/forum/#!topic/awx-project/ce95ooS2sp0
     ## ref: https://termlen0.github.io/2019/06/08/observations/
-    auth_key: "{{ admin_ssh_public_key }}"
+    auth_key: "{{ ansible_ssh_public_keyfile }}"
     hashed_password: "{{ sha512_hashed_ansible_password }}"
-#    uid: 1101
-#    gid: 1101
+    uid: 401
+    gid: 401
     password_valid_days: 99999
 
   #  - name: deployer
