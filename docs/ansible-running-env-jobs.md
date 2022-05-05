@@ -36,25 +36,6 @@ The goal for automation support for multiple environments can be achieved with a
 
 A recommended first set of POCs could look like the following:
 
-
-## Ansible Tower POCs
-
-* Set up properly scoped machine credentials for each respective environment (DEV/TEST/PROD)
-  * The new credential scheme should look like the following: 
-
-  Ansible Credential Name | Environment | Type | Target Scope/Purpose
-  ---|---|---|---
-  "PROD - Linux" | PROD | Machine | Linux machines
-  "PROD - Windows Administrator" | PROD | Machine | Windows non-domain machines
-  "PROD - Windows Domain Credential" | PROD | Machine | Windows domain machines
-  "TEST - Linux" | TEST | Machine | Linux machines
-  "TEST - Windows Administrator" | TEST | Machine | Windows non-domain machines
-  "TEST - Windows Domain Credential" | TEST | Machine | Windows domain machines
-  "DEV - Linux" | DEV | Machine | Linux machines
-  "DEV - Windows Administrator" | DEV | Machine | Windows non-domain machines
-  "DEV - Windows Domain Credential" | DEV | Machine | Windows domain machines
-
-
 ## Separate playbook runtime environments per best practice
 
 * Set up implementation to derive environmental information based on ansible multi-env variable grouping [best practices referenced here](../../../../ansible/how-to-manage-multistage-environments-with-ansible.md).
