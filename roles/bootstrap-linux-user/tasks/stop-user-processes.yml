@@ -1,0 +1,32 @@
+---
+
+## ref: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
+- name: "Get running processes"
+  shell: "ps -ef | grep -v grep | grep -w {{ item.name }} | awk '{print $2}'"
+  loop: "{{ __bootstrap_linux_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: running_processes
+
+- name: "Display running_processes | map(attribute='stdout_lines') | list"
+  debug:
+    var: running_processes | map(attribute='stdout_lines') | list
+
+- name: "Kill running processes"
+  shell: "kill {{ item }}"
+  with_items: "{{ running_processes.results | map(attribute='stdout_lines') | list }}"
+  register: shell_cmd
+  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* - No such process") )
+
+- wait_for:
+    path: "/proc/{{ item }}/status"
+    state: absent
+  with_items: "{{ running_processes.results | map(attribute='stdout_lines') | list }}"
+  ignore_errors: yes
+  register: killed_processes
+
+- name: Force kill stuck processes
+  shell: "kill -9 {{ item }}"
+  with_items: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
+  register: shell_cmd
+  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* - No such process") )

@@ -1,3 +1,5 @@
+---
+
 - name: "Pre-check | Perform simple connectivity (ping) tests to pre-determine nodes that are offline"
   hosts: all,!node_offline,!local
   tags: always
@@ -10,6 +12,7 @@
 
     ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
     - name: "Ping test via module"
+      when: inventory_hostname in ansible_play_hosts_all
       block:
 
         - name: "Ping test via module ping"
@@ -111,9 +114,10 @@
             msg:
               - "ansible_play_hosts_all={{ ansible_play_hosts_all }}"
               - "ansible_play_hosts={{ ansible_play_hosts }}"
-              - "unreachable_hosts={{ unreachable_hosts }}"
+              - "unreachable_hosts={{ unreachable_hosts|d([]) }}"
 
         - name: "Add unreachable_hosts to group 'node_offline'"
+          when: unreachable_hosts|d([])|length>0
           add_host:
             name: "{{ item }}"
             groups: node_offline

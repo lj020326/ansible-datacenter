@@ -12,6 +12,7 @@
 
     ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
     - name: "Ping test via module"
+      when: inventory_hostname in ansible_play_hosts_all
       block:
 
         - name: "Ping test via module ping"
@@ -113,9 +114,10 @@
             msg:
               - "ansible_play_hosts_all={{ ansible_play_hosts_all }}"
               - "ansible_play_hosts={{ ansible_play_hosts }}"
-              - "unreachable_hosts={{ unreachable_hosts }}"
+              - "unreachable_hosts={{ unreachable_hosts|d([]) }}"
 
         - name: "Add unreachable_hosts to group 'node_offline'"
+          when: unreachable_hosts|d([])|length>0
           add_host:
             name: "{{ item }}"
             groups: node_offline
@@ -127,8 +129,6 @@
 ## ref: https://github.com/ansible/ansible/issues/20360
 - name: "Gather facts for all hosts to apply OS specific group vars for them"
   tags: always
-#  hosts: compute_node:!node_offline
-#  hosts: all:!node_offline
   hosts: all,!node_offline,!local
   ## https://issues.jenkins-ci.org/browse/JENKINS-54557
   ignore_unreachable: yes
@@ -206,6 +206,7 @@
   tasks:
 
     - name: Display important common variable information
+      when: inventory_hostname in ansible_play_hosts
       debug:
         msg:
           - "inventory_hostname={{ inventory_hostname | d('unknown') }}"
@@ -230,6 +231,36 @@
           - "docker_stack_internal_domain={{ docker_stack_internal_domain | d('') }}"
           - "ca_domain={{ ca_domain | d('unknown') }}"
           - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"
+
+## Debugging purposes: print all environment variables
+## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
+- name: "Debug: Print environment variables"
+#  hosts: compute_node,!node_offline
+  hosts: all,!node_offline
+  tags:
+    - display-envvars
+    - debug-envvars
+    - debug-env-vars
+  tasks:
+    - name: Print env var debug information
+      when: inventory_hostname in ansible_play_hosts
+      debug:
+        var: environment
+      tags: debug_info
+
+- name: "Display hostvars"
+  hosts: all,!node_offline
+  gather_facts: true
+  tags:
+    - debug-hostvars
+    - display-hostvars
+  tasks:
+    - name: Print host variable information
+      when: inventory_hostname in ansible_play_hosts
+      debug:
+        var: hostvars
+      tags: debug_info
+
 
 - name: "Display cert info"
   hosts: control_node,!local
@@ -266,126 +297,6 @@
           - "bind_zone_hosts_dynamic={{ bind_zone_hosts_dynamic | to_nice_json }}"
 
 
-
-## Debugging purposes: print all environment variables
-## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
-- name: "Debug: Print environment variables"
-  hosts: compute_node,!node_offline
-  tags:
-    - display-envvars
-    - debug-envvars
-    - debug-env-vars
-  tasks:
-    - name: Print env var debug information
-      vars:
-        msg: |
-          Environment Variables ("environment"):
-          --------------------------------
-          {{ environment | to_nice_json }}
-      debug:
-        msg: "{{ msg.split('\n') }}"
-      tags: debug_info
-
-
-- name: "Display hostvars"
-  hosts: all,!node_offline
-  gather_facts: true
-  tags:
-    - debug-hostvars
-    - display-hostvars
-  tasks:
-    ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
-    - name: Print host variable information
-      vars:
-        msg: |
-          Module Variables ("vars"):
-          --------------------------------
-          {{ vars | to_nice_json }}
-
-          Environment Variables ("environment"):
-          --------------------------------
-          {{ environment | to_nice_json }}
-
-          GROUP NAMES Variables ("group_names"):
-          --------------------------------
-          {{ group_names | to_nice_json }}
-
-          GROUPS Variables ("groups"):
-          --------------------------------
-          {{ groups | to_nice_json }}
-
-          HOST Variables ("hostvars"):
-          --------------------------------
-          {{ hostvars | to_nice_json }}
-
-      debug:
-        msg: "{{ msg.split('\n') }}"
-      tags: debug_info
-
-
-## Debugging purposes: print all internal variables
-## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
-- name: "Debug: Print internal variables"
-  hosts: compute_node,!node_offline
-  tags:
-    - debug-vars
-    - display-vars
-  tasks:
-    - name: "Print env var debug information for {{ inventory_hostname }}"
-      debug:
-        var: hostvars[inventory_hostname]
-    #   tags:
-    #     - debug-hostvars
-    #     - display-hostvars
-
-    - name: "Print ca_domains_dynamic"
-      debug:
-        var: ca_domains_dynamic
-      tags:
-        - debug-domain-vars
-        - display-domain-vars
-    - name: "Print bind_zone_hosts_dynamic"
-      debug:
-        var: bind_zone_hosts_dynamic
-      tags:
-        - debug-domain-vars
-        - display-domain-vars
-    - name: "Print ca_intermediate_certs_config"
-      debug:
-        var: ca_intermediate_certs_config
-      tags:
-        - debug-domain-vars
-        - display-domain-vars
-    - name: "Print ca_intermediate_certs_list_dynamic"
-      debug:
-        var: ca_intermediate_certs_list_dynamic
-      tags:
-        - debug-domain-vars
-        - display-domain-vars
-    - name: "Print ca_intermediate_certs_list"
-      debug:
-        var: ca_intermediate_certs_list
-      tags:
-        - debug-domain-vars
-        - display-domain-vars
-    - name: "Print ca_service_routes_list"
-      debug:
-        var: ca_service_routes_list
-      tags:
-        - debug-domain-vars
-        - display-domain-vars
-#    - name: Print env var debug information
-#      vars:
-#        msg: |
-#          Inventory Variables for {{ inventory_hostname }}:
-#          --------------------------------
-#          {{ hostvars[inventory_hostname] | to_nice_json }}
-#      debug:
-#        msg: "{{ msg.split('\n') }}"
-#      tags: debug_info
-
-
-
 - name: Get linux os configs
   hosts: os_linux,!local,!node_offline
   tags:
@@ -393,8 +304,6 @@
   gather_facts: false
   roles:
     - role: fetch-linux-os-configs
-
-
 
 ##
 ## make sure this is running as bootstrap user
@@ -404,22 +313,26 @@
 ## ref: https://stackoverflow.com/questions/41771725/ansible-2-1-2-playbook-pass-ssh-password-and-sudo-password-as-command-line-args
 ## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
 ##
-- name: "Bootstrap users"
-#  hosts: compute_node:!vmware_nested_esx
+- name: "Bootstrap linux users"
   hosts: os_linux,!local,!node_offline
   vars_files:
     - vars/secrets.yml
   vars:
     ansible_ssh_user: "{{ bootstrap_username }}"
+    ansible_user: "{{ bootstrap_username }}"
 #    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
   tags:
     - bootstrap-user
+    - bootstrap-linux-user
+    - bootstrap-linux
+    - bootstrap-node-core
+    - bootstrap-node
+    - deploy-vm
   become: yes
-#  become_method: sudo
   remote_user: "{{ bootstrap_username }}"
   gather_facts: false
   roles:
-    - role: bootstrap-user
+    - role: bootstrap-linux-user
 
 ## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
 ## ref: https://github.com/nathancurry/homelab.ansible/tree/master

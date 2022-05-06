@@ -14,11 +14,11 @@
 #ipv4_net_prefix: 16
 #ipv4_net_prefix: 8
 
-#ca_domains_hosted: []
-
-dns_search_domains:
-  - johnson.int
-  - dettonville.int
+bootstrap_linux_dns_domain: "{{ dns_domain }}"
+bootstrap_linux_dns_search_domains: "{{ dns_search_domains }}"
+bootstrap_linux_hostname_internal_domain: "{{ internal_domain }}"
+bootstrap_linux_hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
+bootstrap_linux_hostname_name_short: "{{ inventory_hostname_short }}"
 
 pki_cert_dir: /etc/ssl/certs
 pki_key_dir: /etc/ssl/private
@@ -28,8 +28,10 @@ ca_local_key_dir: /usr/local/ssl/private
 
 vmware_vm_gateway_ip: "{{ gateway_ip4 }}"
 
+## OS VM provisioned user used to initially bootstrap OS admin users
 #bootstrap_username: root
-bootstrap_username: administrator
+#bootstrap_username: administrator
+bootstrap_username: packer
 
 bootstrap_linux_ansible_username: "{{ ansible_user }}"
 bootstrap_linux_ansible_sshkey: "{{ '~/.ssh/id_rsa.pub' | expanduser }}"
@@ -280,32 +282,28 @@ bootstrap_linux_node_mounts:
 #    options: "rw,bind"
 
 
-#root_user:
-#  - name: root
-#    homedir: /root
-#    ssh_keypair:
-#      private: '{{ admin_ssh_private_key }}'
-#      public: '{{ admin_ssh_public_key }}'
-
 container_user_name: "container-user"
 container_user_uid: 1102
 container_user_gid: 1102
 
-sha512_hashed_root_password: "{{ '00000000000000000000000000000000000000000' | password_hash('sha512',65534 | random(seed=hash_seed) | string) }}"
-sha512_hashed_admin_password: "{{ '00000000000000000000000000000000000000000' | password_hash('sha512',65534 | random(seed=hash_seed) | string) }}"
+sha512_hashed_root_password: "00000000000000000000000000000000000000000"
+sha512_hashed_admin_password: "00000000000000000000000000000000000000000"
 
-linux_users:
-  - name: root
-    homedir: /root
-    hashed_password: "{{ sha512_hashed_root_password }}"
-    ssh_keypair:
-      private: '{{ admin_ssh_private_key }}'
-      public: '{{ admin_ssh_public_key }}'
+bootstrap_linux_root_user:
+  name: root
+  homedir: /root
+  hashed_password: "{{ sha512_hashed_root_password }}"
+  generate_ssh_key: no
+#  ssh_keypair:
+#    private: '{{ admin_ssh_private_key }}'
+#    public: '{{ admin_ssh_public_key }}'
+
+bootstrap_linux_users:
 
   ## ref: https://unix.stackexchange.com/questions/343445/user-id-less-than-1000-on-centos-7
   - name: administrator
     system: yes
-    groups: "{{ admin_sudo_group }}"
+    groups: "{{ bootstrap_linux_user_admin_sudo_group }}"
     generate_ssh_key: no
 #    generate_ssh_key: yes
     ssh_keypair:
@@ -319,7 +317,7 @@ linux_users:
 
   - name: ansible
     system: yes
-    groups: "{{ admin_sudo_group }}"
+    groups: "{{ bootstrap_linux_user_admin_sudo_group }}"
     generate_ssh_key: no
     ssh_keypair:
       private: "{{ ansible_ssh_private_key }}"
@@ -328,7 +326,7 @@ linux_users:
     ## Using custom credential to store public ssh keys (for now)
     ## ref: https://groups.google.com/forum/#!topic/awx-project/ce95ooS2sp0
     ## ref: https://termlen0.github.io/2019/06/08/observations/
-    auth_key: "{{ ansible_ssh_public_keyfile }}"
+    auth_key: "{{ admin_ssh_public_key }}"
     hashed_password: "{{ sha512_hashed_ansible_password }}"
     uid: 401
     gid: 401
@@ -341,8 +339,6 @@ linux_users:
     uid: "{{ container_user_uid }}"
     gid: "{{ container_user_gid }}"
 
-
-bootstrap_linux_users: "{{ linux_users }}"
 
 sysctl_overwrite:
   ## if docker/k8s, enable ipv4 forwarding
