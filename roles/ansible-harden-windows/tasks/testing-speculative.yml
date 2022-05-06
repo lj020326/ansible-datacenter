@@ -1,0 +1,45 @@
+---
+
+- name: Ensure nuget dependency is present
+  # win_chocolatey:
+  #   name: nuget.commandline
+  #   state: present
+  win_shell: "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force"
+
+- name: Temporarily trust PSGallery repository
+  win_shell: Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+- name: retrieve Module SpeculationControl
+  win_shell: "Install-Module SpeculationControl"
+  # win_psmodule:
+  #   name: SpeculationControl
+  #   state: present
+
+- name: execute SpeculationControl
+  win_shell: "Get-SpeculationControlSettings"
+  register: speculation
+
+- name: Debug | speculation
+  ansible.builtin.debug: var=speculation
+
+- name: untrust PSGallery repository
+  win_shell: Set-PSRepository -Name PSGallery -InstallationPolicy Untrusted
+
+# https://github.com/ionescu007/SpecuCheck
+- name: Download SpecuCheck
+  win_get_url:
+    url: https://github.com/ionescu007/SpecuCheck/releases/download/v1.1.0/SpecuCheck.exe
+    dest: "{{ harden_win_temp_dir }}\\SpecuCheck.exe"
+  register: dl_result
+  until: dl_result is success
+
+- name: Execute SpecuCheck
+  win_command: "\"{{ harden_win_temp_dir }}\\SpecuCheck.exe\""
+  register: specucheck
+  ignore_errors: true
+  changed_when: false
+  async: 60
+  poll: 5
+
+- name: Debug | specucheck output
+  ansible.builtin.debug: var=specucheck.stdout_lines

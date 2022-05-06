@@ -1,0 +1,87 @@
+---
+
+- block:
+    - name: testing | Ensure inspec is present
+      win_chocolatey:
+        name: inspec
+        state: present
+
+    - name: Restrict permissions for inspec directories
+      win_acl:
+        path: "{{ item.p }}"
+        user: "{{ item.u }}"
+        rights: "{{ item.r }}"
+        type: "{{ item.t }}"
+        state: "{{ item.s }}"
+        inherit: "{{ item.i }}"
+        propagation: "{{ item.pr }}"
+      with_items:
+        - { p: "c:\\opscode",
+            u: 'BUILTIN\Users',
+            r: 'Write,AppendData',
+            t: allow,
+            s: absent,
+            i: 'ContainerInherit, ObjectInherit',
+            pr: 'InheritOnly'
+        }
+        - { p: "c:\\opscode",
+            u: 'Authenticated Users',
+            r: 'Write,AppendData',
+            t: allow,
+            s: absent,
+            i: 'ContainerInherit, ObjectInherit',
+            pr: 'InheritOnly'
+        }
+
+    - name: testing | run windows-baseline
+      win_command: >
+        c:\opscode\inspec\bin\inspec.bat exec https://github.com/juju4/windows-baseline
+          >{{ harden_win_log_dir }}\inspec.log
+      failed_when: false
+      environment:
+        CHEF_LICENSE: accept-no-persist
+
+    - name: testing | inspec results
+      win_shell: "Get-Content -Path \"{{ harden_win_log_dir }}\\inspec.log\""
+      changed_when: false
+      failed_when: false
+
+  when: harden_win_testing_inspec|bool
+
+# https://blog.malwarebytes.com/security-world/technology/2017/11/when-you-shouldnt-trust-a-trusted-root-certificate/
+# FIXME! FATAL ERROR DURING FILE TRANSFER: ...
+# - name: Export trusted root certificates
+#   win_shell: >
+#     Get-ChildItem -Path cert:\currentuser\AuthRoot -Recurse |
+#       select Thumbprint, FriendlyName, Subject | ConvertTo-Html |
+#       Set-Content c:\users\public\desktop\certificates.html
+
+- import_tasks: testing-defender.yml
+  when: harden_win_testing_defender|bool
+
+- import_tasks: testing-uac.yml
+  when: harden_win_testing_uac|bool
+
+- import_tasks: testing-opf.yml
+  when: harden_win_testing_opf|bool
+
+- import_tasks: testing-speculative.yml
+  when: harden_win_testing_speculative|bool
+
+- import_tasks: testing-intelme.yml
+  when: harden_win_testing_intelme|bool
+
+- import_tasks: testing-iad.yml
+  when: harden_win_testing_iad|bool
+
+- import_tasks: testing-densityscout.yml
+  when: harden_win_testing_densityscout|bool
+
+# keep last. if defender catches it, may need to restart to complete cleaning/have ansible working again
+- import_tasks: testing-mimikatz.yml
+  when: harden_win_testing_mimikatz|bool
+
+# - name: Remove user _test
+#   win_user:
+#     name: _test
+#     state: absent

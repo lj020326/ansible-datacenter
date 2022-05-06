@@ -1,0 +1,144 @@
+---
+##******************************************************************************
+## Role: linux-hardening
+## File: tasks/sysctl.yml
+##******************************************************************************
+#- name: Recommended sysctl
+#  sysctl:
+#    name: "{{ item.name }}"
+#    value: "{{ item.value }}"
+#    state: present
+#    reload: no
+#    ignoreerrors: yes
+#  with_items: "{{ hardening_sysctl }}"
+#
+#- name: Remove sysctl
+#  sysctl:
+#    name: "{{ item.name }}"
+#    state: absent
+#    reload: no
+#    ignoreerrors: yes
+#  with_items: "{{ remove_sysctl }}"
+#
+#- name: os-harden-reload Sysctl
+#  command: /bin/true
+#  notify:
+#    - os-harden-reload sysctl.conf
+#    - os-harden-flush routes
+
+
+##
+## ansible-linux-hardening tasks below
+##
+
+- name: Protect sysctl.conf
+  file:
+    path: '/etc/sysctl.conf'
+    owner: 'root'
+    group: 'root'
+    mode: '0440'
+    state: touch
+    modification_time: preserve
+    access_time: preserve
+
+- name: Set Daemon umask, do config for rhel-family | NSA 2.2.4.1
+  template:
+    src: 'etc/sysconfig/rhel_sysconfig_init.j2'
+    dest: '/etc/sysconfig/init'
+    owner: 'root'
+    group: 'root'
+    mode: '0544'
+  when: ansible_facts.distribution in ['Amazon', 'CentOS', 'Fedora', 'RedHat']
+
+- name: Install initramfs-tools
+  apt:
+    name: 'initramfs-tools'
+    state: 'present'
+    update_cache: true
+  when:
+    - ansible_facts.os_family == 'Debian'
+    - os_security_kernel_enable_module_loading
+
+- name: Rebuild initramfs with starting pack of modules, if module loading at runtime is disabled
+  template:
+    src: 'etc/initramfs-tools/modules.j2'
+    dest: '/etc/initramfs-tools/modules'
+    owner: 'root'
+    group: 'root'
+    mode: '0440'
+  notify:
+    - os-harden-update-initramfs
+  when:
+    - ansible_facts.os_family == 'Debian'
+    - ansible_facts.distribution_major_version|int is version('9', '>')
+    - os_security_kernel_enable_module_loading
+  register: initramfs
+
+- name: Change sysctls
+  when: ansible_virtualization_type not in ['docker', 'openvz', 'lxc']
+  block:
+    - name: Create a combined sysctl-dict if overwrites are defined
+      set_fact:
+        sysctl_config: '{{ sysctl_config | combine(sysctl_overwrite) }}'
+      when: sysctl_overwrite | default()
+
+    - name: Change various sysctl-settings, look at the sysctl-vars file for documentation
+      sysctl:
+        name: '{{ item.key }}'
+        value: '{{ item.value }}'
+        sysctl_set: yes
+        state: present
+        reload: yes
+        ignoreerrors: yes
+      with_dict: '{{ sysctl_config }}'
+
+    - name: Change various sysctl-settings on rhel6-hosts or older, look at the sysctl-vars file for documentation
+      sysctl:
+        name: '{{ item.key }}'
+        value: '{{ item.value }}'
+        state: present
+        reload: yes
+        ignoreerrors: yes
+      with_dict: '{{ sysctl_rhel_config }}'
+      when: ((ansible_facts.distribution in ['CentOS', 'Fedora', 'RedHat']) and
+            ansible_distribution_version|int is version('7', '<')) or ansible_facts.distribution == 'Amazon'
+      notify:
+        - os-harden-reload sysctl.conf
+        - os-harden-flush routes
+
+
+- name: Apply ufw defaults
+  template:
+    src: 'etc/default/ufw.j2'
+    dest: '/etc/default/ufw'
+    mode: '0644'
+  when:
+    - ufw_manage_defaults
+    - ansible_facts.distribution in ['Debian', 'Ubuntu']
+  tags: ufw
+
+### ref: https://github.com/juju4/ansible-ipv6/blob/master/tasks/ipv6-grub-disable.yml
+#- name: "Disable ipv6 for Ubuntu <= 18"
+#  when: ansible_facts.distribution == 'Ubuntu' and ansible_distribution_major_version|int <= 18
+#  block:
+#
+#    - name: "Check if grub is present"
+#      stat: path=/etc/default/grub
+#      register: hasgrub
+#
+#    - name: "Disable IPv6 in grub"
+#      when: >
+#        not (ansible_virtualization_type is defined and
+#              (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
+#            ) and hasgrub.stat.exists and os_security_ipv6_grub_disable
+#      block:
+#        - name: "Update Grub - disable ipv6"
+#          replace:
+#            dest: /etc/default/grub
+#            regexp: '^GRUB_CMDLINE_LINUX="(.*)"'
+#            replace: 'GRUB_CMDLINE_LINUX="\1 ipv6.disable=1"'
+#            mode: '0644'
+#            backup: yes
+#          notify:
+##            - os-harden-grub2-mkconfig
+#            - os-harden-update-grub
