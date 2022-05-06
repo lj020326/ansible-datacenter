@@ -615,7 +615,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:21  
 11:46:21  TASK [bootstrap-linux-core : debug] ********************************************
 11:46:22  ok: [vmu20-01] => 
-11:46:22    __common_packages: []
+11:46:22    __bootstrap_linux_packages: []
 11:46:22  
 11:46:22  TASK [bootstrap-linux-core : Installing Common Packages] ***********************
 11:46:23  ok: [vmu20-01]
@@ -626,9 +626,9 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:29  TASK [bootstrap-linux-core : Setup environment] ********************************
 11:46:29  included: /workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/bootstrap-linux-core/tasks/env.yml for vmu20-01
 11:46:29  
-11:46:29  TASK [bootstrap-linux-core : Print common_configs_default_path info] ***********
+11:46:29  TASK [bootstrap-linux-core : Print bootstrap_linux_default_path info] ***********
 11:46:29  ok: [vmu20-01] => 
-11:46:29    common_configs_default_path: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+11:46:29    bootstrap_linux_default_path: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 11:46:29  
 11:46:29  TASK [bootstrap-linux-core : Set path in profile for all users] ****************
 11:46:30  ok: [vmu20-01]

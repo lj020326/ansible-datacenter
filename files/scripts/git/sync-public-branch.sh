@@ -167,3 +167,5 @@ echo "Pushing public branch update to github repository (as main branch):" && \
 git push -f -u github public:main || true && \
 echo "Finally, checkout master branch:" && \
 git checkout master
+
+chmod +x files/scripts/bashenv/*.sh
