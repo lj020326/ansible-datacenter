@@ -1,4 +1,4 @@
-# ansible-linux-hardening (Ansible Role)
+# ansible-harden-linux (Ansible Role)
 
 ## Description
 
