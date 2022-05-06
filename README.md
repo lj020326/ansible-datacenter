@@ -3,7 +3,9 @@ ansible-datacenter
 ===
 
 This is an ansible playbook that will configure your datacenter based on roles on Ubuntu/Centos linux servers.
+The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template repo here](https://github.com/lj020326/packer-templates) to build VMware Ubuntu/Centos templates. 
 
+The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
 
 ## Prerequisites
 
