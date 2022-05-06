@@ -1598,7 +1598,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:49:52  ok: [vmu20-01] => (item={'key': 'os_nologin_shell_path', 'value': '/usr/sbin/nologin'})
 11:49:52  ok: [vmu20-01] => (item={'key': 'os_shadow_perms', 'value': {'owner': 'root', 'group': 'shadow', 'mode': '0640'}})
 11:49:52  ok: [vmu20-01] => (item={'key': 'os_passwd_perms', 'value': {'owner': 'root', 'group': 'root', 'mode': '0644'}})
-11:49:52  ok: [vmu20-01] => (item={'key': 'os_env_umask', 'value': '027'})
+11:49:52  ok: [vmu20-01] => (item={'key': 'harden_linux_os_env_umask', 'value': '027'})
 11:49:52  ok: [vmu20-01] => (item={'key': 'os_auth_uid_min', 'value': 1000})
 11:49:52  ok: [vmu20-01] => (item={'key': 'os_auth_gid_min', 'value': 1000})
 11:49:52  ok: [vmu20-01] => (item={'key': 'os_auth_sys_uid_min', 'value': 100})

@@ -57,7 +57,7 @@
     update_cache: true
   when:
     - ansible_facts.os_family == 'Debian'
-    - os_security_kernel_enable_module_loading
+    - harden_linux_os_security_kernel_enable_module_loading
 
 - name: Rebuild initramfs with starting pack of modules, if module loading at runtime is disabled
   template:
@@ -71,7 +71,7 @@
   when:
     - ansible_facts.os_family == 'Debian'
     - ansible_facts.distribution_major_version|int is version('9', '>')
-    - os_security_kernel_enable_module_loading
+    - harden_linux_os_security_kernel_enable_module_loading
   register: initramfs
 
 - name: Change sysctls
@@ -79,8 +79,8 @@
   block:
     - name: Create a combined sysctl-dict if overwrites are defined
       set_fact:
-        sysctl_config: '{{ sysctl_config | combine(sysctl_overwrite) }}'
-      when: sysctl_overwrite | default()
+        sysctl_config: '{{ harden_linux_sysctl_config | combine(harden_linux_sysctl_overwrite) }}'
+      when: harden_linux_sysctl_overwrite | default()
 
     - name: Change various sysctl-settings, look at the sysctl-vars file for documentation
       sysctl:
@@ -90,7 +90,7 @@
         state: present
         reload: yes
         ignoreerrors: yes
-      with_dict: '{{ sysctl_config }}'
+      with_dict: '{{ harden_linux_sysctl_config }}'
 
     - name: Change various sysctl-settings on rhel6-hosts or older, look at the sysctl-vars file for documentation
       sysctl:
@@ -113,7 +113,7 @@
     dest: '/etc/default/ufw'
     mode: '0644'
   when:
-    - ufw_manage_defaults
+    - harden_linux_ufw_manage_defaults
     - ansible_facts.distribution in ['Debian', 'Ubuntu']
   tags: ufw
 
@@ -130,7 +130,7 @@
 #      when: >
 #        not (ansible_virtualization_type is defined and
 #              (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
-#            ) and hasgrub.stat.exists and os_security_ipv6_grub_disable
+#            ) and hasgrub.stat.exists and harden_linux_os_security_ipv6_grub_disable
 #      block:
 #        - name: "Update Grub - disable ipv6"
 #          replace:
