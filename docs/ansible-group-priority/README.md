@@ -1,5 +1,5 @@
 
-Variable precedences in group vars
+Variable merge precedence in group vars
 ===
 
 Say you have 3 files in group_vars:
@@ -79,7 +79,7 @@ In this example, if both groups have the same priority, the result would normall
 
 ## INI and YAML Inventory Examples
 
-On this page:
+The remaining sections will explore the following common child group prioritization example use cases:
 
 * [Example 1: Test with child groups having same depth](#Example-01)
 
@@ -92,6 +92,27 @@ On this page:
 * [Example 5: playbook using inventory](#Example-05)
 
 * [Example 6: Using group_by key groups with ansible_group_priority](#Example-06)
+
+The purpose here is to fully understand how to leverage child group vars especially with respect to deriving the expected behavior for variable merging. 
+
+The ansible environment used to perform the examples:
+
+```output
+$ git clone https://github.com/lj020326/ansible-inventory-file-examples.git
+$ cd ansible-inventory-file-examples
+$ git switch develop-lj
+$ cd tests/ansible-group-priority
+$ ansible --version
+ansible [core 2.12.3]
+  config file = None
+  configured module search path = ['/Users/ljohnson/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /Users/ljohnson/.pyenv/versions/3.10.2/lib/python3.10/site-packages/ansible
+  ansible collection location = /Users/ljohnson/.ansible/collections:/usr/share/ansible/collections
+  executable location = /Users/ljohnson/.pyenv/versions/3.10.2/bin/ansible
+  python version = 3.10.2 (main, Feb 21 2022, 15:35:10) [Clang 13.0.0 (clang-1300.0.29.30)]
+  jinja version = 3.1.0
+  libyaml = True
+```
 
 
 ## <a id="Example-01"></a>Example 1: Test with child groups having same depth
@@ -218,9 +239,9 @@ host1 | SUCCESS => {
 
 ### Groups and depth level
 
-The group 'cluster' is below group 'override' which is directly below 'top_group' making it 3 levels below the 'all' group, or put more simply as "3 levels deep".
+The group 'cluster' is below group 'override' which is directly below 'top_group' making it 3 levels below the 'all' group; in other terms, 'top_group' has a depth level of 3.
 
-Similarly, the 'product1' group is below 'product' which is below 'top_group' making it 3 levels below the 'all' group, or 3 levels deep.
+Similarly, the 'product1' group is below 'product' which is below 'top_group' making it 3 levels below the 'all' group; in other terms, 'product1' has a depth level of 3.
 
 Viewing the parent/child hierarchy in a tree format visualizes this well:
 
@@ -258,10 +279,9 @@ Remove the parent/child relationship of '[override]' from '[top_group]' group, i
   host1 
 ```
 
-As can be clearly seen above, the 'cluster' group has a child depth of 2 while the 'product1' and 'product2' groups each have child depths of 3.
+As can be clearly seen above, the 'cluster' group has a depth of 2 while the 'product1' and 'product2' groups each have depths of 3.
 
-The ini inventory implementing this hierarchy can be found in [hosts.ex3.ini](./hosts.ex2.ini):
-The yaml inventory implementing this hierarchy can be found in [hosts.ex3.yml](./hosts.ex2.yml):
+The INI inventory implementing this hierarchy can be found in [hosts.ex3.ini](./hosts.ex2.ini) and the equivalent YAML inventory implementing this hierarchy can be found in [hosts.ex3.yml](./hosts.ex2.yml):
 
 ```yaml
 all:
@@ -300,7 +320,7 @@ all:
                 host2: {}
 ```
 
-Now confirm that the results are as expected for the inventory:
+Now confirm that the results are as expected for the 2 equivalent inventory implementations:
 
 ```output
 ansible -i hosts.ex3.ini -m debug -a var=test host1
@@ -318,11 +338,11 @@ host1 | SUCCESS => {
 
 The results may not be what are expected, since the variable set in `product1` group always wins. 
 
-Even if the priority of the 'override' group and all of its child groups were set to the highest, in this case, 10, the 'test' variable results with the `product1` group.
+Even if the priority of the 'override' group and all of its child groups were set to the highest, in this case, 10, the 'test' variable is set by the `product1` group.
 
-The priority does not follow an intuitive merge path.  The deepest child group gets set and if multiple child group peers exist at the same depth, then the one with the greatest priority in that peer depth group will be set.  
+The priority does not follow an intuitive merge path.  The deepest child group gets set and if multiple child group peers exist at the same depth, then the one with the greatest priority in that peer depth group will be set.  If the priority is the same among multiple groups at the greatest depth, then alphabetical sort order is used with the last in the sort group winning. 
 
-To summarize, the child group having the greatest child depth and greatest priority within that depth will always win.
+To summarize in the case when using the ansible_group_priority variable, the child group having the greatest child depth and greatest priority within that depth will always win.
 
 ## <a id="Example-04"></a>Example 4: Validate prioritization with child groups
 
@@ -583,13 +603,14 @@ In turn, the combine_vars method uses the method [merge_hash](https://github.com
 Best guess is that when using the yaml-based inventory, the [merge hash method used by group.py ](https://github.com/ansible/ansible/blob/97e574fe6ea7a73ef8e42140e8be32c8cdbcaece/lib/ansible/inventory/group.py#L116) cannot properly resolve the group based on the parent-child group ancestory.
 Whereas in the case of the ini-based inventory, the merge_hash succeeds.
 
-## Conclusion
+## Conclusions
 
-In conclusion, from the testing done, the following deterministic rule/behavior is exhibited by the using ansible_group_priority with child groups:
+In conclusion, from the testing done, the variable merge path behavior is consistent when using ansible_group_priority with child groups with 1 exception noted.
 
-* The child group having the greatest child depth and greatest priority among peer-level child groups having the same depth will win.
+The exception occurs when using ansible group_by and key child groups with the YAML inventory.
 
-While the rule is deterministic, it may lead results as noted above that do not intuitively make sense.   E.g., using the rule just described, if a child group with depth 2 has ansible_group_priority of 10, it will lose to a child group with depth 3 that has ansible_group_priority set to 1.  This result was best demonstrated with example 2.
+If the use case involving ansible group_by and key child groups is desired, then it is best to use the INI inventory and avoid using the YAML inventory plugin for those specific cases. 
+
 
 ## References
 
@@ -598,6 +619,6 @@ While the rule is deterministic, it may lead results as noted above that do not 
 * https://github.com/ansible/ansible/blob/devel/lib/ansible/inventory/group.py
 * https://github.com/ansible/ansible/blob/stable-2.13/lib/ansible/plugins/vars/host_group_vars.py
 * https://stackoverflow.com/questions/38120793/ansible-group-vars-priority
-* [ansible-nested-groups-in-YAML-inventory-files](./../ansible-nested-groups-in-YAML-inventory-files.md)
+* [Managing "nested" group in Ansible YAML inventory files](https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-nested-groups-in-YAML-inventory-files.md)
 * 
 
