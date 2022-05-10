@@ -443,3 +443,21 @@ function gitupdatesub(){
   git submodule deinit -f . && \
   git submodule update --init --recursive --remote
 }
+
+unalias gitreinitrepo 1>/dev/null 2>&1
+unset -f gitreinitrepo || true
+function gitreinitrepo(){
+  SAVE_DATE=$(date +%Y%m%d_%H%M) && \
+  GIT_ORIGIN_REPO=$(git config --get remote.origin.url) && \
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  GIT_REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read GIT_REMOTE_REPO GIT_REMOTE_BRANCH <<< ${GIT_REMOTE_AND_BRANCH} && \
+  echo "reinitialize git repo and push to remote origin ${GIT_ORIGIN_REPO} [${GIT_REMOTE_REPO}] with branch ${GIT_REMOTE_BRANCH}" && \
+  mkdir -p save && \
+  mv .git save/.git.${SAVE_DATE} && \
+  git init && \
+  git remote add origin ${GIT_ORIGIN_REPO} && \
+  git add . && \
+  git commit -m "Initial commit" && \
+  git push -u --force origin ${GIT_REMOTE_BRANCH}
+}

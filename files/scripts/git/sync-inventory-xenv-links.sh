@@ -76,6 +76,11 @@ do
 
 done
 
+echo "creating links for roles"
+cd ${PROJECT_DIR}/roles/bootstrap-linux-user/files/
+RELPATH=$(pnrelpath "$PWD" "${PROJECT_DIR}")
+ln -sf ${RELPATH}/files/scripts/bashenv
+
 echo "creating links for useful project scripts"
 cd ${PROJECT_DIR}
 chmod +x ./files/scripts/git/*.sh

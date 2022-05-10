@@ -26,11 +26,23 @@
         state: started
         enabled: yes
 
+    - name: Install python-firewall on CentOS/RedHat
+#      when: ansible_os_family in ['RedHat']
+      when:
+        - ansible_os_family in ['RedHat']
+        - ansible_distribution_major_version|int<8
+      package:
+        name: python-firewall
+        state: present
+
 #    - name: Install python-firewall on CentOS/RedHat
+##      when: ansible_os_family in ['RedHat']
+#      when:
+#        - ansible_os_family in ['RedHat']
+#        - ansible_distribution_major_version|int==8
 #      package:
 #        name: python3-firewall
 #        state: present
-#      when: ansible_distribution in ['CentOS','RedHat','Fedora']
 
 - name: Configure firewalld.conf
   ini_file:
@@ -150,7 +162,7 @@
     - name: reload firewalld
       command: firewall-cmd --reload
 
-    - name: Enable firewalld
+    - name: Restart firewalld
       service:
         name: firewalld
         state: restarted
@@ -180,9 +192,7 @@
       when:
         - firewalld_zones|d([])|flatten|count>0
         - firewalld_ports|d([])|flatten|count>0
-#        - firewalld_ports is defined
       ansible.posix.firewalld:
-        # zone: "{{ firewalld_default_zone }}"
         zone: "{{ item.0.name }}"
         port: "{{ item.1 }}"
         permanent: true
