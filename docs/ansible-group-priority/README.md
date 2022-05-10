@@ -594,7 +594,7 @@ host1                      : ok=2    changed=0    unreachable=0    failed=0    s
 host2                      : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 ```
 
-While the ini inventory is as expected, the yaml inventory does not result as expected since the host2 did not appear with the 'test' variable set to 'cluster'.
+While the INI inventory is as expected, the YAML inventory does not result as expected since the host2 did not appear with the 'test' variable set to 'cluster'.
 
 ### TODO 
 Need to understand why group_by works for the INI but does not work for the YAML based inventory.
@@ -609,9 +609,9 @@ Best guess is that when using the YAML inventory, the [merge hash method used by
 
 In conclusion, from the testing done, the variable merge path behavior is consistent when using ansible_group_priority with child groups with 1 exception noted.
 
-The exception occurs when using ansible group_by and key child groups with the YAML inventory.
+The exception occurs when using ansible group_by and key child groups with the YAML inventory noted in [Example 6](#Example-06).
 
-If the use case involving ansible group_by and key child groups is desired, then it is best to use the INI inventory and avoid using the YAML inventory plugin for those specific cases. 
+If the use case involving ansible group_by and key child groups is desired and/or essential to your group variable method of use, then it is essential to use the INI inventory and avoid using the YAML inventory plugin for those specific cases until the inconsistent behavior is resolved by the ansible dev team. 
 
 
 ## References
