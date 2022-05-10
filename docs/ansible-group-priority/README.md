@@ -66,11 +66,13 @@ When groups of the same parent/child level are merged, it is done alphabetically
 
 Starting in Ansible version 2.4, users can use the group variable ansible_group_priority to change the merge order for groups of the same level (after the parent/child order is resolved). The larger the number, the later it will be merged, giving it higher priority. This variable defaults to 1 if not set. For example:
 
+```yaml
 a_group:
     testvar: a
     ansible_group_priority: 10
 b_group
     testvar: b
+```
 
 In this example, if both groups have the same priority, the result would normally have been testvar == b, but since we are giving the a_group a higher priority the result will be testvar == a.
 
