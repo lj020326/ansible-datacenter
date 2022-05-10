@@ -596,12 +596,14 @@ host2                      : ok=2    changed=1    unreachable=0    failed=0    s
 
 While the ini inventory is as expected, the yaml inventory does not result as expected since the host2 did not appear with the 'test' variable set to 'cluster'.
 
-TODO: Need to understand why group_by works for ini but does not work for yaml based inventory.
+### TODO 
+Need to understand why group_by works for the INI but does not work for the YAML based inventory.
+
 The variable set method [set_variable used in the group.py source](https://github.com/ansible/ansible/blob/97e574fe6ea7a73ef8e42140e8be32c8cdbcaece/lib/ansible/inventory/group.py#L244) uses the [util method combine_vars](https://github.com/ansible/ansible/blob/97e574fe6ea7a73ef8e42140e8be32c8cdbcaece/lib/ansible/utils/vars.py#L81). 
+
 In turn, the combine_vars method uses the method [merge_hash](https://github.com/ansible/ansible/blob/97e574fe6ea7a73ef8e42140e8be32c8cdbcaece/lib/ansible/utils/vars.py#L96).
 
-Best guess is that when using the yaml-based inventory, the [merge hash method used by group.py ](https://github.com/ansible/ansible/blob/97e574fe6ea7a73ef8e42140e8be32c8cdbcaece/lib/ansible/inventory/group.py#L116) cannot properly resolve the group based on the parent-child group ancestory.
-Whereas in the case of the ini-based inventory, the merge_hash succeeds.
+Best guess is that when using the YAML inventory, the [merge hash method used by group.py ](https://github.com/ansible/ansible/blob/97e574fe6ea7a73ef8e42140e8be32c8cdbcaece/lib/ansible/inventory/group.py#L116) cannot properly resolve the group based on the parent-child group ancestry.   Whereas in the case of the INI inventory, the merge_hash succeeds.
 
 ## Conclusions
 
