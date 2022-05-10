@@ -1,0 +1,115 @@
+---
+## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
+- name: "Ping test via module"
+  when: inventory_hostname in ansible_play_hosts_all
+  block:
+
+    - name: "Ping test via module ping"
+      when: "'linux' in group_names"
+      action: ping
+      register: ping_test
+      changed_when: no
+
+    - name: "Ping test via module win_ping"
+      when: "'windows' in group_names"
+      action: win_ping
+      register: winping_test
+      changed_when: no
+
+    ## https://docs.ansible.com/ansible/latest/network/user_guide/platform_index.html#settings-by-platform
+    ## https://github.com/ansible/ansible/blob/devel/docs/docsite/rst/network/user_guide/platform_index.rst
+    ## https://www.reddit.com/r/ansible/comments/9dn5ff/possible_values_for_ansible_network_os/
+    - name: "Ping test via module net_ping"
+      delegate_to: localhost
+      when: "'network_switch' in group_names"
+#      when:
+#        - "'windows' not in group_names"
+#        - "'linux' not in group_names"
+      net_ping:
+        dest: "{{ ansible_host }}"
+      register: netping_test
+      changed_when: no
+
+    - name: display ping test results
+      debug:
+        msg:
+          - "ping_test={{ ping_test | to_nice_json }}"
+          - "winping_test={{ winping_test | to_nice_json }}"
+          - "netping_test={{ netping_test | to_nice_json }}"
+
+    - name: "Setting ping_failed[1]"
+      delegate_to: localhost
+      when:
+        - not item.skipped|d(false)
+      set_fact:
+        ping_failed: "{{ item.unreachable|d(item.failed)|d(true) }}"
+      loop:
+        - "{{ ping_test }}"
+        - "{{ winping_test }}"
+        - "{{ netping_test }}"
+
+  rescue:
+
+    - name: "Additional tests via CLI"
+      block:
+
+        - name: ping test via CLI
+          delegate_to: localhost
+          become: yes
+          command: "ping -c 1 -w 2 {{ ansible_host }}"
+          register: ping_cli_test
+          changed_when: no
+
+        - name: "Setting ping_failed"
+          set_fact:
+            ping_failed: "{{ ping_cli_test.failed }}"
+
+      rescue:
+        - name: alternative connection test via bash - this assumes we could not run ping for some bizarre reason
+          delegate_to: localhost
+          block:
+            - name: bash connectivity test
+              become: yes
+              command: "timeout 3 bash -c '</dev/tcp/{{ ansible_host }}/22'"
+              register: bash_connectivity_test
+              changed_when: no
+              ignore_errors: true
+
+            - name: display test results
+              debug:
+                msg:
+                  - "ping_cli_test={{ ping_cli_test | to_nice_json }}"
+                  - "bash_connectivity_test={{ bash_connectivity_test | to_nice_json }}"
+
+            - name: "Setting ping_failed[2]"
+              set_fact:
+                ping_failed: "{{ bash_connectivity_test.unreachable|d(bash_connectivity_test.failed)|d(true) }}"
+
+- name: Display ping_failed
+  debug:
+    var: ping_failed
+
+## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-unreachable-host-handling.md
+- name: "Preliminary pre-check connection test host info"
+  run_once: true
+  block:
+
+    - name: "Set unreachable_hosts"
+      when: hostvars[item].ping_failed|d(true)
+      set_fact:
+        unreachable_hosts: "{{ unreachable_hosts|d([]) + [item] }}"
+      loop: "{{ ansible_play_hosts_all }}"
+
+    - name: "Display pre-check connection info"
+      debug:
+        msg:
+          - "ansible_play_hosts_all={{ ansible_play_hosts_all }}"
+          - "ansible_play_hosts={{ ansible_play_hosts }}"
+          - "unreachable_hosts={{ unreachable_hosts|d([]) }}"
+
+    - name: "Add unreachable_hosts to group 'node_offline'"
+      when: unreachable_hosts|d([])|length>0
+      add_host:
+        name: "{{ item }}"
+        groups: node_offline
+      loop: "{{ unreachable_hosts }}"
