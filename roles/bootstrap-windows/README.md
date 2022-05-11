@@ -27,14 +27,14 @@ Available variables are listed below, along with default values
 
 ```yaml
 # Find the available versions here https://www.spice-space.org/download/windows/vdagent/
-vdagent_win_version: 0.9.0
+bootstrap_windows_vdagent_win_version: 0.9.0
 
 # URL of the ansible-bootstrap-windows.iso
-virtio_win_iso_url: https://fedorapeople.org/groups/virt/ansible-bootstrap-windows/direct-downloads/latest-virtio/ansible-bootstrap-windows.iso
+bootstrap_windows_virtio_win_iso_url: https://fedorapeople.org/groups/virt/ansible-bootstrap-windows/direct-downloads/latest-virtio/ansible-bootstrap-windows.iso
 
 # Path where the are the files/directories from ansible-bootstrap-windows.iso (usually CD-ROM).
 # If this is set, then the ansible-bootstrap-windows.iso is going to be downloaded.
-virtio_win_iso_path: E:\\
+bootstrap_windows_virtio_win_iso_path: E:\\
 ```
 
 ## Dependencies
@@ -49,7 +49,7 @@ Windows 64 bit (amd64) (x64)
     - { role: ruzickap.ansible-bootstrap-windows }
     # or
     - role: ruzickap.ansible-bootstrap-windows
-      virtio_win_iso_path: 'E:\\'
+      bootstrap_windows_virtio_win_iso_path: 'E:\\'
 ```
 
 ## License

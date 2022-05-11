@@ -1,0 +1,69 @@
+# configures sshd_config for the server
+---
+- name: set the sshd_config Port value
+  win_lineinfile:
+    path: '{{ opt_openssh_install_path }}\sshd_config_default'
+    line: Port {{ opt_openssh_port }}
+    regexp: '^#?Port\s+'
+    state: present
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: set the sshd_config PubkeyAuthentication value
+  win_lineinfile:
+    path: '{{ opt_openssh_install_path }}\sshd_config_default'
+    line: PubkeyAuthentication {{ opt_openssh_pubkey_auth | ternary('yes', 'no') }}
+    regexp: '^#?PubkeyAuthentication\s+'
+    state: present
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: set the sshd_config PasswordAuthentication value
+  win_lineinfile:
+    path: '{{ opt_openssh_install_path }}\sshd_config_default'
+    line: PasswordAuthentication {{ opt_openssh_password_auth | ternary('yes', 'no') }}
+    regexp: '^#?PasswordAuthentication\s+'
+    state: present
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: set powershell subsystem
+  win_lineinfile:
+    path: '{{ opt_openssh_install_path }}\sshd_config_default'
+    line: "Subsystem\tpowershell\t{{ opt_openssh_powershell_subsystem }} -sshs -NoLogo -NoProfile"
+    state: present
+    insertafter: "^# override default of no subsystems"
+  when: opt_openssh_powershell_subsystem is defined
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: get the localised name for the Administrators group
+  win_shell: |
+    $bslash = [char]0x5C
+    $sid = New-Object -TypeName System.Security.Principal.SecurityIdentifier -ArgumentList "S-1-5-32-544"
+    ($sid.Translate([System.Security.Principal.NTAccount]).Value -split "$bslash$bslash")[1]
+  check_mode: no
+  register: pri_openssh_admin_name_raw
+  changed_when: False
+
+- name: process admin name from raw win_shell output
+  set_fact:
+    pri_openssh_admin_name: '{{ pri_openssh_admin_name_raw.stdout | trim }}'
+
+- name: set the admin_authorized_keys setting
+  win_sshd_config:
+    path: '{{ opt_openssh_install_path }}\sshd_config_default'
+    match_name: Group {{ pri_openssh_admin_name }}
+    name: AuthorizedKeysFile
+    value: '{{ (opt_openssh_shared_admin_key | bool) | ternary("__PROGRAMDATA__/ssh/administrators_authorized_keys", omit) }}'
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: check if the server config directory already exists
+  win_stat:
+    path: C:\ProgramData\ssh
+  register: pri_openssh_config_dir
+
+- name: copy the template sshd_config_default file to the actual service location
+  win_copy:
+    src: '{{ opt_openssh_install_path }}\sshd_config_default'
+    dest: C:\ProgramData\ssh\sshd_config
+    remote_src: True
+  when: pri_openssh_config_dir.stat.exists
+  notify:
+  - restart sshd service
