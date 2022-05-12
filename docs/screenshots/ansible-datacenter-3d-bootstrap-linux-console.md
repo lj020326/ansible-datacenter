@@ -108,7 +108,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:58  - geerlingguy.packer (master) is already installed, skipping.
 11:46:58  - gantsign.maven (master) is already installed, skipping.
 11:46:58  - bertvv.dhcp (master) is already installed, skipping.
-11:46:58  - avinetworks.docker (master) is already installed, skipping.
+11:46:58  - ansible-role-docker (master) is already installed, skipping.
 11:46:58  - githubixx.cfssl (master) is already installed, skipping.
 11:46:58  - mrlesmithjr.netplan (master) is already installed, skipping.
 11:46:58  - mrlesmithjr.cloud-init (master) is already installed, skipping.
@@ -1046,69 +1046,69 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:48:24  TASK [webmin | Remove duplicate entry.] ****************************************
 11:48:24  ok: [vmu20-01] => (item=webmin_repo_files)
 11:48:24  
-11:48:24  TASK [Setup avinetworks.docker] ************************************************
+11:48:24  TASK [Setup ansible-role-docker] ************************************************
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Check **** version] ******************************
+11:48:25  TASK [ansible-role-docker : Check **** version] ******************************
 11:48:25  skipping: [vmu20-01]
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Docker | Manage OS not supported by docker-ce] ******
+11:48:25  TASK [ansible-role-docker : Docker | Manage OS not supported by docker-ce] ******
 11:48:25  skipping: [vmu20-01]
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Docker | Include Ubuntu specific variables] *********
+11:48:25  TASK [ansible-role-docker : Docker | Include Ubuntu specific variables] *********
 11:48:25  ok: [vmu20-01]
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Docker | Include Debian Family specific variables] ***
+11:48:25  TASK [ansible-role-docker : Docker | Include Debian Family specific variables] ***
 11:48:25  ok: [vmu20-01]
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Docker | EE | Check Requirements] *******************
+11:48:25  TASK [ansible-role-docker : Docker | EE | Check Requirements] *******************
 11:48:25  skipping: [vmu20-01]
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Docker | Storage Driver] ****************************
+11:48:25  TASK [ansible-role-docker : Docker | Storage Driver] ****************************
 11:48:25  skipping: [vmu20-01]
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Docker | Start Installation] ************************
-11:48:25  included: /workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/avinetworks.docker/tasks/ce/apt.yml for vmu20-01
+11:48:25  TASK [ansible-role-docker : Docker | Start Installation] ************************
+11:48:25  included: /workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/ansible-role-docker/tasks/ce/apt.yml for vmu20-01
 11:48:25  
-11:48:25  TASK [avinetworks.docker : Docker | CE | APT | Remove old repo lxc-docker] *****
+11:48:25  TASK [ansible-role-docker : Docker | CE | APT | Remove old repo lxc-docker] *****
 11:48:26  ok: [vmu20-01]
 11:48:26  
-11:48:26  TASK [avinetworks.docker : Docker | CE | APT | Install Prerequisits for APT] ***
+11:48:26  TASK [ansible-role-docker : Docker | CE | APT | Install Prerequisits for APT] ***
 11:48:28  ok: [vmu20-01]
 11:48:28  
-11:48:28  TASK [avinetworks.docker : Docker | CE | APT | Add Docker GPG Key] *************
+11:48:28  TASK [ansible-role-docker : Docker | CE | APT | Add Docker GPG Key] *************
 11:48:29  ok: [vmu20-01]
 11:48:29  
-11:48:29  TASK [avinetworks.docker : Docker | CE | APT | Configure Docker repository] ****
+11:48:29  TASK [ansible-role-docker : Docker | CE | APT | Configure Docker repository] ****
 11:48:30  ok: [vmu20-01]
 11:48:30  
-11:48:30  TASK [avinetworks.docker : Docker | CE | APT | Enable Edge repository] *********
+11:48:30  TASK [ansible-role-docker : Docker | CE | APT | Enable Edge repository] *********
 11:48:30  skipping: [vmu20-01]
 11:48:30  
-11:48:30  TASK [avinetworks.docker : Docker | CE | APT | Perform specific os tasks] ******
-11:48:30  included: /workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/avinetworks.docker/tasks/ce/os/ubuntu.yml for vmu20-01 => (item=/workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/avinetworks.docker/tasks/ce/os/ubuntu.yml)
+11:48:30  TASK [ansible-role-docker : Docker | CE | APT | Perform specific os tasks] ******
+11:48:30  included: /workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/ansible-role-docker/tasks/ce/os/ubuntu.yml for vmu20-01 => (item=/workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/ansible-role-docker/tasks/ce/os/ubuntu.yml)
 11:48:30  
-11:48:30  TASK [avinetworks.docker : Docker | CE | Ubuntu | Install the linux-image-extra kernal package] ***
+11:48:30  TASK [ansible-role-docker : Docker | CE | Ubuntu | Install the linux-image-extra kernal package] ***
 11:48:30  skipping: [vmu20-01]
 11:48:30  
-11:48:30  TASK [avinetworks.docker : Docker | CE | Ubuntu | Install AppArmor Dependency] ***
+11:48:30  TASK [ansible-role-docker : Docker | CE | Ubuntu | Install AppArmor Dependency] ***
 11:48:30  skipping: [vmu20-01]
 11:48:30  
-11:48:30  TASK [avinetworks.docker : Docker | CE | APT | Install docker-ce] **************
+11:48:30  TASK [ansible-role-docker : Docker | CE | APT | Install docker-ce] **************
 11:48:32  ok: [vmu20-01]
 11:48:32  
-11:48:32  TASK [avinetworks.docker : Docker | Start Installation | Other repo] ***********
+11:48:32  TASK [ansible-role-docker : Docker | Start Installation | Other repo] ***********
 11:48:32  skipping: [vmu20-01]
 11:48:32  
-11:48:32  TASK [avinetworks.docker : Docker | Ensure service starts at boot] *************
+11:48:32  TASK [ansible-role-docker : Docker | Ensure service starts at boot] *************
 11:48:32  ok: [vmu20-01]
 11:48:32  
-11:48:32  TASK [avinetworks.docker : Docker | Deploy Config] *****************************
-11:48:32  included: /workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/avinetworks.docker/tasks/deploy_config.yml for vmu20-01
+11:48:32  TASK [ansible-role-docker : Docker | Deploy Config] *****************************
+11:48:32  included: /workspace/dettonville/infra/****-datacenter/dev/bootstrap-linux/roles/ansible-role-docker/tasks/deploy_config.yml for vmu20-01
 11:48:32  
-11:48:32  TASK [avinetworks.docker : Docker | Deploy Config | Make sure /etc/docker exists] ***
+11:48:32  TASK [ansible-role-docker : Docker | Deploy Config | Make sure /etc/docker exists] ***
 11:48:33  ok: [vmu20-01]
 11:48:33  
-11:48:33  TASK [avinetworks.docker : Docker | Deploy Config | Set the Docker configuration] ***
+11:48:33  TASK [ansible-role-docker : Docker | Deploy Config | Set the Docker configuration] ***
 11:48:33  skipping: [vmu20-01] => (item={'key': 'api-cors-header', 'value': ''}) 
 11:48:33  skipping: [vmu20-01] => (item={'key': 'authorization-plugins', 'value': ''}) 
 11:48:33  skipping: [vmu20-01] => (item={'key': 'bip', 'value': ''}) 
@@ -1165,16 +1165,16 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:48:34  skipping: [vmu20-01] => (item={'key': 'userland-proxy', 'value': ''}) 
 11:48:34  skipping: [vmu20-01] => (item={'key': 'userns-remap', 'value': ''}) 
 11:48:34  
-11:48:34  TASK [avinetworks.docker : Docker | Deploy Config | Deploy /etc/docker/daemon.json] ***
+11:48:34  TASK [ansible-role-docker : Docker | Deploy Config | Deploy /etc/docker/daemon.json] ***
 11:48:34  skipping: [vmu20-01]
 11:48:34  
-11:48:34  TASK [avinetworks.docker : Docker | Proxy configuration] ***********************
+11:48:34  TASK [ansible-role-docker : Docker | Proxy configuration] ***********************
 11:48:34  skipping: [vmu20-01]
 11:48:34  
-11:48:34  TASK [avinetworks.docker : Docker | Add users to docker group] *****************
+11:48:34  TASK [ansible-role-docker : Docker | Add users to docker group] *****************
 11:48:34  skipping: [vmu20-01]
 11:48:34  
-11:48:34  TASK [avinetworks.docker : Docker | Ensure service started] ********************
+11:48:34  TASK [ansible-role-docker : Docker | Ensure service started] ********************
 11:48:34  ok: [vmu20-01]
 11:48:34  
 11:48:34  TASK [Setup bootstrap-docker-config] *******************************************
