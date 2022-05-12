@@ -1,8 +1,7 @@
-CentOS Bootstrap
+Linux Bootstrap
 ================
-ref: https://github.com/kuon/ansible-centos-bootstrap
 
-This role will bootstrap a CentOS 7 node.
+This role will bootstrap a linux (CentOS/Ubuntu) node.
 
 It consists of two steps, the first step will copy an ssh key and disable root password login, the second step will configure the system.
 
@@ -72,8 +71,3 @@ Playbook:
       roles:
       - { role: bootstrap, bootstrap_operation: 'configure' }
 
-
-License
--------
-
-MIT

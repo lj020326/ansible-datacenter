@@ -72,14 +72,3 @@ Then run the tests:
     ./tests/test.sh
     
 
-## License
-
-Copyright © 2017 VMware, Inc. All Rights Reserved.
-
-SPDX-License-Identifier: MIT OR GPL-3.0-only
-
-## Author Information
-
-Tom Scanlan
-tscanlan@vmware.com
-tompscanlan@gmail.com

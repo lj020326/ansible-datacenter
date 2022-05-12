@@ -224,7 +224,3 @@ firewalld_conf:
 
 * firewalld_helpers
 * lockdown-whitelist.xml
-
-## Author
-
-Paul Trunk <mail@p7k.org>

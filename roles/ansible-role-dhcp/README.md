@@ -2,10 +2,6 @@
 
 Ansible role for setting up ISC DHCPD. The responsibilities of this role are to install packages and manage the configuration ([dhcpd.conf(5)](http://linux.die.net/man/5/dhcpd.conf)). Managing the firewall configuration is NOT a concern of this role. You can do this in your local playbook, or use another role (e.g. [bertvv.rh-base](https://galaxy.ansible.com/bertvv/rh-base).
 
-Refer to the [change log](CHANGELOG.md) for notable changes in each release.
-
-Do you use/like this role? Please consider giving it a star. If you [rate this role](https://galaxy.ansible.com/bertvv/dhcp) on Ansible Galaxy and find it lacking in some respect, please consider opening an Issue with actionable feedback or a PR so we can improve it. Thank you!
-
 ## Requirements
 
 No specific requirements
@@ -286,31 +282,3 @@ See the [test playbook](https://github.com/bertvv/ansible-role-dhcp/blob/vagrant
 ## Testing
 
 Tests for this role are provided in the form of a Vagrant environment that is kept in a separate branch, `vagrant-tests`. For more information about setting up the test environment and running the tests, refer to the [README](https://github.com/bertvv/ansible-role-dhcp/blob/vagrant-tests/README.md) of the test branch.
-
-## License
-
-BSD
-
-## Contributing
-
-Issues, feature requests, ideas are appreciated and can be posted in the Issues section. Pull requests are also very welcome. Preferably, create a topic branch and when submitting, squash your commits into one (with a descriptive message).
-
-### Contributors
-
-- [Ahmed Sghaier](https://github.com/asghaier)
-- [Alessandro Ogier](https://github.com/aogier)
-- [Alex Gittings](https://github.com/minitriga)
-- [Bert Van Vreckem](https://github.com/bertvv) (maintainer)
-- [Birgit Croux](https://github.com/birgitcroux/)
-- [@cacheira](https://github.com/cacheira)
-- [@donvipre](https://github.com/donvipre)
-- Felix Egli
-- [Guillaume Parent](https://github.com/gparent)
-- [Jonathan Piron](https://github.com/jpiron)
-- [Josh Benner](https://github.com/joshbenner)
-- [@jpiron](https://github.com/jpiron)
-- [@lijok](https://github.com/lijok)
-- [Maxim Baranov](https://github.com/mbaran0v)
-- [@RayfordJ](https://github.com/rayfordj)
-- [Rian Bogle](https://github.com/rbogle/)
-- [Stuart Knight](https://github.com/blofeldthefish) (maintainer)

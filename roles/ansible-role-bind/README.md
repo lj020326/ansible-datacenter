@@ -1,7 +1,6 @@
 # Ansible role `bind`
 
-## upstream: https://github.com/WRJFontenot/ansible-role-bind-pro
-[![Build Status](https://travis-ci.org/bertvv/ansible-role-bind.svg?branch=master)](https://travis-ci.org/bertvv/ansible-role-bind)
+upstream: https://github.com/WRJFontenot/ansible-role-bind-pro
 
 An Ansible role for setting up BIND ISC as an **authoritative-only** or **caching-forwarding** DNS server for multiple domains on EL7 or Ubuntu Server. Specifically, the responsibilities of this role are to:
 
@@ -15,10 +14,6 @@ An Ansible role for setting up BIND ISC as an **authoritative-only** or **cachin
 This role supports multiple forward and reverse zones, including for IPv6. Although enabling recursion is supported (albeit *strongly* discouraged).
 
 Configuring the firewall is not a concern of this role, so you should do this using another role (e.g. [bertvv.rh-base](https://galaxy.ansible.com/bertvv/rh-base/)).
-
-If you like/use this role, please consider giving it a star. Thanks!
-
-See the [change log](CHANGELOG.md) for notable changes between versions.
 
 ## Requirements
 
@@ -660,38 +655,3 @@ Testing 192.168.56.53
  ✓ The `dig` command should be installed
 [...]
 ```
-
-## License
-
-BSD
-
-## Contributors
-
-This role could only have been realized thanks to the contributions of many. If you have an idea to improve it even further, don't hesitate to pitch in!
-
-Issues, feature requests, ideas, suggestions, etc. can be posted in the Issues section.
-
-Pull requests are also very welcome. Please create a topic branch for your proposed changes. If you don't, this will create conflicts in your fork after the merge. Don't hesitate to add yourself to the contributor list below in your PR!
-
-- [Angel Barrera](https://github.com/angelbarrera92)
-- [B. Verschueren](https://github.com/bverschueren)
-- [Bert Van Vreckem](https://github.com/bertvv/) (Maintainer)
-- [Brad Durrow](https://github.com/bdurrow)
-- [Christopher Hicks](http://www.chicks.net/)
-- [David J. Haines](https://github.com/dhaines)
-- [Fazle Arefin](https://github.com/fazlearefin)
-- [Greg Cockburn](https://github.com/gergnz)
-- [Guillaume Darmont](https://github.com/gdarmont)
-- [Joanna Delaporte](https://github.com/jdelaporte)
-- [Jose Taas](https://github.com/josetaas)
-- [Jörg Eichhorn](https://github.com/jeichhorn)
-- [Loic Dachary](http://dachary.org)
-- [Mario Ciccarelli](https://github.com/kartone)
-- [Paulo E. Castro](https://github.com/pecastro)
-- [Peter Janes](https://github.com/peterjanes)
-- [Rafael Bodill](https://github.com/rafi)
-- [Romuald](https://github.com/rds13)
-- [Stuart Knight](https://github.com/blofeldthefish)
-- [Tom Meinlschmidt](https://github.com/tmeinlschmidt)
-- [jadjay](https://github.com/jadjay)
-- [Robbie Fontenot](https://github.com/WRJFontenot)

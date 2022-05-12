@@ -52,7 +52,3 @@ Windows 64 bit (amd64) (x64)
       bootstrap_windows_virtio_win_iso_path: 'E:\\'
 ```
 
-## License
-
-MIT
-

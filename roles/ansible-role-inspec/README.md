@@ -1,4 +1,3 @@
-[![build-test](https://github.com/darkwizard242/ansible-role-inspec/workflows/build-and-test/badge.svg?branch=master)](https://github.com/darkwizard242/ansible-role-inspec/actions?query=workflow%3Abuild-and-test) [![release](https://github.com/darkwizard242/ansible-role-inspec/workflows/release/badge.svg)](https://github.com/darkwizard242/ansible-role-inspec/actions?query=workflow%3Arelease) ![Ansible Role](https://img.shields.io/ansible/role/47528?color=dark%20green%20) ![Ansible Role](https://img.shields.io/ansible/role/d/47528?label=role%20downloads) ![Ansible Quality Score](https://img.shields.io/ansible/quality/47528?label=ansible%20quality%20score) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ansible-role-inspec&metric=alert_status)](https://sonarcloud.io/dashboard?id=ansible-role-inspec) [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ansible-role-inspec&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=ansible-role-inspec) [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=ansible-role-inspec&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=ansible-role-inspec) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ansible-role-inspec&metric=security_rating)](https://sonarcloud.io/dashboard?id=ansible-role-inspec) ![GitHub tag (latest SemVer)](https://img.shields.io/github/tag/darkwizard242/ansible-role-inspec?label=release) ![GitHub repo size](https://img.shields.io/github/repo-size/darkwizard242/ansible-role-inspec?color=orange&style=flat-square)
 
 # Ansible Role: Inspec
 
@@ -81,11 +80,3 @@ For customizing behavior of role (i.e. specifying the desired **inspec** version
   vars:
     inspec_version: 4.18.99
 ```
-
-## License
-
-[MIT](https://github.com/darkwizard242/ansible-role-inspec/blob/master/LICENSE)
-
-## Author Information
-
-This role was created by [Ali Muhammad](https://www.linkedin.com/in/ali-muhammad-759791130/).

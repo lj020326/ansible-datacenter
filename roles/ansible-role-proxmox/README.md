@@ -1,7 +1,5 @@
-[![Build Status](https://travis-ci.org/lae/ansible-role-proxmox.svg?branch=master)](https://travis-ci.org/lae/ansible-role-proxmox)
-[![Galaxy Role](https://img.shields.io/badge/ansible--galaxy-proxmox-blue.svg)](https://galaxy.ansible.com/lae/proxmox/)
 
-lae.proxmox
+ansible-role-proxmox
 ===========
 
 Installs and configures a Proxmox 5.x/6.x cluster with the following features:
@@ -40,14 +38,14 @@ Copy the following playbook to a file like `install_proxmox.yml`:
             ]
           }
         - {
-            role: lae.proxmox,
+            role: ansible-role-proxmox,
             pve_group: all,
             pve_reboot_on_kernel_update: true
           }
 
 Install this role and a role for configuring NTP:
 
-    ansible-galaxy install lae.proxmox geerlingguy.ntp
+    ansible-galaxy install ansible-role-proxmox geerlingguy.ntp
 
 Now you can perform the installation:
 
@@ -122,7 +120,7 @@ cluster. Now, let's specify our role requirements in `roles/requirements.yml`:
 ```
 ---
 - src: geerlingguy.ntp
-- src: lae.proxmox
+- src: ansible-role-proxmox
 ```
 
 We need an NTP role to configure NTP, so we're using Jeff Geerling's role to do
@@ -306,7 +304,7 @@ Finally, let's write our playbook. `site.yml` will look something like this:
 - hosts: pve01
   become: True
   roles:
-    - lae.proxmox
+    - ansible-role-proxmox
 ```
 
 Basically, we run the NTP role across all hosts (you might want to add some
@@ -369,7 +367,7 @@ serially during a maintenance period.) It will also enable the IPMI watchdog.
             ]
           }
         - {
-            role: lae.proxmox,
+            role: ansible-role-proxmox,
             pve_group: pve01,
             pve_cluster_enabled: yes,
             pve_reboot_on_kernel_update: true,
@@ -663,18 +661,6 @@ pve_ceph_fs:
 
 `pve_ceph_osds` by default creates unencrypted ceph volumes. To use encrypted volumes the parameter `encrypted` has to be set per drive to `true`.
 
-## Contributors
-
-Musee Ullah ([@lae](https://github.com/lae), <lae@lae.is>) - Main developer  
-Fabien Brachere ([@Fbrachere](https://github.com/Fbrachere)) - Storage config support  
-Gaudenz Steinlin ([@gaundez](https://github.com/gaudenz)) - Ceph support, etc  
-Thoralf Rickert-Wendt ([@trickert76](https://github.com/trickert76)) - PVE 6.x support, etc  
-Engin Dumlu ([@roadrunner](https://github.com/roadrunner))  
-Jonas Meurer ([@mejo-](https://github.com/mejo-))  
-Ondrej Flidr ([@SniperCZE](https://github.com/SniperCZE))  
-niko2 ([@niko2](https://github.com/niko2))  
-Christian Aublet ([@caublet](https://github.com/caublet))  
-Michael Holasek ([@mholasek](https://github.com/mholasek))  
 
 [pve-cluster]: https://pve.proxmox.com/wiki/Cluster_Manager
 [install-ansible]: http://docs.ansible.com/ansible/intro_installation.html

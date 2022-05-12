@@ -1,8 +1,5 @@
 ## postfix
 
-[![Build Status](https://travis-ci.org/Oefenweb/ansible-postfix.svg?branch=master)](https://travis-ci.org/Oefenweb/ansible-postfix)
-[![Ansible Galaxy](http://img.shields.io/badge/ansible--galaxy-postfix-blue.svg)](https://galaxy.ansible.com/oefenweb/postfix)
-
 Set up a postfix server in Debian-like systems.
 
 #### Requirements
@@ -228,15 +225,3 @@ A simple example that shows how to add some raw config:
         milter_connect_macros = "i j {daemon_name} v {if_name} _"
         policyd-spf_time_limit = 3600
 ```
-
-#### License
-
-MIT
-
-#### Author Information
-
-Mischa ter Smitten
-
-#### Feedback, bug-reports, requests, ...
-
-Are [welcome](https://github.com/Oefenweb/ansible-postfix/issues)!

@@ -698,10 +698,3 @@ same inventory to do whatever you wanted with those machines...
   until: result_package_install is succeeded
 ```
 
-## License
-
-GPLv3
-
-## Author Information
-
-Chris Smart https://blog.christophersmart.com

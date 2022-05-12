@@ -47,15 +47,3 @@ ovf_dir: "/usr/local/bin"
   roles:
     - ovftool
 ```
-
-# License and Copyright
- 
-Copyright 2015-2017 VMware, Inc.
-
-SPDX-License-Identifier: Apache-2.0 OR GPL-3.0-only
-
-[This code is Dual Licensed Apache-2.0 or GPLv3](LICENSE)
-
-## Author Information
-
-This role was created in 2015 by [Tom Hite / VMware](http://www.vmware.com/).

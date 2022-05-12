@@ -1,7 +1,5 @@
 # Ansible Role: logrotate
 
-[![Build Status](https://img.shields.io/travis/arillso/ansible.logrotate.svg?branch=master&style=popout-square)](https://travis-ci.org/arillso/ansible.logrotate) [![license](https://img.shields.io/github/license/mashape/apistatus.svg?style=popout-square)](https://sbaerlo.ch/licence) [![Ansible Galaxy](https://img.shields.io/badge/ansible--galaxy-logrotate-blue.svg?style=popout-square)](https://galaxy.ansible.com/arillso/logrotate) [![Ansible Role](https://img.shields.io/ansible/role/d/23110.svg?style=popout-square)](https://galaxy.ansible.com/arillso/logrotate)
-
 ## Description
 
 Installs and configures logrotate.
@@ -133,5 +131,3 @@ None
   roles:
     - ansible-logrotate
 ```
-
-

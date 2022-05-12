@@ -1,10 +1,4 @@
-![Logo](https://raw.githubusercontent.com/idealista/zookeeper_role/master/logo.gif)
-
 # Apache ZooKeeper Ansible role 
-
-[![Build Status](https://travis-ci.org/idealista/zookeeper_role.png)](https://travis-ci.org/idealista/zookeeper_role)
-[![Ansible Galaxy](https://img.shields.io/badge/galaxy-idealista.zookeeper__role-B62682.svg)](https://galaxy.ansible.com/idealista/zookeeper_role)
-[![Docker Hub pulls](https://img.shields.io/docker/pulls/idealista/zookeeper.svg)](https://hub.docker.com/r/idealista/zookeeper/)
 
 This Ansible role installs an Apache ZooKeeper service in a Debian environment.
 
@@ -88,29 +82,3 @@ zookeeper_hosts:
 $ pipenv install -r test-requirements.txt --python 2.7
 $ pipenv run molecule test
 ```
-
-## Built With
-
-![Ansible](https://img.shields.io/badge/ansible-2.8.1-green.svg)
-
-## Versioning
-
-For the versions available, see the [tags on this repository](https://github.com/idealista/zookeeper_role/tags).
-
-Additionaly you can see what change in each version in the [CHANGELOG.md](CHANGELOG.md) file.
-
-## Authors
-
-* **Idealista** - *Work with* - [idealista](https://github.com/idealista)
-
-See also the list of [contributors](https://github.com/idealista/zookeeper_role/contributors) who participated in this project.
-
-## License
-
-![Apache 2.0 License](https://img.shields.io/hexpm/l/plug.svg)
-
-This project is licensed under the [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) license - see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Please read [CONTRIBUTING.md](.github/CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
