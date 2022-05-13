@@ -377,7 +377,7 @@ firewall_win_rules__mssql:
 
 - name: Combine firewall_win_rules__* ports into merged list
   set_fact:
-    firewall_win_ports: "{{ firewall_win_rules|d([]) + lookup('vars', item)|d([]) }}"
+    firewall_win_rules: "{{ firewall_win_rules|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames','^firewall_win_rules__*$') }}"
   
 - name: "Display firewall_win_rules"
