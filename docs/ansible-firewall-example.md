@@ -129,7 +129,7 @@ In a more ideal/stringent setting, the complete state of the firewall must be ar
 
 ## Alternative Approach using variable naming convention
 
-The [varnames lookup plugin](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/varnames_lookup.html) can be used to derive all variables matching a pattern (e.g., 'firewall_ports__*') to derive all the firewall variable port definitions/specifications for an inventory host.
+The [varnames lookup plugin](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/varnames_lookup.html) can be used to derive all variables matching a pattern (e.g., 'firewalld_ports__*') to derive all the firewall variable port allowed specifications for an inventory host.
 
 The variables will need to exist in the inventory as group vars or host vars for the variable lookup plugin approach to work.
 
@@ -343,4 +343,9 @@ Then the mssql playbook.
     - role: ansible-win-firewall
 
 ```
+
+## Next Steps / Taking this approach further
+
+While the examples above have been limited in nature to one Firewall use case, of allowing a port, the same variable lookup method can be used to define all the firewall rules for any given application as a list of dictionaries and each of the application lists can be merged using the same variable lookup method.
+
 
