@@ -275,17 +275,17 @@ We assume that there is an ansible-win-firewall role to support updating the fir
   debug:
     var: firewall_win_ports
 
+## See allow port requests example here
+## ref: https://runebook.dev/en/docs/ansible/collections/community/windows/win_firewall_rule_module
 - name: Firewall | allow port requests
   win_firewall_rule:
-    name: "{{ win_fw_prefix }}-allow-incoming-svchost-{{ item.replace('/','-' }}"
-    program: "%SystemRoot%\\System32\\svchost.exe"
+    name: "{{ win_fw_prefix }}-allow-incoming-port-{{ item.port }}-{{ item.protocol }}"
     enable: yes
     state: present
-    localport: any
-    remoteport: "{{ item.split('/').[0] }}"
-    protocol: "{{ item.split('/').[1] }}"
+    localport: "{{ item.port }}"
+    protocol: "{{ item.protocol }}"
     action: allow
-    direction: Out
+    direction: in
   with_items:
     "{{ firewall_win_ports }}"
   notify:
@@ -319,8 +319,12 @@ Using the variable lookup approach, you can do this:
 ./inventory/group_vars/mssql.yml:
 ```yaml
 firewall_win_ports__mssql: 
-  - "11433/udp"
-  - "11433/tcp"
+  - port: "11433"
+    protocol: "udp"
+    program: "mssql"
+  - port: "11433"
+    protocol: "tcp"
+    program: "mssql"
 
 ```
 
