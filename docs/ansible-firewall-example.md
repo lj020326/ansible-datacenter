@@ -279,7 +279,7 @@ We assume that there is an ansible-win-firewall role to support updating the fir
 ## ref: https://runebook.dev/en/docs/ansible/collections/community/windows/win_firewall_rule_module
 - name: Firewall | allow port requests
   win_firewall_rule:
-    name: "{{ win_fw_prefix }}-allow-incoming-port-{{ item.port }}-{{ item.protocol }}"
+    name: "{{ win_fw_prefix }}-allow-incoming-{{ item.program }}-{{ item.port }}-{{ item.protocol }}"
     enable: yes
     state: present
     localport: "{{ item.port }}"
