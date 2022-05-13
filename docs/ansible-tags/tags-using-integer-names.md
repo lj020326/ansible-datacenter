@@ -101,3 +101,10 @@ Python will consider underscores as just number separators for readability.  So 
 
 This python version difference behavior also explains why one may encounter ansible repos in the wild (github.com) using integer name based tags without quotes.   It is likely the respective repo developers were using an ansible environment with python versions <= 3.6 at the time of publishing to the repo.
 
+## Related Information
+
+* https://www.reddit.com/r/ansible/comments/8qt7ds/tags_inheritance_in_include_tasks_vs_import_tasks/
+* https://www.python.org/dev/peps/pep-0515/
+* https://stackoverflow.com/questions/54009778/what-do-underscores-in-a-number-mean
+
+

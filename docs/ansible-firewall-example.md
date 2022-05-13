@@ -81,7 +81,7 @@ The following playbook example then specifies the ports to be added to the firew
       - "10006/tcp"
     firewalld_ports: "{{ veeam_firewalld_ports }}"
   roles:
-    - role: ansible.veeam-agent
+    - role: bootstrap-veeam-agent
     - role: ansible-firewalld
       tags: [ 'firewall-config-veeamagent' ]
 
@@ -204,7 +204,7 @@ firewalld_ports__bind:
   become: true
   tags: bootstrap-veeam
   roles:
-    - role: ansible.veeam-agent
+    - role: bootstrap-veeam-agent
     - role: ansible-firewalld
       tags: [ 'firewall-config-veeamagent' ]
 
