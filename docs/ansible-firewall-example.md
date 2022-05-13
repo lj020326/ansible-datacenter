@@ -348,4 +348,60 @@ Then the mssql playbook.
 
 While the examples above have been limited in nature to one Firewall use case, of allowing a port, the same variable lookup method can be used to define all the firewall rules for any given application as a list of dictionaries and each of the application lists can be merged using the same variable lookup method.
 
+For example, a full set of firewall rules for an application can be specified in a list of dictionaries similar to the following.
+
+./inventory/group_vars/mssql.yml:
+```yaml
+firewall_win_rules__mssql: 
+  - localport: "11433"
+    remoteport: any
+    protocol: "udp"
+    program: "mssql"
+    action: "allow"
+    direction: "in"
+    profile: "private"
+  - localport: "11433"
+    remoteport: any
+    protocol: "tcp"
+    program: "mssql"
+    action: "allow"
+    direction: "in"
+    profile: Public
+
+```
+
+
+./roles/ansible-win-firewall/tasks/main.yml
+```yml
+---
+
+- name: Combine firewall_win_rules__* ports into merged list
+  set_fact:
+    firewall_win_ports: "{{ firewall_win_rules|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames','^firewall_win_rules__*$') }}"
+  
+- name: "Display firewall_win_rules"
+  debug:
+    var: firewall_win_rules
+
+  win_firewall_rule:
+    name: "{{ win_fw_prefix }}-{{ item.action }}-{{ item.direction }}-{{ item.program | win_basename }}"
+    program: "{{ item.program }}"
+    enable: yes
+    state: present
+    localport: "{{ item.localport | d(omit) }}"
+    remoteport: "{{ item.remoteport | d(omit) }}"
+    action: "{{ item.action | d(omit) }}"
+    direction: "{{ item.direction | d(omit) }}"
+    protocol: "{{ item.protocol | d(omit) }}"
+    profile: "{{ item.profile | d(omit) }}"
+  with_items:
+    "{{ firewall_win_rules }}"
+  notify:
+    - reload firewall_win
+
+```
+
+
+
 
