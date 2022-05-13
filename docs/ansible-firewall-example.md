@@ -275,14 +275,14 @@ We assume that there is an ansible-win-firewall role to support updating the fir
   debug:
     var: firewall_win_ports
 
-- name: Firewall | allow svchost dns and ntp requests out - udp
+- name: Firewall | allow port requests
   win_firewall_rule:
-    name: "{{ win_fw_prefix }}-allow-outgoing-svchost-{{ item.replace('/','-' }}"
+    name: "{{ win_fw_prefix }}-allow-incoming-svchost-{{ item.replace('/','-' }}"
     program: "%SystemRoot%\\System32\\svchost.exe"
     enable: yes
     state: present
     localport: any
-    remoteport: "{{ item }}"
+    remoteport: "{{ item.split('/').[0] }}"
     protocol: "{{ item.split('/').[1] }}"
     action: allow
     direction: Out
