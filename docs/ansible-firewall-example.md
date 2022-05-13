@@ -1,6 +1,6 @@
 
 
-## Additive Approach to maintaining Firewall (FW) State
+## Additive/Incremental Approach to maintaining Firewall (FW) State
 
 One common approach used to manage firewalls with ansible is to add the necessary port needed by that role just applied.
 
