@@ -123,6 +123,10 @@ As can be seen, this approach is additive in nature.  At any time, ports can be 
 
 The downside to this approach is that for any given inventory host, there is no way to arrive at the current state of the firewall without running all the plays that have been used. 
 
+Another downside is that if the plays used to arrive at the final FW state are time-consuming or costly in terms of the tasks needed to be done, it can become untenable to have to re-run all the plays to apply a simple set of firewall changes/updates. 
+
+E.g., From my experiences, I have playbooks that can take up to 60 minutes to run through in some cases.  It would become unacceptable to run the entire playbook just to add a port for one of the applications defined in the set of plays.  
+
 ### Idempotent Firewall Role Requirement
 
 In a more ideal/stringent setting, the complete state of the firewall must be arrived at by  running an idempotent firewalld role such that it will resolve all necessary groupvar/hostvar variables and arrive at the defined FW state without having to replay all the plays with FW requirements.
@@ -401,7 +405,4 @@ firewall_win_rules__mssql:
     - reload firewall_win
 
 ```
-
-
-
 
