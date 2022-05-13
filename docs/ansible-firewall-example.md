@@ -47,8 +47,7 @@ linuxhost053
     permanent: true
     state: enabled
     immediate: yes
-  with_items:
-    "{{ firewalld_ports }}"
+  with_items: "{{ firewalld_ports }}"
   notify:
     - reload firewalld
 
@@ -129,7 +128,7 @@ E.g., From my experiences, I have playbooks that can take up to 60 minutes to ru
 
 ### Idempotent Firewall Role Requirement
 
-In a more ideal/stringent setting, the complete state of the firewall must be arrived at by  running an idempotent firewalld role such that it will resolve all necessary groupvar/hostvar variables and arrive at the defined FW state without having to replay all the plays with FW requirements.
+In a more ideal/stringent setting, the complete state of the firewall must be arrived at by  running an idempotent firewall role such that it will resolve all necessary groupvar/hostvar variables and arrive at the defined FW state without having to replay all the plays with FW requirements.
 
 ## Alternative Approach using variable naming convention
 
