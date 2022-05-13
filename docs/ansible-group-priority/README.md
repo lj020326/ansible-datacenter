@@ -615,6 +615,10 @@ The exception occurs when using ansible group_by and key child groups with the Y
 
 If the use case involving ansible group_by and key child groups is desired and/or essential to your group variable method of use, then it is essential to use the INI inventory and avoid using the YAML inventory plugin for those specific cases until the inconsistent behavior is resolved by the ansible dev team. 
 
+## Next Steps
+
+For the playbook specific examples/tests (examples 5 and 6), the same tests using the same inventory, group var files and playbook need to be run on AWX to compare and validate that the same expected results are found. 
+
 
 ## References
 
@@ -624,6 +628,5 @@ If the use case involving ansible group_by and key child groups is desired and/o
 * https://github.com/ansible/ansible/blob/stable-2.13/lib/ansible/plugins/vars/host_group_vars.py
 * https://stackoverflow.com/questions/38120793/ansible-group-vars-priority
 * [Managing "nested" group in Ansible YAML inventory files](https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-nested-groups-in-YAML-inventory-files.md)
-* https://www.reddit.com/r/ansible/comments/bzteg9/ansible_group_priority/
 * 
 

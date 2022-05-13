@@ -1,0 +1,33 @@
+---
+
+- name: "Display firewalld_services"
+  debug:
+    var: firewalld_services
+
+- name: "Display firewalld_ports"
+  debug:
+    var: firewalld_ports
+
+- name: Initialize __firewalld_services with firewalld_services
+  set_fact:
+    __firewalld_services: "{{ firewalld_services|d([]) }}"
+
+- name: Initialize __firewalld_ports with firewalld_ports
+  set_fact:
+    __firewalld_ports: "{{ firewalld_ports|d([]) }}"
+
+- name: Combine firewalld_services__* ports into merged list
+  set_fact:
+    __firewalld_services: "{{ __firewalld_services|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames','^firewalld_services__*$') }}"
+
+- name: Combine firewalld_ports__* ports into merged list
+  set_fact:
+    __firewalld_ports: "{{ __firewalld_ports|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames','^firewalld_ports__*$') }}"
+
+- name: display firewalld configs
+  debug:
+    msg:
+      - "__firewalld_ports: {{ __firewalld_ports | d([]) | to_nice_json }}"
+      - "__firewalld_services: {{ __firewalld_services | d([]) | to_nice_json }}"
