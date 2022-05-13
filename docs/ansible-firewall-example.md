@@ -67,7 +67,7 @@ The following playbook example then specifies the ports to be added to the firew
   vars:
     postfix_firewalld_ports:
       - "25/tcp"
-    firewalld_ports: [ "{{ postfix_firewalld_ports }}" ]
+    firewalld_ports: "{{ postfix_firewalld_ports }}"
   roles:
     - role: ansible-role-postfix
     - role: ansible-firewalld
@@ -79,7 +79,7 @@ The following playbook example then specifies the ports to be added to the firew
   vars:
     veeam_firewalld_ports:
       - "10006/tcp"
-    firewalld_ports: [ "{{ veeam_firewalld_ports }}" ]
+    firewalld_ports: "{{ veeam_firewalld_ports }}"
   roles:
     - role: ansible.veeam-agent
     - role: ansible-firewalld
@@ -93,7 +93,7 @@ The following playbook example then specifies the ports to be added to the firew
     httpd_firewalld_ports:
       - "80/tcp"
       - "443/tcp"
-    firewalld_ports: [ "{{ httpd_firewalld_ports }}" ]
+    firewalld_ports: "{{ httpd_firewalld_ports }}"
   roles:
     - role: ansible-role-httpd
     - role: ansible-firewalld
@@ -108,7 +108,7 @@ The following playbook example then specifies the ports to be added to the firew
       - "53/tcp"
       - "953/udp"
       - "953/tcp"
-    firewalld_ports: [ "{{ bind_firewalld_ports }}" ]
+    firewalld_ports: "{{ bind_firewalld_ports }}"
   roles:
     - role: ansible-role-bind
     - role: ansible-firewalld
@@ -238,8 +238,7 @@ firewalld_ports__bind:
     permanent: true
     state: enabled
     immediate: yes
-  with_items:
-    "{{ firewalld_ports }}"
+  with_items: "{{ firewalld_ports }}"
   notify:
     - reload firewalld
 ```
@@ -290,8 +289,7 @@ We assume that there is an ansible-win-firewall role to support updating the fir
     protocol: "{{ item.protocol }}"
     action: allow
     direction: in
-  with_items:
-    "{{ firewall_win_ports }}"
+  with_items: "{{ firewall_win_ports }}"
   notify:
     - reload firewall_win
 
@@ -399,8 +397,7 @@ firewall_win_rules__mssql:
     direction: "{{ item.direction | d(omit) }}"
     protocol: "{{ item.protocol | d(omit) }}"
     profile: "{{ item.profile | d(omit) }}"
-  with_items:
-    "{{ firewall_win_rules }}"
+  with_items: "{{ firewall_win_rules }}"
   notify:
     - reload firewall_win
 
