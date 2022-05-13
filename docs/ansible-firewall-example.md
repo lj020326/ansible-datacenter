@@ -318,7 +318,7 @@ Using the variable lookup approach, you can do this:
 
 ./inventory/group_vars/mssql.yml:
 ```yaml
-firewall_ports__mssql: 
+firewall_win_ports__mssql: 
   - "11433/udp"
   - "11433/tcp"
 
