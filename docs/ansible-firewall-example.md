@@ -6,6 +6,36 @@ One common approach used to manage firewalls with ansible is to add the necessar
 
 For this demonstration, it will be assumed that the firewall role performs a simple task to open ports using the [firewalld module](https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html) as follows.
 
+Using the following inventory example.
+
+./inventory/linux.ini:
+```ini
+
+[linux]
+linuxhost001
+linuxhost002
+linuxhost003
+...
+linuxhost999
+
+
+[veeam-agent:children]
+linux
+
+[webserver]
+linuxhost023
+linuxhost044
+linuxhost080
+linuxhost088
+
+[nameserver]
+linuxhost053
+
+
+```
+
+
+
 ./roles/ansible-firewalld/tasks/main.yml:
 ```yml
 ---
@@ -42,19 +72,6 @@ The following playbook example then specifies the ports to be added to the firew
     - role: ansible-role-postfix
     - role: ansible-firewalld
 
-- name: "Setup web"
-  hosts: linux
-  become: true
-  tags: bootstrap-httpd
-  vars:
-    httpd_firewalld_ports:
-      - "80/tcp"
-      - "443/tcp"
-    firewalld_ports: [ "{{ httpd_firewalld_ports }}" ]
-  roles:
-    - role: ansible-role-httpd
-    - role: ansible-firewalld
-
 - name: "Setup veeam-agent"
   hosts: linux
   become: true
@@ -67,6 +84,19 @@ The following playbook example then specifies the ports to be added to the firew
     - role: ansible.veeam-agent
     - role: ansible-firewalld
       tags: [ 'firewall-config-veeamagent' ]
+
+- name: "Setup web"
+  hosts: webserver
+  become: true
+  tags: bootstrap-httpd
+  vars:
+    httpd_firewalld_ports:
+      - "80/tcp"
+      - "443/tcp"
+    firewalld_ports: [ "{{ httpd_firewalld_ports }}" ]
+  roles:
+    - role: ansible-role-httpd
+    - role: ansible-firewalld
 
 - name: "Setup nameservers"
   hosts: nameserver
@@ -101,12 +131,13 @@ In a more ideal/stringent setting, the complete state of the firewall must be ar
 
 The [varnames lookup plugin](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/varnames_lookup.html) can be used to derive all variables matching a pattern (e.g., 'firewall_ports__*') to derive all the firewall variable port definitions/specifications for an inventory host.
 
-First, the variables will need to exist in the inventory as group vars or host vars for the variable lookup plugin approach to work.
-From the prior playbook, with the exception of the bind role, all of the target hosts are linux hosts. 
-So we create a 'linux' group to add them and a 'nameserver' group var file for the nameserver port config settings.
+The variables will need to exist in the inventory as group vars or host vars for the variable lookup plugin approach to work.
+
+So we create group var files for each of the respective target host groups defined in the playbook.
+
+In this case, we create a 'linux', 'webserver', and 'nameserver' group var file to add the respective firewall_port__* variables with the necessary port config settings.
 
 ./inventory/group_vars/linux.yml:
-
 ```yml
 ---
 
@@ -119,6 +150,17 @@ firewalld_ports__httpd:
  
 firewalld_ports__veeam:
   - "10006/tcp"
+
+```
+
+./inventory/group_vars/webserver.yml:
+```yml
+---
+ 
+firewalld_ports__httpd:
+  - "80/tcp"
+  - "443/tcp"
+
 ```
 
 ./inventory/group_vars/nameserver.yml:
@@ -146,7 +188,7 @@ firewalld_ports__bind:
     - role: ansible-firewalld
 
 - name: "Setup web"
-  hosts: linux
+  hosts: webserver
   become: true
   tags: bootstrap-httpd
   roles:
@@ -201,6 +243,100 @@ firewalld_ports__bind:
 
 That is to say that the role can be used by role implementors in an additive way, but also upon execution, the role will resolve all firewall defined variables such that at any run, the same firewall state will be arrived at in an idempotent manner.
 
+The overall concept is that plays and roles pair up with groups.
+Once that framework is used consistently, everything starts to make sense. 
+
+For example, for the 'postfix' play and role there would be a 'postfix' group.
+For a 'veeam-agent' play and role there would be a 'veeam-agent' group.
+For a 'webserver' play and role there would be an 'webserver' group
+For a 'nameserver' play/role there would be 'nameserver' group.
+For a 'badwolf' play/role there would be 'badwolf' group.
+
+The idea is that application roles have groups defined as a sort of header space used by the inventory to declare whatever is needed for the respective role such that other utility/helper roles can re-use the same definitions when and if necessary.
+
+It becomes not hard at all, in fact very easy, to patrol / enforce once the framework naming convention is done methodically/consistently.
+
+## windows mssql example
+
+Another example FW usage for mssql.
+
+We assume that there is an ansible-win-firewall role to support updating the firewall for windows machines.
 
 
+```yml
+---
+
+- name: Combine firewall_win_ports__* ports into merged list
+  set_fact:
+    firewall_win_ports: "{{ firewall_win_ports|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames','^firewall_win_ports__*$') }}"
+  
+- name: "Display firewall_win_ports"
+  debug:
+    var: firewall_win_ports
+
+- name: Firewall | allow svchost dns and ntp requests out - udp
+  win_firewall_rule:
+    name: "{{ win_fw_prefix }}-allow-outgoing-svchost-{{ item.replace('/','-' }}"
+    program: "%SystemRoot%\\System32\\svchost.exe"
+    enable: yes
+    state: present
+    localport: any
+    remoteport: "{{ item }}"
+    protocol: "{{ item.split('/').[1] }}"
+    action: allow
+    direction: Out
+  with_items:
+    "{{ firewall_win_ports }}"
+  notify:
+    - reload firewall_win
+
+```
+
+Take an example windows host inventory as follows.
+
+./inventory/windows.ini:
+```ini
+
+[windows]
+windows001
+windows002
+windows003
+...
+windows999
+
+[windows:children]
+mssql
+
+[mssql]
+mssql_host[01:23]
+
+```
+
+
+Using the variable lookup approach, you can do this:
+
+./inventory/group_vars/mssql.yml:
+```yaml
+firewall_ports__mssql: 
+  - "11433/udp"
+  - "11433/tcp"
+
+```
+
+Then the mssql playbook.
+
+./playbooks/bootstrap-mssql.yml:
+```yaml
+---
+
+- name: "Setup mssql"
+  hosts: mssql
+  become: true
+  tags: bootstrap-mssql
+  roles:
+    - role: ansible-role-mssql
+    - role: ansible-win-firewall
+
+```
 

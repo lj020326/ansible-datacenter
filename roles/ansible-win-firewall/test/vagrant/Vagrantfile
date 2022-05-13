@@ -1,0 +1,65 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+VAGRANTFILE_API_VERSION = "2"
+ENV['VAGRANT_DEFAULT_PROVIDER'] = 'virtualbox'
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+    config.vm.box = "mwrock/Windows2016"
+## https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/
+##  + manually https://docs.ansible.com/ansible/intro_windows.html#windows-system-prep
+#    config.vm.box = "win10edge"
+#    config.winrm.username = "IEUser"
+#    config.winrm.password = "Passw0rd!"
+    config.vm.guest = :windows
+    config.vm.communicator = "winrm"
+    config.vm.boot_timeout = 600
+#    config.winrm.transport = "ssl"
+#    config.winrm.port = 5986
+
+## http://www.hurryupandwait.io/blog/understanding-and-troubleshooting-winrm-connection-and-authentication-a-thrill-seekers-guide-to-adventure
+    config.vm.provision "shell", path: "ConfigureRemotingForAnsible.ps1", privileged: true
+    config.vm.provision "shell", path: "SetNetworkCategory.ps1", privileged: true
+    config.vm.provision "shell", inline: "winrm set winrm/config/service '@{AllowUnencrypted=\"true\"}'", privileged: true
+## End testing
+## Configuration check
+#    config.vm.provision "shell", inline: "Test-WSMan -Authentication default", privileged: true
+#    config.vm.provision "shell", inline: "Test-PsRemoting", privileged: true
+#    config.vm.provision "shell", inline: "Get-PSSessionConfiguration", privileged: true
+#    config.vm.provision "shell", inline: "Get-Item WSMan:\\localhost\\Client\\TrustedHosts", privileged: true
+#    config.vm.provision "shell", inline: "Get-ChildItem WSMan:\\localhost\\Client\\DefaultPorts", privileged: true
+#    config.vm.provision "shell", inline: "Get-ChildItem WSMan:\\localhost\\Listener", privileged: true
+#    config.vm.provision "shell", inline: "Get-Service -Name winrm | Select Status", privileged: true
+#    config.vm.provision "shell", inline: "reg query HKLM\\software\\Microsoft\\Windows\\CurrentVersion\\Policies\\system", privileged: true
+# Host test
+# $ nc -z -w1 localhost 55985; echo $?
+# $ openssl s_client -connect localhost:55986 -showcerts </dev/null 2>/dev/null|openssl x509 -outform PEM
+# $ ansible -i .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory -m win_ping -e ansible_winrm_server_cert_validation=ignore all
+# $ ansible -i .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory -m win_ping -e ansible_winrm_server_cert_validation=ignore -e ansible_ssh_port=55986 all
+# $ ansible-playbook -i .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory -e ansible_winrm_server_cert_validation=ignore -e ansible_ssh_port=55986 site.yml
+
+    config.vm.provision :ansible do |ansible|
+       ansible.playbook = "site.yml"
+       #ansible.verbose = "vvvv"
+       #ansible.host_key_checking = false
+       #ansible.limit = 'all'
+       ansible.become = false
+       ansible.compatibility_mode = "2.0"
+       ansible.extra_vars = { ansible_winrm_server_cert_validation: 'ignore', ansible_port: 55986 }
+       ansible.groups = {
+          "myrole" => ["vwinfirewall" ],
+       }
+    end
+
+## FIXME! WARN  WinRM::WinRMWebService : [WinRM] connection failed, terminating (#<WinRM::WinRMHTTPTransportError: Unable to parse WinRM response: Missing end tag for 'META' (got "HEAD")
+#    config.vm.provision :serverspec do |spec|
+#        spec.pattern = '../../test/integration/default/serverspec/*_spec.rb'
+#    end
+    config.vm.define "vwinfirewall" do |cfg|
+        cfg.vm.provider "virtualbox" do |v|
+          v.memory = 2048
+        end
+        #cfg.gui = true
+    end
+
+end
