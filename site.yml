@@ -220,12 +220,26 @@
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Bootstrap linux firewall"
   hosts: os_linux
-  become: true
+  become: yes
   tags:
     - bootstrap-firewall
     - bootstrap-linux-firewall
   roles:
-    - name: ansible-firewalld
+    - name: bootstrap-linux-firewall
+
+## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
+- name: "Bootstrap linux firewall"
+  hosts: os_linux
+  become: true
+  tags:
+    - configure-firewall
+    - configure-linux-firewall
+  roles:
+    - name: bootstrap-linux-firewall
+      tasks_from: configure.yml
+#  include_role:
+#    name: bootstrap-linux-firewall
+#    tasks_from: configure.yml
 
 
 ## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
@@ -240,13 +254,11 @@
     - deploy-vm
   vars_files:
     - vars/secrets.yml
-  vars:
-    firewalld_ports: [ "{{ bind_firewalld_ports }}" ]
   roles:
 #    - role: chronyclient
     - role: ansible-role-bind
 #    - role: ansible-role-dhcp
-    - name: ansible-firewalld
+    - name: bootstrap-linux-firewall
       tags: [ 'firewall-config-nameserver' ]
 
 
@@ -260,7 +272,7 @@
   vars_files:
     - vars/secrets.yml
   roles:
-    - role: mrlesmithjr.ansible-kvm
+    - role: bootstrap-kvm
 
 ## ref: https://docs.ansible.com/ansible/latest/modules/vmware_guest_module.html
 - name: "Deploy VM"
@@ -318,10 +330,8 @@
 #  become_method: sudo
   vars_files:
     - vars/secrets.yml
-  vars:
-    firewalld_ports: [ "{{ cicd_firewalld_ports }}" ]
   roles:
-    - name: ansible-firewalld
+    - name: bootstrap-linux-firewall
       tags: [ firewall-config-cicd ]
     - role: geerlingguy.git
     - role: gantsign.maven
@@ -383,7 +393,7 @@
   roles:
     - role: ansible-role-snapraid
     - role: ansible-role-hddtemp
-#    - role: rossmcdonald.telegraf
+#    - role: bootstrap-telegraf
       ignore_errors: true
 #    - role: sanoid
 #    - role: syncoid
@@ -394,8 +404,6 @@
   become: true
   vars_files:
     - vars/secrets.yml
-  vars:
-    firewalld_ports: [ "{{ veeam_firewalld_ports }}" ]
   tags:
     - bootstrap-veeam
     - bootstrap-veeam-agent
@@ -403,7 +411,7 @@
     - install-veeam-agent
   roles:
     - bootstrap-veeam-agent
-    - name: ansible-firewalld
+    - name: bootstrap-linux-firewall
       tags: [ 'firewall-config-veeamagent' ]
 
 - name: "Configure veeam-agent jobs"
@@ -488,7 +496,7 @@
   become: yes
 #  become_method: sudo
   roles:
-    - role: githubixx.cfssl
+    - role: bootstrap-cfssl
 #      vars:
 #        ansible_python_interpreter: "{{ os_python3_interpreter }}"
     - role: bootstrap-keyring
@@ -546,18 +554,19 @@
     - bootstrap
     - docker
     - bootstrap-linux
-    - bootstrap-docker
+    - bootstrap-linux-docker
   become: True
 #  become_method: sudo
   roles:
-    - role: ansible-role-docker
+    - role: bootstrap-linux-docker
     - role: docker-deploy-registry-certs
       tags:
         - deploy-docker-registry-certs
         - deploy-registry-certs
         - cacerts-update
-    - role: docker-config
+    - role: bootstrap-linux-docker-config
       tags:
+        - bootstrap-linux-docker-config
         - bootstrap-docker-config
         - docker-config
 
@@ -734,12 +743,9 @@
   tags:
     - bootstrap
     - bootstrap-k8s
-  become: True
-#  become_method: sudo
-  vars:
-    firewalld_ports: [ "{{ kube_firewalld_ports }}" ]
+  become: yes
   roles:
-    - name: ansible-firewalld
+    - name: bootstrap-linux-firewall
       tags: [ firewall-config-k8s ]
 
 ## must first run the kolla-ansible (bootstrap-servers|prechecks|deploy)

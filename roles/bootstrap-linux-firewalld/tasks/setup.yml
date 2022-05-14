@@ -1,0 +1,132 @@
+---
+
+- name: Init firewalld vars
+  include_tasks: init-vars.yml
+
+- name: Install firewalld and firewalld-python packages
+  package:
+    name: "{{ firewalld_packages }}"
+    state: present
+
+- name: Install firewalld
+  package:
+    name: firewalld
+    state: present
+
+- name: Enable firewalld
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Install python-firewall on CentOS/RedHat
+  when:
+    - ansible_os_family in ['RedHat']
+    - ansible_distribution_major_version|int<8
+  package:
+    name: python-firewall
+    state: present
+
+#- name: Install python-firewall on CentOS/RedHat
+#  when:
+#    - ansible_os_family in ['RedHat']
+#    - ansible_distribution_major_version|int==8
+#  package:
+#    name: python3-firewall
+#    state: present
+
+- name: Configure firewalld.conf
+  ini_file:
+    path: "{{ firewalld_conf_file }}"
+    no_extra_spaces: yes
+    section: ''
+    option: "{{ item.key }}"
+    value: "{{ item.value }}"
+  with_dict: "{{ firewalld_conf }}"
+  notify: reload firewalld
+
+- name: "Display firewalld_zones"
+  debug:
+    var: firewalld_zones
+
+- name: Configure firewalld zones
+  template:
+    src: zone_template.xml.j2
+    dest: /etc/firewalld/zones/{{ item.name }}.xml
+    backup: yes
+  with_items: "{{ firewalld_zones }}"
+  notify: reload firewalld
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Get zones in /etc/firewalld/zones
+  shell: ls -1 /etc/firewalld/zones/ | grep -E .xml$
+  register: get_firewalld_zones
+  changed_when: false
+  failed_when: false
+
+- name: Remove unmanaged zones in /etc/firewalld/zones
+  file:
+    path: "/etc/firewalld/zones/{{ item }}"
+    state: absent
+  with_items: "{{ get_firewalld_zones.stdout_lines }}"
+  notify: reload firewalld
+  when: item|replace('.xml','') not in firewalld_zones|map(attribute='name')|list
+
+- name: "Display firewalld_ipsets"
+  debug:
+    var: firewalld_ipsets
+
+- name: Configure firewalld ipsets
+  template:
+    src: ipset_template.xml.j2
+    dest: /etc/firewalld/ipsets/{{ item.name }}.xml
+    backup: yes
+  with_items: "{{ firewalld_ipsets }}"
+  notify: reload firewalld
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Get ipsets in /etc/firewalld/ipsets
+  shell: ls -1 /etc/firewalld/ipsets/ | grep -E .xml$
+  register: get_firewalld_ipsets
+  changed_when: false
+  failed_when: false
+
+- name: Remove unmanaged ipsets in /etc/firewalld/ipsets
+  file:
+    path: "/etc/firewalld/ipsets/{{ item }}"
+    state: absent
+  with_items: "{{ get_firewalld_ipsets.stdout_lines }}"
+  notify: reload firewalld
+  when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
+
+- name: Configure firewalld custom services
+  when: "'port' in item"
+  template:
+    src: service_template.xml.j2
+    dest: /etc/firewalld/services/{{ item.name }}.xml
+    backup: yes
+  with_items: "{{ firewalld_services }}"
+  notify: reload firewalld
+  loop_control:
+    label: "{{ item.name }}"
+
+#- name: Configure firewalld custom services via CLI
+#  when:
+#    - firewalld_services|flatten|d([])|count>0
+#    - item.0.custom|d(false)
+#  command: "firewall-cmd --permanent --service={{ item.0.name }} --add-port={{ item.1.port }}/{{ item.1.protocol }}"
+#  loop: "{{ firewalld_services | subelements('port', { 'skip_missing': true }) }}"
+#  loop_control:
+#    label: "{{ item.0.name }} - {{ item.1.port }}/{{ item.1.protocol }}"
+#  notify: reload firewalld
+
+- name: reload firewalld
+  command: firewall-cmd --reload
+
+#- name: Restart firewalld
+#  service:
+#    name: firewalld
+#    state: restarted
+

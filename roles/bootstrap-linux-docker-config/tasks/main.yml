@@ -1,0 +1,281 @@
+---
+
+- name: Allow docker ports through the firewall
+  when: firewalld_enabled | bool
+  tags: [ firewall-config-docker ]
+  include_role:
+    name: bootstrap-linux-firewall
+    tasks_from: configure.yml
+  vars:
+    firewalld_ports: [ "{{ docker_firewalld_ports | default(omit) }}" ]
+
+#- name: Install Docker's dependencies
+#  package:
+#    name: "{{ docker__package_dependencies + docker__pip_dependencies }}"
+
+- name: Check for existing Docker Compose file
+  stat:
+    path: "/usr/local/bin/docker-compose"
+  register: docker__register_docker_compose
+
+#- name: Remove Docker Compose if it's been installed without PIP
+#  file:
+#    path: "/usr/local/bin/docker-compose"
+#    state: "absent"
+#  when:
+#    - docker__register_docker_compose.stat.exists
+#    - docker__register_docker_compose.stat.isreg | d(false)
+
+#- name: Install Virtualenv
+#  pip:
+#    name: "virtualenv"
+
+#- name: Install Virtualenv package
+#  pip:
+#    name: "virtualenv"
+#    state: present
+#    extra_args: "--user"
+#    executable: pip3
+
+- name: Install Python docker packages
+  become: yes
+#  become_user: "{{ ansible_local_user }}"
+#  vars:
+#    ansible_ssh_pipelining: yes
+  pip:
+    name: >
+      {{ item.name }}{% if item.version | d() %}=={{ item.version }}{% endif %}
+    state: "{{ item.state | d('present') }}"
+    executable: pip3
+  loop: "{{ docker__default_pip_packages + docker__pip_packages }}"
+  when: item.name | d()
+
+- name: Install Python docker packages into docker-python virtualenv
+  become: yes
+#  become_user: "{{ ansible_local_user }}"
+  ## ref: https://github.com/plone/ansible.plone_server/issues/86
+  ## ref: https://docs.ansible.com/ansible/2.5/user_guide/become.html
+  ## ref: http://toroid.org/ansible-ssh-pipelining
+#  vars:
+#    ansible_ssh_pipelining: yes
+  pip:
+    name: >
+      {{ item.name }}{% if item.version | d() %}=={{ item.version }}{% endif %}
+    state: "{{ item.virtualenv_state | d('present') }}"
+    virtualenv: "{{ docker__pip_virtualenv }}"
+    virtualenv_site_packages: yes
+#    virtualenv_python: "python{{ '3' if ansible_python.version.major == 3 else '2' }}"
+#    virtualenv_command: python3 -m venv
+    virtualenv_python: python3
+#    executable: pip3
+  loop: "{{ docker__default_pip_packages + docker__pip_packages }}"
+  when: item.name | d()
+
+- name: Symlink Python binary to {{ ansible_python_docker_interpreter }}
+  file:
+    path: "{{ ansible_python_docker_interpreter }}"
+    src: "{{ docker__pip_virtualenv }}/bin/python"
+    state: "link"
+
+#- name: Symlink selected Python package binaries to /usr/local/bin
+#  file:
+#    path: "{{ item.path }}"
+#    src: "{{ item.src }}"
+#    state: "link"
+#  loop: "{{ docker__default_pip_packages + docker__pip_packages }}"
+#  when:
+#    - item.state | d("present") != "absent"
+#    - item.path | d() and item.src | d()
+
+- name: Add user(s) to "docker" group
+  user:
+    name: "{{ item }}"
+    groups: "docker"
+    append: true
+  loop: "{{ docker__users }}"
+
+- name: Create Docker configuration directories
+  file:
+    path: "{{ item }}"
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  loop:
+    - "/etc/docker"
+    - "/etc/systemd/system/docker.service.d"
+
+#- name: Configure Docker daemon options (json)
+#  template:
+#    src: "etc/docker/daemon.json.j2"
+#    dest: "/etc/docker/daemon.json"
+#    owner: "root"
+#    group: "root"
+#    mode: "0644"
+#  when: docker__default_daemon_json or docker__daemon_json
+#  notify: ["Restart Docker"]
+#
+# - name: Docker | Deploy Config | Deploy /etc/docker/daemon.json
+#   template: src=docker_config.j2 dest=/etc/docker/daemon.json
+#   notify: Docker | Restart Docker
+
+## consistent with docker setup role (bootstrap-linux-docker)
+#### THESE ALLOW NOT USING TEMPLATE FILE ###
+- name: Docker | Deploy Config | Set the Docker configuration
+  set_fact:
+    docker_config: "{{ docker_config|d({}) | combine({ item.key: item.value }) }}"
+  when: item.value | length > 0
+  with_dict: "{{ docker_options }}"
+
+- name: Docker | Deploy Config | Deploy /etc/docker/daemon.json
+  copy:
+    content: "{{ docker_config | to_nice_json }}\n"
+    dest: /etc/docker/daemon.json
+    backup: yes
+  when: docker_config != {}
+  notify: ["Restart Docker"]
+
+- name: Display docker__daemon_flags
+  debug:
+    var: docker__daemon_flags
+
+- name: Configure Docker daemon options (flags)
+  template:
+    src: "etc/systemd/system/docker.service.d/options.conf.j2"
+    dest: "/etc/systemd/system/docker.service.d/options.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    backup: yes
+  register: docker__register_daemon_flags
+  when: docker__daemon_flags|d([]) | count > 0
+  notify: ["Restart Docker"]
+
+- name: Configure Docker daemon environment variables
+  template:
+    src: "etc/systemd/system/docker.service.d/environment.conf.j2"
+    dest: "/etc/systemd/system/docker.service.d/environment.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    backup: yes
+  register: docker__register_daemon_environment
+  when: docker__daemon_environment is defined and docker__daemon_environment | count > 0
+  notify: ["Restart Docker"]
+
+- name: Configure custom systemd unit file override
+  template:
+    src: "etc/systemd/system/docker.service.d/custom.conf.j2"
+    dest: "/etc/systemd/system/docker.service.d/custom.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    backup: yes
+  register: docker__register_custom_override
+  when: docker__systemd_override | d()
+  notify: ["Restart Docker"]
+
+#- name: override docker service for zfs dependencies
+#  include_tasks: docker-zfs-override.yml
+#  when: docker_zfs_override
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: true
+  when: (docker__register_daemon_flags | d() and
+         docker__register_daemon_flags is changed)
+         or (docker__register_daemon_environment | d() and
+         docker__register_daemon_environment is changed)
+         or (docker__register_custom_override | d() and
+         docker__register_custom_override is changed)
+  notify: ["Restart Docker"]
+
+#- name: Restart Docker now to make sure `docker login` works
+#  meta: "flush_handlers"
+#
+#- name: Manage Docker registry login credentials
+#  community.docker.docker_login:
+#    registry_url: "{{ item.registry_url | d(omit) }}"
+#    username: "{{ item.username }}"
+#    password: "{{ item.password }}"
+#    email: "{{ item.email | d(omit) }}"
+#    reauthorize: "{{ item.reauthorize | d(omit) }}"
+#    config_path: "{{ item.config_path | d((ansible_env.PWD | d('/root')) + '/.docker/config.json') }}"
+#    state: "{{ item.state | d('present') }}"
+#  loop: "{{ docker__registries }}"
+#  when: item.username | d() and item.password | d()
+#  vars:
+#    ansible_python_interpreter: "{{ '/usr/bin/env python-docker' if docker__pip_virtualenv | d() else ansible_python.executable }}"
+
+- name: Remove Docker related cron jobs
+  file:
+    path: "/etc/cron.d/{{ item.cron_file }}"
+    state: "absent"
+  loop: "{{ docker__cron_jobs }}"
+  when:
+    - item.state | d("present") == "absent"
+    - item.name | d() and item.job | d()
+    - item.schedule | d() and item.cron_file | d()
+
+- name: Create Docker related cron jobs
+  cron:
+    name: "{{ item.name }}"
+    job: "{{ item.job }}"
+    minute: "{{ item.schedule[0] }}"
+    hour: "{{ item.schedule[1] }}"
+    day: "{{ item.schedule[2] }}"
+    month: "{{ item.schedule[3] }}"
+    weekday: "{{ item.schedule[4] }}"
+    cron_file: "{{ item.cron_file }}"
+    user: "{{ item.user | d('root') }}"
+  loop: "{{ docker__cron_jobs }}"
+  when:
+    - item.state | d("present") != "absent"
+    - item.name | d() and item.job | d()
+    - item.schedule | d() and item.cron_file | d()
+
+### now create docker app user
+# BLOCK: Create docker group and user, enable sudo access
+- block:
+
+  - name: create {{ docker_user_group }} group
+    group:
+      name: "{{ docker_user_group }}"
+      gid: "{{ docker_user_gid | d(omit) }}"
+      system: yes
+      state: present
+
+  ## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
+  - name: Create docker user
+    user:
+      name: "{{ docker_user_username }}"
+      password: "{{ docker_user_password | password_hash('sha512',65534 | random(seed=hash_seed) | string) }}"
+      uid: "{{ docker_user_uid | d(omit) }}"
+      group: "{{ docker_user_group }}"
+      update_password: on_create
+      state: present
+      createhome: yes
+      shell: "{{ docker_user_shell }}"
+      groups: "{{ docker_user_groups[ansible_distribution] | join(',') }}"
+      append: yes
+      home: "{{ docker_user_home | d(omit) }}"
+    register: docker_user_verify_user
+
+  - debug:
+      var: docker_user_verify_user
+      verbosity: 1
+
+  - name: Set docker user info facts
+    set_fact:
+      docker_user_uid: "{{ docker_user_verify_user.uid }}"
+      docker_user_gid: "{{ docker_user_verify_user.group }}"
+      docker_user_home: "{{ docker_user_verify_user.home }}"
+
+  - name: Enable sudo for docker user
+    user:
+      name: "{{ docker_user_username }}"
+      groups: "{{ docker_sudo_group[ansible_distribution] }}"
+      append: yes
+    when: docker_user_sudo_access | bool
+
+

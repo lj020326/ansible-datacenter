@@ -1,6 +1,4 @@
-# Ansible role `bind`
-
-upstream: https://github.com/WRJFontenot/ansible-role-bind-pro
+# Ansible role `bootstrap-bind`
 
 An Ansible role for setting up BIND ISC as an **authoritative-only** or **caching-forwarding** DNS server for multiple domains on EL7 or Ubuntu Server. Specifically, the responsibilities of this role are to:
 
@@ -655,3 +653,7 @@ Testing 192.168.56.53
  ✓ The `dig` command should be installed
 [...]
 ```
+
+## References
+
+* https://github.com/WRJFontenot/ansible-role-bind-pro

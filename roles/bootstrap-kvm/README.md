@@ -1,18 +1,6 @@
-# ansible-kvm
+# bootstrap-kvm
 
 An [Ansible](https://www.ansible.com) role to install [KVM](https://www.linux-kvm.org/page/Main_Page)
-
-## Build Status
-
-[![Build Status](https://travis-ci.org/mrlesmithjr/ansible-kvm.svg?branch=master)](https://travis-ci.org/mrlesmithjr/ansible-kvm)
-
-## Requirements
-
-Install [required](./requirements.yml) [Ansible](https://www.ansible.com) roles:
-
-```bash
-sudo ansible-galaxy install -r requirements.yml
-```
 
 ## Role Variables
 
@@ -28,7 +16,7 @@ None
 - hosts: kvm_hosts
   vars: {}
   roles:
-    - role: ansible-kvm
+    - role: bootstrap-kvm
   tasks: []
 ```
 
@@ -66,15 +54,3 @@ kvm_vms:
     state: running
     vcpu: 1
 ```
-
-## License
-
-MIT
-
-## Author Information
-
-Larry Smith Jr.
-
-- [@mrlesmithjr](https://www.twitter.com/mrlesmithjr)
-- [EverythingShouldBeVirtual](http://everythingshouldbevirtual.com)
-- [mrlesmithjr@gmail.com](mailto:mrlesmithjr@gmail.com)
