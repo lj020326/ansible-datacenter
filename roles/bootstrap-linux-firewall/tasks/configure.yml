@@ -3,6 +3,20 @@
 - name: Init firewalld vars
   include_tasks: init-vars.yml
 
+- name: Configure firewalld custom services
+  when: item.custom|d(false)
+  template:
+    src: service_template.xml.j2
+    dest: /etc/firewalld/services/{{ item.name }}.xml
+    backup: yes
+  with_items: "{{ firewalld_services }}"
+  notify: reload firewalld
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: reload firewalld
+  command: firewall-cmd --reload
+
 ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html
 - name: Configure firewalld services
   when:

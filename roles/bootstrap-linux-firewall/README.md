@@ -220,7 +220,26 @@ firewalld_conf:
  DefaultZone: "myzone"
 ```
 
+Or with more options:
+```yaml
+firewalld_conf: 
+  DefaultZone: "{{ firewalld_default_zone }}"
+  CleanupOnExit: "yes"
+  Lockdown: "no"
+  IPv6_rpfilter: "yes"
+  IndividualCalls: "yes"
+  LogDenied: "off"
+  FirewallBackend: "nftables"
+  FlushAllOnReload: "yes"
+  RFC3964_IPv4: "yes"
+  AllowZoneDrifting: "no"
+```
+
 ## TODO
 
 * firewalld_helpers
 * lockdown-whitelist.xml
+
+## Reference
+
+* https://github.com/ptrunk/ansible-firewalld

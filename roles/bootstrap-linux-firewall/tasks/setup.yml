@@ -35,7 +35,18 @@
 #    name: python3-firewall
 #    state: present
 
-- name: Configure firewalld.conf
+
+- name: Initialize firewalld zones
+  template:
+    src: firewalld.conf.j2
+    dest: "{{ firewalld_conf_file }}"
+    backup: yes
+  with_items: "{{ firewalld_zones }}"
+  notify: reload firewalld
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Customize firewalld.conf according to any firewalld_conf settings
   ini_file:
     path: "{{ firewalld_conf_file }}"
     no_extra_spaces: yes
@@ -102,7 +113,7 @@
   when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
 
 - name: Configure firewalld custom services
-  when: "'port' in item"
+  when: item.custom|d(false)
   template:
     src: service_template.xml.j2
     dest: /etc/firewalld/services/{{ item.name }}.xml
@@ -111,16 +122,6 @@
   notify: reload firewalld
   loop_control:
     label: "{{ item.name }}"
-
-#- name: Configure firewalld custom services via CLI
-#  when:
-#    - firewalld_services|flatten|d([])|count>0
-#    - item.0.custom|d(false)
-#  command: "firewall-cmd --permanent --service={{ item.0.name }} --add-port={{ item.1.port }}/{{ item.1.protocol }}"
-#  loop: "{{ firewalld_services | subelements('port', { 'skip_missing': true }) }}"
-#  loop_control:
-#    label: "{{ item.0.name }} - {{ item.1.port }}/{{ item.1.protocol }}"
-#  notify: reload firewalld
 
 - name: reload firewalld
   command: firewall-cmd --reload

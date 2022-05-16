@@ -1,5 +1,11 @@
 ---
 
+- name: Verify firewalld_action action is defined and supported
+  assert:
+    that:
+      - firewalld_action is defined
+      - firewalld_action in firewalld_supported_actions
+
 - include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
@@ -9,18 +15,20 @@
 
 - name: Disable firewalld
   when: not firewalld_enabled | bool
+  ignore_errors: yes
   service:
     name: firewalld
     state: stopped
     enabled: no
 
 - name: Bootstrap firewalld
-  when: not firewalld_install
+  when: firewalld_action == 'uninstall'
   include_tasks: uninstall.yml
 
-- name: Configure firewalld
-  when: firewalld_install
+- name: Install firewalld
+  when: firewalld_action == 'install'
   include_tasks: setup.yml
 
 - name: Configure firewalld
+  when: firewalld_action in ['install','configure']
   include_tasks: configure.yml
