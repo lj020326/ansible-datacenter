@@ -1,6 +1,7 @@
 
+# Approach to maintaining Firewall (FW) State
 
-## Additive/Incremental Approach to maintaining Firewall (FW) State
+## Additive/Incremental Approach
 
 One common approach used to manage firewalls with ansible is to add the necessary port needed by that role just applied.
 
@@ -224,7 +225,7 @@ firewalld_ports__bind:
 - name: Combine firewalld_ports__* ports into merged list
   set_fact:
     firewalld_ports: "{{ firewalld_ports|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames','^firewalld_ports__*$') }}"
+  loop: "{{ lookup('varnames','^firewalld_ports__') }}"
   
 - name: "Display firewalld_ports"
   debug:
@@ -271,7 +272,7 @@ We assume that there is an ansible-win-firewall role to support updating the fir
 - name: Combine firewall_win_ports__* ports into merged list
   set_fact:
     firewall_win_ports: "{{ firewall_win_ports|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames','^firewall_win_ports__*$') }}"
+  loop: "{{ lookup('varnames','^firewall_win_ports__$') }}"
   
 - name: "Display firewall_win_ports"
   debug:
@@ -379,7 +380,7 @@ firewall_win_rules__mssql:
 - name: Combine firewall_win_rules__* ports into merged list
   set_fact:
     firewall_win_rules: "{{ firewall_win_rules|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames','^firewall_win_rules__*$') }}"
+  loop: "{{ lookup('varnames','^firewall_win_rules__') }}"
   
 - name: "Display firewall_win_rules"
   debug:
