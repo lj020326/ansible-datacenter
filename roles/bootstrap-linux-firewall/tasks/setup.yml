@@ -19,23 +19,6 @@
     state: started
     enabled: yes
 
-- name: Install python-firewall on CentOS/RedHat
-  when:
-    - ansible_os_family in ['RedHat']
-    - ansible_distribution_major_version|int<8
-  package:
-    name: python-firewall
-    state: present
-
-#- name: Install python-firewall on CentOS/RedHat
-#  when:
-#    - ansible_os_family in ['RedHat']
-#    - ansible_distribution_major_version|int==8
-#  package:
-#    name: python3-firewall
-#    state: present
-
-
 - name: Initialize firewalld zones
   template:
     src: firewalld.conf.j2
@@ -56,6 +39,20 @@
   with_dict: "{{ firewalld_conf }}"
   notify: reload firewalld
 
+- name: Configure firewalld custom services
+  when: item.custom|d(false)
+  template:
+    src: service_template.xml.j2
+    dest: /etc/firewalld/services/{{ item.name }}.xml
+    backup: yes
+  with_items: "{{ firewalld_services }}"
+  notify: reload firewalld
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: reload firewalld
+  command: firewall-cmd --reload
+
 - name: "Display firewalld_zones"
   debug:
     var: firewalld_zones
@@ -69,6 +66,18 @@
   notify: reload firewalld
   loop_control:
     label: "{{ item.name }}"
+  register: firewalld_zone_backup
+
+#- name: Display firewalld_zone_backup
+#  debug:
+#    var: firewalld_zone_backup
+#
+### ref: https://github.com/ansible/ansible/issues/16305#issuecomment-475220643
+#- name: "Move original {{ firewalld_zone_backup.backup }} zone file backup to backup directory {{ firewalld_backup_dir }}/zones"
+#  shell: >
+#    mkdir --parents {{ firewalld_backup_dir }}/zones &&
+#    mv {{ firewalld_zone_backup.backup }} {{ firewalld_backup_dir }}/zones/{{ firewalld_zone_backup.backup }}
+#  when: firewalld_zone_backup.backup
 
 - name: Get zones in /etc/firewalld/zones
   shell: ls -1 /etc/firewalld/zones/ | grep -E .xml$
@@ -111,20 +120,6 @@
   with_items: "{{ get_firewalld_ipsets.stdout_lines }}"
   notify: reload firewalld
   when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
-
-- name: Configure firewalld custom services
-  when: item.custom|d(false)
-  template:
-    src: service_template.xml.j2
-    dest: /etc/firewalld/services/{{ item.name }}.xml
-    backup: yes
-  with_items: "{{ firewalld_services }}"
-  notify: reload firewalld
-  loop_control:
-    label: "{{ item.name }}"
-
-- name: reload firewalld
-  command: firewall-cmd --reload
 
 #- name: Restart firewalld
 #  service:

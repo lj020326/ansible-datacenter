@@ -179,7 +179,8 @@ working with openstack deploy node setup
 ansible -i inventory/hosts.ini openstack -m ping
 ansible -i inventory/hosts-openstack.ini openstack -m ping
 
-ansible-playbook site.yml --tags bootstrap-linux --limit vmub2201
+ansible-playbook site.yml --tags bootstrap-linux --limit os_linux
+ansible-playbook site.yml --tags bootstrap-linux-firewall --limit vmub2201
 ansible-playbook site.yml --tags bootstrap-network --limit node01
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-deploy-node
@@ -216,6 +217,9 @@ openstack server create --image cirros --flavor m1.tiny --key-name mykey --netwo
 
 Other useful plays
 ```bash
+ansible-playbook site.yml --tags bootstrap-linux-mounts --limit os_linux
+ansible-playbook site.yml --tags bootstrap-linux-mounts --limit os_centos_7
+ansible-playbook site.yml --tags bootstrap-linux-mounts --limit postgres
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit media
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
@@ -371,8 +375,10 @@ ansible-playbook site.yml --tags bootstrap-keyring
 ansible-playbook site.yml --tags bootstrap-kvm
 ansible-playbook site.yml --tags bootstrap-ldap-client
 ansible-playbook site.yml --tags bootstrap-linux
-ansible-playbook site.yml --tags bootstrap-mergerfs
 ansible-playbook site.yml --tags bootstrap-linux-core
+ansible-playbook site.yml --tags bootstrap-linux-firewall
+ansible-playbook site.yml --tags configure-linux-firewall
+ansible-playbook site.yml --tags bootstrap-mergerfs
 ansible-playbook site.yml --tags bootstrap-ntp
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
