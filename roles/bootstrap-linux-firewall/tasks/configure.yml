@@ -1,8 +1,5 @@
 ---
 
-- name: Init firewalld vars
-  include_tasks: init-vars.yml
-
 - name: Configure firewalld custom services
   when: item.custom|d(false)
   template:
@@ -72,7 +69,8 @@
   with_items: "{{ get_firewalld_services.stdout_lines }}"
   notify: reload firewalld
 
-- name: Configure running firewalld
+- name: Configure defined firewalld_rules
+  when: firewalld_rules|d([])|length>0
   ansible.posix.firewalld:
     immediate: "{{ item.immediate|default('yes') }}"
     interface: "{{ item.interface|default(omit) }}"
@@ -84,7 +82,7 @@
     source: "{{ item.source|default(omit) }}"
     state: "{{ item.state|default('enabled') }}"
     zone: "{{ item.zone|default(omit) }}"
-  with_items: "{{ firewalld_configs }}"
+  with_items: "{{ firewalld_rules }}"
 
 ## We need this task to ensure firewall rules are loaded before
 ## the following tasks/roles run because they may need active firewall rules

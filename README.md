@@ -181,6 +181,7 @@ ansible -i inventory/hosts-openstack.ini openstack -m ping
 
 ansible-playbook site.yml --tags bootstrap-linux --limit os_linux
 ansible-playbook site.yml --tags bootstrap-linux-firewall --limit vmub2201
+ansible-playbook site.yml --tags bootstrap-linux-docker --limit docker
 ansible-playbook site.yml --tags bootstrap-network --limit node01
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-deploy-node
@@ -291,7 +292,7 @@ ansible -v -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -e ansib
 
 ```bash
 ansible-playbook site.yml --tags display-vars -l control01
-ansible-playbook site.yml --tags display-domain-vars -l control01
+ansible-playbook site.yml --tags display-domain-vars -l os_linux
 ansible-playbook site.yml --tags display-domain-vars -l nas02
 ansible-playbook site.yml --tags display-domain-vars -l control01
 ansible all -m debug -a var=groups['ca_domain']
@@ -367,7 +368,6 @@ ansible-playbook site.yml --tags bootstrap-bind
 ansible-playbook site.yml --tags bootstrap-cacert
 ansible-playbook site.yml --tags bootstrap-caroot
 ansible-playbook site.yml --tags bootstrap-cicd
-ansible-playbook site.yml --tags bootstrap-docker
 ansible-playbook site.yml --tags bootstrap-docker-stack
 ansible-playbook site.yml --tags bootstrap-idrac
 ansible-playbook site.yml --tags bootstrap-jenkins-agent
@@ -376,6 +376,7 @@ ansible-playbook site.yml --tags bootstrap-kvm
 ansible-playbook site.yml --tags bootstrap-ldap-client
 ansible-playbook site.yml --tags bootstrap-linux
 ansible-playbook site.yml --tags bootstrap-linux-core
+ansible-playbook site.yml --tags bootstrap-linux-docker
 ansible-playbook site.yml --tags bootstrap-linux-firewall
 ansible-playbook site.yml --tags configure-linux-firewall
 ansible-playbook site.yml --tags bootstrap-mergerfs
@@ -437,6 +438,8 @@ Useful commands to build/update/configure datacenter:
 ansible-playbook site.yml --tags bootstrap-bind
 ansible-playbook site.yml --tags bootstrap-docker
 ansible-playbook site.yml --tags bootstrap-linux-core
+ansible-playbook site.yml --tags bootstrap-linux-docker
+ansible-playbook site.yml --tags bootstrap-linux-firewall
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
 ansible-playbook site.yml --tags bootstrap-user
