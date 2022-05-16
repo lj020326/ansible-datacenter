@@ -8,18 +8,20 @@ ntp_timezone: America/New_York
 ntp_manage_config: yes
 ntp_area: 'us'
 
-ntp_restrict:
-  - "192.168.0.1"
-
-ntp_servers:
-#  - "192.168.0.1 prefer iburst"
-  - "{{ gateway_ip4 }} prefer iburst"
-
 ntp_tinker_panic: true
 
 #ntp_servers:
-#  - "192.168.0.1 iburst"
-#  - 0{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst
-#  - 1{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst
-#  - 2{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst
-#  - 3{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst
+#  - "{{ gateway_ip4 }} prefer iburst"
+
+ntp_servers: |
+  [
+    "{{ gateway_ip4 }} prefer iburst",
+    {% if groups['ntp_server'] is defined %}
+    {% for host in groups['ntp_server'] %}
+    "{{ hostvars[host].ansible_host }} prefer iburst",
+    {% endfor %}
+    {% endif %}
+  ]
+
+ntp_allow_networks:
+  - "{{ ipv4_gateway_network_cidr }}"

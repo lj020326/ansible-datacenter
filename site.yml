@@ -14,7 +14,8 @@
 ## ref: https://github.com/ansible/ansible/issues/20360
 - name: "Gather facts for all hosts to apply OS specific group vars for them"
   tags: always
-  hosts: all,!node_offline,!local
+#  hosts: all,!node_offline,!local
+  hosts: all,!node_offline
   gather_facts: yes
   vars_files:
     - vars/secrets.yml
@@ -146,7 +147,7 @@
 
 
 - name: "Display cert info"
-  hosts: control_node,!local
+  hosts: control_node,!node_offline,!local
   ignore_unreachable: yes
   ignore_errors: yes
   tags:
@@ -165,7 +166,7 @@
           - "ca_routes_dynamic={{ ca_routes_dynamic | to_nice_json }}"
 
 - name: "Display bind info"
-  hosts: bind_master
+  hosts: bind_master,!node_offline
   tags:
     - bootstrap-bind
     - deploy-vm
@@ -180,13 +181,27 @@
           - "bind_zone_hosts_dynamic={{ bind_zone_hosts_dynamic | to_nice_json }}"
 
 
+##
+## Reporting plays
+##
 - name: Get linux os configs
-  hosts: os_linux,!local,!node_offline
+  hosts: os_linux,!node_offline,!local
   tags:
     - fetch-linux-os-configs
   gather_facts: false
   roles:
     - role: fetch-linux-os-configs
+
+- name: "Report windows facts"
+  hosts: windows,!node_offline
+#  hosts: localhost
+#  connection: local
+  gather_facts: false
+  tags:
+    - 'report-windows-facts'
+  roles:
+    - role: report-windows-facts
+
 
 ##
 ## make sure this is running as bootstrap user
@@ -197,7 +212,7 @@
 ## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
 ##
 - name: "Bootstrap linux users"
-  hosts: os_linux,!local,!node_offline
+  hosts: os_linux,!node_offline
   vars_files:
     - vars/secrets.yml
   vars:
@@ -219,7 +234,7 @@
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Bootstrap linux firewall"
-  hosts: os_linux
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - bootstrap-firewall
@@ -230,7 +245,7 @@
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Configure linux firewall"
-  hosts: os_linux
+  hosts: os_linux,!node_offline
   become: true
   tags:
     - configure-firewall
@@ -247,7 +262,7 @@
 ## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
 ## ref: https://github.com/nathancurry/homelab.ansible/tree/master
 - name: "Configure nameservers"
-  hosts: nameserver
+  hosts: nameserver,!node_offline
   become: true
   tags:
     - bootstrap-nameserver
@@ -265,9 +280,8 @@
       tags: [ 'firewall-config-nameserver' ]
 
 
-
 - name: "Bootstrap kvm hosts"
-  hosts: kvm_host
+  hosts: kvm_host,!node_offline
   gather_facts: false
   become: yes
   tags:
@@ -279,8 +293,7 @@
 
 ## ref: https://docs.ansible.com/ansible/latest/modules/vmware_guest_module.html
 - name: "Deploy VM"
-  hosts:
-    - vmware_control_node
+  hosts: vmware_control_node
   tags:
     - deploy-vm
   gather_facts: false
@@ -292,10 +305,8 @@
     - role: ansible-role-govc
     - role: deploy-vm
 
-
-
 - name: "Bootstrap linux"
-  hosts: os_linux,!local
+  hosts: os_linux,!node_offline
   tags:
     - bootstrap-linux
     - bootstrap-node-core
@@ -310,7 +321,7 @@
 
 
 - name: "Bootstrap logrotate"
-  hosts: os_linux,!local
+  hosts: os_linux,!node_offline
   tags:
     - bootstrap-logrotate
   become: yes
@@ -322,7 +333,7 @@
 
 ## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
 - name: "Bootstrap CI/CD node"
-  hosts: cicd_node,!local
+  hosts: cicd_node,!node_offline,!local
   tags:
     - bootstrap
     - bootstrap-cicd
@@ -348,7 +359,7 @@
     - role: ansible-role-ovftool
 
 - name: "Setup Jenkins Agent"
-  hosts: jenkins_agent
+  hosts: jenkins_agent,!node_offline
   tags:
     - bootstrap-jenkins-agent
     - deploy-jenkins-agent
@@ -362,7 +373,7 @@
       tags: [ bootstrap-inspec ]
 
 - name: "Setup iscsi clients"
-  hosts: iscsi_client
+  hosts: iscsi_client,!node_offline
   tags:
     - bootstrap
     - bootstrap-iscsi
@@ -373,20 +384,29 @@
   roles:
     - role: iscsi-client
 
+- name: "Setup ntp servers"
+  hosts: ntp_server,!node_offline
+  tags:
+    - bootstrap-ntp
+    - bootstrap-ntp-server
+  become: yes
+  roles:
+    - role: bootstrap-ntp
+
 - name: "Setup ntp clients"
-  hosts: ntp_client,!local
+  hosts: ntp_client,!ntp_server,!node_offline
   tags:
     - bootstrap-ntp
     - bootstrap-ntp-client
   become: yes
   roles:
-    - role: geerlingguy.ntp
+    - role: bootstrap-ntp
 
 
 ## ref: https://blog.ktz.me/combining-zfs-with-other-filesystems-using-mergerfs/
 ## ref: https://selfhostedhome.com/combining-different-sized-drives-with-mergerfs-and-snapraid/
 - name: "Setup mergerfs nodes"
-  hosts: mergerfs
+  hosts: mergerfs,!node_offline
   tags:
     - mergerfs
     - bootstrap-mergerfs
@@ -404,7 +424,7 @@
     - role: mergerfs
 
 - name: "Install veeam-agent"
-  hosts: veeam_agent
+  hosts: veeam_agent,!node_offline
   become: true
   vars_files:
     - vars/secrets.yml
@@ -420,7 +440,7 @@
       tags: [ 'firewall-config-veeamagent' ]
 
 - name: "Configure veeam-agent jobs"
-  hosts: veeam_agent
+  hosts: veeam_agent,!node_offline
   become: true
   vars_files:
     - vars/secrets.yml
@@ -433,7 +453,7 @@
 
 
 #- name: "Bootstrap ldap client"
-#  hosts: ldap_client
+#  hosts: ldap_client,!node_offline
 #  vars_files:
 #    - vars/secrets.yml
 #  tags:
@@ -442,14 +462,11 @@
 #    - ldap-client
 #  become: True
 #  become_method: sudo
-##  remote_user: "{{ bootstrap_user }}"
-##  gather_facts: false
 #  roles:
-##    - role: ldap-auth-client
 #    - role: ldap-client
 
 - name: "Bootstrap ansible node"
-  hosts: ansible_controller
+  hosts: ansible_controller,!node_offline
   tags:
     - bootstrap
     - bootstrap-admin
@@ -467,7 +484,7 @@
 
 ## setup step-ca pki, create CA certs and install CA certs
 - name: "Configure Step-ca cli for step clients"
-  hosts: step_ca_cli
+  hosts: step_ca_cli,!node_offline
   tags:
     - bootstrap-stepca
     - bootstrap-stepca-cli
@@ -482,7 +499,7 @@
 ## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
 ## ref: https://github.com/shelleg/ansible-role-ca/
 - name: "Setup ca_root and cacerts"
-  hosts: ca_keyring
+  hosts: ca_keyring,!node_offline
   gather_facts: false
 #  collections:
 #    - lvrfrc87.git_acp
@@ -529,7 +546,7 @@
 #    - role: cacert-node
 
 - name: "Deploy CA certs to cert_node"
-  hosts: os_linux
+  hosts: os_linux,!node_offline
   gather_facts: false
   vars_files:
     - vars/secrets.yml
@@ -552,7 +569,7 @@
 ## ref: https://github.com/ansible/ansible/issues/29510
 ## ref: https://github.com/nickjj/ansible-docker
 - name: "Bootstrap docker nodes"
-  hosts: docker
+  hosts: docker,!node_offline
   vars_files:
     - vars/secrets.yml
   tags:
@@ -580,8 +597,7 @@
 ###########################
 
 - name: "Create, tag and push docker images (ldap, jenkins, etc) to registry"
-  hosts:
-    - docker_image_builder
+  hosts: docker_image_builder,!node_offline
   tags:
     - bootstrap
     - bootstrap-registry
@@ -599,8 +615,7 @@
 
 
 - name: "Setup docker control plane node"
-  hosts:
-    - docker_control_node
+  hosts: docker_control_node,!node_offline
   tags:
     - bootstrap-docker-stack
     - bootstrap-docker-control-node
@@ -613,8 +628,7 @@
     - role: docker-stack
 
 - name: "Setup docker admin node : mail, nfs, docker (traefik, portainer, watchdog, ldap, etc)"
-  hosts:
-    - docker_admin_node
+  hosts: docker_admin_node,!node_offline
   tags:
     - bootstrap
     - bootstrap-docker-stack
@@ -629,8 +643,7 @@
     - role: docker-stack
 
 - name: "Setup docker media node"
-  hosts:
-    - docker_media_node
+  hosts: docker_media_node,!node_offline
   tags:
     - bootstrap-docker-stack
     - bootstrap-docker-media-node
@@ -643,7 +656,7 @@
     - role: docker-stack
 
 - name: "Setup docker ml node"
-  hosts: docker_ml_node
+  hosts: docker_ml_node,!node_offline
   tags:
     - bootstrap-docker-stack
     - bootstrap-docker-ml-node
@@ -657,7 +670,7 @@
 
 ## ref: https://github.com/lae/ansible-role-proxmox
 - name: "Deploy ProxMox Cluster"
-  hosts: proxmox
+  hosts: proxmox,!node_offline
   tags:
     - bootstrap-proxmox
   become: True
@@ -670,8 +683,7 @@
 
 
 - name: "Deploy VSphere Datacenter"
-  hosts:
-    - vsphere_control_node
+  hosts: vsphere_control_node
   tags:
     - deploy-vsphere-dc
     - vsphere-deploy-dc
@@ -684,7 +696,7 @@
     - role: vsphere-deploy-dc
 
 - name: "Bootstrap VMware ESXi servers"
-  hosts: vmware_physical_esx_host
+  hosts: vmware_physical_esx_host,!node_offline
   tags:
     - bootstrap-vmware-esxi
     - deploy-vsphere-dc
@@ -697,7 +709,7 @@
     - role: vmware-esxi-hostconf
 
 - name: "VMware Upgrade ESXi servers"
-  hosts: vmware_physical_esx_host
+  hosts: vmware_physical_esx_host,!node_offline
   tags:
     - upgrade-vmware-esxi
   gather_facts: false
@@ -730,8 +742,7 @@
 
 
 - name: "Bootstrap openstack"
-  hosts:
-    - openstack_kolla_node
+  hosts: openstack_kolla_node,!node_offline
   tags:
     - bootstrap
     - bootstrap-openstack
@@ -744,7 +755,7 @@
       role: bootstrap-openstack
 
 - name: "Bootstrap k8s cluster"
-  hosts: k8s_cluster
+  hosts: k8s_cluster,!node_offline
   tags:
     - bootstrap
     - bootstrap-k8s
@@ -756,8 +767,7 @@
 
 ## must first run the kolla-ansible (bootstrap-servers|prechecks|deploy)
 - name: "Bootstrap openstack cloud"
-  hosts:
-    - openstack_kolla_node
+  hosts: openstack_kolla_node,!node_offline
   tags:
     - bootstrap-openstack-cloud
     - openstack-cloud
@@ -786,7 +796,7 @@
 ## bootstrap-fog
 ## ref: https://github.com/ceph/ceph-cm-ansible/tree/master/roles/bootstrap-fog
 - name: Install FOG server
-  hosts: fog_server
+  hosts: fog_server,!node_offline
   become: true
   tags:
     - bootstrap-fog
@@ -801,7 +811,7 @@
 #      private: no
 
 - name: "Setup nginx"
-  hosts: nginx_service
+  hosts: nginx_service,!node_offline
   tags:
     - nginx-service
   become: True
@@ -811,7 +821,7 @@
 
 
 - name: Bootstrap iDRAC Automation
-  hosts: dell_idrac_hosts
+  hosts: dell_idrac_hosts,!node_offline
 #  connection: local
   tags:
     - bootstrap-dell-idrac-hosts
@@ -829,7 +839,7 @@
 
 # ref: https://dell.github.io/dellemc-openmanage-ansible-modules/GUID-EA8B2754-D62E-4D2C-8951-636D49B0CAA5.html
 - name: Get iDRAC LC Ready Status
-  hosts: dell_idrac_hosts
+  hosts: dell_idrac_hosts,!node_offline
   tags:
     - dell-idrac-get-host-info
   connection: local
@@ -858,7 +868,7 @@
 
 ## ref: https://github.com/jonas-werner/ansible-playbooks/blob/master/set_ntp_values.yml
 - name: Change iDRAC NTP Attributes
-  hosts: dell_idrac_hosts
+  hosts: dell_idrac_hosts,!node_offline
   tags:
     - dell-idrac-config-ntp
   connection: local
@@ -890,7 +900,6 @@
 
 ## ref: https://www.ansible.com/blog/introducing-the-awx-collection
 - name: Playbook to create tower resource configs
-#  hosts: localhost
   hosts: tower_control_node
   tags:
     - bootstrap-tower
@@ -908,7 +917,6 @@
 
 ## ref: https://www.ansible.com/blog/introducing-the-awx-collection
 - name: Playbook for Using a Variety of Tower Modules
-#  hosts: localhost
   hosts: tower_control_node
   tags:
     - remove-tower-resources
@@ -924,10 +932,8 @@
       vars:
         tower_resource_state: absent
 
-
-
 - name: Playbook for Using a Variety of Tower Modules
-  hosts: localhost
+  hosts: tower_control_node
   tags:
     - export-tower-resources
   gather_facts: false

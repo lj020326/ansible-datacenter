@@ -1,0 +1,37 @@
+---
+
+## NTP configs
+## ref: https://github.com/geerlingguy/ansible-role-ntp
+## ref: https://github.com/geerlingguy/ansible-role-ntp
+bootstrap_ntp_enabled: true
+bootstrap_ntp_timezone: America/New_York
+bootstrap_ntp_manage_config: yes
+bootstrap_ntp_area: 'us'
+
+bootstrap_ntp_restrict:
+  - "{{ ipv4_gateway_network }} mask {{ ipv4_netmask }} notrust"
+
+bootstrap_ntp_tinker_panic: true
+
+#bootstrap_ntp_servers:
+#  - "{{ gateway_ip4 }} prefer iburst"
+
+bootstrap_ntp_servers:
+  - 0{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst xleave
+  - 1{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst xleave
+  - 2{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst xleave
+  - 3{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst xleave
+
+bootstrap_ntp_peers: |
+  [
+    {% for host in groups['ntp_server'] | difference([inventory_hostname]) %}
+    peer {{ hostvars[host].ansible_host }} iburst xleave,
+    {% endfor %}
+  ]
+
+bootstrap_ntp_allow_networks:
+  - "{{ ipv4_gateway_network_cidr }}"
+
+bootstrap_ntp_local_stratum_enabled: yes
+
+bootstrap_ntp_leapsectz_enabled: yes

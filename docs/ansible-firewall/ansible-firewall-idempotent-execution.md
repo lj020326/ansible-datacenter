@@ -406,20 +406,20 @@ firewall_win_rules__mssql:
 
 ## Working example roles from this repository
 
-For examples, see the group_var files in this repo for the following groups/examples:
+For examples, see the group_var files in the [example repo here](https://github.com/lj020326/ansible-datacenter) for the following groups/examples:
 
 group var file|var names used
 ---|---
-[os_linux.yml](./../../inventory/group_vars/os_linux.yml)|firewalld_services__linux
-[postfix_server.yml](./../../inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
-[nameserver.yml](./../../inventory/group_vars/nameserver.yml)|firewalld_ports__bind
-[veeam_agent.yml](./../../inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
+[os_linux.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/os_linux.yml)|firewalld_services__linux
+[postfix_server.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
+[nameserver.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/nameserver.yml)|firewalld_ports__bind
+[veeam_agent.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
 
 ## Firewall Role execution from another role
 
 If there is the need to invoke the firewall role from another role, see the example nfs-service role invoking the firewall role below.
 
-[roles/nfs-service/tasks/main.yml](./../../roles/nfs-service/tasks/main.yml):
+[roles/nfs-service/tasks/main.yml](https://github.com/lj020326/ansible-datacenter/roles/nfs-service/tasks/main.yml):
 ```yaml
 - name: Setup and run nfs
   include_role:

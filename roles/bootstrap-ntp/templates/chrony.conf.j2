@@ -1,9 +1,13 @@
 # {{ ansible_managed }}
 
 # These servers were defined in the installation:
-{% for server in ntp_servers %}
+{% for server in bootstrap_ntp_servers %}
 server {{ server }}
 {% endfor %}
+{% for peer in bootstrap_ntp_peers %}
+peer {{ peer }}
+{% endfor %}
+
 # Use public servers from the pool.ntp.org project.
 # Please consider joining the pool (http://www.pool.ntp.org/join.html).
 
@@ -24,17 +28,30 @@ rtcsync
 # the system clock.
 #minsources 2
 
+{% if bootstrap_ntp_allow_networks|d([])|length>0 %}
 # Allow NTP client access from local network.
-#allow 192.168.0.0/16
+{% for network in bootstrap_ntp_allow_networks %}
+allow {{ network }}
+{% endfor %}
+{% endif %}
 
+{% if bootstrap_ntp_local_stratum_enabled is defined %}
 # Serve time even if not synchronized to a time source.
-#local stratum 10
+local stratum {{ bootstrap_ntp_local_stratum_conf | d('10') }}
+{% endif %}
 
+{% if bootstrap_ntp_keys_enabled is defined %}
 # Specify file containing keys for NTP authentication.
-#keyfile /etc/chrony.keys
+keyfile {{ bootstrap_ntp_keys_file }}
+{% endif %}
 
 # Specify directory for log files.
 logdir /var/log/chrony
 
 # Select which information is logged.
 #log measurements statistics tracking
+
+{% if bootstrap_ntp_leapsectz_enabled is defined %}
+# Get TAI-UTC offset and leap seconds from the system tz database.
+leapsectz right/UTC
+{% endif %}
