@@ -37,7 +37,7 @@ linuxhost053
 
 
 
-./roles/ansible-firewalld/tasks/main.yml:
+./roles/bootstrap-linux-firewall/tasks/main.yml:
 ```yml
 ---
 
@@ -70,7 +70,7 @@ The following playbook example then specifies the ports to be added to the firew
     firewalld_ports: "{{ postfix_firewalld_ports }}"
   roles:
     - role: ansible-role-postfix
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
 
 - name: "Setup veeam-agent"
   hosts: linux
@@ -82,7 +82,7 @@ The following playbook example then specifies the ports to be added to the firew
     firewalld_ports: "{{ veeam_firewalld_ports }}"
   roles:
     - role: bootstrap-veeam-agent
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
       tags: [ 'firewall-config-veeamagent' ]
 
 - name: "Setup web"
@@ -96,7 +96,7 @@ The following playbook example then specifies the ports to be added to the firew
     firewalld_ports: "{{ httpd_firewalld_ports }}"
   roles:
     - role: ansible-role-httpd
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
 
 - name: "Setup nameservers"
   hosts: nameserver
@@ -111,7 +111,7 @@ The following playbook example then specifies the ports to be added to the firew
     firewalld_ports: "{{ bind_firewalld_ports }}"
   roles:
     - role: ansible-role-bind
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
 
 
 
@@ -189,7 +189,7 @@ firewalld_ports__bind:
   tags: bootstrap-postfix
   roles:
     - role: ansible-role-postfix
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
 
 - name: "Setup web"
   hosts: webserver
@@ -197,7 +197,7 @@ firewalld_ports__bind:
   tags: bootstrap-httpd
   roles:
     - role: ansible-role-httpd
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
 
 - name: "Setup veeam-agent"
   hosts: linux
@@ -205,7 +205,7 @@ firewalld_ports__bind:
   tags: bootstrap-veeam
   roles:
     - role: bootstrap-veeam-agent
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
       tags: [ 'firewall-config-veeamagent' ]
 
 - name: "Setup nameservers"
@@ -214,11 +214,11 @@ firewalld_ports__bind:
   tags: bootstrap-bind
   roles:
     - role: ansible-role-bind
-    - role: ansible-firewalld
+    - role: bootstrap-linux-firewall
 
 ```
 
-./roles/ansible-firewalld/tasks/main.yml
+./roles/bootstrap-linux-firewall/tasks/main.yml
 ```yml
 ---
 
