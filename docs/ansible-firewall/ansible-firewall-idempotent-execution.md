@@ -3,7 +3,7 @@
 
 ## Additive/Incremental Approach
 
-One common approach used to manage firewalls with ansible is to add the necessary port needed by that role just applied.
+One common approach used to manage firewalls with ansible is to add the necessary port/service/rule needed by a role/play just applied.
 
 For this demonstration, it will be assumed that the firewall role performs a simple task to open ports using the [firewalld module](https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html) as follows.
 
@@ -401,5 +401,38 @@ firewall_win_rules__mssql:
   notify:
     - reload firewall_win
 
+```
+
+
+## Working example roles from this repository
+
+For examples, see the group_var files in this repo for the following groups/examples:
+
+group var file|var names used
+---|---
+[os_linux.yml](./../../inventory/group_vars/os_linux.yml)|firewalld_services__linux
+[postfix_server.yml](./../../inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
+[nameserver.yml](./../../inventory/group_vars/nameserver.yml)|firewalld_ports__bind
+[veeam_agent.yml](./../../inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
+
+## Firewall Role execution from another role
+
+If there is the need to invoke the firewall role from another role, see the example nfs-service role invoking the firewall role below.
+
+[roles/nfs-service/tasks/main.yml](./../../roles/nfs-service/tasks/main.yml):
+```yaml
+- name: Setup and run nfs
+  include_role:
+    name: geerlingguy.nfs
+ 
+- name: Allow nfs traffic through the firewall
+  when: firewalld_enabled | bool
+  tags: [ firewall-config-nfs ]
+  include_role:
+    name: bootstrap-linux-firewall
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ nfs_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ nfs_firewalld_ports | d([]) }}"
 ```
 

@@ -3,7 +3,7 @@
 Install and configure firewalld (<http://www.firewalld.org/>) on
 
 * Archlinux
-* Debian (Experimentell)
+* Debian (Experimental)
 * CentOS
 * Fedora
 * RHEL
@@ -12,7 +12,7 @@ See Examples how to use this role.
 
 ## Requirements
 
-* Ansible 2.3
+* Ansible 2.3+
 
 ## Configuration
 
@@ -21,7 +21,7 @@ See Examples how to use this role.
 Change settings in `firewalld.conf`
 
 ```yaml
-firewalld_conf: {}
+firewalld_configs: {}
 ```
 
 ### Easy method
@@ -205,24 +205,37 @@ firewalld_zones:
       - address: 5.6.7.8/32
 ```
 
-### Allow a service temporary (until restart)
+### Enable arbitrary firewalld rules
+
+Enable a new rule 
 
 ```yaml
-firewalld:
+firewalld_rules:
+  - zone: drop
+    state: enabled
+    permanent: yes
+    icmp_block: echo-request
+```
+
+Allow a service temporary (until restart)
+
+```yaml
+firewalld_rules:
   - service: https
     state: enabled
 ```
 
+
 ### Change default zone
 
 ```yaml
-firewalld_conf:
+firewalld_configs:
  DefaultZone: "myzone"
 ```
 
 Or with more options:
 ```yaml
-firewalld_conf: 
+firewalld_configs: 
   DefaultZone: "{{ firewalld_default_zone }}"
   CleanupOnExit: "yes"
   Lockdown: "no"
@@ -234,6 +247,50 @@ firewalld_conf:
   RFC3964_IPv4: "yes"
   AllowZoneDrifting: "no"
 ```
+
+## Idempotent role execution using Variable lookup method
+
+This firewall role also supports [var lookup method discussed here](./../../docs/ansible-firewall/ansible-firewall-idempotent-execution.md)
+
+If you decide to use this approach, rename the following variables the following way:
+
+from|to
+---|---
+firewalld_services|firewalld_services__(role/group/purpose name)
+firewalld_ports|firewalld_ports__(role/group/purpose name)
+firewalld_rules|firewalld_rules__(role/group/purpose name)
+
+Where the variable name will include the name of the respective role/group/purpose name. 
+For examples, see the group_var files in this repo for the following groups/examples:
+
+group var file|var names used
+---|---
+[os_linux.yml](./../../inventory/group_vars/os_linux.yml)|firewalld_services__linux
+[postfix_server.yml](./../../inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
+[nameserver.yml](./../../inventory/group_vars/nameserver.yml)|firewalld_ports__bind
+[veeam_agent.yml](./../../inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
+
+## Firewall Role execution from another role
+
+If there is the need to invoke the firewall role from another role, see the example nfs-service role invoking the firewall role below.
+
+[roles/nfs-service/tasks/main.yml](./../../roles/nfs-service/tasks/main.yml):
+```yaml
+- name: Setup and run nfs
+  include_role:
+    name: geerlingguy.nfs
+ 
+- name: Allow nfs traffic through the firewall
+  when: firewalld_enabled | bool
+  tags: [ firewall-config-nfs ]
+  include_role:
+    name: bootstrap-linux-firewall
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ nfs_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ nfs_firewalld_ports | d([]) }}"
+```
+
 
 ## TODO
 
