@@ -59,9 +59,9 @@ Running following ansible-playbook commands will not invoke the "integer test" t
 
 # Integer based tag name does work for tasks tags using quotes
 
-Note that the [tags-using-integer-names.yml](./tags-using-integer-names.yml) playbook, that the task tag for "9_9_9" uses quotes.
+Note that the task tag uses quotes (e.g., "9_9_9") quotes in the [tags-using-integer-names.yml](./tags-using-integer-names.yml) playbook.
 
-When running the playbook for this tag, it works:
+The run successfully resolves tags when running the playbook for the quoted task tag:
 
 * Test 1
   ```output
@@ -99,12 +99,5 @@ As of Python version 3.6 (and [PEP-515](https://www.python.org/dev/peps/pep-0515
 
 Python will consider underscores as just number separators for readability.  So you could do 9_999_999 to make 9999999 more readable.  The python interpreter then considers 9_9_9 to be the same as 999.
 
-This python version difference behavior also explains why one may encounter ansible repos in the wild (github.com) using integer name based tags without quotes.   It is likely the respective repo developers were using an ansible environment with python versions <= 3.6 at the time of publishing to the repo.
-
-## Related Information
-
-* https://www.reddit.com/r/ansible/comments/8qt7ds/tags_inheritance_in_include_tasks_vs_import_tasks/
-* https://www.python.org/dev/peps/pep-0515/
-* https://stackoverflow.com/questions/54009778/what-do-underscores-in-a-number-mean
-
+This python version difference behavior also explains why one may encounter ansible repos in the wild (github.com) using integer name based tags without quotes.   It is likely the respective repo developers were using an ansible environment with python versions < 3.6 at the time of publishing to the repo.
 
