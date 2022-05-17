@@ -1,0 +1,44 @@
+---
+- name: bootstrap_linux_systemd | Assert that type for interface is defined
+  ansible.builtin.assert:
+    that: "item['type'] is defined and item['type'] != ''"
+    msg: "{{ 'type for ' ~ vars['outer_item'] ~ ' is not defined' }}"
+    quiet: "true"
+  loop: "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
+    community.general.json_query(\"[].interfaces[?interface=='\" ~
+    vars['outer_item'] ~ \"']\") | flatten(levels=1) }}"
+  loop_control:
+    label: "{{ 'interface: ' ~ vars['outer_item'] }}"
+- name: bootstrap_linux_systemd | Assert that physaddr for interface is defined
+  ansible.builtin.assert:
+    that: "item['physaddr'] is defined and item['physaddr'] != ''"
+    msg: "{{ 'physaddr for ' ~ vars['outer_item'] ~ ' is not defined' }}"
+    quiet: "true"
+  loop: "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
+    community.general.json_query(\"[].interfaces[?interface=='\" ~
+    vars['outer_item'] ~ \"']\") | flatten(levels=1) }}"
+  loop_control:
+    label:
+      "{{ 'interface: ' ~ vars['outer_item'] ~ ' [' + item['type'] + ']' }}"
+  when:
+    - "item['type'] == 'ether'"
+    - "item['match_override'] is not defined or (
+      item['match_override'] is defined and item['match_override'] == '')"
+- name: bootstrap_linux_systemd | Assert that physaddr for interface is valid hwaddr
+  ansible.builtin.assert:
+    that: "item['physaddr'] is defined and item['physaddr'] |
+      ansible.utils.hwaddr()"
+    msg: "{{ 'physaddr for ' ~ vars['outer_item'] ~ ' is invalid, value is `' ~
+      item['physaddr'] ~ '`' }}"
+    quiet: "true"
+  loop: "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
+    community.general.json_query(\"[].interfaces[?interface=='\" ~
+    vars['outer_item'] ~ \"']\") | flatten(levels=1) }}"
+  loop_control:
+    label:
+      "{{ 'interface: ' ~ vars['outer_item'] ~ ' [' + item['type'] + ']' }}"
+  when:
+    - "item['type'] == 'ether'"
+    - "item['match_override'] is not defined or (
+      item['match_override'] is defined and
+      item['match_override'] == '')"

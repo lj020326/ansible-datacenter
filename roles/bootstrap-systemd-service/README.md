@@ -21,7 +21,7 @@ Role Variables
 |`systemd_service_envs`|String,List,MapList|[]|envs (/etc/default/:name)
 
 > **Note**
-> `systemd_service_root_dir` is obsolate.
+> `systemd_service_root_dir` is obsolete.
 
 
 ### [Unit]

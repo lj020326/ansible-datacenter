@@ -1,0 +1,15 @@
+---
+- name: bootstrap_linux_systemd | Deploy tmpfiles
+  ansible.builtin.template:
+    src: "systemd_tmpfiles.j2"
+    dest: "{{ '/etc/tmpfiles.d/' ~ vars['outer_item'] ~ '.conf' }}"
+    group: "root"
+    owner: "root"
+    mode: "0644"
+    force: "yes"
+    validate: "{{ 'systemd-tmpfiles --' + vars['query_type'] + ' %s' }}"
+  loop: "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] |
+    community.general.json_query(\"[].\" + vars['query_type'] +
+    \"[?file_name=='\" + vars['outer_item'] + \"']\") | flatten(levels=1) }}"
+  loop_control:
+    label: "{{ item['file_name'] }}"

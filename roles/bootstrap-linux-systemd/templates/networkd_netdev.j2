@@ -1,0 +1,46 @@
+{{ '## ' ~ network_netdev_name ~ '.netdev' }}
+{{ '# ' + ansible_managed }}
+{{ '# Do not edit manually' }}
+
+{{ '[NetDev]' }}
+{{ 'Name=' ~ network_netdev_name }}
+{{ 'Kind=' + network_netdev_kind -}}
+{% if item.macaddr is defined and item.macaddr | ansible.utils.hwaddr() %}
+{{ '' }}
+{{ 'MACAddress=' ~ item.macaddr | ansible.utils.hwaddr('linux') -}}
+{% endif %}
+{% if item.mtu is defined and item.mtu != '' %}
+{{ '' }}
+{{ 'MTUBytes=' ~ item.mtu -}}
+{% endif %}
+{% if network_netdev_kind == 'vlan' %}
+{{ '\n' }}
+{% include 'networkd_netdev/networkd_netdev_vlan.j2' %}
+{% elif network_netdev_kind == 'bond' %}
+{% if item.bonding_options is defined and item.bonding_options != '' %}
+{% for b in item.bonding_options %}
+{{ '\n' }}
+{% include 'networkd_netdev/networkd_netdev_bond.j2' %}
+{% endfor %}
+{% endif %}
+{% elif network_netdev_kind == 'bridge' %}
+{% if item.bridging_opts is defined and item.bridging_opts != '' %}
+{% for br in item.bridging_opts %}
+{{ '\n' }}
+{% include 'networkd_netdev/networkd_netdev_bridge.j2' %}
+{% endfor %}
+{% endif %}
+{% elif network_netdev_kind == 'macvlan' %}
+{{ '\n' }}
+{% include 'networkd_netdev/networkd_netdev_macvlan.j2' %}
+{% elif network_netdev_kind == 'vrf' %}
+{{ '\n' }}
+{% include 'networkd_netdev/networkd_netdev_vrf.j2' %}
+{% elif network_netdev_kind in ['ipip', 'sit', 'gre', 'gretap', 'ip6gre',
+                                'ip6gretap', 'vti', 'vti6', 'ip6tnl'] %}
+{{ '\n' }}
+{% include 'networkd_netdev/networkd_netdev_tunnel.j2' %}
+{% elif network_netdev_kind in ['tun', 'tap'] %}
+{{ '\n' }}
+{% include 'networkd_netdev/networkd_netdev_tuntap.j2' %}
+{% endif %}

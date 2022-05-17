@@ -270,9 +270,9 @@ Consider the following case.
 Remove the parent/child relationship of '[override]' from '[top_group]' group, in the following way:
 
 ```output
-    [top_group]          [override] ansible_group_prioirty=10
+    [top_group]          [override] ansible_group_priority=10
          |                    |
-     [product]           [cluster] ansible_group_prioirty=10
+     [product]           [cluster] ansible_group_priority=10
          |                    |
     ------------            host1
    |            |            

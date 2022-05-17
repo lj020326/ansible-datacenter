@@ -18,7 +18,7 @@ Document Control
 
 #### Problems[](#problems "Permanent link")
 
--   **Cloud:** Building and managing virtual and cloud environments across DEV, TEST, STAGING and PRODUCTION requires a lot of manual steps that cannot be easily shared and re-used across platforms. Building and maintaing master golden images is expensive, and is not easily re-used.
+-   **Cloud:** Building and managing virtual and cloud environments across DEV, TEST, STAGING and PRODUCTION requires a lot of manual steps that cannot be easily shared and re-used across platforms. Building and maintaining master images is expensive, and is not easily re-used.
 -   **Security and Compliance**: DEV and PRODUCTION environments are built differently and don't usually share the same compliance or security settings.
 -   **Migration** across platforms is difficult and re-install or re-platform approaches are time consuming.
 -   **Container Builds**: are inconsistent and not aligned with OS security baselines.
@@ -95,7 +95,7 @@ graph TD;
 
 ## Tested Operating Systems[](#tested-operating-systems "Permanent link")
 
-Most roles are supported on:
+Most linux roles are developed/tested on:
 
 -   CentOS / RHEL 7
 -   CentOS / RHEL 8
@@ -103,62 +103,3 @@ Most roles are supported on:
 -   Ubuntu 18.04
 -   Ubuntu 20.04
 
-Roles that manage AIX, Windows or Cloud instances are described as such.
-
-## Roles[](#roles "Permanent link")
-
-### Basic Roles[](#basic-roles "Permanent link")
-
-### Server Roles[](#server-roles "Permanent link")
-
-### Cloud Roles[](#cloud-roles "Permanent link")
-
-## Ansible Playbooks[](#ansible-playbooks "Permanent link")
-
-[Ansible Playbooks](https://github.com/devopstoolbox/playbooks)
-
-## Code Repository and Links[](#code-repository-and-links "Permanent link")
-
-### Github and Ansible Galaxy[](#github-and-ansible-galaxy "Permanent link")
-
--   [GitHub Repositories](https://github.com/devopstoolbox)
--   [Ansible Collections by Mihai Criveti](http://galaxy.ansible.com/devopstoolbox)
-
-### Presentations and Talks:[](#presentations-and-talks "Permanent link")
-
--   [Automate Everything with Python, Ansible and Kubernetes](https://drive.google.com/open?id=19AlIB3T3jDUE0Kry86cHvKXRg1-Ih_d1)
--   [PyCon 2019 Talk: DevOps flows with Ansible, Packer & Kubernetes](https://www.youtube.com/watch?v=lO884XAdddQ)
-
-### Lines of Code[](#lines-of-code "Permanent link")
-
-```
-───────────────────────────────────────────────────────────────────────────────
-Language                 Files     Lines   Blanks  Comments     Code Complexity
-───────────────────────────────────────────────────────────────────────────────
-YAML                       448     15202      854       686    13662          0
-Markdown                   217     13253     4072         0     9181          0
-Shell                       74      1256      209        98      949         67
-HTML                        38      3692     1517        61     2114          0
-CSS                         32      1212      177        14     1021          0
-Jinja                       32      1074      120         0      954         48
-gitignore                   26       165       26        29      110          0
-JavaScript                  17       814       64       228      522         95
-XML                          8       406       83         0      323          0
-JSON                         3        69        0         0       69          0
-License                      3        97       20         0       77          0
-TOML                         3        96        7         7       82          2
-Plain Text                   2        15        0         0       15          0
-Python                       1        71       11        11       49          9
-SVG                          1        18        0         0       18          0
-Systemd                      1        27        2         0       25          0
-───────────────────────────────────────────────────────────────────────────────
-Total                      906     37467     7162      1134    29171        221
-───────────────────────────────────────────────────────────────────────────────
-Estimated Cost to Develop $932,812
-Estimated Schedule Effort 14.942132 months
-Estimated People Required 7.394968
-───────────────────────────────────────────────────────────────────────────────
-
-```
-
-___

@@ -1,0 +1,18 @@
+---
+- ansible.builtin.include_tasks:
+    file: "deploy_networkd_interfaces.yml"
+  loop: "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd_interfaces'] |
+    flatten(levels=1) }}"
+  loop_control:
+    loop_var: "outer_item"
+- name: bootstrap_linux_systemd | Enable systemd-networkd service
+  ansible.builtin.systemd:
+    name: "systemd-networkd"
+    enabled: "yes"
+  when:
+    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
+       community.general.json_query(vars['bootstrap_linux_systemd_networkd_enable']) is defined"
+    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
+       community.general.json_query(vars['bootstrap_linux_systemd_networkd_enable']) == 'true'"
+  vars:
+    bootstrap_linux_systemd_networkd_enable: "[] | map(&enable || 'false', @) | [0]"

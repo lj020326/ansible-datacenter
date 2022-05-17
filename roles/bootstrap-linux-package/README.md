@@ -21,16 +21,16 @@ manager!
 
 | Variable | Description | Default value |
 |----------|-------------|---------------|
-| `package_list` | List of packages **(see details!)** | `[]` |
-| `package_list_host`| List of packages **(see details!)**  | `[]` |
-| `package_list_group` | List of packages **(see details!)** | `[]` |
-| `package_state` | Default package state | 'present' |
-| `package_update_cache` | Update the cache? | `yes` |
-| `package_cache_valid_time` | How long is the package cache valid? (seconds) | 3600 |
+| `bootstrap_linux_package_list` | List of packages **(see details!)** | `[]` |
+| `bootstrap_linux_package_list_host`| List of packages **(see details!)**  | `[]` |
+| `bootstrap_linux_package_list_group` | List of packages **(see details!)** | `[]` |
+| `bootstrap_linux_package_state` | Default package state | 'present' |
+| `bootstrap_linux_package_update_cache` | Update the cache? | `yes` |
+| `bootstrap_linux_package_cache_valid_time` | How long is the package cache valid? (seconds) | 3600 |
 
-#### `package_list` details
+#### `bootstrap_linux_package_list` details
 
-`package_list`, `package_list_host` and `package_list_group` are merged when
+`bootstrap_linux_package_list`, `bootstrap_linux_package_list_host` and `bootstrap_linux_package_list_group` are merged when
 managing the packages. You can use the host and group lists to specify
 packages per host or group.
 
@@ -57,15 +57,15 @@ in the list can have following attributes:
 | `portage` | Package name for portage | no |
 | `portage_ignore` | Ignore package for portage | no |
 
-By default `package_state` and `item.name` are used when managing the packages.
+By default `bootstrap_linux_package_state` and `item.name` are used when managing the packages.
 If however `item.state` is defined or a more specific package name (eg
 `item.apt`) these will be used instead. If you want a package to be ignored for
 some package managers you can add `***_ignore`: yes.
 
-##### `package_list` example
+##### `bootstrap_linux_package_list` example
 
 ```yaml
-package_list:
+bootstrap_linux_package_list:
   - name: package
   - name: package1
     state: absent
@@ -90,7 +90,7 @@ None.
   roles:
   - { role: GROG.package,
       become: yes,
-        package_list: [
+        bootstrap_linux_package_list: [
           { name: htop,
             brew: htop-osx },
           { name: tree }
