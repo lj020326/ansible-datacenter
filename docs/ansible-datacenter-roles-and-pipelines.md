@@ -46,12 +46,13 @@ Document Control
 ```mermaid
 graph TD;
     A[Packer Build Spec] --> B{Virtual Machine}
-    B -->|no| D[Container Build]
     B -->|yes| C["Install OS (Centos/Ubuntu/Debian)"]
-    C --> E[Post Install<br>Ansible Baseline<br>Security Profile]
-    D --> F[Golden OS Image]
-    F --> G["Ansible Provision(VM/Cloud/Container)"]
-    G --> H["Ansible Middleware Install"]
+    B -->|no| D[Container Build]
+    C --> E[Post OS Install - VM Base VM Template Image]
+    D --> F[Post OS Install - OS Base Container Image]
+    E --> G["Ansible Provision Role + Harden Security Profile (VM/Cloud/Container)"]
+    F --> G["Ansible Provision Role + Harden Security Profile (VM/Cloud/Container)"]
+    G --> H["Ansible Post OS Install - Software Install"]
     H --> I[Ansible Application Deploy]
     I --> J[Ansible Maintenance]
 

@@ -2,7 +2,7 @@
 ansible-datacenter
 ===
 
-This is an ansible playbook that will configure your datacenter based on roles on Ubuntu/Centos linux servers.
+This is an ansible playbook that will configure your datacenter based on multi-OS-platform roles on Ubuntu/Centos/Debian linux and windows servers.
 The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template repo](https://github.com/lj020326/packer-templates) to build VMware Ubuntu/Centos templates. 
 
 The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
@@ -355,8 +355,8 @@ Run a play for a specific group of nodes:
 
 ```bash
 ansible-playbook site.yml --tags install-cacerts --limit windows
-ansible-playbook site.yml --tags install-cacerts --limit os_Ubuntu
-ansible-playbook site.yml -t display-hostvars -l os_CentOS
+ansible-playbook site.yml --tags install-cacerts --limit os_ubuntu
+ansible-playbook site.yml -t display-hostvars -l os_centos
 ansible-playbook site.yml -t display-hostvars -l docker
 ```
 
