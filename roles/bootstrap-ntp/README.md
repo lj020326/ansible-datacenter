@@ -1,4 +1,4 @@
-# Ansible Role: NTP
+# Ansible Role: bootstrap-ntp
 
 Installs NTP on Linux.
 
@@ -10,57 +10,57 @@ None.
 
 Available variables are listed below, along with default values (see `defaults/main.yml`):
 
-    ntp_enabled: true
+    bootstrap_ntp_enabled: true
 
 Whether to start the ntpd service and enable it at system boot. On many virtual machines that run inside a container (like OpenVZ or VirtualBox), it's recommended you don't run the NTP daemon, since the host itself should be set to synchronize time for all its child VMs.
 
-    ntp_timezone: Etc/UTC
+    bootstrap_ntp_timezone: Etc/UTC
 
 Set the timezone for your server.
 
-    ntp_package: ntp
+    bootstrap_ntp_package: ntp
 
 The package to install which provides NTP functionality. The default is `ntp` for most platforms, or `chrony` on RHEL/CentOS 7 and later.
 
-    ntp_daemon: [various]
+    bootstrap_ntp_daemon: [various]
 
 The default NTP daemon should be correct for your distribution, but there are some cases where you may want to override the default, e.g. if you're running `ntp` on newer versions of RHEL/CentOS.
 
-    ntp_config_file: /etc/ntp.conf
+    bootstrap_ntp_config_file: /etc/ntp.conf
 
 The path to the NTP configuration file. The default is `/etc/ntp.conf` for most platforms, or `/etc/chrony.conf` on RHEL/CentOS 7 and later.
 
-    ntp_manage_config: false
+    bootstrap_ntp_manage_config: false
 
 Set to true to allow this role to manage the NTP configuration file (`/etc/ntp.conf`).
 
-    ntp_driftfile: [various]
+    bootstrap_ntp_driftfile: [various]
 
 The default NTP driftfile should be correct for your distribution, but there are some cases where you may want to override the default.
 
-    ntp_area: ''
+    bootstrap_ntp_area: ''
 
 Set the [NTP Pool Area](http://support.ntp.org/bin/view/Servers/NTPPoolServers) to use. Defaults to none, which uses the worldwide pool.
 
-    ntp_servers:
-      - "0{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst"
-      - "1{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst"
-      - "2{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst"
-      - "3{{ '.' + ntp_area if ntp_area else '' }}.pool.ntp.org iburst"
+    bootstrap_ntp_servers:
+      - "0{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
+      - "1{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
+      - "2{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
+      - "3{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
 
-Specify the NTP servers you'd like to use. Only takes effect if you allow this role to manage NTP's configuration, by setting `ntp_manage_config` to `True`.
+Specify the NTP servers you'd like to use. Only takes effect if you allow this role to manage NTP's configuration, by setting `bootstrap_ntp_manage_config` to `True`.
 
-    ntp_restrict:
+    bootstrap_ntp_restrict:
       - "127.0.0.1"
       - "::1"
 
 Restrict NTP access to these hosts; loopback only, by default.
 
-    ntp_cron_handler_enabled: false
+    bootstrap_ntp_cron_handler_enabled: false
 
 Whether to restart the cron daemon after the timezone has changed.
 
-    ntp_tinker_panic: true
+    bootstrap_ntp_tinker_panic: true
 
 Enable tinker panic, which is useful when running NTP in a VM.
 
@@ -76,4 +76,4 @@ None.
 
 *Inside `vars/main.yml`*:
 
-    ntp_timezone: America/Chicago
+    bootstrap_ntp_timezone: America/Chicago
