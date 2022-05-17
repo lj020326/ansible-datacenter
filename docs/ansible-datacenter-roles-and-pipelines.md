@@ -36,11 +36,11 @@ Document Control
 #### Technical description[](#technical-description "Permanent link")
 
 -   Collection of Ansible roles, playbooks, plugins, and modules
--   OS image build systems (packer, virsh and kickstart)
+-   OS image build systems (packer, vsphere)
 
 #### Example Workflow[](#example-workflow "Permanent link")
 
-> An example workflow for using the master golden images
+> Workflow for ansible provisioning integration with image build systems
 
 
 ```mermaid

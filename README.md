@@ -7,6 +7,35 @@ The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template re
 
 The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
 
+
+#### Summary
+
+-   Collection of Ansible roles, playbooks, plugins, and modules
+-   OS image build systems (packer, vsphere)
+-   Runtime environment software installs
+-   Runtime environment application deployments
+-   Runtime machine instance maintenance
+
+#### Example ansible image build workflow
+
+> Workflow for ansible provisioning integration with image build systems
+
+```mermaid
+graph TD;
+    A[Packer Build Spec] --> B{Virtual Machine}
+    B -->|yes| C["Install OS (Centos/Ubuntu/Debian)"]
+    B -->|no| D[Container Build]
+    C --> E[Post OS Install - VM Base VM Template Image]
+    D --> F[Post OS Install - OS Base Container Image]
+    E --> G["Ansible Provision Role + Harden Security Profile (VM/Cloud/Container)"]
+    F --> G["Ansible Provision Role + Harden Security Profile (VM/Cloud/Container)"]
+    G --> H["Ansible Post OS Install - Software Install"]
+    H --> I[Ansible Application Deploy]
+    I --> J[Ansible Maintenance]
+
+```
+
+
 ## Prerequisites
 
 1.  Clone this Ansible deployment playbook
