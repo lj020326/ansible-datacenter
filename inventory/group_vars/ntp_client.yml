@@ -2,25 +2,26 @@
 
 ## NTP configs
 ## ref: ./../../roles/bootstrap-ntp/README.md
-bootstrap_ntp_enabled: true
 bootstrap_ntp_timezone: America/New_York
-bootstrap_ntp_manage_config: yes
-bootstrap_ntp_area: 'us'
 
-bootstrap_ntp_tinker_panic: true
-
-#bootstrap_ntp_servers:
-#  - "{{ gateway_ip4 }} prefer iburst"
+bootstrap_ntp_tinker_panic: yes
 
 bootstrap_ntp_servers: |
   [
-    "{{ gateway_ip4 }} prefer iburst",
+    {% if ansible_default_ipv4.address|d(ansible_all_ipv4_addresses[0]) is defined %}
     {% if groups['ntp_server'] is defined %}
-    {% for host in groups['ntp_server'] %}
-    "{{ hostvars[host].ansible_host }} prefer iburst",
+    {% for server in groups['ntp_server'] %}
+    {% for network in hostvars[server].bootstrap_ntp_allow_networks %}
+    {% if ansible_default_ipv4.address|d(ansible_all_ipv4_addresses[0]) | ipaddr('network') %}
+    "{{ hostvars[server].ansible_host }} prefer iburst",
+    {% endif %}
     {% endfor %}
+    {% endfor %}
+    {% endif %}
     {% endif %}
   ]
 
 bootstrap_ntp_cmdport_disabled: yes
 
+## used for variable-to-inventory trace/debug
+bootstrap_ntp_var_source: linux_middleware_playbooks/group_vars/ntp_client.yml

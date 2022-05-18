@@ -50,9 +50,16 @@ Set the [NTP Pool Area](http://support.ntp.org/bin/view/Servers/NTPPoolServers) 
 
 Specify the NTP servers you'd like to use. Only takes effect if you allow this role to manage NTP's configuration, by setting `bootstrap_ntp_manage_config` to `True`.
 
+    bootstrap_ntp_allow_networks:
+      - "192.168.0.0/16"
+
+Allow NTP access to these hosts using CIDR network
+
     bootstrap_ntp_restrict:
       - "127.0.0.1"
       - "::1"
+      - "192.168.56.0 mask 255.255.255.0 nomodify notrap"
+      - "192.168.0.0 mask 255.255.255.0 notrust"
 
 Restrict NTP access to these hosts; loopback only, by default.
 
@@ -72,7 +79,7 @@ None.
 
     - hosts: all
       roles:
-        - geerlingguy.ntp
+        - bootstrap-ntp
 
 *Inside `vars/main.yml`*:
 

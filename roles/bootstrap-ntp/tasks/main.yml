@@ -8,6 +8,10 @@
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
+- name: Display bootstrap_ntp_var_source
+  debug:
+    var: bootstrap_ntp_var_source
+
 - name: Display bootstrap_ntp_servers
   debug:
     var: bootstrap_ntp_servers
@@ -20,6 +24,50 @@
 - name: Display bootstrap_ntp_cmdport_disabled
   debug:
     var: bootstrap_ntp_cmdport_disabled
+
+- name: Display bootstrap_ntp_restrict
+  debug:
+    var: bootstrap_ntp_restrict
+
+- name: "Set __bootstrap_ntp_restrict"
+  set_fact:
+    __bootstrap_ntp_restrict: "{{ bootstrap_ntp_restrict|d([]) }}"
+
+## https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
+- name: "Add bootstrap_ntp_allow_networks to __bootstrap_ntp_restrict by converting the CIDR to netmask"
+  set_fact:
+    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ipaddr('network') +' mask ' + item|ipaddr('netmask')|string + ' notrust'] }}"
+  loop: "{{ bootstrap_ntp_allow_networks }}"
+
+- name: "Uniquify __bootstrap_ntp_restrict"
+  set_fact:
+    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) | sort | unique }}"
+
+- name: Display __bootstrap_ntp_restrict
+  debug:
+    var: __bootstrap_ntp_restrict
+
+- name: Display bootstrap_ntp_allow_networks
+  debug:
+    var: bootstrap_ntp_allow_networks
+
+- name: "Set __bootstrap_ntp_allow_networks"
+  set_fact:
+    __bootstrap_ntp_allow_networks: "{{ bootstrap_ntp_allow_networks|d([]) }}"
+
+## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
+- name: "Add bootstrap_ntp_restrict to __bootstrap_ntp_allow_networks by converting the netmask to CIDR"
+  set_fact:
+    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ipaddr('network/prefix') ] }}"
+  loop: "{{ bootstrap_ntp_allow_networks }}"
+
+- name: "Uniquify __bootstrap_ntp_allow_networks"
+  set_fact:
+    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) | sort | unique }}"
+
+- name: Display __bootstrap_ntp_allow_networks
+  debug:
+    var: __bootstrap_ntp_allow_networks
 
 - name: Set the bootstrap_ntp_driftfile variable.
   when: bootstrap_ntp_driftfile is not defined
