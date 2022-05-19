@@ -598,6 +598,15 @@ host2                      : ok=2    changed=1    unreachable=0    failed=0    s
 
 While the INI inventory is as expected, the YAML inventory does not result as expected since the host2 did not appear with the 'test' variable set to 'cluster'.
 
+
+### AWX Testing - same results
+
+Running this test case example in AWX for both hosts.ini and hosts.yml yields the same results.  
+
+* [AWX Example 6 Playbook using hosts.ini test results](./example6/awx_job_results.hosts-ini.txt)
+* [AWX Example 6 Playbook using hosts.yml test results](./example6/awx_job_results.hosts-yml.txt)
+
+
 ### TODO 
 Need to understand why group_by works for the INI but does not work for the YAML based inventory.
 
@@ -614,10 +623,6 @@ In conclusion, from the testing done, the variable merge path behavior is consis
 The exception occurs when using ansible group_by and key child groups with the YAML inventory noted in [Example 6](#Example-06).
 
 If the use case involving ansible group_by and key child groups is desired and/or essential to your group variable method of use, then it is essential to use the INI inventory and avoid using the YAML inventory plugin for those specific cases until the inconsistent behavior is resolved by the ansible dev team. 
-
-## Next Steps
-
-For the playbook specific examples/tests (examples 5 and 6), the same tests using the same inventory, group var files and playbook need to be run on AWX to compare and validate that the same expected results are found. 
 
 
 ## References

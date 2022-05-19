@@ -42,6 +42,10 @@ The default NTP driftfile should be correct for your distribution, but there are
 
 Set the [NTP Pool Area](http://support.ntp.org/bin/view/Servers/NTPPoolServers) to use. Defaults to none, which uses the worldwide pool.
 
+    bootstrap_ntp_servers_options: "iburst xleave"
+
+Set the [NTP Server Options](https://www.systutorials.com/docs/linux/man/5-ntp/) to use. Defaults to 'iburst xleave'.
+
     bootstrap_ntp_servers:
       - "0{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
       - "1{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"

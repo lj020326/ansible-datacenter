@@ -8,6 +8,61 @@
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
+- name: "Derive dynamic site-specific groups for 'ntp_servers' group only"
+  when:
+    - bootstrap_ntp_servers_group_name in group_names
+    - bootstrap_ntp_sites|d([])|length>0
+  block:
+
+    ## The idea here is to re-use the existing linux inventory site mapping to derive the role specific site groups
+    ## this avoids having to re-specify hosts to sites
+    - name: Flatten list of __bootstrap_ntp_server_network_sites
+      set_fact:
+        __bootstrap_ntp_server_network_sites: "{{ __bootstrap_ntp_server_network_sites|d([]) + [
+            {
+            'parent': 'linux_' + item.1 + '_' + item.0.location,
+            'key': bootstrap_ntp_servers_group_name + '_' + item.1
+            }
+          ] }}"
+      loop: "{{ bootstrap_ntp_sites | subelements('networks', { 'skip_missing': true } ) }}"
+
+    - name: Display __bootstrap_ntp_server_network_sites
+      when: __bootstrap_ntp_server_network_sites|d([])|length>0
+      debug:
+        var: __bootstrap_ntp_server_network_sites
+
+    - name: Set __env_key and __env_parent used to match host to site-specific group
+      when: item.parent in group_names
+      set_fact:
+        __env_parent: "{{ item.parent }}"
+        __env_key: "{{ item.key }}"
+      loop: "{{ __bootstrap_ntp_server_network_sites }}"
+
+    - name: Assert that the __env_parent and __env_key have been matched to a defined environment and defined
+      assert:
+        that:
+          - __env_key is defined
+          - __env_parent is defined
+
+    - name: Display __env_key
+      debug:
+        var: __env_key
+
+    - name: Display __env_parent
+      debug:
+        var: __env_parent
+
+    - name: Group hosts based on __env_parent
+      changed_when: no
+      group_by:
+        key: "{{ __env_parent }}"
+
+    - name: Group hosts based on __env_key
+      changed_when: no
+      group_by:
+        key: "{{ __env_key }}"
+        parents: "{{ __env_parent }}"
+
 - name: Display bootstrap_ntp_var_source
   debug:
     var: bootstrap_ntp_var_source
@@ -34,9 +89,10 @@
     __bootstrap_ntp_restrict: "{{ bootstrap_ntp_restrict|d([]) }}"
 
 ## https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
+## https://github.com/ansible-collections/community.zabbix/issues/643
 - name: "Add bootstrap_ntp_allow_networks to __bootstrap_ntp_restrict by converting the CIDR to netmask"
   set_fact:
-    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ipaddr('network') +' mask ' + item|ipaddr('netmask')|string + ' notrust'] }}"
+    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ansible.utils.ipaddr('network') +' mask ' + item|ansible.utils.ipaddr('netmask')|string + ' notrust'] }}"
   loop: "{{ bootstrap_ntp_allow_networks }}"
 
 - name: "Uniquify __bootstrap_ntp_restrict"
@@ -58,7 +114,7 @@
 ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
 - name: "Add bootstrap_ntp_restrict to __bootstrap_ntp_allow_networks by converting the netmask to CIDR"
   set_fact:
-    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ipaddr('network/prefix') ] }}"
+    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ansible.utils.ipaddr('network/prefix') ] }}"
   loop: "{{ bootstrap_ntp_allow_networks }}"
 
 - name: "Uniquify __bootstrap_ntp_allow_networks"

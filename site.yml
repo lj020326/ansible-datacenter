@@ -8,6 +8,9 @@
   gather_facts: no
   roles:
     - role: ansible-ping-test
+      when:
+        - inventory_hostname in ansible_play_hosts_all
+        - run_tags_do_not_include_excluded_tags
 
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
@@ -19,64 +22,9 @@
   gather_facts: yes
   vars_files:
     - vars/secrets.yml
-  tasks:
-
-    - name: Set os info
-      set_fact:
-        os_family: "{{ 'os_linux' if ansible_os_family|lower|d('') in ['debian', 'redhat'] else ansible_os_family|d('Unknown') }}"
-        os_distribution: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}"
-        os_distribution_version: "os_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace('.','_') | replace(' ','_') }}"
-
-    - name: Set os info for windows for vmware esx
-      when: ansible_os_family|d('')=='VMkernel'
-      set_fact:
-        os_family: "os_esxi"
-        os_distribution: "esxi"
-        os_distribution_version: "os_esxi_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace('.','_') | replace(' ','_') }}"
-
-    - name: Set os info for windows for vmware vcenter
-      when: ansible_os_family|d('')=='VMware Photon'
-      set_fact:
-        os_family: "os_vsphere"
-        os_distribution: "vsphere"
-        os_distribution_version: "os_vsphere_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
-
-    - name: Set os info for windows
-      when: ansible_os_family|d('')|lower is search('windows')
-      set_fact:
-        os_family: "os_windows"
-        os_distribution: "windows"
-        os_distribution_version: "os_windows_{{ ansible_facts['distribution']|d('Unknown') | lower | replace(' ','_') | regex_replace('(microsoft_|windows_)', '') }}"
-
-    - name: Display os group classification info
-      debug:
-        msg:
-         - "os_family={{ os_family }}"
-         - "os_distribution={{ os_distribution }}"
-         - "os_distribution_version={{ os_distribution_version }}"
-
-    - name: Group hosts based on os_family
-      changed_when: no
-      group_by:
-        key: "{{ os_family }}"
-
-    - name: Group hosts based on os_distribution
-      changed_when: no
-      group_by:
-        key: "{{ os_distribution }}"
-        parents: "{{ os_family }}"
-
-    - name: Group hosts based on os_distribution_version
-      changed_when: no
-      group_by:
-        key: "{{ os_distribution_version }}"
-        parents: "{{ os_distribution }}"
-
-#    - name: Classify hosts depending on their internal domain
-#      changed_when: no
-#      group_by:
-#        key: ca_domain_{{ ('_').join( inventory_hostname.split('.')[1::]|reverse ) | d(internal_domain) }}
-
+  roles:
+    - role: assign-dynamic-groups
+      when: inventory_hostname in ansible_play_hosts_all
 
 - name: Display important common variable information
   hosts: all,!node_offline,!local
@@ -95,12 +43,26 @@
           - "internal_domain={{ internal_domain | d('unknown') }}"
           - "netbase__hostname={{ netbase__hostname }}"
           - "bootstrap_user={{ bootstrap_user }}"
+          ## BEGIN dynamically derived os_* groups
+          - "os_family={{ os_family }}"
+          - "os_distribution={{ os_distribution }}"
+          - "os_distribution_version={{ os_distribution_version }}"
+          - "os_machine_type={{ os_machine_type }}"
+          ## END dynamically derived os_* groups
           - "ansible_user={{ ansible_user }}"
           - "ansible_host={{ ansible_host }}"
           - "ansible_hostname={{ ansible_hostname | d('') }}"
           - "ansible_port={{ ansible_port | d('') }}"
           - "ansible_fqdn={{ ansible_fqdn | d('') }}"
           - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
+          - "ansible_connection={{ ansible_connection|d('') }}"
+          - "ansible_virtualization_type={{ ansible_virtualization_type|d('') }}"
+          - "ansible_virtualization_role={{ ansible_virtualization_role|d('') }}"
+          - "ansible_system_vendor={{ ansible_system_vendor|d('') }}"
+          - "ansible_product_name={{ ansible_product_name|d('') }}"
+          - "ansible_winrm_transport={{ ansible_winrm_transport|d('') }}"
+          - "ansible_winrm_scheme={{ ansible_winrm_scheme|d('') }}"
+          - "ansible_winrm_server_cert_validation={{ ansible_winrm_server_cert_validation|d('') }}"
           - "ansible_os_family={{ ansible_os_family | d('unknown') }}"
           - "ansible_distribution={{ ansible_distribution | d('unknown') }}"
           - "ansible_distribution_release={{ ansible_distribution_release | d('unknown') }}"
@@ -203,35 +165,6 @@
     - role: report-windows-facts
 
 
-##
-## make sure this is running as bootstrap user
-## get pwd for this user using the --ask-pass directive,
-## and not the --ask-become-pass which is used for the sudo once logged in
-##
-## ref: https://stackoverflow.com/questions/41771725/ansible-2-1-2-playbook-pass-ssh-password-and-sudo-password-as-command-line-args
-## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
-##
-- name: "Bootstrap linux users"
-  hosts: os_linux,!node_offline
-  vars_files:
-    - vars/secrets.yml
-  vars:
-    ansible_ssh_user: "{{ bootstrap_user }}"
-    ansible_user: "{{ bootstrap_user }}"
-#    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-  tags:
-    - bootstrap-user
-    - bootstrap-linux
-    - bootstrap-linux-user
-    - bootstrap-node-core
-    - bootstrap-node
-    - deploy-vm
-  become: yes
-  remote_user: "{{ bootstrap_user }}"
-  gather_facts: false
-  roles:
-    - role: bootstrap-linux-user
-
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Bootstrap linux firewall"
   hosts: os_linux,!node_offline
@@ -304,6 +237,36 @@
   roles:
     - role: ansible-role-govc
     - role: deploy-vm
+
+
+##
+## make sure this is running as bootstrap user
+## get pwd for this user using the --ask-pass directive,
+## and not the --ask-become-pass which is used for the sudo once logged in
+##
+## ref: https://stackoverflow.com/questions/41771725/ansible-2-1-2-playbook-pass-ssh-password-and-sudo-password-as-command-line-args
+## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
+##
+- name: "Bootstrap linux users"
+  hosts: os_linux,!node_offline
+  vars_files:
+    - vars/secrets.yml
+  vars:
+    ansible_ssh_user: "{{ bootstrap_user }}"
+    ansible_user: "{{ bootstrap_user }}"
+#    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tags:
+    - bootstrap-user
+    - bootstrap-linux
+    - bootstrap-linux-user
+    - bootstrap-node-core
+    - bootstrap-node
+    - deploy-vm
+  become: yes
+  remote_user: "{{ bootstrap_user }}"
+  gather_facts: false
+  roles:
+    - role: bootstrap-linux-user
 
 - name: "Bootstrap linux"
   hosts: os_linux,!node_offline
