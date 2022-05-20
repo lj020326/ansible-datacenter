@@ -277,6 +277,9 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
 
   alias editvscodesettings="emacs ${VSCODE_SETTINGS_DIR}/settings.json"
 
+  alias java8='export JAVA_HOME=$JAVA_8_HOME'
+  alias java11='export JAVA_HOME=$JAVA_11_HOME'
+
 else  ## linux
   # alias venv2="virtualenv --python=/usr/bin/python2.7 venv"
   # alias venv3="virtualenv --python=/usr/bin/python3.5 venv"
