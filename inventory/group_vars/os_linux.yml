@@ -186,8 +186,12 @@ bootstrap_linux_node_mounts:
     options: "intr,auto,_netdev"
 
 
-ansible_user_uid: "400"
-ansible_user_gid: "400"
+ansible_user_uid: 400
+ansible_user_gid: 400
+
+admin_user_name: "administrator"
+admin_user_uid: 500
+admin_user_gid: 500
 
 container_user_name: "container-user"
 container_user_uid: 1102
@@ -208,7 +212,7 @@ bootstrap_linux_root_user:
 bootstrap_ansible_user:
   name: ansible
   system: yes
-  groups: "{{ bootstrap_linux_user_admin_sudo_group }}"
+  groups: "{{ linux_user_admin_sudo_group }}"
   generate_ssh_key: no
   ssh_keypair:
     private: "{{ ansible_ssh_private_key }}"
@@ -227,12 +231,18 @@ bootstrap_ansible_user:
 ## users to create on linux machine (excluding the ansible provisioning user)
 bootstrap_linux_users: "{{ bootstrap_linux_app_users }}"
 
+linux_user_admin_sudo_groups:
+  debian: sudo
+  redhat: wheel
+
+linux_user_admin_sudo_group:  "{{ linux_user_admin_sudo_groups[ ansible_os_family|lower ] }}"
+
 bootstrap_linux_app_users:
 
   ## ref: https://unix.stackexchange.com/questions/343445/user-id-less-than-1000-on-centos-7
-  - name: administrator
+  - name: "{{ admin_user_name }}"
     system: yes
-    groups: "{{ bootstrap_linux_user_admin_sudo_group }}"
+    groups: "{{ linux_user_admin_sudo_group }}"
     generate_ssh_key: no
 #    generate_ssh_key: yes
     ssh_keypair:
@@ -240,8 +250,8 @@ bootstrap_linux_app_users:
       public: "{{ admin_ssh_public_key }}"
     auth_key: "{{ admin_ssh_public_key }}"
     hashed_password: "{{ sha512_hashed_admin_password }}"
-    uid: 400
-    gid: 400
+    uid: "{{ admin_user_uid }}"
+    gid: "{{ admin_user_gid }}"
     password_valid_days: 99999
 
   - name: "{{ container_user_name }}"
