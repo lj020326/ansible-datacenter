@@ -20,8 +20,9 @@
       set_fact:
         __bootstrap_ntp_server_network_sites: "{{ __bootstrap_ntp_server_network_sites|d([]) + [
             {
-            'parent': 'linux_' + item.1 + '_' + item.0.location,
-            'key': bootstrap_ntp_servers_group_name + '_' + item.1
+            'group': 'linux_' + item.1 + '_' + item.0.location,
+            'site_parent_group': bootstrap_ntp_servers_group_name + '_' + item.1,
+            'site_group': bootstrap_ntp_servers_group_name + '_' + item.1 + '_' + item.0.location
             }
           ] }}"
       loop: "{{ bootstrap_ntp_sites | subelements('networks', { 'skip_missing': true } ) }}"
@@ -31,37 +32,38 @@
       debug:
         var: __bootstrap_ntp_server_network_sites
 
-    - name: Set __env_key and __env_parent used to match host to site-specific group
-      when: item.parent in group_names
+    - name: Set __site_group and __site_parent_group used to match host to site-specific group
+      when: item.group in group_names
       set_fact:
-        __env_parent: "{{ item.parent }}"
-        __env_key: "{{ item.key }}"
+        __group_parent: "{{ item.group }}"
+        __site_parent_group: "{{ item.site_parent_group }}"
+        __site_group: "{{ item.site_group }}"
       loop: "{{ __bootstrap_ntp_server_network_sites }}"
 
-    - name: Assert that the __env_parent and __env_key have been matched to a defined environment and defined
+    - name: Assert that the __site_parent_group and __site_group have been matched to a defined environment and defined
       assert:
         that:
-          - __env_key is defined
-          - __env_parent is defined
+          - __site_group is defined
+          - __site_parent_group is defined
 
-    - name: Display __env_key
+    - name: Display __site_group
       debug:
-        var: __env_key
+        var: __site_group
 
-    - name: Display __env_parent
+    - name: Display __site_parent_group
       debug:
-        var: __env_parent
+        var: __site_parent_group
 
-    - name: Group hosts based on __env_parent
+    - name: Group hosts based on __site_parent_group
       changed_when: no
       group_by:
-        key: "{{ __env_parent }}"
+        key: "{{ __site_parent_group }}"
 
-    - name: Group hosts based on __env_key
+    - name: Group hosts based on __site_group
       changed_when: no
       group_by:
-        key: "{{ __env_key }}"
-        parents: "{{ __env_parent }}"
+        key: "{{ __site_group }}"
+        parents: "{{ __site_parent_group }}"
 
 - name: Display bootstrap_ntp_var_source
   debug:
@@ -89,7 +91,6 @@
     __bootstrap_ntp_restrict: "{{ bootstrap_ntp_restrict|d([]) }}"
 
 ## https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
-## https://github.com/ansible-collections/community.zabbix/issues/643
 - name: "Add bootstrap_ntp_allow_networks to __bootstrap_ntp_restrict by converting the CIDR to netmask"
   set_fact:
     __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ansible.utils.ipaddr('network') +' mask ' + item|ansible.utils.ipaddr('netmask')|string + ' notrust'] }}"

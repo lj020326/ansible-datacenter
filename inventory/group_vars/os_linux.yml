@@ -1,6 +1,5 @@
 ---
 #ansible_user: ansible
-#ansible_admin_user: "{{ lookup('env', 'USER') }}"
 
 #python_target_dist: "3.7"
 #python_major_version: "{{ python_target_dist.split('.')[0] }}"
@@ -187,6 +186,8 @@ bootstrap_linux_node_mounts:
     options: "intr,auto,_netdev"
 
 
+ansible_user_uid: "400"
+ansible_user_gid: "400"
 
 container_user_name: "container-user"
 container_user_uid: 1102
@@ -204,7 +205,29 @@ bootstrap_linux_root_user:
 #    private: '{{ admin_ssh_private_key }}'
 #    public: '{{ admin_ssh_public_key }}'
 
-bootstrap_linux_users:
+bootstrap_ansible_user:
+  name: ansible
+  system: yes
+  groups: "{{ bootstrap_linux_user_admin_sudo_group }}"
+  generate_ssh_key: no
+  ssh_keypair:
+    private: "{{ ansible_ssh_private_key }}"
+    public: "{{ ansible_ssh_public_key }}"
+  ## How to use Credentials in AWX playbook
+  ## Using custom credential to store public ssh keys (for now)
+  ## ref: https://groups.google.com/forum/#!topic/awx-project/ce95ooS2sp0
+  ## ref: https://termlen0.github.io/2019/06/08/observations/
+  auth_key: "{{ admin_ssh_public_key }}"
+  hashed_password: "{{ sha512_hashed_ansible_password }}"
+  uid: "{{ ansible_user_uid }}"
+  gid: "{{ ansible_user_gid }}"
+  password_valid_days: 99999
+
+
+## users to create on linux machine (excluding the ansible provisioning user)
+bootstrap_linux_users: "{{ bootstrap_linux_app_users }}"
+
+bootstrap_linux_app_users:
 
   ## ref: https://unix.stackexchange.com/questions/343445/user-id-less-than-1000-on-centos-7
   - name: administrator
@@ -219,23 +242,6 @@ bootstrap_linux_users:
     hashed_password: "{{ sha512_hashed_admin_password }}"
     uid: 400
     gid: 400
-    password_valid_days: 99999
-
-  - name: ansible
-    system: yes
-    groups: "{{ bootstrap_linux_user_admin_sudo_group }}"
-    generate_ssh_key: no
-    ssh_keypair:
-      private: "{{ ansible_ssh_private_key }}"
-      public: "{{ ansible_ssh_public_key }}"
-    ## How to use Credentials in AWX playbook
-    ## Using custom credential to store public ssh keys (for now)
-    ## ref: https://groups.google.com/forum/#!topic/awx-project/ce95ooS2sp0
-    ## ref: https://termlen0.github.io/2019/06/08/observations/
-    auth_key: "{{ admin_ssh_public_key }}"
-    hashed_password: "{{ sha512_hashed_ansible_password }}"
-    uid: 401
-    gid: 401
     password_valid_days: 99999
 
   - name: "{{ container_user_name }}"
