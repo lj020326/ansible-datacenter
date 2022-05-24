@@ -1,0 +1,38 @@
+---
+
+- name: "Update yum package repos"
+  when:
+    - ansible_pkg_mgr == 'yum'
+    - bootstrap_linux_package_yum_repo_list|d([])|length>0
+  include_tasks: update-repo-yum.yml
+
+- name: "Update apt package repos"
+  when:
+    - ansible_pkg_mgr == 'apt'
+    - bootstrap_linux_package_apt_repo_list|d([])|length>0
+  include_tasks: update-repo-apt.yml
+
+- name: "Install present packages"
+  when: __bootstrap_linux_package_list_present|d([])|length>0
+  package:
+    name: "{{ __bootstrap_linux_package_list_present }}"
+    state: "present"
+    update_cache: "{{ bootstrap_linux_package_update_cache }}"
+
+- name: "Install latest packages"
+  when: __bootstrap_linux_package_list_latest|d([])|length>0
+  package:
+    name: "{{ __bootstrap_linux_package_list_latest }}"
+    state: "latest"
+    update_cache: "{{ bootstrap_linux_package_update_cache }}"
+
+- name: "Remove packages"
+  when: __bootstrap_linux_package_list_absent|d([])|length>0
+  package:
+    name: "{{ __bootstrap_linux_package_list_absent }}"
+    state: "absent"
+
+- name: Install Snap packages
+  when: bootstrap_linux_package_snap_list|d([])|length>0
+  snap:
+    name: "{{ bootstrap_linux_package_snap_list }}"

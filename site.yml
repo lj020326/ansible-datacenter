@@ -144,6 +144,22 @@
 
 
 ##
+## Deploy VMs
+##
+- name: "Deploy VM"
+  hosts: vmware_control_node
+  tags:
+    - deploy-vm
+  gather_facts: false
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: ansible-role-govc
+    - role: deploy-vm
+
+##
 ## Reporting plays
 ##
 - name: Get linux os configs
@@ -154,15 +170,23 @@
   roles:
     - role: fetch-linux-os-configs
 
+- name: "Fetch OS images"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - fetch-os-images
+  roles:
+    - role: fetch-os-images
+
 - name: "Report windows facts"
   hosts: windows,!node_offline
-#  hosts: localhost
-#  connection: local
   gather_facts: false
   tags:
     - 'report-windows-facts'
   roles:
     - role: report-windows-facts
+
 
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
@@ -184,6 +208,17 @@
     - bootstrap-linux-package
   roles:
     - name: bootstrap-linux-package
+
+- name: "Bootstrap nfs services"
+  hosts: os_linux,!node_offline
+  become: yes
+  tags:
+    - bootstrap-nfs
+    - bootstrap-linux-nfs
+  roles:
+    - name: bootstrap-nfs-service
+    - name: bootstrap-linux-firewall
+      firewalld_action: install
 
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
@@ -234,19 +269,6 @@
   roles:
     - role: bootstrap-kvm
 
-## ref: https://docs.ansible.com/ansible/latest/modules/vmware_guest_module.html
-- name: "Deploy VM"
-  hosts: vmware_control_node
-  tags:
-    - deploy-vm
-  gather_facts: false
-  become: True
-#  become_method: sudo
-  vars_files:
-    - vars/secrets.yml
-  roles:
-    - role: ansible-role-govc
-    - role: deploy-vm
 
 ##
 ## make sure this is running as bootstrap user
@@ -299,10 +321,26 @@
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-logrotate
+    - bootstrap-linux-logrotate
   become: yes
 #  become_method: sudo
   roles:
     - role: ansible-logrotate
+
+
+
+- name: "Bootstrap windows"
+  hosts: os_windows,!node_offline
+  tags:
+    - bootstrap-windows
+    - bootstrap-windows-user
+    - bootstrap-node
+    - deploy-vm
+  become: yes
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-windows
 
 
 
@@ -352,6 +390,7 @@
   tags:
     - bootstrap
     - bootstrap-iscsi
+    - bootstrap-iscsi-client
     - iscsi-client
   become: yes
   vars_files:
@@ -684,7 +723,7 @@
 - name: "VMware Upgrade ESXi servers"
   hosts: vmware_physical_esx_host,!node_offline
   tags:
-    - upgrade-vmware-esxi
+    - vmware-upgrade-esxi
   gather_facts: false
   vars_files:
     - vars/secrets.yml

@@ -1,26 +1,10 @@
 ---
 
-- name: "Install Apt packages"
-#  when: ansible_os_family == "Debian"
+- name: "Update apt repos"
   when:
-    - bootstrap_linux_package_apt_repo_list|d([])|length>0
+    - bootstrap_linux_package_yum_repo_list|d([])|length>0
     - bootstrap_linux_package_update_cache|bool
-    - not item.apt_ignore|default('no')|bool
-  block:
-
-    - name: Update Apt repositories
-      when: bootstrap_linux_apt_repositories|d([])|length>0
-      apt_repository:
-        repo: "{{ item }}"
-        state: present
-      loop: "{{ bootstrap_linux_apt_repositories }}"
-
-    - name: Update apt-get repo and cache
-      apt:
-        update_cache: yes
-        force_apt_get: yes
-    #    cache_valid_time: 3600
-
+  include_tasks: ../update-repo-apt.yml
 
 #- name: "Install Apt packages"
 #  when: not item.apt_ignore|default('no')|bool
@@ -33,6 +17,7 @@
 #  with_items: "{{ __bootstrap_linux_package_list }}"
 
 - name: "Install present Apt packages"
+  when: __bootstrap_linux_package_list_present|d([])|length>0
   apt:
     name: "{{ __bootstrap_linux_package_list_present }}"
     state: "present"
@@ -40,11 +25,18 @@
     cache_valid_time: "{{ bootstrap_linux_package_cache_valid_time }}"
 
 - name: "Install latest Apt packages"
+  when: __bootstrap_linux_package_list_latest|d([])|length>0
   apt:
     name: "{{ __bootstrap_linux_package_list_latest }}"
     state: "latest"
     update_cache: "{{ bootstrap_linux_package_update_cache }}"
     cache_valid_time: "{{ bootstrap_linux_package_cache_valid_time }}"
+
+- name: "Remove Apt packages"
+  when: __bootstrap_linux_package_list_absent|d([])|length>0
+  apt:
+    name: "{{ __bootstrap_linux_package_list_absent }}"
+    state: "absent"
 
 - name: Install Snap packages
   when: bootstrap_linux_package_snap_list|d([])|length>0
