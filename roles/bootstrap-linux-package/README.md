@@ -22,25 +22,27 @@ manager!
 | Variable | Description | Default value |
 |----------|-------------|---------------|
 | `bootstrap_linux_package_list` | List of packages **(see details!)** | `[]` |
-| `bootstrap_linux_package_list_host`| List of packages **(see details!)**  | `[]` |
-| `bootstrap_linux_package_list_group` | List of packages **(see details!)** | `[]` |
 | `bootstrap_linux_package_state` | Default package state | 'present' |
 | `bootstrap_linux_package_update_cache` | Update the cache? | `yes` |
 | `bootstrap_linux_package_cache_valid_time` | How long is the package cache valid? (seconds) | 3600 |
+| `bootstrap_linux_package_snap_list` | List of Debian/Ubuntu snap packages **(see details!)** | `[]` |
+| `bootstrap_linux_package_pip_list` | List of python pip lib packages **(see details!)** | `[]` |
 
 #### `bootstrap_linux_package_list` details
 
-`bootstrap_linux_package_list`, `bootstrap_linux_package_list_host` and `bootstrap_linux_package_list_group` are merged when
-managing the packages. You can use the host and group lists to specify
-packages per host or group.
+`bootstrap_linux_package_list__*` vars are merged when running the role. 
 
-The package list allows you to define which packages must be managed. Each item
-in the list can have following attributes:
+The package list allows you to define which packages must be managed. Each item in the list can have the following attributes:
 
 | Variable | Description | required |
 |----------|-------------|----------|
 | `name` | Package name | yes |
 | `state` | Package state | no |
+
+The package also allows for specifying the following OS-specific package manager rules if and when desirable.  Each item in the list can have the following optional OS-specific attributes:
+
+| Variable | Description | required |
+|----------|-------------|----------|
 | `apt` | Package name for apt | no |
 | `apt_ignore` | Ignore package for apt | no |
 | `apt_install_recommends` | Whether to install recommended dependencies apt    | no |

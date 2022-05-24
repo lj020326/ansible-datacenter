@@ -111,6 +111,10 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 
 alias dnsreset="ipconfig //flushdns"
 
+## ref: https://apple.stackexchange.com/questions/14980/why-are-dot-underscore-files-created-and-how-can-i-avoid-them
+alias dot-turd-show="find . -type f -name '._*' -print"
+alias dot-turd-rm="find . -type f -name '._*' -print -delete"
+
 alias sshesx00='ssh root@esx00.dettonville.int'
 alias sshesx01='ssh root@esx01.dettonville.int'
 alias sshesx02='ssh root@esx02.dettonville.int'
@@ -277,8 +281,10 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
 
   alias editvscodesettings="emacs ${VSCODE_SETTINGS_DIR}/settings.json"
 
+  alias java7='export JAVA_HOME=$JAVA_7_HOME'
   alias java8='export JAVA_HOME=$JAVA_8_HOME'
   alias java11='export JAVA_HOME=$JAVA_11_HOME'
+#  alias java13='export JAVA_HOME=$JAVA_13_HOME'
 
 else  ## linux
   # alias venv2="virtualenv --python=/usr/bin/python2.7 venv"

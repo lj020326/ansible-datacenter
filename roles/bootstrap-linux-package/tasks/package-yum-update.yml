@@ -1,0 +1,38 @@
+---
+
+- name: "Stat yum repo config files"
+  stat:
+    path: "/etc/yum.repos.d/{{ item }}.repo"
+  loop: "{{ bootstrap_linux_package_yum_repo_list|d([]) }}"
+  register: yum_config_stats
+
+## ref: https://techglimpse.com/failed-metadata-repo-appstream-centos-8/
+- name:  if exists, update yum config mirrorlist
+  when: item.stat.exists
+  lineinfile:
+    dest: "{{ item.stat.path }}"
+    backrefs: yes
+    regexp: '^mirrorlist(.*)'
+    line: '#mirrorlist\1'
+    backup: yes
+  loop: "{{ yum_config_stats.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name:  if exists, update yum config baseurl
+  when: item.stat.exists
+  lineinfile:
+    dest: "{{ item.stat.path }}"
+    backrefs: yes
+    regexp: '^#baseurl=http://mirror.centos.org(.*)'
+    line: 'baseurl=http://vault.centos.org\1'
+    backup: yes
+  loop: "{{ yum_config_stats.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Update yum repo and cache
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes

@@ -1,8 +1,14 @@
 ---
 
+- name: "Update yum repos"
+  when:
+    - yum_repo_list|d([])|length>0
+    - bootstrap_linux_package_update_cache|bool
+  include_tasks: package-yum-update.yml
+
 - name: dnf
   dnf:
     name: "{{ item.dnf | default(item.name) }}"
     state: "{{ item.state | default(bootstrap_linux_package_state) }}"
-  when: (item.dnf_ignore|default('no'))|string in 'False,false,No,no'
-  with_items: "{{ __bootstrap_linux_packages_all }}"
+  when: not item.dnf_ignore|default('no')|bool
+  with_items: "{{ __bootstrap_linux_package_list }}"

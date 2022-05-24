@@ -1,11 +1,52 @@
 ---
 
-- name: Apt
+- name: "Install Apt packages"
+#  when: ansible_os_family == "Debian"
+  when:
+    - bootstrap_linux_package_apt_repo_list|d([])|length>0
+    - bootstrap_linux_package_update_cache|bool
+    - not item.apt_ignore|default('no')|bool
+  block:
+
+    - name: Update Apt repositories
+      when: bootstrap_linux_apt_repositories|d([])|length>0
+      apt_repository:
+        repo: "{{ item }}"
+        state: present
+      loop: "{{ bootstrap_linux_apt_repositories }}"
+
+    - name: Update apt-get repo and cache
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+    #    cache_valid_time: 3600
+
+
+#- name: "Install Apt packages"
+#  when: not item.apt_ignore|default('no')|bool
+#  apt:
+#    name: "{{ item.apt | default(item.name) }}"
+#    state: "{{ item.state | default(bootstrap_linux_package_state) }}"
+#    update_cache: "{{ bootstrap_linux_package_update_cache }}"
+#    cache_valid_time: "{{ bootstrap_linux_package_cache_valid_time }}"
+#    install_recommends: "{{ item.apt_install_recommends | default(omit) }}"
+#  with_items: "{{ __bootstrap_linux_package_list }}"
+
+- name: "Install present Apt packages"
   apt:
-    name: "{{ item.apt | default(item.name) }}"
-    state: "{{ item.state | default(bootstrap_linux_package_state) }}"
+    name: "{{ __bootstrap_linux_package_list_present }}"
+    state: "present"
     update_cache: "{{ bootstrap_linux_package_update_cache }}"
     cache_valid_time: "{{ bootstrap_linux_package_cache_valid_time }}"
-    install_recommends: "{{ item.apt_install_recommends | default(omit) }}"
-  when: (item.apt_ignore|default('no'))|string in 'False,false,No,no'
-  with_items: "{{ __bootstrap_linux_packages_all }}"
+
+- name: "Install latest Apt packages"
+  apt:
+    name: "{{ __bootstrap_linux_package_list_latest }}"
+    state: "latest"
+    update_cache: "{{ bootstrap_linux_package_update_cache }}"
+    cache_valid_time: "{{ bootstrap_linux_package_cache_valid_time }}"
+
+- name: Install Snap packages
+  when: bootstrap_linux_package_snap_list|d([])|length>0
+  snap:
+    name: "{{ bootstrap_linux_package_snap_list }}"
