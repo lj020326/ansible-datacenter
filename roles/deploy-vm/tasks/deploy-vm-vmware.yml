@@ -129,18 +129,25 @@
   loop_control:
     loop_var: vm_info
 
-- name: "Set compute_vm_static_ip for vm_groups fact"
+
+changed: true
+failed: false
+finished: 1
+skipped: false
+
+
+- name: "Set groups for vm_groups fact"
   set_fact:
-    vm_groups: "{{ vm_groups|default({}) | combine( { item.name: item.services + ['vmware_guest_auto', 'compute_vm_static_ip'] } )  }}"
+    vm_groups: "{{ vm_groups|default({}) | combine( { item.name: item.services + deploy_vm_group_names + ['vmware_vm_static_ip'] } )  }}"
   when:
     - item.network_type == "static"
     - item.ip is defined
   with_items:
     - "{{ vmware_spec_nodes }}"
 
-- name: "Set compute_vm_dynamic_ip for vm_groups fact"
+- name: "Set groups for vm_groups fact"
   set_fact:
-    vm_groups: "{{ vm_groups|default({}) | combine( { item.name: item.services + ['vmware_guest_auto', 'compute_vm_dynamic_ip'] } )  }}"
+    vm_groups: "{{ vm_groups|default({}) | combine( { item.name: item.services + deploy_vm_group_names + ['vmware_vm_dhcp_ip'] } )  }}"
   when:
     - item.network_type == "dhcp"
 #    - item.ip is not defined
@@ -155,14 +162,11 @@
   when: item.network_type == "static"
   add_host:
     name: "{{ item.name }}"
-#    group: "{{ item.services }}"
-#    groups: "{{ item.services + ['vmware_guest_auto', 'compute_vm_dynamic_ip'] }}"
     groups: "{{ vm_groups[item.name] }}"
 #    ansible_ssh_host: "{{  vmware_vm_info_by_name[item.name]['ip_address'] }}"
 #    ansible_ssh_host: "{{ item.name }}.{{ item.guest_domain }}"
     ansible_ssh_host: "{{ hostvars[item.name]['ansible_default_ipv4']['address'] | d(hostvars[item.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
     ansible_ssh_port: "{{ ansible_ssh_port | d(omit) }}"
-#    inventory_dir: "{{ inventory_dir }}"
     ansible_ssh_user: "{{ ansible_ssh_user | d(omit) }}"
     ansible_ssh_pass: "{{ ansible_ssh_pass | d(omit) }}"
     ansible_become_user: "{{ ansible_become_user | d(omit) }}"

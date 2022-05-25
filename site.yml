@@ -49,7 +49,7 @@
           - "os_distribution_version={{ os_distribution_version }}"
           - "os_machine_type={{ os_machine_type }}"
           ## END dynamically derived os_* groups
-          - "os_python_interpreter={{ os_python_interpreter }}"
+          - "os_python_interpreter={{ os_python_interpreter| d('') }}"
           - "ansible_python_interpreter={{ ansible_python_interpreter | d('unknown') }}"
           - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('unknown') }}"
           - "ansible_user={{ ansible_user }}"
@@ -182,8 +182,7 @@
 - name: "Report windows facts"
   hosts: windows,!node_offline
   gather_facts: false
-  tags:
-    - 'report-windows-facts'
+  tags: report-windows-facts
   roles:
     - role: report-windows-facts
 
@@ -292,7 +291,6 @@
     - bootstrap-ansible
     - bootstrap-node-core
     - bootstrap-node
-    - deploy-vm
   become: yes
   remote_user: "{{ bootstrap_user }}"
   gather_facts: false
@@ -301,6 +299,16 @@
       bootstrap_linux_users:
         - "{{ bootstrap_ansible_user }}"
 
+
+- name: "Bootstrap linux to new deployed vm instance"
+  hosts: new_deployed_vm_linux
+  tags: deploy-vm
+  become: yes
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-linux
+
 - name: "Bootstrap linux"
   hosts: os_linux,!node_offline
   tags:
@@ -308,7 +316,6 @@
     - bootstrap-linux-user
     - bootstrap-node-core
     - bootstrap-node
-    - deploy-vm
   become: yes
 #  become_method: sudo
   vars_files:
@@ -317,6 +324,9 @@
     - role: bootstrap-linux
 
 
+##
+## Individual Services to be bootstrapped
+##
 - name: "Bootstrap logrotate"
   hosts: os_linux,!node_offline
   tags:
@@ -352,7 +362,6 @@
     - bootstrap-cicd
     - bootstrap-cicd-node
     - cicd-node
-    - deploy-vm
   become: True
 #  become_method: sudo
   vars_files:
