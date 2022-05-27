@@ -9,49 +9,52 @@
     username: "{{ vcenter_username }}"
     password: "{{ vcenter_password }}"
     validate_certs: False
-  register: vm_facts
+  register: __deploy_vm_facts_initial
 
-- name: "Set vmware_spec_node_info fact defaults"
+- name: "Set __deploy_vm_spec_node_info fact defaults"
   set_fact:
-    vmware_spec_node_info: "{{ vmware_spec_node_info | d({}) | combine( { item: vmware_spec_defaults } ) }}"
+    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | d({}) | combine( { item: vmware_spec_defaults } ) }}"
   loop: "{{ groups['vmware_vm'] }}"
 
-- name: "Set node specifics for vmware_spec_node_info fact"
+- name: "Set node specifics for __deploy_vm_spec_node_info fact"
   set_fact:
-#    vmware_spec_node_info: "{{ vmware_spec_node_info | combine({ item: {'name': item, 'guest_domain': (hostvars[item]['vm_guest_domain']) } }, recursive=True ) | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
-    vmware_spec_node_info: "{{ vmware_spec_node_info | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
+#    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | combine({ item: {'name': item, 'guest_domain': (hostvars[item]['vm_guest_domain']) } }, recursive=True ) | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
+    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
   loop: "{{ groups['vmware_vm'] }}"
 
-- name: "Set static node IP on vmware_spec_node_info fact"
+- name: "Set static node IP on __deploy_vm_spec_node_info fact"
   set_fact:
-    vmware_spec_node_info: "{{ vmware_spec_node_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
+    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
   when:
-    - vmware_spec_node_info[item].network_type == "static"
+    - __deploy_vm_spec_node_info[item].network_type == "static"
 #    - hostvars[item].ansible_host is defined
     - hostvars[item].bind_ipv4_address is defined
   loop: "{{ groups['vmware_vm'] }}"
 
-- name: "Display vmware_spec_node_info"
+- name: "Display __deploy_vm_spec_node_info"
   debug:
-      var: vmware_spec_node_info
+    var: __deploy_vm_spec_node_info
 
-- name: "Set vmware_spec_nodes fact"
+- name: "Set __deploy_vm_vmware_spec_list fact"
   set_fact:
-    vmware_spec_nodes: "{{ vmware_spec_nodes|default([]) + [ vmware_spec_node_info[item] ] }}"
-  loop: "{{ vmware_spec_node_info | list }}"
+    __deploy_vm_vmware_spec_list: "{{ __deploy_vm_vmware_spec_list|d([]) + [ __deploy_vm_spec_node_info[item] ] }}"
+  loop: "{{ __deploy_vm_spec_node_info | list }}"
 
-- name: "Display vmware_spec_nodes"
+- name: "Display __deploy_vm_vmware_spec_list"
   debug:
-      var: vmware_spec_nodes
+    var: __deploy_vm_vmware_spec_list
 
-- name: "Set  vmware_vm_info_by_name fact"
+- name: "Set __deploy_vm_facts_initial_by_name fact"
   set_fact:
-    virtual_machines_by_name: "{{ virtual_machines_by_name|default({}) | combine( { item.guest_name: item } ) }}"
-  loop: "{{ vm_facts.virtual_machines }}"
+    __deploy_vm_facts_initial_by_name: "{{ __deploy_vm_facts_initial_by_name|default({}) | combine( { item.guest_name: item } ) }}"
+  loop: "{{ __deploy_vm_facts_initial.virtual_machines }}"
+  loop_control:
+    label: "{{ item.guest_name }}"
 
-- name: Display virtual_machines_by_name
+- name: Display __deploy_vm_facts_initial_by_name
   debug:
-      var: virtual_machines_by_name
+    var: __deploy_vm_facts_initial_by_name
+    verbosity: 1
 
 - name: "Clone from Template and Customize Virtual Machine"
   vmware_guest:
@@ -72,24 +75,28 @@
     disk: "{{ item.disks }}"
     hardware: "{{ item.hardware }}"
     wait_for_ip_address: yes
-  loop: "{{ vmware_spec_nodes }}"
-#  delegate_to: localhost
-  register: deploy_results
-  when: virtual_machines_by_name[item.name] is not defined
+  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: __deploy_vm_job_start
+  when: __deploy_vm_facts_initial_by_name[item.name] is not defined
   ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
   async: 2000
 #  poll: 10
   poll: 0
 
-- name: "Display deploy_results"
+- name: "Display __deploy_vm_job_start"
   debug:
-      var: deploy_results
+    var: __deploy_vm_job_start
+    verbosity: 1
 
-- name: "Display deploy_results (not skipped)"
+- name: "Display __deploy_vm_job_start (not skipped)"
   when: not item.skipped|d(false)|bool
   debug:
-      var: item
-  loop: "{{ deploy_results.results }}"
+    var: item
+  loop: "{{ __deploy_vm_job_start.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
 
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_async.html
 ## ref: https://itspyworld.blogspot.com/2020/07/ansible-deploy-multiple-vm-from.html
@@ -97,18 +104,56 @@
 - name: Wait for VM creation to finish
   async_status:
     jid: "{{ item.ansible_job_id }}"
-  loop: "{{ deploy_results.results }}"
+  loop: "{{ __deploy_vm_job_start.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
   when: item.ansible_job_id is defined
-  register: job_result
-  until: job_result.finished
+  register: __deploy_vm_job
+  until: __deploy_vm_job.finished
   # Check every 5 seconds. Adjust as you like.
   delay: "{{ deploy_vm_create_async_delay }}"
   # Retry up to 10 times. Adjust as needed.
   retries: "{{ deploy_vm_create_async_retries }}"
 
-- name: "Display job_result"
+- name: "Initialize __deploy_vm_new_vm"
+  set_fact:
+    __deploy_vm_job_results: "{{ __deploy_vm_job.results | selectattr('skipped','defined') | selectattr('skipped', 'equalto', false) }}"
+
+- name: "Display __deploy_vm_job_results"
   debug:
-      var: job_result
+    var: __deploy_vm_job_results
+#    verbosity: 1
+
+- name: "Initialize __deploy_vm_new_vm"
+  set_fact:
+    __deploy_vm_new_vm: {}
+
+- name: "Set __deploy_vm_new_vm [1]"
+  when:
+    - not item.failed|d(false)|bool
+    - not item.skipped|d(false)|bool
+#    - item.changed|d(false)|bool
+#    - item.finished|d(0)|int==1
+  set_fact:
+    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm|default({}) | combine( { item.item.name: item.item } ) }}"
+  loop: "{{ __deploy_vm_job_results }}"
+  loop_control:
+    label: "{{ item.item.name|d(item.name)|d(item) }}"
+#    label: "{{ item.item.name }}"
+
+- name: "Display __deploy_vm_new_vm [1]"
+  debug:
+    var: __deploy_vm_new_vm
+
+
+- name: "Set __deploy_vm_new_vm [2]"
+  set_fact:
+    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm | map('combine', { 'groups': deploy_vm_group_names } ) }}"
+
+- name: "Display __deploy_vm_new_vm [2]"
+  debug:
+    var: __deploy_vm_new_vm
+
 
 - name: Gather vm_facts for VMs
   vmware_vm_info:
@@ -116,71 +161,49 @@
     username: "{{ vcenter_username }}"
     password: "{{ vcenter_password }}"
     validate_certs: False
-  register: vm_facts
+  register: __deploy_vm_facts
 
-- name: "Set  vmware_vm_info_by_name fact"
+- name: "Set __deploy_vmware_vm_info_by_name fact"
   set_fact:
-     vmware_vm_info_by_name: "{{  vmware_vm_info_by_name|default({}) | combine( { item.guest_name: item } ) }}"
-  loop: "{{ vm_facts.virtual_machines }}"
+     __deploy_vmware_vm_info_by_name: "{{  __deploy_vmware_vm_info_by_name|default({}) | combine( { item.guest_name: item } ) }}"
+  loop: "{{ __deploy_vm_facts.virtual_machines }}"
+  loop_control:
+    label: "{{ item.guest_name }}"
 
-- name: "Configure VMs"
-  include_tasks: config_vm_vmware.yml
-  loop: "{{ vmware_spec_nodes }}"
+- name: "Initialize __deploy_vm_groups"
+  set_fact:
+    __deploy_vm_groups: {}
+
+- name: "Set __deploy_vm_groups"
+  when: __deploy_vm_new_vm[item.name] is defined
+#  when: item.ip is defined
+  set_fact:
+    __deploy_vm_groups: "{{ __deploy_vm_groups|default({}) | combine(
+      { item.name: item.services|d([]) +
+        __deploy_vm_new_vm[item.name]['groups']|d([]) +
+        ['deploy_vm_ip_' + item.network_type] | flatten
+      } )  }}"
+  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Display __deploy_vm_groups
+  debug:
+    var: __deploy_vm_groups
+
+- name: "Configure newly deployed VMs"
+  when: __deploy_vm_new_vm[item.name] is defined
+  include_tasks: config-vm-vmware.yml
+  loop: "{{ __deploy_vm_vmware_spec_list }}"
   loop_control:
     loop_var: vm_info
+    label: "{{ item.name }}"
 
-
-changed: true
-failed: false
-finished: 1
-skipped: false
-
-
-- name: "Set groups for vm_groups fact"
-  set_fact:
-    vm_groups: "{{ vm_groups|default({}) | combine( { item.name: item.services + deploy_vm_group_names + ['vmware_vm_static_ip'] } )  }}"
-  when:
-    - item.network_type == "static"
-    - item.ip is defined
-  with_items:
-    - "{{ vmware_spec_nodes }}"
-
-- name: "Set groups for vm_groups fact"
-  set_fact:
-    vm_groups: "{{ vm_groups|default({}) | combine( { item.name: item.services + deploy_vm_group_names + ['vmware_vm_dhcp_ip'] } )  }}"
-  when:
-    - item.network_type == "dhcp"
-#    - item.ip is not defined
-  with_items:
-    - "{{ vmware_spec_nodes }}"
-
-- name: Display vm_groups
-  debug:
-    var: vm_groups
-
-- name: "Add new static IP VM to dynamic inventory for further tasks"
-  when: item.network_type == "static"
+- name: "Add new VM to dynamic inventory for further tasks"
+  when: __deploy_vm_new_vm[item.name] is defined
   add_host:
     name: "{{ item.name }}"
-    groups: "{{ vm_groups[item.name] }}"
-#    ansible_ssh_host: "{{  vmware_vm_info_by_name[item.name]['ip_address'] }}"
-#    ansible_ssh_host: "{{ item.name }}.{{ item.guest_domain }}"
-    ansible_ssh_host: "{{ hostvars[item.name]['ansible_default_ipv4']['address'] | d(hostvars[item.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
-    ansible_ssh_port: "{{ ansible_ssh_port | d(omit) }}"
-    ansible_ssh_user: "{{ ansible_ssh_user | d(omit) }}"
-    ansible_ssh_pass: "{{ ansible_ssh_pass | d(omit) }}"
-    ansible_become_user: "{{ ansible_become_user | d(omit) }}"
-    ansible_become_pass: "{{ ansible_become_pass | d(omit) }}"
-    ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
-  changed_when: false
-  with_items:
-    - "{{ vmware_spec_nodes }}"
-
-- name: "Add new DHCP VM to dynamic inventory for further tasks"
-  when: item.network_type == "dhcp"
-  add_host:
-    name: "{{ item.name }}"
-    groups: "{{ vm_groups[item.name] }}"
+    groups: "{{ __deploy_vm_groups[item.name] | d(omit) }}"
     ansible_ssh_host: "{{ item.name }}.{{ item.guest_domain }}"
     ansible_ssh_port: "{{ ansible_ssh_port | d(omit) }}"
     ansible_ssh_user: "{{ ansible_ssh_user | d(omit) }}"
@@ -189,5 +212,39 @@ skipped: false
     ansible_become_pass: "{{ ansible_become_pass | d(omit) }}"
     ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
   changed_when: false
-  with_items:
-    - "{{ vmware_spec_nodes }}"
+  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  loop_control:
+    loop_var: vm_info
+    label: "{{ item.name }}"
+
+#- name: "Add new static IP VM to dynamic inventory for further tasks"
+#  when: item.network_type == "static"
+#  add_host:
+#    name: "{{ item.name }}"
+#    groups: "{{ __deploy_vm_groups[item.name] }}"
+##    ansible_ssh_host: "{{  __deploy_vmware_vm_info_by_name[item.name]['ip_address'] }}"
+##    ansible_ssh_host: "{{ item.name }}.{{ item.guest_domain }}"
+#    ansible_ssh_host: "{{ hostvars[item.name]['ansible_default_ipv4']['address'] | d(hostvars[item.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
+#    ansible_ssh_port: "{{ ansible_ssh_port | d(omit) }}"
+#    ansible_ssh_user: "{{ ansible_ssh_user | d(omit) }}"
+#    ansible_ssh_pass: "{{ ansible_ssh_pass | d(omit) }}"
+#    ansible_become_user: "{{ ansible_become_user | d(omit) }}"
+#    ansible_become_pass: "{{ ansible_become_pass | d(omit) }}"
+#    ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
+#  changed_when: false
+#  loop: "{{ __deploy_vm_vmware_spec_list }}"
+#
+#- name: "Add new DHCP VM to dynamic inventory for further tasks"
+#  when: item.network_type == "dhcp"
+#  add_host:
+#    name: "{{ item.name }}"
+#    groups: "{{ __deploy_vm_groups[item.name] }}"
+#    ansible_ssh_host: "{{ item.name }}.{{ item.guest_domain }}"
+#    ansible_ssh_port: "{{ ansible_ssh_port | d(omit) }}"
+#    ansible_ssh_user: "{{ ansible_ssh_user | d(omit) }}"
+#    ansible_ssh_pass: "{{ ansible_ssh_pass | d(omit) }}"
+#    ansible_become_user: "{{ ansible_become_user | d(omit) }}"
+#    ansible_become_pass: "{{ ansible_become_pass | d(omit) }}"
+#    ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
+#  changed_when: false
+#  loop: "{{ __deploy_vm_vmware_spec_list }}"

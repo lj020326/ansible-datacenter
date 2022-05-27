@@ -81,11 +81,11 @@ The newly created ansible user cert will be written to $env:TMP.
 Using the option to disable/skip CA Check as described [here](https://adamtheautomator.com/winrm-ssl/)
 
 ```shell
+PS > cd WSMan:\localhost\Client
 PS WSMan:\localhost\Client>
 PS WSMan:\localhost\Client> $PSSessionOption = New-PSSessionOption -SkipCACheck
 PS WSMan:\localhost\Client>
-PS WSMan:\localhost\Client> Enter-PSSession -ComputerName ljlaptop.johnson.int -Credential (Get-Credential) -SessionOpti
-on $PSSessionOption  -UseSSL
+PS WSMan:\localhost\Client> Enter-PSSession -ComputerName ljlaptop.johnson.int -Credential (Get-Credential) -SessionOption $PSSessionOption  -UseSSL
 
 cmdlet Get-Credential at command pipeline position 1
 Supply values for the following parameters:
