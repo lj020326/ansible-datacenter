@@ -19,6 +19,7 @@
   tags: always
 #  hosts: all,!node_offline,!local
   hosts: all,!node_offline
+  ignore_unreachable: yes
   gather_facts: yes
   vars_files:
     - vars/secrets.yml
@@ -299,15 +300,18 @@
       bootstrap_linux_users:
         - "{{ bootstrap_ansible_user }}"
 
-
+##
+## Bootstrap linux plays
+##
 - name: "Bootstrap linux to new deployed vm instance"
-  hosts: "{{ deploy_vm_new_vm_group_name }}"
+  hosts: vmware_new_vm_linux
   tags: deploy-vm
   become: yes
   vars_files:
     - vars/secrets.yml
   roles:
     - role: bootstrap-linux
+
 
 - name: "Bootstrap linux"
   hosts: os_linux,!node_offline
@@ -325,6 +329,33 @@
 
 
 ##
+## Bootstrap windows plays
+##
+- name: "Bootstrap windows to new deployed vm instance"
+  hosts: vmware_new_vm_windows
+  tags: deploy-vm
+  become: yes
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-windows
+
+- name: "Bootstrap windows"
+  hosts: os_windows,!node_offline
+#  hosts: windows,!node_offline
+  tags:
+    - bootstrap-windows
+    - bootstrap-windows-user
+    - bootstrap-node
+#  become: yes
+#  become_method: runas
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-windows
+
+
+##
 ## Individual Services to be bootstrapped
 ##
 - name: "Bootstrap logrotate"
@@ -336,21 +367,6 @@
 #  become_method: sudo
   roles:
     - role: ansible-logrotate
-
-
-
-- name: "Bootstrap windows"
-  hosts: os_windows,!node_offline
-  tags:
-    - bootstrap-windows
-    - bootstrap-windows-user
-    - bootstrap-node
-    - deploy-vm
-  become: yes
-  vars_files:
-    - vars/secrets.yml
-  roles:
-    - role: bootstrap-windows
 
 
 

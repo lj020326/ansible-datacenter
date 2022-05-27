@@ -44,7 +44,7 @@ This approach also worked when delegating to another host – so doing an nslook
 This example is slightly different to the first in that ‘ignore\_errors’ is set to true – this means that even if it fails it will still move onto the next task, which sets the dns\_resolves fact to true; however if it has failed, this fact won’t be set because the when condition \*is\* used this time around.
 
   
-Once the facts are set for our successful hosts, we then need to make use of them.   My idea was to have a play that ran at the end of all my other tasks that read the facts and used them to create lists of the status of each host.    I accomplished this using a combination of jinja2 and set\_fact like this –
+Once the facts are set for our successful hosts, we then need to make use of them.   My idea was to have a play that ran at the end of all my other tasks that read the facts and used them to create lists of the status of each host.    I accomplished this using a combination of jinja2 and set_fact like this –
 
 ```yml
 - set_fact:
@@ -69,11 +69,11 @@ Once the facts are set for our successful hosts, we then need to make use of the
    run_once: true
 ```
 
-Not particularly elegant at all – the first set\_fact involves looping through all the hosts in the inventory, looking at whether they have certain facts set and if so using jinja2 to add them to lists, which are in turn set as a fact on localhost using a combination of delegate\_to, delegate\_facts and run\_once.   
+Not particularly elegant at all – the first set_fact involves looping through all the hosts in the inventory, looking at whether they have certain facts set and if so using jinja2 to add them to lists, which are in turn set as a fact on localhost using a combination of delegate\_to, delegate\_facts and run\_once.   
 
-The second set\_fact attempts to determine what hosts failed by looking at the difference between which hosts are left in the play\_hosts group and how many were originally in the play (ansible\_play\_hosts\_all) – this list includes all hosts that failed to connect and those that failed to complete some operation during the playbook run.
+The second set_fact attempts to determine what hosts failed by looking at the difference between which hosts are left in the play_hosts group and how many were originally in the play (ansible\_play_hosts\_all) – this list includes all hosts that failed to connect and those that failed to complete some operation during the playbook run.
 
-The final set\_fact operation works out which hosts were reachable, but still failed.  This information was then written to a report for later analysis.   
+The final set_fact operation works out which hosts were reachable, but still failed.  This information was then written to a report for later analysis.   
 
 All this is ok, but its a lot of complex, hard to follow code that doesn’t really accomplish what I wanted to.
 

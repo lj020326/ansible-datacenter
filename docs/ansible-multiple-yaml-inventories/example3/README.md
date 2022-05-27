@@ -511,6 +511,22 @@ web-q1-net2-s2.example.int | SUCCESS => {
 
 ```
 
+```shell
+ansible -i ./inventory/ network1  -m debug -a var=trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name
+web-q1-net1-s1.example.int | SUCCESS => {
+    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site1/web-q1-net1-s1.example.int', 'QA', 'MEM')"
+}
+web-q2-net1-s1.example.int | SUCCESS => {
+    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site1/web-q2-net1-s1.example.int', 'QA', 'MEM')"
+}
+web-q1-net1-s2.example.int | SUCCESS => {
+    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site2/web-q1-net1-s2.example.int', 'QA', 'MEM')"
+}
+web-q2-net1-s2.example.int | SUCCESS => {
+    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site2/web-q2-net1-s2.example.int', 'QA', 'MEM')"
+}
+
+```
 
 ```shell
 ansible -i ./inventory/ -m debug -a var=foreman.content_facet_attributes network2 -l web-q1*
@@ -584,3 +600,4 @@ web-q1-net2-s2.example.int | SUCCESS => {
 }
 
 ```
+
