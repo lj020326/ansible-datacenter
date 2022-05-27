@@ -13,6 +13,8 @@ trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
 trap 'rm -fr "$TMP_DIR"' EXIT
 
+GIT_REMOVE_CACHED_FILES=0
+
 CONFIRM=0
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
@@ -84,8 +86,10 @@ eval $rsync_cmd
 echo "Checkout public branch"
 git checkout public
 
-echo "Removing files cached in git"
-git rm -r --cached .
+if [ $GIT_REMOVE_CACHED_FILES -eq 1 ]; then
+  echo "Removing files cached in git"
+  git rm -r --cached .
+fi
 
 #echo "Removing existing non-dot files for clean sync"
 #rm -fr *
