@@ -3,23 +3,54 @@
 ## orig source: https://github.com/justai-net/ansible_vmware_deploy_provision.git
 ## ref: https://github.com/justai-net/ansible_vmware_deploy_provision/blob/master/deploy.yml
 
+- name: Bootstrap category related to new VMs
+  community.vmware.vmware_category:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: False
+    category_name: "vm_new_machine"
+    category_description: "Category for newly created VMs prior to bootstrap OS plays"
+    category_cardinality: 'multiple'
+    state: present
+  register: vm_category_results
+
+- debug:
+    var: vm_category_results
+
+- name: Bootstrap tags related to new VMs
+  community.vmware.vmware_tag:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: False
+    category_id: "{{ vm_category_results.category_results.category_id }}"
+    tag_name: "{{ item.tag_name }}"
+    tag_description: "{{ item.tag_description }}"
+    state: present
+  loop: "{{ deploy_vm_tags }}"
+
 - name: "Gather vm_facts for all VMs in Virtual Center or ESXi."
-  vmware_vm_info:
+  community.vmware.vmware_vm_info:
     hostname: "{{ vcenter_hostname }}"
     username: "{{ vcenter_username }}"
     password: "{{ vcenter_password }}"
     validate_certs: False
   register: __deploy_vm_facts_initial
 
-- name: "Set __deploy_vm_spec_node_info fact defaults"
-  set_fact:
-    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | d({}) | combine( { item: vmware_spec_defaults } ) }}"
-  loop: "{{ groups['vmware_vm'] }}"
+#- name: "Set __deploy_vm_spec_node_info fact defaults"
+#  set_fact:
+#    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | d({}) | combine( { item: vmware_spec_defaults } ) }}"
+#  loop: "{{ groups['vmware_vm'] }}"
 
 - name: "Set node specifics for __deploy_vm_spec_node_info fact"
   set_fact:
 #    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | combine({ item: {'name': item, 'guest_domain': (hostvars[item]['vm_guest_domain']) } }, recursive=True ) | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
-    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
+#    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info| d({}) |
+#        combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
+    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info| d({}) |
+        combine( { item: vmware_spec_defaults } ) |
+        combine( { item: hostvars[item].vmware_node_info | d({}) }, recursive=True ) }}"
   loop: "{{ groups['vmware_vm'] }}"
 
 - name: "Set static node IP on __deploy_vm_spec_node_info fact"
@@ -34,6 +65,7 @@
 - name: "Display __deploy_vm_spec_node_info"
   debug:
     var: __deploy_vm_spec_node_info
+    verbosity: 1
 
 - name: "Set __deploy_vm_vmware_spec_list fact"
   set_fact:
@@ -43,6 +75,7 @@
 - name: "Display __deploy_vm_vmware_spec_list"
   debug:
     var: __deploy_vm_vmware_spec_list
+    verbosity: 1
 
 - name: "Set __deploy_vm_facts_initial_by_name fact"
   set_fact:
@@ -57,7 +90,7 @@
     verbosity: 1
 
 - name: "Clone from Template and Customize Virtual Machine"
-  vmware_guest:
+  community.vmware.vmware_guest:
     hostname: "{{ vcenter_hostname }}"
     username: "{{ vcenter_username }}"
     password: "{{ vcenter_password }}"
@@ -71,6 +104,7 @@
 #    state: poweredoff
     state: present
     template: "{{ deploy_vm_template_info[item.template_id].name }}"
+#    guest_id: "{{ item.guest_id | d(omit) }}"
     notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
     disk: "{{ item.disks }}"
     hardware: "{{ item.hardware }}"
@@ -115,19 +149,12 @@
   # Retry up to 10 times. Adjust as needed.
   retries: "{{ deploy_vm_create_async_retries }}"
 
-- name: "Initialize __deploy_vm_new_vm [0]"
+- name: "Initialize __deploy_vm_job_results"
   set_fact:
-    __deploy_vm_job_results: "{{ __deploy_vm_job.results }}"
+#    __deploy_vm_job_results: "{{ __deploy_vm_job.results }}"
+    __deploy_vm_job_results: "{{ __deploy_vm_job.results | selectattr('changed','defined') | selectattr('changed', 'equalto', true) }}"
 
-- name: "Display __deploy_vm_job_results [0]"
-  debug:
-    var: __deploy_vm_job_results
-
-- name: "Initialize __deploy_vm_new_vm [1]"
-  set_fact:
-    __deploy_vm_job_results: "{{ __deploy_vm_job_results | selectattr('changed','defined') | selectattr('changed', 'equalto', true) }}"
-
-- name: "Display __deploy_vm_job_results [1]"
+- name: "Display __deploy_vm_job_results"
   debug:
     var: __deploy_vm_job_results
 #    verbosity: 1
@@ -136,42 +163,19 @@
   set_fact:
     __deploy_vm_new_vm: {}
 
-- name: "Set __deploy_vm_new_vm [1]"
-  when:
-    - not item.failed|d(false)|bool
-    - not item.skipped|d(false)|bool
-#    - item.changed|d(false)|bool
-#    - item.finished|d(0)|int==1
+- name: "Set __deploy_vm_new_vm"
   set_fact:
-    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm|default({}) | combine( { item.item.name: item.item } ) }}"
+    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm|default({}) | combine( { item.item.item.name: item } ) }}"
   loop: "{{ __deploy_vm_job_results }}"
   loop_control:
-    label: "{{ item.item.name|d(item.name)|d(item) }}"
-#    label: "{{ item.item.name }}"
+    label: "{{ item.item.item.name }}"
 
-- name: "Display __deploy_vm_new_vm [1]"
+- name: "Display __deploy_vm_new_vm"
   debug:
     var: __deploy_vm_new_vm
-
-#- name: "Set __deploy_vm_new_vm [2]"
-#  set_fact:
-#    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm | map('combine', { 'groups': deploy_vm_group_names } ) }}"
-
-- name: "Set __deploy_vm_new_vm [2]"
-  set_fact:
-#    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm | map('combine', { 'groups': deploy_vm_group_names } ) }}"
-    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm|default({}) | combine( { item.key: item.value | combine( { 'groups': hostvars[item.name]['deploy_vm_group_names'] } ) } ) }}"
-  loop: "{{ __deploy_vm_new_vm | dict2items | list }}"
-#  loop: "{{ __deploy_vm_new_vm.values() | list }}"
-
-
-- name: "Display __deploy_vm_new_vm [2]"
-  debug:
-    var: __deploy_vm_new_vm
-
 
 - name: Gather vm_facts for VMs
-  vmware_vm_info:
+  community.vmware.vmware_vm_info:
     hostname: "{{ vcenter_hostname }}"
     username: "{{ vcenter_username }}"
     password: "{{ vcenter_password }}"
@@ -184,27 +188,6 @@
   loop: "{{ __deploy_vm_facts.virtual_machines }}"
   loop_control:
     label: "{{ item.guest_name }}"
-
-- name: "Initialize __deploy_vm_groups"
-  set_fact:
-    __deploy_vm_groups: {}
-
-- name: "Set __deploy_vm_groups"
-  when: __deploy_vm_new_vm[item.name] is defined
-#  when: item.ip is defined
-  set_fact:
-    __deploy_vm_groups: "{{ __deploy_vm_groups|default({}) | combine(
-      { item.name: item.services|d([]) +
-        __deploy_vm_new_vm[item.name]['groups']|d([]) +
-        ['deploy_vm_ip_' + item.network_type] | flatten
-      } )  }}"
-  loop: "{{ __deploy_vm_vmware_spec_list }}"
-  loop_control:
-    label: "{{ item.name }}"
-
-- name: Display __deploy_vm_groups
-  debug:
-    var: __deploy_vm_groups
 
 - name: "Configure newly deployed VMs"
   when: __deploy_vm_new_vm[vm_info.name] is defined or __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
@@ -220,7 +203,7 @@
   when: __deploy_vm_new_vm[item.name] is defined
   add_host:
     name: "{{ item.name }}"
-    groups: "{{ __deploy_vm_groups[item.name] | d(omit) }}"
+    groups: "{{ item.deploy_groups | d(omit) }}"
     ansible_ssh_host: "{{ item.name }}.{{ item.guest_domain }}"
 ##    ansible_ssh_host: "{{  __deploy_vmware_vm_info_by_name[item.name]['ip_address'] }}"
 #    ansible_ssh_host: "{{ hostvars[item.name]['ansible_default_ipv4']['address'] | d(hostvars[item.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
@@ -230,7 +213,23 @@
     ansible_become_user: "{{ ansible_become_user | d(omit) }}"
     ansible_become_pass: "{{ ansible_become_pass | d(omit) }}"
     ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
-  changed_when: false
+#  changed_when: false
   loop: "{{ __deploy_vm_vmware_spec_list }}"
   loop_control:
     label: "{{ item.name }}"
+
+- name: Add tags to new virtual machines
+#  when: item.vm_tags|d([])|length>0
+  community.vmware.vmware_tag_manager:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: False
+    tag_names: "{{ item.deploy_vm_tags }}"
+    object_name: "{{ item.name }}"
+    object_type: VirtualMachine
+    state: add
+  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  loop_control:
+    label: "{{ item.name }}"
+
