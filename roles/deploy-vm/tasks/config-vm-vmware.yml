@@ -8,6 +8,12 @@
   debug:
     var:  __deploy_vmware_vm_info_by_name[vm_info.name]
 
+- name: "config-vm-vmware:{{ vm_info.name }} | Get vm instance facts to use for post-poweron vm configuration operations"
+  set_fact:
+    __deploy_vm_host: "{{ hostvars[vm_info.name]['ansible_default_ipv4']['address'] | d(hostvars[vm_info.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
+    __deploy_vm__vm_ansible_user: "{{ hostvars[vm_info.name]['ansible_user'] | d(deploy_vm__vm_ansible_user) }}"
+    __deploy_vm__vm_ansible_password: "{{ hostvars[vm_info.name]['ansible_password'] | d(deploy_vm__vm_ansible_password) }}"
+
 - name: "config-vm-vmware:{{ vm_info.name }} | Power on Virtual Machine"
   when:  __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
   vmware_guest:
@@ -161,13 +167,13 @@
         vm_id: "{{ vm_info.name }}"
 #        vm_id: "{{ vm_info.uuid }}"
 #        vm_id_type: "uuid"
-        vm_username: "{{ deploy_vm_username }}"
-        vm_password: "{{ deploy_vm_password }}"
+        vm_username: "{{ __deploy_vm__vm_ansible_user }}"
+        vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         copy:
 #            src: "{{ deploy_vm_workdir }}/01-netcfg.yaml"
-#            dest: "/home/{{ deploy_vm_username }}/01-netcfg.yaml"
+#            dest: "/home/{{ __deploy_vm__vm_ansible_user }}/01-netcfg.yaml"
             src: "{{ deploy_vm_workdir }}/00-installer-config.yaml"
-            dest: "/home/{{ deploy_vm_username }}/00-installer-config.yaml"
+            dest: "/home/{{ __deploy_vm__vm_ansible_user }}/00-installer-config.yaml"
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Move network configuration file to right location on Ubuntu VM"
       vmware_vm_shell:
@@ -176,11 +182,11 @@
         password: "{{ deploy_vm_vcenter_password }}"
         validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
-        vm_username: "{{ deploy_vm_username }}"
-        vm_password: "{{ deploy_vm_password }}"
+        vm_username: "{{ __deploy_vm__vm_ansible_user }}"
+        vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         vm_shell: /usr/bin/sudo
-#        vm_shell_args: "mv /home/{{ deploy_vm_username }}/01-netcfg.yaml /etc/netplan/01-netcfg.yaml && chown root.root /etc/netplan/01-netcfg.yaml"
-        vm_shell_args: "mv /home/{{ deploy_vm_username }}/00-installer-config.yaml /etc/netplan/00-installer-config.yaml && chown root.root /etc/netplan/00-installer-config.yaml"
+#        vm_shell_args: "mv /home/{{ __deploy_vm__vm_ansible_user }}/01-netcfg.yaml /etc/netplan/01-netcfg.yaml && chown root.root /etc/netplan/01-netcfg.yaml"
+        vm_shell_args: "mv /home/{{ __deploy_vm__vm_ansible_user }}/00-installer-config.yaml /etc/netplan/00-installer-config.yaml && chown root.root /etc/netplan/00-installer-config.yaml"
 
     ## ref: https://cloudinit.readthedocs.io/en/latest/topics/faq.html
     - name: "config-vm-vmware:{{ vm_info.name }} | Apply the netplan network configuration on Ubuntu VM"
@@ -190,8 +196,8 @@
         password: "{{ deploy_vm_vcenter_password }}"
         validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
-        vm_username: "{{ deploy_vm_username }}"
-        vm_password: "{{ deploy_vm_password }}"
+        vm_username: "{{ __deploy_vm__vm_ansible_user }}"
+        vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         vm_shell: /usr/bin/sudo
         vm_shell_args: "netplan apply"
 
@@ -213,8 +219,8 @@
         password: "{{ deploy_vm_vcenter_password }}"
         validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
-        vm_username: "{{ deploy_vm_username }}"
-        vm_password: "{{ deploy_vm_password }}"
+        vm_username: "{{ __deploy_vm__vm_ansible_user }}"
+        vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         vm_shell: /usr/bin/sudo
 #        vm_shell_args: "hostnamectl set-hostname {{ vm_info.name }}.{{ vm_info.guest_domain }} > /tmp/$$.txt 2>&1"
         vm_shell_args: "hostnamectl set-hostname {{ vm_info.name }} > /tmp/$$.txt 2>&1"
@@ -226,8 +232,8 @@
         password: "{{ deploy_vm_vcenter_password }}"
         validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
-        vm_username: "{{ deploy_vm_username }}"
-        vm_password: "{{ deploy_vm_password }}"
+        vm_username: "{{ __deploy_vm__vm_ansible_user }}"
+        vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         vm_shell: /usr/bin/sudo
         vm_shell_args: "sed -i -E 's/^127.0.0.1(\\s*)(.*)/127.0.0.1\\1{{ vm_info.name }}.{{ vm_info.guest_domain }} {{ vm_info.name }} \\2/' /etc/hosts"
 
@@ -238,8 +244,39 @@
         password: "{{ deploy_vm_vcenter_password }}"
         validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
-        vm_username: "{{ deploy_vm_username }}"
-        vm_password: "{{ deploy_vm_password }}"
+        vm_username: "{{ __deploy_vm__vm_ansible_user }}"
+        vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         vm_shell: /usr/bin/sudo
         vm_shell_args: "systemctl restart {{ deploy_vm_template_info[vm_info.template_id].network_service }}"
+
+
+
+## in both DHCP and static IP cases, it should be expected that the DNS entry for the vm has been created.
+## TODO: add ping test to verify that the DNS entry is setup and the host responds correctly.
+- name: "Add new VM to dynamic inventory for further tasks"
+  add_host:
+    name: "{{ vm_info.name }}"
+    groups: "{{ vm_info.deploy_groups | d(omit) }}"
+    ansible_ssh_host: "{{ vm_info.name }}.{{ vm_info.guest_domain }}"
+##    ansible_ssh_host: "{{  __deploy_vmware_vm_info_by_name[vm_info.name]['ip_address'] }}"
+#    ansible_ssh_host: "{{ hostvars[vm_info.name]['ansible_default_ipv4']['address'] | d(hostvars[vm_info.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
+    ansible_ssh_port: "{{ ansible_ssh_port | d(omit) }}"
+    ansible_ssh_user: "{{ ansible_ssh_user | d(omit) }}"
+    ansible_ssh_pass: "{{ ansible_ssh_pass | d(omit) }}"
+    ansible_become_user: "{{ ansible_become_user | d(omit) }}"
+    ansible_become_pass: "{{ ansible_become_pass | d(omit) }}"
+    ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
+#  changed_when: false
+
+- name: Add tags to new virtual machines
+#  when: vm_info.vm_tags|d([])|length>0
+  community.vmware.vmware_tag_manager:
+    hostname: "{{ deploy_vm_vcenter_hostname }}"
+    username: "{{ deploy_vm_vcenter_username }}"
+    password: "{{ deploy_vm_vcenter_password }}"
+    validate_certs: False
+    tag_names: "{{ vm_info.deploy_vm_tags }}"
+    object_name: "{{ vm_info.name }}"
+    object_type: VirtualMachine
+    state: add
 
