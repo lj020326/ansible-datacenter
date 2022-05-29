@@ -11,10 +11,10 @@
 - name: "config-vm-vmware:{{ vm_info.name }} | Power on Virtual Machine"
   when:  __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
   vmware_guest:
-    hostname: "{{ vcenter_hostname }}"
-    username: "{{ vcenter_username }}"
-    password: "{{ vcenter_password }}"
-    validate_certs: no
+    hostname: "{{ deploy_vm_vcenter_hostname }}"
+    username: "{{ deploy_vm_vcenter_username }}"
+    password: "{{ deploy_vm_vcenter_password }}"
+    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
     datacenter: "{{ vmware_vm_datacenter }}"
     name: "{{ vm_info.name }}"
     state: poweredon
@@ -22,10 +22,10 @@
 
 - name: "config-vm-vmware:{{ vm_info.name }} | Gather VM info for {{ vm_info.name }}"
   vmware_guest_info:
-    hostname: "{{ vcenter_hostname }}"
-    username: "{{ vcenter_username }}"
-    password: "{{ vcenter_password }}"
-    validate_certs: no
+    hostname: "{{ deploy_vm_vcenter_hostname }}"
+    username: "{{ deploy_vm_vcenter_username }}"
+    password: "{{ deploy_vm_vcenter_password }}"
+    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
     datacenter: "{{ vmware_vm_datacenter }}"
     schema: "vsphere"
     uuid: "{{ __deploy_vmware_vm_info_by_name[vm_info.name].uuid }}"
@@ -57,29 +57,29 @@
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Set powerstate of a virtual machine to poweredoff"
       vmware_guest:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         name: "{{ vm_info.name }}"
         state: poweredoff
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Unregister VM"
       command: "govc vm.unregister {{ vm_info.name }}"
-      environment: "{{ govc_environment }}"
+      environment: "{{ deploy_vm_govc_environment }}"
 
     ## ref: https://opensourcelibs.com/lib/govc
     - name: "config-vm-vmware:{{ vm_info.name }} | Create directory {{ vm_info.datastore_folder }} on VM datastore {{ vm_info.datastore }}"
       command: "govc datastore.mkdir -p -ds={{ vm_info.datastore }} {{ vm_info.datastore_folder }}"
-      environment: "{{ govc_environment }}"
+      environment: "{{ deploy_vm_govc_environment }}"
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Move VM datastore folder to {{ vm_info.datastore_folder }}"
       command: "govc datastore.mv -f -ds={{ vm_info.datastore }} {{ vm_info.name }} {{ vm_info.datastore_folder }}/{{ vm_info.name }}"
-      environment: "{{ govc_environment }}"
+      environment: "{{ deploy_vm_govc_environment }}"
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Register VM"
       command: "govc vm.register -template=false -ds={{ vm_info.datastore }} -folder={{ vm_info.folder }} -host={{ vm_info.host }} {{ vm_info.datastore_folder }}/{{ vm_info.name }}/{{ vm_info.name }}.vmx"
-      environment: "{{ govc_environment }}"
+      environment: "{{ deploy_vm_govc_environment }}"
 
     ## ref: https://docs.openshift.com/container-platform/3.6/install_config/configuring_vsphere.html#vsphere-enabling
     ## ref: https://docs.vmware.com/en/VMware-Workstation-Pro/16.0/com.vmware.ws.using.doc/GUID-E601BE81-59B5-4B6C-BD96-2E1F41CBBDB2.html
@@ -87,14 +87,14 @@
     ## [root@esx02:~] cat /vmfs/volumes/54453819-a19ddd4c-aa71-001ec956143b/vm/vm02/vm02.vmx
     - name: "config-vm-vmware:{{ vm_info.name }} | Update VM UUID action to keep"
       command: "govc vm.change -e='uuid.action=keep' -vm={{ vm_info.name }}"
-      environment: "{{ govc_environment }}"
+      environment: "{{ deploy_vm_govc_environment }}"
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Set powerstate of a virtual machine to poweredon"
       vmware_guest:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         name: "{{ vm_info.name }}"
         state: poweredon
         wait_for_ip_address: yes
@@ -112,10 +112,10 @@
 #- name: "config-vm-vmware:{{ vm_info.name }} | Add disk to virtual machine"
 #  when: vm_info.disk is defined
 #  vmware_guest_disk:
-#    hostname: "{{ vcenter_hostname }}"
-#    username: "{{ vcenter_username }}"
-#    password: "{{ vcenter_password }}"
-#    validate_certs: no
+#    hostname: "{{ deploy_vm_vcenter_hostname }}"
+#    username: "{{ deploy_vm_vcenter_username }}"
+#    password: "{{ deploy_vm_vcenter_password }}"
+#    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
 #    name: "{{ vm_info.name }}"
 #    state: poweredon
 #    wait_for_ip_address: yes
@@ -154,10 +154,10 @@
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Copy network configuration file to Ubuntu VM"
       vmware_guest_file_operation:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
 #        vm_id: "{{ vm_info.uuid }}"
 #        vm_id_type: "uuid"
@@ -171,10 +171,10 @@
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Move network configuration file to right location on Ubuntu VM"
       vmware_vm_shell:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
         vm_username: "{{ deploy_vm_username }}"
         vm_password: "{{ deploy_vm_password }}"
@@ -185,10 +185,10 @@
     ## ref: https://cloudinit.readthedocs.io/en/latest/topics/faq.html
     - name: "config-vm-vmware:{{ vm_info.name }} | Apply the netplan network configuration on Ubuntu VM"
       vmware_vm_shell:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
         vm_username: "{{ deploy_vm_username }}"
         vm_password: "{{ deploy_vm_password }}"
@@ -208,10 +208,10 @@
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Change hostname of guest machine"
       vmware_vm_shell:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
         vm_username: "{{ deploy_vm_username }}"
         vm_password: "{{ deploy_vm_password }}"
@@ -221,10 +221,10 @@
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Change /etc/hosts of guest machine"
       vmware_vm_shell:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
         vm_username: "{{ deploy_vm_username }}"
         vm_password: "{{ deploy_vm_password }}"
@@ -233,10 +233,10 @@
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Restart network service of guest machine"
       vmware_vm_shell:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: no
+        hostname: "{{ deploy_vm_vcenter_hostname }}"
+        username: "{{ deploy_vm_vcenter_username }}"
+        password: "{{ deploy_vm_vcenter_password }}"
+        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
         vm_id: "{{ vm_info.name }}"
         vm_username: "{{ deploy_vm_username }}"
         vm_password: "{{ deploy_vm_password }}"

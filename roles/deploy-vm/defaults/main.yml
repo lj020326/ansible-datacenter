@@ -1,44 +1,44 @@
 ---
 
-vcenter_hostname: "vcenter.example.local"
-vcenter_username: "administrator"
-vcenter_password: "password"
+deploy_vm_vcenter_hostname: "vcenter.example.local"
+deploy_vm_vcenter_username: "administrator"
+deploy_vm_vcenter_password: "password"
+deploy_vm_vcenter_validate_certs: no
 
-#govc_path: /tmp
-#govc_version: "0.12.1"
-govc_version: "0.23.0"
-govc_path: /usr/local/bin
-govc_file: "{{govc_path}}/govc"
+deploy_vm__tags_init_all:
+  - { tag_name: "vm_pre_bootstrap", tag_description: "New VM prior to OS bootstrap play" }
+  - { tag_name: "vm_new", tag_description: "New VM" }
+  - { tag_name: "vm_new_linux", tag_description: "New Linux VM" }
+  - { tag_name: "vm_new_windows", tag_description: "New Windows VM" }
+
+#deploy_vm_govc_path: /tmp
+#deploy_vm_govc_version: "0.12.1"
+deploy_vm_govc_version: "0.23.0"
+deploy_vm_govc_path: /usr/local/bin
+deploy_vm_govc_file: "{{deploy_vm_govc_path}}/govc"
 
 # esx or vcenter host and credentials
-govc_host: "{{ vcenter_hostname }}"
-govc_username: "{{ vcenter_username }}"
-govc_password: "{{ vcenter_password }}"
-govc_insecure: 1
+deploy_vm_govc_host: "{{ deploy_vm_vcenter_hostname }}"
+deploy_vm_govc_username: "{{ deploy_vm_vcenter_username }}"
+deploy_vm_govc_password: "{{ deploy_vm_vcenter_password }}"
+deploy_vm_govc_insecure: 1
 
-govc_environment:
-  GOVC_HOST: "{{ govc_host }}"
-  GOVC_URL: "https://{{ govc_host }}/sdk"
-  GOVC_USERNAME: "{{ govc_username }}"
-  GOVC_PASSWORD: "{{ govc_password }}"
-  GOVC_INSECURE: "{{ govc_insecure }}"
-#  GOVC_DATASTORE: "{{ govc_datastore }}"
+deploy_vm_govc_environment:
+  GOVC_HOST: "{{ deploy_vm_govc_host }}"
+  GOVC_URL: "https://{{ deploy_vm_govc_host }}/sdk"
+  GOVC_USERNAME: "{{ deploy_vm_govc_username }}"
+  GOVC_PASSWORD: "{{ deploy_vm_govc_password }}"
+  GOVC_INSECURE: "{{ deploy_vm_govc_insecure }}"
+#  GOVC_DATASTORE: "{{ deploy_vm_govc_datastore }}"
 
-# alternativly, use govc_url
-# govc_url:  https://user:pass@host/sdk
-
-deploy_vm_domain: "dettonville.int"
+# alternativly, use deploy_vm_govc_url
+# deploy_vm_govc_url:  https://user:pass@host/sdk
 
 #deploy_vm_create_async_delay: 5
 deploy_vm_create_async_delay: 20
 
 #deploy_vm_create_async_retries: 600
 deploy_vm_create_async_retries: 1000
-
-deploy_vm_nameservers:
-  addresses: [192.168.0.1]
-  search:
-    - "{{ deploy_vm_domain }}"
 
 deploy_vm_template_info:
   ubuntu18:
@@ -54,98 +54,147 @@ deploy_vm_template_info:
     name: vmware-template-centos8
     network_service: NetworkManager
 
-vmware_vm_datacenter: "datacenter01"
-vmware_vm_default_host: "esx01.example.int"
+##
+## VM instance info
+##
+deploy_vm__vmware_vm_guest_domain_default: "example.int"
+deploy_vm__vmware_vm_host_default: "esx01.{{ deploy_vm__vmware_vm_guest_domain_default }}"
 
-vmware_vm_gateway_ip: 192.168.0.1
+deploy_vm__vmware_vm_datacenter_default: "dc-site-01"
+deploy_vm__vmware_vm_cluster_default: "Management"
 
-vmware_spec_defaults:
-  name: vm-01
-  os: ubuntu20
-  datastore: "datastore01"
-  folder: "/{{ vmware_vm_datacenter }}/vm"
-  datastore_folder: "vm"
-  host: "{{ vmware_vm_default_host }}"
-  services:
-    - motd
-  network_type: dhcp
-  netmask: 255.255.255.0
-  gateway: "{{ vmware_vm_gateway_ip }}"
-  disk_size: 50
-  mem: 1024
-  guest_domain: "{{ deploy_vm_domain }}"
-  dns_servers:
-    - 192.168.0.1
-  dns_suffix:
-    - "example.int"
-    - "example.local"
+deploy_vm__vmware_vm_image_id_default: centos8
+deploy_vm__vmware_vm_guest_id_default: centos64Guest
+deploy_vm__vmware_vm_os_flavor_default: linux
 
-#deploy_vm: "{{ groups['ipaserver'] }}"
-#deploy_vm: []
-#deploy_vm: "{{ groups['none'] }}"
-#deploy_cts: "{{ groups['none'] }}"
-deploy_vm: []
-deploy_cts: []
+deploy_vm__vmware_vm_name_default: "{{ inventory_hostname_short }}"
+
+##deploy_vm__vmware_vm_mac_address_default: "11:01:aa:91:65:5b"
+#deploy_vm__vmware_vm_mac_address_default: "00:50:56:00:00:00"
+
+deploy_vm__vmware_vm_folder_default: "/{{ deploy_vm__vmware_vm_datacenter_default }}/vm/vm"
+
+deploy_vm__vmware_vm_datastore_default: "datastore1"
+deploy_vm__vmware_vm_datastore_folder_default: vm
+
+#deploy_vm__vmware_vm_controller_type_default: "lsilogic"
+deploy_vm__vmware_vm_controller_type_default: "paravirtual"
+
+deploy_vm__vmware_vm_network_name_default: "VM Network"
+#deploy_vm__vmware_vm_network_device_type_default: vmxnet3
+deploy_vm__vmware_vm_network_device_type_default: e1000
+
+deploy_vm__vmware_vm_network_type_default: dhcp
+
+deploy_vm__vmware_node_services_default: []
+deploy_vm__vmware_new_vm_tags_default: []
+
+deploy_vm__vmware_vm_memory_mb_default: 1024
+deploy_vm__vmware_vm_num_cpus_default: 1
+deploy_vm__vmware_vm_disk_size_gb_default: 20
+deploy_vm__vmware_vm_disk_type_default: "thin"
+
+deploy_vm__vmware_vm_hardware:
+  memory_mb: "{{ deploy_vm__vmware_vm_memory_mb | d(deploy_vm__vmware_vm_memory_mb_default) }}"
+  num_cpus: "{{ deploy_vm__vmware_vm_num_cpus | d(deploy_vm__vmware_vm_num_cpus_default) }}"
+  scsi: "{{ deploy_vm__vmware_vm_controller_type | d(omit) }}"
+
+deploy_vm__vmware_vm_disks:
+  - size_gb: "{{ deploy_vm__vmware_vm_disk_size_gb | d(deploy_vm__vmware_vm_disk_size_gb_default) }}"
+    type: "{{ deploy_vm__vmware_vm_disk_type | d(deploy_vm__vmware_vm_disk_type_default) }}"
+    datastore: "{{ deploy_vm__vmware_vm_datastore | d(deploy_vm__vmware_vm_datastore_default) }}"
+#    controller_type: "{{ deploy_vm__vmware_vm_controller_type | d(deploy_vm__vmware_vm_controller_type) }}"
+
+deploy_vm__vmware_vm_networks:
+  - name: "{{ deploy_vm__vmware_vm_network_name | d(deploy_vm__vmware_vm_network_name_default) }}"
+    mac: "{{ deploy_vm__vmware_vm_mac_address | d(omit) }}"
+    device_type: "{{ deploy_vm__vmware_vm_network_device_type | d(deploy_vm__vmware_vm_network_device_type_default) }}"
+#      ip: 10.10.10.100
+#      netmask: 255.255.255.0
+#      device_type: vmxnet3
+#      type: static
+
+deploy_vm__vmware_spec_defaults:
+  name: "{{ deploy_vm__vmware_vm_name | d(deploy_vm__vmware_vm_name_default) }}"
+  template_id: "{{ deploy_vm__vmware_vm_image_id | d(deploy_vm__vmware_vm_image_id_default) }}"
+  os_flavor: "{{ deploy_vm__vmware_vm_os_flavor | d(deploy_vm__vmware_vm_os_flavor_default) }}"
+  guest_id: "{{ deploy_vm__vmware_vm_guest_id | d(deploy_vm__vmware_vm_guest_id_default) }}"
+  cluster: "{{ deploy_vm__vmware_vm_cluster | d(deploy_vm__vmware_vm_cluster_default) }}"
+  host: "{{ deploy_vm__vmware_vm_host | d(deploy_vm__vmware_vm_host_default) }}"
+  folder: "{{ deploy_vm__vmware_vm_folder | d(deploy_vm__vmware_vm_folder_default) }}"
+  datastore: "{{ deploy_vm__vmware_vm_datastore | d(deploy_vm__vmware_vm_datastore_default) }}"
+  datastore_folder: "{{ deploy_vm__vmware_vm_datastore_folder | d(deploy_vm__vmware_vm_datastore_folder_default) }}"
+  controller_type: "{{ deploy_vm__vmware_vm_controller_type | d(deploy_vm__vmware_vm_controller_type_default) }}"
+  network_type: "{{ deploy_vm__vmware_vm_network_type | d(deploy_vm__vmware_vm_network_type_default) }}"
+  services: "{{ vmware_node_services | d(vmware_node_services_default) }}"
+  hardware: "{{ deploy_vm__vmware_vm_hardware }}"
+  disks: "{{ deploy_vm__vmware_vm_disks }}"
+  networks: "{{ deploy_vm__vmware_vm_networks }}"
+  deploy_groups: "{{ deploy_vm__vmware_node_services|d(deploy_vm__vmware_node_services_default) + deploy_vm__vmware_new_vm_group_names|d(deploy_vm__vmware_new_vm_group_names_default) | flatten }}"
+  deploy_vm_tags: "{{ deploy_vm__vmware_new_vm_tags| d(deploy_vm__vmware_new_vm_tags_default) }}"
+
+
+
+#deploy_vm_domain: "example.int"
+#
+#deploy_vm_nameservers:
+#  addresses: [192.168.0.1]
+#  search:
+#    - "{{ deploy_vm_domain }}"
+#
+#vmware_vm_datacenter: "datacenter01"
+#vmware_vm_default_host: "esx01.example.int"
+#
+#vmware_vm_gateway_ip: 192.168.0.1
+#
+#deploy_vm__vmware_spec_defaults:
+#  name: vm-01
+#  os: ubuntu20
+#  datastore: "datastore01"
+#  folder: "/{{ vmware_vm_datacenter }}/vm"
+#  datastore_folder: "vm"
+#  host: "{{ vmware_vm_default_host }}"
+#  services:
+#    - motd
+#  network_type: dhcp
+#  netmask: 255.255.255.0
+#  gateway: "{{ vmware_vm_gateway_ip }}"
+#  disk_size: 50
+#  mem: 1024
+#  guest_domain: "{{ deploy_vm_domain }}"
+#  dns_servers:
+#    - 192.168.0.1
+#  dns_suffix:
+#    - "example.int"
+#    - "example.local"
+
+
+deploy_vm_containers: []
 
 deploy_vm_workdir: "/tmp/deploy_vm_workdir"
 
 deploy_vm_username: "{{ ansible_ssh_user }}"
+deploy_vm_password: "{{ ansible_ssh_password }}"
 
-vm_controller: "vmware"
-
-vmware_vm_name: "vm-01"
-vm_mac_address: "00:50:56:00:00:00"
-vmware_vm_folder: /DC1/vm/
-#vmware_vm_guest_id: centos64Guest
-vmware_vm_guest_id: ubuntu64Guest
-vmware_vm_size_gb: 16
-vmware_vm_disk_type: thick
-vmware_vm_datastore: "datastore"
-vmware_vm_memory_mb: 1024
-vmware_vm_num_cpus: 1
-vmware_vm_scsi: paravirtual
-#vmware_vm_scsi: lsilogic
-
-vmware_vm_networks:
-  - name: VM Network
-#      mac: aa:bb:dd:aa:00:14
-    mac: "{{ vm_mac_address }}"
-#      ip: 10.10.10.100
-#      netmask: 255.255.255.0
-#      device_type: vmxnet3
-    device_type: e1000
-#      type: static
-
-
-vm_imagebuild_user: "vm_imagebuilder"
-vm_image_pwd: "password"
-vm_image_sudo_pwd: "password"
-
-vm_hostname: "{{ inventory_hostname }}"
-vm_instance_id: "{{ vm_hostname }}"
-vm_fqdn: "{{ vm_hostname }}.{{ ca_domain }}"
-vm_ssh_pub_keys: []
-
-vm_ip_network: "192.168.20"
-vm_ip_suffix: 60
-
-## ref: https://github.com/DBarthe/ansible-libvirt-cloudinit/blob/master/roles/common/defaults/main.yml
-base_dir: /var/lib/libvirt/managed
-cloud_init_dir: "{{ base_dir }}/cloud_init"
-cloud_init_src_dir: "{{ cloud_init_dir }}/src/{{ vm_instance_id }}"
-cloud_init_iso_dir: "{{ cloud_init_dir }}/iso"
-
-vm_templates_dir:  "{{ base_dir }}/templates"
-vm_images_dir: "{{ base_dir }}/images"
+#deploy_vm__vm_instance_id: "vm-01"
+#
+### ref: https://github.com/DBarthe/ansible-libvirt-cloudinit/blob/master/roles/common/defaults/main.yml
+#deploy_vm__vm_base_dir: /var/lib/libvirt/managed
+#deploy_vm__vm_cloud_init_dir: "{{ deploy_vm__vm_base_dir }}/cloud_init"
+#deploy_vm__vm_cloud_init_src_dir: "{{ deploy_vm__vm_cloud_init_dir }}/src/{{ deploy_vm__vm_instance_id }}"
+#deploy_vm__vm_cloud_init_iso_dir: "{{ deploy_vm__vm_cloud_init_dir }}/iso"
+#
+#deploy_vm__vm_templates_dir:  "{{ deploy_vm__vm_base_dir }}/templates"
+#deploy_vm__vm_images_dir: "{{ deploy_vm__vm_base_dir }}/images"
 
 deploy_vm_python_pip_depends:
   - pyVmomi
 
-ostemplate: 'gluster:vztmpl/centos-7-ssh-sudo_20180909.tar.gz'
-proxmox_node: 'gold'
-tftp_server: 'repo.lan.nathancurry.com'
+deploy_vm__vm_os_template: 'gluster:vztmpl/centos-7-ssh-sudo_20180909.tar.gz'
+deploy_vm__vm_proxmox_node: 'gold'
+deploy_vm__vm_tftp_server: 'repo.example.int'
 
-defaults:
+deploy_vm__vm_proxmox_defaults:
   balloon: '1024'
   cores: '1'
   cpus: '1'
@@ -164,7 +213,7 @@ defaults:
   ostype: 'l26'
   pubkey: ''
   scsihw: 'virtio-scsi-pci'
-  searchdomain: 'lan.nathancurry.com'
+  searchdomain: 'lan.example.int'
   storage:
     gluster: 'gluster'
     lvm: 'local-lvm'
@@ -173,11 +222,4 @@ defaults:
     vm: '4'
   type: centos
   virtio: '{"virtio0":"gluster:10,cache=none,discard=on,format=qcow2"}'
-
-
-deploy_vm_tags:
-  - { tag_name: "vm_pre_bootstrap", tag_description: "New VM prior to OS bootstrap play" }
-  - { tag_name: "vm_new", tag_description: "New VM" }
-  - { tag_name: "vm_new_linux", tag_description: "New Linux VM" }
-  - { tag_name: "vm_new_windows", tag_description: "New Windows VM" }
 
