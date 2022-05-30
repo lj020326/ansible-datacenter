@@ -3,32 +3,6 @@
 ## orig source: https://github.com/justai-net/ansible_vmware_deploy_provision.git
 ## ref: https://github.com/justai-net/ansible_vmware_deploy_provision/blob/master/deploy.yml
 
-- name: Bootstrap category related to new VMs
-  community.vmware.vmware_category:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: False
-    category_name: "vm_new_machine"
-    category_description: "Category for newly created VMs prior to bootstrap OS plays"
-    category_cardinality: 'multiple'
-    state: present
-  register: vm_category_results
-
-- debug:
-    var: vm_category_results
-
-- name: Initialize all tags related to new VMs
-  community.vmware.vmware_tag:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: False
-    category_id: "{{ vm_category_results.category_results.category_id }}"
-    tag_name: "{{ item.tag_name }}"
-    tag_description: "{{ item.tag_description }}"
-    state: present
-  loop: "{{ deploy_vm__tags_init_all }}"
 
 - name: "Gather vm_facts for all VMs in Virtual Center or ESXi."
   community.vmware.vmware_vm_info:
@@ -38,35 +12,34 @@
     validate_certs: False
   register: __deploy_vm_facts_initial
 
-- name: "Set node specifics for __deploy_vm_spec_node_info fact"
+- name: "Set node specifics for __deploy_vm_appliance_info fact"
   set_fact:
-    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info| d({}) |
+    __deploy_vm_appliance_info: "{{ __deploy_vm_appliance_info| d({}) |
         combine( { item: deploy_vm__vmware_spec_defaults } ) |
         combine( { item: hostvars[item].deploy_vm__vmware_node_info | d({}) }, recursive=True ) }}"
-  loop: "{{ groups['vmware_vm'] }}"
+  loop: "{{ groups['vmware_vm_appliance'] }}"
 
-- name: "Set static node IP on __deploy_vm_spec_node_info fact"
+- name: "Set static node IP on __deploy_vm_appliance_info fact"
   set_fact:
-    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
+    __deploy_vm_appliance_info: "{{ __deploy_vm_appliance_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
   when:
-    - __deploy_vm_spec_node_info[item].network_type == "static"
-#    - hostvars[item].ansible_host is defined
+    - __deploy_vm_appliance_info[item].network_type == "static"
     - hostvars[item].bind_ipv4_address is defined
   loop: "{{ groups['vmware_vm'] }}"
 
-- name: "Display __deploy_vm_spec_node_info"
+- name: "Display __deploy_vm_appliance_info"
   debug:
-    var: __deploy_vm_spec_node_info
+    var: __deploy_vm_appliance_info
     verbosity: 1
 
-- name: "Set __deploy_vm_vmware_spec_list fact"
+- name: "Set __deploy_vm_vmware_appliance_list fact"
   set_fact:
-    __deploy_vm_vmware_spec_list: "{{ __deploy_vm_vmware_spec_list|d([]) + [ __deploy_vm_spec_node_info[item] ] }}"
-  loop: "{{ __deploy_vm_spec_node_info | list }}"
+    __deploy_vm_vmware_appliance_list: "{{ __deploy_vm_vmware_appliance_list|d([]) + [ __deploy_vm_appliance_info[item] ] }}"
+  loop: "{{ __deploy_vm_appliance_info | list }}"
 
-- name: "Display __deploy_vm_vmware_spec_list"
+- name: "Display __deploy_vm_vmware_appliance_list"
   debug:
-    var: __deploy_vm_vmware_spec_list
+    var: __deploy_vm_vmware_appliance_list
     verbosity: 1
 
 - name: "Set __deploy_vm_facts_initial_by_name fact"
@@ -96,12 +69,12 @@
 #    state: poweredoff
     state: present
     template: "{{ deploy_vm_template_info[item.template_id].name }}"
-#    guest_id: "{{ item.guest_id | d(omit) }}"
-    notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
-    disk: "{{ item.disks }}"
     hardware: "{{ item.hardware }}"
+    networks: "{{ item.networks | d(omit) }}"
+    disk: "{{ item.disks }}"
+    notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
     wait_for_ip_address: yes
-  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  loop: "{{ __deploy_vm_vmware_appliance_list }}"
   loop_control:
     label: "{{ item.name }}"
   register: __deploy_vm_job_start
@@ -149,7 +122,7 @@
 - name: "Display __deploy_vm_job_results"
   debug:
     var: __deploy_vm_job_results
-#    verbosity: 1
+    verbosity: 2
 
 - name: "Initialize __deploy_vm_new_vm"
   set_fact:
@@ -165,6 +138,7 @@
 - name: "Display __deploy_vm_new_vm"
   debug:
     var: __deploy_vm_new_vm
+    verbosity: 1
 
 - name: Gather vm_facts for VMs
   community.vmware.vmware_vm_info:
@@ -181,10 +155,10 @@
   loop_control:
     label: "{{ item.guest_name }}"
 
-- name: "Configure newly deployed VMs"
+- name: "Configure new VMs"
   when: __deploy_vm_new_vm[vm_info.name] is defined or __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
-  include_tasks: config-vm-vmware.yml
-  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  include_tasks: config-vmware-vm.yml
+  loop: "{{ __deploy_vm_vmware_appliance_list }}"
   loop_control:
     loop_var: vm_info
     label: "{{ vm_info.name }}"

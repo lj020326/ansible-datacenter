@@ -53,6 +53,18 @@ deploy_vm_template_info:
   centos8:
     name: vmware-template-centos8
     network_service: NetworkManager
+  debian9:
+    name: packer-template-debian9
+    network_service: NetworkManager
+  debian10:
+    name: packer-template-debian10
+    network_service: NetworkManager
+  win2012:
+    name: packer-template-win2012
+  win2016:
+    name: packer-template-win2016
+  win2019:
+    name: packer-template-win2019
 
 ##
 ## VM instance info
@@ -71,6 +83,12 @@ deploy_vm__vmware_vm_name_default: "{{ inventory_hostname_short }}"
 
 ##deploy_vm__vmware_vm_mac_address_default: "11:01:aa:91:65:5b"
 #deploy_vm__vmware_vm_mac_address_default: "00:50:56:00:00:00"
+deploy_vm__vmware_vm_gateway_ipv4_default: "192.168.0.1"
+deploy_vm__vm_nameservers_default:
+  addresses:
+    - "{{ deploy_vm__vmware_vm_gateway_ipv4_default }}"
+  search:
+    - "{{ deploy_vm__vmware_vm_guest_domain_default }}"
 
 deploy_vm__vmware_vm_folder_default: "/{{ deploy_vm__vmware_vm_datacenter_default }}/vm/vm"
 
@@ -81,8 +99,8 @@ deploy_vm__vmware_vm_datastore_folder_default: vm
 deploy_vm__vmware_vm_controller_type_default: "paravirtual"
 
 deploy_vm__vmware_vm_network_name_default: "VM Network"
-#deploy_vm__vmware_vm_network_device_type_default: vmxnet3
-deploy_vm__vmware_vm_network_device_type_default: e1000
+deploy_vm__vmware_vm_network_device_type_default: vmxnet3
+#deploy_vm__vmware_vm_network_device_type_default: e1000
 
 deploy_vm__vmware_vm_network_type_default: dhcp
 
@@ -97,39 +115,41 @@ deploy_vm__vmware_vm_disk_type_default: "thin"
 deploy_vm__vmware_vm_hardware:
   memory_mb: "{{ deploy_vm__vmware_vm_memory_mb | d(deploy_vm__vmware_vm_memory_mb_default) }}"
   num_cpus: "{{ deploy_vm__vmware_vm_num_cpus | d(deploy_vm__vmware_vm_num_cpus_default) }}"
-  scsi: "{{ deploy_vm__vmware_vm_controller_type | d(omit) }}"
+#  scsi: "{{ deploy_vm__vmware_vm_controller_type | d(deploy_vm__vmware_vm_controller_type_default) | d(omit) }}"
 
 deploy_vm__vmware_vm_disks:
   - size_gb: "{{ deploy_vm__vmware_vm_disk_size_gb | d(deploy_vm__vmware_vm_disk_size_gb_default) }}"
     type: "{{ deploy_vm__vmware_vm_disk_type | d(deploy_vm__vmware_vm_disk_type_default) }}"
     datastore: "{{ deploy_vm__vmware_vm_datastore | d(deploy_vm__vmware_vm_datastore_default) }}"
-#    controller_type: "{{ deploy_vm__vmware_vm_controller_type | d(deploy_vm__vmware_vm_controller_type) }}"
+    controller_type: "{{ deploy_vm__vmware_vm_controller_type | d(deploy_vm__vmware_vm_controller_type_default) | d(omit) }}"
 
 deploy_vm__vmware_vm_networks:
   - name: "{{ deploy_vm__vmware_vm_network_name | d(deploy_vm__vmware_vm_network_name_default) }}"
     mac: "{{ deploy_vm__vmware_vm_mac_address | d(omit) }}"
     device_type: "{{ deploy_vm__vmware_vm_network_device_type | d(deploy_vm__vmware_vm_network_device_type_default) }}"
-#      ip: 10.10.10.100
-#      netmask: 255.255.255.0
-#      device_type: vmxnet3
-#      type: static
+    type: "{{ deploy_vm__vmware_vm_network_type | d(deploy_vm__vmware_vm_network_type_default) }}"
+    ip: "{{ deploy_vm__vmware_vm_network_ip | d(omit) }}"
+    netmask: "{{ deploy_vm__vmware_vm_network_mask | d(omit) }}"
 
 deploy_vm__vmware_spec_defaults:
   name: "{{ deploy_vm__vmware_vm_name | d(deploy_vm__vmware_vm_name_default) }}"
   template_id: "{{ deploy_vm__vmware_vm_image_id | d(deploy_vm__vmware_vm_image_id_default) }}"
   os_flavor: "{{ deploy_vm__vmware_vm_os_flavor | d(deploy_vm__vmware_vm_os_flavor_default) }}"
   guest_id: "{{ deploy_vm__vmware_vm_guest_id | d(deploy_vm__vmware_vm_guest_id_default) }}"
+  guest_domain: "{{ deploy_vm__vmware_vm_guest_domain | d(deploy_vm__vmware_vm_guest_domain_default) }}"
   cluster: "{{ deploy_vm__vmware_vm_cluster | d(deploy_vm__vmware_vm_cluster_default) }}"
   host: "{{ deploy_vm__vmware_vm_host | d(deploy_vm__vmware_vm_host_default) }}"
   folder: "{{ deploy_vm__vmware_vm_folder | d(deploy_vm__vmware_vm_folder_default) }}"
+  gateway_ipv4: "{{ deploy_vm__vmware_vm_gateway_ipv4 | d(deploy_vm__vmware_vm_gateway_ipv4_default) }}"
+  nameservers: "{{ deploy_vm__vm_nameservers | d(deploy_vm__vm_nameservers_default) }}"
   datastore: "{{ deploy_vm__vmware_vm_datastore | d(deploy_vm__vmware_vm_datastore_default) }}"
   datastore_folder: "{{ deploy_vm__vmware_vm_datastore_folder | d(deploy_vm__vmware_vm_datastore_folder_default) }}"
   controller_type: "{{ deploy_vm__vmware_vm_controller_type | d(deploy_vm__vmware_vm_controller_type_default) }}"
   network_type: "{{ deploy_vm__vmware_vm_network_type | d(deploy_vm__vmware_vm_network_type_default) }}"
-  services: "{{ vmware_node_services | d(vmware_node_services_default) }}"
   hardware: "{{ deploy_vm__vmware_vm_hardware }}"
-  disks: "{{ deploy_vm__vmware_vm_disks }}"
   networks: "{{ deploy_vm__vmware_vm_networks }}"
+  disks: "{{ deploy_vm__vmware_vm_disks }}"
+  services: "{{ vmware_node_services | d(vmware_node_services_default) }}"
   deploy_groups: "{{ deploy_vm__vmware_node_services|d(deploy_vm__vmware_node_services_default) + deploy_vm__vmware_new_vm_group_names|d(deploy_vm__vmware_new_vm_group_names_default) | flatten }}"
   deploy_vm_tags: "{{ deploy_vm__vmware_new_vm_tags| d(deploy_vm__vmware_new_vm_tags_default) }}"
 
