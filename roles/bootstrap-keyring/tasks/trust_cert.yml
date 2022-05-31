@@ -92,15 +92,36 @@
 #    - { cn: "{{ ca_root_cn }}", path: "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}" }
 ##    - { cn: "{{ inventory_hostname }}", path: "{{ ca_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
 
-- name: "trust_cert | Add service cert to keystore"
+- name: "trust_cert | Update java keystore"
   when: ca_java_keystore_enabled|bool
-  command: |
-    keytool -importcert -v \
-      -storepass {{ ca_java_keystore_pass }} \
-      -noprompt \
-      -cacerts \
-      -alias {{ item.route }} \
-      -file {{ ca_local_cert_dir }}/{{ item.route }}.pem
-  register: shell_cmd
-  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
-  loop: "{{ ca_service_routes_list }}"
+  block:
+
+    ## ref: https://superuser.com/questions/881665/keytool-commands-to-replace-existing-ssl-certificate
+    ## ref: https://stackoverflow.com/questions/48204014/how-to-delete-already-import-certificate-alias-by-keytool-command
+    - name: "trust_cert | Add service cert to keystore"
+      command: |
+        keytool -delete -v \
+          -storepass {{ ca_java_keystore_pass }} \
+          -noprompt \
+          -cacerts \
+          -alias {{ item.route }}
+      register: keystore_remove_cert
+      ignore_errors: yes
+#      failed_when: keystore_remove_cert.rc > 0 and not ( keystore_remove_cert.stdout | regex_search("Certificate not imported, alias .* already exists") )
+      loop: "{{ ca_service_routes_list }}"
+
+    - debug:
+        var: keystore_remove_cert
+        verbosity: 1
+
+    - name: "trust_cert | Add service cert to keystore"
+      command: |
+        keytool -importcert -v \
+          -storepass {{ ca_java_keystore_pass }} \
+          -noprompt \
+          -cacerts \
+          -alias {{ item.route }} \
+          -file {{ ca_local_cert_dir }}/{{ item.route }}.pem
+      register: keystore_add_cert
+      failed_when: keystore_add_cert.rc > 0 and not ( keystore_add_cert.stderr | regex_search("Certificate not imported, alias .* already exists") )
+      loop: "{{ ca_service_routes_list }}"
