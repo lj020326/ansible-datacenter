@@ -1,0 +1,30 @@
+---
+
+- name: "Display key parameters for {{ role_name }}"
+  block:
+    - debug:
+        var: bootstrap_linux_mount_list
+    - debug:
+        var: bootstrap_linux_mount_state
+
+- name: Show variables with 'bootstrap_linux_mount_list__' in their names
+  debug:
+    msg: "{{ lookup('varnames', '^bootstrap_linux_mount_list__', wantlist=True) }}"
+
+- name: Initialize __bootstrap_linux_mount_list with bootstrap_linux_mount_list
+  set_fact:
+    __bootstrap_linux_mount_list: "{{ bootstrap_linux_mount_list|d([]) }}"
+
+- name: Combine additive/role-specific lists from bootstrap_linux_mount_list__* vars into merged list
+  set_fact:
+    __bootstrap_linux_mount_list: "{{ __bootstrap_linux_mount_list|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames','^bootstrap_linux_mount_list__', wantlist=True) }}"
+
+- name: "Uniquify __bootstrap_linux_mount_list"
+  set_fact:
+    __bootstrap_linux_mount_list: "{{ __bootstrap_linux_mount_list|d([]) | sort | unique }}"
+
+- name: display __bootstrap_linux_mount_list
+  debug:
+    var: __bootstrap_linux_mount_list
+

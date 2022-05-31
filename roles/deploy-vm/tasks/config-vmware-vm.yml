@@ -57,8 +57,7 @@
 
 ## ref: https://rutgerblom.com/2020/07/27/automated-ubuntu-server-20-04-installation-with-ansible/
 - name: "config-vm-vmware:{{ vm_info.name }} | Move vm from {{ __deploy_vm__vm_path_name }} to {{ vm_info.datastore_folder }}"
-  when:
-    - __deploy_vm__vm_path_dir != vm_info.datastore_folder
+  when: __deploy_vm__vm_path_dir != vm_info.datastore_folder
   block:
 
     - name: "config-vm-vmware:{{ vm_info.name }} | Set powerstate of a virtual machine to poweredoff"
@@ -274,9 +273,26 @@
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: False
+    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
     tag_names: "{{ vm_info.deploy_vm_tags }}"
     object_name: "{{ vm_info.name }}"
     object_type: VirtualMachine
     state: add
 
+- name: "Wait for VMware tools to become available by name"
+  community.vmware.vmware_guest_tools_wait:
+    hostname: "{{ deploy_vm_vcenter_hostname }}"
+    username: "{{ deploy_vm_vcenter_username }}"
+    password: "{{ deploy_vm_vcenter_password }}"
+    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+    name: "{{ vm_info.name }}"
+    datacenter: "{{ vmware_vm_datacenter }}"
+
+# Do not assume the vm hostname is resolvable and delay 10 seconds at start
+- name: "Wait 300 seconds for port 22 to become open and contain 'OpenSSH'"
+  wait_for:
+    port: 22
+    host: "{{ vm_info.name }}.{{ vm_info.guest_domain }}"
+    search_regex: OpenSSH
+    delay: 10
+#  connection: local

@@ -30,56 +30,53 @@
     state: present
   loop: "{{ deploy_vm__tags_init_all }}"
 
-- name: "Gather vm_facts for all VMs in Virtual Center or ESXi."
+- name: "Set __deploy_vm__vmware_vm_facts_initial"
   community.vmware.vmware_vm_info:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
     validate_certs: False
     vm_type: vm
-  register: __deploy_vm_facts_initial
+  register: __deploy_vm__vmware_vm_facts_initial
 
-- name: "Set node specifics for __deploy_vm_spec_node_info fact"
+- name: "Set __deploy_vm__vmware_vm_info"
   set_fact:
-    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info| d({}) |
-        combine( { item: deploy_vm__vmware_spec_defaults } ) |
-        combine( { item: hostvars[item].deploy_vm__vmware_node_info | d({}) }, recursive=True ) }}"
-  loop: "{{ groups['vmware_vm'] }}"
+    __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info| d({}) |
+        combine( { item: deploy_vm__vmware_vm_defaults } ) |
+        combine( { item: hostvars[item].deploy_vm__vmware_vm_config | d({}) }, recursive=True ) }}"
+  loop: "{{ deploy_vm_vmware_vm_list }}"
 
-- name: "Set static node IP on __deploy_vm_spec_node_info fact"
+- name: "Set static node IP on __deploy_vm__vmware_vm_info fact"
   set_fact:
-    __deploy_vm_spec_node_info: "{{ __deploy_vm_spec_node_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
-  when:
-    - __deploy_vm_spec_node_info[item].network_type == "static"
-#    - hostvars[item].ansible_host is defined
-    - hostvars[item].bind_ipv4_address is defined
-  loop: "{{ groups['vmware_vm'] }}"
+    __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
+  when: hostvars[item].bind_ipv4_address is defined
+  loop: "{{ deploy_vm_vmware_vm_list }}"
 
-- name: "Display __deploy_vm_spec_node_info"
+- name: "Display __deploy_vm__vmware_vm_info"
   debug:
-    var: __deploy_vm_spec_node_info
+    var: __deploy_vm__vmware_vm_info
     verbosity: 1
 
-- name: "Set __deploy_vm_vmware_spec_list fact"
+- name: "Set __deploy_vm__vmware_vm_list fact"
   set_fact:
-    __deploy_vm_vmware_spec_list: "{{ __deploy_vm_vmware_spec_list|d([]) + [ __deploy_vm_spec_node_info[item] ] }}"
-  loop: "{{ __deploy_vm_spec_node_info | list }}"
+    __deploy_vm__vmware_vm_list: "{{ __deploy_vm__vmware_vm_list|d([]) + [ __deploy_vm__vmware_vm_info[item] ] }}"
+  loop: "{{ __deploy_vm__vmware_vm_info | list }}"
 
-- name: "Display __deploy_vm_vmware_spec_list"
+- name: "Display __deploy_vm__vmware_vm_list"
   debug:
-    var: __deploy_vm_vmware_spec_list
+    var: __deploy_vm__vmware_vm_list
     verbosity: 1
 
-- name: "Set __deploy_vm_facts_initial_by_name fact"
+- name: "Set __deploy_vm__vmware_vm_facts_initial_by_name fact"
   set_fact:
-    __deploy_vm_facts_initial_by_name: "{{ __deploy_vm_facts_initial_by_name|default({}) | combine( { item.guest_name: item } ) }}"
-  loop: "{{ __deploy_vm_facts_initial.virtual_machines }}"
+    __deploy_vm__vmware_vm_facts_initial_by_name: "{{ __deploy_vm__vmware_vm_facts_initial_by_name|default({}) | combine( { item.guest_name: item } ) }}"
+  loop: "{{ __deploy_vm__vmware_vm_facts_initial.virtual_machines }}"
   loop_control:
     label: "{{ item.guest_name }}"
 
-- name: Display __deploy_vm_facts_initial_by_name
+- name: Display __deploy_vm__vmware_vm_facts_initial_by_name
   debug:
-    var: __deploy_vm_facts_initial_by_name
+    var: __deploy_vm__vmware_vm_facts_initial_by_name
     verbosity: 1
 
 - name: "Clone from Template and Customize Virtual Machine"
@@ -88,7 +85,7 @@
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
     validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
-    datacenter: "{{ vmware_vm_datacenter }}"
+    datacenter: "{{ item.datacenter | d(deploy_vm__vmware_datacenter_default) }}"
     cluster: "{{ item.cluster | d(omit) }}"
     esxi_hostname: "{{ item.host if item.cluster is not defined else omit }}"
     folder: "{{ item.datastore_folder }}"
@@ -98,15 +95,15 @@
     state: present
     template: "{{ deploy_vm_template_info[item.template_id].name }}"
     hardware: "{{ item.hardware }}"
-    networks: "{{ item.networks | d(omit) }}"
+#    networks: "{{ item.networks | d(omit) }}"
     disk: "{{ item.disks }}"
     notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
     wait_for_ip_address: yes
-  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  loop: "{{ __deploy_vm__vmware_vm_list }}"
   loop_control:
     label: "{{ item.name }}"
   register: __deploy_vm_job_start
-  when: __deploy_vm_facts_initial_by_name[item.name] is not defined
+  when: __deploy_vm__vmware_vm_facts_initial_by_name[item.name] is not defined
   ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
   async: 2000
 #  poll: 10
@@ -144,7 +141,6 @@
 
 - name: "Initialize __deploy_vm_job_results"
   set_fact:
-#    __deploy_vm_job_results: "{{ __deploy_vm_job.results }}"
     __deploy_vm_job_results: "{{ __deploy_vm_job.results | selectattr('changed','defined') | selectattr('changed', 'equalto', true) }}"
 
 - name: "Display __deploy_vm_job_results"
@@ -168,26 +164,26 @@
     var: __deploy_vm_new_vm
     verbosity: 1
 
-- name: Gather vm_facts for VMs
+- name: "Set __deploy_vm__vmware_vm_facts"
   community.vmware.vmware_vm_info:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
     validate_certs: False
     vm_type: vm
-  register: __deploy_vm_facts
+  register: __deploy_vm__vmware_vm_facts
 
 - name: "Set __deploy_vmware_vm_info_by_name fact"
   set_fact:
      __deploy_vmware_vm_info_by_name: "{{  __deploy_vmware_vm_info_by_name|default({}) | combine( { item.guest_name: item } ) }}"
-  loop: "{{ __deploy_vm_facts.virtual_machines }}"
+  loop: "{{ __deploy_vm__vmware_vm_facts.virtual_machines }}"
   loop_control:
     label: "{{ item.guest_name }}"
 
 - name: "Configure new VMs"
   when: __deploy_vm_new_vm[vm_info.name] is defined or __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
   include_tasks: config-vmware-vm.yml
-  loop: "{{ __deploy_vm_vmware_spec_list }}"
+  loop: "{{ __deploy_vm__vmware_vm_list }}"
   loop_control:
     loop_var: vm_info
     label: "{{ vm_info.name }}"
