@@ -6,6 +6,14 @@
       - "ansible_ssh_user={{ ansible_ssh_user }}"
       - "ansible_user={{ ansible_user }}"
 
+- name: Debug bootstrap_ansible_user
+  debug:
+    var: bootstrap_ansible_user
+
+- name: "Display bootstrap_linux_users"
+  debug:
+    var: bootstrap_linux_users
+
 ## ref: https://devops.stackexchange.com/questions/11481/doing-map-and-filter-of-a-list-of-dictionaries-in-ansible
 ## possible alternative to custom filter:
 ## https://gist.github.com/halberom/9bfe009c9a3df5d64c7bb505a7700430
@@ -17,31 +25,22 @@
   set_fact:
     __all_bootstrap_linux_users: "{{ __bootstrap_linux_users + [bootstrap_linux_root_user] }}"
 
-- name: Set __bootstrap_linux_users_debug
-  set_fact:
-    __bootstrap_linux_users_debug: "{{ __bootstrap_linux_users | map('json_query','{ name:name, groups:groups, uid:uid, gid:gid, system:system }') | list }}"
-
-- name: "Display __bootstrap_linux_users_debug"
+- name: "Display __bootstrap_linux_users"
   debug:
-    var: __bootstrap_linux_users_debug
+    var: __bootstrap_linux_users
 
-#- name: "Display __bootstrap_linux_users"
-#  debug:
-#    var: __bootstrap_linux_users
-
-#- name: "Ensure any user processes are stopped/terminated before modifying users"
-#  when: "'vm_template' not in group_names"
-#  include_tasks: stop-user-processes.yml
+- name: "Ensure any user processes are stopped/terminated before modifying users"
+  when:
+    - "__bootstrap_linux_users | selectattr('name','equalto', ansible_user) | list | length == 0"
+#    - "'vm_template' not in group_names"
+  include_tasks: stop-user-processes.yml
 
 - name: "Ensure group exist with correct gid"
   when: item.gid is defined
-#  no_log: yes
   group:
     name: "{{ item.name }}"
     gid: "{{ item.gid | d(omit) }}"
-#    gid: "{{ item.gid | d(item.uid) | d(omit) }}"
     state: present
-#  loop: "{{ bootstrap_linux_users | subelements('groups', { 'skip_missing': true }) }}"
   loop: "{{ __bootstrap_linux_users }}"
   loop_control:
     label: "{{ item.name }}"
@@ -137,14 +136,13 @@
 
 - name: Add user SSH authorized keys
 #  no_log: yes
-  when: item.auth_key is defined
+  when: vault_user_credentials[item.name].auth_key is defined
   authorized_key:
     user: "{{ item.name }}"
-    key: "{{ item.auth_key }}"
+    key: "{{ vault_user_credentials[item.name].auth_key }}"
   loop: "{{ __bootstrap_linux_users }}"
   loop_control:
     label: "{{ item.name }}"
-
 
 - name: Add user SSH private key
   no_log: yes

@@ -1,10 +1,8 @@
 ---
 
-- name: "Assert ansible_user!='ansible' and ansible_user==bootstrap-user"
+- name: "Assert ansible_user not in __bootstrap_linux_users"
   assert:
-    that:
-      - ansible_user!='ansible'
-      - ansible_user==bootstrap_user
+    that: __bootstrap_linux_users | selectattr('name','equalto', ansible_user) | list | length == 0
 
 ## ref: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
 ## ref: https://unix.stackexchange.com/questions/85466/how-to-see-process-created-by-specific-user-in-unix-linux
@@ -26,8 +24,7 @@
 
 - name: "Set process_list"
   set_fact:
-#    process_list: "{{ running_processes.results | map(attribute='stdout_lines', 'defined') | list | flatten }}"
-    process_list: "{{ running_processes.results | map(attribute='stdout_lines') | list | d([]) | flatten }}"
+    process_list: "{{ running_processes.results | map(attribute='stdout_lines') | d([]) | list | flatten }}"
 
 - name: "Display process_list"
   debug:
@@ -38,7 +35,7 @@
   shell: "kill {{ item }}"
   with_items: "{{ process_list }}"
   register: shell_cmd
-  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* - No such process") )
+  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )
 
 - wait_for:
     path: "/proc/{{ item }}/status"
