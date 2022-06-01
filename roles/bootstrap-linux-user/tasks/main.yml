@@ -48,7 +48,6 @@
 
 ## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
 - name: "Add users with groups"
-#  no_log: yes
   user:
     state: present
     name: "{{ item.name }}"
@@ -58,7 +57,8 @@
     uid: "{{ item.uid | d(omit) }}"
     group: "{{ item.gid | default(omit) }}"
     groups: "{{ item.groups | default(omit) }}"
-    password: "{{ item.hashed_password | d(item.password | d(omit) | password_hash('sha512',65534 | random(seed=hash_seed) | string)) }}"
+#    password: "{{ item.hashed_password | d(item.password | d(omit) | password_hash('sha512',65534 | random(seed=hash_seed) | string)) }}"
+    password: "{{ vault_user_credentials[item.name].hashed_password | d(vault_user_credentials[item.name].password | d(omit) | password_hash('sha512',65534 | random(seed=hash_seed) | string)) }}"
     generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
     ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
     ssh_key_file: "{{ item.ssh_key_file | d(omit) }}"
@@ -146,13 +146,11 @@
     label: "{{ item.name }}"
 
 
-
 - name: Add user SSH private key
-#  no_log: yes
-  when: item.ssh_keypair.private is defined
+  no_log: yes
+  when: vault_user_credentials[item.name].ssh_keypair.private is defined
   copy:
-    content: "{{ item.ssh_keypair.private }}"
-#    dest: "/home/{{ item.name }}/.ssh/id_rsa"
+    content: "{{ vault_user_credentials[item.name].ssh_keypair.private }}"
     dest: "{{ item.homedir }}/.ssh/id_rsa"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
@@ -162,11 +160,9 @@
     label: "{{ item.name }}"
 
 - name: Add user SSH public key
-#  no_log: yes
-  when: item.ssh_keypair.public is defined
+  when: vault_user_credentials[item.name].ssh_keypair.public is defined
   copy:
-    content: "{{ item.ssh_keypair.public }}"
-#    dest: "/home/{{ item.name }}/.ssh/id_rsa.pub"
+    content: "{{ vault_user_credentials[item.name].ssh_keypair.public }}"
     dest: "{{ item.homedir }}/.ssh/id_rsa.pub"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
