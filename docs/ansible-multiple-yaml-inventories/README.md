@@ -10,6 +10,9 @@ The following sections will explore use cases when using multiple YAML-based inv
 
 * [Example 3: Playbook using multiple YAML inventories with group requirement sufficiency](#Example-03)
 
+* [Example 4: Multiple YAML inventories with role based groups](#Example-04)
+
+
 The purpose here is to fully understand how to leverage child group vars especially with respect to deriving the expected behavior for variable merging. 
 
 The ansible environment used to perform the examples:
@@ -44,3 +47,7 @@ See the details for this example [here](./example2/README.md)
 ## <a id="Example-03"></a>Example 3: Playbook using multiple YAML inventories meeting group requirement sufficiency
 
 See the details for this example [here](./example3/README.md)
+
+## <a id="Example-04"></a>Example 4: Multiple YAML inventories with role based groups
+
+See the details for this example [here](./example4/README.md)
