@@ -1,0 +1,48 @@
+---
+
+- name: Initialize machine info
+  set_fact:
+    os_machine_type: "os_machine_type_unknown"
+
+#- name: Get machine type (linux)
+#  when: os_family=='os_linux'
+#  block:
+#
+#    ## ref: https://ostechnix.com/check-linux-system-physical-virtual-machine/
+#    - name: Get machine chassis
+#      shell: "hostnamectl status | awk '/Chassis/ {print $2}'"
+#      register: __host_chassis
+#
+#    - debug:
+#        var: __host_chassis
+#        verbosity: 1
+#
+#    - name: Set machine info (linux)
+#      set_fact:
+#        os_machine_type: "os_machine_type_{{ __host_chassis.stdout|default('unknown') | regex_replace('(desktop|laptop)', 'baremetal') }}"
+
+- name: Get machine type for linux family machines
+  when: os_family in ['os_linux','os_esxi','os_vcenter']
+  block:
+
+    ## ref: https://ostechnix.com/check-linux-system-physical-virtual-machine/
+    - name: Get machine hypervisor status
+      shell: "dmesg | grep 'Hypervisor detected' | wc -l"
+      register: __dmesg_detect_hypervisor
+
+    - debug:
+        var: __dmesg_detect_hypervisor
+        verbosity: 1
+
+    - name: Set machine info (linux)
+      set_fact:
+        os_machine_type: "os_machine_type_{{ 'baremetal' if __dmesg_detect_hypervisor.stdout=='0' else 'vm' }}"
+
+
+- name: Set os info for windows for vmware vcenter
+  when: ansible_os_family|d('')=='VMware Photon'
+  set_fact:
+    os_family: "os_vsphere"
+    os_distribution: "vsphere"
+    os_distribution_version: "os_vsphere_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
+

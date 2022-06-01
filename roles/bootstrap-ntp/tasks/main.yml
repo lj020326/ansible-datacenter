@@ -8,62 +8,101 @@
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
+- name: When chronyd is used, assert that the ntpd service is not installed/running
+  when: __bootstrap_ntp_daemon == 'chronyd'
+  block:
+    ## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
+    - name: Populate service facts to determine if ntpd is installed
+      service_facts:
+
+#    - name: Assert ntpd service is not installed/running when intended service is chronyd
+#      assert:
+#        that:
+#          - "'ntpd' not in services"
+#          - "'ntpd.service' not in services"
+
+    - name: Remove ntpd service when intended service is chronyd
+      when:
+        - "'ntpd' not in services"
+        - "'ntpd.service' not in services"
+      block:
+
+        - name: Ensure ntpd service is stopped and disabled
+          ignore_errors: yes
+          service:
+            name: item
+            state: stopped
+            enabled: false
+          loop:
+            - ntpd
+            - ntpd.service
+
+        - name: Ensure ntp package is uninstalled
+          package:
+            name: ntp
+            state: absent
+
+
 - name: "Derive dynamic site-specific groups for 'ntp_servers' group only"
   when:
     - bootstrap_ntp_servers_group_name in group_names
     - bootstrap_ntp_sites|d([])|length>0
   block:
 
-    ## The idea here is to re-use the existing linux inventory site mapping to derive the role specific site groups
+    ## The idea here is to re-use the existing linux inventory site groups in order to derive the role specific site groups
     ## this avoids having to re-specify hosts to sites
-    - name: Flatten list of __bootstrap_ntp_server_network_sites
+    - name: Flatten list of __bootstrap_ntp_server_sites
       set_fact:
-        __bootstrap_ntp_server_network_sites: "{{ __bootstrap_ntp_server_network_sites|d([]) + [
+        __bootstrap_ntp_server_sites: "{{ __bootstrap_ntp_server_sites|d([]) + [
             {
+            'site_network': item.1,
+            'site_location': item.0.location,
             'group': 'linux_' + item.1 + '_' + item.0.location,
-            'site_parent_group': bootstrap_ntp_servers_group_name + '_' + item.1,
-            'site_group': bootstrap_ntp_servers_group_name + '_' + item.1 + '_' + item.0.location
+            'group_parent_key': bootstrap_ntp_servers_group_name + '_' + item.1,
+            'group_key': bootstrap_ntp_servers_group_name + '_' + item.1 + '_' + item.0.location
             }
           ] }}"
       loop: "{{ bootstrap_ntp_sites | subelements('networks', { 'skip_missing': true } ) }}"
 
-    - name: Display __bootstrap_ntp_server_network_sites
-      when: __bootstrap_ntp_server_network_sites|d([])|length>0
+    - name: Display __bootstrap_ntp_server_sites
+      when: __bootstrap_ntp_server_sites|d([])|length>0
       debug:
-        var: __bootstrap_ntp_server_network_sites
+        var: __bootstrap_ntp_server_sites
 
-    - name: Set __site_group and __site_parent_group used to match host to site-specific group
+    - name: Match host site/network groups to set __group_key and __group_parent_key for dynamic groups
       when: item.group in group_names
+#      when:
+#        - item.site_network in group_names
+#        - item.site_location in group_names
       set_fact:
-        __group_parent: "{{ item.group }}"
-        __site_parent_group: "{{ item.site_parent_group }}"
-        __site_group: "{{ item.site_group }}"
-      loop: "{{ __bootstrap_ntp_server_network_sites }}"
+        __group_parent_key: "{{ item.group_parent_key }}"
+        __group_key: "{{ item.group_key }}"
+      loop: "{{ __bootstrap_ntp_server_sites }}"
 
-    - name: Assert that the __site_parent_group and __site_group have been matched to a defined environment and defined
+    - name: Assert that the __group_parent_key and __group_key have been matched to a defined environment and defined
       assert:
         that:
-          - __site_group is defined
-          - __site_parent_group is defined
+          - __group_key is defined
+          - __group_parent_key is defined
 
-    - name: Display __site_group
+    - name: Display __group_key
       debug:
-        var: __site_group
+        var: __group_key
 
-    - name: Display __site_parent_group
+    - name: Display __group_parent_key
       debug:
-        var: __site_parent_group
+        var: __group_parent_key
 
-    - name: Group hosts based on __site_parent_group
+    - name: Group hosts based on __group_parent_key
       changed_when: no
       group_by:
-        key: "{{ __site_parent_group }}"
+        key: "{{ __group_parent_key }}"
 
-    - name: Group hosts based on __site_group
+    - name: Group hosts based on __group_key
       changed_when: no
       group_by:
-        key: "{{ __site_group }}"
-        parents: "{{ __site_parent_group }}"
+        key: "{{ __group_key }}"
+        parents: "{{ __group_parent_key }}"
 
 - name: Display bootstrap_ntp_var_source
   debug:
@@ -82,6 +121,10 @@
   debug:
     var: bootstrap_ntp_cmdport_disabled
 
+- name: Display bootstrap_ntp_allow_networks
+  debug:
+    var: bootstrap_ntp_allow_networks
+
 - name: Display bootstrap_ntp_restrict
   debug:
     var: bootstrap_ntp_restrict
@@ -93,7 +136,7 @@
 ## https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
 - name: "Add bootstrap_ntp_allow_networks to __bootstrap_ntp_restrict by converting the CIDR to netmask"
   set_fact:
-    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ansible.utils.ipaddr('network') +' mask ' + item|ansible.utils.ipaddr('netmask')|string + ' notrust'] }}"
+    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ipaddr('network') +' mask ' + item|ipaddr('netmask')|string + ' notrust'] }}"
   loop: "{{ bootstrap_ntp_allow_networks }}"
 
 - name: "Uniquify __bootstrap_ntp_restrict"
@@ -104,10 +147,6 @@
   debug:
     var: __bootstrap_ntp_restrict
 
-- name: Display bootstrap_ntp_allow_networks
-  debug:
-    var: bootstrap_ntp_allow_networks
-
 - name: "Set __bootstrap_ntp_allow_networks"
   set_fact:
     __bootstrap_ntp_allow_networks: "{{ bootstrap_ntp_allow_networks|d([]) }}"
@@ -115,7 +154,7 @@
 ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
 - name: "Add bootstrap_ntp_restrict to __bootstrap_ntp_allow_networks by converting the netmask to CIDR"
   set_fact:
-    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ansible.utils.ipaddr('network/prefix') ] }}"
+    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ipaddr('network/prefix') ] }}"
   loop: "{{ bootstrap_ntp_allow_networks }}"
 
 - name: "Uniquify __bootstrap_ntp_allow_networks"
@@ -126,38 +165,38 @@
   debug:
     var: __bootstrap_ntp_allow_networks
 
-- name: Set the bootstrap_ntp_driftfile variable.
+- name: Set bootstrap_ntp_driftfile
   when: bootstrap_ntp_driftfile is not defined
   set_fact:
     bootstrap_ntp_driftfile: "{{ __bootstrap_ntp_driftfile }}"
 
-- name: Set the bootstrap_ntp_package variable.
+- name: Set bootstrap_ntp_package
   when: bootstrap_ntp_package is not defined
   set_fact:
     bootstrap_ntp_package: "{{ __bootstrap_ntp_package }}"
 
-- name: Set the bootstrap_ntp_config_file variable.
+- name: Set bootstrap_ntp_config_file
   when: bootstrap_ntp_config_file is not defined
   set_fact:
     bootstrap_ntp_config_file: "{{ __bootstrap_ntp_config_file }}"
 
-- name: Set the bootstrap_ntp_daemon variable.
+- name: Set bootstrap_ntp_daemon
   when: bootstrap_ntp_daemon is not defined
   set_fact:
     bootstrap_ntp_daemon: "{{ __bootstrap_ntp_daemon }}"
 
-- name: Ensure NTP package is installed.
+- name: "Ensure {{ bootstrap_ntp_package }} package is installed."
   package:
     name: "{{ bootstrap_ntp_package }}"
     state: present
 
-- name: Ensure tzdata package is installed (Linux).
+- name: "Ensure {{ bootstrap_ntp_tzdata_package }} package is installed (Linux)."
   when: ansible_system == "Linux"
   package:
     name: "{{ bootstrap_ntp_tzdata_package }}"
     state: present
 
-- name: Set timezone.
+- name: "Set timezone to {{ bootstrap_ntp_timezone }}."
   timezone:
     name: "{{ bootstrap_ntp_timezone }}"
   notify: restart cron
@@ -175,7 +214,7 @@
     enabled: false
     state: stopped
 
-- name: Ensure NTP is stopped and disabled as configured.
+- name: "Ensure {{ bootstrap_ntp_daemon }} is stopped and disabled as configured."
   when: not (bootstrap_ntp_enabled | bool)
   ignore_errors: yes
   service:
@@ -192,10 +231,10 @@
     backup: yes
   notify: restart ntp
 
-- name: Ensure NTP is running and enabled as configured.
+- name: "Ensure {{ bootstrap_ntp_daemon }} is running and enabled as configured."
   when: bootstrap_ntp_enabled | bool
   service:
     name: "{{ bootstrap_ntp_daemon }}"
-    state: started
+    state: restarted
     enabled: true
 
