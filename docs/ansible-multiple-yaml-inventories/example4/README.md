@@ -3,7 +3,7 @@
 
 In the prior [Example 3](../example3/README.md), we found the method to merge multiple YAML inventories with the merged results observing intended or expected behavior.
 
-Now we will look to apply plays that can target machines in the merged inventory based on the role-based group desired.
+Now we will look to apply plays that can target machines in the merged inventory with role-based groups.
 
 E.g., the following scenario will discuss a simple NTP client/server based playbook to apply across the merged inventory. 
 
@@ -153,7 +153,7 @@ admin-internal-q2-s2.example.int
 The 'ntp-client' group will include all linux machines for the respective environment.
 In this case, the environment will be defined with the existing test environment group named 'environment_test'.
 
-Now, we can define the YAML groups to be used by the 'ntp' playbook/role as follows:
+Now we can define the YAML groups to be used by the 'ntp' playbook/role as follows:
 
 [inventory/dmz/ntp.yml](./inventory/dmz/ntp.yml):
 ```yaml
@@ -185,7 +185,7 @@ all:
         environment_test: {}
 ```
 
-The 'ntp_client' group is defined using the children group of 'environment_test'.  
+The 'ntp_client' group is defined with the children group of 'environment_test'.  
 
 Note that the 'ntp_client' group includes the 8 admin machines already included in the 'ntp_server' group.  This overlap can be addressed by making sure that the 'ntp_server' group is excluded for the respective plays that only mean to target the 'ntp_client' machines.  This will be demonstrated in the following verifications section. 
 
@@ -287,9 +287,9 @@ This is as expected.
 
 ## Testing Conclusion
 
-The 2 test results demonstrate that we can safely target the ntp_server and ntp_client machines with the appropriate group limit filters.
+The 2 test results demonstrate that we can safely target the ntp_server and ntp_client machines with the appropriate group targets.
 
-We look to apply those filters in the next ntp playbook section.
+We now seek to apply those filters in the next ntp playbook section.
 
 
 ## NTP group variables

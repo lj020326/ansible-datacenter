@@ -7,7 +7,12 @@ __metaclass__ = type
 
 import copy
 
-from collections import MutableMapping
+#from collections import MutableMapping
+try:
+    from collections import MutableMapping
+except:
+    from collections.abc import MutableMapping
+
 from functools import partial
 
 from ansible.errors import AnsibleFilterError
