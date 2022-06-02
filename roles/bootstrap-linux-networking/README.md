@@ -1,5 +1,4 @@
-# network_interface
-
+# bootstrap-linux-networking
 
 _WARNING: This role can be dangerous to use. If you lose network connectivity
 to your target host by incorrectly configuring your networking, you may be
@@ -28,10 +27,10 @@ them are as follows:
 
 | Variable | Required | Default | Comments |
 |-----------------------|----------|-----------|---------|
-| `network_interfaces` | No | `[]` | The list of ethernet interfaces to be added to the system. |
-| `network_interfaces` | No | `[]` | The list of bridge interfaces to be added to the system. |
-| `network_interfaces` | No | `[]` | The list of bonded interfaces to be added to the system. |
-| `network_interfaces` | No | `[]` | The list of vlan interfaces to be added to the system. |
+| `bootstrap_linux_network_interfaces` | No | `[]` | The list of ethernet interfaces to be added to the system. |
+| `bootstrap_linux_network_interfaces` | No | `[]` | The list of bridge interfaces to be added to the system. |
+| `bootstrap_linux_network_interfaces` | No | `[]` | The list of bonded interfaces to be added to the system. |
+| `bootstrap_linux_network_interfaces` | No | `[]` | The list of vlan interfaces to be added to the system. |
 
 Note: The values for the list are listed in the examples below.
 
@@ -78,7 +77,7 @@ define static routes and a gateway.
 - hosts: myhost
   roles:
     - role: network
-      network_interfaces:
+      bootstrap_linux_network_interfaces:
        - device: eth1
          bootproto: static
          cidr: 192.168.10.18/24
@@ -101,7 +100,7 @@ Note: it is not required to add routes, default route will be added automaticall
 - hosts: myhost
   roles:
     - role: network
-      network_interfaces:
+      bootstrap_linux_network_interfaces:
        -  device: br1
           type: bridge
           cidr: 192.168.10.10/24
@@ -146,7 +145,7 @@ added for ethernet interfaces.
 - hosts: myhost
   roles:
     - role: network
-      network_interfaces:
+      bootstrap_linux_network_interfaces:
         - device: bond0
           bondmaster: bond0
           address: 192.168.10.128
@@ -173,7 +172,7 @@ address obtained via DHCP.
 - hosts: myhost
   roles:
     - role: network
-      network_interfaces:
+      bootstrap_linux_network_interfaces:
         - device: bond0
           bondmaster: bond0
           bootproto: dhcp
@@ -189,7 +188,7 @@ address obtained via DHCP.
 - hosts: myhost
   roles:
     - role: network
-      network_interfaces:
+      bootstrap_linux_network_interfaces:
        - device: eth1
          bootproto: static
          cidr: 192.168.10.18/24
@@ -216,7 +215,7 @@ Describe your network configuration for each host in host vars:
 
 ### host_vars/host1
 ```
-    network_interfaces:
+    bootstrap_linux_network_interfaces:
            - device: eth1
              bootproto: static
              address: 192.168.10.18
@@ -239,7 +238,7 @@ Describe your network configuration for each host in host vars:
 ```
 ### host_vars/host2
 ```
-network_interfaces:
+bootstrap_linux_network_interfaces:
        - device: eth0
          bootproto: static
          address: 192.168.10.18
@@ -277,10 +276,10 @@ can perform the same function, so if you make use of both modules then your
 playbooks may not be idempotent.  Consider this case, where only the firewalld
 module is used:
 
-  * network_interface role runs; with no `firewalld_zone` host var set then any
+  * bootstrap_linux_network_interface role runs; with no `firewalld_zone` host var set then any
     ZONE line will be removed from ifcfg-*
   * `firewalld` module runs; adds a `ZONE` line to ifcfg-*
-  * On the next playbook run, the network_interface role runs and removes the
+  * On the next playbook run, the bootstrap_linux_network_interface role runs and removes the
     ZONE line again, and so the cycle repeats.
 
 In order for this role to manage firewalld zones, the system must be running a

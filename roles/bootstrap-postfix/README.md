@@ -30,7 +30,9 @@ None.
 
 ## Example Playbook
 
-    - hosts: all
-      roles:
-        - geerlingguy.postfix
+```yaml
+- hosts: all
+  roles:
+    - bootstrap-postfix
+```
 

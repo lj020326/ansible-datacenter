@@ -44,10 +44,10 @@
 #      args:
 #        warn: False
       with_items:
-        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ hostname_name_full }}.pem"
-          dest: "{{ ca_local_cert_dir }}/{{ hostname_name_full }}.pem"
-        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ hostname_name_full }}.chain.pem"
-          dest: "{{ ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem"
+        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ deployca_hostname_full }}.pem"
+          dest: "{{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.pem"
+        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ deployca_hostname_full }}.chain.pem"
+          dest: "{{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.chain.pem"
 
 
     ## ref: debops.hashicorps/tasks
@@ -63,10 +63,10 @@
 #          dest: "{{ ca_local_key_dir }}/{{ inventory_hostname }}-key.pem"
 #        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
 #          dest: "{{ pki_key_dir }}/{{ inventory_hostname }}-key.pem"
-        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ hostname_name_full }}-key.pem"
-          dest: "{{ ca_local_key_dir }}/{{ hostname_name_full }}-key.pem"
-        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ hostname_name_full }}-key.pem"
-          dest: "{{ pki_key_dir }}/{{ hostname_name_full }}-key.pem"
+        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ deployca_hostname_full }}-key.pem"
+          dest: "{{ ca_local_key_dir }}/{{ deployca_hostname_full }}-key.pem"
+        - src: "{{ keyring_cacerts_base_dir }}/{{ ca_domain }}/{{ deployca_hostname_full }}-key.pem"
+          dest: "{{ pki_key_dir }}/{{ deployca_hostname_full }}-key.pem"
 
 - name: "fetch_certs | fetch host cert/key from keyring"
   when: "'stepca_certs' in group_names"
@@ -80,19 +80,19 @@
     - name: "fetch_certs | check host cert info"
       when: "'vm_template' not in group_names"
       block:
-        - name: "fetch_certs | Check if {{ ca_local_cert_dir }}/{{ hostname_name_full }}.pem exists"
+        - name: "fetch_certs | Check if {{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.pem exists"
           stat:
-            path: "{{ ca_local_cert_dir }}/{{ hostname_name_full }}.pem"
+            path: "{{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.pem"
           register: cacert_cert_result
 
-        - name: "fetch_certs | Check if {{ ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem exists"
+        - name: "fetch_certs | Check if {{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.chain.pem exists"
           stat:
-            path: "{{ ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem"
+            path: "{{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.chain.pem"
           register: cacert_certbundle_result
 
-        - name: "fetch_certs | Check if {{ ca_local_key_dir }}/{{ hostname_name_full }}-key.pem exists"
+        - name: "fetch_certs | Check if {{ ca_local_key_dir }}/{{ deployca_hostname_full }}-key.pem exists"
           stat:
-            path: "{{ ca_local_key_dir }}/{{ hostname_name_full }}-key.pem"
+            path: "{{ ca_local_key_dir }}/{{ deployca_hostname_full }}-key.pem"
           register: cacert_key_result
 
     ## ref: https://smallstep.com/docs/step-ca/getting-started#initialize-your-certificate-authority
@@ -136,21 +136,31 @@
       when: "'vm_template' not in group_names"
       block:
 
+        - name: temporarily permit traffic on port 80/tcp in order to perform stepca host verification
+          ansible.posix.firewalld:
+            port: 80/tcp
+            state: enabled
+
         - name: "fetch_certs | Deploy cert/key to {{ ca_local_cert_dir }}"
           when: not (cacert_cert_result.stat.exists and cacert_key_result.stat.exists)
           shell: >-
-            step ca certificate {{ hostname_name_full }} \
-              {{ ca_local_cert_dir }}/{{ hostname_name_full }}.pem \
-              {{ ca_local_key_dir }}/{{ hostname_name_full }}-key.pem \
+            step ca certificate {{ deployca_hostname_full }} \
+              {{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.pem \
+              {{ ca_local_key_dir }}/{{ deployca_hostname_full }}-key.pem \
               --provisioner {{ ca_provisioner }}
 
       rescue:
+        - name: "temporarily permit traffic on port {{ stepca_acme_http_challenge_proxy_port }}/tcp in order to perform stepca host verification"
+          ansible.posix.firewalld:
+            port: "{{ stepca_acme_http_challenge_proxy_port }}/tcp"
+            state: enabled
+
         - name: "fetch_certs | Deploy cert/key to {{ ca_local_cert_dir }}"
           when: not (cacert_cert_result.stat.exists and cacert_key_result.stat.exists)
           shell: >-
-            step ca certificate {{ hostname_name_full }} \
-              {{ ca_local_cert_dir }}/{{ hostname_name_full }}.pem \
-              {{ ca_local_key_dir }}/{{ hostname_name_full }}-key.pem \
+            step ca certificate {{ deployca_hostname_full }} \
+              {{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.pem \
+              {{ ca_local_key_dir }}/{{ deployca_hostname_full }}-key.pem \
               --provisioner {{ ca_provisioner }} \
               --http-listen :{{ stepca_acme_http_challenge_proxy_port }}
 
@@ -162,15 +172,16 @@
           when: not (cacert_certbundle_result.stat.exists and cacert_key_result.stat.exists)
           shell: >-
             step certificate bundle \
-              {{ ca_local_cert_dir }}/{{ hostname_name_full }}.pem \
+              {{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.pem \
               {{ ca_local_cert_dir }}/{{ pki_caroot_cert }} \
-              {{ ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem
+              {{ ca_local_cert_dir }}/{{ deployca_hostname_full }}.chain.pem
 
     - name: "fetch_certs | Setup stepca cert renewal service"
       include_tasks: stepca_renewal_service.yml
 
 - name: "fetch_certs | fetch intermediate certs"
   when: "'vm_template' not in group_names"
+#  become: no
   block:
 
     - name: "fetch_certs | Synchronize ca intermediate certs to {{ ca_local_cert_dir }}"
@@ -236,14 +247,26 @@
         {{ ca_local_key_dir }}/{{ item.route }}-key.pem
       loop: "{{ ca_service_routes_list }}"
 
-    - name: "fetch_certs | Synchronize service route keys to trust dir at {{ pki_key_dir }}"
+    - name: "fetch_certs | Remote copy service route keys to trust dir at {{ pki_key_dir }}"
       when: item.route in ca_domains_hosted
-      shell: >
-        rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-        --rsync-path 'sudo -u root rsync'
-        --update
-        --backup
-        --backup-dir={{ pki_key_dir }}/save
-        {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
-        {{ pki_key_dir }}/{{ item.route }}-key.pem
+#      become: yes
+#      copy_remotely:
+      copy:
+        src: "{{ ca_local_key_dir }}/{{ item.route }}-key.pem"
+        dest: "{{ pki_key_dir }}/{{ item.route }}-key.pem"
+        backup: yes
+        remote_src: yes
+        mode: "0600"
       loop: "{{ ca_service_routes_list }}"
+
+#    - name: "fetch_certs | Synchronize service route keys to trust dir at {{ pki_key_dir }}"
+#      when: item.route in ca_domains_hosted
+#      shell: >
+#        rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#        --rsync-path 'sudo -u root rsync'
+#        --update
+#        --backup
+#        --backup-dir={{ pki_key_dir }}/save
+#        {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ keyring_cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
+#        {{ pki_key_dir }}/{{ item.route }}-key.pem
+#      loop: "{{ ca_service_routes_list }}"
