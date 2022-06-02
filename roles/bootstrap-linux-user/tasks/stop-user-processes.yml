@@ -4,20 +4,22 @@
   assert:
     that: __bootstrap_linux_users | selectattr('name','equalto', ansible_user) | list | length == 0
 
+- name: Load current passwd info
+  getent:
+    database: passwd
+    split: ":"
+  check_mode: false
+
 ## ref: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
 ## ref: https://unix.stackexchange.com/questions/85466/how-to-see-process-created-by-specific-user-in-unix-linux
 - name: "Get running user processes"
-  when: item.name==lookup('pipe', 'getent passwd ' +  item.name + ' | cut -d: -f1')
-#  shell: "ps -ef | grep -v grep | grep -w {{ item.name }} | awk '{print $2}'"
-#  shell: "ps -fp $(pgrep -u {{ item.name }}) | awk '{print $2}' | tail -n +2"
+  when: getent_passwd[item.name][1] is defined
   shell: "ps -fu {{ item.name }} | awk '{print $2}' | tail -n +2"
   loop: "{{ __bootstrap_linux_users }}"
   loop_control:
     label: "{{ item.name }}"
   register: running_processes
   ignore_errors: yes
-#  failed_when: running_processes.rc > 0 and not ( shell_cmd.stderr | regex_search("pgrep\: invalid user name\: .*")
-#  failed_when: running_processes.rc > 0 and not ( shell_cmd.stderr | regex_search("error: user name does not exist\: .*")
 
 - name: Running processes block
   when: running_processes is defined

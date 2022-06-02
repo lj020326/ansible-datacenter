@@ -1,10 +1,11 @@
 ---
 
-- name: Display important play information
+- name: "Init {{ role_name }} vars"
+  include_tasks: init-vars.yml
+
+- name: Display ansible_user
   debug:
-    msg:
-      - "ansible_ssh_user={{ ansible_ssh_user }}"
-      - "ansible_user={{ ansible_user }}"
+    var: ansible_user
 
 - name: Debug bootstrap_ansible_user
   debug:
@@ -35,10 +36,16 @@
 #    - "'vm_template' not in group_names"
   include_tasks: stop-user-processes.yml
 
+- name: Load current group info
+  getent:
+    database: group
+    split: ":"
+  check_mode: false
+
 - name: "Ensure group exist with correct gid"
   when:
     - item.gid is defined
-    - item.gid != lookup('pipe', 'getent group ' +  item.name + ' | cut -d: -f3')
+    - item.gid!=getent_group[item.name][1]
   ignore_errors: yes
   group:
     name: "{{ item.name }}"
