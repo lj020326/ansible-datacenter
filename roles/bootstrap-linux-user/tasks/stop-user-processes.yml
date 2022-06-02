@@ -7,6 +7,7 @@
 ## ref: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
 ## ref: https://unix.stackexchange.com/questions/85466/how-to-see-process-created-by-specific-user-in-unix-linux
 - name: "Get running user processes"
+  when: item.name==lookup('pipe', 'getent passwd ' +  item.name + ' | cut -d: -f1')
 #  shell: "ps -ef | grep -v grep | grep -w {{ item.name }} | awk '{print $2}'"
 #  shell: "ps -fp $(pgrep -u {{ item.name }}) | awk '{print $2}' | tail -n +2"
   shell: "ps -fu {{ item.name }} | awk '{print $2}' | tail -n +2"
@@ -16,36 +17,41 @@
   register: running_processes
   ignore_errors: yes
 #  failed_when: running_processes.rc > 0 and not ( shell_cmd.stderr | regex_search("pgrep\: invalid user name\: .*")
+#  failed_when: running_processes.rc > 0 and not ( shell_cmd.stderr | regex_search("error: user name does not exist\: .*")
 
-- name: "Display running_processes"
-  debug:
-    var: running_processes
-#    verbosity: 2
+- name: Running processes block
+  when: running_processes is defined
+  block:
 
-- name: "Set process_list"
-  set_fact:
-    process_list: "{{ running_processes.results | map(attribute='stdout_lines') | d([]) | list | flatten }}"
+    - name: "Display running_processes"
+      debug:
+        var: running_processes
+    #    verbosity: 2
 
-- name: "Display process_list"
-  debug:
-    var: process_list
+    - name: "Set process_list"
+      set_fact:
+        process_list: "{{ running_processes.results | map(attribute='stdout_lines') | d([]) | list | flatten }}"
 
-- name: "Kill running processes"
-  when: item != ''
-  shell: "kill {{ item }}"
-  with_items: "{{ process_list }}"
-  register: shell_cmd
-  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )
+    - name: "Display process_list"
+      debug:
+        var: process_list
 
-- wait_for:
-    path: "/proc/{{ item }}/status"
-    state: absent
-  with_items: "{{ running_processes.results | map(attribute='stdout_lines') | list }}"
-  ignore_errors: yes
-  register: killed_processes
+    - name: "Kill running processes"
+      when: item != ''
+      shell: "kill {{ item }}"
+      with_items: "{{ process_list }}"
+      register: shell_cmd
+      failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )
 
-- name: Force kill stuck processes
-  shell: "kill -9 {{ item }}"
-  with_items: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
-  register: shell_cmd
-  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* - No such process") )
+    - wait_for:
+        path: "/proc/{{ item }}/status"
+        state: absent
+      with_items: "{{ running_processes.results | map(attribute='stdout_lines') | list }}"
+      ignore_errors: yes
+      register: killed_processes
+
+    - name: Force kill stuck processes
+      shell: "kill -9 {{ item }}"
+      with_items: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
+      register: shell_cmd
+      failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* - No such process") )
