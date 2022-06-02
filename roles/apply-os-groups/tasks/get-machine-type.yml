@@ -22,7 +22,7 @@
 #        os_machine_type: "os_machine_type_{{ __host_chassis.stdout|default('unknown') | regex_replace('(desktop|laptop)', 'baremetal') }}"
 
 - name: Get machine type for linux family machines
-  when: os_family in ['os_linux','os_esxi','os_vcenter']
+  when: os_family in ['os_linux']
   block:
 
     ## ref: https://ostechnix.com/check-linux-system-physical-virtual-machine/
@@ -37,6 +37,15 @@
     - name: Set machine info (linux)
       set_fact:
         os_machine_type: "os_machine_type_{{ 'baremetal' if __dmesg_detect_hypervisor.stdout=='0' else 'vm' }}"
+
+
+- name: Get machine type
+  when: os_family not in ['os_linux']
+  block:
+
+    - name: Set machine info (windows)
+      set_fact:
+        os_machine_type: "os_machine_type_{{ 'vm' if ansible_virtualization_role|d('') == 'guest' else 'baremetal' }}"
 
 
 - name: Set os info for windows for vmware vcenter
