@@ -1,4 +1,4 @@
-# Firewalld Ansible Role
+# bootstrap-linux-firewalld Ansible Role
 
 Install and configure firewalld (<http://www.firewalld.org/>) on
 
@@ -284,7 +284,7 @@ If there is the need to invoke the firewall role from another role, see the exam
   when: firewalld_enabled | bool
   tags: [ firewall-config-nfs ]
   include_role:
-    name: bootstrap-linux-firewall
+    name: bootstrap-linux-firewalld
   vars:
     firewalld_action: configure
     firewalld_services: "{{ nfs_firewalld_services | d([]) }}"
