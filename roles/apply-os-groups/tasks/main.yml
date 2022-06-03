@@ -2,30 +2,30 @@
 
 - name: Set os info
   set_fact:
-    os_family: "{{ 'os_linux' if ansible_os_family|d('')|lower in ['debian', 'redhat'] else ansible_os_family|d('Unknown') }}"
-    os_distribution: "os_{{ ansible_facts['distribution'] | d('Unknown') | lower | replace(' ','_') }}"
-    os_distribution_version: "os_{{ ansible_facts['distribution'] | d('Unknown') | lower | replace(' ','_') }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace('.','_') | replace(' ','_') }}"
+    os_family: "os_{{ 'linux' if ansible_os_family|d('')|lower in ['debian', 'redhat'] else ansible_os_family|d('unknown') }}"
+    os_distribution: "os_{{ ansible_facts['distribution'] | d('unknown') | lower | replace(' ','_') }}"
+    os_distribution_version: "os_{{ ansible_facts['distribution'] | d('unknown') | lower | replace(' ','_') }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('unknown') | lower | replace('.','_') | replace(' ','_') }}"
 
 - name: Set os info for windows for vmware esx
   when: ansible_os_family|d('')=='VMkernel'
   set_fact:
     os_family: "os_esxi"
-    os_distribution: "esxi"
-    os_distribution_version: "os_esxi_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('Unknown') | lower | replace('.','_') | replace(' ','_') }}"
+    os_distribution: "os_esxi"
+    os_distribution_version: "os_esxi_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('unknown') | lower | replace('.','_') | replace(' ','_') }}"
 
 - name: Set os info for windows for vmware vcenter
   when: ansible_os_family|d('')=='VMware Photon'
   set_fact:
     os_family: "os_vcenter"
-    os_distribution: "vcenter"
-    os_distribution_version: "os_vcenter_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
+    os_distribution: "os_vcenter"
+    os_distribution_version: "os_vcenter_{{ ansible_facts['distribution'] |d('unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('unknown') }}"
 
 - name: Set os info for windows
   when: ansible_os_family|d('')|lower is search('windows')
   set_fact:
     os_family: "os_windows"
-    os_distribution: "windows"
-    os_distribution_version: "os_windows_{{ ansible_facts['distribution']|d('Unknown') | lower | replace(' ','_') | regex_replace('(microsoft_|windows_)', '') }}"
+    os_distribution: "os_windows"
+    os_distribution_version: "os_windows_{{ ansible_facts['distribution']|d('unknown') | lower | replace(' ','_') | regex_replace('(microsoft_|windows_)', '') }}"
 
 - name: Get machine type
   include_tasks: get-machine-type.yml
@@ -39,24 +39,25 @@
       - "os_machine_type={{ os_machine_type }}"
 
 - name: Group hosts based on os_family
-  changed_when: no
+#  changed_when: no
   group_by:
     key: "{{ os_family }}"
 
 - name: Group hosts based on os_distribution
-  changed_when: no
+  when: os_distribution != os_family
+#  changed_when: no
   group_by:
     key: "{{ os_distribution }}"
     parents: "{{ os_family }}"
 
 - name: Group hosts based on os_distribution_version
-  changed_when: no
+#  changed_when: no
   group_by:
     key: "{{ os_distribution_version }}"
     parents: "{{ os_distribution }}"
 
 - name: Group hosts based on os_machine_type
-  changed_when: no
+#  changed_when: no
   group_by:
     key: "{{ os_machine_type }}"
 
@@ -71,13 +72,19 @@
     msg:
       - "inventory_hostname={{ inventory_hostname | d('unknown') }}"
       - "inventory_hostname_short={{ inventory_hostname_short | d('unknown') }}"
-      - "ping_failed={{ ping_failed|d('') }}"
+      - "internal_subdomain={{ internal_subdomain | d('') }}"
+      - "internal_domain={{ internal_domain | d('unknown') }}"
+      - "netbase__hostname={{ netbase__hostname }}"
+      - "bootstrap_user={{ bootstrap_user }}"
       ## BEGIN dynamically derived os_* groups
       - "os_family={{ os_family }}"
       - "os_distribution={{ os_distribution }}"
       - "os_distribution_version={{ os_distribution_version }}"
       - "os_machine_type={{ os_machine_type }}"
       ## END dynamically derived os_* groups
+      - "os_python_interpreter={{ os_python_interpreter| d('') }}"
+      - "ansible_python_interpreter={{ ansible_python_interpreter | d('unknown') }}"
+      - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('unknown') }}"
       - "ansible_user={{ ansible_user }}"
       - "ansible_host={{ ansible_host }}"
       - "ansible_hostname={{ ansible_hostname | d('') }}"
@@ -92,11 +99,14 @@
       - "ansible_winrm_transport={{ ansible_winrm_transport|d('') }}"
       - "ansible_winrm_scheme={{ ansible_winrm_scheme|d('') }}"
       - "ansible_winrm_server_cert_validation={{ ansible_winrm_server_cert_validation|d('') }}"
-      - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
       - "ansible_os_family={{ ansible_os_family | d('unknown') }}"
       - "ansible_distribution={{ ansible_distribution | d('unknown') }}"
       - "ansible_distribution_release={{ ansible_distribution_release | d('unknown') }}"
       - "ansible_distribution_major_version={{ ansible_distribution_major_version | d('unknown') }}"
-      - "ansible_python_interpreter={{ ansible_python_interpreter | d('unknown') }}"
-      - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('unknown') }}"
       - "group_names={{ group_names | d('') }}"
+      - "ntp_servers={{ ntp_servers | d('') }}"
+      - "firewalld_enabled={{ firewalld_enabled | d('') }}"
+      - "docker_stack_external_domain={{ docker_stack_external_domain | d('') }}"
+      - "docker_stack_internal_domain={{ docker_stack_internal_domain | d('') }}"
+      - "ca_domain={{ ca_domain | d('unknown') }}"
+      - "ca_domains_hosted={{ ca_domains_hosted | d('') }}"

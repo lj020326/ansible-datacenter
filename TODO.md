@@ -23,7 +23,10 @@ ANSIBLE DATACENTER TODO
 * https://www.budgetsmarthome.co.uk/2021/05/15/containers-and-service-discovery-part-2/
 * https://www.budgetsmarthome.co.uk/2021/03/24/containers-and-service-discovery/
 
-
+[ ] Enhance roles that setup packages, users, firewall rules to re-use idempotent role
+    [ ] jenkins-swarm-agent 
+            * jenkins user/group setup - use the bootstrap-linux-user role
+        document process used to enhance role for future reference
 
 [ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
