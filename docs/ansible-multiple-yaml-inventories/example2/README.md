@@ -396,7 +396,7 @@ web-q2-net2-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    s
 
 ## Conclusions/Next Steps
 
-In the last case, with running on the merged inventory, the expected results would be that only the appropriate network group would be assigned for each host.
+In the last test case, with running on the merged inventory, the expected results would be that only the appropriate network group would be assigned for each host.
 
 Instead, we found that all the hosts in both networks have both 'network' groups assigned.
 

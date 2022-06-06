@@ -47,10 +47,10 @@ Set the [NTP Pool Area](http://support.ntp.org/bin/view/Servers/NTPPoolServers) 
 Set the [NTP Server Options](https://www.systutorials.com/docs/linux/man/5-ntp/) to use. Defaults to 'iburst xleave'.
 
     bootstrap_ntp_servers:
-      - "0{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
-      - "1{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
-      - "2{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
-      - "3{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org iburst"
+      - "0{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org"
+      - "1{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org"
+      - "2{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org"
+      - "3{{ '.' + bootstrap_ntp_area if bootstrap_ntp_area else '' }}.pool.ntp.org"
 
 Specify the NTP servers you'd like to use. Only takes effect if you allow this role to manage NTP's configuration, by setting `bootstrap_ntp_manage_config` to `True`.
 

@@ -31,10 +31,11 @@ IFS=$'\n'
 for environment in ${ENVS}
 do
   echo "Create symlinks for files in environment [$environment]"
-  TO="${INVENTORY_DIR}/${environment}"
-  cd ${TO}/
+  ENV_DIR="${INVENTORY_DIR}/${environment}"
+  echo "ENV_DIR=${ENV_DIR}"
+  cd ${ENV_DIR}/
 
-  echo "Remove all existing links in ${TO}"
+  echo "Remove all existing links in ${ENV_DIR}"
   find . -type l -print -exec rm {} \;
 
   RELPATH=$(pnrelpath "$PWD" "$INVENTORY_DIR")
@@ -63,7 +64,7 @@ do
   ECHO "Create ${PWD}/all dir if does not exist"
   mkdir -p all
 
-##  mv ${TO}/all.yml ${TO}/all/000_cross_env_vars.yml
+##  mv ${ENV_DIR}/all.yml ${ENV_DIR}/all/000_cross_env_vars.yml
 #  rm -f all.yml
 #  ln -sf ../../../group_vars/all.yml ./all/000_cross_env_vars.yml
 

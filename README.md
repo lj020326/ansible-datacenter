@@ -154,6 +154,13 @@ Once the pipeline is configured with the repo, jenkins will scan the repo branch
 
 
 
+## Run tests from ansible control node
+
+```
+echo "foobarpass" > ~/.vault_pass
+chmod 600 ~/.vault_pass
+ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.ini -t untagged,report-windows-facts --vault-password-file ~/.vault_pass
+```
 
 ## Other useful 
 

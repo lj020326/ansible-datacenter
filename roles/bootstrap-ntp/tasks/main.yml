@@ -8,6 +8,22 @@
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
+- debug:
+    var: bootstrap_ntp_servers
+
+#- name "Set __bootstrap_ntp_servers"
+#  set_fact:
+#    __bootstrap_ntp_servers: "{{ __bootstrap_ntp_servers|d([]) }}"
+
+#- name "Set __bootstrap_ntp_servers"
+#  set_fact:
+##    __bootstrap_ntp_servers: "{{ __bootstrap_ntp_servers|d([]) + [ item|string + ' ' + bootstrap_ntp_server_options ] }}"
+#    __bootstrap_ntp_servers: "{{ __bootstrap_ntp_servers|d([]) + [ item ] }}"
+#  loop: bootstrap_ntp_servers
+
+- debug:
+    var: __bootstrap_ntp_servers
+
 - name: When chronyd is used, assert that the ntpd service is not installed/running
   when: __bootstrap_ntp_daemon == 'chronyd'
   block:
@@ -42,67 +58,6 @@
             name: ntp
             state: absent
 
-
-- name: "Derive dynamic site-specific groups for 'ntp_servers' group only"
-  when:
-    - bootstrap_ntp_servers_group_name in group_names
-    - bootstrap_ntp_sites|d([])|length>0
-  block:
-
-    ## The idea here is to re-use the existing linux inventory site groups in order to derive the role specific site groups
-    ## this avoids having to re-specify hosts to sites
-    - name: Flatten list of __bootstrap_ntp_server_sites
-      set_fact:
-        __bootstrap_ntp_server_sites: "{{ __bootstrap_ntp_server_sites|d([]) + [
-            {
-            'site_network': item.1,
-            'site_location': item.0.location,
-            'group': 'linux_' + item.1 + '_' + item.0.location,
-            'group_parent_key': bootstrap_ntp_servers_group_name + '_' + item.1,
-            'group_key': bootstrap_ntp_servers_group_name + '_' + item.1 + '_' + item.0.location
-            }
-          ] }}"
-      loop: "{{ bootstrap_ntp_sites | subelements('networks', { 'skip_missing': true } ) }}"
-
-    - name: Display __bootstrap_ntp_server_sites
-      when: __bootstrap_ntp_server_sites|d([])|length>0
-      debug:
-        var: __bootstrap_ntp_server_sites
-
-    - name: Match host site/network groups to set __group_key and __group_parent_key for dynamic groups
-      when: item.group in group_names
-#      when:
-#        - item.site_network in group_names
-#        - item.site_location in group_names
-      set_fact:
-        __group_parent_key: "{{ item.group_parent_key }}"
-        __group_key: "{{ item.group_key }}"
-      loop: "{{ __bootstrap_ntp_server_sites }}"
-
-    - name: Assert that the __group_parent_key and __group_key have been matched to a defined environment and defined
-      assert:
-        that:
-          - __group_key is defined
-          - __group_parent_key is defined
-
-    - name: Display __group_key
-      debug:
-        var: __group_key
-
-    - name: Display __group_parent_key
-      debug:
-        var: __group_parent_key
-
-    - name: Group hosts based on __group_parent_key
-      changed_when: no
-      group_by:
-        key: "{{ __group_parent_key }}"
-
-    - name: Group hosts based on __group_key
-      changed_when: no
-      group_by:
-        key: "{{ __group_key }}"
-        parents: "{{ __group_parent_key }}"
 
 - name: Display bootstrap_ntp_var_source
   debug:
