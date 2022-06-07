@@ -1,30 +1,47 @@
 ---
 
-- name: Create temporary build directory
+- name: "update-reports-repo | Create temporary build directory"
   ansible.builtin.tempfile:
     state: directory
     suffix: build
   register: report_windows_facts_tempdir
 
-- name: Set fact for report_windows_facts_repo_dir
+- name: "update-reports-repo | Set fact for report_windows_facts_repo_dir"
   set_fact:
     report_windows_facts_repo_dir: "{{ report_windows_facts_tempdir.path }}/report-windows-facts"
 
-- name: Set fact for report_windows_facts_reports_dir
+- name: "update-reports-repo | Set fact for report_windows_facts_reports_dir"
   set_fact:
     report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/docs/servers/WINDOWS"
 
-- name: Display report_windows_facts_repo_dir
+- name: "update-reports-repo | Display report_windows_facts_repo_dir"
   debug:
     msg:
       - "report_windows_facts_repo_dir={{ report_windows_facts_repo_dir }}"
       - "report_windows_facts_reports_dir={{ report_windows_facts_reports_dir }}"
 
-#- name: "Git - Clone inventory report repo to {{ report_windows_facts_repo_dir }}"
-#  shell: "git clone {{ inventory_report_git_repo }} {{ report_windows_facts_repo_dir }}"
-#  register: gitclone
+- name: "update-reports-repo | Display connection_name"
+  debug:
+    var: hostvars[item].connection_name
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    label: "hostvars[{{ item }}].connection_name"
 
-- name: "Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
+- name: "update-reports-repo | Display interface_name"
+  debug:
+    var: hostvars[item].interface_name
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    label: "hostvars[{{ item }}].interface_name"
+
+- name: "update-reports-repo | Display ipv4_address"
+  debug:
+    var: hostvars[item].ipv4_address
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    label: "hostvars[{{ item }}].ipv4_address"
+
+- name: "update-reports-repo | Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
   git:
     repo: "{{ report_windows_facts_git_repo_url_cred }}"
     dest: "{{ report_windows_facts_repo_dir }}"
@@ -36,7 +53,7 @@
 #    key_file: "{{ report_windows_facts_git_ssh_private_keyfile }}"
   register: gitclone
 
-- name: "Create JSON file with Ansible Facts"
+- name: "update-reports-repo | Create JSON file with Ansible Facts"
   copy:
     content: |
       {% for host in ansible_play_hosts %}
@@ -44,7 +61,7 @@
       {% endfor %}
     dest: "{{ report_windows_facts_reports_dir }}/json/server_facts.json"
 
-- name: "Create YAML file with Ansible Facts"
+- name: "update-reports-repo | Create YAML file with Ansible Facts"
   copy:
     content: |
       {% for host in ansible_play_hosts %}
@@ -52,77 +69,83 @@
       {% endfor %}
     dest: "{{ report_windows_facts_reports_dir }}/yaml/server_facts.yml"
 
-- name: "Add Headers to YAML"
+- name: "update-reports-repo | Add Headers to YAML"
   lineinfile:
     path: "{{ report_windows_facts_reports_dir }}/yaml/server_facts.yml"
     insertbefore: BOF
     line: ---
 
-- name: "Create CSV file with results"
+- name: "update-reports-repo | Create CSV file with results"
   copy:
     content: |
       {% for host in ansible_play_hosts %}
-      {{ hostvars[host].nodename }},{{ hostvars[host].domain }},{{ hostvars[host].windows_domain_member }},{{ hostvars[host].windows_domain_role }}, {{ hostvars[host].distribution }},{{ hostvars[host].distribution_major_version }},{{ hostvars[host].distribution_version }},{{ hostvars[host].architecture }},{{ hostvars[host].bios_date }},{{ hostvars[host].bios_version }},{{ hostvars[host].connection_name }},{{ hostvars[host].interface_name }},{{ hostvars[host].ipv4_address }},{{ hostvars[host].ipv6_address }},{{ hostvars[host].default_gateway }},{{ hostvars[host].mac_address }},{{ hostvars[host].lastboot }},{{ hostvars[host].reboot_pending }},{{ hostvars[host].uptime }},{{ hostvars[host].machine_id }},{{ hostvars[host].total_memory }},{{ hostvars[host].processor }},{{ hostvars[host].processor_cores }},{{ hostvars[host].processor_count }},{{ hostvars[host].product_name }}
+      {{ hostvars[host].nodename }},{{ hostvars[host].domain }},{{ hostvars[host].windows_domain_member }},{{ hostvars[host].windows_domain_role }}, {{ hostvars[host].distribution }},{{ hostvars[host].distribution_major_version }},{{ hostvars[host].distribution_version }},{{ hostvars[host].architecture }},{{ hostvars[host].bios_date }},{{ hostvars[host].bios_version }},[{{ hostvars[host].connection_name }}],[{{ hostvars[host].interface_name }}],[{{ hostvars[host].ipv4_address }}],[{{ hostvars[host].ipv6_address }}],[{{ hostvars[host].default_gateway }}],[{{ hostvars[host].mac_address }}],{{ hostvars[host].lastboot }},{{ hostvars[host].reboot_pending }},{{ hostvars[host].uptime }},{{ hostvars[host].machine_id }},{{ hostvars[host].total_memory }},{{ hostvars[host].processor }},{{ hostvars[host].processor_cores }},{{ hostvars[host].processor_count }},{{ hostvars[host].product_name }}
       {% endfor %}
     dest: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
 
-- name: "Format CSV File Clean Up 1"
+- name: "update-reports-repo | Format CSV File Clean Up 1"
   replace:
     path: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
     regexp: '\[|\]|"'
     replace: ''
 
-- name: "Format CSV File Clean Up 2"
+- name: "update-reports-repo | Format CSV File Clean Up 2"
   replace:
     path: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
     regexp: "'"
     replace: ''
 
-- name: "Add Header Row to CSV"
+- name: "update-reports-repo | Add Header Row to CSV"
   lineinfile:
     path: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
     insertbefore: BOF
     line: Hostname,Domain,Domain Member,Domain Role,OS,Major Version,Version,Architecture,Bios Date,Bios Version,Connection Names,Interface Names,IPv4 Address,IPv6 Address,Default Gateway,MAC Address,Last Boot,Reboot Pending,Uptime Seconds,Machine ID,Total Memory (MB),Processors,Processor Cores,Processor Count,Product Name
 
-- name: "Create Markdown file with results"
+
+- name: "update-reports-repo | Create Markdown directory [{{ report_windows_facts_reports_dir }}/markdown]"
+  file:
+    path: "{{ report_windows_facts_reports_dir }}/markdown"
+    state: directory
+
+- name: "update-reports-repo | Create Markdown file with results"
   copy:
     content: |
       {% for host in ansible_play_hosts %}
-      | {{ hostvars[host].nodename }} | {{ hostvars[host].domain }} | {{ hostvars[host].windows_domain_member }} | {{ hostvars[host].windows_domain_role }} |  {{ hostvars[host].distribution }} | {{ hostvars[host].distribution_major_version }} | {{ hostvars[host].distribution_version }} | {{ hostvars[host].architecture }} | {{ hostvars[host].bios_date }} | {{ hostvars[host].bios_version }} | {{ hostvars[host].connection_name }} | {{ hostvars[host].interface_name }} | {{ hostvars[host].ipv4_address }} | {{ hostvars[host].ipv6_address }} | {{ hostvars[host].default_gateway }} | {{ hostvars[host].mac_address }} | {{ hostvars[host].lastboot }} | {{ hostvars[host].reboot_pending }} | {{ hostvars[host].uptime }} | {{ hostvars[host].machine_id }} | {{ hostvars[host].total_memory }} | {{ hostvars[host].processor }} | {{ hostvars[host].processor_cores }} | {{ hostvars[host].processor_count }} | {{ hostvars[host].product_name }} |
+      | {{ hostvars[host].nodename }} | {{ hostvars[host].domain }} | {{ hostvars[host].windows_domain_member }} | {{ hostvars[host].windows_domain_role }} |  {{ hostvars[host].distribution }} | {{ hostvars[host].distribution_major_version }} | {{ hostvars[host].distribution_version }} | {{ hostvars[host].architecture }} | {{ hostvars[host].bios_date }} | {{ hostvars[host].bios_version }} | [{{ hostvars[host].connection_name }}] | [{{ hostvars[host].interface_name }}] | [{{ hostvars[host].ipv4_address }}] | [{{ hostvars[host].ipv6_address }}] | {{ hostvars[host].default_gateway }} | [{{ hostvars[host].mac_address }}] | {{ hostvars[host].lastboot }} | {{ hostvars[host].reboot_pending }} | {{ hostvars[host].uptime }} | {{ hostvars[host].machine_id }} | {{ hostvars[host].total_memory }} | {{ hostvars[host].processor }} | {{ hostvars[host].processor_cores }} | {{ hostvars[host].processor_count }} | {{ hostvars[host].product_name }} |
       {% endfor %}
-    dest: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md    "
+    dest: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
 
-- name: "Format Markdown File New Lines"
-  replace:
-    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
-    regexp: '],'
-    replace: ']\n'
+#- name: "update-reports-repo | Format Markdown File New Lines"
+#  replace:
+#    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+#    regexp: '],'
+#    replace: ']\n'
 
-- name: "Format Markdown File Clean Up"
-  replace:
-    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
-    regexp: '\[|\]|"'
-    replace: ''
+#- name: "update-reports-repo | Format Markdown File Clean Up"
+#  replace:
+#    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+#    regexp: '\[|\]|"'
+#    replace: ''
 
-- name: "Format Markdown File Commas to Pipes"
-  replace:
-    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
-    regexp: ','
-    replace: ' | '
+#- name: "update-reports-repo | Format Markdown File Commas to Pipes"
+#  replace:
+#    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+#    regexp: ','
+#    replace: ' | '
 
-- name: "Format Markdown File Clean Up"
+- name: "update-reports-repo | Format Markdown File Clean Up"
   replace:
     path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
     regexp: "'"
     replace: ''
 
-- name: "Add Header Rows to Markdown"
+- name: "update-reports-repo | Add Header Rows to Markdown"
   lineinfile:
     path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
     insertbefore: BOF
     line: "{{ item.property }}"
   with_items:
-    - { property: '| -------- | ------ | ------------- | ----------- | -- | ------------- | ------- | ------------ | --------- | ------------ | ---------------- | --------------- | ---- | ---- | --------------- | ----------- | --------- | -------------- | -------------- | ---------- | ----------------- | ---------- | --------------- | --------------- | ------------ |' }
+    - { property: '| -------- | ------ | ------------- | ----------- | --- | ------------- | ------- | ------------ | --------- | ------------ | ---------------- | --------------- | ---- | ---- | --------------- | ----------- | --------- | -------------- | -------------- | ---------- | ----------------- | ---------- | --------------- | --------------- | ------------ |' }
     - { property: '| Hostname | Domain | Domain Member | Domain Role | OS | Major Version | Version | Architecture | Bios Date | Bios Version | Connection Names | Interface Names | IPv4 | IPv6 | Default Gateway | MAC Address | Last Boot | Reboot Pending | Uptime Seconds | Machine ID | Total Memory (MB) | Processors | Processor Cores | Processor Count | Product Name |' }
     - { property: '# Windows' }
 
@@ -133,22 +156,9 @@
 - set_fact:
     git_commit_message: "ansible [{{ role_path|basename }}] windows inventory report updated as of {{ ansible_date_time.iso8601 }}"
 
-#- name: Git - Add
-#  shell: "git add ../*"
-#  register: gitadd
-#
-#- name: Git - commit
-#  shell: git commit -m "{{ git_message }}"
-#  register: gitcommit
-#
-#- name: Git - push
-#  shell: git push
-#  register: gitpush
-
 ## ref: https://github.com/lvrfrc87/git-acp-ansible
 ## ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
-- name: "Push reports to {{ report_windows_facts_git_repo_url }}"
-#  delegate_to: "localhost"
+- name: "update-reports-repo | Push reports to {{ report_windows_facts_git_repo_url }}"
   git_acp:
     url: "{{ report_windows_facts_git_repo_url }}"
     path: "{{ report_windows_facts_repo_dir }}"
@@ -161,6 +171,6 @@
     token: "{{ report_windows_facts_git_repo_token }}"
   register: git_acp_result
 
-- name: "update_cert_repo | Display git_acp_result"
+- name: "update-reports-repo | Display git_acp_result"
   debug:
     var: git_acp_result
