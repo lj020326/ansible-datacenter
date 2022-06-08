@@ -1,0 +1,146 @@
+---
+
+## ref: https://github.com/lvrfrc87/git-acp-ansible/blob/master/ansible_collections/lvrfrc87/git_acp/tests/install/ansible_collections/lvrfrc87/git_acp/tests/integration/targets/git_acp/tasks/main.yml
+- name: "Update inventory report repo"
+  hosts: localhost
+#  gather_facts: false
+  vars_files:
+    - vars/test-git-acp.yml
+    - vars/vault.yml
+  tasks:
+
+    - debug: var=ansible_date_time
+    - debug: msg="the current date is {{ ansible_date_time.date }}"
+
+    - name: "Create temporary build directory"
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: build
+      register: report_windows_facts_tempdir
+
+    - name: "Set fact for report_windows_facts_repo_dir"
+      set_fact:
+        report_windows_facts_repo_dir: "{{ report_windows_facts_tempdir.path }}/report-windows-facts"
+
+    - name: "Set fact for report_windows_facts_reports_dir"
+      set_fact:
+#        report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/docs/servers/WINDOWS"
+        report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/inventory/{{ report_windows_facts_inventory_source }}/WINDOWS"
+
+    - name: "Display primary role input variables"
+      debug:
+        msg:
+          - "report_windows_facts_git_repo_url_scheme={{ report_windows_facts_git_repo_url_scheme }}"
+          - "report_windows_facts_git_repo_url_cred={{ report_windows_facts_git_repo_url_cred }}"
+          - "report_windows_facts_git_repo_branch={{ report_windows_facts_git_repo_branch }}"
+          - "report_windows_facts_repo_dir={{ report_windows_facts_repo_dir }}"
+          - "report_windows_facts_reports_dir={{ report_windows_facts_reports_dir }}"
+
+
+    - name: "Setup ssh key when scheme is ssh"
+      when: report_windows_facts_git_repo_url_scheme=="ssh"
+      block:
+
+        - name: "get_cert_repo | Ensure ssh dir exists at {{ report_windows_facts_ssh_key_dir }}"
+          file:
+            path: "{{ report_windows_facts_ssh_key_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: "get_cert_repo | Check if git private ssh key exist in {{ report_windows_facts_git_ssh_private_keyfile }}"
+          stat:
+            path: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+          register: private_key
+
+        ## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
+        - name: "get_cert_repo | Ensure git private key is present at {{ report_windows_facts_git_ssh_private_keyfile }}"
+    #      when: not (private_key.stat.exists | bool)
+          copy:
+            content: "{{ report_windows_facts_ssh_private_key }}"
+            dest: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+            mode: 0600
+            backup: yes
+          no_log: yes
+
+        - name: "Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
+          git:
+            repo: "{{ report_windows_facts_git_repo_url_cred }}"
+            dest: "{{ report_windows_facts_repo_dir }}"
+            version: "{{ report_windows_facts_git_repo_branch }}"
+            clone: yes
+            accept_hostkey: true
+            update: yes
+            force: true
+            key_file: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+          register: gitclone
+
+        - name: "Configure git configs for core.sshCommand"
+          git_config:
+            scope: local
+            repo: "{{ report_windows_facts_repo_dir }}"
+            name: core.sshCommand
+            value: "ssh -i {{ report_windows_facts_git_ssh_private_keyfile }} -o IdentitiesOnly=yes"
+
+    - name: "Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
+      when: report_windows_facts_git_repo_url_scheme=='http'
+      git:
+        repo: "{{ report_windows_facts_git_repo_url_cred }}"
+        dest: "{{ report_windows_facts_repo_dir }}"
+        version: "{{ report_windows_facts_git_repo_branch }}"
+        clone: yes
+        accept_hostkey: true
+      register: gitclone
+
+    - name: "Configure git configs"
+      git_config:
+        scope: local
+        repo: "{{ report_windows_facts_repo_dir }}"
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+      loop:
+        - name: user.name
+          value: "{{ report_windows_facts_git_user }}"
+        - name: user.email
+          value: "{{ report_windows_facts_git_email }}"
+
+    - name: "List git config settings for {{ report_windows_facts_repo_dir }}"
+      git_config:
+        list_all: yes
+        scope: local
+        repo: "{{ report_windows_facts_repo_dir }}"
+      register: git_config_settings
+
+    - name: Display git_config_settings
+      debug:
+        var: git_config_settings
+
+    - name: "Touch {{ report_windows_facts_repo_dir }}/{{ report_windows_facts_test_filename }}"
+      file:
+        path: "{{ report_windows_facts_repo_dir }}/{{ report_windows_facts_test_filename }}"
+        state: touch
+
+    - set_fact:
+        git_commit_message: "ansible [{{ playbook_dir|basename }}] windows inventory report updated as of {{ ansible_date_time.iso8601 }}"
+
+    ## ref: https://github.com/lvrfrc87/git-acp-ansible
+    ## ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
+    - name: "Push reports to {{ report_windows_facts_git_repo_url }}"
+      git_acp:
+        url: "{{ report_windows_facts_git_repo_url_cred }}"
+        path: "{{ report_windows_facts_repo_dir }}"
+        branch: "{{ report_windows_facts_git_repo_branch }}"
+        comment: "{{ git_commit_message }}"
+        add: [ "." ]
+        remote: origin
+        mode: "{{ report_windows_facts_git_repo_url_scheme }}"
+      register: git_acp_result
+
+    - name: "Display git_acp_result"
+      debug:
+        var: git_acp_result
+
+    - name: "Cleanup/Remove temporary build directory"
+      when: report_windows_facts_tempdir.path is defined
+      ansible.builtin.file:
+        state: absent
+        path: report_windows_facts_tempdir.path

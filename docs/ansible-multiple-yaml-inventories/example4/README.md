@@ -315,7 +315,7 @@ The results are as expected/intended.
 
 ## Conclusion/Next Steps
 
-From this test, we conclude that using the INI method to matching role-based group setting to an existing YAML-based inventory works as expected.
+From this test, we conclude that using the INI method to match role-based group settings to an existing YAML-based inventory works as expected.
 
 The only 2 downsides with the approach are
 

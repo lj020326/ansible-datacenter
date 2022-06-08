@@ -129,9 +129,12 @@ output:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.lvrfrc87.git_acp.plugins.module_utils.git_actions import Git
-from ansible_collections.lvrfrc87.git_acp.plugins.module_utils.git_configuration import GitConfiguration
-
+# from ansible_collections.lvrfrc87.git_acp.plugins.module_utils.git_actions import Git
+# from ansible_collections.lvrfrc87.git_acp.plugins.module_utils.git_configuration import GitConfiguration
+# from git_actions import Git
+# from git_configuration import GitConfiguration
+from ansible.module_utils.git_actions import Git
+from ansible.module_utils.git_configuration import GitConfiguration
 
 def main():
     """

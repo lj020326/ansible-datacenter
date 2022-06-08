@@ -5,6 +5,7 @@
     state: directory
     suffix: build
   register: report_windows_facts_tempdir
+  notify: cleanup report_windows_facts_tempdir
 
 - name: "update-reports-repo | Set fact for report_windows_facts_repo_dir"
   set_fact:
@@ -12,17 +13,22 @@
 
 - name: "update-reports-repo | Set fact for report_windows_facts_reports_dir"
   set_fact:
-    report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/docs/servers/WINDOWS"
+#    report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/docs/servers/WINDOWS"
+    report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/inventory/{{ report_windows_facts_inventory_source }}/WINDOWS"
 
-- name: "update-reports-repo | Display report_windows_facts_repo_dir"
+- name: "update-reports-repo | Display primary role input variables"
   debug:
     msg:
+      - "report_windows_facts_git_repo_url_scheme={{ report_windows_facts_git_repo_url_scheme }}"
+      - "report_windows_facts_git_repo_url_cred={{ report_windows_facts_git_repo_url_cred }}"
+      - "report_windows_facts_git_repo_branch={{ report_windows_facts_git_repo_branch }}"
       - "report_windows_facts_repo_dir={{ report_windows_facts_repo_dir }}"
       - "report_windows_facts_reports_dir={{ report_windows_facts_reports_dir }}"
 
 - name: "update-reports-repo | Display connection_name"
   debug:
     var: hostvars[item].connection_name
+    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].connection_name"
@@ -30,6 +36,7 @@
 - name: "update-reports-repo | Display interface_name"
   debug:
     var: hostvars[item].interface_name
+    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].interface_name"
@@ -37,11 +44,58 @@
 - name: "update-reports-repo | Display ipv4_address"
   debug:
     var: hostvars[item].ipv4_address
+    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].ipv4_address"
 
+
+- name: "Setup ssh key when scheme is ssh"
+  when: report_windows_facts_git_repo_url_scheme=='ssh'
+  block:
+
+    - name: "get_cert_repo | Ensure ssh dir exists at {{ report_windows_facts_ssh_key_dir }}"
+      file:
+        path: "{{ report_windows_facts_ssh_key_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: "get_cert_repo | Check if git private ssh key exist in {{ report_windows_facts_git_ssh_private_keyfile }}"
+      stat:
+        path: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+      register: private_key
+
+    ## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
+    - name: "get_cert_repo | Ensure git private key is present at {{ report_windows_facts_git_ssh_private_keyfile }}"
+#      when: not (private_key.stat.exists | bool)
+      copy:
+        content: "{{ report_windows_facts_ssh_private_key }}"
+        dest: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+        mode: 0600
+        backup: yes
+      no_log: yes
+
+    - name: "update-reports-repo | Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
+      git:
+        repo: "{{ report_windows_facts_git_repo_url_cred }}"
+        dest: "{{ report_windows_facts_repo_dir }}"
+        version: "{{ report_windows_facts_git_repo_branch }}"
+        clone: yes
+        accept_hostkey: true
+        update: yes
+        force: true
+        key_file: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+      register: gitclone
+
+    - name: "update-reports-repo | Configure git configs for core.sshCommand"
+      git_config:
+        scope: local
+        repo: "{{ report_windows_facts_repo_dir }}"
+        name: core.sshCommand
+        value: "ssh -i {{ report_windows_facts_git_ssh_private_keyfile }} -o IdentitiesOnly=yes"
+
 - name: "update-reports-repo | Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
+  when: report_windows_facts_git_repo_url_scheme=='https'
   git:
     repo: "{{ report_windows_facts_git_repo_url_cred }}"
     dest: "{{ report_windows_facts_repo_dir }}"
@@ -52,6 +106,45 @@
 #    force: true
 #    key_file: "{{ report_windows_facts_git_ssh_private_keyfile }}"
   register: gitclone
+
+- name: "update-reports-repo | Configure git configs"
+  git_config:
+    scope: local
+    repo: "{{ report_windows_facts_repo_dir }}"
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+  loop:
+    - name: user.name
+      value: "{{ report_windows_facts_git_user }}"
+    - name: user.email
+      value: "{{ report_windows_facts_git_email }}"
+
+- name: "update-reports-repo | List git config settings for {{ report_windows_facts_repo_dir }}"
+  git_config:
+    list_all: yes
+    scope: local
+    repo: "{{ report_windows_facts_repo_dir }}"
+  register: git_config_settings
+
+- name: Display git_config_settings
+  debug:
+    var: git_config_settings
+
+- name: "update-reports-repo | Ensure directory {{ report_windows_facts_reports_dir }} exists"
+  file:
+    path: "{{ report_windows_facts_reports_dir }}"
+    state: directory
+
+- name: "update-reports-repo | Create inventory directories"
+  file:
+    path: "{{ report_windows_facts_reports_dir }}/{{ item }}"
+    state: directory
+  loop:
+    - json
+    - yaml
+    - csv
+    - markdown
+    - mindmap
 
 - name: "update-reports-repo | Create JSON file with Ansible Facts"
   copy:
@@ -102,11 +195,6 @@
     line: Hostname,Domain,Domain Member,Domain Role,OS,Major Version,Version,Architecture,Bios Date,Bios Version,Connection Names,Interface Names,IPv4 Address,IPv6 Address,Default Gateway,MAC Address,Last Boot,Reboot Pending,Uptime Seconds,Machine ID,Total Memory (MB),Processors,Processor Cores,Processor Count,Product Name
 
 
-- name: "update-reports-repo | Create Markdown directory [{{ report_windows_facts_reports_dir }}/markdown]"
-  file:
-    path: "{{ report_windows_facts_reports_dir }}/markdown"
-    state: directory
-
 - name: "update-reports-repo | Create Markdown file with results"
   copy:
     content: |
@@ -150,6 +238,7 @@
     - { property: '# Windows' }
 
 - name: "Create server_facts Mind Map"
+  when: report_windows_facts_create_mindmap|d(True)|bool
   shell: "markmap --no-open {{ report_windows_facts_reports_dir }}/markdown/server_facts.md -o {{ report_windows_facts_reports_dir }}/mindmap/server_facts.html"
   register: markmap
 
@@ -158,15 +247,29 @@
 
 ## ref: https://github.com/lvrfrc87/git-acp-ansible
 ## ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
-- name: "update-reports-repo | Push reports to {{ report_windows_facts_git_repo_url }}"
+- name: "update-reports-repo | Push reports git(ssh) to {{ report_windows_facts_git_repo_url }}"
+  when: report_windows_facts_git_repo_url_scheme=='ssh'
   git_acp:
-    url: "{{ report_windows_facts_git_repo_url }}"
+    url: "{{ report_windows_facts_git_repo_url_cred }}"
     path: "{{ report_windows_facts_repo_dir }}"
     branch: "{{ report_windows_facts_git_repo_branch }}"
     comment: "{{ git_commit_message }}"
     add: [ "." ]
     remote: origin
-    mode: https
+    mode: "{{ report_windows_facts_git_repo_url_scheme }}"
+    user_name: "{{ report_windows_facts_git_repo_user }}"
+  register: git_acp_result
+
+- name: "update-reports-repo | Push reports via git(https) to {{ report_windows_facts_git_repo_url }}"
+  when: report_windows_facts_git_repo_url_scheme=='https'
+  git_acp:
+    url: "{{ report_windows_facts_git_repo_url_cred }}"
+    path: "{{ report_windows_facts_repo_dir }}"
+    branch: "{{ report_windows_facts_git_repo_branch }}"
+    comment: "{{ git_commit_message }}"
+    add: [ "." ]
+    remote: origin
+    mode: "{{ report_windows_facts_git_repo_url_scheme }}"
     user: "{{ report_windows_facts_git_repo_user }}"
     token: "{{ report_windows_facts_git_repo_token }}"
   register: git_acp_result

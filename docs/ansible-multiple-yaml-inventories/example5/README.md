@@ -1,5 +1,5 @@
 
-# Example 4: Multiple YAML inventories with 'role-based' YAML inventory groups
+# Example 5: Multiple YAML inventories with 'role-based' YAML inventory groups
 
 In the prior [Example 4](../example4/README.md), we merged Multiple YAML inventories using 'role-based' INI inventory groups.
 
@@ -122,6 +122,22 @@ all:
         app-[dmz|internal]-q2-s[1|2].example.int: {}
         web-[dmz|internal]-q1-s[1|2].example.int: {}
         web-[dmz|internal]-q2-s[1|2].example.int: {}
+    ##
+    ## 'network_client' group is only used in the internal inventory
+    ##    to separate the ntp-clients from the servers
+    ##
+    ## For the DMZ environment, all machines are ntp-clients 
+    ##    and have the same ntp_servers config  
+    ##    to common external/publicly-hosted ntp-servers
+    ##
+    network_client:
+      vars:
+        trace_var: site[1|2]/network_client
+      hosts:
+        app-q1-internal-s[1|2].example.int: {}
+        app-q2-internal-s[1|2].example.int: {}
+        web-q1-internal-s[1|2].example.int: {}
+        web-q2-internal-s[1|2].example.int: {}
     ungrouped: {}
 
 ```
@@ -139,21 +155,65 @@ Each of the respective inventory files:
 
 For the ntp playbook/role to work on both servers and clients, we will define the 'ntp_server' and 'ntp_client' groups to correctly scope the machines to be applied.
 
-For each network/site, there will be 2 __ntp servers__ resulting in a total of 8 hosts to be targeted for the 'ntp-server' play/role application.
+All machines in the 'network_dmz' group will have the __ntp_servers__ variable set to the externally defined ntp servers.
 
-Specifically, the 'ntp_server' group configuration will be applied to the following 8 'admin' machines (2 host instances for each specific network/site):
+For each site in the 'network_internal' group, there will be 2 machines defined in the 'ntp_servers' group.
+All ntp clients in the 'network_internal' group will have the __ntp_servers__ variable set to the 2 ntp_server machines in the respective site.
 
-```output
-admin-dmz-q1-s1.example.int
-admin-dmz-q2-s1.example.int
-admin-dmz-q1-s2.example.int
-admin-dmz-q2-s2.example.int
-admin-internal-q1-s1.example.int
-admin-internal-q2-s1.example.int
-admin-internal-q1-s2.example.int
-admin-internal-q2-s2.example.int
+### Internal Network NTP Client Configuration
+
+For the internal network inventory, the 'ntp_client_internal' group is defined with the parent group of 'ntp_client'.  The 'ntp_client_internal' group has its child group set to the inventory defined group 'network_client'.  
+
+[inventory/internal/ntp.yml](./inventory/internal/ntp.yml):
+```yaml
+all:
+  children:
+    ntp_client:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_client]
+      children:
+        ntp_client_internal: {}
+    ntp_client_internal:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_client_internal]
+      children:
+        network_client: {}
+    ntp_server:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_server]
+      hosts:
+        admin-q1-internal-s1.example.int: {}
+        admin-q2-internal-s1.example.int: {}
+        admin-q1-internal-s2.example.int: {}
+        admin-q2-internal-s2.example.int: {}
+    ntp:
+      children:
+        ntp_client: {}
+        ntp_server: {}
 ```
 
+
+The __ntp_servers__ variable setting in the ['ntp_client_internal'](./inventory/internal/group_vars/ntp_client_internal.yml) group:
+
+site1:
+```output
+"ntp_servers": [
+    "admin-q1-internal-s1.example.int",
+    "admin-q2-internal-s1.example.int"
+]
+
+```
+
+site2:
+```output
+ntp_servers: [
+    "admin-q1-internal-s2.example.int",
+    "admin-q2-internal-s2.example.int"
+]
+```
+
+
+### DMZ Network NTP Client Configuration
 
 The 'ntp-client' group will include all linux machines for the respective environment.
 In this case, the environment will be defined with the existing test environment group named 'environment_test'.
@@ -172,30 +232,51 @@ all:
         ntp_client: {}
 ```
 
-Note that for the DMZ network, that there are no ntp servers and that all machines are ntp clients.
+Note that for the DMZ network, that there are no internal ntp servers and that all machines are ntp clients with the __ntp_server__ variable set to external/public ntp server machines.
+
+This can be seen in the __ntp_servers__ variable in the ['ntp_client'](./inventory/dmz/group_vars/ntp_client.yml) group variable configuration:
+
+```yaml
+ntp_servers:
+  - 0.rhel.pool.ntp.org
+  - 1.rhel.pool.ntp.org
+  - 2.rhel.pool.ntp.org
+  - 3.rhel.pool.ntp.org
+
+```
+
+## NTP parent group
+A ntp parent group is defined such that it contains all the related groups useful for targetting plays to run against for the entire NTP configuration playbook.
 
 [inventory/internal/ntp.yml](./inventory/internal/ntp.yml):
 ```yaml
 all:
   children:
+    ntp_client:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_client]
+      children:
+        ntp_client_internal: {}
+    ntp_client_internal:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_client_internal]
+      children:
+        network_client: {}
     ntp_server:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_server]
       hosts:
         admin-q1-internal-s1.example.int: {}
         admin-q2-internal-s1.example.int: {}
         admin-q1-internal-s2.example.int: {}
         admin-q2-internal-s2.example.int: {}
-    ntp_client:
-      children:
-        environment_test: {}
     ntp:
       children:
         ntp_client: {}
         ntp_server: {}
 ```
 
-The 'ntp_client' group is defined with the children group of 'environment_test'.  
 
-Note that the 'ntp_client' group includes the 8 admin machines already included in the 'ntp_server' group.  This overlap can be addressed by making sure that the 'ntp_server' group is excluded for the respective plays that only mean to target the 'ntp_client' machines.  This will be demonstrated in the following verifications section. 
 
 We will now run through several ansible CLI tests to verify that the correct machines result for each respective limit used.
 
@@ -327,29 +408,38 @@ all:
 ```yaml
 all:
   children:
+    ntp_client:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_client]
+      children:
+        ntp_client_internal: {}
+    ntp_client_internal:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_client_internal]
+      children:
+        network_client: {}
     ntp_server:
+      vars:
+        group_trace_var: internal/ntp.yml[ntp_server]
       hosts:
         admin-q1-internal-s1.example.int: {}
         admin-q2-internal-s1.example.int: {}
         admin-q1-internal-s2.example.int: {}
         admin-q2-internal-s2.example.int: {}
-    ntp_client:
-      children:
-        environment_test: {}
     ntp:
       children:
         ntp_client: {}
         ntp_server: {}
     location_site1:
       vars:
-        trace_var: internal/ntp/location_site1
-        gateway_ipv4: 192.168.112.1
-        gateway_ipv4_network_cidr: 192.168.112.0/16
+        trace_var: internal/ntp.yml[location_site1]
+        gateway_ipv4: 10.10.10.1
+        gateway_ipv4_network_cidr: 10.10.10.0/24
     location_site2:
       vars:
-        trace_var: internal/ntp/location_site2
-        gateway_ipv4: 192.168.221.1
-        gateway_ipv4_network_cidr: 192.168.221.0/16
+        trace_var: internal/ntp.yml[location_site2]
+        gateway_ipv4: 10.10.20.1
+        gateway_ipv4_network_cidr: 10.10.20.0/24
 ```
 
 
@@ -726,3 +816,30 @@ web-q2-internal-s2.example.int | SUCCESS => {
 }
 
 ```
+
+
+## Conclusion/Next Steps
+
+From this test, we conclude that using the YAML method to match role-based group settings to an existing YAML-based inventory works as expected.
+
+Note that for the ntp clients in the internal group, we leveraged a special group called 'network_client'.
+
+Maintaining such a group configuration can be problematic.
+
+E.g., Say the following parameters are given:
+
+* A 'network' (parent) group has 100, 1000, or lets say __N machines__ and 
+* A subset 'network_server' group only has a far less _finite number_ of instances, say 2, 4, or __M machines__
+* A derived 'network_client' defined as the parent group of __N machines__ minus the server group of __M machines__.
+
+So given an inventory with a 'network' group of 1000 machines, and a 'network_server' group of 4 machines, then the 'network_client' group would have 996 machines. 
+
+Maintaining a 'network_client' group for multiple use-cases would have to re-define the child group of __(N - M) machines__. 
+
+This can present risks since then each 'network_client' group is almost the same size as the parent 'network_server' group and exposes risks of maintaining synchronization of the group.
+
+Multiply this by the number of use cases having the same/similar pattern.
+
+Ideally, we do not want to explicitly define and maintain a 'network_client' group since it can be simply derived from the obtaining the difference of the 'network' and 'network_server' groups.
+
+The [next example](../example6/README.md) will look to resolve the challenge of deriving the 'network_client' child group.
