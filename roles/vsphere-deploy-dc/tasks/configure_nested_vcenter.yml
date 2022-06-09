@@ -2,19 +2,19 @@
 
 - name: "configure_nested_vcenter | Create Datacenter"
   vmware_datacenter:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "administrator@vsphere.local"
-    password: "{{ nested_vcenter.password }}"
-    datacenter_name: "{{ nested_vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    datacenter_name: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
     state: present
     validate_certs: False
 
 #- name: "configure_nested_vcenter | Create Clusters"
 #  vmware_cluster:
-#    hostname: "{{ nested_vcenter.hostname }}"
-#    username: "{{ nested_vcenter.username }}"
-#    password: "{{ nested_vcenter.password }}"
-#    datacenter_name: "{{ nested_vcenter.datacenter }}"
+#    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+#    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+#    datacenter_name: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
 #    cluster_name: "{{ item.key }}"
 #    validate_certs: False
 #    enable_ha: "{{ item.value.ha.enabled }}"
@@ -26,20 +26,20 @@
 
 #- name: "configure_nested_vcenter | Create Nested Clusters"
 #  vmware_cluster:
-#    hostname: "{{ nested_vcenter.hostname }}"
-#    username: "{{ nested_vcenter.username }}"
-#    password: "{{ nested_vcenter.password }}"
-#    datacenter_name: "{{ nested_vcenter.datacenter }}"
+#    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+#    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+#    datacenter_name: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
 #    cluster_name: "{{ item.key }}"
 #    validate_certs: False
 #  with_dict: "{{ nested_clusters }}"
 
 - name: "configure_nested_vcenter | Configure Nested Cluster HA"
   vmware_cluster_ha:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
-    datacenter_name: "{{ nested_vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    datacenter_name: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
     cluster_name: "{{ item.key }}"
     validate_certs: False
     enable_ha: "{{ item.value.ha }}"
@@ -49,10 +49,10 @@
 
 - name: "configure_nested_vcenter | Configure Clusters DRS"
   vmware_cluster_drs:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
-    datacenter_name: "{{ nested_vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    datacenter_name: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
     cluster_name: "{{ item.key }}"
     validate_certs: False
     enable_drs: "{{ item.value.drs }}"
@@ -60,35 +60,37 @@
 
 - name: "configure_nested_vcenter | Add Nested ESXi Host to nested VCSA"
   vmware_host:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
-    datacenter_name: "{{ nested_vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    datacenter_name: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
     validate_certs: false
     cluster_name: "{{ item.cluster }}"
-    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + vcenter_domain) }}"
-    esxi_username: "{{ nested_host_credentials.user }}"
-    esxi_password: "{{ nested_host_credentials.password }}"
+#    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + vcenter_domain) }}"
+    esxi_hostname: "{{ item.hostname }}"
+    esxi_username: "{{ vsphere_credentials[item.hostname].username }}"
+    esxi_password: "{{ vsphere_credentials[item.hostname].password }}"
     state: present
 #  no_log: yes
-  loop: "{{ nested_hosts_list }}"
+  loop: "{{ __nested_hosts_list }}"
 
 - name: "configure_nested_vcenter | Add ESXi license and assign to the vESXi host"
   vcenter_license:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
-    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + vcenter_domain) }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+#    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + vcenter_domain) }}"
+    esxi_hostname: "{{ item.hostname }}"
     license: "{{ vsphere_licenses[item.hostname] | d(esxi_license) }}"
     state: present
     validate_certs: False
-  loop: "{{ nested_hosts_list }}"
+  loop: "{{ __nested_hosts_list }}"
 
 ## Build a list of each datastore to add to each host
 - name: "configure_nested_vcenter | Build datastores to add"
   set_fact:
     datastores_to_add: >-
-      [{% for host in nested_hosts_list  %}
+      [{% for host in __nested_hosts_list  %}
       {% for disk in nested_clusters[host.cluster].nested_hosts_disks  %}
         {% if "create_datastore_name" in  disk %}
         {% if loop.index0 != 0 %}
@@ -107,16 +109,16 @@
       {% endfor %}
       {% endfor %}
       ]
-  loop: "{{ nested_hosts_list }}"
+  loop: "{{ __nested_hosts_list }}"
 
 - debug:
     var: datastores_to_add
 
 - name: "configure_nested_vcenter | Mount VMFS datastores to ESXi"
   vmware_host_datastore:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     validate_certs: False
     datastore_name: "{{ item.datastore_name }}"
     datastore_type: "vmfs"
@@ -129,9 +131,9 @@
 
 - name: "configure_nested_vcenter | Add resource pool to vCenter"
   vmware_resource_pool:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     validate_certs: False
     datacenter: "{{ nested_vcenter.datacenter }}"
     cluster: "{{ item.0.cluster_name }}"
@@ -145,9 +147,9 @@
 
 #- name: "configure_nested_vcenter | Create datastore a tag"
 #  vmware_tag:
-#    hostname: "{{ nested_vcenter.hostname }}"
-#    username: "{{ nested_vcenter.username }}"
-#    password: "{{ nested_vcenter.password }}"
+#    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+#    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
 #    validate_certs: false
 #    tag_name: k8s-storage
 #    tag_description: "Tag for datastores used by K8s"

@@ -1,20 +1,23 @@
 ---
 
-#repo_dir: '/opt/repo'
-#vcsa_iso: 'VMware-VCSA-all-6.7.0-9451876.iso'
 vsphere_version: "6.7"
 
 #vcenter_repo_dir: '/srv/data2/data/vmware/iso-repos/vmware'
 vcenter_repo_dir: '/data/vmware/iso-repos/vmware'
 #vcsa_iso: 'VMware-VCSA-all-6.5.0-15259038.iso'
 #esx_iso: "VMware-VMvisor-Installer-6.5.0-4564106.x86_64.iso"
+#vcsa_iso: 'VMware-VCSA-all-6.7.0-9451876.iso'
 #vcsa_iso: 'VMware-VCSA-all-6.7.0-15132721.iso'
-vcsa_iso: 'VMware-VCSA-all-6.7.0-15132721.iso'
-esx_iso: "VMware-VMvisor-Installer-6.7.0-8169922.x86_64.iso"
+#vcsa_iso: 'VMware-VCSA-all-6.7.0-15132721.iso'
+vcsa_iso: "VMware-VCSA-all-7.0.0-16189094.iso"
+
+#esx_iso: "VMware-VMvisor-Installer-6.7.0-8169922.x86_64.iso"
+esx_iso: "VMware-VMvisor-Installer-7.0U2-17630552.x86_64.iso"
 
 ovftool: '/mnt/vcsa/ovftool/lin64/ovftool'
 #vcsa_ova: 'vcsa/VMware-vCenter-Server-Appliance-6.7.0.14000-9451876_OVF10.ova'
 #vcsa_ova: 'vcsa/VMware-vCenter-Server-Appliance-6.5.0.32000-15259038_OVF10.ova'
+
 vcenter_mount_dir_path: '/mnt'
 
 vcenter_appliance_type: 'embedded'
@@ -25,37 +28,27 @@ vcenter_disk_mode: 'thin'
 vcenter_ssh_enable: true
 
 #vcenter_target_esxi: "192.168.0.11"
-vcenter_target_esxi: "esx02.dettonville.int"
+#vcenter_target_esxi: "esx00.dettonville.int"
+vcenter_target_esxi: "esx01.dettonville.int"
 vcenter_target_esxi_password: "{{ esxi_password }}"
 
-vcenter_target_esxi_datastore: 'esx02_ds1'
+vcenter_target_esxi_datastore: 'esx01_ds1'
 #vcenter_target_esxi_portgroup: 'Management'
 vcenter_target_esxi_portgroup: 'VM Network'
 
 vcenter_time_sync_tools: false
 
-#vcenter_ip: '192.168.10.30'
-#vcenter_netmask: '255.255.0.0'
-#vcenter_gateway: '192.168.0.1'
-#vcenter_net_prefix: '16'
-
-#vcenter_node_info: "{{ hostvars['vcenter'] }}"
-#vcenter_node_info: "{{ hostvars['vcsa'] }}"
 vcenter_node_info: "{{ hostvars[groups['vmware_vcenter'][0]] }}"
 
-vcenter_ip: "{{ vcenter_node_info['ipv4_address'] }}"
-vcenter_netmask: "{{ vcenter_node_info['gateway_ipv4_netmask'] }}"
-vcenter_gateway: "{{ vcenter_node_info['ipv4_gateway'] }}"
-vcenter_net_prefix: "{{ vcenter_node_info['gateway_ipv4_net_cidr'] }}"
+vcenter_ip: "{{ vcenter_node_info['vcenter_ipv4_address'] }}"
+vcenter_netmask: "{{ vcenter_node_info['vcenter_gateway_ipv4_netmask'] }}"
+vcenter_gateway: "{{ vcenter_node_info['vcenter_ipv4_gateway'] }}"
+vcenter_net_prefix: "{{ vcenter_node_info['vcenter_gateway_ipv4_net_cidr'] }}"
 
-#vcenter_appliance_name: "vcenter-01"
-#vcenter_appliance_name: "vcenter"
 vcenter_appliance_name: "{{ vcenter_node_info['vcenter_appliance_name'] | d('vcenter') }}"
 vcenter_appliance_size: "{{ vcenter_node_info['vcenter_appliance_size'] | d('tiny') }}"
 
 #vcenter_net_prefix: "{{ vcenter_ip + '/' + vcenter_netmask | ansible.utils.ipaddr('prefix') }}"
-#vcenter_fqdn: "vcenter.dettonville.int"
-#vcenter_domain: "dettonville.int"
 
 vcenter_fqdn: "{{ vcenter_node_info.vcenter_fqdn }}"
 vcenter_hostname: "{{ vcenter_fqdn }}"
@@ -67,17 +60,18 @@ vcenter_mgt_portgroup_name: "{{ vcenter_node_info.vcenter_network | d(vcenter_ne
 vcenter_mgt_vlan_id: "{{ vcenter_node_info.vcenter_mgt_vlan_id | d(1) }}"
 vcenter_mgt_vswitch: "{{ vcenter_node_info.vcenter_mgt_vswitch | d('vSwitch0') }}"
 
-vcenter_dns_servers: "{{ vcenter_node_info.dns_servers }}"
-vcenter_ntp_servers: "{{ vcenter_node_info.ntp_servers }}"
+vcenter_dns_servers: "{{ vcenter_node_info.vcenter_dns_servers }}"
+vcenter_ntp_servers: "{{ vcenter_node_info.vcenter_ntp_servers }}"
 
 vcenter_search_domains:
   - "{{ vcenter_domain }}"
 
-vcenter_site_name: "CSH"
+#vcenter_site_name: "CSH"
+vcenter_site_name: "RDU"
 vcenter_sso_domain: "{{ vcenter_node_info.vcenter_sso_domain | d('vsphere.local') }}"
 
 vcenter_cluster: "{{ vcenter_node_info.vcenter_cluster | d('Management') }}"
-vcenter_datastore: "{{ vcenter_node_info.vcenter_datastore | d('esx02_ds1') }}"
+vcenter_datastore: "{{ vcenter_node_info.vcenter_datastore | d(vcenter_target_esxi_datastore) }}"
 vcenter_datacenter: "{{ vcenter_node_info.vcenter_datacenter | d('dettonville-dc-01') }}"
 
 vcenter_clusters: "{{ vcenter_node_info.vcenter_clusters | d({}) }}"
@@ -96,7 +90,7 @@ vcenter_switch_mtu: 1700
 vcenter_mgt_network: "Management Network" # this portGroup will be created on the pESX with the vlan id specified in the
 
 # the vCenter appliance that need to be deployed
-vcenter:
+vsphere_deploy__vcenter:
   name: "{{ vcenter_appliance_name }}"
   fqdn: "{{ vcenter_fqdn }}"
   hostname: "{{ vcenter_hostname }}"
@@ -112,33 +106,33 @@ vcenter:
   nested_vss_portgroup_name: "{{ vcenter_nested_vss_portgroup_name }}"
   nested_vss_vlan_id: "{{ vcenter_nested_vss_vlan_id }}"
   thin: "true"
-  username: "{{ vcenter_username }}"
-  password: "{{ vcenter_password }}"
+#  username: "{{ vcenter_username }}"
+#  password: "{{ vcenter_password }}"
   datacenter: "{{ vcenter_datacenter }}"
   datastore: "{{ vcenter_datastore }}" # Datastore name where the nested ESXi VMs will be deployed
   domain: "{{ vcenter_sso_domain }}"
-  cluster: "{{vcenter_cluster}}" # cluster where the vCenter VM will be deployed
-  site_name: "{{vcenter_site_name}}"
-  license: "{{vcenter_license}}"
+  cluster: "{{ vcenter_cluster }}" # cluster where the vCenter VM will be deployed
+  site_name: "{{ vcenter_site_name }}"
+  license: "{{ vcenter_license }}"
 
-vc_mng: "{{ vcenter }}"
+#vc_mng: "{{ vsphere_deploy__vcenter }}"
 
 vcenter_physical_portgroup_assignment:
-  - switch_name: "{{ vc_mng.switch_name }}"
-    portgroup_name: "{{ vc_mng.network }}"
-    vlan_id: "{{ vc_mng.vlan }}"
+  - switch_name: "{{ vsphere_deploy__vcenter.switch_name }}"
+    portgroup_name: "{{ vsphere_deploy__vcenter.network }}"
+    vlan_id: "{{ vsphere_deploy__vcenter.vlan }}"
     network_policy:
       promiscuous_mode: True
 
-  - switch_name: "{{ vc_mng.switch_name }}"
-    portgroup_name: "{{ vc_mng.mgt_network }}"
-    vlan_id: "{{ vc_mng.mgt_vlan }}"
+  - switch_name: "{{ vsphere_deploy__vcenter.switch_name }}"
+    portgroup_name: "{{ vsphere_deploy__vcenter.mgt_network }}"
+    vlan_id: "{{ vsphere_deploy__vcenter.mgt_vlan }}"
     network_policy:
       promiscuous_mode: True
 
-  - switch_name: "{{ vc_mng.switch_name }}"
-    portgroup_name: "{{ vc_mng.nested_vss_portgroup_name }}"
-    vlan_id: "{{ vc_mng.nested_vss_vlan_id }}"
+  - switch_name: "{{ vsphere_deploy__vcenter.switch_name }}"
+    portgroup_name: "{{ vsphere_deploy__vcenter.nested_vss_portgroup_name }}"
+    vlan_id: "{{ vsphere_deploy__vcenter.nested_vss_vlan_id }}"
     network_policy:
       promiscuous_mode: True
       forged_transmits: True
@@ -153,8 +147,8 @@ vcenter_physical_esx_defaults:
   dns_servers: "{{ vcenter_dns_servers }}"
   search_domains: "{{ vcenter_search_domains }}"
   switches:
-    - switch_name: "{{ vc_mng.switch_name }}"
-      mtu: "{{ vc_mng.mtu }}"
+    - switch_name: "{{ vsphere_deploy__vcenter.switch_name }}"
+      mtu: "{{ vsphere_deploy__vcenter.mtu }}"
       nics:
         - vmnic0
 
@@ -173,7 +167,7 @@ vcenter_target_esx_host: "{{ vcenter_physical_esx_hosts[1] }}"
 vcenter_nested_subnet: 10.100.209
 
 ## v2
-nested_vcenter: "{{ vc_mng }}"
+vsphere_deploy__nested_vcenter: "{{ vsphere_deploy__vcenter }}"
 
 vcenter_external_vlan: "0"
 
@@ -276,8 +270,16 @@ distributed_port_groups:
     num_ports: 120
 
 
-
-nested_host_credentials: # Credentials set in kickstart file inside the custom ISO
-  user: "{{ nested_esxi_username }}"
-  password: "{{ nested_esxi_password }}"
-
+vsphere_credentials:
+  vcenter.dettonville.int:
+    username: "administrator@vsphere.local"
+    password: "{{ vcenter_password }}"
+  esx00.dettonville.int:
+    username: "ansible"
+    password: "f00bar"
+  esx01.dettonville.int:
+    username: "ansible"
+    password: "f00bar"
+  esx02.dettonville.int:
+    username: "ansible"
+    password: "f00bar"

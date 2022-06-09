@@ -2,10 +2,10 @@
 
 - name: "create_vds | Create Distributed Switch"
   vmware_dvswitch:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
-    datacenter: "{{ nested_vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    datacenter: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
     validate_certs: false
     switch: "{{ item.name }}"
     version: "{{ item.switch_version }}"
@@ -19,9 +19,9 @@
 
 - name: "create_vds | Create Management Portgroup to all physical esx hosts"
   vmware_dvs_portgroup:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     validate_certs: false
     portgroup_name: "{{ item.name }}"
     switch_name: "{{ item.switch_name }}"
@@ -33,9 +33,9 @@
 
 - name: "create_vds | Add Management Network VM Portgroups to clusters"
   vmware_portgroup:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     validate_certs: False
     cluster_name: "{{ item.0.key }}"
     switch_name: "{{ item.0.value.switch_name }}"
@@ -52,14 +52,14 @@
 #- name: "configure_nested_vcenter | Migrate uplinks to the VDS"
 - name: "configure_nested_vcenter | Add hosts to the VDS"
   vmware_dvs_host:
-    hostname: "{{ nested_vcenter.hostname }}"
-    username: "{{ nested_vcenter.username }}"
-    password: "{{ nested_vcenter.password }}"
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     validate_certs: False
-    esxi_hostname: "{{ esx_hosts_by_name[item.1].hostname }}"
+    esxi_hostname: "{{ __esx_hosts_by_name[item.1].hostname }}"
     switch_name: "{{ item.0.name }}"
 #    vmnics: "{{ item.0.vmnics }}"
-    vmnics: "{{ esx_hosts_by_name[item.1].dvs_uplink_vmnics | d(item.0.vmnics) }}"
+    vmnics: "{{ __esx_hosts_by_name[item.1].dvs_uplink_vmnics | d(item.0.vmnics) }}"
     state: present
   with_subelements:
     - "{{ distributed_switches }}"
@@ -69,10 +69,10 @@
 
 #- name: "create_vds | Create vMotion vmk1"
 #  vmware_vmkernel:
-#    hostname: "{{ nested_vcenter.hostname }}"
+#    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
 #    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + vcenter_domain) }}"
-#    username: "{{ nested_vcenter.username }}"
-#    password: "{{ nested_vcenter.password}}"
+#    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
 #    state: present
 #    portgroup_name: vMotion
 #    dvswitch_name: "ComputeEdgeVDS"
@@ -82,14 +82,14 @@
 #      type: 'static'
 #      ip_address: "{{ item.vmotion_ip }}"
 #      subnet_mask: "{{ vmotion_mask }}"
-#  loop: "{{ nested_hosts_list }}"
+#  loop: "{{ __nested_hosts_list }}"
 #
 #- name: "create_vds | Create vSAN vmk2"
 #  vmware_vmkernel:
-#    hostname: "{{ nested_vcenter.hostname }}"
+#    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+#    username: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    password: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
 #    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + vcenter_domain) }}"
-#    username: "{{ nested_vcenter.username }}"
-#    password: "{{ nested_vcenter.password}}"
 #    state: present
 #    enable_vsan: true
 #    portgroup_name: vSAN
@@ -99,46 +99,46 @@
 #      type: 'static'
 #      ip_address: "{{ item.vsan_ip }}"
 #      subnet_mask: "{{ vsan_mask }}"
-#  loop: "{{ nested_hosts_list }}"
+#  loop: "{{ __nested_hosts_list }}"
 
 - name: "create_vds | Enable vSAN"
   enable_vsan:
-    vcenter: "{{ nested_vcenter.hostname }}"
-    user: "{{ nested_vcenter.username }}"
-    passwd: "{{ nested_vcenter.password }}"
+    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    user: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    passwd: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     cluster: "{{ item.key }}"
   when: item.value.vsan == True
   with_dict: "{{ vcenter_clusters }}"
 
 - name: "create_vds | Claim disks for vSAN"
   claim_vsan_disks:
-    vcenter: "{{ nested_vcenter.hostname }}"
-    user: "{{ nested_vcenter.username }}"
-    passwd: "{{ nested_vcenter.password }}"
+    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    user: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    passwd: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     cluster: "{{ item.key }}"
   when: item.value.vsan == True
   with_dict: "{{ vcenter_clusters }}"
 
 - name: "create_vds | Clear vSAN errors for unsupported hardware"
   clear_vsan_errors:
-    vcenter: "{{ nested_vcenter.hostname }}"
-    user: "{{ nested_vcenter.username }}"
-    passwd: "{{ nested_vcenter.password }}"
+    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    user: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    passwd: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
 
 #- name: "create_vds | Enable HA on the clusters"
 #  enable_ha:
-#    vcenter: "{{ nested_vcenter.hostname }}"
-#    user: "{{ nested_vcenter.username }}"
-#    passwd: "{{ nested_vcenter.password }}"
+#    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+#    user: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    passwd: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
 #    cluster: "{{ item.key }}"
 #  when: item.value.ha == True
 #  with_dict: "{{ vcenter_clusters }}"
 
 - name: "create_vds | Enable HA on the clusters"
   vmware_cluster_ha:
-    vcenter: "{{ nested_vcenter.hostname }}"
-    user: "{{ nested_vcenter.username }}"
-    passwd: "{{ nested_vcenter.password }}"
+    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    user: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    passwd: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     cluster_name: "{{ item.key }}"
     validate_certs: no
     enable_ha: "{{ item.value.ha }}"
@@ -150,7 +150,7 @@
 
 - name: "create_vds | Clear errors"
   clear_vsan_errors:
-    vcenter: "{{ nested_vcenter.hostname }}"
-    user: "{{ nested_vcenter.username }}"
-    passwd: "{{ nested_vcenter.password }}"
+    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    user: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    passwd: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
 

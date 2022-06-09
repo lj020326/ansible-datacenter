@@ -8,9 +8,9 @@
 ## ref: https://github.com/yasensim/vsphere-lab-deploy/blob/master/playbooks/deployNestedESXi.yml
 - name: Deploy Nested ESXi VMs
   nestedESXi:
-    vcenter: "{{ vc_mng.hostname }}"
-    vcenter_user: "{{ vc_mng.username }}"
-    vcenter_passwd: "{{ vc_mng.password }}"
+    vcenter: "{{ vsphere_deploy__vcenter.hostname }}"
+    vcenter_user: "{{ vsphere_deploy__vcenter.username }}"
+    vcenter_passwd: "{{ vsphere_deploy__vcenter.password }}"
     vmname: "{{ item.name }}"
 #    cluster: "{{ nested_clusters[item.cluster].hosting_cluster }}"
 #    datastore: "{{ nested_clusters[item.cluster].hosting_datastore }}"
@@ -19,14 +19,14 @@
 #    memory: "{{ nested_clusters[item.cluster].ram_in_gb }}"
 #    disks: "{{ nested_clusters[item.cluster].nested_hosts_disks }}"
     cluster: "{{ item.mgmt_cluster | d(nested_clusters[item.cluster].hosting_cluster) }}"
-    datastore: "{{ vc_mng.datastore | d(nested_clusters[item.cluster].hosting_datastore) }}"
+    datastore: "{{ vsphere_deploy__vcenter.datastore | d(nested_clusters[item.cluster].hosting_datastore) }}"
     vmnic_physical_portgroup_assignment: "{{ nested_clusters[item.cluster].vmnic_physical_portgroup_assignment }}"
     cpucount: "{{ item.cpu | d(nested_clusters[item.cluster].cpu_cores) }}"
     memory: "{{ item.ram_in_gb | d(nested_clusters[item.cluster].ram_in_gb) }}"
     disks: "{{ item.disks | d(nested_clusters[item.cluster].nested_hosts_disks) }}"
     isopath: "{{ vcenter_iso_dir }}/{{ esx_custom_iso }}"
     esxi_version: "{{ vsphere_version }}"
-  loop: "{{ nested_hosts_list }}"
+  loop: "{{ __nested_hosts_list }}"
   async: 7200
   poll: 0
   register: deployment
@@ -65,9 +65,9 @@
 
 - name: Remove Nested vESXi CDROM
   vmware_guest:
-    hostname: "{{ vc_mng.hostname }}"
-    username: "{{ vc_mng.username }}"
-    password: "{{ vc_mng.password }}"
+    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
+    username: "{{ vsphere_deploy__vcenter.username }}"
+    password: "{{ vsphere_deploy__vcenter.password }}"
     validate_certs: no
     name: "{{ item.name }}"
     cdrom:
@@ -75,4 +75,4 @@
         controller_number: 0
         unit_number: 0
         state: present
-  loop: "{{ nested_hosts_list }}"
+  loop: "{{ __nested_hosts_list }}"

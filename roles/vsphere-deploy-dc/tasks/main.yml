@@ -1,19 +1,23 @@
 ---
 
 - set_fact:
-    nested_hosts_list: "{{ nested_hosts_list|d([]) + [ nested_esx_host_defaults | combine(item) ] }}"
+    __nested_hosts_list: []
+    __nested_hosts_by_name: {}
+
+- set_fact:
+    __nested_hosts_list: "{{ __nested_hosts_list|d([]) + [ nested_esx_host_defaults | combine(item) ] }}"
   loop: "{{ nested_hosts }}"
 
 - set_fact:
-    nested_hosts_by_name: "{{ nested_hosts_by_name|default({}) | combine( { item.name: item } ) }}"
-  loop: "{{ nested_hosts_list }}"
+    __nested_hosts_by_name: "{{ __nested_hosts_by_name|default({}) | combine( { item.name: item } ) }}"
+  loop: "{{ __nested_hosts_list }}"
 
 - set_fact:
-    esx_hosts_by_name: "{{ esx_hosts_by_name|default({}) | combine( { item.name: item } ) }}"
+    __esx_hosts_by_name: "{{ __esx_hosts_by_name|default({}) | combine( { item.name: item } ) }}"
   loop: "{{ vcenter_esx_hosts }}"
 
 - debug:
-    var: nested_hosts_list
+    var: __nested_hosts_list
 
 - debug:
     var: vcenter_physical_esx_hosts
@@ -28,10 +32,10 @@
 #    var: vcenter_esx_hosts
 
 - debug:
-    var: esx_hosts_by_name
+    var: __esx_hosts_by_name
 
 - debug:
-    var: vcenter
+    var: vsphere_deploy__vcenter
 
 #- debug:
 #    var: vcenter_node_info
@@ -60,14 +64,14 @@
 
 - name: create nested ESXi hosts
   when:
-    - nested_hosts_list | d([]) | length > 0
+    - __nested_hosts_list | d([]) | length > 0
   block:
     - include_tasks: prepare_esxi_installer_iso.yml
     - include_tasks: deploy_nested_vc_and_hosts.yml
 
     - name: Wait 5 minutes before start checking whether the hosts are ready
       pause: minutes=5
-      when: nested_hosts_list | length > 5
+      when: __nested_hosts_list | length > 5
 
     - include_tasks: configure_nested_vcenter.yml
 
