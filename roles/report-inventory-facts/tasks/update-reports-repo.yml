@@ -1,34 +1,45 @@
 ---
 
-- name: "update-reports-repo | Create temporary build directory"
+- setup:
+    gather_subset:
+      - min
+- debug:
+    var: ansible_date_time
+
+- set_fact:
+    __report_date_time: "{{ ansible_date_time }}"
+- debug:
+    var: __report_date_time
+
+- name: "update-reports-repo | Create temporary test directory"
   ansible.builtin.tempfile:
     state: directory
-    suffix: build
-  register: report_windows_facts_tempdir
-  notify: cleanup report_windows_facts_tempdir
+    suffix: ".test"
+  register: __report_inventory_facts_tempdir
+  notify: cleanup report_inventory_facts_tempdir
 
-- name: "update-reports-repo | Set fact for report_windows_facts_repo_dir"
+- name: "update-reports-repo | Set fact for report_inventory_facts_repo_dir"
   set_fact:
-    report_windows_facts_repo_dir: "{{ report_windows_facts_tempdir.path }}/report-windows-facts"
+    __report_inventory_facts_repo_dir: "{{ __report_inventory_facts_tempdir.path }}/report-inventory-facts"
 
-- name: "update-reports-repo | Set fact for report_windows_facts_reports_dir"
+- name: "update-reports-repo | Set fact for report_inventory_facts_reports_dir"
   set_fact:
-#    report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/docs/servers/WINDOWS"
-    report_windows_facts_reports_dir: "{{ report_windows_facts_repo_dir }}/inventory/{{ report_windows_facts_inventory_source }}/WINDOWS"
+    __report_inventory_facts_reports_dir: "{{ __report_inventory_facts_repo_dir }}/inventory/{{ report_inventory_facts_inventory_source }}/WINDOWS"
+    __report_inventory_facts_git_ssh_private_keydir: "{{ __report_inventory_facts_tempdir.path }}"
 
 - name: "update-reports-repo | Display primary role input variables"
   debug:
     msg:
-      - "report_windows_facts_git_repo_url_scheme={{ report_windows_facts_git_repo_url_scheme }}"
-      - "report_windows_facts_git_repo_url_cred={{ report_windows_facts_git_repo_url_cred }}"
-      - "report_windows_facts_git_repo_branch={{ report_windows_facts_git_repo_branch }}"
-      - "report_windows_facts_repo_dir={{ report_windows_facts_repo_dir }}"
-      - "report_windows_facts_reports_dir={{ report_windows_facts_reports_dir }}"
+      - "report_inventory_facts_git_repo_url_scheme={{ report_inventory_facts_git_repo_url_scheme }}"
+      - "report_inventory_facts_git_repo_url_cred={{ report_inventory_facts_git_repo_url_cred }}"
+      - "report_inventory_facts_git_repo_branch={{ report_inventory_facts_git_repo_branch }}"
+      - "__report_inventory_facts_repo_dir={{ __report_inventory_facts_repo_dir }}"
+      - "__report_inventory_facts_git_ssh_private_keydir={{ __report_inventory_facts_git_ssh_private_keydir }}"
+      - "__report_inventory_facts_reports_dir={{ __report_inventory_facts_reports_dir }}"
 
 - name: "update-reports-repo | Display connection_name"
   debug:
     var: hostvars[item].connection_name
-    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].connection_name"
@@ -36,7 +47,6 @@
 - name: "update-reports-repo | Display interface_name"
   debug:
     var: hostvars[item].interface_name
-    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].interface_name"
@@ -44,100 +54,98 @@
 - name: "update-reports-repo | Display ipv4_address"
   debug:
     var: hostvars[item].ipv4_address
-    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].ipv4_address"
 
-
-- name: "Setup ssh key when scheme is ssh"
-  when: report_windows_facts_git_repo_url_scheme=='ssh'
+- name: "update-reports-repo | Setup ssh key when scheme is ssh"
+  when: report_inventory_facts_git_repo_url_scheme=='ssh'
   block:
 
-    - name: "get_cert_repo | Ensure ssh dir exists at {{ report_windows_facts_ssh_key_dir }}"
+    - name: "update-reports-repo | Ensure ssh dir exists at {{ __report_inventory_facts_git_ssh_private_keydir }}"
       file:
-        path: "{{ report_windows_facts_ssh_key_dir }}"
+        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}"
         state: directory
         mode: "0755"
 
-    - name: "get_cert_repo | Check if git private ssh key exist in {{ report_windows_facts_git_ssh_private_keyfile }}"
+    - name: "update-reports-repo | Check if git private ssh key exist in {{ report_inventory_facts_git_ssh_private_keyfile }}"
       stat:
-        path: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
       register: private_key
 
     ## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
-    - name: "get_cert_repo | Ensure git private key is present at {{ report_windows_facts_git_ssh_private_keyfile }}"
+    - name: "update-reports-repo | Ensure git private key is present at {{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
 #      when: not (private_key.stat.exists | bool)
       copy:
-        content: "{{ report_windows_facts_ssh_private_key }}"
-        dest: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+        content: "{{ report_inventory_facts_git_ssh_private_key }}"
+        dest: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
         mode: 0600
         backup: yes
       no_log: yes
 
-    - name: "update-reports-repo | Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
+    - name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
       git:
-        repo: "{{ report_windows_facts_git_repo_url_cred }}"
-        dest: "{{ report_windows_facts_repo_dir }}"
-        version: "{{ report_windows_facts_git_repo_branch }}"
+        repo: "{{ report_inventory_facts_git_repo_url_cred }}"
+        dest: "{{ __report_inventory_facts_repo_dir }}"
+        version: "{{ report_inventory_facts_git_repo_branch }}"
         clone: yes
         accept_hostkey: true
         update: yes
         force: true
-        key_file: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+        key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
       register: gitclone
 
     - name: "update-reports-repo | Configure git configs for core.sshCommand"
       git_config:
         scope: local
-        repo: "{{ report_windows_facts_repo_dir }}"
+        repo: "{{ __report_inventory_facts_repo_dir }}"
         name: core.sshCommand
-        value: "ssh -i {{ report_windows_facts_git_ssh_private_keyfile }} -o IdentitiesOnly=yes"
+        value: "ssh -i {{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }} -o IdentitiesOnly=yes"
 
-- name: "update-reports-repo | Clone {{ report_windows_facts_git_repo_url }} to {{ report_windows_facts_repo_dir }}"
-  when: report_windows_facts_git_repo_url_scheme=='https'
+- name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
+  when: report_inventory_facts_git_repo_url_scheme=='https'
   git:
-    repo: "{{ report_windows_facts_git_repo_url_cred }}"
-    dest: "{{ report_windows_facts_repo_dir }}"
-    version: "{{ report_windows_facts_git_repo_branch }}"
+    repo: "{{ report_inventory_facts_git_repo_url_cred }}"
+    dest: "{{ __report_inventory_facts_repo_dir }}"
+    version: "{{ report_inventory_facts_git_repo_branch }}"
     clone: yes
     accept_hostkey: true
 #    update: yes
 #    force: true
-#    key_file: "{{ report_windows_facts_git_ssh_private_keyfile }}"
+#    key_file: "{{ report_inventory_facts_git_ssh_private_keyfile }}"
   register: gitclone
 
 - name: "update-reports-repo | Configure git configs"
   git_config:
     scope: local
-    repo: "{{ report_windows_facts_repo_dir }}"
+    repo: "{{ __report_inventory_facts_repo_dir }}"
     name: "{{ item.name }}"
     value: "{{ item.value }}"
   loop:
     - name: user.name
-      value: "{{ report_windows_facts_git_user }}"
+      value: "{{ report_inventory_facts_git_user }}"
     - name: user.email
-      value: "{{ report_windows_facts_git_email }}"
+      value: "{{ report_inventory_facts_git_email }}"
 
-- name: "update-reports-repo | List git config settings for {{ report_windows_facts_repo_dir }}"
+- name: "update-reports-repo | List git config settings for {{ __report_inventory_facts_repo_dir }}"
   git_config:
     list_all: yes
     scope: local
-    repo: "{{ report_windows_facts_repo_dir }}"
+    repo: "{{ __report_inventory_facts_repo_dir }}"
   register: git_config_settings
 
 - name: Display git_config_settings
   debug:
     var: git_config_settings
 
-- name: "update-reports-repo | Ensure directory {{ report_windows_facts_reports_dir }} exists"
+- name: "update-reports-repo | Ensure directory {{ __report_inventory_facts_reports_dir }} exists"
   file:
-    path: "{{ report_windows_facts_reports_dir }}"
+    path: "{{ __report_inventory_facts_reports_dir }}"
     state: directory
 
 - name: "update-reports-repo | Create inventory directories"
   file:
-    path: "{{ report_windows_facts_reports_dir }}/{{ item }}"
+    path: "{{ __report_inventory_facts_reports_dir }}/{{ item }}"
     state: directory
   loop:
     - json
@@ -152,7 +160,7 @@
       {% for host in ansible_play_hosts %}
       {{ hostvars[host].ansible_facts | to_nice_json }}
       {% endfor %}
-    dest: "{{ report_windows_facts_reports_dir }}/json/server_facts.json"
+    dest: "{{ __report_inventory_facts_reports_dir }}/json/server_facts.json"
 
 - name: "update-reports-repo | Create YAML file with Ansible Facts"
   copy:
@@ -160,11 +168,11 @@
       {% for host in ansible_play_hosts %}
       {{ hostvars[host].ansible_facts | to_nice_yaml }}
       {% endfor %}
-    dest: "{{ report_windows_facts_reports_dir }}/yaml/server_facts.yml"
+    dest: "{{ __report_inventory_facts_reports_dir }}/yaml/server_facts.yml"
 
 - name: "update-reports-repo | Add Headers to YAML"
   lineinfile:
-    path: "{{ report_windows_facts_reports_dir }}/yaml/server_facts.yml"
+    path: "{{ __report_inventory_facts_reports_dir }}/yaml/server_facts.yml"
     insertbefore: BOF
     line: ---
 
@@ -174,23 +182,23 @@
       {% for host in ansible_play_hosts %}
       {{ hostvars[host].nodename }},{{ hostvars[host].domain }},{{ hostvars[host].windows_domain_member }},{{ hostvars[host].windows_domain_role }}, {{ hostvars[host].distribution }},{{ hostvars[host].distribution_major_version }},{{ hostvars[host].distribution_version }},{{ hostvars[host].architecture }},{{ hostvars[host].bios_date }},{{ hostvars[host].bios_version }},[{{ hostvars[host].connection_name }}],[{{ hostvars[host].interface_name }}],[{{ hostvars[host].ipv4_address }}],[{{ hostvars[host].ipv6_address }}],[{{ hostvars[host].default_gateway }}],[{{ hostvars[host].mac_address }}],{{ hostvars[host].lastboot }},{{ hostvars[host].reboot_pending }},{{ hostvars[host].uptime }},{{ hostvars[host].machine_id }},{{ hostvars[host].total_memory }},{{ hostvars[host].processor }},{{ hostvars[host].processor_cores }},{{ hostvars[host].processor_count }},{{ hostvars[host].product_name }}
       {% endfor %}
-    dest: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
+    dest: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
 
 - name: "update-reports-repo | Format CSV File Clean Up 1"
   replace:
-    path: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
+    path: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
     regexp: '\[|\]|"'
     replace: ''
 
 - name: "update-reports-repo | Format CSV File Clean Up 2"
   replace:
-    path: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
+    path: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
     regexp: "'"
     replace: ''
 
 - name: "update-reports-repo | Add Header Row to CSV"
   lineinfile:
-    path: "{{ report_windows_facts_reports_dir }}/csv/server_facts.csv"
+    path: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
     insertbefore: BOF
     line: Hostname,Domain,Domain Member,Domain Role,OS,Major Version,Version,Architecture,Bios Date,Bios Version,Connection Names,Interface Names,IPv4 Address,IPv6 Address,Default Gateway,MAC Address,Last Boot,Reboot Pending,Uptime Seconds,Machine ID,Total Memory (MB),Processors,Processor Cores,Processor Count,Product Name
 
@@ -201,35 +209,35 @@
       {% for host in ansible_play_hosts %}
       | {{ hostvars[host].nodename }} | {{ hostvars[host].domain }} | {{ hostvars[host].windows_domain_member }} | {{ hostvars[host].windows_domain_role }} |  {{ hostvars[host].distribution }} | {{ hostvars[host].distribution_major_version }} | {{ hostvars[host].distribution_version }} | {{ hostvars[host].architecture }} | {{ hostvars[host].bios_date }} | {{ hostvars[host].bios_version }} | [{{ hostvars[host].connection_name }}] | [{{ hostvars[host].interface_name }}] | [{{ hostvars[host].ipv4_address }}] | [{{ hostvars[host].ipv6_address }}] | {{ hostvars[host].default_gateway }} | [{{ hostvars[host].mac_address }}] | {{ hostvars[host].lastboot }} | {{ hostvars[host].reboot_pending }} | {{ hostvars[host].uptime }} | {{ hostvars[host].machine_id }} | {{ hostvars[host].total_memory }} | {{ hostvars[host].processor }} | {{ hostvars[host].processor_cores }} | {{ hostvars[host].processor_count }} | {{ hostvars[host].product_name }} |
       {% endfor %}
-    dest: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+    dest: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
 
 #- name: "update-reports-repo | Format Markdown File New Lines"
 #  replace:
-#    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+#    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
 #    regexp: '],'
 #    replace: ']\n'
 
 #- name: "update-reports-repo | Format Markdown File Clean Up"
 #  replace:
-#    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+#    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
 #    regexp: '\[|\]|"'
 #    replace: ''
 
 #- name: "update-reports-repo | Format Markdown File Commas to Pipes"
 #  replace:
-#    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+#    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
 #    regexp: ','
 #    replace: ' | '
 
 - name: "update-reports-repo | Format Markdown File Clean Up"
   replace:
-    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
     regexp: "'"
     replace: ''
 
 - name: "update-reports-repo | Add Header Rows to Markdown"
   lineinfile:
-    path: "{{ report_windows_facts_reports_dir }}/markdown/server_facts.md"
+    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
     insertbefore: BOF
     line: "{{ item.property }}"
   with_items:
@@ -238,8 +246,8 @@
     - { property: '# Windows' }
 
 - name: "Create server_facts Mind Map"
-  when: report_windows_facts_create_mindmap|d(True)|bool
-  shell: "markmap --no-open {{ report_windows_facts_reports_dir }}/markdown/server_facts.md -o {{ report_windows_facts_reports_dir }}/mindmap/server_facts.html"
+  when: report_inventory_facts_create_mindmap|d(True)|bool
+  shell: "markmap --no-open {{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md -o {{ __report_inventory_facts_reports_dir }}/mindmap/server_facts.html"
   register: markmap
 
 - set_fact:
@@ -247,33 +255,44 @@
 
 ## ref: https://github.com/lvrfrc87/git-acp-ansible
 ## ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
-- name: "update-reports-repo | Push reports git(ssh) to {{ report_windows_facts_git_repo_url }}"
-  when: report_windows_facts_git_repo_url_scheme=='ssh'
+- name: "update-reports-repo | Push reports git(ssh) to {{ report_inventory_facts_git_repo_url }}"
+  when: report_inventory_facts_git_repo_url_scheme=='ssh'
+  become: no
   git_acp:
-    url: "{{ report_windows_facts_git_repo_url_cred }}"
-    path: "{{ report_windows_facts_repo_dir }}"
-    branch: "{{ report_windows_facts_git_repo_branch }}"
+    url: "{{ report_inventory_facts_git_repo_url_cred }}"
+    path: "{{ __report_inventory_facts_repo_dir }}"
+    branch: "{{ report_inventory_facts_git_repo_branch }}"
     comment: "{{ git_commit_message }}"
     add: [ "." ]
     remote: origin
-    mode: "{{ report_windows_facts_git_repo_url_scheme }}"
-    user_name: "{{ report_windows_facts_git_repo_user }}"
+    mode: "{{ report_inventory_facts_git_repo_url_scheme }}"
+    user: "{{ report_inventory_facts_git_repo_user }}"
   register: git_acp_result
 
-- name: "update-reports-repo | Push reports via git(https) to {{ report_windows_facts_git_repo_url }}"
-  when: report_windows_facts_git_repo_url_scheme=='https'
-  git_acp:
-    url: "{{ report_windows_facts_git_repo_url_cred }}"
-    path: "{{ report_windows_facts_repo_dir }}"
-    branch: "{{ report_windows_facts_git_repo_branch }}"
+- name: "update-reports-repo | Push reports via git(https) to {{ report_inventory_facts_git_repo_url }}"
+  when: report_inventory_facts_git_repo_url_scheme=='https'
+  become: no
+  dcc_common.util.git_acp:
+    url: "{{ report_inventory_facts_git_repo_url_cred }}"
+    path: "{{ __report_inventory_facts_repo_dir }}"
+    branch: "{{ report_inventory_facts_git_repo_branch }}"
     comment: "{{ git_commit_message }}"
     add: [ "." ]
     remote: origin
-    mode: "{{ report_windows_facts_git_repo_url_scheme }}"
-    user: "{{ report_windows_facts_git_repo_user }}"
-    token: "{{ report_windows_facts_git_repo_token }}"
+    mode: "{{ report_inventory_facts_git_repo_url_scheme }}"
+    user: "{{ report_inventory_facts_git_repo_user }}"
+    token: "{{ report_inventory_facts_git_repo_token }}"
   register: git_acp_result
+
+### ref: https://github.com/lvrfrc87/git-acp-ansible
+### ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
+#- name: "update-reports-repo | Push reports git(ssh) to {{ report_inventory_facts_git_repo_url }}"
+#  shell: "git add . && git commit -m '{{ git_commit_message }}' && git push origin master"
+#  args:
+#    chdir: "{{ __report_inventory_facts_repo_dir }}"
+#  register: git_acp_result
 
 - name: "update-reports-repo | Display git_acp_result"
   debug:
     var: git_acp_result
+
