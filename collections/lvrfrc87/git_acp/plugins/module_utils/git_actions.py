@@ -5,7 +5,7 @@ import os
 import stat
 import tempfile
 
-from ansible.module_utils.messages import FailingMessage
+from ansible_collections.lvrfrc87.git_acp.plugins.module_utils.messages import FailingMessage
 from ansible.module_utils.six import b
 
 
