@@ -1,0 +1,199 @@
+---
+
+- setup:
+    gather_subset:
+      - min
+- debug:
+    var: ansible_date_time
+
+- set_fact:
+    __report_date_time: "{{ ansible_date_time }}"
+- debug:
+    var: __report_date_time
+
+- name: "update-reports-repo | Create temporary test directory"
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: ".test"
+  register: __report_inventory_facts_tempdir
+  
+- name: "update-reports-repo | Set fact for report_inventory_facts_repo_dir"
+  set_fact:
+    __report_inventory_facts_repo_dir: "{{ __report_inventory_facts_tempdir.path }}/report-inventory-facts"
+
+- name: "update-reports-repo | Set fact for report_inventory_facts_reports_dir"
+  set_fact:
+    __report_inventory_facts_reports_dir: "{{ __report_inventory_facts_repo_dir }}/inventory/{{ report_inventory_facts_inventory_source }}/WINDOWS"
+    __report_inventory_facts_git_ssh_private_keydir: "{{ __report_inventory_facts_tempdir.path }}"
+
+- name: "update-reports-repo | Display primary role input variables"
+  debug:
+    msg:
+      - "report_inventory_facts_git_repo_url_scheme={{ report_inventory_facts_git_repo_url_scheme }}"
+      - "report_inventory_facts_git_repo_url_cred={{ report_inventory_facts_git_repo_url_cred }}"
+      - "report_inventory_facts_git_repo_branch={{ report_inventory_facts_git_repo_branch }}"
+      - "__report_inventory_facts_repo_dir={{ __report_inventory_facts_repo_dir }}"
+      - "__report_inventory_facts_git_ssh_private_keydir={{ __report_inventory_facts_git_ssh_private_keydir }}"
+      - "__report_inventory_facts_reports_dir={{ __report_inventory_facts_reports_dir }}"
+
+- name: "update-reports-repo | Display connection_name"
+  debug:
+    var: hostvars[item].connection_name
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    label: "hostvars[{{ item }}].connection_name"
+
+- name: "update-reports-repo | Display interface_name"
+  debug:
+    var: hostvars[item].interface_name
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    label: "hostvars[{{ item }}].interface_name"
+
+- name: "update-reports-repo | Display ipv4_address"
+  debug:
+    var: hostvars[item].ipv4_address
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    label: "hostvars[{{ item }}].ipv4_address"
+
+- name: "update-reports-repo | Setup ssh key when scheme is ssh"
+  when: report_inventory_facts_git_repo_url_scheme=='ssh'
+  block:
+
+    - name: "update-reports-repo | Ensure ssh dir exists at {{ __report_inventory_facts_git_ssh_private_keydir }}"
+      file:
+        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}"
+        state: directory
+        mode: "0755"
+
+    - name: "update-reports-repo | Check if git private ssh key exist in {{ report_inventory_facts_git_ssh_private_keyfile }}"
+      stat:
+        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+      register: private_key
+
+    ## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
+    - name: "update-reports-repo | Ensure git private key is present at {{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+#      when: not (private_key.stat.exists | bool)
+      copy:
+        content: "{{ report_inventory_facts_git_ssh_private_key }}"
+        dest: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+        mode: "0600"
+        backup: yes
+      no_log: yes
+
+#    - name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
+#      git:
+#        repo: "{{ report_inventory_facts_git_repo_url_cred }}"
+#        dest: "{{ __report_inventory_facts_repo_dir }}"
+#        version: "{{ report_inventory_facts_git_repo_branch }}"
+#        clone: yes
+#        accept_hostkey: true
+#        update: yes
+#        force: true
+#        ssh_opts: "-vv"
+#        key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+#      register: gitclone
+
+    - name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
+#      ansible.builtin.git:
+      git_checkout:
+        repo: "{{ report_inventory_facts_git_repo_url_cred }}"
+        dest: "{{ __report_inventory_facts_repo_dir }}"
+        version: "{{ report_inventory_facts_git_repo_branch }}"
+        clone: yes
+        accept_hostkey: true
+        update: yes
+        force: true
+        key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+      register: gitclone
+
+    - name: "update-reports-repo | Configure git configs for core.sshCommand"
+      git_config:
+        scope: local
+        repo: "{{ __report_inventory_facts_repo_dir }}"
+        name: core.sshCommand
+        value: "ssh -i {{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }} -o IdentitiesOnly=yes"
+
+- name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
+  when: report_inventory_facts_git_repo_url_scheme=='https'
+  git:
+    repo: "{{ report_inventory_facts_git_repo_url_cred }}"
+    dest: "{{ __report_inventory_facts_repo_dir }}"
+    version: "{{ report_inventory_facts_git_repo_branch }}"
+    clone: yes
+    accept_hostkey: true
+  register: gitclone
+
+- name: "update-reports-repo | Configure git configs"
+  git_config:
+    scope: local
+    repo: "{{ __report_inventory_facts_repo_dir }}"
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+  loop:
+    - name: user.name
+      value: "{{ report_inventory_facts_git_user }}"
+    - name: user.email
+      value: "{{ report_inventory_facts_git_email }}"
+
+- name: "update-reports-repo | List git config settings for {{ __report_inventory_facts_repo_dir }}"
+  git_config:
+    list_all: yes
+    scope: local
+    repo: "{{ __report_inventory_facts_repo_dir }}"
+  register: git_config_settings
+
+- name: Display git_config_settings
+  debug:
+    var: git_config_settings
+
+- name: "update-reports-repo | Set fact for __report_inventory_facts_reports_dir"
+  set_fact:
+    __report_inventory_facts_test_dir: "{{ __report_inventory_facts_repo_dir }}/test"
+
+- name: "update-reports-repo | Create inventory directories"
+  file:
+    path: "{{ __report_inventory_facts_test_dir }}"
+    state: directory
+
+## ref: https://docs.ansible.com/ansible/latest/collections/community/general/random_string_lookup.html
+- name: "Set __report_facts_test_report_name"
+  set_fact:
+    __report_facts_test_report_name: "{{ query('community.general.random_string', length=12, upper=false, special=false) | first }}.json"
+
+- name: "Create JSON file test/{{ __report_facts_test_report_name }} with Ansible Facts"
+  copy:
+    content: |
+      {% for host in ansible_play_hosts %}
+      {{ hostvars[host].ansible_facts | to_nice_json }}
+      {% endfor %}
+    dest: "{{ __report_inventory_facts_test_dir }}/{{ __report_facts_test_report_name }}"
+
+- set_fact:
+    git_commit_message: "ansible [{{ playbook_dir|basename }}] windows inventory report updated as of {{ __report_date_time.iso8601 }}"
+
+## ref: https://github.com/lvrfrc87/git-acp-ansible
+## ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
+- name: "Push reports to {{ report_inventory_facts_git_repo_url }}"
+  become: no
+  git_acp:
+    url: "{{ report_inventory_facts_git_repo_url_cred }}"
+    path: "{{ __report_inventory_facts_repo_dir }}"
+    branch: "{{ report_inventory_facts_git_repo_branch }}"
+    comment: "{{ git_commit_message }}"
+    add: [ "." ]
+    remote: origin
+    mode: "{{ report_inventory_facts_git_repo_url_scheme }}"
+    key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+  register: git_acp_result
+
+- name: "Display git_acp_result"
+  debug:
+    var: git_acp_result
+
+- name: "Cleanup/Remove temporary build directory"
+  when: __report_inventory_facts_tempdir.path is defined
+  ansible.builtin.file:
+    state: absent
+    path: __report_inventory_facts_tempdir.path
