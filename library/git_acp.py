@@ -65,6 +65,35 @@ options:
             - Git repo URL.
         required: True
         type: str
+    ssh_params:
+        description:
+            - Dictionary containing SSH parameters.
+        type: dict
+        default: None
+        options:
+            key_file:
+                description:
+                    - Specify an optional private key file path, on the target host, to use for the checkout.
+            accept_hostkey:
+                description:
+                    - If C(yes), ensure that "-o StrictHostKeyChecking=no" is
+                      present as an ssh option.
+                type: bool
+                default: 'no'
+            ssh_opts:
+                description:
+                    - Creates a wrapper script and exports the path as GIT_SSH
+                      which git then automatically uses to override ssh arguments.
+                      An example value could be "-o StrictHostKeyChecking=no"
+                      (although this particular option is better set via
+                      C(accept_hostkey)).
+                type: str
+                default: None
+    executable:
+        description:
+            - Path to git executable to use. If not supplied,
+              the normal mechanism for resolving binary paths will be used.
+        version_added: "1.4"
     remote:
         description:
             - Local system alias for git remote PUSH and PULL repository operations.
@@ -129,8 +158,6 @@ output:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-# from ansible_collections.lvrfrc87.git_acp.plugins.module_utils.git_actions import Git
-# from ansible_collections.lvrfrc87.git_acp.plugins.module_utils.git_configuration import GitConfiguration
 from ansible.module_utils.git_actions import Git
 from ansible.module_utils.git_configuration import GitConfiguration
 
@@ -146,21 +173,19 @@ def main():
     """
     argument_spec = dict(
         path=dict(required=True, type='path'),
-        accept_hostkey=dict(default='no', type='bool'),
-        ssh_opts=dict(default=None, required=False),
-        key_file=dict(default=None, type='path', required=False),
         executable=dict(default=None, type='path'),
         comment=dict(required=True),
         add=dict(type='list', elements='str', default=['.']),
         user=dict(),
         token=dict(no_log=True),
+        ssh_params=dict(default=None, type='dict', required=False),
         branch=dict(default='main'),
-        push_option=dict(),
+        push_option=dict(default=None, type='str'),
         mode=dict(choices=['ssh', 'https', 'local'], default='ssh'),
         url=dict(required=True),
         remote=dict(default='origin'),
         user_name=dict(),
-        user_email=dict(),
+        user_email=dict()
     )
 
     required_if = [
@@ -182,16 +207,6 @@ def main():
     mode = module.params.get('mode')
     user_name = module.params.get('user_name')
     user_email = module.params.get('user_email')
-    git_path = module.params['executable'] or module.get_bin_path('git', True)
-    key_file = module.params['key_file']
-    ssh_opts = module.params['ssh_opts']
-
-    if module.params['accept_hostkey']:
-        if ssh_opts is not None:
-            if "-o StrictHostKeyChecking=no" not in ssh_opts:
-                ssh_opts += " -o StrictHostKeyChecking=no"
-        else:
-            ssh_opts = "-o StrictHostKeyChecking=no"
 
     # We screenscrape a huge amount of git commands so use C locale anytime we
     # call run_command()
@@ -219,7 +234,7 @@ def main():
 
     result = dict(changed=False)
 
-    git = Git(module, git_path, key_file, ssh_opts)
+    git = Git(module)
 
     if user_name and user_email:
         result.update(GitConfiguration(module).user_config())

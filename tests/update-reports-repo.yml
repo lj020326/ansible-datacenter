@@ -176,6 +176,7 @@
 ## ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
 - name: "Push reports to {{ report_inventory_facts_git_repo_url }}"
   become: no
+  when: report_inventory_facts_git_repo_url_scheme=='ssh'
   git_acp:
     url: "{{ report_inventory_facts_git_repo_url_cred }}"
     path: "{{ __report_inventory_facts_repo_dir }}"
@@ -184,7 +185,25 @@
     add: [ "." ]
     remote: origin
     mode: "{{ report_inventory_facts_git_repo_url_scheme }}"
-    key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+    ssh_params:
+      accept_newhostkey: true
+      key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+  register: git_acp_result
+
+- name: "update-reports-repo | Push reports via git(https) to {{ report_inventory_facts_git_repo_url }}"
+  when: report_inventory_facts_git_repo_url_scheme=='https'
+  become: no
+#  lvrfrc87.git_acp:
+  git_acp:
+    url: "{{ report_inventory_facts_git_repo_url_cred }}"
+    path: "{{ __report_inventory_facts_repo_dir }}"
+    branch: "{{ report_inventory_facts_git_repo_branch }}"
+    comment: "{{ git_commit_message }}"
+    add: [ "." ]
+    remote: origin
+    mode: "{{ report_inventory_facts_git_repo_url_scheme }}"
+    user: "{{ report_inventory_facts_git_repo_user }}"
+    token: "{{ report_inventory_facts_git_repo_token }}"
   register: git_acp_result
 
 - name: "Display git_acp_result"

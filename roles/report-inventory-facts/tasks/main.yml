@@ -9,11 +9,13 @@
 - debug:
     msg: "{{ ansible_facts }}"
 
+## ref: https://github.com/automateyournetwork/WindowsFacts/blob/master/playbooks/WindowsFacts.yml
 # Set Reportable Facts #
 - name: Set Reportable Windows Host Facts
   when: ansible_os_family|d('')|lower=='windows'
   set_fact:
     nodename: "{{ ansible_facts['nodename'] }}"
+    machine_type: "{{ 'vm' if ansible_virtualization_role|d('') == 'guest' else 'baremetal' }}"
     domain: "{{ ansible_facts['domain'] }}"
     windows_domain_member: "{{ ansible_facts['windows_domain_member'] }}"
     windows_domain_role: "{{ ansible_facts['windows_domain_role'] }}"
@@ -25,8 +27,11 @@
     bios_version: "{{ ansible_facts['bios_version'] }}"
     connection_name: "{{ ansible_facts | json_query('interfaces[*].connection_name') }}"
     interface_name: "{{ ansible_facts | json_query('interfaces[*].interface_name') }}"
-    ipv4_address: "{{ ansible_facts | json_query('interfaces[*].ipv4.address') }}"
-    ipv6_address: "{{ ansible_facts | json_query('interfaces[*].ipv6.address') }}"
+    ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html
+    ipv4_address: "{{ ansible_facts | json_query('interfaces[*].ipv4.address') + ansible_facts.ip_addresses|d([]) | ansible.utils.ipv4('address') | flatten }}"
+    ipv6_address: "{{ ansible_facts | json_query('interfaces[*].ipv6.address') + ansible_facts.ip_addresses|d([]) | ansible.utils.ipv6('address') | flatten }}"
+#    ipv4_address: "{{ ansible_facts | json_query('interfaces[*].ipv4.address') }}"
+#    ipv6_address: "{{ ansible_facts | json_query('interfaces[*].ipv6.address') }}"
     default_gateway: "{{ ansible_facts | json_query('interfaces[*].default_gateway') }}"
     mac_address: "{{ ansible_facts | json_query('interfaces[*].macaddress') }}"
     lastboot: "{{ ansible_facts['lastboot'] }}"
