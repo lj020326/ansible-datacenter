@@ -348,10 +348,34 @@ gethist | grep remote | uniq >> ./README.md
 ### Display/Debug any vars
 
 ```bash
+ansible-config dump
+ansible-config dump |grep DEFAULT_MODULE_PATH
+
+ansible-inventory --graph output -i inventory/
+ansible-inventory --graph output -i inventory/ ntp
+ansible-inventory --graph output -i inventory/ ntp_server
+ansible-inventory --graph output -i inventory/dev/
+ansible-inventory --graph output -i inventory/prod/ ntp
+ansible-inventory -i inventory/ --graph ntp
+ansible-inventory -i inventory/dev/ --graph ntp
+ansible-inventory -i inventory/test/ --graph output
+ansible-inventory -i inventory/prod/ --graph output group
+ansible-inventory -i inventory/prod/ --graph output ntp
+ansible-inventory -i inventory/prod/ --list ntp
+ansible-inventory -i inventory/prod/ntp.yml --graph output
+ansible-inventory -i inventory/dev/site1.yml --graph output
+
+ansible-playbook -i ./inventory display-ntp-servers.yml 
+ansible-playbook -i ./inventory/ display-ntp-servers.yml
+ansible-playbook -i ./inventory/ playbook.yml
+ansible-playbook -i ./inventory/dmz display-ntp-servers.yml 
+ansible-playbook -i ./inventory/internal display-ntp-servers.yml
+ansible-playbook -i ./inventory/internal display-ntp-servers.yml 
+
 ansible all -m debug -a var=groups['ca_domain']
 ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_port
 ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_winrm_transport
-ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_host
+ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_host,ansible_port
 ```
 
 

@@ -39,7 +39,7 @@
 
 - name: "update-reports-repo | Display connection_name"
   debug:
-    var: hostvars[item].connection_name
+    var: hostvars[item].report_inventory_list_facts_flattened.connection_name.value
     verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
@@ -47,7 +47,7 @@
 
 - name: "update-reports-repo | Display interface_name"
   debug:
-    var: hostvars[item].interface_name
+    var: hostvars[item].report_inventory_list_facts_flattened.interface_name.value
     verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
@@ -55,7 +55,8 @@
 
 - name: "update-reports-repo | Display ipv4_address"
   debug:
-    var: hostvars[item].ipv4_address
+    var: hostvars[item].report_inventory_list_facts_flattened.ipv4_address.value
+    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].ipv4_address"
@@ -146,24 +147,25 @@
     - markdown
     - mindmap
 
-- name: "update-reports-repo | Create JSON file with Ansible Facts"
-  copy:
-    content: |
-      {% for host in ansible_play_hosts %}
-      {{ hostvars[host].ansible_facts | to_nice_json }}
-      {% endfor %}
-    dest: "{{ __report_inventory_facts_reports_dir }}/json/server_facts.json"
 
 - name: Set __ansible_host_facts
   set_fact:
-    __ansible_host_facts: "{{ __ansible_host_facts|d([]) + [hostvars[item].ansible_facts] }}"
+    __ansible_host_facts: "{{ __ansible_host_facts|d([]) + [hostvars[item].ansible_facts | combine({ 'reported_facts': hostvars[item].report_inventory_list_facts_flattened} ) ] }}"
+    __report_inventory_list_facts_flattened: "{{ __report_inventory_list_facts_flattened|d([]) + [hostvars[item].report_inventory_list_facts_flattened] }}"
   loop: "{{ ansible_play_hosts }}"
-  loop_control:
-    label: "{{ item }}"
+
+- name: "Display __report_inventory_list_facts_flattened"
+  debug:
+    var: __report_inventory_list_facts_flattened
 
 - name: "update-reports-repo | Create YAML file with Ansible Facts"
   copy:
-    content: "{{ __ansible_host_facts | to_nice_yaml }}"
+    content: "{{ __ansible_host_facts | to_nice_json }}"
+    dest: "{{ __report_inventory_facts_reports_dir }}/json/server_facts.json"
+
+- name: "update-reports-repo | Create YAML file with Ansible Facts"
+  copy:
+    content: "{{ __ansible_host_facts | to_nice_yaml(indent=2) }}"
     dest: "{{ __report_inventory_facts_reports_dir }}/yaml/server_facts.yml"
 
 - name: "update-reports-repo | Add Headers to YAML"
@@ -173,78 +175,56 @@
     insertbefore: BOF
     line: ---
 
-- name: "update-reports-repo | Create CSV file with results"
+- name: "update-reports-repo | Create YAML file with Ansible Facts"
   copy:
-    content: |
-      {% for host in ansible_play_hosts %}
-      {{ hostvars[host].nodename }},{{ hostvars[host].machine_type }},{{ hostvars[host].domain }},{{ hostvars[host].windows_domain_member }},{{ hostvars[host].windows_domain_role }}, {{ hostvars[host].distribution }},{{ hostvars[host].distribution_major_version }},{{ hostvars[host].distribution_version }},{{ hostvars[host].architecture }},{{ hostvars[host].bios_date }},{{ hostvars[host].bios_version }},[{{ hostvars[host].connection_name }}],[{{ hostvars[host].interface_name }}],[{{ hostvars[host].ipv4_address }}],[{{ hostvars[host].ipv6_address }}],[{{ hostvars[host].default_gateway }}],[{{ hostvars[host].mac_address }}],{{ hostvars[host].lastboot }},{{ hostvars[host].reboot_pending }},{{ hostvars[host].uptime }},{{ hostvars[host].machine_id }},{{ hostvars[host].total_memory }},{{ hostvars[host].processor }},{{ hostvars[host].processor_cores }},{{ hostvars[host].processor_count }},{{ hostvars[host].product_name }},{{ hostvars[host].group_names }}
-      {% endfor %}
-    dest: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
+    content: "{{ __ansible_host_facts | to_nice_yaml(indent=2) }}"
+    dest: "{{ __report_inventory_facts_reports_dir }}/yaml/server_facts.yml"
 
-- name: "update-reports-repo | Format CSV File Clean Up 1"
-  changed_when: false
-  replace:
-    path: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
-    regexp: '\[|\]|"'
-    replace: ''
+- name: "Set __csv_headers"
+  set_fact:
+    __csv_headers: "{{ __csv_headers| d([]) + [ { 'name' : item.key, 'header': item.value } ] }}"
+  loop: "{{ report_inventory_list_headers_windows | dict2items }}"
 
-- name: "update-reports-repo | Format CSV File Clean Up 2"
-  changed_when: false
-  replace:
-    path: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
-    regexp: "'"
-    replace: ''
+- name: "Display __csv_headers"
+  debug:
+    var: __csv_headers
+    verbosity: 2
 
-- name: "update-reports-repo | Add Header Row to CSV"
-  changed_when: false
-  lineinfile:
-    path: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
-    insertbefore: BOF
-    line: Hostname,Machine Type,Domain,Domain Member,Domain Role,OS,Major Version,Version,Architecture,Bios Date,Bios Version,Connection Names,Interface Names,IPv4 Address,IPv6 Address,Default Gateway,MAC Address,Last Boot,Reboot Pending,Uptime Seconds,Machine ID,Total Memory (MB),Processors,Processor Cores,Processor Count,Product Name,Ansible Inventory Groups
+- name: "update-reports-repo | Create CSV file with results"
+  export_dicts:
+    file: "{{ __report_inventory_facts_reports_dir }}/csv/server_facts.csv"
+    format: "csv"
+    columns: "{{ __csv_headers }}"
+    export_list: "{{ __report_inventory_list_facts_flattened }}"
+  register: __csv_result
 
+- name: Display __csv_result
+  debug:
+    var: __csv_result
+
+- name: "Display __report_inventory_list_facts_flattened"
+  debug:
+    var: __report_inventory_list_facts_flattened
 
 - name: "update-reports-repo | Create Markdown file with results"
-  copy:
-    content: |
-      {% for host in ansible_play_hosts %}
-      | {{ hostvars[host].nodename }} | {{ hostvars[host].machine_type }} | {{ hostvars[host].domain }} | {{ hostvars[host].windows_domain_member }} | {{ hostvars[host].windows_domain_role }} |  {{ hostvars[host].distribution }} | {{ hostvars[host].distribution_major_version }} | {{ hostvars[host].distribution_version }} | {{ hostvars[host].architecture }} | {{ hostvars[host].bios_date }} | {{ hostvars[host].bios_version }} | [{{ hostvars[host].connection_name }}] | [{{ hostvars[host].interface_name }}] | [{{ hostvars[host].ipv4_address }}] | [{{ hostvars[host].ipv6_address }}] | {{ hostvars[host].default_gateway }} | [{{ hostvars[host].mac_address }}] | {{ hostvars[host].lastboot }} | {{ hostvars[host].reboot_pending }} | {{ hostvars[host].uptime }} | {{ hostvars[host].machine_id }} | {{ hostvars[host].total_memory }} | {{ hostvars[host].processor }} | {{ hostvars[host].processor_cores }} | {{ hostvars[host].processor_count }} | {{ hostvars[host].product_name }} | {{ hostvars[host].group_names }} |
-      {% endfor %}
-    dest: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
+  export_dicts:
+    file: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
+    format: "md"
+    columns: "{{ __csv_headers }}"
+    export_list: "{{ __report_inventory_list_facts_flattened }}"
+  register: __md_result
 
-#- name: "update-reports-repo | Format Markdown File New Lines"
-#  replace:
-#    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
-#    regexp: '],'
-#    replace: ']\n'
+- name: Display __md_result
+  debug:
+    var: __md_result
 
-#- name: "update-reports-repo | Format Markdown File Clean Up"
-#  replace:
-#    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
-#    regexp: '\[|\]|"'
-#    replace: ''
-
-#- name: "update-reports-repo | Format Markdown File Commas to Pipes"
-#  replace:
-#    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
-#    regexp: ','
-#    replace: ' | '
-
-- name: "update-reports-repo | Format Markdown File Clean Up"
-  changed_when: false
-  replace:
-    path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
-    regexp: "'"
-    replace: ''
-
-- name: "update-reports-repo | Add Header Rows to Markdown"
+- name: "update-reports-repo | Add Title to Markdown"
   changed_when: false
   lineinfile:
     path: "{{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md"
     insertbefore: BOF
     line: "{{ item.property }}"
   with_items:
-    - { property: '| -------- | ------------ | ------ | ------------- | ----------- | --- | ------------- | ------- | ------------ | --------- | ------------ | ---------------- | --------------- | ---- | ---- | --------------- | ----------- | --------- | -------------- | -------------- | ---------- | ----------------- | ---------- | --------------- | --------------- | ------------ | ----------------------- |' }
-    - { property: '| Hostname | Machine Type | Domain | Domain Member | Domain Role | OS | Major Version | Version | Architecture | Bios Date | Bios Version | Connection Names | Interface Names | IPv4 | IPv6 | Default Gateway | MAC Address | Last Boot | Reboot Pending | Uptime Seconds | Machine ID | Total Memory (MB) | Processors | Processor Cores | Processor Count | Product Name | Ansible Inventory Groups |' }
     - { property: '# Windows' }
 
 - name: "Create server_facts Mind Map"
@@ -270,7 +250,7 @@
     remote: origin
     mode: "{{ report_inventory_facts_git_repo_url_scheme }}"
     ssh_params:
-      accept_newhostkey: true
+      accept_hostkey: true
       key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
   register: git_acp_result
 

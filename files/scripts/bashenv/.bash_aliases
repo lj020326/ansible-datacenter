@@ -315,6 +315,7 @@ alias sshtime5s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S4}"
 alias sshtestrhel8="sshpass -p ${ANSIBLE_PASSWORD_LNX_WORK} ssh ${ANSIBLE_USER_LNX_WORK}@${WORKTESTRHEL8}"
 
 alias sshawxtest="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_TEST}"
+alias sshawxprod="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_PROD}"
 
 alias sshawxp1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S1}"
 alias sshawxp1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S4}"
