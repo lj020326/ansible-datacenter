@@ -127,20 +127,8 @@ from ansible.module_utils.basic import AnsibleModule
 import csv
 import os
 import traceback
+import codecs
 
-
-## ref: https://gist.github.com/CMCDragonkai/1be12221b268b12e46f204f6307ad7b4
-def read_csv_to_dicts(csv_file, dialect='excel', **fmtparams):
-    csv_file.seek(0)
-    reader = csv.reader(csv_file, dialect=dialect, **fmtparams)
-    header = next(reader)
-    readings = []
-    for row in reader:
-        reading = {}
-        for index, heading in enumerate(header):
-            reading[heading] = row[index]
-        readings.append(reading)
-    return readings
 
 def get_headers_and_fields(column_list):
     fieldnames = [column["name"] for column in column_list]
@@ -165,7 +153,7 @@ def write_csv(module, output_file, export_list, column_list):
 
     try:
         with open(output_file, mode='w') as csv_file:
-            writer = csv.DictWriter(csv_file, lineterminator='\n', fieldnames=fieldnames)
+            writer = csv.DictWriter(csv_file, lineterminator='\n', fieldnames=fieldnames,extrasaction='ignore')
 
             header_row_dict = dict(zip(fieldnames, headers))
 
@@ -223,7 +211,8 @@ def write_markdown(module, output_file, export_list, column_list):
 
     try:
         # writing md_string to the output_file
-        file = open(output_file, "w", encoding="UTF-8")
+        # file = open(output_file, "w", encoding="UTF-8")
+        file = codecs.open(output_file, "w", encoding="UTF-8")
         file.write(md_string)
         file.close()
 
