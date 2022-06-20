@@ -379,5 +379,5 @@ That's all for now.  We have created an environment for Molecule and test cases.
 ## Links you may refer:
 
 * [https://yamllint.readthedocs.io/en/stable/](https://yamllint.readthedocs.io/en/stable/)
-* [https://blog.opstree.com/2019/12/24/how-to-test-ansible-playbook-role-using-molecule-with-docker/](https://blog.opstree.com/2019/12/24/how-to-test-ansible-playbook-role-using-molecule-with-docker/)
+* [how-to-test-ansible-playbook-role-using-molecule-with-docker/](https://blog.opstree.com/2019/12/24/how-to-test-ansible-playbook-role-using-molecule-with-docker/)
 
