@@ -2,7 +2,7 @@
 
 cd ..
 
-MOLECULE_DISTROS="ubuntu20 ubuntu18 centos7 centos8 debian9 debian10"
+MOLECULE_DISTROS="ubuntu22 ubuntu20 ubuntu18 centos7 centos8 debian9 debian10"
 
 for MOLECULE_DISTRO in $MOLECULE_DISTROS; do
   echo "*** $MOLECULE_DISTRO"

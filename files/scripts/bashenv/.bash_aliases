@@ -217,6 +217,11 @@ alias venv="python -m venv venv"
 #    alias venv2="virtualenv --python=/c/apps/python27/python-2.7.13.amd64/python.exe venv"
 alias venv2="virtualenv --python=${PYTHON2_BIN_DIR}/python venv"
 
+## ref: https://realpython.com/intro-to-pyenv/
+## use pyenv to set the python env
+## pyenv versions   # to show current installed versions
+alias pyenv310="pyenv global 3.10.2"
+
 #    alias venv3="virtualenv --python=/c/apps/python35/python-3.5.4.amd64/python.exe venv"
 #    alias venv3="virtualenv --python=/c/apps/python36/python-3.6.8.amd64/python.exe venv"
 # alias venv3="virtualenv --python=${PYTHON3_BIN_DIR}/python.exe venv"
@@ -321,3 +326,4 @@ alias sshawxp1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S1}"
 alias sshawxp1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S4}"
 alias sshawxp2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S1}"
 alias sshawxp2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S4}"
+

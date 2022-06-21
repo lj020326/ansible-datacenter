@@ -45,19 +45,34 @@
 - name: "Setup vmware-tools"
   include_role:
     name: vmware-tools
-  when: "'vm_template' in group_names or 'vmware_vm' in group_names"
+  when: bootstrap_linux_install_vmware_tools|d(True)|bool
+#  when: "'vm_template' in group_names or 'vmware_vm' in group_names"
   tags:
     - bootstrap-linux-nocerts
     - bootstrap-vmtools
 
 - name: "Setup bootstrap-ntp"
+  when: bootstrap_linux_install_ntp|d(True)|bool
   include_role:
     name: bootstrap-ntp
   tags:
     - bootstrap-linux-nocerts
     - bootstrap-ntp
 
+- name: "Bootstrap postfix"
+  when:
+    - bootstrap_linux_setup_postfix|d(True)|bool
+    - ansible_virtualization_type!='docker'
+  include_role:
+    name: bootstrap-postfix
+  tags:
+    - bootstrap-linux-nocerts
+    - bootstrap-postfix
+
 - name: "Install/Setup linux firewalld"
+  when:
+    - bootstrap_linux_setup_firewalld|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: bootstrap-linux-firewalld
   vars:
@@ -65,13 +80,6 @@
   tags:
     - bootstrap-linux-nocerts
     - bootstrap-firewalld
-
-- name: "Bootstrap postfix"
-  include_role:
-    name: bootstrap-postfix
-  tags:
-    - bootstrap-linux-nocerts
-    - bootstrap-postfix
 
 - name: "Bootstrap pip"
   include_role:
@@ -81,6 +89,9 @@
     - bootstrap-pip
 
 - name: "Bootstrap java"
+  when:
+    - bootstrap_linux_setup_java|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: bootstrap-java
   tags:
@@ -89,6 +100,9 @@
 
 ## ref: ## https://www.ssh.com/ssh/sshd_config/
 - name: "Setup sshd"
+  when:
+    - bootstrap_linux_setup_sshd|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: bootstrap-sshd
   tags:
@@ -96,6 +110,9 @@
     - bootstrap-sshd
 
 - name: "Setup ldap-client"
+  when:
+    - bootstrap_linux_setup_ldap_client|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: ldap-client
   tags:
@@ -103,6 +120,9 @@
     - bootstrap-ldap-client
 
 - name: "Setup logrotate"
+  when:
+    - bootstrap_linux_setup_logrotate|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: ansible-logrotate
   tags:
@@ -110,6 +130,9 @@
     - bootstrap-logrotate
 
 - name: "Bootstrap nfs service"
+  when:
+    - bootstrap_linux_setup_nfs|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: bootstrap-nfs-service
   tags:
@@ -117,6 +140,9 @@
     - bootstrap-nfs
 
 - name: "Setup samba-client"
+  when:
+    - bootstrap_linux_setup_samba_client|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: samba-client
   when: "'samba_client' in group_names"
@@ -126,6 +152,9 @@
     - samba-client
 
 - name: "Setup webmin"
+  when:
+    - bootstrap_linux_setup_webmin|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: webmin
   tags:
@@ -133,23 +162,25 @@
     - bootstrap-webmin
 
 - name: "Setup docker"
-  include_role:
-    name: bootstrap-linux-docker
-  tags:
-    - bootstrap-linux-docker
+  when:
+    - bootstrap_linux_setup_docker|d(True)|bool
+    - ansible_virtualization_type!='docker'
+  block:
 
-- name: "Setup bootstrap-linux-docker-config"
-  include_role:
-    name: bootstrap-linux-docker-config
-  tags:
-    - bootstrap-linux-docker
-    - bootstrap-linux-docker-config
-    - docker-config
+    - name: "Setup docker"
+      include_role:
+        name: bootstrap-linux-docker
+
+    - name: "Setup bootstrap-linux-docker-config"
+      include_role:
+        name: bootstrap-linux-docker-config
 
 - name: "Setup network"
+  when:
+    - bootstrap_linux_setup_network|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: bootstrap-linux-networking
-  when: "'vm_template' not in group_names"
   tags:
     - bootstrap-linux-nocerts
     - bootstrap-network
@@ -163,6 +194,9 @@
 #    - bootstrap-caroot
 
 - name: "Setup ansible-role-stepca"
+  when:
+    - bootstrap_linux_setup_stepca|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: ansible-role-stepca
   tags:
@@ -170,11 +204,16 @@
     - bootstrap-stepcli
 
 - name: "Run deploy-cacerts"
-#  when: "'vm_template' not in group_names"
+  when:
+    - bootstrap_linux_setup_cacerts|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: deploy-cacerts
 
 - name: "Setup ansible-harden-linux"
+  when:
+    - bootstrap_linux_harden|d(True)|bool
+    - ansible_virtualization_type!='docker'
   include_role:
     name: ansible-harden-linux
   tags:
