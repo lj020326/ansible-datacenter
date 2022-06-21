@@ -11,28 +11,28 @@
   debug:
     var: bootstrap_ansible_user
 
-- name: "Display bootstrap_linux_users"
+- name: "Display bootstrap_linux_user_list"
   debug:
-    var: bootstrap_linux_users
+    var: bootstrap_linux_user_list
 
 ## ref: https://devops.stackexchange.com/questions/11481/doing-map-and-filter-of-a-list-of-dictionaries-in-ansible
 ## possible alternative to custom filter:
 ## https://gist.github.com/halberom/9bfe009c9a3df5d64c7bb505a7700430
 - name: "Initialize homedir for users"
   set_fact:
-    __bootstrap_linux_users: "{{ bootstrap_linux_users | rejectattr('name', 'equalto', 'root') | list | add_homedir | list }}"
+    __bootstrap_linux_user_list: "{{ bootstrap_linux_user_list | rejectattr('name', 'equalto', 'root') | list | add_homedir | list }}"
 
-- name: "Initialize __all_bootstrap_linux_users"
+- name: "Initialize __all_bootstrap_linux_user_list"
   set_fact:
-    __all_bootstrap_linux_users: "{{ __bootstrap_linux_users + [bootstrap_linux_root_user] }}"
+    __all_bootstrap_linux_user_list: "{{ __bootstrap_linux_user_list + [bootstrap_linux_root_user] }}"
 
-- name: "Display __bootstrap_linux_users"
+- name: "Display __bootstrap_linux_user_list"
   debug:
-    var: __bootstrap_linux_users
+    var: __bootstrap_linux_user_list
 
 - name: "Ensure any user processes are stopped/terminated before modifying users"
   when:
-    - "__bootstrap_linux_users | selectattr('name','equalto', ansible_user) | list | length == 0"
+    - "__bootstrap_linux_user_list | selectattr('name','equalto', ansible_user) | list | length == 0"
 #    - "'vm_template' not in group_names"
   include_tasks: stop-user-processes.yml
 
@@ -51,7 +51,7 @@
     name: "{{ item.name }}"
     gid: "{{ item.gid }}"
     state: present
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -71,7 +71,7 @@
     generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
     ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
     ssh_key_file: "{{ item.ssh_key_file | d(omit) }}"
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -80,7 +80,7 @@
   shell: getent shadow "{{ item.name }}" | cut -d':' -f5
   register: users_pw_valid
   changed_when: False
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -108,7 +108,7 @@
     - item.password_valid_days is defined
     - users_pw_valid.results[user_idx].stdout is defined
     - users_pw_valid.results[user_idx].stdout != item.password_valid_days
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
     index_var: user_idx
@@ -125,7 +125,7 @@
              Defaults !requiretty
              #
   when: item.system|d(False)==True
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -140,7 +140,7 @@
     mode: 0700
     owner: "{{ item.name }}"
     group: "{{ item.group|default(item.name) }}"
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -150,7 +150,7 @@
   authorized_key:
     user: "{{ item.name }}"
     key: "{{ vault_user_credentials[item.name].auth_key }}"
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -163,7 +163,7 @@
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: "0600"
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -175,7 +175,7 @@
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: "0600"
-  loop: "{{ __bootstrap_linux_users }}"
+  loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
 
@@ -188,7 +188,7 @@
     mode: "0644"
     owner: "{{ item.0.name }}"
     force: yes
-  loop: "{{ __bootstrap_linux_users | product( lookup('fileglob', 'bashenv/.*', wantlist=True)) | list }}"
+  loop: "{{ __bootstrap_linux_user_list | product( lookup('fileglob', 'bashenv/.*', wantlist=True)) | list }}"
   loop_control:
     label: "Copy {{ item.1 | basename }} for {{ item.0.name }}"
   tags:
@@ -203,7 +203,7 @@
     mode: "0644"
     owner: "{{ item[0].name }}"
     force: yes
-  loop: "{{ __bootstrap_linux_users | product( lookup('fileglob', 'bashenv/.bashlib/*', wantlist=True)) | list }}"
+  loop: "{{ __bootstrap_linux_user_list | product( lookup('fileglob', 'bashenv/.bashlib/*', wantlist=True)) | list }}"
   loop_control:
     label: "Copy {{ item[1] | basename }} for {{ item[0].name }}"
   tags:

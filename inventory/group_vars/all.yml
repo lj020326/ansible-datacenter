@@ -1,5 +1,4 @@
 ---
-debug_cacerts: no
 
 report_inventory_facts_inventory_source: "{{ dc_environment | upper }}"
 
@@ -32,24 +31,14 @@ internal_domain: "{{ internal_subdomain }}.{{ internal_root_domain }}"
 #internal_domain: "{{ internal_root_domain }}"
 #internal_parent_domain: "{{ ('.').join(internal_domain.split('.')[1::]) }}"
 
-dns_domain: "{{ internal_domain }}"
-dns_search_domains:
-  - johnson.int
-  - dettonville.int
-
 hostname_internal_domain: "{{ internal_domain }}"
 hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
 hostname_name_short: "{{ inventory_hostname_short }}"
 
-stepca_hostname_full: "{{ hostname_name_full }}"
-deployca_hostname_full: "{{ hostname_name_full }}"
-
 netbase__hostname: "{{ hostname_name_full if (inventory_hostname.split('.')[0] not in ['localhost','127']) else inventory_hostname }}"
 
+## keep this out of all.yml for the molecule docker provisioner testing
 #ansible_host: "{{ netbase__hostname }}"
-#fqdn: "{{ netbase__hostname }}"
-
-###
 
 ## ref: https://en.wikipedia.org/wiki/IPv4
 ## ref: http://www.steves-internet-guide.com/ipv4-basics/
@@ -62,28 +51,14 @@ gateway_ipv4_network_cidr: "{{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_ne
 #gateway_ipv4_netmask: "255.0.0.0"
 gateway_ipv4_netmask: "{{ gateway_ipv4_network_cidr | ansible.utils.ipaddr('netmask') }}"
 
+## DNS related
+dns_domain: "{{ internal_domain }}"
+dns_search_domains:
+  - johnson.int
+  - dettonville.int
+
 dns_nameservers:
   - "{{ gateway_ipv4 }}"
-
-ca_domains_hosted: []
-
-#stepca_host_url: "https://stepca.admin.{{ internal_root_domain }}/"
-stepca_host_url: "https://stepca.admin.dettonville.int/"
-stepca_root_ca_fingerprint: avkagkskgkkakgkkakg0099sbiskksgskl99bisjbjskgllslggskk
-
-stepca_acme_http_challenge_proxy_port: 80
-
-
-cacert_keyring_inventory_hostname: "{{ groups['ca_keyring'][0] | d(cacert_keyring_host_default) }}"
-
-ca_keyring_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
-#cacert_keyring_host: "{{ cacert_keyring_inventory_hostname }}"
-#cacert_keyring_host: "{{ hostvars[groups['ca_keyring'][0]]['ansible_host'] | d(cacert_keyring_host_default) }}"
-cacert_keyring_host: "{{ hostvars[cacert_keyring_inventory_hostname]['ansible_host'] }}"
-#cacert_keyring_host: "{{ hostvars[cacert_keyring_inventory_hostname]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) }}"
-
-#cacert_keyring_host_default: control01
-cacert_keyring_host_default: vcontrol01
 
 
 timezone: "America/New_York"
@@ -149,70 +124,6 @@ pki_caroot_cert: "{{ ca_root_cn }}.pem"
 pki_caroot_key: "{{ ca_root_cn }}-key.pem"
 
 trust_ca_cert_extension: "pem"
-
-# where to deploy the finalized cert files to on the ansible control node
-ca_keyring_base_dir: "{{ '~/pki' | expanduser }}"
-ca_keyring_certs_dir: "{{ ca_keyring_base_dir }}/certs"
-ca_keyring_keys_dir: "{{ ca_keyring_base_dir }}/keys"
-
-ca_intermediate_certs_config:
-  dettonville.int:
-    commonName: "ca.dettonville.int"
-    domainName: "dettonville.int"
-    signerName: "{{ ca_root_cn }}"
-    country: US
-    state: "New York"
-    locality: "NYC"
-    organization: "Dettonville Internal"
-    organizationalUnit: "Research & Technology"
-    email: "admin@dettonville.int"
-
-  johnson.int:
-    commonName: "ca.johnson.int"
-    domainName: "johnson.int"
-    signerName: "{{ ca_root_cn }}"
-    country: US
-    state: "New York"
-    locality: "CSH"
-    organization: "Johnsonville Internal"
-    organizationalUnit: "Mostly Impractical"
-    email: "admin@johnson.int"
-#    ca_csr_profile: "domain"
-#    ca_csr_profile: "intermediate_ca"
-
-ca_internal_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain']) | select('defined') | unique }}"
-#ca_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain', 'docker_stack_internal_domain']) | select('defined') | unique }}"
-ca_routes_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['ca_service_route']) | select('defined') | unique | d([]) }}"
-
-ca_domains_dynamic: "{{ ca_internal_domains_dynamic|d([]) + ca_routes_dynamic|d([]) }}"
-
-ca_intermediate_certs_list_dynamic: |
-  [
-    {% for domain in ca_domains_dynamic %}
-    {% if domain not in ca_intermediate_certs_config %}
-    {
-      'commonName': "ca.{{ domain }}",
-      'domainName': "{{ domain }}",
-      'signerName': "{{ 'ca.' + ('.').join(domain.split('.')[1::]) if domain.split('.')|count>2 else ca_root_cn }}"
-    },
-    {% endif %}
-    {% endfor %}
-  ]
-
-#ca_intermediate_certs_list: "{{ ca_intermediate_certs_list_static + ca_intermediate_certs_list_dynamic }}"
-ca_intermediate_certs_list: "{{ ca_intermediate_certs_config.values() | d([]) | list + ca_intermediate_certs_list_dynamic }}"
-
-#stepca_root_list: "{{ ca_intermediate_certs_list_static }}"
-
-ca_service_routes_list: |
-  [
-    {% for domain in ca_routes_dynamic %}
-    {
-      'route': "{{ domain }}",
-      'signerName': "ca.{{ domain }}"
-    },
-    {% endfor %}
-  ]
 
 #report_inventory_facts_git_repo_endpoint: "gitea.admin.{{ control_plane_domain }}:2222/infra/report-inventory-facts.git"
 report_inventory_facts_git_repo_endpoint: "gitea.admin.dettonville.int/infra/report-inventory-facts.git"
