@@ -1,5 +1,5 @@
 
-local logPrefix=".bash_aliases"
+logPrefix=".bash_aliases"
 logDebug "configuring shell aliases..."
 
 #
