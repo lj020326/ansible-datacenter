@@ -8,15 +8,15 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
-
 DOCUMENTATION = r'''
 ---
 module: export_dicts
 author:
     - "Lee Johnson (@lj020326)"
-short_description: Write a list of flat dictionaries (a dictionary mapping fieldnames to strings or numbers) to a file with either csv or markdown format. 
+short_description: Write a list of flat dictionaries to a file with either csv or markdown format.
 description:
-    - Write a list of flat dictionaries to a flat file using a specified format choice (csv or markdown) from a list of provided column names, headers and column list order.
+    - Write a list of flat dictionaries (a dictionary mapping fieldnames to strings or numbers) to a flat file using a
+      specified format choice (csv or markdown) from a list of provided column names, headers and column list order.
 options:
     file:
         required: true
@@ -43,13 +43,14 @@ options:
         description:
             - List containing a list of column dictionary specifications for each column in the file.  
               Each column element should contain a dict specifying values for the 'name' and 'header' keys.
-              If the 'column_list' is not specified, it will be derived from the keys of the first row in the export_list. 
+              If the 'column_list' is not specified, it will be derived from the keys of the first row in the
+              export_list.
         required: false
         default: []
         type: list
         elements: dict
 
-'''
+'''  # NOQA
 
 EXAMPLES = r'''
 - name: csv | Write file1.csv
@@ -102,16 +103,16 @@ EXAMPLES = r'''
       - { key1: "value31", key2: "value32", key3: "ḃâŗ", key4: "value34" }
       - { key1: "value41", key2: "value42", key3: "ﬀöø", key4: "båz" }
 
-'''
+'''  # NOQA
 
 RETURN = r'''
 message: 
-    description: Status message for lookup
+    description: Status message for export
     type: str
     returned: always
     sample: "The markdown file has been created successfully at /foo/bar/test.md"
 failed: 
-    description: True if cyberark accounts lookup failed to find results
+    description: True if export failed
     type: bool
     returned: always
 changed: 
@@ -119,9 +120,9 @@ changed:
     type: bool
     returned: always
 
-'''
+'''  # NOQA
 
-
+# noqa: E402 - ansible module imports must occur after docs
 from ansible.module_utils.basic import AnsibleModule
 
 import csv
@@ -134,26 +135,21 @@ def get_headers_and_fields(column_list):
     fieldnames = [column["name"] for column in column_list]
     headers = [column["header"] for column in column_list]
 
-    ## just in case the headers were not specified
+    # just in case the headers were not specified
     if not headers:
         headers = fieldnames
 
-    return (headers, fieldnames)
+    return headers, fieldnames
 
 ## ref: https://docs.python.org/3/library/csv.html
 ## ref: https://realpython.com/python-csv/
 ## ref: https://www.geeksforgeeks.org/writing-csv-files-in-python/
 def write_csv(module, output_file, export_list, column_list):
-    result = dict(
-        changed=False,
-        message=''
-    )
-
     (headers, fieldnames) = get_headers_and_fields(column_list)
 
     try:
         with open(output_file, mode='w') as csv_file:
-            writer = csv.DictWriter(csv_file, lineterminator='\n', fieldnames=fieldnames,extrasaction='ignore')
+            writer = csv.DictWriter(csv_file, lineterminator='\n', fieldnames=fieldnames, extrasaction='ignore')
 
             header_row_dict = dict(zip(fieldnames, headers))
 
@@ -177,37 +173,28 @@ def write_csv(module, output_file, export_list, column_list):
     return result
 
 
-## ref: https://cppsecrets.com/users/1102811497104117108109111104116975048484864103109971051084699111109/Convert-a-CSV-file-to-a-table-in-a-markdown-file.php
+# ref: https://cppsecrets.com/users/1102811497104117108109111104116975048484864103109971051084699111109/Convert-a-CSV-file-to-a-table-in-a-markdown-file.php # noqa: E501 url size exceeds 120
 def write_markdown(module, output_file, export_list, column_list):
-    result = dict(
-        changed=False,
-        message=''
-    )
-
     # print('column_list: %s' % column_list)
     (headers, fieldnames) = get_headers_and_fields(column_list)
 
     md_string = " | "
     for header in headers:
-        md_string += header+" | "
+        md_string += header + " | "
 
     md_string += "\n |"
     for i in range(len(headers)):
         md_string += "--- | "
 
-    try:
+    md_string += "\n"
+    for row in export_list:
+        module.log('row = %s' % str(row))
+        md_string += " | "
+        for column in column_list:
+            column_value = row[column['name']]
+            module.log('column_value = %s' % str(column_value))
+            md_string += str(row[column['name']]) + " | "
         md_string += "\n"
-        for row in export_list:
-            module.log('row = %s' % str(row))
-            md_string += " | "
-            for column in column_list:
-                column_value = row[column['name']]
-                module.log('column_value = %s' % str(column_value))
-                md_string += str(row[column['name']])+" | "
-            md_string += "\n"
-
-    except Exception as e:
-        module.fail_json(msg="Unable to concatenate markdown string - reason: %s", traceback=traceback.format_exc())
 
     try:
         # writing md_string to the output_file
@@ -238,6 +225,8 @@ def main():
         message=''
     )
 
+    export_result = None
+
     # define available arguments/parameters a user can pass to the module
     argument_spec = dict(
         file=dict(required=True, type='path'),
@@ -259,11 +248,11 @@ def main():
 
     file = module.params.get('file')
 
-    destpath = os.path.dirname(file)
-    if not os.path.exists(destpath):
-        module.fail_json(rc=257, msg='Destination directory %s does not exist!' % destpath)
+    destination_path = os.path.dirname(file)
+    if not os.path.exists(destination_path):
+        module.fail_json(rc=257, msg='Destination directory %s does not exist!' % destination_path)
 
-    format = module.params.get('format')
+    file_format = module.params.get('format')
     export_list = module.params.get('export_list')
     column_list = module.params['column_list'] or None
 
@@ -282,9 +271,9 @@ def main():
         if not column_name:
             module.fail_json(msg='Column name not found', **result)
 
-    if format == "md":
+    if file_format == "md":
         export_result = write_markdown(module, file, export_list, column_list)
-    elif format == "csv":
+    elif file_format == "csv":
         export_result = write_csv(module, file, export_list, column_list)
 
     # print('export_result: %s' % export_result)
