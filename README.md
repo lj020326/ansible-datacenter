@@ -1,6 +1,12 @@
 
-ansible-datacenter
-===
+# ansible-datacenter
+
+## Build Status
+
+### GitHub Actions
+
+![Molecule Test](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)
+
 
 This is an ansible playbook that will configure your datacenter based on multi-OS-platform roles on Ubuntu/Centos/Debian linux and windows servers.
 The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template repo](https://github.com/lj020326/packer-templates) to build VMware Ubuntu/Centos templates. 
@@ -8,7 +14,7 @@ The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template re
 The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
 
 
-#### Summary
+## Summary
 
 -   Collection of Ansible roles, playbooks, plugins, and modules
 -   OS image build systems (packer, vsphere)
@@ -16,7 +22,7 @@ The 'ansible' and 'vm template build' pipelines are both automated using the [pi
 -   Runtime environment application deployments
 -   Runtime machine instance maintenance
 
-#### Example ansible image build workflow
+### Example ansible image build workflow
 
 > Workflow for ansible provisioning integration with image build systems
 
