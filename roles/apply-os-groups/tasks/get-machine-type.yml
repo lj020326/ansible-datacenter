@@ -21,8 +21,15 @@
 #      set_fact:
 #        os_machine_type: "os_machine_type_{{ __host_chassis.stdout|default('unknown') | regex_replace('(desktop|laptop)', 'baremetal') }}"
 
+- name: Set machine info (container)
+  when: ansible_virtualization_type in ['docker','containerd']
+  set_fact:
+    os_machine_type: "os_machine_type_container"
+
 - name: Get machine type for linux family machines
-  when: os_family in ['os_linux']
+  when:
+    - os_family in ['os_linux']
+    - ansible_virtualization_type not in ['docker','containerd']
   block:
 
     ## ref: https://ostechnix.com/check-linux-system-physical-virtual-machine/
@@ -35,35 +42,16 @@
         verbosity: 1
 
     - name: Set machine info (linux)
-      when: ansible_virtualization_type=='docker'
-      set_fact:
-        os_machine_type: "os_machine_type_docker"
-
-    - name: Set machine info (linux)
-      when: ansible_virtualization_type!='docker'
       set_fact:
         os_machine_type: "os_machine_type_{{ 'baremetal' if __dmesg_detect_hypervisor.stdout=='0' else 'vm' }}"
 
 
 - name: Get machine type
-  when: os_family not in ['os_linux','os_unknown']
+  when:
+    - os_family not in ['os_linux','os_unknown']
+    - ansible_virtualization_type not in ['docker','containerd']
   block:
 
-    - name: Set machine info (linux)
-      when: ansible_virtualization_type=='docker'
-      set_fact:
-        os_machine_type: "os_machine_type_docker"
-
     - name: Set machine info (windows)
-      when: ansible_virtualization_type!='docker'
       set_fact:
         os_machine_type: "os_machine_type_{{ 'vm' if ansible_virtualization_role|d('') == 'guest' else 'baremetal' }}"
-
-
-- name: Set os info for windows for vmware vcenter
-  when: ansible_os_family|d('')=='VMware Photon'
-  set_fact:
-    os_family: "os_vsphere"
-    os_distribution: "vsphere"
-    os_distribution_version: "os_vsphere_{{ ansible_facts['distribution'] |d('Unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('Unknown') }}"
-
