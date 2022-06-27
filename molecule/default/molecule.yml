@@ -17,18 +17,16 @@ driver:
 ## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/molecule/default/molecule.yml
 ## ref: https://github.com/marketplace/actions/test-ansible-roles-with-molecule
 platforms:
-#  - name: instance
-#  - name: ${MOLECULE_DISTRO}
-#    image: geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2004}-ansible:latest
 
-  - name: "molecule-${image:-fedora}-${tag:-latest}${TOX_ENVNAME}"
-    image: "${namespace:-robertdebock}/${image:-fedora}:${tag:-latest}"
+  - name: ${MOLECULE_IMAGE_NAME:-centos8}
+    image: "${MOLECULE_IMAGE_NAMESPACE:-geerlingguy}/docker-${MOLECULE_DISTRO:-centos8}-ansible:${MOLECULE_IMAGE_TAG:-latest}"
     command: ${MOLECULE_DOCKER_COMMAND:-""}
-#    tmpfs:
-#     - /run
-#     - /tmp
+    tmpfs:
+     - /run
+     - /tmp
     capabilities:
       - SYS_ADMIN
+      - NET_ADMIN
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
@@ -36,14 +34,17 @@ platforms:
     groups:
       - molecule_docker_linux
 
-
 ## ref: https://molecule.readthedocs.io/en/latest/configuration.html?highlight=provisioner#molecule.provisioner.ansible.Ansible
 provisioner:
   name: ansible
+  options:
+    vvv: true
   playbooks:
-    converge: ${MOLECULE_PLAYBOOK:-converge.yml}
+    prepare: ../shared/prepare.yml
+    converge: ${MOLECULE_PLAYBOOK:-../shared/converge.yml}
   inventory:
     links:
+      hosts: ../../inventory/molecule_docker.ini
       group_vars: ../../inventory/group_vars/
   config_options:
     defaults:

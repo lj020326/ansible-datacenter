@@ -27,11 +27,11 @@ ubuntu2004
 ubuntu2204
 "
 
-
 IFS=$'\n'
 for MOLECULE_DISTRO in $MOLECULE_DISTROS; do
   echo "*** $MOLECULE_DISTRO"
   export MOLECULE_DISTRO
-  molecule test
+  molecule reset
+  molecule test --debug --parallel
 done
 

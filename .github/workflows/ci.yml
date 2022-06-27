@@ -1,10 +1,5 @@
 ---
 name: CI
-#on:
-#  pull_request:
-#  push:
-#    branches:
-#      - main
 
 ## ref: https://github.com/marketplace/actions/ansible-molecule
 on:
@@ -24,47 +19,28 @@ jobs:
     runs-on: ubuntu-latest
 
     concurrency:
-#      group: ${{ github.ref }}
+      ## ref: https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+      max-parallel: 2
 #      group: ${{ github.head_ref || github.run_id }}
+#      group: ${{ github.ref }}
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: false
 
     strategy:
       fail-fast: false
-      matrix:
-        config:
-#          - image: "alpine"
-#            tag: "latest"
-          - image: "debian"
-            tag: "latest"
-#          - image: "debian"
-#            tag: "bookworm"
-#          - image: "enterpriselinux"
-#            tag: "7"
-#          - image: "enterpriselinux"
-#            tag: "latest"
-#          - image: "fedora"
-#            tag: "35"
-          - image: "fedora"
-            tag: "latest"
-#          - image: "fedora"
-#            tag: "rawhide"
-#          - image: "opensuse"
-#            tag: "latest"
-          - image: "ubuntu"
-            tag: "latest"
-          - image: "ubuntu"
-            tag: "focal"
-#          - image: "ubuntu"
-#            tag: "bionic"
 
-#      matrix:
-#        distro:
-##          - ubuntu1804
-#          - ubuntu2004
-#          - centos8
-#          - centos7
-#          - debian10
+      matrix:
+        molecule_distro:
+          - centos7
+          - centos8
+          # - debian8
+          - debian9
+          - debian10
+          - fedora35
+          - ubuntu1604
+          - ubuntu1804
+          - ubuntu2004
+          - ubuntu2204
 
     steps:
       - name: Check out the codebase.
@@ -85,6 +61,13 @@ jobs:
 ##          python3 -m pip install --upgrade pip
 ##          python3 -m pip install -r requirements.txt
 
+      - name: Run Molecule tests.
+        run: molecule test --parallel --scenario-name ${{ matrix.molecule_distro }}
+        env:
+          PY_COLORS: '1'
+          ANSIBLE_FORCE_COLOR: '1'
+#          MOLECULE_DISTRO: ${{ matrix.molecule_distro }}
+
 #      ## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/.github/workflows/molecule.yml
 #      - name: Run Molecule tests.
 #        run: molecule test
@@ -93,13 +76,13 @@ jobs:
 #          ANSIBLE_FORCE_COLOR: '1'
 #          MOLECULE_DISTRO: ${{ matrix.distro }}
 
-      - name: molecule
-        uses: robertdebock/molecule-action@4.0.8
-        with:
-          image: ${{ matrix.config.image }}
-          tag: ${{ matrix.config.tag }}
-          command: "--debug test"
-          options: parallel
+#      - name: molecule
+#        uses: robertdebock/molecule-action@4.0.8
+#        with:
+#          image: ${{ matrix.config.image }}
+#          tag: ${{ matrix.config.tag }}
+#          command: "--debug test"
+#          options: parallel
 
 #      - name: Molecule
 #        uses: gofrolist/molecule-action@v2

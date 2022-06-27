@@ -27,16 +27,3 @@ For any required Ansible roles, review:
 
 [playbook.yml](playbook.yml)
 
-## License
-
-MIT
-
-## Author Information
-
-Larry Smith Jr.
-
-- [@mrlesmithjr](https://twitter.com/mrlesmithjr)
-- [mrlesmithjr@gmail.com](mailto:mrlesmithjr@gmail.com)
-- [http://everythingshouldbevirtual.com](http://everythingshouldbevirtual.com)
-
-> NOTE: Repo has been created/updated using [https://github.com/mrlesmithjr/cookiecutter-ansible-role](https://github.com/mrlesmithjr/cookiecutter-ansible-role) as a template.
