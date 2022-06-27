@@ -6,50 +6,114 @@
 
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: add_host_to_repo
+module: add_hosts_to_repo
 author:
     - "Lee Johnson (@lj020326)"
 short_description: Add host to git repo inventory. 
 description:
     - Add host to git repo inventory.
 options:
-    file:
+    inventory_file:
         required: true
         type: path
         description:
-            - File path where file will be written/saved.
-    format:
+            - File path where inventory YAML file will loaded, updated and written/saved.
+            - The inventory file must be YAML formatted.
+    backup:
         description:
-          - C(yml) write to YAML formatted file.
-            C(ini)  write to INI formatted file.
-        required: false
-        type: str
-        choices: [ yml, ini ]
-        default: "csv"
-    host_list:
+          - Create a backup inventory file including the timestamp information so you can get
+            the original inventory file back if you somehow clobbered it incorrectly.
+        type: bool
+        default: no
+    add_host_list:
         aliases: ['list']
         required: true
         type: list
         elements: dict
         description:
             - Specifies a list of host dicts.
+    inventory_repo_url:
+        description:
+            - Git repo URL.
+        required: True
+        type: str
+    inventory_repo_branch:
+        description:
+            - Git branch where perform git push.
+        type: str
+        default: main
+    inventory_repo_scheme:
+        description:
+            - Git operations are performend eithr over ssh, https or local.
+              Same as C(git@git...) or C(https://user:token@git...).
+        choices: ['ssh', 'https', 'local']
+        default: ssh
+        type: str
+    ssh_params:
+        description:
+            - Dictionary containing SSH parameters.
+        type: dict
+        suboptions:
+            key_file:
+                description:
+                    - Specify an optional private key file path, on the target host, to use for the checkout.
+            accept_hostkey:
+                description:
+                    - If C(yes), ensure that "-o StrictHostKeyChecking=no" is
+                      present as an ssh option.
+                type: bool
+                default: 'no'
+            ssh_opts:
+                description:
+                    - Creates a wrapper script and exports the path as GIT_SSH
+                      which git then automatically uses to override ssh arguments.
+                      An example value could be "-o StrictHostKeyChecking=no"
+                      (although this particular option is better set via
+                      C(accept_hostkey)).
+                type: str
+                default: None
+        version_added: "1.4.0"
 
+requirements:
+    - git>=2.10.0 (the command line tool)
 '''  # NOQA
 
 EXAMPLES = r'''
 - name: csv | Write hosts.yml
-  add_host_to_repo:
-    file: /tmp/test-exports/hosts.yml
-    format: yml
-    host_list: 
-      - { key1: "value11", key2: "value12", key3: "value13", key4: "value14" }
-      - { key1: "value21", key2: "value22", key3: "value23", key4: "value24" }
-      - { key1: "value31", key2: "value32", key3: "value33", key4: "value34" }
-      - { key1: "value41", key2: "value42", key3: "value43", key4: "value44" }
+  add_hosts_to_repo:
+    inventory_repo_scheme: ssh
+    inventory_repo_url: "git@gitlab.com:networkAutomation/git_test_module.git"
+    inventory_file: /tmp/test-add-hosts/hosts.yml
+    inventory_repo_branch: master
+    ssh_params:
+      accept_hostkey: true
+      key_file: '{{ lookup('env', 'HOME') }}/.ssh/id_rsa'
+      ssh_opts: '-o UserKnownHostsFile={{ remote_tmp_dir }}/known_hosts'
+    backup: no
+    add_host_list:
+      - hostname: vmlnx123-q1-s1.example.int
+        hostvars:
+          provisioning_data:
+            jira_id: DCC-12345
+            infra_group: MIDWA
+        groups:
+        - ntp_client
+        - ldap_client
+      - hostname: vmlnx124-q1-s1.example.int
+        hostvars:
+          provisioning_data:
+            jira_id: DCC-12346
+            infra_group: MIDWA
+        groups:
+        - ntp_client
+        - nfs_client
+        - ldap_client
+
 
 '''  # NOQA
 
@@ -58,58 +122,44 @@ message:
     description: Status message for lookup
     type: str
     returned: always
-    sample: "The markdown file has been created successfully at /foo/bar/test.md"
+    sample: "[master 99830f4] Add [ inventory/site.yml ]\n 1 files changed, 26 insertions(+)..."
 failed: 
-    description: True if cyberark accounts lookup failed to find results
+    description: True if failed to add hosts.
     type: bool
     returned: always
 changed: 
     description: True if successful
     type: bool
     returned: always
+inventory_file:
+    description: The path of the inventory file that was updated
+    type: str
+    returned: when backup=yes
+    sample: /path/to/inventory.yml
+backup_file:
+    description: The name of the backup file that was created
+    type: str
+    returned: when backup=yes
+    sample: /path/to/inventory.yml.1942.2017-08-24@14:16:01~
 
 '''  # NOQA
 
 # noqa: E402 - ansible module imports must occur after docs
 from ansible.module_utils.basic import AnsibleModule
 
-import csv
-import os
-import traceback
-import codecs
+try:
+    from module_utils.git_actions import Git
+except ImportError:
+    from ansible.module_utils.git_actions import Git
+
+try:
+    from module_utils.inventory_repo_actions import InventoryRepo
+except ImportError:
+    from ansible.module_utils.inventory_repo_actions import InventoryRepo
 
 
-def get_headers_and_fields(column_list):
-    fieldnames = [column["name"] for column in column_list]
-    headers = [column["header"] for column in column_list]
-
-    # just in case the headers were not specified
-    if not headers:
-        headers = fieldnames
-
-    return headers, fieldnames
-
-
-def write_yml(module, output_file, host_list):
-
-
-    result = dict(
-        changed=True,
-        message="The csv file has been created successfully at {0}".format(output_file)
-    )
-
-    return result
-
-
-def write_ini(module, output_file, host_list):
-
-
-    result = dict(
-        changed=True,
-        message="The markdown file has been created successfully at {0}".format(output_file)
-    )
-
-    return result
+import datetime
+import tempfile
 
 
 def main():
@@ -123,13 +173,15 @@ def main():
         message=''
     )
 
-    export_result = None
-
     # define available arguments/parameters a user can pass to the module
     argument_spec = dict(
-        file=dict(required=True, type='path'),
-        format=dict(choices=['yml', 'ini'], default='yml'),
-        host_list=dict(required=True, aliases=['list'], type='list', elements='dict')
+        inventory_repo_url=dict(required=True),
+        inventory_repo_scheme=dict(choices=['ssh', 'https', 'local'], default='ssh'),
+        inventory_repo_branch=dict(default='main'),
+        inventory_file=dict(required=True, type='path'),
+        add_host_list=dict(required=True, aliases=['list'], type='list', elements='dict'),
+        backup=dict(type='bool', default=False),
+        ssh_params=dict(default=None, type='dict', required=False)
     )
 
     module = AnsibleModule(
@@ -143,24 +195,42 @@ def main():
     if module.check_mode:
         module.exit_json(**result)
 
-    file = module.params.get('file')
+    inventory_file = module.params.get('inventory_file')
+    inventory_repo_dir = tempfile.mkdtemp(prefix="add_hosts_to_repo")
+    inventory_file_path = inventory_repo_dir + '/' + inventory_file
 
-    destination_path = os.path.dirname(file)
-    if not os.path.exists(destination_path):
-        module.fail_json(rc=257, msg='Destination directory %s does not exist!' % destination_path)
+    git_commit_message = "ansible add_host_to_inventory: updated inventory in {0} as of {1}".format(inventory_file, datetime.datetime.now())
 
-    file_format = module.params.get('format')
-    host_list = module.params.get('host_list')
+    print("inventory_file_path={0}".format(inventory_file_path))
 
-    if file_format == "ini":
-        export_result = write_ini(module, file, host_list)
-    elif file_format == "yml":
-        export_result = write_yml(module, file, host_list)
+    git = Git(module, inventory_repo_dir)
 
-    # print('export_result: %s' % export_result)
+    git.clone()
 
-    result['changed'] = export_result['changed']
-    result['message'] = export_result['message']
+    inventory_repo = InventoryRepo(module, inventory_file_path)
+
+    add_host_list = module.params.get('add_host_list')
+    backup = module.params['backup']
+    add_hosts_result = inventory_repo.add_hosts_yaml(add_host_list, backup)
+
+    changed_files = git.status()
+    print("changed_files={0}".format(changed_files))
+
+    if changed_files:
+        git.add()
+        result.update(git.commit(git_commit_message))
+        result.update(git.push())
+        result['changed'] = True
+    else:
+        result['message'] = "No changes required for {0}".format(inventory_file)
+        result['changed'] = False
+
+    result['inventory_repo_dir'] = inventory_repo_dir
+
+    # print('add_hosts_result: {0}'.format(add_hosts_result))
+
+    if backup:
+        result['backup_file'] = add_hosts_result['backup_file']
 
     # print('result: %s' % result)
     module.exit_json(**result)

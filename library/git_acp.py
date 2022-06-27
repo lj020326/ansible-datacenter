@@ -8,8 +8,7 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
-
-DOCUMENTATION = '''
+DOCUMENTATION = r'''
 ---
 module: git_acp
 author:
@@ -69,8 +68,7 @@ options:
         description:
             - Dictionary containing SSH parameters.
         type: dict
-        default: None
-        options:
+        suboptions:
             key_file:
                 description:
                     - Specify an optional private key file path, on the target host, to use for the checkout.
@@ -89,11 +87,13 @@ options:
                       C(accept_hostkey)).
                 type: str
                 default: None
+        version_added: "1.4.0"
     executable:
         description:
             - Path to git executable to use. If not supplied,
               the normal mechanism for resolving binary paths will be used.
-        version_added: "1.4"
+        type: path
+        version_added: "1.4.0"
     remote:
         description:
             - Local system alias for git remote PUSH and PULL repository operations.
@@ -110,7 +110,7 @@ options:
 
 requirements:
     - git>=2.10.0 (the command line tool)
-'''
+'''  # NOQA
 
 EXAMPLES = '''
 - name: HTTPS | add file1.
@@ -137,6 +137,20 @@ EXAMPLES = '''
     user_name: lvrfrc87
     user_email: lvrfrc87@gmail.com
 
+- name: SSH with private key | add file1.
+  git_acp:
+    path: /Users/git/git_acp
+    branch: master
+    comment: Add file1.
+    add: [ file1  ]
+    remote: dev_test
+    mode: ssh
+    url: "git@gitlab.com:networkAutomation/git_test_module.git"
+    ssh_params:
+      accept_newhostkey: true
+      key_file: '{{ lookup('env', 'HOME') }}/.ssh/id_rsa'
+      ssh_opts: '-o UserKnownHostsFile={{ remote_tmp_dir }}/known_hosts'
+
 - name: LOCAL | push on local repo.
   git_acp:
     path: "~/test_directory/repo"
@@ -158,8 +172,17 @@ output:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.git_actions import Git
-from ansible.module_utils.git_configuration import GitConfiguration
+
+try:
+    from module_utils.git_actions import Git
+except ImportError:
+    from ansible.module_utils.git_actions import Git
+
+try:
+    from module_utils.git_configuration import GitConfiguration
+except ImportError:
+    from ansible.module_utils.git_configuration import GitConfiguration
+
 
 def main():
     """
@@ -189,11 +212,11 @@ def main():
     )
 
     required_if = [
-        ('mode', 'https', ['user', 'token']),
+        ('mode', 'https', ['user', 'token'])
     ]
 
     required_together = [
-        ['user_name', 'user_email'],
+        ['user_name', 'user_email']
     ]
 
     module = AnsibleModule(
@@ -203,13 +226,16 @@ def main():
     )
 
     url = module.params.get('url')
+    path = module.params.get('path')
     push_option = module.params.get('push_option')
     mode = module.params.get('mode')
     user_name = module.params.get('user_name')
     user_email = module.params.get('user_email')
+    ssh_params = module.params.get('ssh_params')
+    comment = module.params.get('comment')
 
-    # We screenscrape a huge amount of git commands so use C locale anytime we
-    # call run_command()
+    # We screenscrape a huge amount of git commands so use C
+    # locale anytime we call run_command()
     module.run_command_environ_update = dict(LANG='C', LC_ALL='C', LC_MESSAGES='C', LC_CTYPE='C')
 
     if mode == 'local':
@@ -219,9 +245,14 @@ def main():
         if push_option:
             module.fail_json(msg='"--push-option" not supported with mode "local"')
 
+        if ssh_params:
+            module.warn(msg='SSH Parameters will be ignored as mode "local"')
+
     elif mode == 'https':
         if not url.startswith('https://'):
             module.fail_json(msg='HTTPS mode selected but url (' + url + ') not starting with "https"')
+        if ssh_params:
+            module.warn('SSH Parameters will be ignored as mode "https"')
 
     elif mode == 'ssh':
         if not url.startswith(('git', 'ssh://git')):
@@ -234,7 +265,7 @@ def main():
 
     result = dict(changed=False)
 
-    git = Git(module)
+    git = Git(module, path)
 
     if user_name and user_email:
         result.update(GitConfiguration(module).user_config())
@@ -243,7 +274,7 @@ def main():
 
     if changed_files:
         git.add()
-        result.update(git.commit())
+        result.update(git.commit(comment))
         result.update(git.push())
 
     module.exit_json(**result)

@@ -7,7 +7,7 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 echo "PROJECT_DIR=${PROJECT_DIR}"
 
-TEST_SIZE=$(ls -1 "${SCRIPT_DIR}/${TEST_TARGET}/" | wc -l)
+TEST_SIZE=$(ls -1 "${SCRIPT_DIR}/${TEST_TARGET}/" | grep ^test | wc -l)
 
 echo "TEST_SIZE=${TEST_SIZE}"
 
