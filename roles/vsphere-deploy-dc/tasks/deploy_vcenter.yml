@@ -49,6 +49,7 @@
         opts: ro,noauto
         state: mounted
       when: mount_dir_stat_created.stat.wusr == True
+      notify: "Unmount the VCSA installer ISO"
 
     - name: "deploy_vcenter | Set deploy_minor_version"
       set_fact:
@@ -81,35 +82,20 @@
         dest: "{{ vcenter_install_tmp_dir }}/vCSA_on_ESXi.json"
         backup: yes
 
-    #- name: "deploy_vcenter | Deploy the vCenter appliance for type => {{ vcenter_appliance_type }}"
-    #  command: "{{ deploy_cmd }}"
-    #  register: deploy_ovf_cmd_result
-    ##  ignore_errors: True
-    ##  failed_when: "'Monitor failed:' in deploy_ovf_cmd_result.stdout or deploy_ovf_cmd_result.rc > 0"
-
     - debug:
         msg: "Next step will take about 20 minutes if VC has not been previously deployed, so go grab some coffee !!!"
 
     - name: "deploy_vcenter | Perform VC CLI Install"
-#      command: "./vcsa-deploy install --accept-eula {{ install_no_ssl_arg }} --acknowledge-ceip {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
-#      args:
-#        chdir: "{{ vcenter_mount_dir }}/vcsa-cli-installer/lin64/"
       command: "./lin64/vcsa-deploy install --accept-eula {{ install_no_ssl_arg }} {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
       args:
         chdir: "{{ vcenter_mount_dir }}/vcsa-cli-installer"
-      register: vcdeploy
-    #  ignore_errors: True
+      register: __vcdeploy_result
+      failed_when: __vcdeploy_result.rc > 0 and not ( __vcdeploy_result.stderr | regex_search("A virtual machine with the name .* already") )
+      ignore_errors: yes
 
-    #- name: "deploy_vcenter | Unmount VCSA installer"
-    #  action: "mount name={{ vcenter_mount_dir }} src='{{ esx_iso }}' fstype=iso9660 state=absent"
-
-    - name: "deploy_vcenter | Unmount the VCSA installer ISO"
-      mount:
-        path: "{{ vcenter_mount_dir }}"
-        src: "{{ vcenter_repo_dir }}/{{ vcsa_iso}}"
-        fstype: iso9660
-    #    state: unmounted
-        state: absent
+    - name: Display __vcdeploy_result
+      debug:
+        var: __vcdeploy_result
 
     - name: "deploy_vcenter | Delete the temporary JSON template file"
       file:
@@ -131,11 +117,11 @@
       register: vm_info
 
     - debug:
-        var: vminfo.virtual_machines
+        var: vm_info
 
     - name: Set __vcenter_ip
       set_fact:
-        __vcenter_ip: vm_info.virtual_machines[0].vm_network.ipv4[0]
+        __vcenter_ip: "{{ vm_info.virtual_machines[0].ip_address }}"
 
     - name: Display __vcenter_ip
       debug:
