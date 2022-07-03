@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+GIT_DEFAULT_BRANCH=master
+
 ## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
 # exit when any command fails
 set -e
@@ -9,8 +11,8 @@ trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 # echo an error message before exiting
 trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
 
-echo "Check out master branch:"
-git checkout master
+echo "Check out ${GIT_DEFAULT_BRANCH} branch:"
+git checkout ${GIT_DEFAULT_BRANCH}
 
 #echo "Delete current local public branch:"
 #git branch -D public
@@ -23,7 +25,8 @@ cp -p files/git/pub.gitignore .gitignore
 
 rm -fr private/
 rm -fr files/private/
-rm -fr vars/secrets.yml
+find . -name secrets.yml -exec rm -rf {} \;
+find . -name vault.yml -exec rm -rf {} \;
 
 echo "Add all the files:"
 git add -A
@@ -46,7 +49,7 @@ git push -f origin public
 #git push -f --set-upstream origin public
 
 echo "Force public branch update to github repository:"
-git push -f github public
+git push -f -u github public:main
 
-echo "Finally, checkout master branch:"
-git checkout master
+echo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:"
+git checkout ${GIT_DEFAULT_BRANCH}

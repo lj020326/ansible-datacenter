@@ -197,3 +197,8 @@ And where is the token stored? In the GitHub's repository secrets storage. The o
 Once we have our secrets in place and workflow description committed, we can push our changes to GitHub and enjoy some well-deserved Jenkins cinema.
 
 ![lab 2](./lab2.png?width=944&name=xlab%20blog%202.png)
+
+## References
+
+* [Adding integration tests to Ansible Content Collections](https://steampunk.si/blog/adding-integration-tests-to-ansible-content-collections/)
+* 

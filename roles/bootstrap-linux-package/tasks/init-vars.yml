@@ -10,6 +10,8 @@
 - name: Initialize OS bootstrap_linux_package_list
   set_fact:
     bootstrap_linux_package_list: "{{ bootstrap_linux_package_list|d([bootstrap_linux_package_list_default]) }}"
+    __bootstrap_linux_package_exclude_pattern: "{{ '(' + bootstrap_linux_package_exclude_list | join('|') + ')' }}"
+#    __bootstrap_linux_package_exclude_pattern: "{{ '^(?!(%s)).*' | format(bootstrap_linux_package_exclude_list | join('|')) }}"
 
 - name: "Display key parameters for {{ role_name }}"
   block:
@@ -19,6 +21,10 @@
         var: bootstrap_linux_package_state
     - debug:
         var: bootstrap_linux_package_update_cache
+    - debug:
+        var: bootstrap_linux_package_exclude_list
+    - debug:
+        var: __bootstrap_linux_package_exclude_pattern
 
 - name: Show variables with 'bootstrap_linux_package_list__' in their names
   debug:
@@ -48,22 +54,25 @@
     __bootstrap_linux_package_list_absent: []
 
 - name: "Set __bootstrap_linux_package_list_present"
-  when: item.state | default(bootstrap_linux_package_state) == 'present'
+  when:
+    - item.state | default(bootstrap_linux_package_state) == 'present'
+    - (item is mapping) | ternary( item.apt|d(item.name), item) not in bootstrap_linux_package_exclude_list
   set_fact:
     __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present | d([]) + [(item is mapping) | ternary( item.apt|d(item.name), item)] }}"
   loop: "{{ __bootstrap_linux_package_list }}"
 
 - name: "Uniquify __bootstrap_linux_package_list_present"
   set_fact:
-    __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present|d([]) | sort | unique }}"
+#    __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present|d([]) | sort | unique }}"
+    __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present|d([]) | reject('match', __bootstrap_linux_package_exclude_pattern) | sort | unique }}"
 
 - name: "Display __bootstrap_linux_package_list_present"
   debug:
     var: __bootstrap_linux_package_list_present
 
-
 - name: "Set __bootstrap_linux_package_list_latest"
-  when: item.state | default(bootstrap_linux_package_state) == 'latest'
+  when:
+    - item.state | default(bootstrap_linux_package_state) == 'latest'
   set_fact:
     __bootstrap_linux_package_list_latest: "{{ __bootstrap_linux_package_list_latest | d([]) + [(item is mapping) | ternary( item.apt|d(item.name), item)] }}"
   loop: "{{ __bootstrap_linux_package_list }}"
@@ -75,7 +84,6 @@
 - name: "Display __bootstrap_linux_package_list_latest"
   debug:
     var: __bootstrap_linux_package_list_latest
-
 
 - name: "Set __bootstrap_linux_package_list_absent"
   when: item.state | default(bootstrap_linux_package_state) == 'absent'

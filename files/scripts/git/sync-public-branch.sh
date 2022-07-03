@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+GIT_DEFAULT_BRANCH=master
+
 ## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
 # exit when any command fails
 set -e
@@ -73,7 +75,7 @@ RSYNC_OPTS_GIT_UPDATE=(
 )
 
 git fetch --all
-git checkout master
+git checkout ${GIT_DEFAULT_BRANCH}
 
 #RSYNC_OPTS=${RSYNC_OPTS_GIT_MIRROR[@]}
 
@@ -124,11 +126,6 @@ do
   eval $rsync_cmd
 done
 
-#rm -fr private/
-#rm -fr files/private/
-#rm -fr vars/secrets.yml
-#rm -fr .vault_pass
-
 printf -v TO_REMOVE '%s ' "${PRIVATE_CONTENT_ARRAY[@]}"
 TO_REMOVE="${TO_REMOVE% }"
 echo "TO_REMOVE=${TO_REMOVE}"
@@ -145,7 +142,7 @@ echo "Show changes before push:"
 git status
 
 ## https://stackoverflow.com/questions/5989592/git-cannot-checkout-branch-error-pathspec-did-not-match-any-files-kn
-## git diff --name-only public master --
+## git diff --name-only public ${GIT_DEFAULT_BRANCH} --
 
 if [ $CONFIRM -eq 0 ]; then
   ## https://www.shellhacks.com/yes-no-bash-script-prompt-confirmation/
@@ -170,7 +167,8 @@ echo "Pushing branch '${LOCAL_BRANCH}' to remote origin branch '${LOCAL_BRANCH}'
 git push -f origin ${LOCAL_BRANCH} || true && \
 echo "Pushing public branch update to github repository (as main branch):" && \
 git push -f -u github public:main || true && \
-echo "Finally, checkout master branch:" && \
-git checkout master
+echo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:" && \
+git checkout ${GIT_DEFAULT_BRANCH}
 
 chmod +x files/scripts/bashenv/*.sh
+chmod +x files/scripts/git/*.sh

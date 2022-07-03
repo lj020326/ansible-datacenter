@@ -50,7 +50,7 @@
         state: mounted
       when: mount_dir_stat_created.stat.wusr == True
 
-    - name: "deploy_vcenter | Set FQDN fact for vCenter"
+    - name: "deploy_vcenter | Set deploy_minor_version"
       set_fact:
     #    deploy_version: "{{ vcsa_iso | regex_replace('^.+(MASK-.+?)\\.+','\\\1') }}"
         deploy_minor_version: "{{ vcsa_iso | regex_search('VMware-VCSA-all-(.+)-.*.iso', '\\1') | first }}"
@@ -59,7 +59,7 @@
     - debug:
         var: deploy_minor_version
 
-    - name: "deploy_vcenter | Set FQDN fact for vCenter"
+    - name: "deploy_vcenter | Set deploy_version"
       set_fact:
         deploy_version: "{{ deploy_minor_version.split('.')[0:2] | join('.') }}"
 
@@ -67,7 +67,7 @@
         var: deploy_version
 
     ## ref: https://www.mattallford.com/2017/vsphere-6-5-cli-vcsa-external-deployment-walkthrough/
-    - name: "deploy_vcenter | Set FQDN fact for vCenter"
+    - name: "deploy_vcenter | Set v6.5 install_no_ssl_arg"
       when: deploy_version=="6.5"
       set_fact:
         install_no_ssl_arg: "--no-esx-ssl-verify"
@@ -92,9 +92,11 @@
 
     - name: "deploy_vcenter | Perform VC CLI Install"
 #      command: "./vcsa-deploy install --accept-eula {{ install_no_ssl_arg }} --acknowledge-ceip {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
-      command: "./vcsa-deploy install --accept-eula {{ install_no_ssl_arg }} {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+#      args:
+#        chdir: "{{ vcenter_mount_dir }}/vcsa-cli-installer/lin64/"
+      command: "./lin64/vcsa-deploy install --accept-eula {{ install_no_ssl_arg }} {{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
       args:
-        chdir: "{{ vcenter_mount_dir }}/vcsa-cli-installer/lin64/"
+        chdir: "{{ vcenter_mount_dir }}/vcsa-cli-installer"
       register: vcdeploy
     #  ignore_errors: True
 
@@ -111,6 +113,56 @@
 
     - name: "deploy_vcenter | Delete the temporary JSON template file"
       file:
-        path: "{{vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+        path: "{{ vcenter_install_tmp_dir }}/vCSA_on_ESXi.json"
         state: absent
+
+- name: "Configure vcenter hostname if network_type == dhcp"
+  when:
+    - vsphere_deploy__vcenter.network_type == 'dhcp'
+    - vsphere_deploy__vcenter.ip is not defined
+  block:
+    - name: "Gather info for new vcenter vm with name {{ vsphere_deploy__vcenter.name }}"
+      community.vmware.vmware_vm_info:
+        hostname: "{{ vcenter_target_esx_host.hostname }}"
+        username: "{{ vsphere_credentials[vcenter_target_esx_host.hostname].username }}"
+        password: "{{ vsphere_credentials[vcenter_target_esx_host.hostname].password }}"
+        validate_certs: no
+        vm_name: "{{ vsphere_deploy__vcenter.name }}"
+      register: vm_info
+
+    - debug:
+        var: vminfo.virtual_machines
+
+    - name: Set __vcenter_ip
+      set_fact:
+        __vcenter_ip: vm_info.virtual_machines[0].vm_network.ipv4[0]
+
+    - name: Display __vcenter_ip
+      debug:
+        var: __vcenter_ip
+
+    ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_vcenter_settings_module.html
+    - name: Configure vCenter general settings
+      community.vmware.vmware_vcenter_settings:
+        hostname: "{{ __vcenter_ip }}"
+        username: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].username }}"
+        password: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password }}"
+        validate_certs: no
+        runtime_settings:
+          unique_id: 1
+          managed_address: "{{ lookup('dig', vsphere_deploy__vcenter.name) }}"
+          vcenter_server_name: "{{ vsphere_deploy__vcenter.hostname }}"
+        mail:
+          server: "{{ vsphere_deploy__vcenter.mail_server }}"
+          sender: "{{ vsphere_deploy__vcenter.mail_sender }}"
+        snmp_receivers:
+          snmp_receiver_1_url: localhost
+          snmp_receiver_1_enabled: true
+          snmp_receiver_1_port: 162
+          snmp_receiver_1_community: public
+        timeout_settings:
+          normal_operations: 30
+          long_operations: 120
+        logging_options: info
+      delegate_to: localhost
 

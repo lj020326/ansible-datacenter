@@ -1,18 +1,25 @@
 ---
 dependency:
   name: galaxy
-  enabled: false
   options:
-    role-file: requirements.yml
+    ignore-certs: True
+    ignore-errors: True
+    role-file: roles/requirements.yml
+    requirements-file: collections/requirements.yml
 driver:
   name: docker
 lint: |
   yamllint .
   ansible-lint
   flake8
+
+## ref: https://molecule.readthedocs.io/en/stable/configuration.html#platforms
+## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/molecule/default/molecule.yml
+## ref: https://github.com/marketplace/actions/test-ansible-roles-with-molecule
 platforms:
   - name: centos7
-    image: "${MOLECULE_IMAGE_NAMESPACE:-jrei}/systemd-${MOLECULE_DISTRO:-centos}:${MOLECULE_IMAGE_TAG:-7}"
+    image: "${MOLECULE_IMAGE_NAMESPACE:-lj020326}/${MOLECULE_DISTRO:-centos7}-systemd-python:${MOLECULE_IMAGE_TAG:-latest}"
+#    image: "${MOLECULE_IMAGE_NAMESPACE:-jrei}/systemd-${MOLECULE_DISTRO:-centos}:${MOLECULE_IMAGE_TAG:-7}"
 #    image: "${MOLECULE_IMAGE_NAMESPACE:-geerlingguy}/docker-${MOLECULE_DISTRO:-centos7}-ansible:${MOLECULE_IMAGE_TAG:-latest}"
 #    image: jrei/systemd-centos:7
     privileged: true
@@ -20,12 +27,31 @@ platforms:
     # tmpfs:
     #   - /run
     #   - /tmp
+    capabilities:
+      - SYS_ADMIN
+      - NET_ADMIN
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+    groups:
+      - molecule_docker_linux
+
+## ref: https://molecule.readthedocs.io/en/latest/configuration.html?highlight=provisioner#molecule.provisioner.ansible.Ansible
 provisioner:
   name: ansible
+  options:
+    vvv: true
   playbooks:
-    converge: ../shared/converge.yml
     prepare: ../shared/prepare.yml
+    converge: ${MOLECULE_PLAYBOOK:-../shared/converge.yml}
+  inventory:
+    links:
+      group_vars: ../../inventory/group_vars
+  config_options:
+    defaults:
+      remote_tmp: /tmp/.ansible
+  env:
+    ANSIBLE_COLLECTIONS_PATH: "~/.ansible/collections"
 verifier:
   name: ansible

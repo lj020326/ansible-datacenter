@@ -10,7 +10,7 @@
                 "All names are case-sensitive. ",
                 "For details and examples, refer to template help, i.e. vcsa-deploy {install|upgrade|migrate} --template-help"
             ],
-            "hostname": "{{ vsphere_deploy__vcenter.ip }}",
+            "hostname": "{{ vsphere_deploy__vcenter.hostname }}",
             "username": "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].username }}",
             "password": "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password }}",
             "deployment_network": "{{ vsphere_deploy__nested_vcenter.network }}",
@@ -32,12 +32,14 @@
         },
         "network": {
             "ip_family": "ipv4",
-            "mode": "static",
+            "mode": "{{ vsphere_deploy__vcenter.network_type | d('dhcp') }}",
+{% if vsphere_deploy__nested_vcenter.network_type | d('dhcp') == 'static' %}
             "system_name": "{{ vsphere_deploy__nested_vcenter.host_name }}",
             "ip": "{{ vsphere_deploy__nested_vcenter.ip }}",
             "prefix": "{{ vsphere_deploy__nested_vcenter.mask }}",
-            "gateway": "{{ vsphere_deploy__nested_vcenter.gw }}",
-            "dns.servers": {{ vcenter_dns_servers | to_nice_json }}
+            "dns.servers": {{ vcenter_dns_servers | to_nice_json }},
+{% endif %}
+            "gateway": "{{ vsphere_deploy__nested_vcenter.gw }}"
         },
         "os": {
             "password": "{{ vsphere_deploy__nested_vcenter.password }}",
@@ -46,7 +48,7 @@
         },
         "sso": {
             "password": "{{ vsphere_deploy__nested_vcenter.password }}",
-            "domain_name": "{{ nested_vcenter.sso_domain_name }}"
+            "domain_name": "{{ vsphere_deploy__nested_vcenter.sso_domain_name }}"
         }
     },
     "ceip": {
