@@ -26,20 +26,20 @@
       ansible_password: '{{ esxi_password }}'
       ansible_ssh_common_args: '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
   - name: Gather facts about ESXi Host services
-    community.vmware.host_service_facts:
+    community.vmware.vmware_host_service_facts:
       <<: *esxi_login
       esxi_hostname: '{{ esxi_fqdn }}'
     delegate_to: localhost
     register: host_services
   - name: Enable ESX SSH (TSM-SSH)
-    community.vmware.host_service_manager:
+    community.vmware.vmware_host_service_manager:
       <<: *esxi_login
       esxi_hostname: '{{ esxi_address }}'
       service_name: TSM-SSH
       state: present
     delegate_to: localhost
   - name: Enable ESX Shell (TSM)
-    community.vmware.host_service_manager:
+    community.vmware.vmware_host_service_manager:
       <<: *esxi_login
       esxi_hostname: '{{ esxi_address }}'
       service_name: TSM
@@ -56,7 +56,7 @@
       creates: '/vmfs/volumes/{{ esxi_datastore }}/{{ windows_flp }}'
     delegate_to: '{{ esxi_address }}'
   - name: Create a new Server 2016 VM
-    community.vmware.guest:
+    community.vmware.vmware_guest:
       <<: *esxi_login
       folder: /
       name: '{{ vm_name }}'
@@ -81,7 +81,7 @@
     register: deploy_vm
 #  - debug: msg="{{deploy_vm}}"
   - name: Change virtual machine's boot order and related parameters
-    community.vmware.guest_boot_manager:
+    community.vmware.vmware_guest_boot_manager:
       <<: *esxi_login 
       name: '{{ vm_name }}'
       boot_delay: 1000
@@ -114,7 +114,7 @@
       state: absent
     delegate_to: '{{ esxi_address }}'
   - name: Restore original service states
-    community.vmware.host_service_manager:
+    community.vmware.vmware_host_service_manager:
       <<: *esxi_login
       esxi_hostname: '{{ esxi_address }}'
       service_name: '{{ item.key }}'
@@ -123,14 +123,14 @@
     loop: "{{ host_services['host_service_facts'][esxi_fqdn] }}"
     when: item.running|bool == false
   - name: Power-On the virtual machine
-    community.vmware.guest_powerstate:
+    community.vmware.vmware_guest_powerstate:
       <<: *esxi_login
       name: '{{ vm_name }}'
       state: powered-on
     delegate_to: localhost
     register: powerstate
   - name: Wait for VMware tools to become available 
-    community.vmware.guest_tools_wait:
+    vmware_guest_tools_wait:
       <<: *esxi_login
       name: '{{ vm_name }}'
     delegate_to: localhost
