@@ -122,10 +122,25 @@
     - name: Set __vcenter_ip
       set_fact:
         __vcenter_ip: "{{ vm_info.virtual_machines[0].ip_address }}"
+        __vcenter_mac: "{{ vm_info.virtual_machines[0].vm_network.keys() | first }}"
 
     - name: Display __vcenter_ip
       debug:
         var: __vcenter_ip
+
+    - name: Display __vcenter_mac
+      debug:
+        var: __vcenter_mac
+
+#    ## TODO: Add logic here to reserve a DHCP mapping (__vcenter_mac => __vcenter_ip)
+#    ## with vcenter authoritative DNS - using KEA DHCP / Power DNS
+#    - name: Register/Reserve DHCP mac mapping
+#      when: vsphere_deploy__vcenter.network_type == 'dhcp'
+#      block:
+#      - name: Setup KEA DHCP reservation
+#        kea_dhcp:
+#          mac: __vcenter_mac
+#          ip: __vcenter_ip
 
     ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_vcenter_settings_module.html
     - name: Configure vCenter general settings
@@ -136,7 +151,7 @@
         validate_certs: no
         runtime_settings:
           unique_id: 1
-          managed_address: "{{ lookup('dig', vsphere_deploy__vcenter.name) }}"
+          managed_address: "{{ lookup('dig', vsphere_deploy__vcenter.hostname) }}"
           vcenter_server_name: "{{ vsphere_deploy__vcenter.hostname }}"
         mail:
           server: "{{ vsphere_deploy__vcenter.mail_server }}"

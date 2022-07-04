@@ -1,7 +1,7 @@
 ---
 
 - name: "configure_vcenter | Add vCenter license"
-  vcenter_license:
+  community.vmware.vcenter_license:
     hostname: "{{ vsphere_deploy__vcenter.hostname }}"
     username: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].username }}"
     password: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password }}"
@@ -10,7 +10,7 @@
     validate_certs: False
 
 - name: "configure_vcenter | Create Datacenter"
-  vmware_datacenter:
+  community.vmware.vmware_datacenter:
     hostname: "{{ vsphere_deploy__vcenter.hostname }}"
     username: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].username }}"
     password: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password }}"
@@ -21,20 +21,18 @@
 ## Although this module can manage DRS, HA and VSAN related configurations, this functionality is deprecated and will be removed in 2.12.
 ## To manage DRS, HA and VSAN related configurations, use the new modules vmware_cluster_drs, vmware_cluster_ha and vmware_cluster_vsan
 ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_cluster_module.html
-#- name: "configure_vcenter | Create Clusters"
-#  vmware_cluster:
-#    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
-#    username: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].username }}"
-#    password: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password }}"
-#    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
-#    cluster_name: "{{ item.key }}"
-#    validate_certs: False
-#    enable_ha: False  # Hardcoded as we need to enable HA after vSAN is enabled and disks are claimed
-#    enable_drs: "{{ item.value.drs }}"
-#    enable_vsan: False  # Hardcoded as we need to enable vSAN when the hosts are added to the cluster
-#  with_dict: "{{ vcenter_clusters }}"
-
 - name: "configure_vcenter | Create Clusters"
+  community.vmware.vmware_cluster:
+    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
+    username: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].username }}"
+    password: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password }}"
+    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
+    cluster_name: "{{ item.key }}"
+    validate_certs: False
+    state: present
+  with_dict: "{{ vcenter_clusters }}"
+
+- name: "configure_vcenter | Configure Cluster DRS behavior"
 #  vmware_cluster:
   vmware_cluster_drs:
     hostname: "{{ vsphere_deploy__vcenter.hostname }}"
@@ -44,7 +42,8 @@
     cluster_name: "{{ item.key }}"
     validate_certs: False
 #    enable: true
-    enable_drs: "{{ item.value.drs }}"
+#    enable_drs: "{{ item.value.drs }}"
+    drs_default_vm_behavior: "{{ item.value.drs_default_vm_behavior | d(omit) }}"
   with_dict: "{{ vcenter_clusters }}"
 
 - name: "configure_vcenter | Disable Cluster HA"
@@ -55,21 +54,10 @@
     datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
     cluster_name: "{{ item.key }}"
     validate_certs: False
-    enable_ha: False # Hardcoded as we need to enable HA after vSAN is enabled and disks are claimed
+    enable: False # Hardcoded as we need to enable HA after vSAN is enabled and disks are claimed
   with_dict: "{{ vcenter_clusters }}"
 
-#- name: "configure_vcenter | Configure Clusters DRS"
-#  vmware_cluster_drs:
-#    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
-#    username: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].username }}"
-#    password: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password }}"
-#    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
-#    cluster_name: "{{ item.key }}"
-#    validate_certs: False
-#    enable_drs: "{{ item.value.drs }}"
-#  with_dict: "{{ vcenter_clusters }}"
-
-## this role requires installing the vsan SDSK manually
+## this role requires installing the vsan SDK manually
 ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_cluster_vsan_module.html
 ## ref: https://code.vmware.com/web/sdk/6.7.0/vsan-python
 #- name: "configure_vcenter | Disable Clusters vSAN"
