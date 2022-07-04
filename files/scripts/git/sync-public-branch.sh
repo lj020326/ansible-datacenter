@@ -110,6 +110,7 @@ files
 filter_plugins
 inventory
 library
+molecule
 playbooks
 roles
 scripts
