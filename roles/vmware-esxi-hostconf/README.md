@@ -39,7 +39,7 @@ This role takes care of many aspects of standalone ESXi server configuration lik
     - create missed, remove extra
     - assign specified tags
 - block BPDUs from guests
-- create vMotion interface (off by default, see `create_vmotion_iface` in role defaults)
+- create vMotion interface (off by default, see `esx_create_vmotion_iface` in role defaults)
 - datastores
     - partition specified devices if required
     - create missed datastores
@@ -72,22 +72,22 @@ newer versions of 5.5 have working python 2.7 too).
 
 - general network environment, usually set in `group_vars/<site>.yaml`
 
-        dns_domain: "m0.maxidom.ru"
+        esx_domain: "m0.maxidom.ru"
 
-        name_servers:
+        esx_dns_servers:
           - 10.0.128.1
           - 10.0.128.2
 
-        ntp_servers:
+        esx_ntp_servers:
           - 10.1.131.1
           - 10.1.131.2
 
-        # defaults: "log." + dns_domain
-        # syslog_host: log.m0.maxidom.ru
+        # defaults: "log." + esx_domain
+        # esx_syslog_host: log.m0.example.int
 
 - user configuration: those users are created (if not present) and assigned random
   passwords (printed out and stored in `creds/<user>.<host>.pass.out`), have ssh keys assigned to them (persistently) and restricted to specified hosts (plus global list
-  in `permit_ssh_from`), are granted administrative rights and access to the console
+  in `esx_permit_ssh_from`), are granted administrative rights and access to the console
 
         esxi_local_users:
         "<user>":
@@ -110,10 +110,10 @@ newer versions of 5.5 have working python 2.7 too).
           adm-stor:   { tag:   21, vswitch: vSwitch1 }
 
 - datastore configuration: datastores would be created on those devices if missed and
-  `create_datastores` is set; existent datastores would be renamed to match specified
-  name if `rename_datastores` is set and they are empty
+  `esx_create_datastores` is set; existent datastores would be renamed to match specified
+  name if `esx_rename_datastores` is set and they are empty
 
-        local_datastores:
+        esx_local_datastores:
           "vmhba0:C0:T0:L1": "nest-test-sys"
           "vmhba0:C0:T0:L2": "nest-test-apps"
 
@@ -124,7 +124,7 @@ newer versions of 5.5 have working python 2.7 too).
             url: "http://www-distr.m1.maxidom.ru/suse_distr/iso/esxui-signed-6360286.vib"
 
 - autostart configuration: listed VMs are added to esxi auto-start list, in specified order
-  if order is present, else just randomly; if `autostart_only_listed` is set, only those VMs
+  if order is present, else just randomly; if `esx_autostart_only_listed` is set, only those VMs
   will be autostarted on host with extra VMs removed from autostart
 
         vms_to_autostart:
