@@ -1,15 +1,16 @@
 
 ```shell
 $ ansible-config dump |grep DEFAULT_MODULE_PATH
-DEFAULT_MODULE_PATH(/Users/ljohnson/repos/ansible/ansible-datacenter/ansible.cfg) = ['/Users/ljohnson/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules', '/Users/ljohnson/repos/ansible/ansible-datacenter/library']
+DEFAULT_MODULE_PATH(/Users/ljohnson/repos/ansible/ansible-datacenter/ansible.cfg) = ['/Users/foobar/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules', '/Users/foobar/repos/ansible/ansible-datacenter/library']
 
 $ 
 ```
 
-```shell
-$ ansible-doc -t module git_acp
 
-> GIT_ACP    (/Users/ljohnson/repos/ansible/ansible-datacenter/library/git_acp.py)
+```shell
+$ ansible-doc -t module dettonville.util.git_acp
+
+> dettonville.UTIL.GIT_ACP    (/Users/ljohnson/repos/silex/alsac/dettonville/collections/ansible_collections/dettonville/util/plugins/modules/git_acp.py)
 
         Manage `git add', `git commit' `git push', `git config' user
         name and email on a local or remote git repository.
@@ -37,7 +38,7 @@ OPTIONS (= is mandatory):
         Path to git executable to use. If not supplied, the normal
         mechanism for resolving binary paths will be used.
         [Default: (null)]
-        added in: version 1.4
+        added in: version 1.4 of dettonville.util
 
 
 - mode
@@ -119,13 +120,11 @@ OPTIONS (= is mandatory):
 
 REQUIREMENTS:  git>=2.10.0 (the command line tool)
 
-AUTHOR: Federico Olivieri (@Federico87)
-
 EXAMPLES:
 
 - name: HTTPS | add file1.
   git_acp:
-    user: Federico87
+    user: dettonville
     token: mytoken
     path: /Users/git/git_acp
     branch: master
@@ -144,8 +143,8 @@ EXAMPLES:
     remote: dev_test
     mode: ssh
     url: "git@gitlab.com:networkAutomation/git_test_module.git"
-    user_name: lvrfrc87
-    user_email: lvrfrc87@gmail.com
+    user_name: dettonville
+    user_email: dettonville@gmail.com
 
 - name: LOCAL | push on local repo.
   git_acp:
@@ -164,6 +163,4 @@ RETURN VALUES:
         returned: always
         sample: [master 99830f4] Remove [ test.txt, tax.txt ] 4 files changed, 26 insertions(+)...
         type: list
-
-
 ```

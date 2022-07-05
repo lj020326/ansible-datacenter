@@ -17,6 +17,7 @@
     state: directory
     suffix: ".report"
   register: __report_inventory_facts_tempdir
+  notify: "cleanup report_inventory_facts_tempdir"
 
 - name: "update-reports-repo | Set fact for report_inventory_facts_repo_dir"
   set_fact:
@@ -84,7 +85,7 @@
         dest: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
         mode: "0600"
         backup: yes
-      no_log: yes
+#      no_log: yes
 
     - name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
       git:
@@ -93,6 +94,7 @@
         version: "{{ report_inventory_facts_git_repo_branch }}"
         clone: yes
         accept_hostkey: true
+#        accept_newhostkey: true
         update: yes
         force: true
         key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
@@ -150,9 +152,13 @@
 
 - name: Set __ansible_host_facts
   set_fact:
-    __ansible_host_facts: "{{ __ansible_host_facts|d([]) + [hostvars[item].ansible_facts | combine({ 'reported_facts': hostvars[item].report_inventory_list_facts_flattened} ) ] }}"
-    __report_inventory_list_facts_flattened: "{{ __report_inventory_list_facts_flattened|d([]) + [hostvars[item].report_inventory_list_facts_flattened] }}"
+    __ansible_host_facts: "{{ __ansible_host_facts|d([]) + [hostvars[item].ansible_facts | combine({ 'reported_facts': hostvars[item].report_inventory_list_facts_flattened|d({}) } ) ] }}"
+    __report_inventory_list_facts_flattened: "{{ __report_inventory_list_facts_flattened|d([]) + [hostvars[item].report_inventory_list_facts_flattened|d({})] }}"
   loop: "{{ ansible_play_hosts }}"
+
+- name: "Display __ansible_host_facts"
+  debug:
+    var: __ansible_host_facts
 
 - name: "Display __report_inventory_list_facts_flattened"
   debug:
@@ -266,8 +272,8 @@
     add: [ "." ]
     remote: origin
     mode: "{{ report_inventory_facts_git_repo_url_scheme }}"
-    user: "{{ report_inventory_facts_git_repo_user }}"
-    token: "{{ report_inventory_facts_git_repo_token }}"
+    user: "{{ report_inventory_facts_git_repo_user | d(omit) }}"
+    token: "{{ report_inventory_facts_git_repo_token | d('') }}"
   register: git_acp_result
 
 ### ref: https://github.com/lvrfrc87/git-acp-ansible

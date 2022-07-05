@@ -115,7 +115,9 @@ alias dnsreset="ipconfig //flushdns"
 alias dot-turd-show="find . -type f -name '._*' -print"
 alias dot-turd-rm="find . -type f -name '._*' -print -delete"
 
-alias sshvcenter='ssh ansible@vcenter.dettonville.int'
+alias sshvcenter='ssh root@vcenter7.dettonville.int'
+alias sshvcenter7='ssh root@vcenter7.dettonville.int'
+alias sshvcenter6='ssh ansible@vcenter.dettonville.int'
 alias sshesx00='ssh root@esx00.dettonville.int'
 alias sshesx01='ssh root@esx01.dettonville.int'
 alias sshesx02='ssh root@esx02.dettonville.int'

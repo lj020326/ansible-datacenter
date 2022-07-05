@@ -1,9 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2020, Federico Olivieri (lvrfrc87@gmail.com)
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
-
+# Copyright: (c) 2022, Lee Johnson (lee.james.johnson@gmail.com)
+# GNU General Public License v3.0+ (see COPYING or csv://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
@@ -12,7 +11,7 @@ DOCUMENTATION = r'''
 ---
 module: git_acp
 author:
-    - "Federico Olivieri (@Federico87)"
+    - "Lee Johnson (@lj020326)"
 short_description: Perform git add, commit and push operations. Set git config user name and email.
 description:
     - Manage C(git add), C(git commit) C(git push), C(git config) user name and email on a local
@@ -23,11 +22,17 @@ options:
             - Folder path where C(.git/) is located.
         required: true
         type: path
+    action:
+        description:
+            - Git operation to perform - 'clone' or 'acp' (Add + Commit + Push)
+        choices: [ 'acp', 'clone' ]
+        default: acp
+        type: str
     comment:
         description:
             - Git commit comment. Same as C(git commit -m).
+            - Required if action == 'acp'
         type: str
-        required: true
     add:
         description:
             - List of files under C(path) to be staged. Same as C(git add .).
@@ -54,7 +59,7 @@ options:
         type: str
     mode:
         description:
-            - Git operations are performend eithr over ssh, https or local.
+            - Git operations are performend either over ssh, https or local.
               Same as C(git@git...) or C(https://user:token@git...).
         choices: ['ssh', 'https', 'local']
         default: ssh
@@ -115,7 +120,7 @@ requirements:
 EXAMPLES = '''
 - name: HTTPS | add file1.
   git_acp:
-    user: Federico87
+    user: dettonville
     token: mytoken
     path: /Users/git/git_acp
     branch: master
@@ -134,8 +139,8 @@ EXAMPLES = '''
     remote: dev_test
     mode: ssh
     url: "git@gitlab.com:networkAutomation/git_test_module.git"
-    user_name: lvrfrc87
-    user_email: lvrfrc87@gmail.com
+    user_name: dettonville
+    user_email: dettonville@gmail.com
 
 - name: SSH with private key | add file1.
   git_acp:
@@ -147,8 +152,8 @@ EXAMPLES = '''
     mode: ssh
     url: "git@gitlab.com:networkAutomation/git_test_module.git"
     ssh_params:
-      accept_newhostkey: true
-      key_file: '{{ lookup('env', 'HOME') }}/.ssh/id_rsa'
+      accept_hostkey: true
+      key_file: '~/.ssh/id_rsa'
       ssh_opts: '-o UserKnownHostsFile={{ remote_tmp_dir }}/known_hosts'
 
 - name: LOCAL | push on local repo.
@@ -176,12 +181,18 @@ from ansible.module_utils.basic import AnsibleModule
 try:
     from module_utils.git_actions import Git
 except ImportError:
-    from ansible.module_utils.git_actions import Git
+    try:
+        from ansible.module_utils.git_actions import Git
+    except ImportError:
+        from ansible_collections.dettonville.utils.plugins.module_utils.git_actions import Git
 
 try:
     from module_utils.git_configuration import GitConfiguration
 except ImportError:
-    from ansible.module_utils.git_configuration import GitConfiguration
+    try:
+        from ansible.module_utils.git_configuration import GitConfiguration
+    except ImportError:
+        from ansible_collections.dettonville.utils.plugins.module_utils.git_configuration import GitConfiguration
 
 
 def main():
@@ -195,9 +206,11 @@ def main():
             desription: returned output from git commands and updated changed status.
     """
     argument_spec = dict(
+        url=dict(required=True),
         path=dict(required=True, type='path'),
+        action=dict(choices=['acp', 'clone'], default='acp'),
         executable=dict(default=None, type='path'),
-        comment=dict(required=True),
+        comment=dict(default=None, type='str'),
         add=dict(type='list', elements='str', default=['.']),
         user=dict(),
         token=dict(no_log=True),
@@ -205,18 +218,18 @@ def main():
         branch=dict(default='main'),
         push_option=dict(default=None, type='str'),
         mode=dict(choices=['ssh', 'https', 'local'], default='ssh'),
-        url=dict(required=True),
         remote=dict(default='origin'),
         user_name=dict(),
         user_email=dict()
     )
 
     required_if = [
-        ('mode', 'https', ['user', 'token'])
+        ('mode', 'https', ['user', 'token']),
+        ('action', 'acp', ['comment'])
     ]
 
     required_together = [
-        ['user_name', 'user_email']
+        ['user_name', 'user_email'],
     ]
 
     module = AnsibleModule(
@@ -226,12 +239,28 @@ def main():
     )
 
     url = module.params.get('url')
-    path = module.params.get('path')
-    push_option = module.params.get('push_option')
+    action = module.params.get('action')
     mode = module.params.get('mode')
+    push_option = module.params.get('push_option')
+    ssh_params = module.params.get('ssh_params') or None
     user_name = module.params.get('user_name')
     user_email = module.params.get('user_email')
-    ssh_params = module.params.get('ssh_params')
+
+    repo_config = {
+        'repo_url': url,
+        'repo_action': action,
+        'repo_scheme': mode,
+        'push_option': push_option,
+        'token': module.params.get('token'),
+        'repo_dir': module.params.get('path'),
+        'repo_branch': module.params.get('branch'),
+        'remote': module.params.get('remote'),
+        'user': module.params.get('user'),
+        'user_name': user_name,
+        'user_email': user_email,
+        'ssh_params': ssh_params
+    }
+
     comment = module.params.get('comment')
 
     # We screenscrape a huge amount of git commands so use C
@@ -246,7 +275,7 @@ def main():
             module.fail_json(msg='"--push-option" not supported with mode "local"')
 
         if ssh_params:
-            module.warn(msg='SSH Parameters will be ignored as mode "local"')
+            module.warn('SSH Parameters will be ignored as mode "local"')
 
     elif mode == 'https':
         if not url.startswith('https://'):
@@ -265,17 +294,19 @@ def main():
 
     result = dict(changed=False)
 
-    git = Git(module, path)
+    git = Git(module, repo_config)
 
     if user_name and user_email:
         result.update(GitConfiguration(module).user_config())
 
-    changed_files = git.status()
-
-    if changed_files:
-        git.add()
-        result.update(git.commit(comment))
-        result.update(git.push())
+    if action == 'clone':
+        result.update(git.clone())
+    else:
+        changed_files = git.status()
+        if changed_files:
+            result.update(git.add())
+            result.update(git.commit(comment))
+            result.update(git.push())
 
     module.exit_json(**result)
 

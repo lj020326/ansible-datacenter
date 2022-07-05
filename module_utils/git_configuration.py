@@ -4,8 +4,9 @@ __metaclass__ = type
 
 class GitConfiguration:
 
-    def __init__(self, module):
+    def __init__(self, module, git_config=None):
         self.module = module
+        self.git_config = git_config
 
     def user_config(self):
         """
@@ -25,7 +26,10 @@ class GitConfiguration:
         path = self.module.params.get('path')
 
         for parameter in PARAMETERS:
-            config_parameter = self.module.params.get('user_{0}'.format(parameter))
+            if self.git_config[parameter]:
+                config_parameter = self.git_config[parameter]
+            else:
+                config_parameter = self.module.params.get('user_{0}'.format(parameter))
 
             if config_parameter:
                 command = ['git', 'config', '--local', 'user.{0}'.format(parameter)]

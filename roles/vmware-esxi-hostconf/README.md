@@ -68,7 +68,7 @@ newer versions of 5.5 have working python 2.7 too).
 - serial number to assign, usually set in global `group_vars/all.yaml`; does not get
   changed if not set
 
-        esxi_serial: "XXXXX-XXXXX-XXXX-XXXXX-XXXXX"
+        esx_serial: "XXXXX-XXXXX-XXXX-XXXXX-XXXXX"
 
 - general network environment, usually set in `group_vars/<site>.yaml`
 

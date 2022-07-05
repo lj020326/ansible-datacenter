@@ -4,15 +4,16 @@ __metaclass__ = type
 import os
 import stat
 import re
-import shutil
 import tempfile
 from distutils.version import LooseVersion
-
 
 try:
     from module_utils.messages import FailingMessage
 except ImportError:
-    from ansible.module_utils.messages import FailingMessage
+    try:
+        from ansible.module_utils.messages import FailingMessage
+    except ImportError:
+        from ansible_collections.dettonville.utils.plugins.module_utils.messages import FailingMessage
 
 try:
     from module_utils.six import b
@@ -27,28 +28,28 @@ except ImportError:
 
 class Git:
 
-    def __init__(self, module, inventory_repo_dir):
+    def __init__(self, module, repo_config):
         self.module = module
-        self.inventory_repo_dir = inventory_repo_dir
 
         self.git_path = self.module.params.get('executable') or self.module.get_bin_path('git', True)
 
-        self.inventory_repo_url = self.module.params.get('inventory_repo_url')
-        self.inventory_repo_scheme = self.module.params.get('inventory_repo_scheme')
-        self.inventory_repo_branch = self.module.params.get('inventory_repo_branch')
+        self.repo_dir = repo_config.get('repo_dir')
+        self.repo_url = repo_config.get('repo_url')
+        self.repo_scheme = repo_config.get('repo_scheme')
+        self.repo_branch = repo_config.get('repo_branch')
+        self.module.debug('self.repo_url={0}'.format(self.repo_url))
 
-        print('self.inventory_repo_url={0}'.format(self.inventory_repo_url))
-
-        self.remote = self.module.params.get('remote') or 'origin'
-        self.push_option = self.module.params.get('push_option')
-        self.user = self.module.params.get('user')
-        self.token = self.module.params.get('token')
+        self.remote = repo_config.get('remote') or 'origin'
+        self.push_option = repo_config.get('push_option')
+        self.user = repo_config.get('user')
+        self.token = repo_config.get('token')
 
         self.ssh_key_file = None
         self.ssh_opts = None
         self.ssh_accept_hostkey = False
+        self.user_config = {}
 
-        ssh_params = self.module.params['ssh_params'] or None
+        ssh_params = repo_config.get('ssh_params') or None
 
         if ssh_params:
 
@@ -67,30 +68,30 @@ class Git:
         self.set_git_ssh(self.ssh_wrapper, self.ssh_key_file, self.ssh_opts)
         self.module.add_cleanup_file(path=self.ssh_wrapper)
 
-        # We screenscrape a huge amount of git commands so use C
+        # We screen scrape a huge amount of git commands so use C
         # locale anytime we call run_command()
         self.module.run_command_environ_update = dict(LANG='C', LC_ALL='C', LC_MESSAGES='C', LC_CTYPE='C')
 
-        if self.inventory_repo_scheme == 'local':
-            if self.inventory_repo_url.startswith(('https://', 'git', 'ssh://git')):
+        if self.repo_scheme == 'local':
+            if self.repo_url.startswith(('https://', 'git', 'ssh://git')):
                 self.module.fail_json(msg='SSH or HTTPS scheme selected but repo is "local')
 
             if ssh_params:
                 self.module.warn('SSH Parameters will be ignored as scheme "local"')
 
-        elif self.inventory_repo_scheme == 'https':
-            if not self.inventory_repo_url.startswith('https://'):
+        elif self.repo_scheme == 'https':
+            if not self.repo_url.startswith('https://'):
                 self.module.fail_json(msg='HTTPS scheme selected but url (' +
-                                          self.inventory_repo_url + ') not starting with "https"')
+                                          self.repo_url + ') not starting with "https"')
             if ssh_params:
                 self.module.warn('SSH Parameters will be ignored as scheme "https"')
 
-        elif self.inventory_repo_scheme == 'ssh':
-            if not self.inventory_repo_url.startswith(('git', 'ssh://git')):
+        elif self.repo_scheme == 'ssh':
+            if not self.repo_url.startswith(('git', 'ssh://git')):
                 self.module.fail_json('SSH scheme selected but url (' +
-                                      self.inventory_repo_url + ') not starting with "git" or "ssh://git"')
+                                      self.repo_url + ') not starting with "git" or "ssh://git"')
 
-            if self.inventory_repo_url.startswith('ssh://git@github.com'):
+            if self.repo_url.startswith('ssh://git@github.com'):
                 self.module.fail_json('GitHub does not support "ssh://" URL. Please remove it from url')
 
     def write_ssh_wrapper(self, module_tmpdir):
@@ -182,36 +183,84 @@ fi
                     tags.append(tagname)
         return tags
 
+    def set_user_config(self, user_config):
+        """
+        Config git local user.name and user.email.
+
+        args:
+            * module:
+                type: dict()
+                description: Ansible basic module utilities and module arguments.
+            * user_config:
+                type: dict()
+                description: Git user config for 'name' and 'email'
+        return:
+            * result:
+                type: dict()
+                desription: updated changed status.
+        """
+        parameters = ['name', 'email']
+        result = dict()
+
+        self.user_config = user_config
+
+        for parameter in parameters:
+            if self.user_config[parameter]:
+                config_parameter = self.user_config[parameter]
+            else:
+                config_parameter = self.module.params.get('user_{0}'.format(parameter))
+
+            if config_parameter:
+                command = ['git', 'config', '--local', 'user.{0}'.format(parameter)]
+                _rc, output, _error = self.module.run_command(command, cwd=self.repo_dir)
+
+                if output != config_parameter:
+                    command.append(config_parameter)
+                    _rc, output, _error = self.module.run_command(command, cwd=self.repo_dir)
+
+                    result.update({"message": output, "changed": True})
+
+        return result
+
     def clone(self, bare=False, reference=None, refspec=None):
         ''' makes a new git repo if it does not already exist '''
 
         try:
-            os.makedirs(os.path.dirname(self.inventory_repo_dir))
+            os.makedirs(os.path.dirname(self.repo_dir))
         except OSError:
             pass
-        cmd = [self.git_path, 'clone']
+        command = [self.git_path, 'clone']
 
         if bare:
-            cmd.append('--bare')
+            command.append('--bare')
         else:
-            cmd.extend(['--origin', self.remote])
+            command.extend(['--origin', self.remote])
 
         if reference:
-            cmd.extend(['--reference', str(reference)])
+            command.extend(['--reference', str(reference)])
 
-        cmd.extend([self.inventory_repo_url, self.inventory_repo_dir])
-        self.module.run_command(cmd, check_rc=True, cwd=self.inventory_repo_dir)
+        result = dict()
 
-        if bare and remote != 'origin':
-            self.module.run_command([self.git_path, 'remote', 'add', remote, self.inventory_repo_url],
-                                    check_rc=True, cwd=self.inventory_repo_dir)
+        command.extend([self.repo_url, self.repo_dir])
+        rc, output, error = self.module.run_command(command, check_rc=True, cwd=self.repo_dir)
+
+        if bare and self.remote != 'origin':
+            self.module.run_command([self.git_path, 'remote', 'add', self.remote, self.repo_url],
+                                    check_rc=True, cwd=self.repo_dir)
 
         if refspec:
-            cmd = [self.git_path, 'fetch']
-            cmd.extend([remote, refspec])
-            self.module.run_command(cmd, check_rc=True, cwd=self.inventory_repo_dir)
+            command = [self.git_path, 'fetch']
+            command.extend([self.remote, refspec])
+            self.module.run_command(command, check_rc=True, cwd=self.repo_dir)
 
-    def add(self, add_files=['.']):
+        if rc == 0:
+            if output:
+                result.update({"message": output, "git.clone": output, "changed": True})
+            return result
+        else:
+            FailingMessage(self.module, rc, command, output, error)
+
+    def add(self, add_files=None):
         """
         Run git add and stage changed files.
 
@@ -223,16 +272,23 @@ fi
         return: null
         """
 
+        if add_files is None:
+            add_files = ['.']
+
         command = [self.git_path, 'add', '--']
 
         command.extend(add_files)
 
-        rc, output, error = self.module.run_command(command, cwd=self.inventory_repo_dir)
+        result = dict()
+
+        rc, output, error = self.module.run_command(command, cwd=self.repo_dir)
 
         if rc == 0:
-            return
-
-        FailingMessage(self.module, rc, command, output, error)
+            if output:
+                result.update({"message": output, "git.add": output, "changed": True})
+            return result
+        else:
+            FailingMessage(self.module, rc, command, output, error)
 
     def status(self):
         """
@@ -250,7 +306,7 @@ fi
         data = set()
         command = [self.git_path, 'status', '--porcelain']
 
-        rc, output, error = self.module.run_command(command, cwd=self.inventory_repo_dir)
+        rc, output, error = self.module.run_command(command, cwd=self.repo_dir)
 
         if rc == 0:
             for line in output.split('\n'):
@@ -278,12 +334,12 @@ fi
         result = dict()
         command = [self.git_path, 'commit', '-m', comment]
 
-        rc, output, error = self.module.run_command(command, cwd=self.inventory_repo_dir)
+        rc, output, error = self.module.run_command(command, cwd=self.repo_dir)
 
         if rc == 0:
             if output:
-                result.update({"git_commit": output, "changed": True})
-                return result
+                result.update({"message": output, "git.commit": output, "changed": True})
+            return result
         else:
             FailingMessage(self.module, rc, command, output, error)
 
@@ -301,7 +357,7 @@ fi
                 desription: returned output from git push command and updated changed status.
         """
 
-        command = [self.git_path, 'push', self.remote, self.inventory_repo_branch]
+        command = [self.git_path, 'push', self.remote, self.repo_branch]
 
         def set_url():
             """
@@ -313,34 +369,34 @@ fi
                     descrition: Ansible basic module utilities and module arguments.
             return: null
             """
-            command = [self.git_path, 'remote', 'get-url', '--all', self.remote]
+            cmd = [self.git_path, 'remote', 'get-url', '--all', self.remote]
 
-            rc, _output, _error = self.module.run_command(command, cwd=self.inventory_repo_dir)
+            rc, _output, _error = self.module.run_command(cmd, cwd=self.repo_dir)
 
             if rc == 0:
                 return
 
             if rc == 128:
-                if self.inventory_repo_scheme == 'https':
-                    if self.inventory_repo_url.startswith('https://'):
-                        command = [
+                if self.repo_scheme == 'https':
+                    if self.repo_url.startswith('https://'):
+                        cmd = [
                             self.git_path,
                             'remote',
                             'add',
                             self.remote,
-                            'https://{0}:{1}@{2}'.format(self.user, self.token, self.inventory_repo_url[8:])
+                            'https://{0}:{1}@{2}'.format(self.user, self.token, self.repo_url[8:])
                         ]
                     else:
                         self.module.fail_json(msg='HTTPS scheme selected but not HTTPS URL provided')
                 else:
-                    command = [self.git_path, 'remote', 'add', self.remote, self.inventory_repo_url]
+                    cmd = [self.git_path, 'remote', 'add', self.remote, self.repo_url]
 
-                rc, output, error = self.module.run_command(command, cwd=self.inventory_repo_dir)
+                rc, output, error = self.module.run_command(cmd, cwd=self.repo_dir)
 
                 if rc == 0:
                     return
                 else:
-                    FailingMessage(self.module, rc, command, output, error)
+                    FailingMessage(self.module, rc, cmd, output, error)
 
         def push_cmd():
             """
@@ -360,10 +416,10 @@ fi
             """
             result = dict()
 
-            rc, output, error = self.module.run_command(command, cwd=self.inventory_repo_dir)
+            rc, output, error = self.module.run_command(command, cwd=self.repo_dir)
 
             if rc == 0:
-                result.update({"git_push": str(error) + str(output), "changed": True})
+                result.update({"message": output, "git.push": str(error) + str(output), "changed": True})
                 return result
             else:
                 FailingMessage(self.module, rc, command, output, error)
