@@ -141,9 +141,10 @@ def get_headers_and_fields(column_list):
 
     return headers, fieldnames
 
-## ref: https://docs.python.org/3/library/csv.html
-## ref: https://realpython.com/python-csv/
-## ref: https://www.geeksforgeeks.org/writing-csv-files-in-python/
+
+# ref: https://docs.python.org/3/library/csv.html
+# ref: https://realpython.com/python-csv/
+# ref: https://www.geeksforgeeks.org/writing-csv-files-in-python/
 def write_csv(module, output_file, export_list, column_list):
     (headers, fieldnames) = get_headers_and_fields(column_list)
 
@@ -191,9 +192,11 @@ def write_markdown(module, output_file, export_list, column_list):
         module.log('row = %s' % str(row))
         md_string += " | "
         for column in column_list:
-            column_value = row[column['name']]
+            column_value = None
+            if column['name'] in row:
+                column_value = row[column['name']]
             module.log('column_value = %s' % str(column_value))
-            md_string += str(row[column['name']]) + " | "
+            md_string += str(column_value) + " | "
         md_string += "\n"
 
     try:
