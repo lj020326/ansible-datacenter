@@ -1,7 +1,5 @@
+# handlers file
 ---
-- name: restart postfix
-  service: name=postfix state=restarted
-
 - name: new aliases
   command: >
     newaliases
@@ -32,3 +30,26 @@
     postmap {{ postfix_transport_maps_database_type }}:{{ postfix_transport_maps_file }}
   when: postfix_transport_maps_database_type != 'regexp'
 
+- name: postmap sender_dependent_relayhost_maps
+  command: >
+    postmap {{ postfix_default_database_type }}:{{ postfix_sender_dependent_relayhost_maps_file }}
+  when: postfix_default_database_type != 'regexp'
+
+- name: postmap generic
+  command: >
+    postmap {{ postfix_smtp_generic_maps_database_type }}:{{ postfix_smtp_generic_maps_file }}
+  when: postfix_smtp_generic_maps_database_type != 'regexp'
+
+- name: remove pid
+  file:
+    path: "~postfix/pid/master.pid"
+    state: absent
+  listen: restart postfix
+  when: is_docker_guest
+
+- name: restart service
+  service:
+    name: postfix
+    state: restarted
+  listen: restart postfix
+  when: service_default_state | default('started') == 'started'
