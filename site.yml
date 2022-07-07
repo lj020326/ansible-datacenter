@@ -10,7 +10,9 @@
     - vars/secrets.yml
   roles:
     - role: ansible-ping-test
-      when: not ping_exclude|d(False)|bool
+      when:
+        - not ping_exclude|d(False)|bool
+        - inventory_hostname in ansible_play_hosts
 
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
@@ -25,7 +27,9 @@
     - vars/secrets.yml
   roles:
     - role: apply-os-groups
-      when: inventory_hostname in ansible_play_hosts_all
+      when:
+#        - not apply_os_groups_exclude|d(False)|bool
+        - inventory_hostname in ansible_play_hosts
 
 ## Debugging purposes: print all environment variables
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
@@ -656,21 +660,6 @@
   roles:
     - role: fetch-os-images
 
-
-- name: "Deploy VSphere Datacenter"
-  hosts: vsphere_control_node
-  tags:
-    - deploy-vsphere-dc
-    - vsphere-deploy-dc
-    - ping-exclude
-#  gather_facts: false
-  become: True
-#  become_method: sudo
-  vars_files:
-    - vars/secrets.yml
-  roles:
-    - role: vsphere-deploy-dc
-
 - name: "Bootstrap VMware ESXi servers"
   hosts: vmware_physical_esx_host,!node_offline
   tags:
@@ -684,6 +673,19 @@
   roles:
     - role: bootstrap-vmware-esxi
     - role: vmware-esxi-hostconf
+
+
+- name: "Deploy VSphere Datacenter"
+  hosts: vsphere_control_node
+  tags:
+    - deploy-vsphere-dc
+    - vsphere-deploy-dc
+    - ping-exclude
+  become: yes
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: vsphere-deploy-dc
 
 - name: "VMware Upgrade ESXi servers"
   hosts: vmware_physical_esx_host,!node_offline

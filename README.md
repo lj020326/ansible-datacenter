@@ -6,7 +6,7 @@
 ### GitHub Actions
 
 ![Molecule Test](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)
-
+[![License](https://img.shields.io/badge/license-GPLv3-brightgreen.svg?style=flat)](COPYING)
 
 This is an ansible playbook that will configure your datacenter based on multi-OS-platform roles on Ubuntu/Centos/Debian linux and windows servers.
 The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template repo](https://github.com/lj020326/packer-templates) to build VMware Ubuntu/Centos templates. 
