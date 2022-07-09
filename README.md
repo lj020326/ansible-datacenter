@@ -5,7 +5,7 @@
 
 ### GitHub Actions
 
-![Molecule Test](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)
+[![Molecule Tests](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-GPLv3-brightgreen.svg?style=flat)](LICENSE)
 
 This is an ansible playbook that will configure your datacenter based on multi-OS-platform roles on Ubuntu/Centos/Debian linux and windows servers.
