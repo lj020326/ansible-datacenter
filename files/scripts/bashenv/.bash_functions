@@ -461,3 +461,12 @@ function gitreinitrepo(){
   git commit -m "Initial commit" && \
   git push -u --force origin ${GIT_REMOTE_BRANCH}
 }
+
+unalias dockerbash 1>/dev/null 2>&1
+unset -f dockerbash || true
+function dockerbash() {
+  CONTAINER_IMAGE_ID="${1}"
+  #docker run -p 8443:8443 -v `pwd`/stepca/home:/home/step -it --entrypoint /bin/bash media.johnson.int:5000/docker-stepca:latest
+  docker run -it --entrypoint /bin/bash "${CONTAINER_IMAGE_ID}"
+}
+
