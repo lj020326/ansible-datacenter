@@ -1,6 +1,5 @@
 
 # ansible-datacenter
-[![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
 
 ## Build Status
 
@@ -14,6 +13,7 @@ The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template re
 
 The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
 
+[![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
 
 ## Summary
 
