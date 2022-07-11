@@ -48,12 +48,12 @@ Develop roles for idempotency and ability to run independently to achieve correc
 Add functionality to deploy-vm role to support automated deployment for VM appliances:
     https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
 
-[ ] Setup automated CICD test pipelines for important plays (vm provisioning, bootstrap plays, etc)
+### Setup automated CICD test pipelines for important plays (vm provisioning, bootstrap plays, etc)
 
     [ ] Setup ansible test env using molecule/vagrant
         https://github.com/lj020326/ansible-datacenter/blob/main/molecule/default/molecule.yml
 
-### Ansible uses terraform to deploy apps onto openshift using pipeline
+### Setup Ansible role to deploy cloud based apps onto openshift using pipeline
 
     Configure pipeline to use Ansible to run terraform deployments.
     Benefits - utilizing the best feature sets of both products:
