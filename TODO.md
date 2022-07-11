@@ -329,41 +329,11 @@ ANSIBLE DATACENTER TODO
                 https://github.com/trapexit/scorch
 
 
-        ESX02 Storage Adapters:
-            "Name","LUN","Type","Capacity","Datastore","Operational State","Hardware Acceleration","Drive Type","Transport"
-            "Local HGST Disk (naa.5000cca2620873d8)","0","disk","7.15 TB","Not Consumed","Attached","Not supported","HDD","SAS"
-            "Local ATA Disk (naa.5000cca222e0abaf)","0","disk","1.82 TB","Not Consumed","Attached","Not supported","HDD","SAS"
-            "Local ATA Disk (naa.5000cca373d3178e)","0","disk","931.51 GB","Not Consumed","Attached","Not supported","HDD","SAS"
-            "Local ATA Disk (naa.50014ee0ac054fd7)","0","disk","931.51 GB","Not Consumed","Attached","Not supported","HDD","SAS"
-
-        ESX02 Storage Devices:
-            "Name","LUN","Type","Capacity","Datastore","Operational State","Hardware Acceleration","Drive Type","Transport"
-            "Local DELL Disk (naa.6842b2b07215510026e1002d15013a7e)","0","disk","1.82 TB","esx02_ds1","Attached","Not supported","HDD","Parallel SCSI"
-            "Local DELL Disk (naa.6842b2b07215510026d00fe7307d358f)","0","disk","931.00 GB","esx2_ds2","Attached","Not supported","HDD","Parallel SCSI"
-            "Local DELL Disk (naa.6842b2b07215510026d00fe7307d8a68)","0","disk","931.00 GB","esx2_ds3","Attached","Not supported","HDD","Parallel SCSI"
-            "Local DELL Disk (naa.6842b2b07215510026e1306b0d362237)","0","disk","1.82 TB","esx2_ds4","Attached","Not supported","HDD","Parallel SCSI"
-
-            "Local ATA Disk (naa.5000cca373d3178e)","0","disk","931.51 GB","Not Consumed","Attached","Not supported","HDD","SAS"
-            "Local ATA Disk (naa.50014ee0ac054fd7)","0","disk","931.51 GB","Not Consumed","Attached","Not supported","HDD","SAS"
-            "Local ATA Disk (naa.5000cca222e0abaf)","0","disk","1.82 TB","Not Consumed","Attached","Not supported","HDD","SAS"
-            "Local HGST Disk (naa.5000cca2620873d8)","0","disk","7.15 TB","Not Consumed","Attached","Not supported","HDD","SAS"
-
-        Add disks to VM nas02
-        Use webmin to wipe partition and format as ext4 and mount to /mnt/disk***
-
-            cat /etc/fstab
-
-            ...
-            UUID=dfec8b74-a42c-48c5-b08c-a407a4e73200       /mnt/parity     ext4    defaults        0       0
-            UUID=4cee9952-6216-46c1-b0f1-e9a85a21758b       /mnt/disk0181   ext4    defaults        0       0
-            UUID=a80be579-2ca7-4e8e-8462-11a33b6eac97       /mnt/disk0091   ext4    defaults        0       0
-            UUID=1f5751ab-9553-49a2-9168-f8ae37e11455       /mnt/disk0092   ext4    defaults        0       0
-
 [ ] Setup awx with ansible-datacenter
 
     [ ] run original work config that now has task/job related issues along side of new clean config
     [ ] ansible-datacenter - setup dev branch and corresponding job templates in awx
-    [ ] ansible-datacenter - move ldif to secrets
+    [ ] ansible-datacenter - move LDAP service account seed ldif's to ansible secrets/vault
 
 * [AWX do not load group vars after add_host · Issue #11793 · ansible/awx](https://github.com/ansible/awx/issues/11793)
 * [Inventory group vars are not loaded · Issue #761 · ansible/awx](https://github.com/ansible/awx/issues/761)
