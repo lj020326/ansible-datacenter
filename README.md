@@ -1,12 +1,12 @@
 
 # ansible-datacenter
+[![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
 
 ## Build Status
 
 ### GitHub Actions
 
 [![Molecule Tests](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml)
-[![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
 [![License](https://img.shields.io/badge/license-GPLv3-brightgreen.svg?style=flat)](LICENSE)
 
 This is an ansible playbook that will configure your datacenter based on multi-OS-platform roles on Ubuntu/Centos/Debian linux and windows servers.
