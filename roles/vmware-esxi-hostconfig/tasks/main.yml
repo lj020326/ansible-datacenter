@@ -1,0 +1,53 @@
+---
+# tasks file for esxi-host-config
+- name: Configure DNS settings on ESXi node
+  vmware_dns_config:
+    hostname: '{{ inventory_hostname }}'
+    username: '{{ esxi_username }}'
+    password: '{{ esxi_password }}'
+    validate_certs: false
+    dns_servers: '{{ esxi_dns_servers }}'
+  register: config_dns
+
+- name: Configure ESXi hostname
+  vmware_dns_config:
+    hostname: '{{ inventory_hostname }}'
+    username: '{{ esxi_username }}'
+    password: '{{ esxi_password }}'
+    validate_certs: false
+    change_hostame_to: '{{ inventory_hostname }}'
+    domainname: '{{ fqdn }}'
+  when: config_hostname
+
+- name: Configure NTP settings on ESXi node
+  vmware_host_ntp:
+    esxi_hostname: '{{ inventory_hostname }}'
+    username: '{{ esxi_username }}'
+    password: '{{ esxi_password }}'
+    validate_certs: false
+    state: '{{ ntp_state }}'
+    ntp_servers: '{{ esxi_ntp_servers }}'
+  register: config_ntp
+
+# tasks file for esxi-adv-settings
+- name: Set ESXi Advanced Settings
+  when: esxi_adv_settings|d({})|length>0
+  vmware_host_config_manager:
+    esxi_hostname: '{{ inventory_hostname }}'
+    username: '{{ esxi_username }}'
+    password: '{{ esxi_password }}'
+    validate_certs: false
+    options: { key: '{{ item.key }}', value: '{{ item.value }}' }
+  loop: '{{ esxi_adv_settings | dict2items }}'
+
+- name: Interface with ESXi services
+  when: esxi_service_list|d([])|length>0
+  vmware_host_service_manager:
+    esxi_hostname: '{{ inventory_hostname }}'
+    username: '{{ esxi_username }}'
+    password: '{{ esxi_password }}'
+    validate_certs: false
+    service_name: '{{ item.name }}'
+    service_policy: '{{ item.policy }}'
+    state: '{{ item.state }}'
+  with_items: '{{ esxi_service_list }}'
