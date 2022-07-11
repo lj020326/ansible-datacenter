@@ -21,9 +21,8 @@ ANSIBLE DATACENTER TODO
 * https://dzone.com/articles/platform-as-code-with-openshift-amp-terraform
 * https://pypi.org/project/deploy-to-kubernetes/
 * [containers-and-service-discovery](./docs/containers-and-service-discovery.md)
-* [containers-and-service-discovery-part2](./docs/containers-and-service-discovery-part2.md)
 
-[ ] Develop roles for full idempotency and ability to run independently to achieve correct end-state:
+[ ] Develop roles for idempotency and ability to run independently to achieve correct end-state:
 
     [ ] bootstrap-linux-packages
     [ ] bootstrap-linux-service-accounts
@@ -354,22 +353,4 @@ ANSIBLE DATACENTER TODO
 * https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
 * http://vcloud-lab.com/entries/devops/step-by-step-guide-to-configure-first-project-job-template-on-ansible-awx-tower
 
-### Off the beaten path/Asides
 
-[P] Setup new dettonville.org
-
-    [P] migrate wordpress to hugo
-
-
-## Issues
-
-  * esx00 host crash
-
-    - 7:20:19 AM Size of scratch partition 6194203b-3a42f95f-c222-002590bdc802 is too small. Recommended scratch partition size is 4532 MiB
-    - 7:20:19 AM File system [datastore1, 6194203a-0d147132-f0d5-002590bdc802] on volume 6194203a-e868ebeb-e39b-002590bdc802 has been mounted in rw mode on this host. 
-
-    Resolution:
-    * https://vinfrastructure.it/2017/12/esxi-6-5-scratch-partition-issues/
-    
-
- 
