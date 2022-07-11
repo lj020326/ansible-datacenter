@@ -23,12 +23,25 @@ ANSIBLE DATACENTER TODO
 * https://www.budgetsmarthome.co.uk/2021/05/15/containers-and-service-discovery-part-2/
 * https://www.budgetsmarthome.co.uk/2021/03/24/containers-and-service-discovery/
 
-[ ] Enhance roles that setup packages, users, firewall rules to re-use idempotent role
-    [ ] jenkins-swarm-agent 
-            * jenkins user/group setup - use the bootstrap-linux-user role
-        document process used to enhance role for future reference
+[ ] Develop roles for full idempotency and ability to run independently to achieve correct end-state:
+
+    [ ] bootstrap-linux-packages
+    [ ] bootstrap-linux-service-accounts
+    [ ] bootstrap-linux-dns
+    [ ] bootstrap-linux-ntp
+    [ ] bootstrap-linux-firewalld
+    [ ] bootstrap-linux-mounts
+    [ ] bootstrap-linux-nfs (e.g., nfs-server)
+    [ ] bootstrap-linux-postfix
+    [ ] bootstrap-linux-sshd
+    [ ] bootstrap-linux-core
+
+    Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
+
 
 [ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+
+[ ] Setup DEV, QA and PROD AWX clusters
 
 [ ] Setup DEV, QA and PROD openshift clusters
 
@@ -46,7 +59,8 @@ ANSIBLE DATACENTER TODO
     https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
 
 [ ] Update blog for cicd-paas-example
-    [ ] update ansible to run terraform to deploy apps onto openshift using pipeline
+ 
+   [ ] update ansible to run terraform to deploy apps onto openshift using pipeline
 
 [ ] Setup ansible test env using molecule/vagrant
     https://github.com/lj020326/ansible-datacenter/tree/public/roles/solrcloud/molecule
@@ -94,6 +108,7 @@ ANSIBLE DATACENTER TODO
         https://elastisys.com/building-and-testing-base-images-for-kubernetes-cluster-nodes-with-packer-qemu-and-chef-inspec/
 
 [p] Consul Setup (key-value pair server + dns)
+
     [ ] automated dns entry as services register dynamically
     [ ] config maps for docker apps?
 
@@ -199,7 +214,9 @@ ANSIBLE DATACENTER TODO
         [ ] we are moving to disks/storage pool mgmt done by a VM - and need to pass thru the disks to the storage VM
 
 [ ] Setup full dev/test/prod CICD for webdev
+
     [ ] Use openshift to setup support full dev/test/prod CICD (per openshift example below) for webdev
+
     [ ] Marry/merge in mantl (do not use redhat specific tech (the router in the openshift case)
         https://dzone.com/articles/platform-as-code-with-openshift-amp-terraform
         https://github.com/clean-docker/ghost-cms
@@ -220,6 +237,7 @@ ANSIBLE DATACENTER TODO
     [ ] integrate with deploy-vm play
 
 [x] Setup new switch
+
     [x] use web UI to config vlans
     [X] firmware no longer avail for dell & old cisco switch
         - need jumbo frame suppor
@@ -232,6 +250,7 @@ ANSIBLE DATACENTER TODO
     https://github.com/linuxserver/docker-smokeping
 
 [ ] Authelia setup
+
     [X] File based
     [X] Setup LDAP
     [ ] Confirm Authelia LDAP setup
@@ -246,6 +265,7 @@ ANSIBLE DATACENTER TODO
     https://collabnix.com/5-cool-application-stacks-to-showcase-using-play-with-dockerpwd/
 
 [ ] Setup alternate VM hypervisor management
+
     [ ] openstack and / or proxmox
 
 
@@ -264,6 +284,7 @@ ANSIBLE DATACENTER TODO
 
 [ ] Setup vlan subnets in pfsense NICs to protect dettonville.int from home network
     Question here is how to allow devices from subnet 2 to access the secure network Subnet1
+
     [ ] Then setup subnets using
         https://netosec.com/protect-home-network/
     [ ] Setup OPT2 nic as subnet2 and have home network connect to OPT2
@@ -339,6 +360,7 @@ ANSIBLE DATACENTER TODO
             UUID=1f5751ab-9553-49a2-9168-f8ae37e11455       /mnt/disk0092   ext4    defaults        0       0
 
 [ ] Setup awx with ansible-datacenter
+
     [ ] run original work config that now has task/job related issues along side of new clean config
     [ ] ansible-datacenter - setup dev branch and corresponding job templates in awx
     [ ] ansible-datacenter - move ldif to secrets
