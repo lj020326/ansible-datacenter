@@ -20,8 +20,8 @@ ANSIBLE DATACENTER TODO
 * https://traefik.io/blog/integrating-consul-connect-service-mesh-with-traefik-2-5/
 * https://dzone.com/articles/platform-as-code-with-openshift-amp-terraform
 * https://pypi.org/project/deploy-to-kubernetes/
-* https://www.budgetsmarthome.co.uk/2021/05/15/containers-and-service-discovery-part-2/
-* https://www.budgetsmarthome.co.uk/2021/03/24/containers-and-service-discovery/
+* [containers-and-service-discovery](containers-and-service-discovery.md)
+* [containers-and-service-discovery-part2](containers-and-service-discovery-part2.md)
 
 [ ] Develop roles for full idempotency and ability to run independently to achieve correct end-state:
 
