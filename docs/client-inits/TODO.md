@@ -6,7 +6,9 @@ ANSIBLE DATACENTER TODO
 
 ## CICD Infrastructure Automation Priorities
 
-[ ] Setup POC(s) (ideally with help from redhat/ansible engineering as needed) to be able to demonstrate how to run a single job template to bootstrap a simple NTP client/server configuration:
+### Setup POC(s)
+
+Ideally with help from redhat/ansible engineering as needed) to be able to demonstrate how to run a single job template to bootstrap a simple NTP client/server configuration:
 
 * DMZ and PCI networks across 2 sites (site1 and site4)
   
@@ -17,10 +19,13 @@ ANSIBLE DATACENTER TODO
   - dmz/site1
   - dmz/site4
 
-* demonstrating how to leverage instance group configuration integrating with group vars configurations.  E.g., if there are instance groups for each of the 4 groups above, ideally the appropriate groups are applied for each instance group configuration to properly derive the correct ntp_server configuration.  
+* POC should demonstrate how to leverage instance group configuration integrating with group vars configurations.<br>
+ E.g., if there are instance groups for each of the 4 groups above, ideally the appropriate groups are applied for each instance group configuration to properly derive the correct ntp_server configuration.  
 
 
-[ ] Develop roles for idempotency and ability to run independently to achieve correct end-state:
+### Idempotent roles for key plays
+
+Develop roles for idempotency and ability to run independently to achieve correct end-state:
 
     [ ] bootstrap-linux-packages
     [ ] bootstrap-linux-service-accounts
@@ -36,19 +41,19 @@ ANSIBLE DATACENTER TODO
     Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
 
 
-[ ] Setup DEV, QA and PROD AWX clusters
+### Setup DEV, QA and PROD AWX clusters
  
-[ ] Add functionality to deploy-vm role to support automated deployment for VM appliances:
-    https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
+### VM appliances
 
-[ ] Update ansible to run terraform to deploy apps onto openshift using pipeline
+Add functionality to deploy-vm role to support automated deployment for VM appliances:
+    https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
 
 [ ] Setup automated CICD test pipelines for important plays (vm provisioning, bootstrap plays, etc)
 
     [ ] Setup ansible test env using molecule/vagrant
         https://github.com/lj020326/ansible-datacenter/blob/main/molecule/default/molecule.yml
 
-[ ] CICD Deployment pipeline
+### Ansible uses terraform to deploy apps onto openshift using pipeline
 
     Configure pipeline to use Ansible to run terraform deployments.
     Benefits - utilizing the best feature sets of both products:
@@ -60,17 +65,19 @@ ANSIBLE DATACENTER TODO
     https://github.com/lj020326/ansible-datacenter/blob/main/docs/terraform-deployments-with-ansible-part-1.md
 
 
-[ ] add chef inspec tests to VM provisioning pipeline
+### add chef inspec tests to VM provisioning pipeline
 
     https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md
 
 
-[ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](https://github.com/lj020326/ansible-datacenter/tree/main/docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+### Container service delivery
+
+Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](https://github.com/lj020326/ansible-datacenter/tree/main/docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
 
-Pie-in-the-sky / moonshot:
+## Pie-in-the-sky / moonshot
 
-[ ] Ideally find a good node querying/editor opensource codebase that can used/adapted/refactored to view/query and edit the ansible-inventory repo YAMLs.
+Ideally find a good node querying/editor opensource codebase that can used/adapted/refactored to view/query and edit the ansible-inventory repo YAMLs.
 
   Food for thought / fuel for ideas for some possible candidate in adapting to handling inventory viewing/editing use case possibilities:
 
