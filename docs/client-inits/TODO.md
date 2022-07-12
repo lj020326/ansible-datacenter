@@ -1,7 +1,7 @@
 
 # ANSIBLE DATACENTER TODO - 2022 Goals
 
-## 1) Setup Automation hub POC(s) to get to simplifying job_template inventory execution 
+## 1) Setup AWX POC(s) to get to simplifying job_template inventory execution 
 
 Goal(s)/Benefit(s): to minimize development time/effort required for roles/plays to run across multiple networks/sites.
 
