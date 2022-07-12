@@ -47,6 +47,7 @@ Find [example group vars marshalling/coercion of global to group role values her
 ### 4) Idempotent Common/Shared Roles
 
 Goal(s)/Benefit(s): 
+
 (1) Ability to efficiently run any selected idempotent role to achieve desired target machine configuration end-state for the role-purpose without having to replay all the roles for a given machine target. <br>
 (2) Achieve re-usability of roles for dependent roles.<br> 
 (3) Achieve single set of variables used to define end-state for each role such that the end-state definition may easily be compared with the corresponding audit information to properly produce drift comparison report between runtime and inventory/design state.<br>
@@ -69,6 +70,7 @@ Find [example group vars setting for idempotent role values for mount and packag
 ### 5) Setup DEV, QA and PROD AWX clusters
  
 Goal(s)/Benefit(s):
+
 (1) Ability to execute plays/roles/modules in environment-agnostic approach such that no reconfiguration is required to promote plays/roles/module to upper envs.<br>
 (2) Ability to setup CICD PR based pipeline test automation in formal TEST env.<br>
 (3) Ability to test code integration in TEST env with prod-env-like fixtures/updates/upgrades (e.g., LDAP/AD, vaults, etc) before getting to prod env.<br>
