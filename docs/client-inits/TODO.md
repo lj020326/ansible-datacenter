@@ -34,9 +34,20 @@ Specifically, target the roles that take lists most often needed by other roles 
 
     Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
 
+Find [example group vars setting for idempotent role values for mount and package here](https://github.com/lj020326/ansible-datacenter/blob/main/inventory/group_vars/cicd_node.yml)
+
+
 ### Refactor Roles using ansible inventory groups
 
-Refactor Roles to use ansible inventory group vars to derive role var configuration for key provisioning plays.
+Refactor Roles to use ansible inventory group vars to derive role var configuration for key provisioning plays.  
+
+To accomplish this:
+
+1) all role input variable names must be distinct to the role such that only one role is the consumer for the variable.
+2) setup role-groups to set values for the role to use for all hosts in the defined group.
+3) if and when using global variable names to obtain values, coerce/marshall the variable value from the global variable namespace to the role variable namespace.
+
+Find [example group vars marshalling/coercion of global to group role values here](https://github.com/lj020326/ansible-datacenter/blob/main/inventory/group_vars/docker_stack.yml)
 
 
 ### Setup DEV, QA and PROD AWX clusters
