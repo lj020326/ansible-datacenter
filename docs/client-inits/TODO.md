@@ -64,28 +64,6 @@ Add functionality to deploy-vm role to support automated deployment for VM appli
 
     https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md
 
-### Container service delivery
-
-Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](https://github.com/lj020326/ansible-datacenter/tree/main/docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
-
-
-## Pie-in-the-sky / moonshot
-
-Ideally find a good node querying/editor opensource codebase that can used/adapted/refactored to view/query and edit the ansible-inventory repo YAMLs.
-
-  Food for thought / fuel for ideas for some possible candidate in adapting to handling inventory viewing/editing use case possibilities:
-
-    * https://docs.cloudify.co/5.1/trial_getting_started/examples/local/local_hello_world_example/
-      * https://docs.cloudify.co/5.1/trial_getting_started/examples/first_service/aws_hello_world_example/
- 
-    * https://newcat.github.io/baklavajs/#/
-    * rete.js 
-       * https://github.com/retejs/rete
-       * https://codepen.io/Ni55aN/pen/xzgQYq
-    * https://cloud-pipelines.net/pipeline-editor/
-    * https://github.com/miroiu/nodify
-    * https://github.com/jerosoler/Drawflow
-
 
 ## Reference(s)
 
