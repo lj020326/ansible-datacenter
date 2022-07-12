@@ -1,0 +1,72 @@
+---
+
+- name: "fetch-reports-repo | Setup ssh key when scheme is ssh"
+  when: report_inventory_facts_git_repo_url_scheme=='ssh'
+  block:
+
+    - name: "fetch-reports-repo | Ensure ssh dir exists at {{ __report_inventory_facts_git_ssh_private_keydir }}"
+      file:
+        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}"
+        state: directory
+        mode: "0755"
+
+    - name: "fetch-reports-repo | Check if git private ssh key exist in {{ report_inventory_facts_git_ssh_private_keyfile }}"
+      stat:
+        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+      register: private_key
+
+    ## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
+    - name: "fetch-reports-repo | Ensure git private key is present at {{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+#      when: not (private_key.stat.exists | bool)
+      copy:
+        content: "{{ report_inventory_facts_git_ssh_private_key }}"
+        dest: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+        mode: "0600"
+        backup: yes
+      no_log: yes
+
+    - name: "fetch-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
+      git:
+        repo: "{{ report_inventory_facts_git_repo_url_cred }}"
+        dest: "{{ __report_inventory_facts_repo_dir }}"
+        version: "{{ report_inventory_facts_git_repo_branch }}"
+        clone: yes
+        accept_hostkey: true
+        update: yes
+        force: true
+        key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
+      register: gitclone
+
+- name: "fetch-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
+  when: report_inventory_facts_git_repo_url_scheme=='https'
+  git:
+    repo: "{{ report_inventory_facts_git_repo_url_cred }}"
+    dest: "{{ __report_inventory_facts_repo_dir }}"
+    version: "{{ report_inventory_facts_git_repo_branch }}"
+    clone: yes
+    accept_hostkey: true
+  register: gitclone
+
+- name: "fetch-reports-repo | Configure git configs"
+  git_config:
+    scope: local
+    repo: "{{ __report_inventory_facts_repo_dir }}"
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+  loop:
+    - name: user.name
+      value: "{{ report_inventory_facts_git_user }}"
+    - name: user.email
+      value: "{{ report_inventory_facts_git_email }}"
+
+- name: "fetch-reports-repo | List git config settings for {{ __report_inventory_facts_repo_dir }}"
+  git_config:
+    list_all: yes
+    scope: local
+    repo: "{{ __report_inventory_facts_repo_dir }}"
+  register: git_config_settings
+
+- name: "fetch-reports-repo | Display git_config_settings"
+  debug:
+    var: git_config_settings
+    verbosity: 1

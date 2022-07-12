@@ -40,97 +40,30 @@
 
 - name: "update-reports-repo | Display connection_name"
   debug:
-    var: hostvars[item].report_inventory_list_facts_flattened.connection_name.value
-    verbosity: 1
+    var: hostvars[item].report_inventory_list_facts_flattened.connection_name
+#    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].report_inventory_list_facts_flattened.connection_name"
 
 - name: "update-reports-repo | Display interface_name"
   debug:
-    var: hostvars[item].report_inventory_list_facts_flattened.interface_name.value
-    verbosity: 1
+    var: hostvars[item].report_inventory_list_facts_flattened.interface_name
+#    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].report_inventory_list_facts_flattened.interface_name"
 
 - name: "update-reports-repo | Display ipv4_address"
   debug:
-    var: hostvars[item].report_inventory_list_facts_flattened.ipv4_address.value
+    var: hostvars[item].report_inventory_list_facts_flattened.ipv4_address
 #    verbosity: 1
   loop: "{{ ansible_play_hosts }}"
   loop_control:
     label: "hostvars[{{ item }}].report_inventory_list_facts_flattened.ipv4_address"
 
-- name: "update-reports-repo | Setup ssh key when scheme is ssh"
-  when: report_inventory_facts_git_repo_url_scheme=='ssh'
-  block:
-
-    - name: "update-reports-repo | Ensure ssh dir exists at {{ __report_inventory_facts_git_ssh_private_keydir }}"
-      file:
-        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}"
-        state: directory
-        mode: "0755"
-
-    - name: "update-reports-repo | Check if git private ssh key exist in {{ report_inventory_facts_git_ssh_private_keyfile }}"
-      stat:
-        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
-      register: private_key
-
-    ## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
-    - name: "update-reports-repo | Ensure git private key is present at {{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
-#      when: not (private_key.stat.exists | bool)
-      copy:
-        content: "{{ report_inventory_facts_git_ssh_private_key }}"
-        dest: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
-        mode: "0600"
-        backup: yes
-#      no_log: yes
-
-    - name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
-      git:
-        repo: "{{ report_inventory_facts_git_repo_url_cred }}"
-        dest: "{{ __report_inventory_facts_repo_dir }}"
-        version: "{{ report_inventory_facts_git_repo_branch }}"
-        clone: yes
-        accept_hostkey: true
-        update: yes
-        force: true
-        key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ report_inventory_facts_git_ssh_private_keyfile }}"
-      register: gitclone
-
-- name: "update-reports-repo | Clone {{ report_inventory_facts_git_repo_url }} to {{ __report_inventory_facts_repo_dir }}"
-  when: report_inventory_facts_git_repo_url_scheme=='https'
-  git:
-    repo: "{{ report_inventory_facts_git_repo_url_cred }}"
-    dest: "{{ __report_inventory_facts_repo_dir }}"
-    version: "{{ report_inventory_facts_git_repo_branch }}"
-    clone: yes
-    accept_hostkey: true
-  register: gitclone
-
-- name: "update-reports-repo | Configure git configs"
-  git_config:
-    scope: local
-    repo: "{{ __report_inventory_facts_repo_dir }}"
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
-  loop:
-    - name: user.name
-      value: "{{ report_inventory_facts_git_user }}"
-    - name: user.email
-      value: "{{ report_inventory_facts_git_email }}"
-
-- name: "update-reports-repo | List git config settings for {{ __report_inventory_facts_repo_dir }}"
-  git_config:
-    list_all: yes
-    scope: local
-    repo: "{{ __report_inventory_facts_repo_dir }}"
-  register: git_config_settings
-
-- name: Display git_config_settings
-  debug:
-    var: git_config_settings
+- name: "update-reports-repo | Fetch inventory reports repo"
+  include_tasks: fetch-reports-repo.yml
 
 - name: "update-reports-repo | Ensure directory {{ __report_inventory_facts_reports_dir }} exists"
   file:
@@ -155,11 +88,12 @@
     __report_inventory_list_facts_flattened: "{{ __report_inventory_list_facts_flattened|d([]) + [hostvars[item].report_inventory_list_facts_flattened|d({})] }}"
   loop: "{{ ansible_play_hosts }}"
 
-- name: "Display __ansible_host_facts"
+- name: "update-reports-repo | Display __ansible_host_facts"
   debug:
     var: __ansible_host_facts
+#    verbosity: 1
 
-- name: "Display __report_inventory_list_facts_flattened"
+- name: "update-reports-repo | Display __report_inventory_list_facts_flattened"
   debug:
     var: __report_inventory_list_facts_flattened
 
@@ -185,12 +119,12 @@
     content: "{{ __ansible_host_facts | to_nice_yaml(indent=2) }}"
     dest: "{{ __report_inventory_facts_reports_dir }}/yaml/server_facts.yml"
 
-- name: "Set __csv_headers"
+- name: "update-reports-repo | Set __csv_headers"
   set_fact:
     __csv_headers: "{{ __csv_headers| d([]) + [ { 'name' : item.key, 'header': item.value } ] }}"
-  loop: "{{ report_inventory_list_headers_windows | dict2items }}"
+  loop: "{{ report_inventory_list_headers | dict2items }}"
 
-- name: "Display __csv_headers"
+- name: "update-reports-repo | Display __csv_headers"
   debug:
     var: __csv_headers
     verbosity: 2
@@ -206,6 +140,7 @@
 - name: Display __csv_result
   debug:
     var: __csv_result
+    verbosity: 2
 
 - name: "Display __report_inventory_list_facts_flattened"
   debug:
@@ -219,9 +154,10 @@
     export_list: "{{ __report_inventory_list_facts_flattened }}"
   register: __md_result
 
-- name: Display __md_result
+- name: "update-reports-repo | Display __md_result"
   debug:
     var: __md_result
+    verbosity: 2
 
 - name: "update-reports-repo | Add Title to Markdown"
   changed_when: false

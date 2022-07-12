@@ -38,11 +38,6 @@ report_inventory_list_facts_flattened_common:
   architecture: "{{ ansible_facts['architecture'] }}"
   bios_date: "{{ ansible_facts['bios_date'] }}"
   bios_version: "{{ ansible_facts['bios_version'] }}"
-  connection_name: "{{ ansible_facts | json_query('interfaces[*].connection_name') }}"
-  interface_name: "{{ ansible_facts | json_query('interfaces[*].interface_name') }}"
-  ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html
-  ipv4_address: "{{ ansible_facts | json_query('interfaces[*].ipv4.address') + ansible_facts.ip_addresses|d([]) | ansible.utils.ipv4('address') | flatten }}"
-  ipv6_address: "{{ ansible_facts | json_query('interfaces[*].ipv6.address') + ansible_facts.ip_addresses|d([]) | ansible.utils.ipv6('address') | flatten }}"
   default_gateway: "{{ ansible_facts | json_query('interfaces[*].default_gateway') }}"
   mac_address: "{{ ansible_facts | json_query('interfaces[*].macaddress') }}"
   uptime: "{{ ansible_facts['uptime_seconds'] }}"
@@ -52,19 +47,45 @@ report_inventory_list_facts_flattened_common:
   processor_cores: "{{ ansible_facts['processor_cores'] }}"
   processor_count: "{{ ansible_facts['processor_count']}}"
   product_name: "{{ ansible_facts['product_name'] }}"
+  ansible_user: "{{ ansible_user }}"
+  ansible_host: "{{ ansible_host }}"
+  ansible_hostname: "{{ ansible_hostname | d('') }}"
+  ansible_port: "{{ ansible_port | d('') }}"
+  ansible_fqdn: "{{ ansible_fqdn | d('') }}"
+  ansible_default_ipv4_address: "{{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
+  ansible_connection: "{{ ansible_connection|d('') }}"
+  ansible_virtualization_type: "{{ ansible_virtualization_type|d('') }}"
+  ansible_virtualization_role: "{{ ansible_virtualization_role|d('') }}"
+  ansible_system_vendor: "{{ ansible_system_vendor|d('') }}"
+  ansible_product_name: "{{ ansible_product_name|d('') }}"
+  ansible_os_family: "{{ ansible_os_family | d('unknown') }}"
+  ansible_distribution: "{{ ansible_distribution | d('unknown') }}"
+  ansible_distribution_release: "{{ ansible_distribution_release | d('unknown') }}"
+  ansible_distribution_major_version: "{{ ansible_distribution_major_version | d('unknown') }}"
   group_names: "{{ group_names }}"
 
+report_inventory_list_facts_flattened_linux:
+  interface_name: "{{ ansible_facts.interfaces|d([]) | flatten }}"
+  ipv4_address: "{{ ansible_facts.all_ipv4_addresses|d([]) | flatten }}"
+  ipv6_address: "{{ ansible_facts.all_ipv6_addresses|d([]) | flatten }}"
+  ansible_python_interpreter: "{{ ansible_python_interpreter | d('unknown') }}"
+  ansible_pip_interpreter: "{{ ansible_pip_interpreter | d('unknown') }}"
+
 report_inventory_list_facts_flattened_windows:
+  interface_name: "{{ ansible_facts | json_query('interfaces[*].interface_name') | flatten }}"
+  ipv4_address: "{{ ansible_facts | json_query('interfaces[*].ipv4.address') + ansible_facts.ip_addresses|d([]) | ansible.utils.ipv4('address') | flatten }}"
+  ipv6_address: "{{ ansible_facts | json_query('interfaces[*].ipv6.address') + ansible_facts.ip_addresses|d([]) | ansible.utils.ipv6('address') | flatten }}"
   ansible_winrm_transport: "{{ ansible_winrm_transport|d('') }}"
   ansible_winrm_scheme: "{{ ansible_winrm_scheme|d('') }}"
   ansible_winrm_server_cert_validation: "{{ ansible_winrm_server_cert_validation|d('') }}"
   windows_domain_member: "{{ ansible_facts['windows_domain_member'] }}"
   windows_domain_role: "{{ ansible_facts['windows_domain_role'] }}"
+  connection_name: "{{ ansible_facts | json_query('interfaces[*].connection_name') }}"
   lastboot: "{{ ansible_facts['lastboot'] }}"
   reboot_pending: "{{ ansible_facts['reboot_pending'] }}"
 
 
-report_inventory_list_headers_windows:
+report_inventory_list_headers:
   nodename: "Hostname"
   machine_type: "Machine Type"
   domain: "Domain"
@@ -93,34 +114,3 @@ report_inventory_list_headers_windows:
   product_name: "Product Name"
   group_names: "Ansible Inventory Groups"
 
-
-
-report_inventory_list_facts_flattened_linux:
-  ## BEGIN dynamically derived os_* groups
-  - "os_family={{ os_family }}"
-  - "os_distribution={{ os_distribution }}"
-  - "os_distribution_version={{ os_distribution_version }}"
-  - "os_machine_type={{ os_machine_type }}"
-  ## END dynamically derived os_* groups
-  - "os_python_interpreter={{ os_python_interpreter| d('') }}"
-  - "ansible_python_interpreter={{ ansible_python_interpreter | d('unknown') }}"
-  - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('unknown') }}"
-  - "ansible_user={{ ansible_user }}"
-  - "ansible_host={{ ansible_host }}"
-  - "ansible_hostname={{ ansible_hostname | d('') }}"
-  - "ansible_port={{ ansible_port | d('') }}"
-  - "ansible_fqdn={{ ansible_fqdn | d('') }}"
-  - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
-  - "ansible_connection={{ ansible_connection|d('') }}"
-  - "ansible_virtualization_type={{ ansible_virtualization_type|d('') }}"
-  - "ansible_virtualization_role={{ ansible_virtualization_role|d('') }}"
-  - "ansible_system_vendor={{ ansible_system_vendor|d('') }}"
-  - "ansible_product_name={{ ansible_product_name|d('') }}"
-  - "ansible_winrm_transport={{ ansible_winrm_transport|d('') }}"
-  - "ansible_winrm_scheme={{ ansible_winrm_scheme|d('') }}"
-  - "ansible_winrm_server_cert_validation={{ ansible_winrm_server_cert_validation|d('') }}"
-  - "ansible_os_family={{ ansible_os_family | d('unknown') }}"
-  - "ansible_distribution={{ ansible_distribution | d('unknown') }}"
-  - "ansible_distribution_release={{ ansible_distribution_release | d('unknown') }}"
-  - "ansible_distribution_major_version={{ ansible_distribution_major_version | d('unknown') }}"
-  - "group_names={{ group_names | d('') }}"
