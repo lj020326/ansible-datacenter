@@ -4,8 +4,9 @@
 ## 1) Setup AWX POC(s) to simplify job_template inventory execution 
 
 Goal(s)/Benefit(s):
-(1) minimize development/deployment time/effort required for roles/plays to run across multiple networks/sites.
-(2) reduce risks due to multiple job template definitions/configurations for each network/site.
+
+(1) minimize development/deployment time/effort required for roles/plays to run across multiple networks/sites.<br>
+(2) reduce risks due to multiple job template definitions/configurations for each network/site.<br>
 
 Demonstrate how to run a single job template to bootstrap a simple NTP client/server configuration (with help/assist from redhat/ansible engineering if and as needed):
 
