@@ -78,7 +78,24 @@ Ideally find a good node querying/editor opensource codebase that can used/adapt
 
     * https://docs.cloudify.co/5.1/trial_getting_started/examples/local/local_hello_world_example/
       * https://docs.cloudify.co/5.1/trial_getting_started/examples/first_service/aws_hello_world_example/
- 
+
+
+    * https://github.com/Cloud-Pipelines/pipeline-editor
+    * https://github.com/newcat/baklavajs
+    * https://newcat.github.io/baklavajs/#/styling
+    * https://mrambourg.medium.com/use-baklavajs-with-nuxt-ba696c2a1602
+    * https://github.com/sea-kg/pipeline-editor-s5
+    * https://github.com/elyra-ai/pipeline-editor
+    * https://github.com/jerosoler/Drawflow#node-example
+    * https://github.com/alibaba/butterfly/blob/master/README.en-US.md
+    * https://github.com/jagenjo/litegraph.js
+
+
+
+    Node nesting capabilities:
+    * https://github.com/miroiu/nodify
+    * https://github.com/miroiu/nodify/blob/master/Examples/Nodify.Playground
+
     * https://newcat.github.io/baklavajs/#/
     * rete.js 
        * https://github.com/retejs/rete

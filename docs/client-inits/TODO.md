@@ -3,7 +3,9 @@
 
 ## CICD Infrastructure Automation Priorities
 
-### Setup POC(s)
+### 1) Setup Automation hub POC(s) to get to simplifying job_template inventory execution 
+
+Goal(s): to minimize development time/effort required for roles/plays to run across multiple networks/sites.
 
 Ideally with help from redhat/ansible engineering as needed) to be able to demonstrate how to run a single job template to bootstrap a simple NTP client/server configuration:
 
@@ -20,7 +22,7 @@ Ideally with help from redhat/ansible engineering as needed) to be able to demon
  E.g., if there are instance groups for each of the 4 groups above, ideally the appropriate groups are applied for each instance group configuration to properly derive the correct ntp_server configuration.  
 
 
-### Idempotent Common/Shared Roles
+### 2) Idempotent Common/Shared Roles
 
 Develop roles for idempotency and ability to run independently to achieve correct end-state:
 
@@ -37,45 +39,42 @@ Specifically, target the roles that take lists most often needed by other roles 
 Find [example group vars setting for idempotent role values for mount and package here](https://github.com/lj020326/ansible-datacenter/blob/main/inventory/group_vars/cicd_node.yml)
 
 
-### Refactor Roles using ansible inventory groups
+### 3) Refactor Roles using ansible inventory groups
 
 Refactor Roles to use ansible inventory group vars to derive role var configuration for key provisioning plays.  
 
 To accomplish this:
 
-1) all role input variable names must be distinct to the role such that only one role is the consumer for the variable.
-2) setup role-groups to set values for the role to use for all hosts in the defined group.
-3) if and when using global variable names to obtain values, coerce/marshall the variable value from the global variable namespace to the role variable namespace.
+1) all role input variable names must be distinct to the role such that only one role is the consumer for the variable.<br>
+2) setup role-groups to set values for the role to use for all hosts in the defined group.<br>
+3) if and when using global variable names to obtain values, coerce/marshall the variable value from the global variable namespace to the role variable namespace.<br>
 
 Find [example group vars marshalling/coercion of global to group role values here](https://github.com/lj020326/ansible-datacenter/blob/main/inventory/group_vars/docker_stack.yml)
 
 
-### Setup DEV, QA and PROD AWX clusters
+### 4) Setup DEV, QA and PROD AWX clusters
  
-### VM appliances
 
-Add functionality to deploy-vm role to support automated deployment for VM appliances:
+### 5) Setup automated CICD test pipelines for essential plays (vm provisioning, bootstrap plays, etc)
 
-    https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
+Goal(s): to enable high quality roles/plays by frequent PR based testing of essential roles/modules. 
 
-### Setup automated CICD test pipelines for important plays (vm provisioning, bootstrap plays, etc)
-
-    [ ] Setup ansible test env using molecule/vagrant
-        https://github.com/lj020326/ansible-datacenter/blob/main/molecule/default/molecule.yml
-
-### Setup Ansible role to deploy cloud based apps onto openshift using pipeline
-
-    Configure pipeline to use Ansible to run terraform deployments.
-    Benefits - utilizing the best feature sets of both products:
-
-    * ansible inventory to drive terraform inputs
-    * terraform deployment features 
-
-    https://github.com/lj020326/cicd-paas-example
-    https://github.com/lj020326/ansible-datacenter/blob/main/docs/terraform-deployments-with-ansible-part-1.md
+See [ansible datacenter VM provisioning using molecule](https://github.com/lj020326/ansible-datacenter/blob/main/molecule/default/molecule.yml)
 
 
-### add chef inspec tests to VM provisioning pipeline
+### 6) Setup Ansible role to deploy apps onto cloud based or openshift cluster using pipeline
 
-    https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md
+Configure pipeline to use Ansible to run terraform deployments.
+Benefits - utilizing the best feature sets of both products:
+
+* ansible inventory to drive terraform inputs
+* terraform deployment features 
+
+* https://github.com/lj020326/cicd-paas-example
+* https://github.com/lj020326/ansible-datacenter/blob/main/docs/terraform-deployments-with-ansible-part-1.md
+
+
+### 7) add chef inspec tests to VM provisioning pipeline
+
+See [ansible inspec role to run inspec tests for target here](https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md)
 
