@@ -1,48 +1,32 @@
 
-ANSIBLE DATACENTER TODO
-====
-
-# 2022 Goals
+# ANSIBLE DATACENTER TODO - 2022 Goals
 
 ## Datacenter Client Applications
 
-[ ] Setup apache Spark cluster
+### Setup apache Spark cluster
 
-[ ] Setup models using Spark
+#### Setup models using Spark
 
 ## CICD Infrastructure Automation Priorities
 
-* https://learn.hashicorp.com/tutorials/consul/service-mesh-zero-trust-network?in=consul/gs-consul-service-mesh
-* https://learn.hashicorp.com/tutorials/consul/get-started-create-datacenter?in=consul/getting-started
-* https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
-* https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2/
-* https://github.com/lj020326/cicd-paas-example
-* https://traefik.io/blog/integrating-consul-connect-service-mesh-with-traefik-2-5/
-* https://dzone.com/articles/platform-as-code-with-openshift-amp-terraform
-* https://pypi.org/project/deploy-to-kubernetes/
-* [containers-and-service-discovery](./docs/containers-and-service-discovery.md)
+### Idempotent roles for key plays
 
-[ ] Develop roles for idempotency and ability to run independently to achieve correct end-state:
+Develop roles for idempotency and ability to run independently to achieve correct end-state:
+
+Specifically, target the roles that take lists most often needed by other roles for implementing.
 
     [ ] bootstrap-linux-packages
     [ ] bootstrap-linux-service-accounts
-    [ ] bootstrap-linux-dns
-    [ ] bootstrap-linux-ntp
     [ ] bootstrap-linux-firewalld
     [ ] bootstrap-linux-mounts
     [ ] bootstrap-linux-nfs (e.g., nfs-server)
-    [ ] bootstrap-linux-postfix
-    [ ] bootstrap-linux-sshd
-    [ ] bootstrap-linux-core
 
     Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
 
 
-[ ] Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+### Setup DEV, QA and PROD AWX clusters
 
-[ ] Setup DEV, QA and PROD AWX clusters
-
-[ ] Setup DEV, QA and PROD openshift clusters
+### Setup DEV, QA and PROD openshift clusters
 
 * https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.2/latest/
 * https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
@@ -54,36 +38,64 @@ ANSIBLE DATACENTER TODO
   * http://keithlee.ie/2018/11/05/pks-nsx-t-home-lab-part-3-core-vms/
   * http://keithlee.ie/2018/11/08/pks-nsx-t-home-lab-part-4-configuring-pfsense-router/
   
-[ ] Add functionality to deploy-vm role to support deployment from ovf template in ansible:
+### VM appliances
+
+Add functionality to deploy-vm role to support automated deployment for VM appliances:
+
     https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
 
-[ ] Update blog for cicd-paas-example
- 
-   [ ] update ansible to run terraform to deploy apps onto openshift using pipeline
+### Setup automated CICD test pipelines for important plays (vm provisioning, bootstrap plays, etc)
 
-[ ] Setup ansible test env using molecule/vagrant
-    https://github.com/lj020326/ansible-datacenter/tree/public/roles/solrcloud/molecule
+    [ ] Setup ansible test env using molecule/vagrant
+        https://github.com/lj020326/ansible-datacenter/blob/main/molecule/default/molecule.yml
 
-[X] Update DNS records using ansible
-    https://www.rubysecurity.org/Updating-BIND-DNS-records-using-Ansible
-    https://stackoverflow.com/questions/61764320/ansible-nsupdate-module-adding-zone-to-record-value
-    https://docs.ansible.com/ansible/latest/collections/community/general/nsupdate_module.html
-    https://serverfault.com/questions/414734/setting-up-bind-to-work-with-nsupdate-servfail
+### Setup Ansible role to deploy cloud based apps onto openshift using pipeline
 
-[ ] CICD Deployment pipeline
-    Configure pipeline to use Ansible to run terraform deployments:
+    Configure pipeline to use Ansible to run terraform deployments.
+    Benefits - utilizing the best feature sets of both products:
+
+    * ansible inventory to drive terraform inputs
+    * terraform deployment features 
 
     https://github.com/lj020326/cicd-paas-example
-    https://github.com/lj020326/ansible-datacenter/search?q=.war
+    https://github.com/lj020326/ansible-datacenter/blob/main/docs/terraform-deployments-with-ansible-part-1.md
+
+
+### add chef inspec tests to VM provisioning pipeline
+
+    https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md
+
+### Container service delivery
+
+Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](https://github.com/lj020326/ansible-datacenter/tree/main/docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+
+
+## Pie-in-the-sky / moonshot
+
+Ideally find a good node querying/editor opensource codebase that can used/adapted/refactored to view/query and edit the ansible-inventory repo YAMLs.
+
+  Food for thought / fuel for ideas for some possible candidate in adapting to handling inventory viewing/editing use case possibilities:
+
+    * https://docs.cloudify.co/5.1/trial_getting_started/examples/local/local_hello_world_example/
+      * https://docs.cloudify.co/5.1/trial_getting_started/examples/first_service/aws_hello_world_example/
+ 
+    * https://newcat.github.io/baklavajs/#/
+    * rete.js 
+       * https://github.com/retejs/rete
+       * https://codepen.io/Ni55aN/pen/xzgQYq
+    * https://cloud-pipelines.net/pipeline-editor/
+    * https://github.com/miroiu/nodify
+    * https://github.com/jerosoler/Drawflow
+
+### Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+
+### Setup KEA DHCP + PowerDNS Containers for API based DNS record updates using ansible
+
+### Simplify terraform deployments with ansible:
+
     https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2/
 
-    benefit - inventory derived from ansible to drive terraform
-
-[ ] Simplify terraform deployments with ansible:
-
-    https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2/
-
-[ ] Setup hugo site build/deploy pipeline in jenkins
+### Setup hugo site build/deploy pipeline in jenkins
 
     How to build a personal website with github pages and hugo:
     https://levelup.gitconnected.com/build-a-personal-website-with-github-pages-and-hugo-6c68592204c7
@@ -142,7 +154,7 @@ ANSIBLE DATACENTER TODO
         https://www.google.com/books/edition/Vagrant_Virtual_Development_Environment/UzDWBgAAQBAJ?hl=en&gbpv=0
 
 
-[ ] Migrating VM apps to Kubernetes using Ambassador API gateway:
+### Migrating VM apps to Kubernetes using Ambassador API gateway:
     https://blog.getambassador.io/part-3-incremental-app-migration-from-vms-to-kubernetes-ambassador-and-consul-aacf87eea3e8
     Reference architecture:
         git clone git@github.com:datawire/pro-ref-arch.gi
@@ -169,7 +181,7 @@ ANSIBLE DATACENTER TODO
         https://smallstep.com/docs/step-ca/certificate-authority-server-production#automated-renewal
 
 
-[ ] Setup k8s cert-manager
+### Setup k8s cert-manager
 
     [ ] Configure cert-manager with step-ca:
 
@@ -212,7 +224,7 @@ ANSIBLE DATACENTER TODO
     [ ] support for RDM and automation of RDM provisioning
         [ ] we are moving to disks/storage pool mgmt done by a VM - and need to pass thru the disks to the storage VM
 
-[ ] Setup full dev/test/prod CICD for webdev
+### Setup full dev/test/prod CICD for webdev
 
     [ ] Use openshift to setup support full dev/test/prod CICD (per openshift example below) for webdev
 
@@ -227,7 +239,7 @@ ANSIBLE DATACENTER TODO
 [D] Setup IPA server to manage cacert and signed certs for nodes
     deferred - nice to have - but not a necessity - given most of benefit would be for having a UI on top of LDAP/cert managemen
 
-[ ] push ca certs to gitea/archiva
+### push ca certs to gitea/archiva
     [ ] integrate with buildVmTemplate pipeline
     [ ] integrate with deploy-vm play
 
@@ -243,32 +255,17 @@ ANSIBLE DATACENTER TODO
         - and gig switch (e.g., get the more current sf200)
     [ ] setup cisco sf200
 
-[ ] Setup Proxmox
-
-[ ] Setup smokeping - keep track of network latency
+### Setup smokeping - keep track of network latency
     https://github.com/linuxserver/docker-smokeping
 
-[ ] Authelia setup
-
-    [X] File based
-    [X] Setup LDAP
-    [ ] Confirm Authelia LDAP setup
-
-[ ] revisit IPA setup from nathancurry homelabs.ansible
-
-[ ] multi-cluster portainer setup:
+### multi-cluster portainer setup:
     https://gist.github.com/deviantony/0d5fde119e9340a984af875244eced09
 
-[ ] Setup docker in swarm mode:
+### Setup docker in swarm mode:
     5 cool apps using docker swarm mode:
     https://collabnix.com/5-cool-application-stacks-to-showcase-using-play-with-dockerpwd/
 
-[ ] Setup alternate VM hypervisor management
-
-    [ ] openstack and / or proxmox
-
-
-[ ] Setup msmtp as mail proxy client into gmail:
+### Setup msmtp as mail proxy client into gmail:
 
     motivation:
         https://forums.servethehome.com/index.php?threads/storage-server-w-mergerfs-snapraid-proxmox-zfs.28767/post-266482
@@ -281,64 +278,37 @@ ANSIBLE DATACENTER TODO
         https://owendavies.net/articles/setting-up-msmtp/
 
 
-[ ] Setup vlan subnets in pfsense NICs to protect dettonville.int from home network
+### Setup vlan subnets in pfsense NICs to protect dettonville.int from home network
     Question here is how to allow devices from subnet 2 to access the secure network Subnet1
 
     [ ] Then setup subnets using
         https://netosec.com/protect-home-network/
     [ ] Setup OPT2 nic as subnet2 and have home network connect to OPT2
 
-[X] Storage JBOD Setup
 
-    [X] Setup JBOD drives to connect with storage VM
-
-    [X] Setup Storage VM (nas02) with:
-
-        [X] principally using these reference architectures:
-            https://blog.linuxserver.io/2019/07/16/perfect-media-server-2019/
-            https://selfhostedhome.com/combining-different-sized-drives-with-mergerfs-and-snapraid/
-
-        [X] mergerFS
-        [X] snapraid
-
-        [x] Setup raid + snapshots
-
-            Huge advantage using this configuration is ability to perform online Data Drive Replacements
-
-            https://github.com/automorphism88/snapraid-btrfs
-            ref: https://github.com/trapexit/mergerfs/wiki/Real-World-Deployments
-
-            [ ] Use snapraid-btrfs
-                https://github.com/automorphism88/snapraid-btrfs
-                https://www.reddit.com/r/btrfs/comments/k93f16/using_btrfs_with_snapraid_and_snapper/
-                https://wiki.selfhosted.show/tools/snapraid-btrfs/
-
-            [ ] btrfs snapshots+snapraid
-
-        [ ] Optimize snapraid config:
-            [ ] Tweak snapraid autosave to ~4-6TB, otherwise it will take a long ass time
-                ref: https://github.com/trapexit/mergerfs/wiki/Real-World-Deployments
-
-        [ ] perform healthchecks:
-            [ ] snapraid checks:
-                https://github.com/lj020326/snapraid-checks.gi
-                https://github.com/n8io/snapraid-checks
-
-            [ ] file integrity checks
-                https://github.com/trapexit/scorch
+## Reference(s)
 
 
-[ ] Setup awx with ansible-datacenter
-
-    [ ] run original work config that now has task/job related issues along side of new clean config
-    [ ] ansible-datacenter - setup dev branch and corresponding job templates in awx
-    [ ] ansible-datacenter - move LDAP service account seed ldif's to ansible secrets/vault
+* https://learn.hashicorp.com/tutorials/consul/service-mesh-zero-trust-network?in=consul/gs-consul-service-mesh
+* https://learn.hashicorp.com/tutorials/consul/get-started-create-datacenter?in=consul/getting-started
+* https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
+* https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2/
+* https://github.com/lj020326/cicd-paas-example
+* https://traefik.io/blog/integrating-consul-connect-service-mesh-with-traefik-2-5/
+* https://dzone.com/articles/platform-as-code-with-openshift-amp-terraform
+* https://pypi.org/project/deploy-to-kubernetes/
+* [containers-and-service-discovery](./docs/containers-and-service-discovery.md)
 
 * [AWX do not load group vars after add_host · Issue #11793 · ansible/awx](https://github.com/ansible/awx/issues/11793)
 * [Inventory group vars are not loaded · Issue #761 · ansible/awx](https://github.com/ansible/awx/issues/761)
 * [Inventory not including all group_vars when using multiple children (or all group)](https://github.com/ansible/awx/issues/2574)
 * [Ansible and Ansible Tower: best practices from the field](http://www.juliosblog.com/ansible-and-ansible-tower-best-practices-from-the-field/)
 * [awx & venv - Managing infrastructure using Ansible Tower | XLAB Steampunk blog](https://steampunk.si/blog/managing-infrastructure-using-ansible-tower/)
+
+* https://www.rubysecurity.org/Updating-BIND-DNS-records-using-Ansible
+* https://stackoverflow.com/questions/61764320/ansible-nsupdate-module-adding-zone-to-record-value
+* https://docs.ansible.com/ansible/latest/collections/community/general/nsupdate_module.html
+* https://serverfault.com/questions/414734/setting-up-bind-to-work-with-nsupdate-servfail
 
 * [good example awx playbook with groups](https://murrahjm.github.io/Source-Control-and-the-Tower-Project/)
 * [Automating the automation — Ansible Tower configuration as code](https://www.redhat.com/en/blog/automating-automation-%E2%80%94-ansible-tower-configuration-code)

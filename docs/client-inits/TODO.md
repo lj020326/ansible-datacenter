@@ -1,8 +1,5 @@
 
-ANSIBLE DATACENTER TODO
-====
-
-# 2022 Goals
+# ANSIBLE DATACENTER TODO - 2022 Goals
 
 ## CICD Infrastructure Automation Priorities
 
@@ -27,16 +24,13 @@ Ideally with help from redhat/ansible engineering as needed) to be able to demon
 
 Develop roles for idempotency and ability to run independently to achieve correct end-state:
 
+Specifically, target the roles that take lists most often needed by other roles for implementing.
+
     [ ] bootstrap-linux-packages
     [ ] bootstrap-linux-service-accounts
-    [ ] bootstrap-linux-dns
-    [ ] bootstrap-linux-ntp
     [ ] bootstrap-linux-firewalld
     [ ] bootstrap-linux-mounts
     [ ] bootstrap-linux-nfs (e.g., nfs-server)
-    [ ] bootstrap-linux-postfix
-    [ ] bootstrap-linux-sshd
-    [ ] bootstrap-linux-core
 
     Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
 
@@ -46,6 +40,7 @@ Develop roles for idempotency and ability to run independently to achieve correc
 ### VM appliances
 
 Add functionality to deploy-vm role to support automated deployment for VM appliances:
+
     https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_deploy_ovf_module.html
 
 ### Setup automated CICD test pipelines for important plays (vm provisioning, bootstrap plays, etc)
@@ -68,7 +63,6 @@ Add functionality to deploy-vm role to support automated deployment for VM appli
 ### add chef inspec tests to VM provisioning pipeline
 
     https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md
-
 
 ### Container service delivery
 
@@ -93,7 +87,7 @@ Ideally find a good node querying/editor opensource codebase that can used/adapt
     * https://github.com/jerosoler/Drawflow
 
 
-## Reference
+## Reference(s)
 
 * https://learn.hashicorp.com/tutorials/consul/service-mesh-zero-trust-network?in=consul/gs-consul-service-mesh
 * https://learn.hashicorp.com/tutorials/consul/get-started-create-datacenter?in=consul/getting-started
