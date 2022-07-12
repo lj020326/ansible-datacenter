@@ -20,7 +20,7 @@ Ideally with help from redhat/ansible engineering as needed) to be able to demon
  E.g., if there are instance groups for each of the 4 groups above, ideally the appropriate groups are applied for each instance group configuration to properly derive the correct ntp_server configuration.  
 
 
-### Idempotent roles for key plays
+### Idempotent Common/Shared Roles
 
 Develop roles for idempotency and ability to run independently to achieve correct end-state:
 
@@ -33,6 +33,10 @@ Specifically, target the roles that take lists most often needed by other roles 
     [ ] bootstrap-linux-nfs (e.g., nfs-server)
 
     Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
+
+### Refactor Roles using ansible inventory groups
+
+Refactor Roles to use ansible inventory group vars to derive role var configuration for key provisioning plays.
 
 
 ### Setup DEV, QA and PROD AWX clusters
