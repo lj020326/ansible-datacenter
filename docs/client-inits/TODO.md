@@ -32,7 +32,10 @@ See [ansible datacenter VM provisioning using molecule](https://github.com/lj020
 
 ## 3) Refactor Roles using ansible inventory groups
 
-Goal(s)/Benefit(s): Use consistent framework/approach to setting all collection/group based variable states across the entire inventory.  Adopt ansible group var flexibility and best practices while minimizing risks due to multiple approaches and overusing global variable namespace. 
+Goal(s)/Benefit(s): 
+
+(1) Use consistent framework/approach to setting all collection/group based variable states across the entire inventory.<br>
+(2) Adopt ansible group var flexibility and best practices while minimizing risks due to multiple approaches and overusing global variable namespace.<br> 
 
 Refactor Roles to use ansible inventory group vars to derive role var configuration for key provisioning plays.  
 
@@ -60,6 +63,7 @@ Specifically, target the roles that take lists most often needed by other roles 
     [ ] bootstrap-linux-packages
     [ ] bootstrap-linux-service-accounts
     [ ] bootstrap-linux-firewalld
+    [ ] bootstrap-linux-logrotate
     [ ] bootstrap-linux-mounts
     [ ] bootstrap-linux-nfs (e.g., nfs-server)
 
