@@ -7,7 +7,7 @@
 
 Goal(s): to minimize development time/effort required for roles/plays to run across multiple networks/sites.
 
-Ideally with help from redhat/ansible engineering as needed) to be able to demonstrate how to run a single job template to bootstrap a simple NTP client/server configuration:
+Demonstrate how to run a single job template to bootstrap a simple NTP client/server configuration (with help/assist from redhat/ansible engineering if and as needed):
 
 * DMZ and PCI networks across 2 sites (site1 and site4)
   
