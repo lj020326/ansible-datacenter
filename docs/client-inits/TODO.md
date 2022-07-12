@@ -1,9 +1,7 @@
 
 # ANSIBLE DATACENTER TODO - 2022 Goals
 
-## CICD Infrastructure Automation Priorities
-
-### 1) Setup Automation hub POC(s) to get to simplifying job_template inventory execution 
+## 1) Setup Automation hub POC(s) to get to simplifying job_template inventory execution 
 
 Goal(s)/Benefit(s): to minimize development time/effort required for roles/plays to run across multiple networks/sites.
 
@@ -22,14 +20,14 @@ Demonstrate how to run a single job template to bootstrap a simple NTP client/se
  E.g., if there are instance groups for each of the 4 groups above, ideally the appropriate groups are applied for each instance group configuration to properly derive the correct ntp_server configuration.  
 
 
-### 2) Setup automated CICD test pipelines for essential plays (vm provisioning, bootstrap plays, etc)
+## 2) Setup automated CICD test pipelines for essential plays (vm provisioning, bootstrap plays, etc)
 
 Goal(s)/Benefit(s): to enable high quality roles/plays by frequent PR based testing of essential roles/modules. 
 
 See [ansible datacenter VM provisioning using molecule](https://github.com/lj020326/ansible-datacenter/blob/main/molecule/default/molecule.yml)
 
 
-### 3) Refactor Roles using ansible inventory groups
+## 3) Refactor Roles using ansible inventory groups
 
 Goal(s)/Benefit(s): Use consistent framework/approach to setting all collection/group based variable states across the entire inventory.  Adopt ansible group var flexibility and best practices while minimizing risks due to multiple approaches and overusing global variable namespace. 
 
@@ -44,7 +42,7 @@ To accomplish this:
 Find [example group vars marshalling/coercion of global to group role values here](https://github.com/lj020326/ansible-datacenter/blob/main/inventory/group_vars/docker_stack.yml)
 
 
-### 4) Idempotent Common/Shared Roles
+## 4) Idempotent Common/Shared Roles
 
 Goal(s)/Benefit(s): 
 
@@ -67,7 +65,7 @@ Specifically, target the roles that take lists most often needed by other roles 
 Find [example group vars setting for idempotent role values for mount and package here](https://github.com/lj020326/ansible-datacenter/blob/main/inventory/group_vars/cicd_node.yml)
 
 
-### 5) Setup DEV, QA and PROD AWX clusters
+## 5) Setup DEV, QA and PROD AWX clusters
  
 Goal(s)/Benefit(s):
 
@@ -77,7 +75,7 @@ Goal(s)/Benefit(s):
 (4) If there is a major component upgrade, the TEST env can be used to properly test and vet all necessary plays/roles/modules to make sure integration works before promoting the upgrade/update of the fixture to the PROD env.<br>
 (5) Increased code quality due to ability to test in proper test environment. <br>
 
-### 6) Setup Ansible role to deploy apps onto cloud based or openshift cluster using pipeline
+## 6) Setup Ansible role to deploy apps onto cloud based or openshift cluster using pipeline
 
 Goal(s)/Benefit(s): Utilize the best feature sets of both products.
 
@@ -90,7 +88,7 @@ Configure pipeline to use Ansible to run terraform deployments.
 * https://github.com/lj020326/ansible-datacenter/blob/main/docs/terraform-deployments-with-ansible-part-1.md
 
 
-### 7) add chef inspec tests to VM provisioning pipeline
+## 7) add chef inspec tests to VM provisioning pipeline
 
 See [ansible inspec role to run inspec tests for target here](https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md)
 
