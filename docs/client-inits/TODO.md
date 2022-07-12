@@ -64,35 +64,3 @@ Add functionality to deploy-vm role to support automated deployment for VM appli
 
     https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md
 
-
-## Reference(s)
-
-* https://learn.hashicorp.com/tutorials/consul/service-mesh-zero-trust-network?in=consul/gs-consul-service-mesh
-* https://learn.hashicorp.com/tutorials/consul/get-started-create-datacenter?in=consul/getting-started
-* https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
-* https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2/
-* https://github.com/lj020326/cicd-paas-example
-* https://traefik.io/blog/integrating-consul-connect-service-mesh-with-traefik-2-5/
-* https://dzone.com/articles/platform-as-code-with-openshift-amp-terraform
-* https://pypi.org/project/deploy-to-kubernetes/
-* [containers-and-service-discovery](https://github.com/lj020326/ansible-datacenter/tree/main/docs/containers-and-service-discovery.md)
-
-* [AWX do not load group vars after add_host · Issue #11793 · ansible/awx](https://github.com/ansible/awx/issues/11793)
-* [Inventory group vars are not loaded · Issue #761 · ansible/awx](https://github.com/ansible/awx/issues/761)
-* [Inventory not including all group_vars when using multiple children (or all group)](https://github.com/ansible/awx/issues/2574)
-* [Ansible and Ansible Tower: best practices from the field](http://www.juliosblog.com/ansible-and-ansible-tower-best-practices-from-the-field/)
-* [awx & venv - Managing infrastructure using Ansible Tower | XLAB Steampunk blog](https://steampunk.si/blog/managing-infrastructure-using-ansible-tower/)
-
-* [good example awx playbook with groups](https://murrahjm.github.io/Source-Control-and-the-Tower-Project/)
-* [Automating the automation — Ansible Tower configuration as code](https://www.redhat.com/en/blog/automating-automation-%E2%80%94-ansible-tower-configuration-code)
-* [Well Structured Content Repositories :: Ansible Labs for Red Hat Summi](https://people.redhat.com/grieger/summit2020_labs/ansible-tower-advanced/10-structured-content/)
-* [Changing variable precedence in Ansible](https://medium.com/opsops/changing-variable-precedence-in-ansible-a86c0c8373d7)
-* [Playbook Variable | Ansible | Datacadamia](https://datacadamia.com/infra/ansible/variable)
-* [Ansible: Variables scope and precedence](https://digitalis.io/blog/ansible/ansible-variables-scope-and-precedence/)
-* [Workshop Exercise - Using Variables](https://aap2.demoredhat.com/exercises/ansible_rhel/1.4-variables/)
-* [ansible/test-playbooks: playbook-tests](https://github.com/ansible/test-playbooks)
-* [Developing and Testing Ansible Roles with Molecule and Podman](https://www.ansible.com/blog/developing-and-testing-ansible-roles-with-molecule-and-podman-part-1)
-* [Managing Windows servers with Ansible Tower](https://4sysops.com/archives/managing-windows-servers-with-ansible-tower/)
-* https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
-* http://vcloud-lab.com/entries/devops/step-by-step-guide-to-configure-first-project-job-template-on-ansible-awx-tower
-
