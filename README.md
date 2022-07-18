@@ -203,7 +203,7 @@ ansible-playbook site.yml --tags samba-client
 To configure linux users
 
 ```bash
-ansible-playbook site.yml --tags bootstrap-user
+ansible-playbook site.yml --tags bootstrap-user --vault-password-file ~/.vault_pass
 ```
 
 To setup/configure iscsi client node

@@ -121,6 +121,7 @@ alias sshvcenter6='ssh ansible@vcenter.dettonville.int'
 alias sshesx00='ssh root@esx00.dettonville.int'
 alias sshesx01='ssh root@esx01.dettonville.int'
 alias sshesx02='ssh root@esx02.dettonville.int'
+alias sshesx10='ssh root@esx10.dettonville.int'
 alias sshesx11='ssh root@esx11.dettonville.int'
 
 alias sshmedia='ssh administrator@media.johnson.int'

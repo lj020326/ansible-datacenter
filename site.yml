@@ -28,7 +28,7 @@
   roles:
     - role: apply-os-groups
       when:
-#        - not apply_os_groups_exclude|d(False)|bool
+        - not apply_os_groups_exclude|d(False)|bool
         - inventory_hostname in ansible_play_hosts
 
 ## Debugging purposes: print all environment variables
@@ -135,10 +135,8 @@
   roles:
     - role: report-inventory-facts
 
-
-
 ##
-## Bootstrap plays
+## Bootstrap linux component plays
 ##
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
@@ -172,6 +170,31 @@
   roles:
     - name: bootstrap-linux-package
 
+##
+## bootstrap logrotate
+##
+- name: "Bootstrap logrotate"
+  hosts: os_linux,!node_offline
+  tags:
+    - bootstrap-logrotate
+    - bootstrap-linux-logrotate
+  become: yes
+#  become_method: sudo
+  roles:
+    - name: ansible-logrotate
+
+##
+## bootstrap mounts
+##
+- name: "Bootstrap mounts"
+  hosts: os_linux,!node_offline
+  tags:
+    - bootstrap-mounts
+    - bootstrap-linux-mounts
+  become: yes
+  roles:
+    - name: bootstrap-linux-mount
+
 - name: "Bootstrap linux ntp"
   hosts: os_linux,!node_offline
   become: yes
@@ -191,8 +214,6 @@
     - name: bootstrap-nfs-service
     - name: bootstrap-linux-firewalld
       firewalld_action: install
-
-
 
 ## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
 ## ref: https://github.com/nathancurry/homelab.ansible/tree/master
@@ -237,6 +258,28 @@
 ##
 - name: "Bootstrap linux VM ansible user"
   hosts: os_linux,!node_offline
+  gather_facts: yes
+  become: yes
+  remote_user: "{{ bootstrap_user }}"
+  vars_files:
+    - vars/secrets.yml
+  vars:
+#    ansible_ssh_user: "{{ bootstrap_user }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tags:
+    - bootstrap-ansible-user
+    - bootstrap-ansible
+  roles:
+    - role: bootstrap-linux-user
+      bootstrap_linux_user_list: "[ {{ bootstrap_ansible_user }} ]"
+
+- name: "Bootstrap linux VM ansible user"
+  hosts: os_linux,!node_offline
+  gather_facts: yes
+  become: yes
+  remote_user: "{{ bootstrap_user }}"
   vars_files:
     - vars/secrets.yml
   vars:
@@ -246,16 +289,10 @@
     ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
   tags:
     - bootstrap-linux
-    - bootstrap-ansible-user
-    - bootstrap-ansible
-    - bootstrap-node-core
-    - bootstrap-node
-  become: yes
-  remote_user: "{{ bootstrap_user }}"
-  gather_facts: false
+    - bootstrap-linux-user
+    - bootstrap-user
   roles:
     - role: bootstrap-linux-user
-      bootstrap_linux_user_list: "[ {{ bootstrap_ansible_user }} ]"
 
 ##
 ## Bootstrap linux plays
@@ -270,12 +307,10 @@
     - role: apply-os-groups
     - role: bootstrap-linux
 
-
 - name: "Bootstrap linux"
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-linux
-    - bootstrap-linux-user
     - bootstrap-node-core
     - bootstrap-node
   become: yes
@@ -313,21 +348,6 @@
     - role: bootstrap-windows
 
 
-##
-## Individual Services to be bootstrapped
-##
-- name: "Bootstrap logrotate"
-  hosts: os_linux,!node_offline
-  tags:
-    - bootstrap-logrotate
-    - bootstrap-linux-logrotate
-  become: yes
-#  become_method: sudo
-  roles:
-    - role: ansible-logrotate
-
-
-
 ## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
 - name: "Bootstrap CI/CD node"
   hosts: cicd_node,!node_offline,!local
@@ -340,9 +360,9 @@
   vars_files:
     - vars/secrets.yml
   roles:
-    - name: bootstrap-linux-firewalld
+    - role: bootstrap-linux-firewalld
       firewalld_action: configure
-    - name: bootstrap-linux-package
+    - role: bootstrap-linux-package
     - role: geerlingguy.git
     - role: gantsign.maven
     - role: geerlingguy.ansible
@@ -547,6 +567,8 @@
     - docker
     - bootstrap-linux
     - bootstrap-linux-docker
+    - bootstrap-docker
+    - bootstrap-registry
   become: True
 #  become_method: sudo
   roles:

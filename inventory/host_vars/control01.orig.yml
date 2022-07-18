@@ -1,0 +1,291 @@
+---
+
+#ipv4_address: 192.168.0.15
+ipv4_address: "{{ gateway_ipv4_subnet_1_2 }}.0.15"
+#gateway_ipv4_net_cidr: 16
+
+#bind_aliases:
+##  - "{{ docker_stack_service_route_name }}"
+#  - pki
+#  - ns0
+#  - mail
+#  - ldap
+##  - auth
+
+## ref: https://linuxconfig.org/how-to-move-docker-s-default-var-lib-docker-to-another-directory-on-ubuntu-debian-linux
+docker__daemon_flags:
+  - "-g /export/data/docker_volumes"
+  - "-H unix:///var/run/docker.sock"
+#  - "-H tcp://0.0.0.0:2376"
+#  - "-H fd://"
+#  - "--containerd=/run/containerd/containerd.sock"
+
+#docker_stack_services: []
+#
+#docker_stack_proxy_services: []
+
+docker_user_home_physical: "/export/data/home/{{docker_user_username}}"
+#docker_user_home_physical: "/data/home/{{docker_user_username}}"
+
+#internal_registry_name: "media"
+
+docker_stack_registry_enable_auth: no
+
+#docker_stack_registry_service_data_path: "/srv/data2/data/docker_registry"
+#docker_stack_registry_service_data_path: "/srv/data2/docker_registry"
+docker_stack_registry_service_data_path: "/export/data/docker_registry"
+
+#docker_stack_jenkins_agent_jenkins_url: "https://jenkins.admin.dettonville.int:8443"
+
+#docker_stack_traefik_http: 8080
+#docker_stack_traefik_https: 8443
+#docker_stack_jenkins_http: 10180
+
+#docker_stack_jenkins_dir: "/srv/data1/data/datacenter/{{ inventory_hostname }}/home/{{ docker_user_username }}/docker/jenkins"
+#docker_stack_jenkins_dir: "/export/data/home/{{ docker_user_username }}/docker/jenkins"
+
+is_veeam_backup_server: yes
+
+nfs_exports:
+#  - "/srv      {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(ro,fsid=0,async,nohide,no_root_squash,no_subtree_check,crossmnt)"
+  - "/srv      {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(ro,no_subtree_check)"
+#  - "/srv/data1         {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(rw,async,no_root_squash,no_subtree_check)"
+#  - "/srv/data2         {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(rw,async,no_root_squash,no_subtree_check)"
+#  - "/srv/backups       {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(ro,async,no_root_squash,no_subtree_check)"
+  - "/data          {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(rw,async,fsid=0,nohide,no_root_squash,no_subtree_check,crossmnt)"
+  - "/export/data       {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(rw,async,no_root_squash,no_subtree_check)"
+  - "/export/netboot {{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_netmask }}(ro,nohide,no_subtree_check)"
+
+bootstrap_linux_mount_list__tmpdir:
+  - name: "/tmp"
+    src: "tmpfs"
+    fstype: "tmpfs"
+    options: 'size=2G,defaults,noatime,nosuid,nodev,mode=1777'
+
+bootstrap_linux_mount_list__control01:
+  - name: "/home/{{docker_user_username}}"
+    src: "{{ docker_user_home_physical }}"
+    fstype: none
+    options: "rw,bind,_netdev"
+
+#bootstrap_linux_mount_list__control01:
+#  - name: "/"
+#    src: "/dev/mapper/vgadmin01-root"
+#    fstype: "ext4"
+#    options: "errors=remount-ro"
+#    passno: 1
+#
+#  - name: "/boot/efi"
+#    src: "UUID=DB18-0625"
+#    fstype: "vfat"
+#    opts: "umask=0077"
+#    passno: 1
+#
+##  - name: none
+##    src: "/dev/mapper/vgadmin01-swap_1"
+##    fstype: "swap"
+##    options: "sw"
+#
+#  - name: "/export/data"
+#    src: "/dev/vg-nfs-export-data/lv-nfs-export-data"
+#    fstype: "ext4"
+#
+#  - name: "/home/{{docker_user_username}}"
+#    src: "{{ docker_user_home_physical }}"
+#    fstype: none
+#    options: "rw,bind"
+#
+#  - name: "/srv/backups"
+#    src: "diskstation01.johnson.int:/volume2/backups"
+#    fstype: "nfs"
+#    options: "intr,_netdev"
+#
+#  - name: "/data/backups"
+#    src: "/srv/backups"
+#    fstype: none
+#    options: "ro,bind"
+#
+#  - name: "/data/plexmedia"
+##    src: "media.johnson.int:/export/media"
+#    src: "media01.johnson.int:/export/media"
+#    fstype: "nfs"
+#    options: "intr,_netdev"
+
+## ref: https://netplan.io/examples/
+bootstrap_linux__network:
+  network:
+    version: 2
+    renderer: networkd
+    ethernets:
+      eno1:
+        dhcp4: no
+        dhcp6: no
+      eno2:
+        dhcp4: no
+        dhcp6: no
+      eno3:
+        dhcp4: no
+        dhcp6: no
+      eno4:
+        dhcp4: no
+        dhcp6: no
+
+    bonds:
+        bond0:
+            interfaces:
+                - eno1
+                - eno2
+                - eno3
+                - eno4
+            addresses:
+              - "{{ ipv4_address }}/{{ gateway_ipv4_net_cidr }}"
+            gateway4: "{{ gateway_ip4 }}"
+            nameservers:
+              addresses: "{{ dns_nameservers }}"
+#              addresses: [192.168.0.1]
+            parameters:
+#              mode: balance-rr
+              mode: active-backup
+              primary: eno1
+              mii-monitor-interval: 1
+              gratuitious-arp: 5
+
+
+
+### emulating this network setup:
+### ref: https://www.shapeblue.com/networking-kvm-for-cloudstack-2018-revisit-for-centos7-and-ubuntu-18-04/
+#network_interfaces:
+#
+#  - name: em1
+#    device: em1
+#    type: Ethernet
+#    bondmaster: bond0
+#    hwaddr: 14:FE:B5:DB:9F:FB
+#
+#  - name: em2
+#    device: em2
+#    type: Ethernet
+#    bondmaster: bond0
+#    hwaddr: 14:FE:B5:DB:9F:FD
+#
+#  - name: em3
+#    device: em3
+#    type: Ethernet
+#    bondmaster: bond0
+#    hwaddr: 14:FE:B5:DB:9F:FF
+#
+##  - name: em4
+##    device: em4
+##    type: Ethernet
+###    bondmaster: bond0
+##    hwaddr: 14:FE:B5:DB:A0:01
+##    nm_controlled: no
+##    ipv6init: no
+#
+#  ## the following configuration is what actually works for openstack kolla to work
+#  ## ref: https://www.rdoproject.org/networking/neutron-with-existing-external-network/
+#  - name: em4
+#    device: em4
+#    devicetype: OVSPort
+#    type: ovs
+#    ovsbridge: br-ex
+#    hwaddr: 14:FE:B5:DB:A0:01
+#    nm_controlled: yes
+#    ipv6init: no
+#
+#  - name: bond0
+#    device: bond0
+#    type: Bond
+#    bondmaster: bond0
+#    onboot: yes
+#    ipv6init: no
+#    bootproto: static
+#    bond_mode: balance-xor
+#    # Optional values
+#    bond_miimon: 100
+#    bond_updelay: 0
+#    bond_downdelay: 0
+#
+#    address: 192.168.0.15
+#    netmask: 255.255.0.0
+#    gateway: "{{ gateway_ip4 }}"
+#    dns_nameservers: [ "192.168.0.1" ]
+##    dns_domain: "johnson.int"
+#
+#  ## can use this for management bridge per:
+#  ## https://www.shapeblue.com/a-beginners-guide-to-cloudstack-networking/
+#  ##
+#  ## OR can use this for storage VLAN per:
+#  ## https://www.shapeblue.com/networking-kvm-for-cloudstack-2018-revisit-for-centos7-and-ubuntu-18-04/
+#
+#  ## management traffic (management + storage)
+#  ## mgmtbr0 bridge
+#  - name: bond0.100
+#    device: bond0.100
+#    bridge: mgtbr0
+#    type: Vlan
+#    vlan_id: 100
+#    vlan_physdev: bond0
+#    reorder_hdr: yes
+#
+#  ## public traffic
+#  ## cloudbr0 bridge
+#  - name: bond0.200
+#    device: bond0.200
+#    bridge: cloudbr0
+#    type: Vlan
+#    vlan_id: 200
+#    vlan_physdev: bond0
+#    reorder_hdr: yes
+#
+#  ## guest traffic
+#  ## cloudbr1 bridge
+#  - name: bond0.300
+#    device: bond0.300
+#    bridge: cloudbr1
+#    type: Vlan
+#    vlan_id: 300
+#    vlan_physdev: bond0
+#    reorder_hdr: yes
+#
+#  - name: mgtbr0
+#    type: Bridge
+#    device: mgtbr0
+#    onboot: yes
+#    bootproto: static
+#    ipv6init: no
+#    bridging_opts: priority=32768
+#    bridge_fd: 5
+#
+#    address: 192.168.0.15
+#    netmask: 255.255.0.0
+#    broadcast: 192.168.0.255
+#
+#    gateway: "{{ gateway_ip4 }}"
+#    dns_nameservers: [ "192.168.0.1" ]
+#
+#  - name: cloudbr0
+#    type: Bridge
+#    device: cloudbr0
+#    onboot: yes
+#    bootproto: static
+#    bridge_fd: 5
+#
+##    address: 192.168.0.16
+##    address: 192.168.20.2
+##    netmask: 255.255.255.0
+#    gateway: "{{ gateway_ip4 }}"
+#    dns_nameservers: [ "192.168.0.1" ]
+#
+#  - name: cloudbr1
+#    type: Bridge
+#    device: cloudbr1
+#    onboot: yes
+#    bootproto: none
+#    bridge_fd: 5
+#
+##    address: 192.168.30.1
+##    broadcast: 192.168.30.255
+##    netmask: 255.255.255.0
+#    gateway: "{{ gateway_ip4 }}"
+#    dns_nameservers: [ "192.168.0.1" ]
