@@ -297,6 +297,7 @@ Refer to \[4\].
 ## References
 
 * https://yaobinwen.github.io/2021/01/29/Ansible-how-to-debug-a-problematic-module.html
+* https://docs.ansible.com/ansible/latest/dev_guide/debugging.html
 
 -   \[1\] [Ansible: Debugging modules](https://docs.ansible.com/ansible/latest/dev_guide/debugging.html) as part of the Developer Guide.
 -   \[2\] [Ansible Configuration Settings: DEFAULT\_DEBUG](https://docs.ansible.com/ansible/latest/reference_appendices/config.html#default-debug)
