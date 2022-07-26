@@ -175,6 +175,8 @@ git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
 alias gitmerge="git merge-no-edit"
 alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout master && git merge-no-edit -X theirs main"
 
+## ref: https://stackoverflow.com/questions/40585959/git-pull-x-theirs-doesnt-work
+alias gitpulltheirs='git pull -X theirs'
 #alias gitpull-='git pull origin'
 #alias gitpush-='git push origin'
 #alias gitcommitpush-="git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin"

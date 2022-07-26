@@ -58,7 +58,7 @@ ansible-galaxy install -r ./roles/requirements.yml
 
 3. Add host info to hosts.ini inventory and ping the nodes
 
-```bash
+```shell
 ansible -i inventory/hosts.ini all -m ping -b -vvvv
 ```
 
@@ -169,13 +169,13 @@ ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.ini -t untagged
 
 To run play on a group
 
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap --limit os_Ubuntu
 ```
 
 To build ansible control node
 
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap-ansible --limit admin02
 ```
 
@@ -183,26 +183,26 @@ To build docker images from source repos
 Note: this is performed from jenkins docker build pipeline and not performed directly using ansible unless necessary 
 The docker image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildDockerImage.groovy).
 
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap-docker-images --limit admin02
 ```
 
 To setup/configure samba server node
 Note: We now use the samba docker container to run the samba server and no longer build on the VM.
 
-```bash
+```shell
 ansible-playbook site.yml --tags docker-samba-node
 ```
 
 To configure samba client node
 
-```bash
+```shell
 ansible-playbook site.yml --tags samba-client
 ```
 
 To configure linux users
 
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap-user --vault-password-file ~/.vault_pass
 ```
 ]
@@ -227,13 +227,13 @@ run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags boot
 
 To setup/configure iscsi client node
 
-```bash
+```shell
 ansible-playbook site.yml --tags iscsi-client
 ```
 
 working with openstack deploy node setup
 
-```bash
+```shell
 ansible -i inventory/hosts.ini openstack -m ping
 ansible -i inventory/hosts-openstack.ini openstack -m ping
 
@@ -257,7 +257,7 @@ kolla-ansible -v -i inventory/hosts-openstack.ini post-deploy
 
 working with openstack node cleanup/destroy/reset
 
-```bash
+```shell
 kolla-ansible -v -i inventory/hosts-openstack.ini destroy
 kolla-ansible -v -i inventory/hosts-openstack.ini destroy --yes-i-really-really-mean-it
 
@@ -265,7 +265,7 @@ kolla-ansible -v -i inventory/hosts-openstack.ini destroy --yes-i-really-really-
 
 working with openstack env setup
 
-```bash
+```shell
 scripts/kolla-ansible/init-runonce.sh
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
 openstack server create --image cirros --flavor m1.tiny --key-name mykey --network demo-net demo1
@@ -275,7 +275,7 @@ openstack server create --image cirros --flavor m1.tiny --key-name mykey --netwo
 
 
 Other useful plays
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit os_linux
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit os_centos_7
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit postgres
@@ -286,7 +286,7 @@ ansible-playbook site.yml --tags bootstrap-openstack-deploy-node
 ```
 
 Openstack plays
-```bash
+```shell
 #ansible-playbook site.yml --tags openstack-deploy-node
 ansible-playbook site.yml --tags bootstrap-openstack
 kolla-ansible -i inventory/hosts-openstack.ini bootstrap-servers
@@ -342,13 +342,13 @@ kolla-ansible -i inventory/hosts-openstack.ini destroy --yes-i-really-really-mea
 
 Other useful tests
 
-```bash
+```shell
 ansible -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -m ping ubuntu18
 ansible -v -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -e ansible_pyth/bin/python3 -i inventory/hosts.ini -m ping ubuntu18
 ```
 
 
-```bash
+```shell
 ansible-playbook site.yml --tags display-vars -l control01
 ansible-playbook site.yml --tags display-domain-vars -l os_linux
 ansible-playbook site.yml --tags display-domain-vars -l nas02
@@ -369,7 +369,7 @@ gethist | grep remote | uniq >> ./README.md
 
 ### Display/Debug any vars
 
-```bash
+```shell
 ansible-config dump
 ansible-config dump |grep DEFAULT_MODULE_PATH
 
@@ -420,14 +420,14 @@ Run plays for specific configuration needed
 
 To run ansible commands from ansible/control node:
 
-```bash
+```shell
 ansible -v -m ping
 ansible -m ping ubuntu18
 ```
 
 Run play for specific node:
 
-```bash
+```shell
 ansible-playbook site.yml --tags display-hostvars --limit admin01
 ansible-playbook site.yml --tags install-cacerts --limit media01
 ```
@@ -435,7 +435,7 @@ ansible-playbook site.yml --tags install-cacerts --limit media01
 
 Run a play for a specific group of nodes:
 
-```bash
+```shell
 ansible-playbook site.yml --tags install-cacerts --limit windows
 ansible-playbook site.yml --tags install-cacerts --limit os_ubuntu
 ansible-playbook site.yml -t display-hostvars -l os_centos
@@ -485,12 +485,12 @@ ansible-playbook site.yml --tags upgrade-vmware-esxi
 ```
 
 Setup vsphere dc
-```bash
+```shell
 ansible-playbook site.yml --tags deploy-vsphere-dc
 ```
 
 Deploy VMs
-```bash
+```shell
 ansible-playbook site.yml --tags deploy-vm
 ```
 
@@ -499,24 +499,24 @@ Note: This is not used any longer since this is now performed from the jenkins p
 The jenkins pipeline is responsible for building VM template images using packer.
 The vm image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildVmTemplate.groovy).
 
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap-linux --limit admin02
 ```
 
 Bootstrap node network config *should not be necessary since this is mostly done in deploy-VM
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap-network --limit node01
 ```
 
 Docker stack plays
-```bash
+```shell
 ansible-playbook site.yml --tags docker-admin-node
 ansible-playbook site.yml --tags docker-media-node
 ```
 
 Useful commands to build/update/configure datacenter:
 
-```bash
+```shell
 ansible-playbook site.yml --tags bootstrap-bind
 ansible-playbook site.yml --tags bootstrap-docker
 ansible-playbook site.yml --tags bootstrap-linux-core
