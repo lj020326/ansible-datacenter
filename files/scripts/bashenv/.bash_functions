@@ -265,6 +265,18 @@ function gitpull(){
   git pull ${REMOTE} ${REMOTE_BRANCH}
 }
 
+## resolve issue "Fatal: Not possible to fast-forward, aborting"
+## ref: https://stackoverflow.com/questions/13106179/fatal-not-possible-to-fast-forward-aborting
+#alias gitpullrebase="git pull origin <branch> --rebase"
+unalias gitpullrebase 1>/dev/null 2>&1
+unset -f gitpullrebase || true
+function gitpullrebase(){
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git pull ${REMOTE} ${REMOTE_BRANCH} --rebase
+}
+
 unalias gitpush 1>/dev/null 2>&1
 unset -f gitpush || true
 function gitpush(){
@@ -289,13 +301,13 @@ function gitpullwork(){
 unalias gitpushpublic 1>/dev/null 2>&1
 unset -f gitpushpublic || true
 function gitpushpublic(){
-  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_PUBLIC}" git push github $(git rev-parse --abbrev-ref HEAD)
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_GITHUB}" git push github $(git rev-parse --abbrev-ref HEAD)
 }
 
 unalias gitpullpublic 1>/dev/null 2>&1
 unset -f gitpullpublic || true
 function gitpullpublic(){
-  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_PUBLIC}" git pull github $(git rev-parse --abbrev-ref HEAD)
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_GITHUB}" git pull github $(git rev-parse --abbrev-ref HEAD)
 }
 
 unalias getbranchhist 1>/dev/null 2>&1

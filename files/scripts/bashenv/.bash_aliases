@@ -170,6 +170,10 @@ alias blasthugo="hugo && blastit. && pushd . && cd public && blastit. && popd"
 alias gitpullsub="git submodule update --recursive --remote"
 alias gitresetsub="git submodule deinit -f . && git submodule update --init --recursive --remote"
 
+## resolve issue "Fatal: Not possible to fast-forward, aborting"
+#alias gitpullrebase="git pull origin <branch> --rebase"
+alias gitpullrebase="git pull origin --rebase"
+
 ## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
 git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
 alias gitmerge="git merge-no-edit"
