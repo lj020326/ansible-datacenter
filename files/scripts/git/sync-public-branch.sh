@@ -35,6 +35,7 @@ PRIVATE_CONTENT_ARRAY+=('**/secrets.yml')
 PRIVATE_CONTENT_ARRAY+=('**/*secrets.yml')
 PRIVATE_CONTENT_ARRAY+=('.vault_pass')
 PRIVATE_CONTENT_ARRAY+=('***/*vault*')
+PRIVATE_CONTENT_ARRAY+=('integration_config.yml')
 PRIVATE_CONTENT_ARRAY+=('*.log')
 
 printf -v EXCLUDE_AND_REMOVE '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"
@@ -63,7 +64,6 @@ echo "TMP_DIR=${TMP_DIR}"
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
 RSYNC_OPTS_GIT_MIRROR=(
     -dar
-    --info=progress2
     --links
     --delete-excluded
     --exclude={"${EXCLUDES},${EXCLUDE_AND_REMOVE}"}

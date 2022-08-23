@@ -197,7 +197,7 @@ fi
         return:
             * result:
                 type: dict()
-                desription: updated changed status.
+                description: updated changed status.
         """
         parameters = ['name', 'email']
         result = dict()
@@ -329,7 +329,7 @@ fi
         return:
             * result:
                 type: dict()
-                desription: returned output from git commit command and changed status
+                description: returned output from git commit command and changed status
         """
         result = dict()
         command = [self.git_path, 'commit', '-m', comment]
@@ -354,7 +354,7 @@ fi
         return:
             * result:
                 type: dict()
-                desription: returned output from git push command and updated changed status.
+                description: returned output from git push command and updated changed status.
         """
 
         command = [self.git_path, 'push', self.remote, self.repo_branch]
@@ -412,7 +412,7 @@ fi
             return:
                 * result:
                     type: dict()
-                    desription: returned output from git push command and updated changed status.
+                    description: returned output from git push command and updated changed status.
             """
             result = dict()
 

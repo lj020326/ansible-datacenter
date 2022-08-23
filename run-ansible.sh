@@ -170,7 +170,7 @@ run_command_wrapper_fn() {
   exit ${?}
 }
 
-while getopts "g:b:r:t:Rlhx" opt; do
+while getopts "g:b:r:t:Rhx" opt; do
   case "${opt}" in
   g) GIT_REMOTE_URL="${OPTARG}" ;;
   b) GIT_BRANCH_NAME="${OPTARG}" ;;
@@ -194,11 +194,6 @@ while getopts "g:b:r:t:Rlhx" opt; do
   esac
 done
 shift $((OPTIND - 1))
-
-if [ $# -lt 1 ]; then
-  echo "required container_name not specified" >&2
-  usage 5
-fi
 
 RUN_CMD=$1
 shift 1

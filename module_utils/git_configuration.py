@@ -19,7 +19,7 @@ class GitConfiguration:
         return:
             * result:
                 type: dict()
-                desription: updated changed status.
+                description: updated changed status.
         """
         PARAMETERS = ['name', 'email']
         result = dict()

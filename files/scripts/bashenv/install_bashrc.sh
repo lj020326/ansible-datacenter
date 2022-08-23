@@ -69,6 +69,8 @@ RSYNC_OPTIONS_REPO1=(
 
 echo "rsync ${RSYNC_OPTIONS_HOME[@]} ${FROM} ${HOME_DIR}/"
 rsync ${RSYNC_OPTIONS_HOME[@]} ${FROM} ${HOME_DIR}/
+echo "rsync env scripts"
+rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/*.sh ${HOME_DIR}/bin/
 
 if [ "${SECRETS_DIR}/.bash_secrets" -nt "${HOME_DIR}/.bash_secrets" ]; then
   echo "deploying secrets ${SECRETS_DIR}/.bash_secrets"

@@ -108,6 +108,12 @@ Ideally find a good node querying/editor opensource codebase that can used/adapt
 
 ### Setup KEA DHCP + PowerDNS Containers for API based DNS record updates using ansible
 
+https://computingforgeeks.com/running-powerdns-and-powerdns-admin-in-docker-containers/
+https://blog.devopstom.com/isc-dhcp-and-powerdns/
+https://github.com/rakheshster/docker-kea-knot
+https://github.com/mhiro2/docker-kea-dhcp-server
+
+
 ### Simplify terraform deployments with ansible:
 
     https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-2/

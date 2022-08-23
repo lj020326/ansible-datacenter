@@ -291,6 +291,17 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
   alias java11='export JAVA_HOME=$JAVA_11_HOME'
 #  alias java13='export JAVA_HOME=$JAVA_13_HOME'
 
+  ## ref: https://superuser.com/questions/1400250/how-to-query-macos-dns-resolver-from-terminal
+  alias dnslookup='scutil -W -r '
+  alias dnslookup2='dscacheutil -q host -a name '
+  alias dnslookup3='dns-sd -G v4v6 '
+
+  ## ref: https://discussions.apple.com/thread/250681170
+  alias getzombies="ps -A -ostat,ppid,pid,command | grep -e '^[Zz]'"
+  ## ref: https://www.servernoobs.com/how-to-find-and-kill-all-zombie-processes/
+  alias getpidparents="pstree -paul"
+  alias getparentpids="pstree -paul"
+
 else  ## linux
   # alias venv2="virtualenv --python=/usr/bin/python2.7 venv"
   # alias venv3="virtualenv --python=/usr/bin/python3.5 venv"
@@ -337,3 +348,4 @@ alias sshawxp1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S4}"
 alias sshawxp2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S1}"
 alias sshawxp2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S4}"
 
+alias mountalsac="mount-sshfs-alsac.sh"

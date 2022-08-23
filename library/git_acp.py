@@ -203,7 +203,7 @@ def main():
     return:
         * result:
             type: dict()
-            desription: returned output from git commands and updated changed status.
+            description: returned output from git commands and updated changed status.
     """
     argument_spec = dict(
         url=dict(required=True),
