@@ -20,9 +20,9 @@ fi
 #HOST=artifactory.dev.dettonville.int
 #HOST=www.jetbrains.com
 
-HOST=${1-"repository.dettonville.int"}
-PORT=${2-"443"}
-KEYSTORE_PASS=${3-"changeit"}
+HOST=${1:-"repository.dettonville.int"}
+PORT=${2:-"443"}
+KEYSTORE_PASS=${3:-"changeit"}
 
 #DATE=`date +&%%m%d%H%M%S`
 DATE=`date +%Y%m%d`

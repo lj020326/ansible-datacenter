@@ -353,13 +353,47 @@ function gitremovecached() {
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
+unalias getgitrequestid 1>/dev/null 2>&1
+unset -f getgitrequestid || true
+function getgitrequestid() {
+  PROJECT_DIR="$(git rev-parse --show-toplevel)"
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)"
+  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2)
+
+  if [[ $COMMENT_PREFIX = *develop* ]]; then
+    if [ -f ${PROJECT_DIR}/.git.request.refid ]; then
+      COMMENT_PREFIX=$(cat ${PROJECT_DIR}/.git.request.refid)
+    elif [ -f ${PROJECT_DIR}/save/.git.request.refid ]; then
+      COMMENT_PREFIX=$(cat ${PROJECT_DIR}/save/.git.request.refid)
+    elif [ -f ./.git.request.refid ]; then
+      COMMENT_PREFIX=$(cat ./.git.request.refid)
+    fi
+  fi
+  echo "${COMMENT_PREFIX}"
+}
+
+## https://stackoverflow.com/questions/35010953/how-to-automatically-generate-commit-message
+unalias getgitcomment 1>/dev/null 2>&1
+unset -f getgitcomment || true
+function getgitcomment() {
+  COMMENT_PREFIX=$(getgitrequestid)
+  COMMENT_BODY="$(LANG=C git -c color.status=false status \
+      | sed -n -r -e '1,/Changes to be committed:/ d' \
+            -e '1,1 d' \
+            -e '/^Untracked files:/,$ d' \
+            -e 's/^\s*//' \
+            -e '/./p' \
+            | sed -e '/git restore/ d')"
+  GIT_COMMENT="${COMMENT_PREFIX} - ${COMMENT_BODY}"
+  echo "${GIT_COMMENT}"
+}
+
 unalias blastit 1>/dev/null 2>&1
 unset -f blastit || true
 function blastit() {
 
   ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
   ## https://stackoverflow.com/questions/46514831/how-read-the-current-upstream-for-a-git-branch
-  ## https://stackoverflow.com/questions/35010953/how-to-automatically-generate-commit-message
 
   # LANG=C.UTF-8 or any UTF-8 English locale supported by your OS may be used
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
@@ -368,16 +402,9 @@ function blastit() {
   git pull ${REMOTE} ${REMOTE_BRANCH} && \
   echo "Staging changes:" && \
   git add . && \
-  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
-  COMMENT_BODY="$(LANG=C git -c color.status=false status \
-      | sed -n -r -e '1,/Changes to be committed:/ d' \
-            -e '1,1 d' \
-            -e '/^Untracked files:/,$ d' \
-            -e 's/^\s*//' \
-            -e '/./p' \
-            | sed -e '/git restore/ d')" && \
+  GIT_COMMENT=$(getgitcomment) && \
   echo "Committing changes:" && \
-  git commit -am "${COMMENT_PREFIX} - ${COMMENT_BODY}" || true && \
+  git commit -am "${GIT_COMMENT}" || true && \
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
@@ -482,3 +509,14 @@ function dockerbash() {
   docker run -it --entrypoint /bin/bash "${CONTAINER_IMAGE_ID}"
 }
 
+unalias explodeansibletest 1>/dev/null 2>&1
+unset -f explodeansibletest || true
+function explodeansibletest() {
+
+  recent=$(find . -name \*.py | head -n1) && \
+  ${recent} explode && \
+  cat debug_dir/args | jq > debug_dir/args.json && \
+  cp debug_dir/args.json debug_dir/args && \
+  cp debug_dir/args.json debug_dir/args.orig.json
+
+}

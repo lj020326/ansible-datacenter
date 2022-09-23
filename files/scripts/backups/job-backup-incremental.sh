@@ -6,7 +6,7 @@ backupScript=/opt/scripts/rsync-incremental-backup-local
 backupLabel=${1:-daily}
 srcDir=${2:-/srv/data1/data/Records}
 destDir=${3:-/srv/backups/records/${backupLabel}}
-cfgPath=${4-~/.backups.cfg}
+cfgPath=${4:-~/.backups.cfg}
 
 backupLabelMsg=${backupLabel^^}
 

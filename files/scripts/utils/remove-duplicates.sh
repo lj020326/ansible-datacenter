@@ -6,7 +6,7 @@ remove_dupes=0
 find_dupes=0
 
 usage() {
-    retcode=${1-1}
+    retcode=${1:-1}
     echo "" 1>&2
     echo "Usage: $0 [-vrf] [dupefile]" 1>&2
     echo "" 1>&2
@@ -95,7 +95,7 @@ while getopts ":hxfr" opt; do
 done
 shift $((OPTIND-1))
 
-dupefile=${1-"duplicates.txt"}
+dupefile=${1:-"duplicates.txt"}
 
 ([ $find_dupes -eq 0 ] && [ $remove_dupes -eq 0 ]) && echo "must specify one or both of the options (-f/-r) to find (-f) and/or remove (-r) duplicates" >&2 && usage 2;
 

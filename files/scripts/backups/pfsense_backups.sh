@@ -8,8 +8,8 @@
 HOST=$1
 #USER=$2
 #PASS=$3
-DESTPATH=${2-/var/fwbackups}
-CFGPATH=${3-~/.fwbackup.cfg}
+DESTPATH=${2:-/var/fwbackups}
+CFGPATH=${3:-~/.fwbackup.cfg}
 
 MAILTO=admin@dettonville.org
 TIMESTAMP=`date +%Y%m%d%H%M%S`

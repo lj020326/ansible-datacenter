@@ -19,10 +19,10 @@ SCRIPT_NAME=`basename $0`
 #HOST=myhost.example.com
 #HOST=artifactory.dev.dettonville.int
 #HOST=www.jetbrains.com
-#HOST=${1-"repository.dettonville.int"}
+#HOST=${1:-"repository.dettonville.int"}
 
-HOST=${1-"registry.admin.dettonville.int"}
-PORT=${2-"443"}
+HOST=${1:-"registry.admin.dettonville.int"}
+PORT=${2:-"443"}
 
 LOG_DATE=`date +%Y%m%d%H%M%S`
 DATE=`date +%Y%m%d`

@@ -7,7 +7,7 @@ GIT_DEFAULT_BRANCH=master
 set -e
 
 ## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
-TMP_DIR="$(mktemp -d -p ~)"
+TMP_DIR=$(mktemp -d -p ~)
 
 # keep track of the last executed command
 trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
@@ -23,7 +23,8 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 #PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
 #PROJECT_DIR="$( pwd . )"
 #PROJECT_DIR=$(git rev-parse --show-toplevel)
-PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
+#PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
+PROJECT_DIR="$( git rev-parse --show-toplevel )"
 
 PUBLIC_GITIGNORE=files/git/pub.gitignore
 

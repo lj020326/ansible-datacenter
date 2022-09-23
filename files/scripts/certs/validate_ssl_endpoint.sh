@@ -8,7 +8,7 @@ CREDENTIALS=""
 CONTEXT_PATH=""
 
 usage() {
-  retcode=${1-1}
+  retcode=${1:-1}
   echo "" 1>&2
   echo "Usage: ${SCRIPT_NAME} [options] host [port]" 1>&2
   echo "" 1>&2

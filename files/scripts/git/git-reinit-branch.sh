@@ -4,7 +4,7 @@ CONFIRM=0
 SCRIPT_NAME=$(basename $0)
 
 usage() {
-  retcode=${1-1}
+  retcode=${1:-1}
   echo "" 1>&2
   echo "Usage: ${SCRIPT_NAME} [options] target_branch" 1>&2
   echo "" 1>&2
@@ -43,7 +43,7 @@ fi
 
 ## https://stackoverflow.com/questions/1593051/how-to-programmatically-determine-the-current-checked-out-git-branch
 CURRENT_GIT_BRANCH=$(git symbolic-ref HEAD 2>/dev/null)
-TARGET_BRANCH=${1-"${CURRENT_GIT_BRANCH}"}
+TARGET_BRANCH=${1:-"${CURRENT_GIT_BRANCH}"}
 
 if [ $CONFIRM -eq 0 ]; then
   ## https://www.shellhacks.com/yes-no-bash-script-prompt-confirmation/

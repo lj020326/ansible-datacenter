@@ -27,7 +27,7 @@ usage() {
 build_image() {
 
     IMAGE_TYPE=$1
-    CLEAN_BUILD=${2-0}
+    CLEAN_BUILD=${2:-0}
 
     ARTIFACTORY_PROJECT=com-dettonville-api
     DOCKER_IMAGE_NAME="${ARTIFACTORY_PROJECT}/apache-proxy-${IMAGE_TYPE}"
@@ -71,7 +71,7 @@ deploy_image() {
 restart_container() {
 
     IMAGE_TYPE=$1
-    DEBUG=${2-0}
+    DEBUG=${2:-0}
 
     ARTIFACTORY_PROJECT=com-dettonville-api
     DOCKER_IMAGE_NAME="${ARTIFACTORY_PROJECT}/apache-proxy-${IMAGE_TYPE}"
@@ -113,7 +113,7 @@ restart_container() {
 stop_container() {
 
     IMAGE_TYPE=$1
-    DEBUG=${2-0}
+    DEBUG=${2:-0}
 
     ARTIFACTORY_PROJECT=com-dettonville-api
     DOCKER_IMAGE_NAME="${ARTIFACTORY_PROJECT}/apache-proxy-${IMAGE_TYPE}"

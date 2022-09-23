@@ -26,7 +26,7 @@ fetch_file() {
     REMOTE_HOST=$2
     REMOTE_PORT=$3
     REMOTE_FILE=$4
-    FETCHED_FILE=${5-$(basename ${REMOTE_FILE})}
+    FETCHED_FILE=${5:-$(basename ${REMOTE_FILE})}
     REMOTE_HOST_URL="${REMOTE_CREDS}@${REMOTE_HOST}"
 
     IFS=':' read -ra ADDR <<< "${REMOTE_CREDS}"
@@ -80,7 +80,7 @@ if [ $# -lt 1 ]; then
 fi
 
 command=$1
-remote_filename=${2-""}
+remote_filename=${2:-""}
 devcloud_creds=${DEVCLOUD_APACHE_CREDS}
 devcloud_host="ech-10-170-129-105.dettonville.int"
 devcloud_port="4444"

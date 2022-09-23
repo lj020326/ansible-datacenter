@@ -34,7 +34,7 @@ echo "PROJECT_DIR=${PROJECT_DIR}"
 echo "BRANCH_SHORT=${BRANCH_SHORT}"
 
 usage() {
-  retcode=${1-1}
+  retcode=${1:-1}
   echo "" 1>&2
   echo "Usage: ${SCRIPT_NAME} [options]" 1>&2
   echo "" 1>&2
@@ -86,7 +86,7 @@ fi
 
 ## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
 mkdir -p save
-TMP_DIR="$(mktemp -d -p ./save)"
+TMP_DIR=$(mktemp -d -p ./save)
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY

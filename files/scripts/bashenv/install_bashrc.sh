@@ -69,8 +69,10 @@ RSYNC_OPTIONS_REPO1=(
 
 echo "rsync ${RSYNC_OPTIONS_HOME[@]} ${FROM} ${HOME_DIR}/"
 rsync ${RSYNC_OPTIONS_HOME[@]} ${FROM} ${HOME_DIR}/
+
+chmod +x ${SECRETS_DIR}/scripts/*.sh
 echo "rsync env scripts"
-rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/*.sh ${HOME_DIR}/bin/
+rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/scripts/*.sh ${HOME_DIR}/bin/
 
 if [ "${SECRETS_DIR}/.bash_secrets" -nt "${HOME_DIR}/.bash_secrets" ]; then
   echo "deploying secrets ${SECRETS_DIR}/.bash_secrets"
@@ -78,7 +80,5 @@ if [ "${SECRETS_DIR}/.bash_secrets" -nt "${HOME_DIR}/.bash_secrets" ]; then
   decrypt_cmd="ansible-vault decrypt ${SECRETS_DIR}/.bash_secrets --output ${HOME_DIR}/.bash_secrets --vault-password-file ${HOME_DIR}/.vault_pass"
   echo $decrypt_cmd
   eval $decrypt_cmd
-#  ansible-vault decrypt ${SECRETS_DIR}/.bash_secrets --output ${TO}/.bash_secrets --vault-password-file ~/.vault_pass
-#  ansible-vault decrypt ${SECRETS_DIR}/.bash_secrets --output ${TO}/.bash_secrets
   chmod 600 ~/.bash_secrets
 fi

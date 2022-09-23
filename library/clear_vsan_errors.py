@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
+# ref: https://github.com/yasensim/vsphere-lab-deploy/blob/master/library/clear_vsan_errors.py
+
 from __future__ import print_function
 import logging
 from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 from xml.etree.ElementTree import tostring
 
-import atexit
+# import atexit
 import requests
 import ssl
 from pyVim import connect
@@ -14,10 +16,7 @@ from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim, vmodl
 
 
-
-
 def reset_alarm(**kwargs):
- 
     service_instance = kwargs.get("service_instance")
     payload = _build_payload(**kwargs)
     logging.debug(payload)
@@ -28,7 +27,6 @@ def reset_alarm(**kwargs):
 
 
 def _build_payload(**kwargs):
-   
     entity_moref = kwargs.get("entity_moref")
     entity_type = kwargs.get("entity_type")
     alarm_moref = kwargs.get("alarm_moref")
@@ -58,12 +56,11 @@ def _build_payload(**kwargs):
     entity.text = entity_moref
     status = SubElement(alarm_status, 'status')
     status.text = 'green'
- 
+
     return '<?xml version="1.0" encoding="UTF-8"?>{0}'.format(tostring(root))
 
 
 def _send_request(payload=None, session=None):
-  
     stub = session
     host_port = stub.host
     # Ive seen some code in pyvmomi where it seems like we check for http vs
@@ -85,16 +82,14 @@ def _send_request(payload=None, session=None):
 
 
 def print_triggered_alarms(entity=None):
-  
     alarms = entity.triggeredAlarmState
     for alarm in alarms:
-  #       print("#"*40)
+        #       print("#"*40)
         # The alarm key looks like alarm-101.host-95
         return alarm.key.split('.')[0]
-        
+
 
 def get_alarm_refs(entity=None):
-  
     alarm_states = entity.triggeredAlarmState
     ret = []
     for alarm_state in alarm_states:
@@ -104,9 +99,11 @@ def get_alarm_refs(entity=None):
         }
         ret.append(tdict)
     return ret
+
+
 def get_obj(content, vimtype, name):
     obj = None
-    container = content.viewManager.CreateContainerView( content.rootFolder, vimtype, True)
+    container = content.viewManager.CreateContainerView(content.rootFolder, vimtype, True)
     for c in container.view:
         if name:
             if c.name == name:
@@ -117,49 +114,53 @@ def get_obj(content, vimtype, name):
             break
     return obj
 
+
 def printAlarms(content, type, name):
     obj = get_obj(content, type, name)
-    alarmMoref =  print_triggered_alarms(entity=obj)
-    print (alarmMoref)
+    alarmMoref = print_triggered_alarms(entity=obj)
+    print(alarmMoref)
+
 
 def clearAlarmsCycle(SI, content):
     check = 0
-    container = content.viewManager.CreateContainerView( content.rootFolder, [vim.ClusterComputeResource], True)
+    container = content.viewManager.CreateContainerView(content.rootFolder, [vim.ClusterComputeResource], True)
     for ent in container.view:
         if print_triggered_alarms(entity=ent) is not None:
-            print (ent.name +", id: "+str(ent) )
+            print(ent.name + ", id: " + str(ent))
             printAlarms(content, [vim.ClusterComputeResource], ent.name)
             check = 1
             reset_alarm(
-                    entity_moref=ent._moId, 
-                    entity_type='ClusterComputeResource', 
-                    alarm_moref=print_triggered_alarms(entity=ent).strip(), 
-                    service_instance=SI
-                    )
+                entity_moref=ent._moId,
+                entity_type='ClusterComputeResource',
+                alarm_moref=print_triggered_alarms(entity=ent).strip(),
+                service_instance=SI
+            )
             for host in ent.host:
                 if print_triggered_alarms(entity=host) is not None:
-                    print (host.name)
+                    print(host.name)
                     printAlarms(content, [vim.HostSystem], host.name)
                     reset_alarm(
-                                entity_moref=host._moId, 
-                                entity_type='HostSystem', 
-                                alarm_moref=print_triggered_alarms(entity=host).strip(), 
-                                service_instance=SI
+                        entity_moref=host._moId,
+                        entity_type='HostSystem',
+                        alarm_moref=print_triggered_alarms(entity=host).strip(),
+                        service_instance=SI
                     )
-    
-    container = content.viewManager.CreateContainerView( content.rootFolder, [vim.Datacenter], True)
+
+    container = content.viewManager.CreateContainerView(content.rootFolder, [vim.Datacenter], True)
     for ent in container.view:
         if print_triggered_alarms(entity=ent) is not None:
-            print (ent.name +", id: "+str(ent) )
+            print(ent.name + ", id: " + str(ent))
             check = 1
-            printAlarms(content, [vim.Datacenter], ent.name) 
+            printAlarms(content, [vim.Datacenter], ent.name)
             reset_alarm(
-                    entity_moref=ent._moId, 
-                    entity_type='Datacenter', 
-                    alarm_moref=print_triggered_alarms(entity=ent).strip(), 
-                    service_instance=SI
-                    ) 
+                entity_moref=ent._moId,
+                entity_type='Datacenter',
+                alarm_moref=print_triggered_alarms(entity=ent).strip(),
+                service_instance=SI
+            )
     return check
+
+
 def connect_to_api(vchost, vc_user, vc_pwd):
     global service_instance
     try:
@@ -173,6 +174,7 @@ def connect_to_api(vchost, vc_user, vc_pwd):
             raise Exception(e)
     return service_instance.RetrieveContent()
 
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -185,18 +187,18 @@ def main():
 
     requests.packages.urllib3.disable_warnings()
     try:
-	SI = connect.SmartConnect(host=module.params['vcenter'],
-                                            user=module.params['user'],
-                                            pwd=module.params['passwd'])
+        SI = connect.SmartConnect(host=module.params['vcenter'],
+                                  user=module.params['user'],
+                                  pwd=module.params['passwd'])
 
     except (requests.ConnectionError, ssl.SSLError):
         try:
             context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             context.verify_mode = ssl.CERT_NONE
-	    SI = connect.SmartConnect(host=module.params['vcenter'],
-                                            user=module.params['user'],
-                                            pwd=module.params['passwd'],
-                                            sslContext=context)
+            SI = connect.SmartConnect(host=module.params['vcenter'],
+                                      user=module.params['user'],
+                                      pwd=module.params['passwd'],
+                                      sslContext=context)
 
         except Exception as e:
             raise Exception(e)
@@ -214,6 +216,7 @@ def main():
         check = clearAlarmsCycle(SI, content)
 
     module.exit_json(changed=True, result="vSAN Errors are cleared!!!!")
+
 
 from ansible.module_utils.basic import *
 

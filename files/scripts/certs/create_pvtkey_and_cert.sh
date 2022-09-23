@@ -9,7 +9,7 @@
 ##  https://www.thegeekstuff.com/2009/07/linux-apache-mod-ssl-generate-key-csr-crt-file/
 ##
 
-SERVER_NAME=${1-media.johnson.int}
+SERVER_NAME=${1:-media.johnson.int}
 
 CERT_DIR=certs
 SUBJECT="/C=US/ST=New York/L=New York City/O=Dettonville/OU=Internal/CN=${SERVER_NAME}"

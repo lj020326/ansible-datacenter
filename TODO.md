@@ -108,11 +108,32 @@ Ideally find a good node querying/editor opensource codebase that can used/adapt
 
 ### Setup KEA DHCP + PowerDNS Containers for API based DNS record updates using ansible
 
-https://computingforgeeks.com/running-powerdns-and-powerdns-admin-in-docker-containers/
-https://blog.devopstom.com/isc-dhcp-and-powerdns/
-https://github.com/rakheshster/docker-kea-knot
-https://github.com/mhiro2/docker-kea-dhcp-server
+* https://computingforgeeks.com/running-powerdns-and-powerdns-admin-in-docker-containers/
+* https://blog.devopstom.com/isc-dhcp-and-powerdns/
+* https://github.com/rakheshster/docker-kea-knot
+* https://github.com/mhiro2/docker-kea-dhcp-server
 
+* https://github.com/mhiro2/docker-kea-dhcp-server/blob/master/docker-compose.yml
+* https://carll.medium.com/get-up-and-running-on-with-your-own-dns-and-dhcp-server-from-scratch-powerdns-isc-dhcp-server-4b9d6185d275
+* https://github.com/Akkadius/glass-isc-dhcp
+* https://github.com/Akkadius/glass-isc-dhcp/blob/master/docker-compose.yaml
+* https://github.com/networkboot/docker-dhcpd
+* https://kifarunix.com/easily-install-and-setup-powerdns-admin-on-ubuntu-20-04/
+* https://blog.eldernode.com/install-powerdns-and-powerdns-admin-on-debian-11/
+* https://charlottemach.com/2021/09/08/powerdns.html
+* 
+* https://github.com/rakheshster/docker-kea-knot
+
+## Cyberark Safe bootstrap automation
+
+* https://github.com/cyberark/epv-api-scripts
+* https://github.com/pspete/psPAS/blob/master/Tests/Set-PASSafeMember.Tests.ps1
+
+## Modern UI
+
+Some good modern UI implementations:
+
+* https://github.com/morpheus65535/bazarr
 
 ### Simplify terraform deployments with ansible:
 

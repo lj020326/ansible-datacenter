@@ -146,6 +146,7 @@ alias sshcontrol='ssh administrator@control01.johnson.int'
 alias sshvcontrol='ssh administrator@vcontrol01.johnson.int'
 
 alias getansiblelog="scp administrator@admin01.johnson.int:/home/administrator/repos/ansible/ansible-datacenter/ansible.log ."
+alias ansible-test-integration="ansible-test-integration.sh"
 
 ## ref: https://askubuntu.com/questions/20865/is-it-possible-to-remove-a-particular-host-key-from-sshs-known-hosts-file
 alias sshclearhostkey='ssh-keygen -R'
@@ -295,9 +296,13 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
   alias dnslookup='scutil -W -r '
   alias dnslookup2='dscacheutil -q host -a name '
   alias dnslookup3='dns-sd -G v4v6 '
+  alias dnsflushcache="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
+  alias dnsresetcache="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
+  alias dnsresolvers='scutil --dns'
 
   ## ref: https://discussions.apple.com/thread/250681170
   alias getzombies="ps -A -ostat,ppid,pid,command | grep -e '^[Zz]'"
+
   ## ref: https://www.servernoobs.com/how-to-find-and-kill-all-zombie-processes/
   alias getpidparents="pstree -paul"
   alias getparentpids="pstree -paul"
@@ -349,3 +354,4 @@ alias sshawxp2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S1}"
 alias sshawxp2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S4}"
 
 alias mountalsac="mount-sshfs-alsac.sh"
+alias unmountalsac="unmount-sshfs-alsac.sh"

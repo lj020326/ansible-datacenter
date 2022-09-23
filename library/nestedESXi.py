@@ -22,7 +22,7 @@ __author__ = 'yasensim'
 import requests
 import ssl
 import time
-from pyVim.connect import SmartConnect
+# from pyVim.connect import SmartConnect
 from pyVmomi import vim, vmodl
 
 try: # Try block handles behaviour change in 3.7 on ssl cert error

@@ -25,7 +25,7 @@ run_curltest() {
     PROXY_HOST=$1
     PROXY_PORT=$2
     TARGET_URL=$3
-    VERBOSITY=${4-1}
+    VERBOSITY=${4:-1}
 
     mkdir -p logs
     SCRIPT_FILE=$(basename $0)
@@ -67,10 +67,10 @@ while getopts ":v:" opt; do
 done
 shift $((OPTIND-1))
 
-proxy_target=${1-"localhost"}
+proxy_target=${1:-"localhost"}
 bs_key=${BROWSERSTACK_KEY}
 proxy_port=80
-target_url=${2-"https://www.browserstack.com/"}
+target_url=${2:-"https://www.browserstack.com/"}
 
 case "${proxy_target}" in
     "localhost")

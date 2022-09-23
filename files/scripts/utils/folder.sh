@@ -76,7 +76,7 @@ unfold () {
 }
 
 
-CMD="${1-}"
+CMD="${1:-}"
 shift
 case "$CMD" in
   fold)

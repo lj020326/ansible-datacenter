@@ -25,7 +25,7 @@ MANPATH=${MANPATH-$(manpath)}
 PYTHON=$(command -v python3 || command -v python)
 PYTHON_BIN=${PYTHON_BIN-$PYTHON}
 
-verbosity=${1-info} # Defaults to `info' if unspecified
+verbosity=${1:-info} # Defaults to `info' if unspecified
 
 if [ "$verbosity" = -q ]; then
     verbosity=silent

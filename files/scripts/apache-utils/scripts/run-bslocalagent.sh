@@ -31,7 +31,7 @@ run_browserstacklocal() {
     REMOTE_HOST=$2
     REMOTE_PORT=$3
     LOCAL_IDENTIFIER=$4
-    VERBOSITY=${5-1}
+    VERBOSITY=${5:-1}
     VERBOSE_ARGS=""
 
     mkdir -p logs
