@@ -507,3 +507,5 @@ You should now have a macOS 12 environment that you can test and break all you w
 
 * https://vmscrub.com/installing-macos-12-monterey-on-vmware-esxi-7-update-3/
 * [shanyungyang](https://github.com/shanyungyang/esxi-unlocker)'s github and everyone else involved that helped me put this updated simple guide together.\*\*
+* [esxi-unlocker](https://github.com/erickdimalanta/esxi-unlocker)
+
