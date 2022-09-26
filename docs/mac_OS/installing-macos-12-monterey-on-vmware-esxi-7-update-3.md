@@ -304,7 +304,7 @@ After running the command, it will obviously show **false** since we've not yet 
 
 Once you've run the install **./esxi-install.sh**, we'll need to now restart the server for the configuration changes to take effect.
 
-\*\*Make sure you have no running VMs before typing **reboot**. ![😛](https://s.w.org/images/core/emoji/14.0.0/svg/1f61b.svg)\*\*
+\*\*Make sure you have no running VMs before typing **reboot**. \*\*
 
 In the same terminal window, you can simply type **reboot** then press Enter. 
 
