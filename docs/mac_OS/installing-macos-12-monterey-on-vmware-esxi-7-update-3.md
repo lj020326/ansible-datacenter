@@ -501,6 +501,64 @@ Once the machine has rebooted, you should now see that VMware Tools are installe
 
 ![](./img/monterey_tools14.jpg "monterey_tools14")
 
+
+
+## **Configuring Mac OS to Optimize Running on a VM**
+
+Let’s optimize macOS settings to make working with the virtual machine more comfortable.
+
+### **Configure VM Options**
+
+* Enable VM copy and paste
+* [Enable VM mouse enter/exit](https://communities.vmware.com/t5/VMware-Workstation-Pro/Workstation-9-Mouse-does-not-leave-VM-window-Windows-XP-guest/td-p/2206609)
+* If necessary, set up a machine serial number
+
+In VM Settings => "VM Options" => "Advanced" => "Config Parameters" (edit params).
+
+Add 7 rows and enter the following:
+
+```output
+isolation.tools.copy.disable = "FALSE"
+isolation.tools.paste.disable = "FALSE"
+isolation.tools.setGUIOptions.enable = "TRUE"
+mks.allowButtonDownMotionUngrab = "TRUE"
+SMBIOS.use12CharSerialNumber = “TRUE”
+serialNumber = C02XG2FHJG5K
+hw.model = Macmini8,1
+```
+
+### **Setting Screen Resolution**
+
+1024 x 768 is the default screen resolution for a virtual machine after installing macOS. Other modes are not available in GUI of macOS. VMware Tools can help you to set higher resolution. After installing VMware Tools, reboot the VM. Open the Launchpad, type **terminal** in the search field and run the Terminal. Execute the following command in the terminal to set the Full HD resolution:
+
+```shell
+sudo /Library/Application\\ Support/VMware\\ Tools/vmware-resolutionSet 1920 1080
+```
+
+VMware Tools are used to adjust the screen resolution in this case. Configured resolution is preserved after a VM reboot. Be aware that the maximum displayed resolution in VMware vSphere Web Client and in VMware Host Client is 1176 x 885. Use VMware Workstation to connect to a VM that is running on an ESXi host for working with higher resolution. You can also use VMware vSphere client (a standalone application that is installed on Windows) for this purpose.
+
+### **Disabling a Screen Saver**
+
+Running a screen saver can consume computing resources when a virtual machine is idle. It is recommended that you disable any screen savers on the VM on which macOS is installed. You can do this with GUI. Open **System Preferences > Desktop & Screen Saver**. Select Screen Saver and set **Start after: Never**.
+
+Furthermore, it is recommended that you disable sleep mode to prevent any possible issues and disadvantages (for example if a time-consuming process such as copying files is running in background). Open the terminal and disable sleep mode when idle by using the following commands:
+
+Change the directory to **/Applications/Utilities/**
+
+```shell
+cd /Applications/Utilities/
+```
+
+Set the idle period to enter a sleep mode to 0:
+
+```shell
+sudo systemsetup -setcomputersleep 0
+```
+
+Now screen savers are disabled on your macOS.
+
+
+
 You should now have a macOS 12 environment that you can test and break all you want! Have fun! 
 
 ## Reference
@@ -508,4 +566,6 @@ You should now have a macOS 12 environment that you can test and break all you w
 * https://vmscrub.com/installing-macos-12-monterey-on-vmware-esxi-7-update-3/
 * [shanyungyang](https://github.com/shanyungyang/esxi-unlocker)'s github and everyone else involved that helped me put this updated simple guide together.\*\*
 * [esxi-unlocker](https://github.com/erickdimalanta/esxi-unlocker)
+* https://www.nakivo.com/blog/run-mac-os-on-vmware-esxi/
+* 
 

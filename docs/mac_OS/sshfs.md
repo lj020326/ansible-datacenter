@@ -30,7 +30,7 @@ sshfs username@remote:/remote/directory /mount/point
 
 #### Unmount Filesystem
 
-If you cant eject the drive in finder can force the unmount.
+If you can't eject the drive in finder can force the unmount.
 
 ```shell
 diskutil umount /mount/point
