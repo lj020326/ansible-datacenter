@@ -343,6 +343,9 @@ alias sshatrup1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRUP1S4}"
 alias sshtime5s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S1}"
 alias sshtime5s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S4}"
 
+alias sshntpq1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${NTPQ1S1}"
+alias sshntpq1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${NTPQ1S4}"
+
 alias sshtestrhel8="sshpass -p ${ANSIBLE_PASSWORD_LNX_WORK} ssh ${ANSIBLE_USER_LNX_WORK}@${WORKTESTRHEL8}"
 
 alias sshawxtest="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_TEST}"

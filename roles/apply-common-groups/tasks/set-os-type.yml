@@ -1,0 +1,55 @@
+---
+
+- name: Set os info
+  set_fact:
+    dc_os_family: "dc_os_{{ 'linux' if ansible_os_family|d('unknown')|lower in ['debian', 'redhat'] else ansible_os_family|d('unknown')|lower }}"
+    dc_os_family_shortname: "{{ 'linux' if ansible_os_family|d('unknown')|lower in ['debian', 'redhat'] else ansible_os_family|d('unknown')|lower }}"
+    dc_os_family_abbrev: "{{ 'lnx' if ansible_os_family|d('unknown')|lower in ['debian', 'redhat'] else ansible_os_family|d('unknown')|lower }}"
+    dc_os_distribution: "dc_os_{{ ansible_facts['distribution'] | d('unknown') | lower | replace(' ','_') }}"
+    dc_os_distribution_version: "dc_os_{{ ansible_facts['distribution'] | d('unknown') | lower | replace(' ','_') }}_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('unknown') | lower | replace('.','_') | replace(' ','_') }}"
+
+- name: Set os info for windows for vmware esx
+  when: ansible_os_family|d('')=='VMkernel'
+  set_fact:
+    dc_os_family: "dc_os_esxi"
+    dc_os_family_shortname: "esxi"
+    dc_os_family_abbrev: "esxi"
+    dc_os_distribution: "dc_os_{{ ansible_facts['distribution'] | d('unknown') | lower | replace(' ','_') }}"
+    dc_os_distribution_version: "dc_os_esxi_{{ ansible_facts['distribution_major_version'] | d(ansible_facts['distribution_release']) |d('unknown') | lower | replace('.','_') | replace(' ','_') }}"
+
+- name: Set os info for windows for vmware vcenter
+#  when: ansible_os_family|d('')=='VMware Photon'
+  when: ansible_os_family|d('')|lower is search('vmware.*photon')
+  set_fact:
+    dc_os_family: "dc_os_vcenter"
+    dc_os_family_shortname: "vcenter"
+    dc_os_family_abbrev: "vcenter"
+    dc_os_distribution: "dc_os_{{ ansible_facts['distribution'] | d('unknown') | lower | replace(' ','_') }}"
+    dc_os_distribution_version: "dc_os_vcenter_{{ ansible_facts['distribution'] |d('unknown') | lower | replace(' ','_') }}_v{{ ansible_facts['distribution_major_version'] |d('unknown') }}"
+
+- name: Set os info for windows
+  when: ansible_os_family|d('')|lower is search('windows')
+  set_fact:
+    dc_os_family: "dc_os_windows"
+    dc_os_family_shortname: "windows"
+    dc_os_family_abbrev: "wnd"
+    dc_os_distribution: "dc_os_{{ ansible_facts['distribution'] | d('unknown') | lower | replace(' ','_') }}"
+    dc_os_distribution_version: "dc_os_windows_{{ ansible_facts['distribution']|d('unknown') | lower | replace(' ','_') | regex_replace('(microsoft_|windows_)', '') }}"
+
+- name: Group hosts based on dc_os_family
+#  changed_when: no
+  group_by:
+    key: "{{ dc_os_family }}"
+
+- name: Group hosts based on dc_os_distribution
+  when: dc_os_distribution != dc_os_family
+#  changed_when: no
+  group_by:
+    key: "{{ dc_os_distribution }}"
+    parents: "{{ dc_os_family }}"
+
+- name: Group hosts based on dc_os_distribution_version
+#  changed_when: no
+  group_by:
+    key: "{{ dc_os_distribution_version }}"
+    parents: "{{ dc_os_distribution }}"

@@ -5,29 +5,39 @@ firewalld_ports__postfix:
   - "25/tcp"
 
 ## docker-postfix
-smtp_relay_host: "smtp.gmail.com"
+## ref: https://emanuelesantanche.com/article/85/configuring-postfix-to-relay-email-through-zoho-mail
+#smtp_relay_host: "smtp.gmail.com"
 #smtp_relay_port: "587"
+#smtp_relay_host: "smtp.sendgrid.net"
+#smtp_relay_port: "465"
+#smtp_relay_host: "in-v3.mailjet.com"
+#smtp_relay_port: "465"
+smtp_relay_host: "smtp.zoho.com"
 smtp_relay_port: "465"
-smtp_relay_username: "admin@dettonville.com"
+
+smtp_relay_username: "apikey"
+smtp_relay_password: "f00b4r"
+
 #smtp_relay_accepted_networks: "{{ gateway_ipv4_subnet_1_2 }}.0.0/16 172.16.0.0/12 10.0.0.0/8"
 smtp_relay_accepted_networks: "{{ gateway_ipv4_network_cidr }} 172.16.0.0/12"
 #smtp_relay_excludes: "{{ gateway_ipv4_subnet_1_2 }}.0.61 {{ gateway_ipv4_subnet_1_2 }}.0.7 {{ gateway_ipv4_subnet_1_2 }}.0.89"
 
 ## MAIL/POSTFIX
-#postfix_allowed_sender_domains: "johnson.int {{ external_domain }}"
+#postfix_allowed_sender_domains: "{{ internal_domain }} {{ external_domain }}"
 #postfix_relayhost: mail.johnson.int
 #postfix_relayhost: mail.johnson.int
 #postfix_relayhost_port: 1025
 #postfix_sasl_auth_enable: false
 
-postfix_relayhost: smtp.gmail.com
-postfix_relayhost_port: 587
+postfix_relayhost: "{{ smtp_relay_host }}"
+postfix_relayhost_port: "{{ smtp_relay_port }}"
 postfix_relaytls: true
 postfix_smtp_tls_cafile: "{{ ca_cert_bundle }}"
 postfix_sasl_auth_enable: true
-postfix_sasl_user: 'foo'
-postfix_sasl_password: 'bar'
+postfix_sasl_user: "{{ smtp_relay_username }}"
+postfix_sasl_password: "{{ smtp_relay_password }}"
 
+postfix_smtp_tls_wrappermode: yes
 
 #postfix_mailname: "dettonville.org"
 postfix_mailname: "dettonville.com"
@@ -44,6 +54,26 @@ postfix_generic:
   - pattern: "@johnson.int"
 #    result: "$local@dettonville.org"
     result: "$local@dettonville.com"
+
+postfix_sender_canonical_maps:
+  - sender: root
+    rewrite: admin@dettonville.com
+  - sender: ansible
+    rewrite: admin@dettonville.com
+  - sender: "/.+/"
+    rewrite: admin@dettonville.com
+
+#postfix_recipient_canonical_maps:
+#  - recipient: root
+#    rewrite: postmaster@yourdomain.org
+
+postfix_recipient_canonical_maps:
+  - recipient: admin@dettonville.com
+    rewrite: "{{ postfix_recipient_target }}"
+  - recipient: admin@dettonville.org
+    rewrite: "{{ postfix_recipient_target }}"
+
+postfix_enable_original_recipient: no
 
 #postfix_rbl_overrides:
 # - |
