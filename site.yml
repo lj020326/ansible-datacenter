@@ -17,11 +17,11 @@
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
-- name: "Gather facts for all hosts to apply OS specific group vars for them"
+- name: "Apply common groups and vars"
   tags: always
   hosts: all,!local,!node_offline
 #  hosts: all,!node_offline
-  ignore_unreachable: yes
+#  ignore_unreachable: yes
   gather_facts: yes
   vars_files:
     - vars/secrets.yml
@@ -320,6 +320,17 @@
   roles:
     - role: bootstrap-linux
 
+- name: "Bootstrap linux core"
+  hosts: os_linux,!node_offline
+  tags:
+    - bootstrap-linux-core
+  become: yes
+#  become_method: sudo
+  vars_files:
+    - vars/secrets.yml
+  roles:
+    - role: bootstrap-linux-core
+
 
 ##
 ## Bootstrap windows plays
@@ -363,6 +374,7 @@
     - role: bootstrap-linux-firewalld
       firewalld_action: configure
     - role: bootstrap-linux-package
+    - role: bootstrap-linux-mount
     - role: geerlingguy.git
     - role: gantsign.maven
     - role: geerlingguy.ansible

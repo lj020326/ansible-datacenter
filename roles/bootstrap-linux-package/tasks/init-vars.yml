@@ -12,6 +12,10 @@
     bootstrap_linux_package_list: "{{ bootstrap_linux_package_list|d(bootstrap_linux_package_list_default) }}"
     bootstrap_linux_package_pip_list: "{{ bootstrap_linux_package_pip_list|d(bootstrap_linux_package_pip_list_default) }}"
     bootstrap_linux_package_npm_list: "{{ bootstrap_linux_package_npm_list|d(bootstrap_linux_package_npm_list_default) }}"
+
+- name: Initialize OS bootstrap_linux_package_list
+  when: bootstrap_linux_package_exclude_list|d([])|length>0
+  set_fact:
     __bootstrap_linux_package_exclude_pattern: "{{ '(' + bootstrap_linux_package_exclude_list | join('|') + ')' }}"
 #    __bootstrap_linux_package_exclude_pattern: "{{ '^(?!(%s)).*' | format(bootstrap_linux_package_exclude_list | join('|')) }}"
 
@@ -41,7 +45,7 @@
     __bootstrap_linux_package_list: "{{ __bootstrap_linux_package_list|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames','^bootstrap_linux_package_list__', wantlist=True) }}"
 
-- name: display __bootstrap_linux_package_list (pre-Uniquify)
+- name: "Display __bootstrap_linux_package_list (pre-Uniquify)"
   debug:
     var: __bootstrap_linux_package_list
 
@@ -67,7 +71,12 @@
     __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present | d([]) + [(item is mapping) | ternary( item.apt|d(item.name), item)] }}"
   loop: "{{ __bootstrap_linux_package_list }}"
 
+- name: "Display __bootstrap_linux_package_list_present[pre-excluded]"
+  debug:
+    var: __bootstrap_linux_package_list_present
+
 - name: "Uniquify __bootstrap_linux_package_list_present"
+  when: __bootstrap_linux_package_exclude_pattern is defined
   set_fact:
 #    __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present|d([]) | sort | unique }}"
     __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present|d([]) | reject('match', __bootstrap_linux_package_exclude_pattern) | sort | unique }}"
