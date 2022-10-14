@@ -1,8 +1,6 @@
 
 # Standard Operating Procedures for IaC
 
-To be developed and synchronized with the related [ALSAC confluence site page](https://alsacwiki.stjude.org/pages/viewpage.action?spaceKey=TECH&title=Infrastructure+as+Code).
-
 The SOPs are based on different scopes and/or patterns based on the requirements/circumstance.
 
 The configurations, testing and other requirements depend on the scope/pattern.
