@@ -1,30 +1,15 @@
 ---
 
-- name: display play info
-  when: inventory_hostname in ansible_play_hosts_all
-  debug:
-    msg:
-      - "ansible_host={{ ansible_host }}"
-      - "ansible_user={{ ansible_user }}"
-      - "ansible_ssh_user={{ ansible_ssh_user }}"
-      - "ansible_run_tags={{ ansible_run_tags }}"
-      - "run_tags_included_ping_test={{ run_tags_included_ping_test }}"
-      - "run_tags_excluded_ping_test={{ run_tags_excluded_ping_test }}"
-      - "ping_exclude={{ ping_exclude }}"
-
-- name: display group_names
+- name: "Display group_names"
   debug:
     var: group_names
-    verbosity: 1
 
 ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
 - name: "Ping test via module"
-  when: inventory_hostname in ansible_play_hosts_all
-#  ignore_unreachable: yes
   block:
 
     - name: "Ping test via module ping"
-      when: group_names | intersect(['linux','vmware_vsphere']) | list | length>0
+      when: group_names | intersect(['linux','dc_os_linux','vmware_vsphere']) | list | length>0
       action: ping
       register: ping_test
       changed_when: no
@@ -40,7 +25,9 @@
     ## https://www.reddit.com/r/ansible/comments/9dn5ff/possible_values_for_ansible_network_os/
     - name: "Ping test via module net_ping"
       delegate_to: localhost
-      when: "'network_switch' in group_names"
+      when:
+        - ping_test.skipped|d(false) or ping_test.failed|d(false)
+        - winping_test.skipped|d(false) or winping_test.failed|d(false)
       net_ping:
         dest: "{{ ansible_host }}"
       register: netping_test
@@ -54,7 +41,8 @@
           - "netping_test={{ netping_test | to_nice_json }}"
 
     - name: "Setting ping_failed[1]"
-      delegate_to: localhost
+##      delegate_to: localhost
+      connection: local
       when:
         - not item.skipped|d(false)
       set_fact:
@@ -80,26 +68,9 @@
           set_fact:
             ping_failed: "{{ ping_cli_test.failed }}"
 
-      rescue:
-        - name: alternative connection test via bash - this assumes we could not run ping for some bizarre reason
-          delegate_to: localhost
-          block:
-            - name: bash connectivity test
-              become: yes
-              command: "timeout 3 bash -c '</dev/tcp/{{ ansible_host }}/22'"
-              register: bash_connectivity_test
-              changed_when: no
-              ignore_errors: true
-
-            - name: display test results
-              debug:
-                msg:
-                  - "ping_cli_test={{ ping_cli_test | to_nice_json }}"
-                  - "bash_connectivity_test={{ bash_connectivity_test | to_nice_json }}"
-
-            - name: "Setting ping_failed[2]"
-              set_fact:
-                ping_failed: "{{ bash_connectivity_test.unreachable|d(bash_connectivity_test.failed)|d(true) }}"
+- name: Set ping_failed
+  set_fact:
+    ping_failed: "{{ ping_failed|d(true) }}"
 
 - name: Display ping_failed
   debug:
@@ -108,6 +79,8 @@
 ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-unreachable-host-handling.md
 - name: "Preliminary pre-check connection test host info"
   run_once: true
+  connection: local
+  delegate_to: localhost
   block:
 
     - name: "Set unreachable_hosts"
