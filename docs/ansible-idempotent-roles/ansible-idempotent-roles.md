@@ -410,7 +410,7 @@ For examples, see the group_var files in the [example repo here](https://github.
 
 group var file|var names used
 ---|---
-[os_linux.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/os_linux.yml)|firewalld_services__linux
+[dc_os_linux.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/dc_os_linux.yml)|firewalld_services__linux
 [postfix_server.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
 [nameserver.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/nameserver.yml)|firewalld_ports__bind
 [veeam_agent.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam

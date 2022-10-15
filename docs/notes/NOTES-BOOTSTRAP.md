@@ -69,8 +69,8 @@ run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit samba
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit admin2
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit nas2
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit Ubuntu
-run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit os_Ubuntu
-run-remote.sh ansible-playbook -v site.yml --tags bootstrap -e "pattern=os_Ubuntu"
+run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit dc_os_Ubuntu
+run-remote.sh ansible-playbook -v site.yml --tags bootstrap -e "pattern=dc_os_Ubuntu"
 #run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit node01
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit oscontroller01
 #run-remote.sh ansible-playbook -v site.yml --tags bootstrap-docker --limit node01
@@ -85,9 +85,9 @@ run-remote.sh ansible-playbook -v site.yml --tags bootstrap-ansible --limit open
 run-remote.sh ansible-playbook -vvv site.yml --tags bootstrap-ansible --limit openshift
 run-remote.sh ansible-playbook -vvv site.yml --tags bootstrap --limit openshift
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit openshift
-run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit os_Ubuntu
-run-remote.sh ansible-playbook -v site.yml --tags bootstrap -e "pattern=os_Ubuntu"
-run-remote.sh ansible-playbook -v site.yml --tags bootstrap -e "group=os_Ubuntu"
+run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit dc_os_Ubuntu
+run-remote.sh ansible-playbook -v site.yml --tags bootstrap -e "pattern=dc_os_Ubuntu"
+run-remote.sh ansible-playbook -v site.yml --tags bootstrap -e "group=dc_os_Ubuntu"
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit admin2
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap-ansible --limit admin2
 run-remote.sh ansible-playbook -v site.yml --tags bootstrap --limit nas2

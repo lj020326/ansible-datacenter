@@ -140,7 +140,7 @@ ansible_ssh_private_key_file: "{{ lookup('cyberark.conjur.conjur_variable', env|
 
 The machine credentials for the OS can be set in the respective os groups.
 
-inventory/group_vars/os_linux.yml:
+inventory/group_vars/dc_os_linux.yml:
 ```yaml
 ---
 ## ref: https://github.com/cyberark/ansible-conjur-collection
@@ -151,7 +151,7 @@ ansible_password: "{{ lookup('cyberark.conjur.conjur_variable', env|upper + '/Li
 
 ```
 
-inventory/group_vars/os_windows.yml:
+inventory/group_vars/dc_os_windows.yml:
 ```yaml
 ---
 ## ref: https://github.com/cyberark/ansible-conjur-collection

@@ -170,7 +170,7 @@ ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.ini -t untagged
 To run play on a group
 
 ```shell
-ansible-playbook site.yml --tags bootstrap --limit os_Ubuntu
+ansible-playbook site.yml --tags bootstrap --limit dc_os_Ubuntu
 ```
 
 To build ansible control node
@@ -237,7 +237,7 @@ working with openstack deploy node setup
 ansible -i inventory/hosts.ini openstack -m ping
 ansible -i inventory/hosts-openstack.ini openstack -m ping
 
-ansible-playbook site.yml --tags bootstrap-linux --limit os_linux
+ansible-playbook site.yml --tags bootstrap-linux --limit dc_os_linux
 ansible-playbook site.yml --tags bootstrap-linux-firewalld --limit vmub2201
 ansible-playbook site.yml --tags bootstrap-linux-docker --limit docker
 ansible-playbook site.yml --tags bootstrap-network --limit node01
@@ -276,8 +276,8 @@ openstack server create --image cirros --flavor m1.tiny --key-name mykey --netwo
 
 Other useful plays
 ```shell
-ansible-playbook site.yml --tags bootstrap-linux-mounts --limit os_linux
-ansible-playbook site.yml --tags bootstrap-linux-mounts --limit os_centos_7
+ansible-playbook site.yml --tags bootstrap-linux-mounts --limit dc_os_linux
+ansible-playbook site.yml --tags bootstrap-linux-mounts --limit dc_os_centos_7
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit postgres
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit media
 ansible-playbook site.yml --tags bootstrap-openstack
@@ -350,7 +350,7 @@ ansible -v -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -e ansib
 
 ```shell
 ansible-playbook site.yml --tags display-vars -l control01
-ansible-playbook site.yml --tags display-domain-vars -l os_linux
+ansible-playbook site.yml --tags display-domain-vars -l dc_os_linux
 ansible-playbook site.yml --tags display-domain-vars -l nas02
 ansible-playbook site.yml --tags display-domain-vars -l control01
 ansible all -m debug -a var=groups['ca_domain']
@@ -437,8 +437,8 @@ Run a play for a specific group of nodes:
 
 ```shell
 ansible-playbook site.yml --tags install-cacerts --limit windows
-ansible-playbook site.yml --tags install-cacerts --limit os_ubuntu
-ansible-playbook site.yml -t display-hostvars -l os_centos
+ansible-playbook site.yml --tags install-cacerts --limit dc_os_ubuntu
+ansible-playbook site.yml -t display-hostvars -l dc_os_centos
 ansible-playbook site.yml -t display-hostvars -l docker
 ```
 
