@@ -44,6 +44,7 @@ do
   echo "Create host related links"
   ln -sf ${RELPATH}/host_vars ./
   ln -sf ${RELPATH}/*.ini ./
+  ln -sf ${RELPATH}/*.yml ./
 #  if [[ "${environment}" == "dev" ]]; then
 #    ln -sf ${RELPATH}/*.ini ./
 ##    ln -sf ${RELPATH}/*.py ./
