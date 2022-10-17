@@ -56,10 +56,10 @@ ansible-galaxy collection install -r ./collections/requirements.yml
 ansible-galaxy install -r ./roles/requirements.yml
 ```
 
-3. Add host info to hosts.ini inventory and ping the nodes
+3. Add host info to hosts.yml inventory and ping the nodes
 
 ```shell
-ansible -i inventory/hosts.ini all -m ping -b -vvvv
+ansible -i inventory/hosts.yml all -m ping -b -vvvv
 ```
 
 4. Create the vault file used to protect important data in source control.
@@ -162,7 +162,7 @@ Once the pipeline is configured with the repo, jenkins will scan the repo branch
 ```
 echo "foobarpass" > ~/.vault_pass
 chmod 600 ~/.vault_pass
-ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.ini -t untagged,report-windows-facts --vault-password-file ~/.vault_pass
+ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.yml -t untagged,report-windows-facts --vault-password-file ~/.vault_pass
 ```
 
 ## Other useful 
@@ -205,22 +205,22 @@ To configure linux users
 ```shell
 ansible-playbook site.yml --tags bootstrap-user --vault-password-file ~/.vault_pass
 ```
-]
+
 
 ## Using the run-ansible.sh script to automatically first install all dependencies then run the command
 
 A [run-ansible.sh script](run-ansible.sh) is available that will upon execution always (1) check and create a virtualenv named 'venv' if not already exists, (2) install [pip library requirements](./requirements.txt), (3) install [collection requirements](collections/requirements.yml), (4) install [role requirements](roles/requirements.yml) and (5) run the command specified.  It also checks in the latest code via git Add/Commit/Push (ACP) before the steps just mentioned.  Finally, it also allows specification of a control/jump host to run the playbook via ssh wrapper.  
 
 ```shell
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-ansible-user -l control01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-ansible-user -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-docker-stack -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-linux -l control01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-linux -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-mounts -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-registry -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-user -l control01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.ini site.yml --tags bootstrap-user -l media01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-ansible-user -l control01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-ansible-user -l media01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-docker-stack -l media01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-linux -l control01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-linux -l media01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-mounts -l media01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-registry -l media01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-user -l control01
+run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-user -l media01
 
 ```
 
@@ -234,7 +234,7 @@ ansible-playbook site.yml --tags iscsi-client
 working with openstack deploy node setup
 
 ```shell
-ansible -i inventory/hosts.ini openstack -m ping
+ansible -i inventory/hosts.yml openstack -m ping
 ansible -i inventory/hosts-openstack.ini openstack -m ping
 
 ansible-playbook site.yml --tags bootstrap-linux --limit dc_os_linux
@@ -344,7 +344,7 @@ Other useful tests
 
 ```shell
 ansible -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -m ping ubuntu18
-ansible -v -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -e ansible_pyth/bin/python3 -i inventory/hosts.ini -m ping ubuntu18
+ansible -v -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -e ansible_pyth/bin/python3 -i inventory/hosts.yml -m ping ubuntu18
 ```
 
 
@@ -395,9 +395,9 @@ ansible-playbook -i ./inventory/internal display-ntp-servers.yml
 ansible-playbook -i ./inventory/internal display-ntp-servers.yml 
 
 ansible all -m debug -a var=groups['ca_domain']
-ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_port
-ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_winrm_transport
-ansible -i inventory/dev/hosts.ini  windows -m debug -a var=ansible_host,ansible_port
+ansible -i inventory/dev/hosts.yml  windows -m debug -a var=ansible_port
+ansible -i inventory/dev/hosts.yml  windows -m debug -a var=ansible_winrm_transport
+ansible -i inventory/dev/hosts.yml  windows -m debug -a var=ansible_host,ansible_port
 ```
 
 
