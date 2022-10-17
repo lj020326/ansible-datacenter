@@ -19,44 +19,55 @@
     - debug:
         var: firewalld_ports
 
-- name: Show variables with 'firewalld_services__' in their names
-  debug:
-    msg: "{{ lookup('varnames', '^firewalld_services__', wantlist=True) }}"
+- name: "Init-vars | Set {{ role_name }} var prefix"
+  set_fact:
+    role_var_prefix: "firewalld"
+#    role_var_prefix: "{{ role_name | replace('-','_') }}"
 
-- name: Show variables with 'firewalld_ports__' in their names
-  debug:
-    msg: "{{ lookup('varnames', '^firewalld_ports__', wantlist=True) }}"
+- name: "Init-vars | Set {{ role_name }} list var prefixes"
+  set_fact:
+    role_services_var_prefix: "{{ role_var_prefix }}_services__"
+    role_ports_var_prefix: "{{ role_var_prefix }}_ports__"
+    role_rule_list_var_prefix: "{{ role_var_prefix }}_rules__"
 
-- name: Show variables with 'firewalld_rules__' in their names
-  debug:
-    msg: "{{ lookup('varnames', '^firewalld_rules__', wantlist=True) }}"
+- name: "Init-vars | Set {{ role_name }} var regex's"
+  set_fact:
+    role_service_list_var_regex: "^{{ role_services_var_prefix }}"
+    role_port_list_var_regex: "^{{ role_ports_var_prefix }}"
+    role_rule_list_var_regex: "^{{ role_rule_list_var_prefix }}"
 
-- name: Initialize __firewalld_services with firewalld_services
+- name: "Init-vars | Initialize {{ role_name }} lists"
   set_fact:
     __firewalld_services: "{{ firewalld_services|d([]) }}"
-
-- name: Initialize __firewalld_ports with firewalld_ports
-  set_fact:
     __firewalld_ports: "{{ firewalld_ports|d([]) }}"
-
-- name: Initialize __firewalld_rules with firewalld_rules
-  set_fact:
     __firewalld_rules: "{{ firewalld_rules|d([]) }}"
 
-- name: Combine firewalld_services__ services into merged list
+- name: "Init-vars | Show variables with '{{ role_service_list_var_prefix }}' prefix"
+  debug:
+    msg: "{{ lookup('varnames', role_service_list_var_regex, wantlist=True) }}"
+
+- name: "Init-vars | Show variables with '{{ role_port_list_var_prefix }}' prefix"
+  debug:
+    msg: "{{ lookup('varnames', role_port_list_var_regex, wantlist=True) }}"
+
+- name: "Init-vars | Show variables with '{{ role_rule_list_var_prefix }}' prefix"
+  debug:
+    msg: "{{ lookup('varnames', role_rule_list_var_regex, wantlist=True) }}"
+
+- name: "Init-vars | Coalesce lists from {{ role_service_list_var_prefix }}* vars into merged list"
   set_fact:
     __firewalld_services: "{{ __firewalld_services|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames','^firewalld_services__', wantlist=True) }}"
+  loop: "{{ lookup('varnames', role_service_list_var_regex, wantlist=True) }}"
 
-- name: Combine firewalld_ports__ ports into merged list
+- name: "Init-vars | Coalesce lists from {{ role_port_list_var_prefix }}* vars into merged list"
   set_fact:
     __firewalld_ports: "{{ __firewalld_ports|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames','^firewalld_ports__', wantlist=True) }}"
+  loop: "{{ lookup('varnames', role_port_list_var_regex, wantlist=True) }}"
 
-- name: Combine firewalld_rules__ ports into merged list
+- name: "Init-vars | Coalesce lists from {{ role_rule_list_var_prefix }}* vars into merged list"
   set_fact:
     __firewalld_rules: "{{ __firewalld_rules|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames','^firewalld_rules__', wantlist=True) }}"
+  loop: "{{ lookup('varnames', role_rule_list_var_regex, wantlist=True) }}"
 
 - name: display __firewalld_services
   debug:

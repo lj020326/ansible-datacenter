@@ -32,6 +32,10 @@ smtp_relay_accepted_networks: "{{ gateway_ipv4_network_cidr }} 172.16.0.0/12"
 postfix_relayhost: "{{ smtp_relay_host }}"
 postfix_relayhost_port: "{{ smtp_relay_port }}"
 postfix_relaytls: true
+
+postfix_smtpd_tls_cert_file: /etc/ssl/certs/ssl-cert-snakeoil.pem
+postfix_smtpd_tls_key_file: /etc/ssl/private/ssl-cert-snakeoil.key
+
 postfix_smtp_tls_cafile: "{{ ca_cert_bundle }}"
 postfix_sasl_auth_enable: true
 postfix_sasl_user: "{{ smtp_relay_username }}"
@@ -46,34 +50,34 @@ postfix_mailname: "dettonville.com"
 ## ref: http://www.postfix.org/ADDRESS_REWRITING_README.html
 postfix_generic:
   - pattern: "@dettonville.int"
-#    result: "$local@dettonville.org"
     result: "$local@dettonville.com"
   - pattern: "@johnson.int"
-#    result: "$local@dettonville.org"
-    result: "$local@dettonville.com"
-  - pattern: "@johnson.int"
-#    result: "$local@dettonville.org"
     result: "$local@dettonville.com"
 
 postfix_sender_canonical_maps:
-  - sender: root
-    rewrite: admin@dettonville.com
-  - sender: ansible
-    rewrite: admin@dettonville.com
-  - sender: "/.+/"
-    rewrite: admin@dettonville.com
+  - pattern: root
+    result: admin@dettonville.com
+  - pattern: ansible
+    result: admin@dettonville.com
+  - pattern: admin@dettonville.org
+    result: admin@dettonville.com
+## cant use regex in hash db
+#  - pattern: "/.+/"
+#    result: admin@dettonville.com
 
 #postfix_recipient_canonical_maps:
-#  - recipient: root
-#    rewrite: postmaster@yourdomain.org
+#  - pattern: root
+#    result: postmaster@yourdomain.org
+
+postfix_recipient_target: "ljohnson@dettonville.com"
 
 postfix_recipient_canonical_maps:
-  - recipient: admin@dettonville.com
-    rewrite: "{{ postfix_recipient_target }}"
-  - recipient: admin@dettonville.org
-    rewrite: "{{ postfix_recipient_target }}"
+  - pattern: admin@dettonville.com
+    result: "{{ postfix_recipient_target }}"
+  - pattern: admin@dettonville.org
+    result: "{{ postfix_recipient_target }}"
 
-postfix_enable_original_recipient: no
+postfix_enable_original_recipient: "no"
 
 #postfix_rbl_overrides:
 # - |
@@ -90,12 +94,44 @@ postfix_enable_original_recipient: no
 #    ## ref: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=892218
 #    smtpd_client_restrictions = check_client_access hash:/etc/postfix/rbl_override, permit
 
+postfix_debug_list:
+  - media01
+  - vcontrol01
+#  - admin01
+  - admin02
+#  - admin03
+
+postfix_debug_host_list_yaml: |
+  [
+    {% for host in postfix_debug_list %}
+    {% set hostname = hostvars[host]['ansible_host'] %}
+    {% if hostname is defined %}
+    {{ hostname }},
+    {% endif %}
+    {% endfor %}
+  ]
+
+#postfix_debug_host_list_yaml: |
+#  [
+#    {% for host in postfix_debug_list %}
+#    {% set host_ip = hostvars[host]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) %}
+#    {% if host_ip is defined %}
+#    {{ host_ip }},
+#    {% endif %}
+#    {% endfor %}
+#  ]
+
+postfix_debug_host_list: "{{ postfix_debug_host_list | from_yaml }}"
+
+#postfix_raw_options:
+# - |
+#   debug_peer_list = {{ postfix_debug_host_list }}
+
 postfix_raw_options:
  - |
-   debug_peer_list = {{ gateway_ipv4_subnet_1_2 }}.0.15, {{ gateway_ipv4_subnet_1_2 }}.0.40, {{ gateway_ipv4_subnet_1_2 }}.0.42
+   debug_peer_list = {{ postfix_debug_host_list | join(', ') }}
 
 postfix_smtpd_relay_restrictions:
   - permit_mynetworks
   - permit_sasl_authenticated
   - defer_unauth_destination
-

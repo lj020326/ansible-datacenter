@@ -136,8 +136,8 @@ A simple example that rewrites the sender address:
     - postfix
   vars:
     postfix_sender_canonical_maps:
-      - sender: root
-        rewrite: postmaster@yourdomain.org
+      - pattern: root
+        result: postmaster@yourdomain.org
 ```
 
 Provide the relay host name if you want to enable relaying:

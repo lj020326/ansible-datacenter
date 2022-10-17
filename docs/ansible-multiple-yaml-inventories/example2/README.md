@@ -108,6 +108,34 @@ Each of the respective inventory files:
 * [network2/site2 inventory](./inventory/network2/site2.yml)
 
 
+## Basic Inventory Tests
+
+### list hosts for group
+
+```shell
+ansible -i ./inventory --list-hosts network1
+  hosts (4):
+    web-q1-net1-s1.example.int
+    web-q2-net1-s1.example.int
+    web-q1-net1-s2.example.int
+    web-q2-net1-s2.example.int
+
+```
+
+### graph hosts for group
+
+```shell
+ansible-inventory -i ./inventory --graph network1
+@network1:
+  |--web-q1-net1-s1.example.int
+  |--web-q1-net1-s2.example.int
+  |--web-q2-net1-s1.example.int
+  |--web-q2-net1-s2.example.int
+
+```
+
+## Playbook Inventory Tests
+
 With the 4 inventories mentioned, we now seek to confirm that the expected value appears for the 'group_names' special variable and the 'trace_var' variable for both hosts.
 
 playbook run for inventory/network1/site1.yml:

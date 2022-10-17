@@ -1,6 +1,23 @@
 
 # Example 5: Multiple YAML inventories with 'role-based' YAML inventory groups
 
+
+Many use cases require network-specific servers/fixtures/assets to be setup for to serve/enable clients for network groups within an enterprise.
+Some examples with servers within networks serving clients machines in the respective networks fitting this use case:
+
+- router gateways
+- firewalls
+- dns servers
+- ntp servers
+- ldap servers
+- postfix servers
+- nfs servers
+- repo/archive
+
+and the list goes on...
+
+The following section addresses the network/client needs for this use case specifically with respect to ansible based inventory.
+
 In the prior [Example 4](../example4/README.md), we merged Multiple YAML inventories using 'role-based' INI inventory groups.
 
 It was also noted that INI the approach had the following 2 downsides:

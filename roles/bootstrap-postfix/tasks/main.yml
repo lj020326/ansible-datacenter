@@ -1,225 +1,220 @@
 ---
-- name: Ensure postfix is installed.
+
+- name: "Display postfix_debug_host_list"
+  debug:
+    var: postfix_debug_host_list
+
+- name: "Display postfix_raw_options"
+  debug:
+    var: postfix_raw_options
+
+- name: "Ensure postfix is installed."
   package:
     name: postfix
     state: present
 
-#- name: Update Postfix configuration.
-#  lineinfile:
-#    dest: "{{ postfix_config_file }}"
-#    line: "{{ item.name }} = {{ item.value }}"
-#    regexp: "^{{ item.name }} ="
-#    mode: 0644
-#  with_items:
-#    - name: inet_interfaces
-#      value: "{{ postfix_inet_interfaces }}"
-#    - name: inet_protocols
-#      value: "{{ postfix_inet_protocols }}"
-#  notify: restart postfix
-
-- name: configure mailname
+- name: "Configure mailname"
   template:
     src: "{{ postfix_mailname_file.lstrip('/') }}.j2"
     dest: "{{ postfix_mailname_file }}"
     owner: root
     group: root
     mode: 0644
-  notify: restart postfix
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
+  notify: restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-mailname
 
-- name: update configuration file
+- name: "Update configuration file"
   template:
     src: "{{ postfix_main_cf.lstrip('/') }}.j2"
     dest: "{{ postfix_main_cf }}"
     owner: root
     group: root
     mode: 0644
-  notify: restart postfix
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
+  notify: restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-configuration
 
-- name: configure sasl username/password
+- name: "Configure sasl username/password"
   template:
     src: "{{ postfix_sasl_passwd_file.lstrip('/') }}.j2"
     dest: "{{ postfix_sasl_passwd_file }}"
     owner: root
     group: root
     mode: 0600
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   when:
     - postfix_relayhost | length
     - postfix_sasl_auth_enable | bool
   no_log: "{{ not ansible_check_mode }}"
   notify:
-    - postmap sasl_passwd
-    - restart postfix
+    - postmap_sasl_passwd
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-sasl-passwd
 
-- name: configure aliases
+- name: "Configure aliases"
   template:
     src: "{{ postfix_aliases_file.lstrip('/') }}.j2"
     dest: "{{ postfix_aliases_file }}"
     owner: root
     group: root
     mode: 0644
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - new aliases
-    - restart postfix
+    - new_aliases
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-aliases
 
-- name: check if aliases.db exists
+- name: "Check if aliases.db exists"
   stat:
     path: "{{ postfix_aliases_file }}.db"
   register: _aliasesdb
   changed_when: not _aliasesdb.stat.exists
   when: postfix_default_database_type == 'hash'
   notify:
-    - new aliases
-    - restart postfix
+    - new_aliases
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-aliases
 
-- name: configure virtual aliases
-  lineinfile:
+- name: "Configure virtual aliases"
+  vars:
+    __postfix_canonical_maps: "{{ postfix_virtual_aliases }}"
+  template:
+    src: "{{ postfix_canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ postfix_virtual_aliases_file }}"
-    regexp: '^{{ item.virtual | regex_escape }}\s.*'
-    line: '{{ item.virtual }} {{ item.alias }}'
     owner: root
     group: root
     mode: 0644
-    create: true
-    state: present
-  with_items: "{{ postfix_virtual_aliases }}"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - new virtual aliases
-    - restart postfix
+    - new_virtual_aliases
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-virtual-aliases
 
-- name: configure sender canonical maps
-  lineinfile:
+- name: "Configure sender canonical maps"
+  vars:
+    __postfix_canonical_maps: "{{ postfix_sender_canonical_maps }}"
+  template:
+    src: "{{ postfix_canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ postfix_sender_canonical_maps_file }}"
-    regexp: '^{{ item.sender | regex_escape }}\s.*'
-    line: '{{ item.sender }} {{ item.rewrite }}'
     owner: root
     group: root
     mode: 0644
-    create: true
-    state: present
-  with_items: "{{ postfix_sender_canonical_maps }}"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - postmap sender_canonical_maps
-    - restart postfix
+    - postmap_sender_canonical_maps
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-sender-canonical-maps
 
-- name: configure recipient canonical maps
-  lineinfile:
+- name: "Configure recipient canonical maps"
+  vars:
+    __postfix_canonical_maps: "{{ postfix_recipient_canonical_maps }}"
+  template:
+    src: "{{ postfix_canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ postfix_recipient_canonical_maps_file }}"
-    regexp: '^{{ item.recipient | regex_escape }}\s.*'
-    line: '{{ item.recipient }} {{ item.rewrite }}'
     owner: root
     group: root
     mode: 0644
-    create: true
-    state: present
-  with_items: "{{ postfix_recipient_canonical_maps }}"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - postmap recipient_canonical_maps
-    - restart postfix
+    - postmap_recipient_canonical_maps
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-recipient-canonical-maps
 
-- name: configure transport maps
-  lineinfile:
+- name: "Configure transport maps"
+  vars:
+    __postfix_canonical_maps: "{{ postfix_transport_maps }}"
+  template:
+    src: "{{ postfix_canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ postfix_transport_maps_file }}"
-    regexp: '^{{ item.pattern | regex_escape }}\s.*'
-    line: '{{ item.pattern }} {{ item.result }}'
     owner: root
     group: root
     mode: 0644
-    create: true
-    state: present
-  with_items: "{{ postfix_transport_maps }}"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - postmap transport_maps
-    - restart postfix
+    - postmap_transport_maps
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-transport-maps
 
-- name: configure sender dependent relayhost maps
-  lineinfile:
+- name: "Configure sender dependent relayhost maps"
+  vars:
+    __postfix_canonical_maps: "{{ postfix_sender_dependent_relayhost_maps }}"
+  template:
+    src: "{{ postfix_canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ postfix_sender_dependent_relayhost_maps_file }}"
-    regexp: '^{{ item.pattern | regex_escape }}\s.*'
-    line: '{{ item.pattern }} {{ item.result }}'
     owner: root
     group: root
     mode: 0644
-    create: true
-    state: present
-  with_items: "{{ postfix_sender_dependent_relayhost_maps }}"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - postmap sender_dependent_relayhost_maps
-    - restart postfix
+    - postmap_sender_dependent_relayhost_maps
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-sender-dependent-relayhost-maps
 
-- name: configure generic table
-  lineinfile:
+- name: "Configure generic table"
+  vars:
+    __postfix_canonical_maps: "{{ postfix_smtp_generic_maps_file }}"
+  template:
+    src: "{{ postfix_canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ postfix_smtp_generic_maps_file }}"
-    regexp: '^{{ item.pattern | regex_escape }}\s.*'
-    line: '{{ item.pattern }} {{ item.result }}'
     owner: root
     group: root
     mode: 0644
-    create: true
-    state: present
-  with_items: "{{ postfix_smtp_generic_maps }}"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - postmap generic
-    - restart postfix
+    - postmap_generic
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-generic-table
 
-- name: configure header checks
+- name: "Configure header checks"
   template:
     src: "{{ postfix_header_checks_file.lstrip('/') }}.j2"
     dest: "{{ postfix_header_checks_file }}"
     owner: root
     group: root
     mode: 0644
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
   notify:
-    - restart postfix
+    - restart_postfix
   tags:
     - configuration
     - postfix
     - postfix-header-checks-table
 
-- name: Ensure postfix is started and enabled at boot.
+- name: "Ensure postfix is started and enabled at boot."
   service:
     name: postfix
     state: "{{ postfix_service_state }}"
