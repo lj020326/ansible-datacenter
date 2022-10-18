@@ -1,104 +1,109 @@
 ---
 
-- name: "create_cert:{{ ca_cert_type }} | Get common CA cert facts"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Get common CA cert facts"
   include_tasks: get_cert_facts.yml
 
 #- name: "Display cert info"
 #  debug:
 #    msg:
-#      - "keyring_cacerts_base_dir={{ keyring_cacerts_base_dir }}"
-#      - "ca_domain={{ ca_domain }}"
-#      - "ca_domains_hosted={{ ca_domains_hosted | to_nice_json }}"
-#      - "ca_intermediate_cert_list={{ ca_intermediate_cert_list | to_nice_json }}"
-#      - "ca_service_routes_list={{ ca_service_routes_list | to_nice_json }}"
-#      - "ca_fetch_domains_list={{ ca_fetch_domains_list | to_nice_json }}"
+#      - "bootstrap_keyring_cacerts_base_dir={{ bootstrap_keyring_cacerts_base_dir }}"
+#      - "bootstrap_keyring_ca_domains_hosted={{ bootstrap_keyring_ca_domains_hosted | to_nice_json }}"
+#      - "__bootstrap_keyring_ca_intermediate_cert_list={{ __bootstrap_keyring_ca_intermediate_cert_list | to_nice_json }}"
+#      - "bootstrap_keyring_ca_service_routes_list={{ bootstrap_keyring_ca_service_routes_list | to_nice_json }}"
+#      - "__bootstrap_keyring_ca_fetch_domains_list={{ __bootstrap_keyring_ca_fetch_domains_list | to_nice_json }}"
 
-- name: "create_cert:{{ ca_cert_type }} | Create domain configuration directories"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Create domain configuration directories"
   file:
-    path: "{{ keyring_cacerts_dir }}"
+    path: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
     state: directory
     owner: root
     group: root
     mode: 0755
 
-- name: "create_cert:{{ ca_cert_type }} | Perform cacert validations"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Perform cacert validations"
   include_tasks: validate_cacerts.yml
 
-- name: "create_cert:{{ ca_cert_type }} | Create config json"
-  when: ca_cert_type == "intermediate-ca"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Create config json"
+  when: bootstrap_keyring_ca_cert_type == "intermediate-ca"
   template:
 #    backup: yes
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: 0644
   with_items:
-    - { src: "ca/ca-config.json.j2", dest: "{{ keyring_cacerts_base_dir }}/ca-config.json" }
-    - { src: "ca/ca-cacert-csr.json.j2", dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_info.commonName }}.json" }
+    - src: "ca/ca-config.json.j2"
+      dest: "{{ bootstrap_keyring_cacerts_base_dir }}/ca-config.json"
+    - src: "ca/ca-cacert-csr.json.j2"
+      dest: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_info.commonName }}.json"
 
-- name: "create_cert:{{ ca_cert_type }} | Generating server csr config file [{{ ca_cert_cn }}.json]"
-  when: ca_cert_type != "intermediate-ca"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Generating server csr config file [{{ __bootstrap_keyring_ca_cert_cn }}.json]"
+  when: bootstrap_keyring_ca_cert_type != "intermediate-ca"
   template:
     src: "ca/ca-cert-csr.json.j2"
-    dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_cn }}.json"
+    dest: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_cn }}.json"
 
 ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
 ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
 ## ref: https://gist.github.com/jdeathe/7f7bb957a4e8e0304f0df070f3cbcbee
-- name: "create_cert:{{ ca_cert_type }} | Create signed certificate authority key pair and CSR"
-  when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or ca_force_create|bool
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Create signed certificate authority key pair and CSR"
+  when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or bootstrap_keyring_ca_force_create|bool
   block:
 
-    - name: "create_cert:{{ ca_cert_type }} | Generating signed server certificate {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+    - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Generating signed server certificate {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
       changed_when: no
       shell: >-
         cfssl gencert \
-        --config={{ keyring_cacerts_base_dir }}/ca-config.json \
-        -profile={{ ca_csr_profile }} \
-        -ca={{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} \
-        -ca-key={{ ca_signer_cacerts_dir }}/{{ ca_signer_key }} \
-        {{ ca_cert_cn }}.json \
-        | cfssljson -bare {{ ca_cert_cn }}
+          --config={{ bootstrap_keyring_cacerts_base_dir }}/ca-config.json \
+          -profile={{ __bootstrap_keyring_cacert_csr_profile }} \
+          -ca={{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }} \
+          -ca-key={{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_key }} \
+          {{ __bootstrap_keyring_ca_cert_cn }}.json \
+          | cfssljson -bare {{ __bootstrap_keyring_ca_cert_cn }}
       args:
-        chdir: "{{ keyring_cacerts_dir }}"
-#        creates: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+        chdir: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
+#        creates: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
 
-    - name: "Changing perm to 644 for {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+    - name: "Changing perm to 644 for {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
       file:
-        dest: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+        dest: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
         mode: 644
 
-    - name: "create_cert:{{ ca_cert_type }} | Create server cert chain pem file for root signer [{{ ca_cert_chain }}]"
+    - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Create server cert chain pem file for root signer [{{ __bootstrap_keyring_ca_cert_chain }}]"
       changed_when: no
-      when: ca_signer_is_root|bool
+      when: __bootstrap_keyring_ca_signer_is_root|bool
       shell: >-
-        cat {{ keyring_cacerts_dir }}/{{ ca_cert }} \
-        {{ ca_root_cacerts_dir }}/{{ ca_root_cert }} > {{ ca_cert_chain }}
+        cat {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }} \
+          {{ bootstrap_keyring_ca_root_cacerts_dir }}/{{ bootstrap_keyring_ca_root_cert }} > {{ __bootstrap_keyring_ca_cert_chain }}
       args:
-        chdir: "{{ keyring_cacerts_dir }}"
-#        creates: "{{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+        chdir: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
+#        creates: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }}"
 
-    - name: "create_cert:{{ ca_cert_type }} | Create server cert chain pem file for non-root signer [{{ ca_cert_chain }}]"
+    - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Create server cert chain pem file for non-root signer [{{ __bootstrap_keyring_ca_cert_chain }}]"
       changed_when: no
-      when: ca_signer_is_root|bool == False
+      when: __bootstrap_keyring_ca_signer_is_root|bool == False
       shell: >-
-        cat {{ keyring_cacerts_dir }}/{{ ca_cert }} \
-        {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert_chain }} > {{ ca_cert_chain }}
+        cat {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }} \
+          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }} \
+          > {{ __bootstrap_keyring_ca_cert_chain }}
       args:
-        chdir: "{{ keyring_cacerts_dir }}"
-#        creates: "{{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+        chdir: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
+#        creates: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }}"
 
-    - name: "Changing perm to 644 for {{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+    - name: "Changing perm to 644 for {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }}"
       file:
-        dest: "{{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+        dest: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }}"
         mode: 644
 
 
-- name: "create_cert:{{ ca_cert_type }} | Get cert chain info for {{ keyring_cacerts_dir }}/{{ ca_cert_chain }}"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Get cert chain info for {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }}"
   changed_when: no
-  shell: "openssl crl2pkcs7 -nocrl -certfile {{ keyring_cacerts_dir }}/{{ ca_cert_chain }} | openssl pkcs7 -print_certs -noout"
+  shell: >-
+    openssl crl2pkcs7 -nocrl -certfile \
+      {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }} \
+      | openssl pkcs7 -print_certs -noout
   register: ca_chain_info
 
-- name: "create_cert:{{ ca_cert_type }} | Display cert chain info for {{ ca_cert_chain }}"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Display cert chain info for {{ __bootstrap_keyring_ca_cert_chain }}"
   debug: var=ca_chain_info.stdout_lines
 
   ## ref: https://www.tailored.cloud/devops/how-to-filter-and-map-lists-in-ansible/
@@ -117,41 +122,49 @@
 
 
 ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
-- name: "create_cert:{{ ca_cert_type }} | Get ca certificate info"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Get ca certificate info"
   openssl_certificate_info:
-    path: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+    path: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
   register: cacert_result
 
-- name: "create_cert:{{ ca_cert_type }} | Display cacert_result"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Display cacert_result"
   when: cacert_display_cacert_result
   debug: var=cacert_result
 
-- name: "create_cert:{{ ca_cert_type }} | Assert cert info for {{ cert_node }} is valid"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Assert cert info for {{ __bootstrap_keyring_cert_node }} is valid"
   assert:
     that:
       # issuer and issuer_strict
-      - cacert_result.issuer.organizationName == "{{ ca_signer_cert_info.organization }}"
-      - cacert_result.issuer.commonName == "{{ ca_signer_cert_info.commonName }}"
-      - cacert_result.subject.organizationName == "{{ ca_cert_info.organization }}"
-      - cacert_result.subject.commonName == "{{ ca_cert_info.commonName }}"
+      - cacert_result.issuer.organizationName == "{{ __bootstrap_keyring_ca_signer_cert_info.organization }}"
+      - cacert_result.issuer.commonName == "{{ __bootstrap_keyring_ca_signer_cert_info.commonName }}"
+      - cacert_result.subject.organizationName == "{{ __bootstrap_keyring_ca_cert_info.organization }}"
+      - cacert_result.subject.commonName == "{{ __bootstrap_keyring_ca_cert_info.commonName }}"
       # has_expired
       - not cacert_result.expired
 
-- name: "create_cert:{{ ca_cert_type }} | Validate signed by root cert"
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Validate signed by root cert"
   changed_when: no
-  when: ca_signer_is_root|bool
-  shell: "openssl verify -CAfile {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+  when: __bootstrap_keyring_ca_signer_is_root|bool
+  shell: >-
+    openssl verify -CAfile {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }} \
+      {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
 
-- name: "create_cert:{{ ca_cert_type }} | Perform intermediate cert validations"
-  when: ca_signer_is_root|bool == False
+- name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Perform intermediate cert validations"
+  when: __bootstrap_keyring_ca_signer_is_root|bool == False
   block:
 
-    - name: "create_cert:{{ ca_cert_type }} | Validate server and intermediate cert chain"
+    - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Validate server and intermediate cert chain"
       changed_when: no
-      shell: "openssl verify -CAfile {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert_chain }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      shell: >=
+        openssl verify -CAfile \
+          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }} \
+          {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
 
     ## ref: https://www.shellhacks.com/ansible-when-variable-is-defined-exists-empty-true/
-    - name: "create_cert:{{ ca_cert_type }} | Validate signed by root and intermediate cert"
+    - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Validate signed by root and intermediate cert"
       changed_when: no
       when: ca_cert_issuers|length == 3
-      shell: "openssl verify -CAfile {{ ca_root_cacerts_dir }}/{{ ca_root_cert }} -untrusted {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      shell: >-
+        openssl verify -CAfile {{ bootstrap_keyring_ca_root_cacerts_dir }}/{{ bootstrap_keyring_ca_root_cert }} \
+          -untrusted {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }} \
+          {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}

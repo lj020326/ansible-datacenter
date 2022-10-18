@@ -1,32 +1,30 @@
 ---
 
-- name: "caroot | Set Fact keyring_cacerts_dir"
+- name: "caroot | Set caroot facts"
   set_fact:
-#    ca_domain: "{{ ca_root.domainName }}"
-    keyring_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_root.domainName }}"
-    ca_cert: "{{ ca_root.domainName }}.pem"
-    ca_key: "{{ ca_root.domainName }}-key.pem"
+    __bootstrap_keyring_keyring_cacerts_dir: "{{ bootstrap_keyring_cacerts_base_dir }}/{{ bootstrap_keyring_ca_root.domainName }}"
+    __bootstrap_keyring_ca_cert: "{{ bootstrap_keyring_ca_root.domainName }}.pem"
+    __bootstrap_keyring_ca_key: "{{ bootstrap_keyring_ca_root.domainName }}-key.pem"
 
 - name: "caroot | Display ca info"
   debug:
     msg:
-      - "ca_domain={{ ca_domain }}"
-      - "keyring_cacerts_dir={{ keyring_cacerts_dir }}"
-      - "ca_root={{ ca_root }}"
-      - "ca_root_names={{ ca_root_names }}"
-      - "ca_cert={{ ca_cert }}"
-      - "ca_key={{ ca_key }}"
+      - "__bootstrap_keyring_keyring_cacerts_dir={{ __bootstrap_keyring_keyring_cacerts_dir }}"
+      - "bootstrap_keyring_ca_root={{ bootstrap_keyring_ca_root }}"
+      - "bootstrap_keyring_ca_root_names={{ bootstrap_keyring_ca_root_names }}"
+      - "__bootstrap_keyring_ca_cert={{ __bootstrap_keyring_ca_cert }}"
+      - "__bootstrap_keyring_ca_key={{ __bootstrap_keyring_ca_key }}"
 
 - name: "create_caroot | Perform cacert validations"
   include_tasks: validate_cacerts.yml
 
 - name: "create_caroot | Create intermediate certificate authority key pair and CSR"
-  when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or ca_force_create|bool
+  when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or bootstrap_keyring_ca_force_create|bool
   block:
 
   - name: "caroot | Create domain configuration directories"
     file:
-      path: "{{ keyring_cacerts_dir }}"
+      path: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
       state: directory
       owner: root
       group: root
@@ -35,25 +33,25 @@
   - name: "caroot | Create CA CSR json"
     template:
       src: "ca/ca-root-csr.json.j2"
-      dest: "{{ keyring_cacerts_dir }}/{{ ca_root.commonName }}.json"
+      dest: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ bootstrap_keyring_ca_root.commonName }}.json"
       mode: 0600
 
   ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
   ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
   - name: "caroot | Create certificate authority key pair and CSR"
-    shell: "cfssl genkey -initca {{ ca_root.commonName }}.json | cfssljson -bare {{ ca_root.commonName }}"
+    shell: "cfssl genkey -initca {{ bootstrap_keyring_ca_root.commonName }}.json | cfssljson -bare {{ bootstrap_keyring_ca_root.commonName }}"
     args:
-      chdir: "{{ keyring_cacerts_dir }}"
-  #    creates: "{{ keyring_cacerts_dir }}/{{ pki_caroot_key }}"
+      chdir: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
+  #    creates: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ bootstrap_keyring_pki_caroot_key }}"
 
-  - name: "Changing perm to 644 for {{ keyring_cacerts_dir }}/{{ ca_cert }}"
+  - name: "Changing perm to 644 for {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
     file:
       dest: "{{ item.dest }}"
       mode: "{{ item.mode }}"
     loop:
-      - dest: "{{ keyring_cacerts_dir }}/{{ pki_caroot_key }}"
+      - dest: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ bootstrap_keyring_pki_caroot_key }}"
         mode: 600
-      - dest: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+      - dest: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
         mode: 644
 
 
@@ -61,7 +59,7 @@
 - name: "caroot | Get ca root certificate info"
   openssl_certificate_info:
 #    path: /etc/ssl/crt/ansible.com.crt
-    path: "{{ keyring_cacerts_dir }}/{{ ca_cert }}"
+    path: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
   register: cacert_result
 
 - name: "caroot | Display ca root cert info"
@@ -71,9 +69,9 @@
   assert:
     that:
       # issuer and issuer_strict
-      - cacert_result.issuer.commonName == "{{ ca_root.commonName }}"
-      - cacert_result.issuer.organizationName == "{{ ca_root.organization }}"
-      - cacert_result.subject.commonName == "{{ ca_root.commonName }}"
-      - cacert_result.subject.organizationName == "{{ ca_root.organization }}"
+      - cacert_result.issuer.commonName == "{{ bootstrap_keyring_ca_root.commonName }}"
+      - cacert_result.issuer.organizationName == "{{ bootstrap_keyring_ca_root.organization }}"
+      - cacert_result.subject.commonName == "{{ bootstrap_keyring_ca_root.commonName }}"
+      - cacert_result.subject.organizationName == "{{ bootstrap_keyring_ca_root.organization }}"
       # has_expired
       - not cacert_result.expired

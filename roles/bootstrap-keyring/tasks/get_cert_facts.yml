@@ -1,156 +1,168 @@
 ---
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Display cert node info"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Display cert node info"
   debug:
     msg:
-      - "cert_node={{ cert_node }}"
+      - "__bootstrap_keyring_cert_node={{ __bootstrap_keyring_cert_node }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get intermediate CA cert info"
-  when: ca_cert_type == "intermediate-ca"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get intermediate CA cert info"
+  when: bootstrap_keyring_ca_cert_type == "intermediate-ca"
   block:
 
-    - name: "get_cert_facts:{{ ca_cert_type }} | Set ca_cert_info fact"
+    - name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set __bootstrap_keyring_cacert_local_info"
       set_fact:
-        ca_cert_local_info: "{{ ca_intermediate_certs[cert_node] }}"
+        __bootstrap_keyring_cacert_local_info: "{{ ca_intermediate_certs[__bootstrap_keyring_cert_node] }}"
 
-    - name: "get_cert_facts:{{ ca_cert_type }} | Get cert csr profile info"
+    - name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set __bootstrap_keyring_cacert_csr_profile"
       set_fact:
-        ca_csr_profile: "{{ ca_cert_info.ca_csr_profile | default(ca_intermediate_default_profile) }}"
+        __bootstrap_keyring_cacert_csr_profile: "{{
+          __bootstrap_keyring_ca_cert_info.ca_csr_profile
+          | d(bootstrap_keyring_ca_intermediate_default_profile) }}"
 
-
-- name: "get_cert_facts:{{ ca_cert_type }} | Get service route cert info"
-  when: ca_cert_type == "service-route"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get service route cert info"
+  when: bootstrap_keyring_ca_cert_type == "service-route"
   block:
 
-    - name: "get_cert_facts:{{ ca_cert_type }} | Set service route info"
+    - name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set service route info"
       set_fact:
-        ca_cert_route_info: "{{ ca_service_routes[cert_node] }}"
+        __bootstrap_keyring_cacert_route_info: "{{ ca_service_routes[__bootstrap_keyring_cert_node] }}"
 
-    - name: "get_cert_facts:{{ ca_cert_type }} | Get service route csr profile info"
+    - name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get service route csr profile info"
       set_fact:
-        ca_csr_profile: "{{ ca_cert_route_info['ca_csr_profile'] | default(ca_cacert_default_profile) }}"
+        __bootstrap_keyring_cacert_csr_profile: "{{ __bootstrap_keyring_cacert_route_info['ca_csr_profile'] | d(bootstrap_keyring_ca_cacert_default_profile) }}"
 
-    - name: "get_cert_facts:{{ ca_cert_type }} | Set service-route ca_cert_info fact"
+    - name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set __bootstrap_keyring_cacert_local_info for service-route"
       set_fact:
-        ca_cert_local_info:
-          commonName: "{{ ca_cert_route_info.route }}"
-          domainName: "{{ ca_cert_route_info.route }}"
-          signerName: "{{ ca_cert_route_info.signerName }}"
-          fqdn: "{{ ca_cert_route_info.route }}"
+        __bootstrap_keyring_cacert_local_info:
+          commonName: "{{ __bootstrap_keyring_cacert_route_info.route }}"
+          domainName: "{{ __bootstrap_keyring_cacert_route_info.route }}"
+          signerName: "{{ __bootstrap_keyring_cacert_route_info.signerName }}"
+          fqdn: "{{ __bootstrap_keyring_cacert_route_info.route }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get cert info"
-  when: ca_cert_type == "cert"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get cert info"
+  when: bootstrap_keyring_ca_cert_type == "cert"
   block:
 
-    - name: "get_cert_facts:{{ ca_cert_type }} | Set cert profile"
+    - name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set cert profile"
       set_fact:
-        ca_csr_profile: "{{ hostvars[cert_node]['ca_csr_profile'] | default(ca_cacert_default_profile) }}"
+        __bootstrap_keyring_cacert_csr_profile: "{{ hostvars[__bootstrap_keyring_cert_node]['ca_csr_profile'] | d(bootstrap_keyring_ca_cacert_default_profile) }}"
 
-    - name: "get_cert_facts:{{ ca_cert_type }} | Set cert ca_cert_info fact"
+    - name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set __bootstrap_keyring_cacert_local_info"
       set_fact:
-        ca_cert_local_info:
-          commonName: "{{ hostvars[cert_node]['ca_common_name'] | default(cert_node) }}"
-          domainName: "{{ hostvars[cert_node]['ca_domain'] }}"
-#          signerName: "{{ ca_intermediate_certs_by_domain[ca_cert_domain].commonName | default(ca_root_cn) }}"
-          signerName: "{{ ca_intermediate_certs_by_domain[hostvars[cert_node]['ca_domain']].commonName | default(ca_root_cn) }}"
-          fqdn: "{{ hostvars[cert_node]['ca_common_name'] | default(cert_node) }}.{{ hostvars[cert_node]['ca_domain'] }}"
+        __bootstrap_keyring_cacert_local_info:
+          commonName: "{{ hostvars[__bootstrap_keyring_cert_node]['ca_common_name'] | d(__bootstrap_keyring_cert_node) }}"
+          domainName: "{{ hostvars[__bootstrap_keyring_cert_node]['ca_domain'] }}"
+#          signerName: "{{ ca_intermediate_certs_by_domain[__bootstrap_keyring_ca_cert_domain].commonName | d(bootstrap_keyring_ca_root_cn) }}"
+          signerName: "{{ ca_intermediate_certs_by_domain[hostvars[__bootstrap_keyring_cert_node]['ca_domain']].commonName | d(bootstrap_keyring_ca_root_cn) }}"
+          fqdn: "{{ hostvars[__bootstrap_keyring_cert_node]['ca_common_name'] | d(__bootstrap_keyring_cert_node) }}.{{ hostvars[__bootstrap_keyring_cert_node]['ca_domain'] }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Display ca_cert_local_info"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Display __bootstrap_keyring_cacert_local_info"
   debug:
     msg:
-      - "cert_node={{ cert_node }}"
-      - "ca_cert_local_info={{ ca_cert_local_info }}"
+      - "__bootstrap_keyring_cert_node={{ __bootstrap_keyring_cert_node }}"
+      - "__bootstrap_keyring_cacert_local_info={{ __bootstrap_keyring_cacert_local_info }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get ca_signer_cert_cn"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get __bootstrap_keyring_ca_signer_cert_cn"
   set_fact:
-    ca_signer_cert_cn: "{{ ca_cert_local_info.signerName | default(ca_root_cn) }}"
+    __bootstrap_keyring_ca_signer_cert_cn: "{{ __bootstrap_keyring_cacert_local_info.signerName | d(bootstrap_keyring_ca_root_cn) }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get cert facts"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get cert facts"
   set_fact:
-    ca_signer_is_root: "{{ True if ca_signer_cert_cn == ca_root_cn else False | bool }}"
-    ca_parent_domain: "{{ ('.').join(ca_cert_local_info.domainName.split('.')[1::]) }}"
-    ca_cert_domain: "{{ ca_cert_local_info.domainName }}"
-    ca_cert_cn: "{{ ca_cert_local_info.commonName }}"
-    ca_cert_fqdn: "{{ ca_cert_local_info.fqdn | default(ca_cert_local_info.commonName) }}"
+    __bootstrap_keyring_ca_signer_is_root: "{{ True if __bootstrap_keyring_ca_signer_cert_cn == bootstrap_keyring_ca_root_cn else False | bool }}"
+    __bootstrap_keyring_ca_parent_domain: "{{ ('.').join(__bootstrap_keyring_cacert_local_info.domainName.split('.')[1::]) }}"
+    __bootstrap_keyring_ca_cert_domain: "{{ __bootstrap_keyring_cacert_local_info.domainName }}"
+    __bootstrap_keyring_ca_cert_cn: "{{ __bootstrap_keyring_cacert_local_info.commonName }}"
+    __bootstrap_keyring_ca_cert_fqdn: "{{ __bootstrap_keyring_cacert_local_info.fqdn | d(__bootstrap_keyring_cacert_local_info.commonName) }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get signer cert info"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get signer cert info"
   set_fact:
-    ca_signer_cert_info: "{{ ca_signer_certs[ca_signer_cert_cn] }}"
+    __bootstrap_keyring_ca_signer_cert_info: "{{ __bootstrap_keyring_ca_signer_certs[__bootstrap_keyring_ca_signer_cert_cn] }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get parent signer cert info"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get parent signer cert info"
   set_fact:
-    ca_signer_parent_cert_info: "{{ ca_signer_certs[ca_signer_cert_info.signerName | default(ca_root_cn)] | default(ca_root) }}"
+    __bootstrap_keyring_ca_signer_parent_cert_info: "{{
+      __bootstrap_keyring_ca_signer_certs[__bootstrap_keyring_ca_signer_cert_info.signerName
+      | d(bootstrap_keyring_ca_root_cn)] | d(bootstrap_keyring_ca_root) }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get signer cert info combined with parent signer info"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get signer cert info combined with parent signer info"
   set_fact:
-    ca_signer_cert_info: "{{ ca_root | combine(ca_signer_parent_cert_info) | combine(ca_signer_cert_info) }}"
+    __bootstrap_keyring_ca_signer_cert_info: "{{ bootstrap_keyring_ca_root
+      | combine(__bootstrap_keyring_ca_signer_parent_cert_info)
+      | combine(__bootstrap_keyring_ca_signer_cert_info) }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Get signer domain name"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Get signer domain name"
   set_fact:
-    ca_signer_domain: "{{ ca_signer_cert_info.domainName }}"
-    ca_signer_parent_cn: "{{ ca_signer_parent_cert_info.commonName }}"
-    ca_signer_parent_domain: "{{ ca_signer_parent_cert_info.domainName }}"
+    __bootstrap_keyring_ca_signer_domain: "{{ __bootstrap_keyring_ca_signer_cert_info.domainName }}"
+    __bootstrap_keyring_ca_signer_parent_cn: "{{ __bootstrap_keyring_ca_signer_parent_cert_info.commonName }}"
+    __bootstrap_keyring_ca_signer_parent_domain: "{{ __bootstrap_keyring_ca_signer_parent_cert_info.domainName }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Set ca_cert_info fact"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set __bootstrap_keyring_ca_cert_info"
   set_fact:
-    ca_cert_info: "{{ ca_root | combine(ca_signer_parent_cert_info) | combine(ca_signer_cert_info) | combine(ca_cert_local_info) }}"
+    __bootstrap_keyring_ca_cert_info: "{{
+        bootstrap_keyring_ca_root | combine(__bootstrap_keyring_ca_signer_parent_cert_info)
+        | combine(__bootstrap_keyring_ca_signer_cert_info)
+        | combine(__bootstrap_keyring_cacert_local_info)
+      }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Set CA facts"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set CA facts"
   set_fact:
-    ca_cert: "{{ ca_cert_cn }}.pem"
-    ca_key: "{{ ca_cert_cn }}-key.pem"
-    ca_cert_chain: "{{ ca_cert_cn }}.chain.pem"
-    ca_signer_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_signer_cert_info.domainName }}"
-    ca_signer_cert: "{{ ca_signer_cert_info.commonName }}.pem"
-    ca_signer_key: "{{ ca_signer_cert_info.commonName }}-key.pem"
-#    ca_signer_cert_chain: "{{ ca_signer_cert_info.commonName }}.chain.pem"
-    ca_signer_cert_chain: "{{ ca_signer_cert_info.commonName + '.chain.pem' if ca_signer_is_root==False else ca_signer_cert_info.commonName + '.pem' }}"
-    keyring_cacerts_dir: "{{ keyring_cacerts_base_dir }}/{{ ca_cert_info.domainName }}"
-    ca_cert_names:
-      - C: "{{ ca_cert_info.country }}"
-        ST: "{{ ca_cert_info.state }}"
-        L: "{{ ca_cert_info.locality }}"
-        O: "{{ ca_cert_info.organization }}"
-        OU: "{{ ca_cert_info.organizationalUnit }}"
+    __bootstrap_keyring_ca_cert: "{{ __bootstrap_keyring_ca_cert_cn }}.pem"
+    __bootstrap_keyring_ca_key: "{{ __bootstrap_keyring_ca_cert_cn }}-key.pem"
+    __bootstrap_keyring_ca_cert_chain: "{{ __bootstrap_keyring_ca_cert_cn }}.chain.pem"
+    __bootstrap_keyring_ca_signer_cacerts_dir: "{{ bootstrap_keyring_cacerts_base_dir }}/{{ __bootstrap_keyring_ca_signer_cert_info.domainName }}"
+    __bootstrap_keyring_ca_signer_cert: "{{ __bootstrap_keyring_ca_signer_cert_info.commonName }}.pem"
+    __bootstrap_keyring_ca_signer_key: "{{ __bootstrap_keyring_ca_signer_cert_info.commonName }}-key.pem"
+#    __bootstrap_keyring_ca_signer_cert_chain: "{{ __bootstrap_keyring_ca_signer_cert_info.commonName }}.chain.pem"
+    __bootstrap_keyring_ca_signer_cert_chain: "{{ __bootstrap_keyring_ca_signer_cert_info.commonName + '.chain.pem'
+      if __bootstrap_keyring_ca_signer_is_root==False else __bootstrap_keyring_ca_signer_cert_info.commonName + '.pem' }}"
+    __bootstrap_keyring_keyring_cacerts_dir: "{{ bootstrap_keyring_cacerts_base_dir }}/{{ __bootstrap_keyring_ca_cert_info.domainName }}"
+    __bootstrap_keyring_ca_cert_names:
+      - C: "{{ __bootstrap_keyring_ca_cert_info.country }}"
+        ST: "{{ __bootstrap_keyring_ca_cert_info.state }}"
+        L: "{{ __bootstrap_keyring_ca_cert_info.locality }}"
+        O: "{{ __bootstrap_keyring_ca_cert_info.organization }}"
+        OU: "{{ __bootstrap_keyring_ca_cert_info.organizationalUnit }}"
 
-- name: "get_cert_facts:{{ ca_cert_type }} | Set fact for ca_cert_csr_tpl"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Set fact for __bootstrap_keyring_ca_cert_csr_tpl"
   set_fact:
-    ca_cacert_csr_tpl:
-      CN: "{{ ca_cert_info.commonName }}"
-      key: "{{ ca_key_spec }}"
-      names: "{{ ca_cert_names }}"
-    ca_cert_csr_tpl:
-      CN: "{{ ca_cert_info.commonName }}"
-      hosts: "{{ ( ca_cert_info.sans|default([ '127.0.0.1', ca_cert_fqdn, '*.' + ca_cert_fqdn ]) + ca_cert_info.altips|default([]) ) }}"
-      key: "{{ ca_key_spec }}"
-      names: "{{ ca_cert_names }}"
+    __bootstrap_keyring_ca_cacert_csr_tpl:
+      CN: "{{ __bootstrap_keyring_ca_cert_info.commonName }}"
+      key: "{{ bootstrap_keyring_ca_key_spec }}"
+      names: "{{ __bootstrap_keyring_ca_cert_names }}"
+    __bootstrap_keyring_ca_cert_csr_tpl:
+      CN: "{{ __bootstrap_keyring_ca_cert_info.commonName }}"
+      hosts: "{{ ( __bootstrap_keyring_ca_cert_info.sans |
+                d([ '127.0.0.1', __bootstrap_keyring_ca_cert_fqdn,
+                 '*.' + __bootstrap_keyring_ca_cert_fqdn ]) +
+                 __bootstrap_keyring_ca_cert_info.altips|d([]) )
+         }}"
+      key: "{{ bootstrap_keyring_ca_key_spec }}"
+      names: "{{ __bootstrap_keyring_ca_cert_names }}"
 
-- name: "get_cert_facts | Set ca_fetch_domains_list"
+- name: "get_cert_facts | Set __bootstrap_keyring_ca_fetch_domains_list"
   set_fact:
-    ca_fetch_domains_list: "{{ (ca_domains_hosted + ca_intermediate_certs_by_domain.keys()|list)|flatten|unique }}"
+    __bootstrap_keyring_ca_fetch_domains_list: "{{ (bootstrap_keyring_ca_domains_hosted + ca_intermediate_certs_by_domain.keys()|list)|flatten|unique }}"
 
-
-- name: "get_cert_facts:{{ ca_cert_type }} | Display final cert info"
+- name: "get_cert_facts:{{ bootstrap_keyring_ca_cert_type }} | Display final cert info"
   debug:
     msg:
-      - "ca_cert={{ ca_cert }}"
-      - "ca_key={{ ca_key }}"
-      - "keyring_cacerts_dir={{ keyring_cacerts_dir }}"
-      - "ca_cert_cn={{ ca_cert_cn }}"
-      - "ca_cert_domain={{ ca_cert_domain }}"
-      - "ca_cert_fqdn={{ ca_cert_fqdn }}"
-      - "ca_cert_info={{ ca_cert_info }}"
-      - "ca_cert_names={{ ca_cert_names }}"
-      - "ca_cert_csr_tpl={{ ca_cert_csr_tpl }}"
-      - "ca_cert_chain={{ ca_cert_chain }}"
-      - "ca_signer_cert_cn={{ ca_signer_cert_cn }}"
-      - "ca_signer_domain={{ ca_signer_domain }}"
-      - "ca_signer_parent_cn={{ ca_signer_parent_cn }}"
-      - "ca_signer_parent_domain={{ ca_signer_parent_domain }}"
-      - "ca_signer_cacerts_dir={{ ca_signer_cacerts_dir }}"
-      - "ca_signer_cert={{ ca_signer_cert }}"
-      - "ca_signer_key={{ ca_signer_key }}"
-      - "ca_signer_cert_chain={{ ca_signer_cert_chain }}"
-      - "ca_signer_cert_info={{ ca_signer_cert_info }}"
-      - "ca_signer_is_root={{ ca_signer_is_root }}"
-
+      - "__bootstrap_keyring_ca_cert={{ __bootstrap_keyring_ca_cert }}"
+      - "__bootstrap_keyring_ca_key={{ __bootstrap_keyring_ca_key }}"
+      - "__bootstrap_keyring_keyring_cacerts_dir={{ __bootstrap_keyring_keyring_cacerts_dir }}"
+      - "__bootstrap_keyring_ca_cert_cn={{ __bootstrap_keyring_ca_cert_cn }}"
+      - "__bootstrap_keyring_ca_cert_domain={{ __bootstrap_keyring_ca_cert_domain }}"
+      - "__bootstrap_keyring_ca_cert_fqdn={{ __bootstrap_keyring_ca_cert_fqdn }}"
+      - "__bootstrap_keyring_ca_cert_info={{ __bootstrap_keyring_ca_cert_info }}"
+      - "__bootstrap_keyring_ca_cert_names={{ __bootstrap_keyring_ca_cert_names }}"
+      - "__bootstrap_keyring_ca_cert_csr_tpl={{ __bootstrap_keyring_ca_cert_csr_tpl }}"
+      - "__bootstrap_keyring_ca_cert_chain={{ __bootstrap_keyring_ca_cert_chain }}"
+      - "__bootstrap_keyring_ca_signer_cert_cn={{ __bootstrap_keyring_ca_signer_cert_cn }}"
+      - "__bootstrap_keyring_ca_signer_domain={{ __bootstrap_keyring_ca_signer_domain }}"
+      - "__bootstrap_keyring_ca_signer_parent_cn={{ __bootstrap_keyring_ca_signer_parent_cn }}"
+      - "__bootstrap_keyring_ca_signer_parent_domain={{ __bootstrap_keyring_ca_signer_parent_domain }}"
+      - "__bootstrap_keyring_ca_signer_cacerts_dir={{ __bootstrap_keyring_ca_signer_cacerts_dir }}"
+      - "__bootstrap_keyring_ca_signer_cert={{ __bootstrap_keyring_ca_signer_cert }}"
+      - "__bootstrap_keyring_ca_signer_key={{ __bootstrap_keyring_ca_signer_key }}"
+      - "__bootstrap_keyring_ca_signer_cert_chain={{ __bootstrap_keyring_ca_signer_cert_chain }}"
+      - "__bootstrap_keyring_ca_signer_cert_info={{ __bootstrap_keyring_ca_signer_cert_info }}"
+      - "__bootstrap_keyring_ca_signer_is_root={{ __bootstrap_keyring_ca_signer_is_root }}"
