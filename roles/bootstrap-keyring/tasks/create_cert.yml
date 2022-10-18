@@ -51,13 +51,13 @@
 
     - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Generating signed server certificate {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
       changed_when: no
-      shell: >-
-        cfssl gencert \
-          --config={{ bootstrap_keyring_cacerts_base_dir }}/ca-config.json \
-          -profile={{ __bootstrap_keyring_cacert_csr_profile }} \
-          -ca={{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }} \
-          -ca-key={{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_key }} \
-          {{ __bootstrap_keyring_ca_cert_cn }}.json \
+      shell: >
+        cfssl gencert
+          --config={{ bootstrap_keyring_cacerts_base_dir }}/ca-config.json
+          -profile={{ __bootstrap_keyring_cacert_csr_profile }}
+          -ca={{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }}
+          -ca-key={{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_key }}
+          {{ __bootstrap_keyring_ca_cert_cn }}.json
           | cfssljson -bare {{ __bootstrap_keyring_ca_cert_cn }}
       args:
         chdir: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
@@ -71,8 +71,8 @@
     - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Create server cert chain pem file for root signer [{{ __bootstrap_keyring_ca_cert_chain }}]"
       changed_when: no
       when: __bootstrap_keyring_ca_signer_is_root|bool
-      shell: >-
-        cat {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }} \
+      shell: >
+        cat {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
           {{ bootstrap_keyring_ca_root_cacerts_dir }}/{{ bootstrap_keyring_ca_root_cert }} > {{ __bootstrap_keyring_ca_cert_chain }}
       args:
         chdir: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
@@ -81,9 +81,9 @@
     - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Create server cert chain pem file for non-root signer [{{ __bootstrap_keyring_ca_cert_chain }}]"
       changed_when: no
       when: __bootstrap_keyring_ca_signer_is_root|bool == False
-      shell: >-
-        cat {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }} \
-          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }} \
+      shell: >
+        cat {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
+          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }}
           > {{ __bootstrap_keyring_ca_cert_chain }}
       args:
         chdir: "{{ __bootstrap_keyring_keyring_cacerts_dir }}"
@@ -97,9 +97,9 @@
 
 - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Get cert chain info for {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }}"
   changed_when: no
-  shell: >-
-    openssl crl2pkcs7 -nocrl -certfile \
-      {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }} \
+  shell: >
+    openssl crl2pkcs7 -nocrl -certfile
+      {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert_chain }}
       | openssl pkcs7 -print_certs -noout
   register: ca_chain_info
 
@@ -145,8 +145,8 @@
 - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Validate signed by root cert"
   changed_when: no
   when: __bootstrap_keyring_ca_signer_is_root|bool
-  shell: >-
-    openssl verify -CAfile {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }} \
+  shell: >
+    openssl verify -CAfile {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }}
       {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
 
 - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Perform intermediate cert validations"
@@ -155,16 +155,16 @@
 
     - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Validate server and intermediate cert chain"
       changed_when: no
-      shell: >=
-        openssl verify -CAfile \
-          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }} \
+      shell: >
+        openssl verify -CAfile
+          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }}
           {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
 
     ## ref: https://www.shellhacks.com/ansible-when-variable-is-defined-exists-empty-true/
     - name: "create_cert:{{ bootstrap_keyring_ca_cert_type }} | Validate signed by root and intermediate cert"
       changed_when: no
       when: ca_cert_issuers|length == 3
-      shell: >-
-        openssl verify -CAfile {{ bootstrap_keyring_ca_root_cacerts_dir }}/{{ bootstrap_keyring_ca_root_cert }} \
-          -untrusted {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }} \
+      shell: >
+        openssl verify -CAfile {{ bootstrap_keyring_ca_root_cacerts_dir }}/{{ bootstrap_keyring_ca_root_cert }}
+          -untrusted {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }}
           {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
