@@ -110,16 +110,14 @@ ca_node:
 ```yaml
 --- # tasks file for role cert-auth
 include: ca-init.yml
-when: ca_init is defined and ca_force_create == yes
+when: bootstrap_keyring_ca_init is defined and ca_force_create == yes
 
 include: certify_nodes.yml
-when: ca_certify_nodes is defined and ca_force_certify_nodes
+when: bootstrap_keyring_ca_certify_nodes is defined and ca_force_certify_nodes
 
 include: fetch_keys.yml
-when: ca_fetch_certs is defined
+when: bootstrap_keyring_ca_fetch_certs is defined
 
-include: distribute_keys.yml
-when: ca_distribute_keys is defined
 ```
 
 * Setting up the CA server:
@@ -283,7 +281,7 @@ The supporting vars.yml are:
 # install and configure the root CA (from scratch)
 ca_init: yes
 # generate certs for nodes
-ca_certify_nodes: yes
+bootstrap_keyring_ca_certify_nodes: yes
 # copy key to ansible control machine
 ca_fetch_certs: yes
 # force creating even if files exist on the node
@@ -300,14 +298,13 @@ An example playbook setup-ca-server.yml utilizing the CA role to setup the CA se
 - hosts: caserver01
   become: yes
   vars:
-   ca_init: yes
-   ca_certify_nodes: yes
-   ca_fetch_certs: yes
-   ca_force_create: yes
-   ca_force_certify_nodes: yes
-   ca_distribute_keys: yes
+   bootstrap_keyring_ca_init: yes
+   bootstrap_keyring_ca_certify_nodes: yes
+   bootstrap_keyring_ca_fetch_certs: yes
+   bootstrap_keyring_ca_force_create: yes
+   bootstrap_keyring_ca_force_certify_nodes: yes
   roles:
-   - role: ansible-role-ca
+   - role: bootstrap-keyring
      tags: ca
 ```
 
@@ -315,12 +312,10 @@ Example deploy-nodes.yml for nodes needing certificates ...
 
 ```yaml
 - hosts: ca-swarm-instances
-  vars:
-   ca_distribute_keys: yes
   become: yes
   become_user: root
   roles:
-    - role: ansible-role-ca
+    - role: deploy-cacerts
       tags: ca,core
 ```
 

@@ -1,9 +1,10 @@
 ---
 
-- name: "Check for CA key existence (so we don't generate a new one on every run)"
+- name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Check for CA key existence (so we don't generate a new one on every run)"
   block:
 
-    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Check if {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_key }} certificate exists"
+    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Check if
+        {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_key }} certificate exists"
       stat:
         path: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_key }}"
       register: __key_file
@@ -44,19 +45,19 @@
 
     - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Check if {{ __bootstrap_keyring_ca_cert }} certificate exists"
       stat: path="{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}"
-      register: cert_file
+      register: __cert_file
 
-    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Display cert_file info"
+    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Display __cert_file info"
       debug:
-        msg: "cert_file={{ cert_file }}"
+        msg: "__cert_file={{ __cert_file }}"
 
-    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Check certificate expiration date [ Expecting more than a week before setting regeneration var ... ]"
+    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Check certificate expiration date
+        [ Expecting more than a week before setting regeneration var ... ]"
       changed_when: no
-      shell: >
-        openssl x509 -checkend
-          {{ __bootstrap_keyring_ca_cert_expiration_panic_threshold }}
-          -noout -in {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
-      when: cert_file and cert_file.stat.exists
+      shell: >-
+        openssl x509 -checkend {{ __bootstrap_keyring_ca_cert_expiration_panic_threshold }} \
+            -noout -in {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
+      when: __cert_file and __cert_file.stat.exists
       register: cert_validity_exp_date
 
     - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Display cert_validity_exp_date"
@@ -68,9 +69,9 @@
         msg: "{{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }} is still valid no need to generate"
       when: cert_validity_exp_date and cert_validity_exp_date.rc | default(0) == 0
 
-    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | set _ca_missing_or_invalid_cert to {{ cert_file.stat.exists }}"
+    - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | set _ca_missing_or_invalid_cert to {{ __cert_file.stat.exists }}"
       set_fact:
-        _ca_missing_or_invalid_cert: "{{ not cert_file.stat.exists | bool }}"
+        _ca_missing_or_invalid_cert: "{{ not __cert_file.stat.exists | bool }}"
 
 #    - set_fact:
 #        _ca_missing_or_invalid_cert: no
@@ -118,14 +119,14 @@
 
     - name: "validate_cert:{{ bootstrap_keyring_ca_cert_type }} | Validate signed by ca signer certs"
       changed_when: no
-#      when: cert_file and cert_file.stat.exists
-#      shell: >
-#        openssl verify -CAfile
-#          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }}
+#      when: __cert_file and __cert_file.stat.exists
+#      shell: >-
+#        openssl verify -CAfile \
+#          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert }} \
 #          {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
-      shell: >
-        openssl verify -CAfile
-          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }}
+      shell: >-
+        openssl verify -CAfile \
+          {{ __bootstrap_keyring_ca_signer_cacerts_dir }}/{{ __bootstrap_keyring_ca_signer_cert_chain }} \
           {{ __bootstrap_keyring_keyring_cacerts_dir }}/{{ __bootstrap_keyring_ca_cert }}
       register: cert_validity_signer
 
