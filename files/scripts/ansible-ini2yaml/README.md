@@ -14,8 +14,7 @@ The script is implemented as a filter:
     ## OR
     ini2yaml.py < inventory.ini > inventory.yaml
 
-Ansible 2.4.1 or later automatically recognizes the inventory format so the `.yaml` file extension can be omitted,
-also allowing the default `/etc/ansible/hosts` inventory to be in YAML format.
+Ansible 2.4.1 or later automatically recognizes the inventory format so the `.yaml` file extension can be omitted, also allowing the default `/etc/ansible/hosts` inventory to be in YAML format.
 
 Dependencies
 ------------
