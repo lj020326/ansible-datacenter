@@ -190,7 +190,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:59  ├── deploy_vsphere_dc.yml -> ../../group_vars/deploy_vsphere_dc.yml
 11:46:59  ├── dhcp_master.yml -> ../../group_vars/dhcp_master.yml
 11:46:59  ├── dhcp_slave.yml -> ../../group_vars/dhcp_slave.yml
-11:46:59  ├── docker_admin_node.yml -> ../../group_vars/docker_admin_node.yml
+11:46:59  ├── docker_stack_admin.yml -> ../../group_vars/docker_stack_admin.yml
 11:46:59  ├── docker_awx_node.yml -> ../../group_vars/docker_awx_node.yml
 11:46:59  ├── docker_cobbler_node.yml -> ../../group_vars/docker_cobbler_node.yml
 11:46:59  ├── docker_control_node.yml -> ../../group_vars/docker_control_node.yml

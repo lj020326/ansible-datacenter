@@ -10,13 +10,17 @@ Usage
 
 The script is implemented as a filter:
 
-    ini2yaml < inventory > inventory.yaml
+    ini2yaml < inventory.ini > inventory.yaml
+
+    ini2yaml < hosts.ini > hosts.yaml
 
 Ansible 2.4.1 or later automatically recognizes the inventory format so the `.yaml` file extension can be omitted,
 also allowing the default `/etc/ansible/hosts` inventory to be in YAML format.
 
 Dependencies
 ------------
-You may need the following dependencies:
 
-    pip install pyyaml six
+Install dependencies:
+
+    pip install -r requirement.txt
+

@@ -1,12 +1,29 @@
 ---
+############
+## Ansible vars
+############
+
+host_key_checking: no
+
+#ansible_user: root
+ansible_user: "ansible"
+ansible_ssh_user: "{{ ansible_user }}"
+#ansible_debug_mode: yes
+
+## Used by initial machine provisioning plays
+bootstrap_user: "{{ ansible_user }}"
+
+############
+## Ansible PING test exclude tags
+############
 
 ##tags_excluded_from_ping_test: []
 tags_excluded_from_ping_test:
   - bootstrap-ansible-user
-  - bootstrap-user
-  - bootstrap-vmware-esxi
   - deploy-vm
-#  - deploy-vsphere-dc
+  - deploy-vsphere-dc
+#  - bootstrap-user
+#  - bootstrap-vmware-esxi
 
 ## ref: https://stackoverflow.com/questions/62701036/filter-out-elements-from-list-if-matching-multiple-patterns
 run_tags_included_ping_test: "{{ ansible_run_tags | reject('match', '(' +  tags_excluded_from_ping_test | join('|') + ')') | list }}"
@@ -15,13 +32,9 @@ ping_exclude: "{{ run_tags_excluded_ping_test|length>0 }}"
 
 apply_os_groups_exclude: "{{ ping_exclude }}"
 
-host_key_checking: no
-
-#ansible_user: root
-ansible_user: "ansible"
-ansible_ssh_user: "{{ ansible_user }}"
-bootstrap_user: "{{ ansible_user }}"
-#ansible_debug_mode: yes
+############
+## Domain vars
+############
 
 external_root_domain: "dettonville.org"
 external_domain: "{{ external_root_domain }}"
@@ -39,6 +52,9 @@ internal_domain: "{{ internal_subdomain }}.{{ internal_root_domain }}"
 #internal_domain: "{{ internal_root_domain }}"
 #internal_parent_domain: "{{ ('.').join(internal_domain.split('.')[1::]) }}"
 
+############
+## Network vars
+############
 hostname_internal_domain: "{{ internal_domain }}"
 hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
 hostname_name_short: "{{ inventory_hostname_short }}"
@@ -48,18 +64,24 @@ netbase__hostname: "{{ hostname_name_full if (inventory_hostname.split('.')[0] n
 ## keep this out of all.yml for the molecule docker provisioner testing
 #ansible_host: "{{ netbase__hostname }}"
 
+############
+## Gateway related vars
+############
+
 ## ref: https://en.wikipedia.org/wiki/IPv4
 ## ref: http://www.steves-internet-guide.com/ipv4-basics/
 ## ref: https://docs.oracle.com/cd/E19683-01/806-4075/ipref-1/index.html
 gateway_ipv4_subnet_1_2: "10.0"
 gateway_ipv4: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
-gateway_ipv4_network: "{{ gateway_ipv4_subnet_1_2 }}.0.0"
+gateway_ipv4_subnet: "{{ gateway_ipv4_subnet_1_2 }}.0.0"
 gateway_ipv4_net_cidr: 8
-gateway_ipv4_network_cidr: "{{ gateway_ipv4_subnet_1_2 }}.0.0/{{ gateway_ipv4_net_cidr }}"
+gateway_ipv4_network_cidr: "{{ gateway_ipv4_subnet }}/{{ gateway_ipv4_net_cidr }}"
 #gateway_ipv4_netmask: "255.0.0.0"
 gateway_ipv4_netmask: "{{ gateway_ipv4_network_cidr | ansible.utils.ipaddr('netmask') }}"
 
-## DNS related
+############
+## DNS related vars
+############
 dns_domain: "{{ internal_domain }}"
 dns_search_domains:
   - johnson.int
@@ -68,11 +90,9 @@ dns_search_domains:
 dns_nameservers:
   - "{{ gateway_ipv4 }}"
 
-timezone: "America/New_York"
-
-email: "admin@dettonville.org"
-email_from: "{{ email }}"
-email_to: "{{ email }}"
+############
+## LDAP vars
+############
 
 ldap_config_password: "password"
 ldap_admin_password: "password"
@@ -90,10 +110,6 @@ ldap_internal_uri: "ldap://{{ ldap_internal_host }}"
 # if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
 ldap_admindn: "cn=admin,{{ ldap_internal_base_dn }}"
 ldap_adminpw: "{{ ldap_admin_password }}"
-
-# if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
-smb_ldap_admindn: "{{ ldap_admindn }}"
-smb_ldap_adminpw: "{{ ldap_admin_password }}"
 
 ldap_internal:
   ldap_organisation: "Johnsonville LLC"
@@ -115,6 +131,31 @@ ldap_external:
   ldap_readonly_user_password: "{{ ldap_readonly_user_password }}"
   ldap_config_password: "{{ ldap_config_password }}"
 
+
+############
+## Samba (SMB) vars
+############
+
+## if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
+#smb_ldap_admindn: "cn=admin,{{ ldap_internal.ldap_base_dn }}"
+smb_ldap_admindn: "{{ ldap_admindn }}"
+smb_ldap_adminpw: "{{ ldap_admin_password }}"
+
+#smb_ldap_uri: "ldap://{{ hostvars[groups['ldap_server'][0]]['inventory_hostname'].{{ smb_domain }}"
+smb_ldap_uri: "ldap://{{ hostvars[groups['docker_stack_admin'][0]]['inventory_hostname'].{{ smb_domain }}"
+#smb_ldap_suffix: "dc=johnson,dc=int"
+smb_ldap_suffix: "dc={{ internal_domain.split('.')[-2] }},dc={{ internal_domain.split('.')[-1] }}"
+smb_ldap_group_suffix: 'ou=groups'
+smb_ldap_user_suffix: 'ou=users'
+smb_ldap_machine_suffix: 'ou=computers'
+smb_ldap_idmap_suffix: "ou=Idmap"
+smb_ldap_replication_sleep: 2000
+smb_ldap_ssl: 'off'
+smb_ldap_passwd_sync: 'Yes'
+
+############
+## Certificate Authority (CA) vars
+############
 ca_root:
   domainName: "{{ ca_root_cn }}"
   commonName: "{{ ca_root_cn }}"
@@ -131,6 +172,21 @@ pki_caroot_cert: "{{ ca_root_cn }}.pem"
 pki_caroot_key: "{{ ca_root_cn }}-key.pem"
 
 trust_ca_cert_extension: "pem"
+
+
+############
+## email
+############
+
+email: "admin@dettonville.org"
+email_from: "{{ email }}"
+email_to: "{{ email }}"
+
+############
+## other
+############
+
+timezone: "America/New_York"
 
 report_inventory_facts_git_repo_endpoint: "gitea.admin.dettonville.int:2222/infra/report-inventory-facts.git"
 #report_inventory_facts_git_repo_endpoint: "gitea.admin.dettonville.int/infra/report-inventory-facts.git"
