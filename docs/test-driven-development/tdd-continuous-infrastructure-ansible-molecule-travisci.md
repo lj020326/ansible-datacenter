@@ -7,7 +7,7 @@ The benefits of Test-driven development (TDD) for infrastructure code are undeni
 
 Part 1: [Test-driven infrastructure development with Ansible & Molecule](./test-driven-infrastructure-ansible-molecule-and-testinfra.md)  
 Part 2: Continuous Infrastructure with Ansible, Molecule & TravisCI  
-Part 3: [Continuous cloud infrastructure with Ansible, Molecule & TravisCI on AWS](https://blog.codecentric.de/en/2019/01/ansible-molecule-travisci-aws/)
+Part 3: [Continuous cloud infrastructure with Ansible, Molecule & TravisCI on AWS](./tdd-ansible-molecule-travisci-aws.md)
 
 ## What about Continuous Integration in Infrastructure-as-Code?
 

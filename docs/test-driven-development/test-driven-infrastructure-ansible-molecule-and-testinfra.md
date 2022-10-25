@@ -1,10 +1,13 @@
+
+# Test-driven infrastructure development with Ansible & Molecule
+
 So you´re doing Infrastructure-as-Code? Sure. But have you ever heard of test-driven development (TDD)? It´s that dev team thing, right? Hell no! It should be equally important to infrastructure coding.
 
 ## Ansible & Molecule – blog series
 
 Part 1: Test-driven infrastructure development with Ansible & Molecule  
-Part 2: [Continuous Infrastructure with Ansible, Molecule & TravisCI](./continuous-infrastructure-ansible-molecule-travisci.md)  
-Part 3: [Continuous cloud infrastructure with Ansible, Molecule & TravisCI on AWS](https://blog.codecentric.de/en/2019/01/ansible-molecule-travisci-aws/)
+Part 2: [Continuous Infrastructure with Ansible, Molecule & TravisCI](tdd-continuous-infrastructure-ansible-molecule-travisci.md)  
+Part 3: [Continuous cloud infrastructure with Ansible, Molecule & TravisCI on AWS](tdd-ansible-molecule-travisci-aws.md)
 
 ## What about TDD in Infrastructure-as-Code?
 
