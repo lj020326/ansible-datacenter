@@ -1,7 +1,7 @@
 
 # Test-driven infrastructure development with Ansible & Molecule
 
-So you´re doing Infrastructure-as-Code? Sure. But have you ever heard of test-driven development (TDD)? It´s that dev team thing, right? Hell no! It should be equally important to infrastructure coding.
+So you're doing Infrastructure-as-Code? Sure. But have you ever heard of test-driven development (TDD)? It's that dev team thing, right? Hell no! It should be equally important to infrastructure coding.
 
 ## Ansible & Molecule – blog series
 
@@ -11,21 +11,21 @@ Part 3: [Continuous cloud infrastructure with Ansible, Molecule & TravisCI on AW
 
 ## What about TDD in Infrastructure-as-Code?
 
-[Infrastructure-as-Code (IaC)](https://en.wikipedia.org/wiki/Infrastructure_as_code) has really become one of those buzzwords lately. And the reason is: **it´s just really cool to describe your whole infrastructure with code.** Versioned by Git. Abstracted from the gory details by Ansible & Co. And last but most importantly: extracted from those head monopolies! There are so many reasons to do IaC. But if you´re a software engineer by heart like me, there´s maybe a gut instinct telling you: there´s something missing in this game. **What about the principles of modern software engineering?**
+[Infrastructure-as-Code (IaC)](https://en.wikipedia.org/wiki/Infrastructure_as_code) has really become one of those buzzwords lately. And the reason is: **it's just really cool to describe your whole infrastructure with code.** Versioned by Git. Abstracted from the gory details by Ansible & Co. And last but most importantly: extracted from those head monopolies! There are so many reasons to do IaC. But if you're a software engineer by heart like me, there's maybe a gut instinct telling you: there's something missing in this game. **What about the principles of modern software engineering?**
 
 ![test-driven infrastructure meme](./img/9R8s3a8OSOqrUdEBO36Q.jpeg)
 
-We all learned hard lessons until most of us agreed on the undeniable benefits of [Test-driven development (TDD)](https://en.wikipedia.org/wiki/Test-driven_development) and Continuous Integration & Delivery (CI/CD). But didn´t we somehow forget about them? Moving over to those new shiny DevOps tools, we keep saying: “Let´s do infrastructure as code!” leaving methodologies like TDD & CI/CD to the “software development” teams. We´re now ops right?! **No way!** That should be the whole point of Infrastructure-as-Code. We´re software developers although the job posting says “DevOps”. We just develop infrastructure. 🙂
+We all learned hard lessons until most of us agreed on the undeniable benefits of [Test-driven development (TDD)](https://en.wikipedia.org/wiki/Test-driven_development) and Continuous Integration & Delivery (CI/CD). But didn't we somehow forget about them? Moving over to those new shiny DevOps tools, we keep saying: “Let's do infrastructure as code!” leaving methodologies like TDD & CI/CD to the “software development” teams. We're now ops right?! **No way!** That should be the whole point of Infrastructure-as-Code. We're software developers although the job posting says “DevOps”. We just develop infrastructure. 🙂
 
 If you’ve already developed some infrastructure and left this code untouched for a month or two… and then got your hands on it again trying to execute it and just see it failing on things you never saw before – just a thousand libraries, APIs and version upgrades since the last code execution – and everything just stopped working (note:**code that is not automatically and constantly executed and tested will eventually rot sooner or later!**), this should be enough reason to bring Test-driven development and Continuous Integration into the world of infrastructure coding.
 
 ## Testing frameworks for Ansible
 
-Maybe you´re already describing your infrastrucure with [Ansible](https://www.ansible.com/) like me. **I really love this tool.** The learning curve isn´t steep and once you´re in it, you´re as fast writing Ansible playbooks as if you would type the bash commands directly. Sometimes even faster because of the higher abstraction. Additionally you have automated your infrastructure setup right from the start without any big expense. Everything is just transparent for the whole team and versioned inside your Git repository. No matter which OS you use or have to use, it works both for Linux or Windows.
+Maybe you're already describing your infrastrucure with [Ansible](https://www.ansible.com/) like me. **I really love this tool.** The learning curve isn't steep and once you're in it, you're as fast writing Ansible playbooks as if you would type the bash commands directly. Sometimes even faster because of the higher abstraction. Additionally you have automated your infrastructure setup right from the start without any big expense. Everything is just transparent for the whole team and versioned inside your Git repository. No matter which OS you use or have to use, it works both for Linux or Windows.
 
-Now choosing a testing framework for Ansible hasn´t been that easy in the past. There is [a custom Ansible provisioner](https://github.com/neillturner/kitchen-ansible) available for [Test Kitchen respectively KitchenCI](https://github.com/test-kitchen/test-kitchen) and there are quite some good blog posts about these around. But I always kept in mind that KitchenCI focusses on [Chef](https://www.chef.io/chef/) and Ansible is somehow a tolerated rival.
+Now choosing a testing framework for Ansible hasn't been that easy in the past. There is [a custom Ansible provisioner](https://github.com/neillturner/kitchen-ansible) available for [Test Kitchen respectively KitchenCI](https://github.com/test-kitchen/test-kitchen) and there are quite some good blog posts about these around. But I always kept in mind that KitchenCI focusses on [Chef](https://www.chef.io/chef/) and Ansible is somehow a tolerated rival.
 
-But for me [Molecule](https://molecule.readthedocs.io/en/latest/) seems to be the **perfect fit for Ansible** – since it´s focussed on Ansible directly and generated some buzz already inside the community over the last years. But then this year’s September 26th came and now there are even more reasons to choose Molecule: **From that day forward, Ansible has treated** [Molecule as a first class citizen](https://groups.google.com/d/msg/ansible-project/ehrb6AEptzA/owFP1SCKDAAJ) . The GitHub repository was therefore also moved into the Ansible organization ([github.com/ansible/molecule](https://github.com/ansible-community/molecule) ) and the whole process is backed by Red Hat (IBM). It seems to be a great time to look into Molecule for testing infrastructure code written with Ansible.
+But for me [Molecule](https://molecule.readthedocs.io/en/latest/) seems to be the **perfect fit for Ansible** – since it's focussed on Ansible directly and generated some buzz already inside the community over the last years. But then this year’s September 26th came and now there are even more reasons to choose Molecule: **From that day forward, Ansible has treated** [Molecule as a first class citizen](https://groups.google.com/d/msg/ansible-project/ehrb6AEptzA/owFP1SCKDAAJ) . The GitHub repository was therefore also moved into the Ansible organization ([github.com/ansible/molecule](https://github.com/ansible-community/molecule) ) and the whole process is backed by Red Hat (IBM). It seems to be a great time to look into Molecule for testing infrastructure code written with Ansible.
 
 Molecule is kind of an umbrella framework aiding in the development and testing of Ansible roles. To quote [the docs](https://molecule.readthedocs.io/en/latest/index.html) ,
 
@@ -43,7 +43,7 @@ Molecule supports a **wide range of infrastructure providers & platforms** – b
 
 Molecule also [supports different verifiers](https://molecule.readthedocs.io/en/latest/configuration.html#verifier) : right now these are [Goss](https://github.com/aelsabbahy/goss),[InSpec](https://www.chef.io/inspec/) and[Test infrastructure](https://testinfra.readthedocs.io/en/latest/) . The latter is the default verifier where you can write Unittest with a Python DSL. It is built on top of the Python test framework [pytest](https://docs.pytest.org/en/latest/).
 
-Enough talk. Let´s get our hands dirty! As I always strive to get you successfully up and running in topics I write about, every piece of code or configuration will be available inside this article’s corresponding GitHub repository: [molecule-ansible-docker-aws](https://github.com/jonashackt/molecule-ansible-docker-aws) .
+Enough talk. Let's get our hands dirty! As I always strive to get you successfully up and running in topics I write about, every piece of code or configuration will be available inside this article’s corresponding GitHub repository: [molecule-ansible-docker-aws](https://github.com/jonashackt/molecule-ansible-docker-aws) .
 
 ## Install the tools: Ansible, Vagrant, Molecule & Testinfra
 
@@ -51,16 +51,16 @@ Enough talk. Let´s get our hands dirty! As I always strive to get you successfu
 
 As we start our Molecule journey, we should be sure to have a tool installed for each important phase of Molecule. That being said, we start with [Vagrant](https://www.vagrantup.com/) as infrastructure provider together with [VirtualBox](https://www.virtualbox.org/) in the `create` respectively **Given** phase. The Ansible installation for the **When** step is also a must. Assuming we use MacOS and the [homebrew](https://brew.sh/) package manager, we need to do the following:
 
-```
+```shell
 brew install ansible
 brew cask install virtualbox
 brew cask install vagrant
 
 ```
 
-The third step `verify` or **Then** is backed by [Test infrastructure](https://testinfra.readthedocs.io/en/latest/) , which will be automatically installed with the Molecule installation. **This time please don´t use homebrew on your Mac** because this will provide you with the 1.x version of Molecule and also misses many dependend packages like `ansible-lint`, `testinfra`, `flake8` and others. We´d better use the [python package manager pip](https://pypi.org/project/pip/) to install Molecule:
+The third step `verify` or **Then** is backed by [Test infrastructure](https://testinfra.readthedocs.io/en/latest/) , which will be automatically installed with the Molecule installation. **This time please don't use homebrew on your Mac** because this will provide you with the 1.x version of Molecule and also misses many dependend packages like `ansible-lint`, `testinfra`, `flake8` and others. We'd better use the [python package manager pip](https://pypi.org/project/pip/) to install Molecule:
 
-```
+```shell
 brew install python
 pip install molecule
 pip install python-vagrant
@@ -73,20 +73,20 @@ As we use Vagrant as infrastructure provider for Molecule, we also need to insta
 
 There are possibly billions of potential use cases for developing Ansible playbooks and roles. For this article I chose the [installation of Docker on Ubuntu](https://docs.docker.com/install/linux/docker-ce/ubuntu/) . You may say that this is a bad choice. But I picked it for several reasons.
 
-First I more or less accidentally stumbled upon Molecule. This summer I wanted to learn how to set up a [Kubernetes](https://kubernetes.io/) cluster. And according to many colleagues and blog posts, the best way to dive really deep into this topic is to go through [Kubernetes – the hard way](https://github.com/kelseyhightower/kubernetes-the-hard-way) by Kelsey Hightower. With some codecentric colleagues, we started out to re-implement the whole project using the principles of Infrastructure-as-Code and Ansible. You can observe the current status of our efforts here: [kubernetes-the-ansible-way](https://github.com/jonashackt/kubernetes-the-ansible-way) . But as I already outlined – what I was missing all the time was Test-driven development. And I don´t want to write about this project before it isn´t covered by at least some test cases. One of the building blocks of [kubernetes-the-hard-way](https://github.com/kelseyhightower/kubernetes-the-hard-way) as well as of [kubernetes-the-ansible-way](https://github.com/jonashackt/kubernetes-the-ansible-way) is the installation of Docker on Ubuntu.
+First I more or less accidentally stumbled upon Molecule. This summer I wanted to learn how to set up a [Kubernetes](https://kubernetes.io/) cluster. And according to many colleagues and blog posts, the best way to dive really deep into this topic is to go through [Kubernetes – the hard way](https://github.com/kelseyhightower/kubernetes-the-hard-way) by Kelsey Hightower. With some codecentric colleagues, we started out to re-implement the whole project using the principles of Infrastructure-as-Code and Ansible. You can observe the current status of our efforts here: [kubernetes-the-ansible-way](https://github.com/jonashackt/kubernetes-the-ansible-way) . But as I already outlined – what I was missing all the time was Test-driven development. And I don't want to write about this project before it isn't covered by at least some test cases. One of the building blocks of [kubernetes-the-hard-way](https://github.com/kelseyhightower/kubernetes-the-hard-way) as well as of [kubernetes-the-ansible-way](https://github.com/jonashackt/kubernetes-the-ansible-way) is the installation of Docker on Ubuntu.
 
-The second advantage of this use case will become visible soon, as when we leave our simple hello world example. We´ll cover this soon, I promise. 🙂
+The second advantage of this use case will become visible soon, as when we leave our simple hello world example. We'll cover this soon, I promise. 🙂
 
 ## Ansible role project structure with Molecule
 
 For now we simply start with the initialization of a new Ansible role powered by Molecule. Therefore we simply need to fire up a command like this inside our console:
 
-```
+```shell
 molecule init role --driver-name vagrant --role-name docker --verifier-name testinfra
 
 ```
 
-It will result in the following project structure – ready to write our new Ansible role for installing Docker. The screenshot hides some directories that are also generated like `defaults`, `handlers`, `meta` & `vars`. But we don´t really need them for this simple example here. Keep them ready for more complex use cases:
+It will result in the following project structure – ready to write our new Ansible role for installing Docker. The screenshot hides some directories that are also generated like `defaults`, `handlers`, `meta` & `vars`. But we don't really need them for this simple example here. Keep them ready for more complex use cases:
 
 ![ansible role project structure with molecule](./img/l64QpzvSUyVig6wbDcbG.png)
 
@@ -94,9 +94,9 @@ The crucial directories inside our role named _docker_ are `tasks` and `molecule
 
 ## Configure Molecule with the molecule.yml
 
-Before we can actually start writing our test cases, we should enable Molecule to play nicely with our infrastructure setup – in this case Vagrant. Therefore we need to configure Molecule with the help of its `molecule.yml`. Let´s take a look at the molecule.yml of the example projects repository:
+Before we can actually start writing our test cases, we should enable Molecule to play nicely with our infrastructure setup – in this case Vagrant. Therefore we need to configure Molecule with the help of its `molecule.yml`. Let's take a look at the molecule.yml of the example projects repository:
 
-```
+```yaml
 scenario:
   name: default
  
@@ -130,13 +130,13 @@ verifier:
 
 ```
 
-You may notice that there are some changes compared to the generated file. First we want to **use a more up-to-date Ubuntu Vagrant Box** `ubuntu/bionic64`. Therefore we also need to add the special `provider_raw_config_args` configuration to the `platforms` key. Without this configuration, Molecule isn´t able to spin up “standard” Vagrant Ubuntu boxes like `ubuntu/bionic64` or `ubuntu/xenial64`. This is a workaround until [molecule/issues/1556](https://github.com/ansible-community/molecule/issues/1556) gets fixed ([PR already submitted](https://github.com/ansible-community/molecule/pull/1600) ).
+You may notice that there are some changes compared to the generated file. First we want to **use a more up-to-date Ubuntu Vagrant Box** `ubuntu/bionic64`. Therefore we also need to add the special `provider_raw_config_args` configuration to the `platforms` key. Without this configuration, Molecule isn't able to spin up “standard” Vagrant Ubuntu boxes like `ubuntu/bionic64` or `ubuntu/xenial64`. This is a workaround until [molecule/issues/1556](https://github.com/ansible-community/molecule/issues/1556) gets fixed ([PR already submitted](https://github.com/ansible-community/molecule/pull/1600) ).
 
-> If you ever need to debug the infrastructure provider configuration in Molecule and you´re using a localhost provider like Vagrant or Docker, you should take a look at directories like `/var/folders/5p/l1cc1kqd69n_qxrftgln7xdm0000gn/T/molecule/docker/default/`. Molecule generates all the necessary files into these folders – like the `Vagrantfile` including logs and error files. Leaving out the `provider_raw_config_args` configuration we could see the following error in `vagrant-ubuntu-docker.err`: `Stderr: VBoxManage: error: RawFile#0 failed to create the raw output file ...`.
+> If you ever need to debug the infrastructure provider configuration in Molecule and you're using a localhost provider like Vagrant or Docker, you should take a look at directories like `/var/folders/5p/l1cc1kqd69n_qxrftgln7xdm0000gn/T/molecule/docker/default/`. Molecule generates all the necessary files into these folders – like the `Vagrantfile` including logs and error files. Leaving out the `provider_raw_config_args` configuration we could see the following error in `vagrant-ubuntu-docker.err`: `Stderr: VBoxManage: error: RawFile#0 failed to create the raw output file ...`.
 
 **The next change compared to the generated** `molecule.yml` could be found in the `testinfra` configuration block.
 
-```
+```yaml
 verifier:
   name: testinfra
   env:
@@ -144,7 +144,7 @@ verifier:
 
 ```
 
-If we didn´t configure the `PYTHONWARNINGS` environment variable, we would end up with a bloated test output like this:
+If we didn't configure the `PYTHONWARNINGS` environment variable, we would end up with a bloated test output like this:
 
 ![molecule verify with deprecation warnings](./img/tfYyTfs2QguWjtEMufs0.png)
 
@@ -152,11 +152,11 @@ Since these deprecation warnings are based on reports of third-party libraries w
 
 ## Fine-tuning the Molecule configuration
 
-**But we can fine-tune this even more.** If the test case runs green, you may notice that there´s no hint what tests were executed. That´s rather a pity since we want to see our whole test suite executed! That was the whole point why we even started to use a testing framework like Molecule with Testinfra.
+**But we can fine-tune this even more.** If the test case runs green, you may notice that there's no hint what tests were executed. That's rather a pity since we want to see our whole test suite executed! That was the whole point why we even started to use a testing framework like Molecule with Testinfra.
 
-Fortunately, there´s a way to get those tests shown inside the test output. [pytest](https://docs.pytest.org/en/latest/) could be invoked with additional properties by Testinfra. And pytest has many options we can experiment with. To configure a more verbose output for our tests in Molecule, we need to add the following to the `verifier` section of our `molecule.yml`:
+Fortunately, there's a way to get those tests shown inside the test output. [pytest](https://docs.pytest.org/en/latest/) could be invoked with additional properties by Testinfra. And pytest has many options we can experiment with. To configure a more verbose output for our tests in Molecule, we need to add the following to the `verifier` section of our `molecule.yml`:
 
-```
+```yaml
   options:
     # show which tests where executed in test output
     v: 1
@@ -181,11 +181,11 @@ You can also double check inside the VirtualBox GUI – a machine should be runn
 
 ## Writing infrastructure tests with Testinfra
 
-So what´s this [Test infrastructure](https://testinfra.readthedocs.io/en/latest/) thingy? The docs know:
+So what's this [Test infrastructure](https://testinfra.readthedocs.io/en/latest/) thingy? The docs know:
 
 > With Testinfra you can write unit tests in Python to test actual state of your servers configured by management tools like Salt, Ansible, Puppet, Chef and so on.
 
-_Testinfra_ happens to be the **Python-style equivalent to** [Serverspec](https://serverspec.org/) which again is based on the [Ruby BDD framework RSpec](http://rspec.info/) . If you´re curious what´s possible, check out some Testinfra code examples: [testinfra quick-start](https://github.com/philpep/testinfra#quick-start),[ansible-role-prometheus](https://github.com/openmicroscopy/ansible-role-prometheus/blob/0.2.0/tests/test_default.py) and [ansible-role-docker](https://github.com/mongrelion/ansible-role-docker/blob/master/molecule/default/tests/test_default.py) .
+_Testinfra_ happens to be the **Python-style equivalent to** [Serverspec](https://serverspec.org/) which again is based on the [Ruby BDD framework RSpec](http://rspec.info/) . If you're curious what's possible, check out some Testinfra code examples: [testinfra quick-start](https://github.com/philpep/testinfra#quick-start),[ansible-role-prometheus](https://github.com/openmicroscopy/ansible-role-prometheus/blob/0.2.0/tests/test_default.py) and [ansible-role-docker](https://github.com/mongrelion/ansible-role-docker/blob/master/molecule/default/tests/test_default.py) .
 
 Nice! **So we should start to write our test first, right?!** If we go [through our use case](https://docs.docker.com/install/linux/docker-ce/ubuntu/) , we can identify at least three steps necessary to achieve the goal of installing Docker on Ubuntu:
 
@@ -193,9 +193,9 @@ Nice! **So we should start to write our test first, right?!** If we go [through 
 2.  The Docker daemon should be able to pull images from the Docker Hub
 3.  Docker should be able to successfully run containers
 
-We should assert on these necessary steps inside our testcase. Now let´s take a look at the example project´s testcase docker/molecule/tests/test\_docker.py to see how this can be implemented with Testinfra:
+We should assert on these necessary steps inside our testcase. Now let's take a look at the example project's testcase docker/molecule/tests/test\_docker.py to see how this can be implemented with Testinfra:
 
-```
+```python
 import os
  
 import testinfra.utils.ansible_runner
@@ -221,9 +221,9 @@ Testinfra is a plugin to the pytest test engine. It provides a pytest fixture na
 
 Verifying if Docker is able to successfully run containers and thus pull images is slightly more complicated. But luckily there is the [hello-world](https://hub.docker.com/_/hello-world/) Docker image. If we were able to execute it successfully, we can verify the following according to the image documentation: the Docker daemon pulled the image `hello-world` from the Docker Hub, created a new container from that image and ran the executable inside. This comes in really handy **because this would completely validate the final two verification steps (2. & 3.)!**
 
-To run the Docker _hello-world_ container, we leverage the host fixtures `run` function (you have to scroll down in the [host fixtures documentation](https://testinfra.readthedocs.io/en/latest/modules.html#host) – it´s a bit hidden). With `host.run("docker run hello-world")` we are able to run the [hello-world](https://hub.docker.com/_/hello-world/) Docker container. A successful execution should print `Hello from Docker!` into the console – at least as a part of the output. The `run` function will provide the console output inside the `stdout` variable. To assert if the output string contains our desired message, all we have to do is implement in the last part of our test case:
+To run the Docker _hello-world_ container, we leverage the host fixtures `run` function (you have to scroll down in the [host fixtures documentation](https://testinfra.readthedocs.io/en/latest/modules.html#host) – it's a bit hidden). With `host.run("docker run hello-world")` we are able to run the [hello-world](https://hub.docker.com/_/hello-world/) Docker container. A successful execution should print `Hello from Docker!` into the console – at least as a part of the output. The `run` function will provide the console output inside the `stdout` variable. To assert if the output string contains our desired message, all we have to do is implement in the last part of our test case:
 
-```
+```python
 assert 'Hello from Docker!' in hello_world_ran.stdout
 
 ```
@@ -236,9 +236,9 @@ If you want to comprehend the whole process, simply add the Testinfra code to yo
 
 ## Implementing our Ansible role
 
-Following the well-known cycle in Test-driven development, we now may implement our Ansible role. The easiest way to do this is to check the [documentation about the Ubuntu Docker installation](https://docs.docker.com/install/linux/docker-ce/ubuntu/) . Our role should implement all the necessary steps inside `tasks/main.yml`, which is the default location for Ansible role implementations. This article´s example project gives an answer on how to do that inside the docker/tasks/main.yml:
+Following the well-known cycle in Test-driven development, we now may implement our Ansible role. The easiest way to do this is to check the [documentation about the Ubuntu Docker installation](https://docs.docker.com/install/linux/docker-ce/ubuntu/) . Our role should implement all the necessary steps inside `tasks/main.yml`, which is the default location for Ansible role implementations. This article's example project gives an answer on how to do that inside the docker/tasks/main.yml:
 
-```
+```yaml
 - name: add Docker apt key
   apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
@@ -271,25 +271,25 @@ Following the well-known cycle in Test-driven development, we now may implement 
 
 According to the docs, these steps should contain everything needed to run Docker successfully because after the installation of the `docker-ce` package [the Docker daemon starts automatically](https://docs.docker.com/install/linux/docker-ce/ubuntu/#install-docker-ce-1) .
 
-**But we don´t need to trust any paperwork any more.** We´ve got our test case. 🙂 Now it´s time to remember the three main phases of Molecule. We already successfully created our infrastructure within the **Given** step with the help of `molecule create`. Right after implementing the above playbook into `tasks/main.yml`, we need to execute the **When** phase. This can be achieved by running `molecule converge` which should look like this:
+**But we don't need to trust any paperwork any more.** We've got our test case. 🙂 Now it's time to remember the three main phases of Molecule. We already successfully created our infrastructure within the **Given** step with the help of `molecule create`. Right after implementing the above playbook into `tasks/main.yml`, we need to execute the **When** phase. This can be achieved by running `molecule converge` which should look like this:
 
 ![molecule converge run](./img/7XB7YjYTByOvEtiR1C1w.png)
 
 ## Run our test again!
 
-Now that our Ansible role was successfully executed onto our test infrastructure, we can move on to Molecule´s third main phase: the **Then** or `verify` step. Therefore, just run `molecule verify`:
+Now that our Ansible role was successfully executed onto our test infrastructure, we can move on to Molecule's third main phase: the **Then** or `verify` step. Therefore, just run `molecule verify`:
 
 ![molecule verify run](./img/1pLUGVnxSDOnEAXnKzB7.png)
 
-As mentioned earlier, Molecule executes [a consecutive list of steps](https://molecule.readthedocs.io/en/latest/configuration.html#scenario) . There´s also a way to run all those steps one by one. The command `molecule test` will run everything from `(pre-)destroy` to `create` to `converge` to `verify`. I prepared an asciinema cast to show the full execution in action:
+As mentioned earlier, Molecule executes [a consecutive list of steps](https://molecule.readthedocs.io/en/latest/configuration.html#scenario) . There's also a way to run all those steps one by one. The command `molecule test` will run everything from `(pre-)destroy` to `create` to `converge` to `verify`. I prepared an asciinema cast to show the full execution in action:
 
 [![](https://media.graphassets.com/ji7xlrfSjOIf2z47eqE1)](https://asciinema.org/a/213352)
 
-## You´ll love test-driven infrastructure development!
+## You'll love test-driven infrastructure development!
 
-Throughout the writing of this article, it became clear to me that Test-driven development should definitely not be treated as something that is exclusively reserved to the development teams. I´ve already written lots of Ansible playbooks and always strived to insert small verify or smoke test steps. But that wasn´t what I was looking for. It was also something I thought I had put down a long time ago thinking about software development. **The advantages of writing tests for your software or infrastructure apply equally to both.** Using Molecule for the development of your Ansible roles brings in a lot more safety in terms of third-party libary or component updates. And as in software tests, maybe you´ll find implementations that you´ve never got to know without a test case! Furthermore, **real refactoring** is only possible if you have a reasonable test coverage.
+Throughout the writing of this article, it became clear to me that Test-driven development should definitely not be treated as something that is exclusively reserved to the development teams. I've already written lots of Ansible playbooks and always strived to insert small verify or smoke test steps. But that wasn't what I was looking for. It was also something I thought I had put down a long time ago thinking about software development. **The advantages of writing tests for your software or infrastructure apply equally to both.** Using Molecule for the development of your Ansible roles brings in a lot more safety in terms of third-party libary or component updates. And as in software tests, maybe you'll find implementations that you've never got to know without a test case! Furthermore, **real refactoring** is only possible if you have a reasonable test coverage.
 
-We certainly have not gone into a few aspects of test-driven infrastructure development with Molecule and Ansible yet. A follow-up blog post should for sure discuss how we can automatically run Molecule tests after a commit/push into our GitHub repository with cloud CI tools like [TravisCI](https://travis-ci.org/) . Therefore, we need to change our infrastructure provider and start using Docker(-in-Docker) with Molecule. And there are lots of other topics. Maybe we´ll see a Kubernetes cluster set up by Ansible that is tested by Molecule some day… Stay tuned!
+We certainly have not gone into a few aspects of test-driven infrastructure development with Molecule and Ansible yet. A follow-up blog post should for sure discuss how we can automatically run Molecule tests after a commit/push into our GitHub repository with cloud CI tools like [TravisCI](https://travis-ci.org/) . Therefore, we need to change our infrastructure provider and start using Docker(-in-Docker) with Molecule. And there are lots of other topics. Maybe we'll see a Kubernetes cluster set up by Ansible that is tested by Molecule some day… Stay tuned!
 
 ## Links:
 

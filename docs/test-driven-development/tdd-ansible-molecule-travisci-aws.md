@@ -29,7 +29,7 @@ This blog series’ [example project on GitHub](https://github.com/jonashackt/mo
 
 As [the example project](https://github.com/jonashackt/molecule-ansible-docker-aws) already consists of two scenarios – `default` for Docker and `vagrant-ubuntu` for the Vagrant infrastructure provider – we simply need to leverage Molecule’s `molecule init scenario` command, which doesn’t initialize a full-blown new Ansible role like `molecule init role`. **It just integrates a new scenario inside a multi-scenario project.** Let’s call our new scenario `aws-ec2-ubuntu`. Simply put `cd` into the Ansible role’s root directory `molecule-ansible-docker-aws/docker` and run:
 
-```
+```shell
 molecule init scenario --driver-name ec2 --role-name docker --scenario-name aws-ec2-ubuntu
 
 ```
@@ -40,7 +40,7 @@ This should create a new directory `aws-ec2-ubuntu` inside the `docker/molecule`
 
 Compared to the Docker or Vagrant scenarios, Molecule generated a few files more this time. Next to the already well-known `molecule.yml` there are also `create.yml` and `destroy.yml` playbooks. The `prepare.yml` playbook and the documentation file `INSTALL.rst` are again nothing new to us. So let’s dig into the generated molecule.yml first:
 
-```
+```yaml
 scenario:
   name: ec2
  
@@ -87,7 +87,7 @@ As already mentioned, we have to tune some parts inside the `molecule.yml` to fu
 
 The command `molecule init scenario` also generated the `create.yml`. As this is a generated file, we don’t have to maintain it. But as a curious person who already loves Ansible, I couldn’t resist taking a look. At first it looks rather stunning – especially to the ones new to AWS. Let’s have a look at the create.yml (I’ve shortened it a bit):
 
-```
+```yaml
 - name: Create
   hosts: localhost
   connection: local
@@ -179,7 +179,7 @@ Now let’s focus on our target again: using _AWS EC2_ as an infrastructure prov
 
 Having done that, we should check if the AWS CLI was successfully installed. The `aws --version` command should print out something like the following:
 
-```
+```shell
 $ aws --version
 aws-cli/1.16.80 Python/3.7.2 Darwin/18.2.0 botocore/1.12.70
 
@@ -187,7 +187,7 @@ aws-cli/1.16.80 Python/3.7.2 Darwin/18.2.0 botocore/1.12.70
 
 In order to configure the AWS CLI to use the correct credentials and AWS region, we need to take a look at [the AWS docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration) . According to them, the fastest way to accomplish a correct configuration is to run `aws configure`:
 
-```
+```shell
 $ aws configure
 AWS Access Key ID [None]: AKIAIOSFODNN7EXAMPLE
 AWS Secret Access Key [None]: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
@@ -204,21 +204,21 @@ Insert your AWS access key and secret alongside your desired AWS region. For me,
 
 Every configuration parameter used for Molecule’s AWS connectivity is generated correctly by the command `molecule init --driver-name ec2`. The credentials are picked up correctly from the file `~/.aws/credentials`, where AWS CLI stores them. **Except** the `region` configuration, which can be obtained from `~/.aws/config`. Running a Molecule test without the additional setting of the AWS region as an environment variable currently results [in this documented error](https://github.com/ansible-community/molecule/issues/1570) :
 
-```
+```shell
 "msg": "Either region or ec2_url must be specified",
 
 ```
 
 To fix this, we need to **set the region as environment variable before running our Molecule tests against EC2:**
 
-```
+```shell
 export EC2_REGION=eu-central-1
 
 ```
 
 And there’s another thing left to do: we need to configure the correct `vpc_subnet_id` inside our `molecule.yml`. If we forget to do so, we’ll get errors like this:
 
-```
+```shell
     "    raise self.ResponseError(response.status, response.reason, body)",
     "boto.exception.EC2ResponseError: EC2ResponseError: 400 Bad Request",
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
@@ -229,7 +229,7 @@ And there’s another thing left to do: we need to configure the correct `vpc_su
 
 Therefore we have to **figure out the correct VPC subnet ID of our region.** For this, we can simply use AWS CLI with `aws ec2 describe-subnets` to find the correct ID inside the field `Subnets.SubnetId`:
 
-```
+```shell
 $ aws ec2 describe-subnets
  
 {
@@ -256,7 +256,7 @@ $ aws ec2 describe-subnets
 
 Having the correct ID, we can head over to our molecule.yml and edit the `vpc_subnet_id` so it contains the right value:
 
-```
+```yaml
 scenario:
   name: aws-ec2-ubuntu
  
@@ -281,7 +281,7 @@ Every publicly available _Canonical AMI_ could be found with the [ubuntu Amazon 
 
 As you may notice, **there are several possible AMIs left.** In our case, we need to choose the AMI ID with the _Instance Type_ `hvm:ebs-ssd`. This means our EC2 instance will use Amazon Elastic Block Storage memory (EBS) instead of instance storage. Only the EBS instance type is eligible for free tier usage right now. In my AWS region `eu-central-1` the correct AMI ID for Ubuntu 18.04 is `ami-080d06f90eb293a27`. Pick the AMI ID that corresponds to your region and then configure it inside the `platforms.image` paramter in the molecule.yml:
 
-```
+```yaml
 scenario:
   name: aws-ec2-ubuntu
  
@@ -300,7 +300,7 @@ platforms:
 
 **Now we should have everything prepared to start running Molecule tests on AWS EC2.** To create the infrastructure needed to run our tests on, all we have to do is invoke Molecule’s `create` step. Therefore, we run the following command (including the `--debug` flag so that we are able to see what’s going on):
 
-```
+```shell
 molecule --debug create --scenario-name aws-ec2-ubuntu
 
 ```
@@ -317,14 +317,14 @@ If everything went fine in Molecule’s `create` phase, the EC2 management conso
 
 If the AWS EC2 instance was created successfully, we can move on to Molecule’s `converge` phase. This should run our implemented Ansible role against the initialized EC2 instance. Therefore we need to execute:
 
-```
+```shell
 molecule converge --scenario-name aws-ec2-ubuntu
 
 ```
 
 If that worked out fine, **we’re finally where we wanted to be in the first place!** We’re now able to run our Molecule tests in the `verify` phase. In order to invoke this last step, we have to run:
 
-```
+```shell
 molecule verify --scenario-name aws-ec2-ubuntu
 
 ```
@@ -337,7 +337,7 @@ This should successfully execute our Testinfra test suite described in docker/mo
 
 Finally it’s time to terminate our EC2 instance. In order to achieve this, all we need to do is run a `molecule destroy` command that will tear down our EC2 instance:
 
-```
+```shell
 molecule --debug destroy --scenario-name aws-ec2-ubuntu
 
 ```
@@ -364,7 +364,7 @@ logo sources: [Molecule logo](https://molecule.readthedocs.io/en/latest/) , [Vag
 
 **So let’s do it!** We need to configure TravisCI by enhancing its configuration file [.travis.yml](https://github.com/jonashackt/molecule-ansible-docker-aws/blob/travis/.travis.yml) :
 
-```
+```yaml
 sudo: required
 language: python
  
@@ -415,7 +415,7 @@ The last part is to **add the molecule commands** to the `script` section of the
 
 Sadly there’s [a flaw while using the AWS connectivity library boto on TravisCI right now](https://github.com/boto/boto/issues/3717) . This results in errors like:
 
-```
+```shell
         ...
             "  File \"/tmp/ansible_ec2_payload_y3lfWH/__main__.py\", line 552, in <module>", 
             "  File \"/home/travis/virtualenv/python2.7.14/lib/python2.7/site-packages/boto/__init__.py\", line 1216, in <module>", 
@@ -434,7 +434,7 @@ The command "molecule --debug create --scenario-name aws-ec2-ubuntu" exited with
 
 To fix this, there are **two changes needed** inside our [.travis.yml](https://github.com/jonashackt/molecule-ansible-docker-aws/blob/travis/.travis.yml) . We need to set sudo to `false` and use the environment variable `BOTO_CONFIG=/dev/null`:
 
-```
+```yaml
 sudo: false
 language: python
  
@@ -457,3 +457,15 @@ Throughout the post we saw how easy it is to use a cloud infrastructure provider
 And doing the **Molecule tests on our CI platform** to verify our code on multiple infrastructures automatically takes the cake! This post outlined comprehensibly how to configure TravisCI to execute Molecule tests on AWS EC2 instances – starting, initializing and terminating the infrastructure as it is needed throughout the verification. **The safety net has become thicker again.** All this should enable us to finally test much more complex Ansible roles automatically with Molecule!
 
 As always, there are things left to do. We can take a look at other cloud providers as well. Or we can dive into the zoo of tools of a certain provider. Just pick one of those tools and you’ll be able to write the next post! We also have some Molecule verifiers left and maybe we’ll finally see how to test [a full Kubernetes setup](https://github.com/jonashackt/kubernetes-the-ansible-way) . Stay tuned!
+
+
+## Links:
+
+- [Molecule](https://molecule.readthedocs.io/en/2.20/configuration.html)
+- [Molecule on github.com](https://github.com/ansible/molecule)
+- [Ansible](https://www.ansible.com/)
+- [Inspec](https://www.inspec.io/)
+- [Goss](https://goss.rocks/)
+- [Testinfra](https://testinfra.readthedocs.io/en/latest/)
+- [test-driven-infrastructure with ansible molecule and testinfra](https://blog.codecentric.de/test-driven-infrastructure-ansible-molecule)
+- [TDD with ansible](https://d-heinrich.medium.com/test-driven-development-with-ansible-using-molecule-3386cef987ac)
