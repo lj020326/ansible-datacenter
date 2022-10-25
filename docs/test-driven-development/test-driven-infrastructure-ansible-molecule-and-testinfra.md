@@ -3,7 +3,7 @@ So you´re doing Infrastructure-as-Code? Sure. But have you ever heard of test-d
 ## Ansible & Molecule – blog series
 
 Part 1: Test-driven infrastructure development with Ansible & Molecule  
-Part 2: [Continuous Infrastructure with Ansible, Molecule & TravisCI](https://blog.codecentric.de/en/2018/12/continuous-infrastructure-ansible-molecule-travisci/)  
+Part 2: [Continuous Infrastructure with Ansible, Molecule & TravisCI](./continuous-infrastructure-ansible-molecule-travisci.md)  
 Part 3: [Continuous cloud infrastructure with Ansible, Molecule & TravisCI on AWS](https://blog.codecentric.de/en/2019/01/ansible-molecule-travisci-aws/)
 
 ## What about TDD in Infrastructure-as-Code?
