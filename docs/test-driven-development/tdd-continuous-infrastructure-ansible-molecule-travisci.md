@@ -11,7 +11,7 @@ Part 3: [Continuous cloud infrastructure with Ansible, Molecule & TravisCI on AW
 
 ## What about Continuous Integration in Infrastructure-as-Code?
 
-The [first blog post of this series](https://blog.codecentric.de/en/2018/12/test-driven-infrastructure-ansible-molecule/) outlined the many benefits of Test-driven infrastructure development and showed how to implement it with Ansible and Molecule. Now we're able to write tests for our infrastructure first – just as we are used to from software development. The ability to refactor our code with greater confidence is now equally available in Infrastructure-as-Code projects.
+The [first blog post of this series](./test-driven-infrastructure-ansible-molecule-and-testinfra.md) outlined the many benefits of Test-driven infrastructure development and showed how to implement it with Ansible and Molecule. Now we're able to write tests for our infrastructure first – just as we are used to from software development. The ability to refactor our code with greater confidence is now equally available in Infrastructure-as-Code projects.
 
 ![continuous infrastructure molecule ansible meme](./img/op0VsKu8Qg2v3ipWjhna.jpeg)
 

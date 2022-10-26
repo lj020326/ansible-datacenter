@@ -1,11 +1,7 @@
 ---
-
-- name: "Display group_names"
-  debug:
-    var: group_names
-
 ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
 - name: "Ping test via module"
+  when: inventory_hostname in ansible_play_hosts_all
   block:
 
     ## Since this is a ping test, we do not rely on gathered facts
@@ -17,7 +13,7 @@
       changed_when: no
 
     - name: "Ping test via module win_ping"
-      when: "'windows' in group_names"
+      when: group_names | intersect(['windows','dc_os_windows']) | list | length>0
       action: win_ping
       register: winping_test
       changed_when: no
@@ -27,9 +23,7 @@
     ## https://www.reddit.com/r/ansible/comments/9dn5ff/possible_values_for_ansible_network_os/
     - name: "Ping test via module net_ping"
       delegate_to: localhost
-      when:
-        - ping_test.skipped|d(false) or ping_test.failed|d(false)
-        - winping_test.skipped|d(false) or winping_test.failed|d(false)
+      when: group_names | intersect(['network_switch']) | list | length>0
       net_ping:
         dest: "{{ ansible_host }}"
       register: netping_test
