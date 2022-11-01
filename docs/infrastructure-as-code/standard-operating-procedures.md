@@ -129,7 +129,6 @@ testgroup:
        ...
        ...
         ## dc_wnd_dmz
-        ## using prod machine as reference: "JAMFIMP2S1.example.int"
         dc_wnd_dmz:
           children:
             test_wnd_dmz:
@@ -419,23 +418,23 @@ testgroup:
               children:
                 test_postfix_primary_relay_site1:
                   hosts:
-                    toyboxd1s1.example.int: {}
+                    testd1s1.example.int: {}
                 test_postfix_primary_relay_site2:
                   hosts:
-                    toyboxd1s4.example.int: {}
+                    testd1s4.example.int: {}
                    
             test_postfix_relay_client:
               children:
                  test_postfix_relay_client_site1:
                    vars:
-                      postfix_relay_server: toyboxd1s1.example.int
+                      postfix_relay_server: testd1s1.example.int
                    hosts:
-                     toyboxd[2:4]s1.example.int: {}
+                     testd[2:4]s1.example.int: {}
                  test_postfix_relay_client_site2:
                    vars:
-                      postfix_relay_server: toyboxd1s4.example.int
+                      postfix_relay_server: testd1s4.example.int
                    hosts:
-                     toyboxd[2:4]s4.example.int: {}
+                     testd[2:4]s4.example.int: {}
 
 
 ```
