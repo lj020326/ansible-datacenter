@@ -65,7 +65,7 @@ Also consider that the test machine does not fit the 'network' characteristics t
 
 1. Clone the inventory repository from Bitbucket  
     1.  The repository contains a Prod folder for the Production Ansible install and a Sandbox folder for the Sandbox Ansible install.
-    2.  Inside each of those subfolders are folders for specific inventories. We are moving towards one ALSAC folder that contains all of the hosts managed by that instance of Ansible and one aap-inventory folder that contains only the Ansible hosts themselves for managing itself.
+    2.  Inside each of those subfolders are folders for specific inventories. We are moving towards one example.int folder that contains all of the hosts managed by that instance of Ansible and one aap-inventory folder that contains only the Ansible hosts themselves for managing itself.
 2. Create a branch from an active Jira ticket in the repository
 3. Locate the appropriate yaml file and update the group membership for any hosts being added/deleted.
 4. Add/update any data in the group_vars files to reflect changes to any group configuration.
@@ -80,21 +80,21 @@ Do not manage group vars/memberships via the UI as those will be overwritten wit
 The best workflow to update/synchronize the development inventory into AWX is to:
 
 1.  Create a Project in Ansible Sandbox that you can use for your inventory changes - e.g.
-    1.  Name: "ALSAC - Tower Inventory - hyclakm"
-    2.  Organization: "ALSAC"
+    1.  Name: "example.int - Tower Inventory"
+    2.  Organization: "example.int"
     3.  SCM Type: "git"
     4.  SCM Url: "[ssh://git@bitbucket.example.int:7999/at/tower-inventory.git](ssh://git@bitbucket.example.int:7999/at/tower-inventory.git)"
     5.  SCM Branch: Update this branch to reflect the change you are working on
-    6.  SCM Credential: "ALSAC - Ansible - Git"
+    6.  SCM Credential: "example.int - Ansible - Git"
     7.  SCM Update Options: "Clean"
 2.  Create an Inventory
-    1.  Name: "Alsac Inventory - hyclakm"
-    2.  Organization: "ALSAC"
+    1.  Name: "Alsac Inventory"
+    2.  Organization: "example.int"
 3.  Add a source to your inventory that uses your project
     1.  After Saving your Inventory, click the Sources button and click the green + to add a new source
-    2.  Name: "Bitbucket hyclakm branch"
+    2.  Name: "Bitbucket developer branch"
     3.  Source: Sourced from Project
-    4.  Project: "ALSAC - Tower Inventory - hyclakm"
+    4.  Project: "example.int - Tower Inventory"
     5.  Inventory File: "Sandbox/"
     6.  Update Options: Overwrite, Update on Project Update
 
