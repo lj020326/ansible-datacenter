@@ -88,7 +88,7 @@ The best workflow to update/synchronize the development inventory into AWX is to
     6.  SCM Credential: "example.int - Ansible - Git"
     7.  SCM Update Options: "Clean"
 2.  Create an Inventory
-    1.  Name: "Alsac Inventory"
+    1.  Name: "Developer Inventory"
     2.  Organization: "example.int"
 3.  Add a source to your inventory that uses your project
     1.  After Saving your Inventory, click the Sources button and click the green + to add a new source
