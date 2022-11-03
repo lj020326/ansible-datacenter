@@ -117,5 +117,5 @@ Limiting the AWX/tower plays to specific environments works to enable a proper D
 3) enable a QA environment for a full/robust set of "quality gate checks" upon PR request:
    1) runs lint based code quality checks
    2) run automated regression and new feature testing
-
+4) Validate any inventory group-based configurations before applying to upper environment
 
