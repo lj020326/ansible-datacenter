@@ -110,12 +110,11 @@ The "Root" inventory should only be used for inventory monitoring/surveillance p
 
 ## Using an AWX Inventory Environment Based approach to CICD based automation code testing/deployment 
 
-Limiting the AWX/tower plays to specific environments works to enable a proper DEV/QA/PROD CICD toolchain to:
+Limiting the AWX/tower plays to specific environments works to enable a proper DEV/QA/PROD CICD git based PRs toolchain to:
 
-1) work with git based PRs 
-2) enable validation testing to develop and validate any plays/roles/collections/modules before promoting to the upper environments.
-3) enable integration testing in a QA environment to validate that any component/platform updates/upgrade/patches work as expected before applying to upper environment 
-4) enable a QA environment for a full/robust set of "quality gate checks" upon PR request:
+1) enable validation testing to develop and validate any plays/roles/collections/modules before promoting to the upper environments.
+2) enable integration testing in a QA environment to validate that any component/platform updates/upgrade/patches work as expected before applying to upper environment 
+3) enable a QA environment for a full/robust set of "quality gate checks" upon PR request:
    1) runs lint based code quality checks
    2) run automated regression and new feature testing
 
