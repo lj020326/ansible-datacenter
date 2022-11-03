@@ -98,6 +98,8 @@ Then each env directory can have env-specific groups added to map to the specifi
 
 Note that each environment directory has its own hosts.yml to manage the environment specific set of hosts.
 
+## Root Level Inventory Use Case
+
 For supervisor level events that require a total view across environments, a 'all.yml' can be created at the inventory root/base directory to composite each of the environments together but with the inventory directory set as the root.  
 
 The root/base inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.
