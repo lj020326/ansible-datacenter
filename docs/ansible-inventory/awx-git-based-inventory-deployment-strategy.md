@@ -96,6 +96,9 @@ To enable the env-agnostic groups, there will need to be a root/base dir that se
 
 Then each env directory can have env-specific groups added to map to the specific set of hosts in the hosts.yml located in each of the env dirs.  
 
+Note that each environment directory has its own hosts.yml to manage the environment specific set of hosts.
 
+For supervisor level events that require a total view across environments, a 'all.yml' can be created at the inventory root/base directory to composite each of the environments together but with the inventory directory set as the root.  
 
+The root/base inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.
 
