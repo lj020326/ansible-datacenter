@@ -7,7 +7,7 @@ The following sections assume that we will use the convention/method as describe
 
 ## Setup test inventory repo
 
-Assuming you have an inventory according to the method described in the article on [How to manage multistage environments with ansible](./how-to-manage-multistage-environments-with-ansible.md), the following sections will demonstrate how to use git release branch based deployment for inventory group configuraiton variables.
+Assuming you have an inventory according to the method described in the article on [How to manage multistage environments with ansible](./how-to-manage-multistage-environments-with-ansible.md), the following sections will demonstrate how to use git release branch based deployment for inventory group configuration variables.
 
 ### Clone demo/test inventory
 
