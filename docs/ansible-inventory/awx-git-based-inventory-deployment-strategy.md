@@ -108,6 +108,8 @@ For supervisor level events that require a total view across environments, a 'ro
 
 The "Root" inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.  
 
+## Using an AWX Inventory Environment Based approach to CICD based automation code testing/deployment 
+
 Limiting the AWX/tower plays to specific environments works to enable a proper DEV/QA/PROD CICD toolchain to:
 
 1) work with git based PRs 
