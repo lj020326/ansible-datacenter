@@ -82,8 +82,19 @@ tower_resources:
 ```
 
 
+## Git based commit to update the QA release branch
 
+The update of a release branch into the QA inventory then can be done using a single git commit followed by re-running the bootstrap-tower-resource to apply the new release branch as the newly updated/defined QA inventory scm project branch.
 
+## TODO: Demonstrate env agnostic groups and env specific groups
+
+The remaining PoCs would then demonstrate how to enable a single set of env-agnostic groups such that the release branch configuration is exactly what gets tested in QA.
+
+Upon successful validation testing, can then the release branch can be PR'd into the project inventory SCM master branch to then become the updated PROD configuration using the same exact env-agnostic group configurations.
+
+To enable the env-agnostic groups, there will need to be a root/base dir that sets the env-agnostic groups mapped into each of the respective env directories via symbolic link.  
+
+Then each env directory can have env-specific groups added to map to the specific set of hosts in the hosts.yml located in each of the env dirs.  
 
 
 
