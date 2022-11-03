@@ -100,7 +100,7 @@ Note that each environment directory has its own hosts.yml to manage the environ
 
 ## Root Level Inventory Use Case
 
-For supervisor level events that require a total view across environments, a 'all.yml' can be created at the inventory root/base directory to composite each of the environments together but with the inventory directory set as the root.  
+For supervisor level events that require a total view across environments, a 'all.yml' can be created at the inventory root/base directory with a corresponding "Root" level AWX project inventory to composite each of the environments together but with the inventory directory set as the root.  
 
-The root/base inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.
+The "Root" inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.
 
