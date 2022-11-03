@@ -98,9 +98,11 @@ Then each env directory can have env-specific groups added to map to the specifi
 
 Note that each environment directory has its own hosts.yml to manage the environment specific set of hosts.
 
+The root level 'all.yml' specifies all of the env-agnostic groups that are available across all environments.  Using this approach, testing any group can be done with the same exact group configuration for all environments.  The specific hosts targeted by the groups are then specified in the env-specific 'hosts.yml' file. 
+
 ## Root Level Inventory Use Case
 
-For supervisor level events that require a total view across environments, a 'all.yml' can be created at the inventory root/base directory with a corresponding "Root" level AWX project inventory to composite each of the environments together but with the inventory directory set as the root.  
+For supervisor level events that require a total view across environments, a 'root.yml', or  'all-envs.yml', can be created at the inventory root/base directory with a corresponding "Root" level AWX project inventory to composite each of the environments together but with the inventory directory set as the root.
 
 The "Root" inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.
 
