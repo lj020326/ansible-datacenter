@@ -38,7 +38,7 @@ tower_resources:
             name: "DEMO-INVENTORY-DEV"
             description: Project Source for DEV Inventory
             source: scm
-            source_path: "DEV"
+            source_path: "ENV_DEV"
             credential: git-tower-credential
             overwrite: True
             update_on_launch: True
@@ -49,7 +49,7 @@ tower_resources:
             name: "DEMO-INVENTORY-QA"
             description: Project Source for QA Inventory
             source: scm
-            source_path: "QA"
+            source_path: "ENV_QA"
             credential: git-tower-credential
             overwrite: True
             update_on_launch: True
@@ -60,7 +60,7 @@ tower_resources:
             name: "DEMO-INVENTORY-PROD"
             description: Project Source for PROD Inventory
             source: scm
-            source_path: "PROD"
+            source_path: "ENV_PROD"
             credential: git-tower-credential
             overwrite: True
             update_on_launch: True
