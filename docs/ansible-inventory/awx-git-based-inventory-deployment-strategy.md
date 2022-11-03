@@ -106,5 +106,15 @@ Using this approach, testing any group can be done with the same exact group con
 
 For supervisor level events that require a total view across environments, a 'root.yml', or  'all-envs.yml', can be created at the inventory root/base directory with a corresponding "Root" level AWX project inventory to composite each of the environments together but with the inventory directory set as the root.
 
-The "Root" inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.
+The "Root" inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.  
+
+Limiting the AWX/tower plays to specific environments works to enable a proper DEV/QA/PROD CICD toolchain to:
+
+1) work with git based PRs 
+2) enable validation testing to develop and validate any plays/roles/collections/modules before promoting to the upper environments.
+3) enable integration testing in a QA environment to validate that any component/platform updates/upgrade/patches work as expected before applying to upper environment 
+4) enable a QA environment for a full/robust set of "quality gate checks" upon PR request:
+   1) runs lint based code quality checks
+   2) run automated regression and new feature testing
+
 
