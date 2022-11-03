@@ -11,7 +11,7 @@ Assuming you have an inventory according to the method described in the article 
 
 ### Clone demo/test inventory
 
-First clone the demo/test inventory repo [here]().
+First clone the demo/test inventory repo [here](https://github.com/lj020326/ansible-inventory-file-examples/tree/develop-lj/tests/ansible-multistage-environments).
 
 Copy and commit the demo inventory directory to your AWX inventory repo.
 
