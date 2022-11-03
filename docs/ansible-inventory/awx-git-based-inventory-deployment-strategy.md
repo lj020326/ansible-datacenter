@@ -98,7 +98,9 @@ Then each env directory can have env-specific groups added to map to the specifi
 
 Note that each environment directory has its own hosts.yml to manage the environment specific set of hosts.
 
-The root level 'all.yml' specifies all of the env-agnostic groups that are available across all environments.  Using this approach, testing any group can be done with the same exact group configuration for all environments.  The specific hosts targeted by the groups are then specified in the env-specific 'hosts.yml' file. 
+The root level 'all.yml' specifies all the env-agnostic groups that are available across all environments which gets symlinked into each of the environment directories.  
+
+Using this approach, testing any group can be done with the same exact group configuration for all environments.  The specific hosts targeted by the groups are then specified in the env-specific 'hosts.yml' file. 
 
 ## Root Level Inventory Use Case
 
