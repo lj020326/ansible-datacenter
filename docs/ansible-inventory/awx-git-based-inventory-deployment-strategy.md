@@ -112,6 +112,7 @@ The root inventory should only apply to AWX 'job templates' that meet the follow
 
 - The job is 'non-mutable' such that it does not make any change to any host target. 
   * inventory scans and related use-cases usually fit into this case.
+  * company audits/compliance checks (e.g., info-security related)
 - The job risk level is minimal such that it can run across multiple environments independent from CICD infosec/requirements
 - The job must run across multiple environments for a specific reason/purpose. Jobs usually fitting this use case are:
   * migration related - e.g., job to migrate/synchronize configuration from env1 to env2
