@@ -1,5 +1,5 @@
 
-# AWX git-based Inventory Deployment Strategy
+# AWX Git-based Inventory Deployment Strategy
 
 ## Prerequisite
 
@@ -106,7 +106,14 @@ Using this approach, testing any group can be done with the same exact group con
 
 For supervisor level events that require a total view across environments, a 'root.yml', or  'all-envs.yml', can be created at the inventory root/base directory with a corresponding "Root" level AWX project inventory to composite each of the environments together but with the inventory directory set as the root.
 
-The "Root" inventory should only be used for inventory monitoring/surveillance purposes and not for management/ change / impactful plays since each environment should only be managed/changed within the scope of the environment.  
+Since each environment should be managed/changed within the scope of the environment, the "Root" inventory should only be used for limited use cases:
+
+- inventory monitoring/surveillance purposes
+- provisioning new machines into lower environments 
+  - better approach would be to perform this from within the environment 
+
+Basically, limit 'Root' inventory use cases, to the extent possible, to non-mutable plays.
+
 
 ## Using an AWX Inventory Environment Based approach to CICD based automation code testing/deployment 
 
