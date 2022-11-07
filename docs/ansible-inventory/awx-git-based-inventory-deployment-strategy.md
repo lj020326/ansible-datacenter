@@ -1,6 +1,20 @@
 
 # AWX Git-based Inventory Deployment Strategy
 
+## Motivation
+
+### AWX Inventory Environment Based approach to CICD based automation code testing/deployment 
+
+Limiting the AWX/tower plays to specific environments works to enable a proper DEV/QA/PROD CICD git based PRs toolchain to:
+
+1) enable validation testing to develop and validate any plays/roles/collections/modules before promoting to the upper environments.
+2) enable integration testing in a QA environment to validate that any component/platform updates/upgrade/patches work as expected before applying to upper environment 
+3) enable a QA environment for a full/robust set of "quality gate checks" upon PR request:
+   1) runs lint based code quality checks
+   2) run automated regression and new feature testing
+4) Validate any inventory group-based configurations before applying to upper environment
+
+
 ## Prerequisite
 
 The following sections assume that we will use the convention/method as described in the article on [How to manage multistage environments with ansible](./how-to-manage-multistage-environments-with-ansible.md) to manage multi-stage inventory deployments into an AWX inventory.
@@ -121,16 +135,4 @@ The root inventory should only apply to AWX 'job templates' that meet the follow
   * Preferred/Better approach would be to perform this from the environment and not at the "Root" level
 
 Basically, limit 'Root' inventory use cases, to the extent possible, to non-mutable plays.
-
-
-## Using an AWX Inventory Environment Based approach to CICD based automation code testing/deployment 
-
-Limiting the AWX/tower plays to specific environments works to enable a proper DEV/QA/PROD CICD git based PRs toolchain to:
-
-1) enable validation testing to develop and validate any plays/roles/collections/modules before promoting to the upper environments.
-2) enable integration testing in a QA environment to validate that any component/platform updates/upgrade/patches work as expected before applying to upper environment 
-3) enable a QA environment for a full/robust set of "quality gate checks" upon PR request:
-   1) runs lint based code quality checks
-   2) run automated regression and new feature testing
-4) Validate any inventory group-based configurations before applying to upper environment
 
