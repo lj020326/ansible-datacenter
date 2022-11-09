@@ -1,9 +1,16 @@
 
 # Building an Execution Environment for Ansible Automation Platform
 
-An exciting change to the Ansible Automation Platform is the introduction of [execution environments](https://www.redhat.com/en/technologies/management/ansible/automation-execution-environments), which will help our automation run more consistently wherever we need to automate. Instead of having Ansible Controller grab our required roles and collections, we can [build an execution environment](https://developers.redhat.com/ansiblefest/2020/using-ansible-execution-environments) containing the various components we’d like to leverage, as outlined in section 4.
+An exciting change to the Ansible Automation Platform is the introduction of [execution environments](https://www.redhat.com/en/technologies/management/ansible/automation-execution-environments), which will help our automation run more consistently wherever we need to automate. Instead of having Ansible Controller grab our required roles and collections, we can [build an execution environment](https://developers.redhat.com/ansiblefest/2020/using-ansible-execution-environments) containing the various components we’d like to leverage.
 
-First, let’s get ansible-builder installed: yum -y install ansible-builder. This command will install ansible-builder, podman, and a few other components we’ll need to build our execution environment.
+First, let’s get ansible-builder installed: 
+
+```shell
+$ yum -y install ansible-builder
+
+```
+
+This command will install ansible-builder, podman, and a few other components we’ll need to build our execution environment.
 
 The other prerequisite is to login to Red Hat’s image registry: podman login registry.redhat.io, and provide your username and password when prompted. For more information, check out the [container how-to guide](https://access.redhat.com/containers/guide#howto).
 
