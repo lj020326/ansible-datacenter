@@ -19,10 +19,6 @@ While Git-LFS is certainly useful, there are few things to consider before movin
 -   **Real-world usage & popularity**: Git-LFS seems to be not widely used (yet). Also, interest in it seems to be [stagnant](https://trends.google.com/trends/explore?q=git%20lfs). This makes me worry about the future of the protocol.
 
 
-I have long held the opinion that you should avoid Git LFS if possible. Since people keeping asking me why, I figured I'd capture my thoughts in a blog post so I have something to refer them to.
-
-Here are my reasons for not using Git LFS.
-
 ### Git LFS is a Stop Gap Solution
 
 Git LFS was developed outside the official Git project to fulfill a very real market need that Git didn't/doesn't handle large files very well.
