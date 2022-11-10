@@ -36,9 +36,7 @@ These are not great options.
 
 ### LFS is More Complexity
 
-LFS is more complex for Git end users.
-
-Git users have to install, configure, and sometimes know about the existence of Git LFS. 
+LFS is more complex for Git end users.  Git users have to install, configure, and sometimes know about the existence of Git LFS. 
 
 LFS is more complexity for Git server operators as well. Instead of a self-contained Git repository and server to support, you now have to support a likely separate HTTP server to facilitate LFS access. 
 
