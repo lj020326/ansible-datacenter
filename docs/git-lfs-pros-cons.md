@@ -23,30 +23,28 @@ While Git-LFS is certainly useful, there are few things to consider before movin
 
 The adoption or removal of Git LFS in a repository is an irreversible decision that requires rewriting history and losing your original commit SHAs.
 
-In some contexts, rewriting history is tolerable. In many others, it is an extremely expensive proposition. My experience maintaining version control in professional contexts aligns with the opinion that rewriting history is expensive and should only be considered a measure of last resort. Maybe if tools made it easier to rewrite history without the negative consequences (e.g. GitHub would redirect references to old SHA1 in URLs and API calls) I would change my opinion here. Until that day, the drawbacks of losing history are just too high to stomach for many.
-
-The reason adoption or removal of LFS is irreversible is due to the way Git LFS works. What LFS does is change the blob content that a Git commit/tree references. Instead of the content itself, it stores a pointer to the content. At checkout and commit time, LFS blobs/records are treated specially via a mechanism in Git that allows content to be rewritten as it moves between Git's core storage and its materialized representation. (The same filtering mechanism is responsible for normalizing line endings in text files. Although that feature is built into the core Git product and doesn't work exactly the same way. But the principles are the same.)
-
 Since the LFS pointer is part of the Merkle tree that a Git commit derives from, you can't add or remove LFS from a repo without rewriting existing Git commit SHAs.
+In some contexts, rewriting history is tolerable. In many others, it is an extremely expensive proposition. 
 
-I want to explicitly call out that even if a rewrite is acceptable in the short term, things may change in the future. If you adopt LFS today, you are committing to a) running an LFS server forever b) incurring a history rewrite in the future in order to remove LFS from your repo, or c) ceasing to provide an LFS server and locking out people from using older Git commits. I don't think any of these are great options: I would prefer if there were a way to offboard from LFS in the future with minimal disruption. This is theoretically possible, but it requires the Git core product to recognize LFS blobs/records natively. There's no guarantee this will happen. So adoption of Git LFS is a one way door that can't be easily reversed.
+I want to explicitly call out that even if a rewrite is acceptable in the short term, things may change in the future. If you adopt LFS today, you are committing to 
+
+a) running an LFS server forever 
+b) incurring a history rewrite in the future in order to remove LFS from your repo, or 
+c) ceasing to provide an LFS server and locking out people from using older Git commits. 
+
+These are not great options.
 
 ### LFS is More Complexity
 
 LFS is more complex for Git end users.
 
-Git users have to install, configure, and sometimes know about the existence of Git LFS. Version control should _just work_. Large file handling should _just work_. End-users shouldn't have to care that large files are handled slightly differently from small files.
+Git users have to install, configure, and sometimes know about the existence of Git LFS. 
 
-The usability of Git LFS is generally pretty good. However, there's an upper limit on that usability as long as LFS exists outside the core Git product. And LFS will likely never be integrated into the core Git product because the Git maintainers know that LFS is only a stop gap solution. They would rather solve large files storage _correctly_ than ~forever carry the legacy baggage of having to support LFS in the core product.
-
-LFS is more complexity for Git server operators as well. Instead of a self-contained Git repository and server to support, you now have to support a likely separate HTTP server to facilitate LFS access. This isn't the hardest thing in the world, especially since we're talking about key-value blob storage, which is arguably a solved problem. But it's another piece of infrastructure to support and secure and it increases the surface area of complexity instead of minimizing it. As a server operator, I would much prefer if the large file storage were integrated into the core Git product and I simply needed to provide some settings for it to _just work_.
-
+LFS is more complexity for Git server operators as well. Instead of a self-contained Git repository and server to support, you now have to support a likely separate HTTP server to facilitate LFS access. 
 
 ## Conclusion
 
-This post summarized reasons to avoid Git LFS. Are there justifiable scenarios for using LFS? Absolutely! If you insist on using Git and insist on tracking many _large_ files in version control, you should definitely consider LFS. (Although, if you are a heavy user of large files in version control, I would consider Plastic SCM instead, as they seem to have the most mature solution for large files handling.)
-
-The main point of this post is to highlight some drawbacks with using Git LFS because Git LFS is most definitely not a magic bullet. If you can stomach the short and long term effects of Git LFS adoption, by all means, use Git LFS. But please make an informed decision either way.
+The main point of this post is to highlight some drawbacks with using Git LFS. 
 
 
 ## References:
