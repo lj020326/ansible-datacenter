@@ -19,16 +19,6 @@ While Git-LFS is certainly useful, there are few things to consider before movin
 -   **Real-world usage & popularity**: Git-LFS seems to be not widely used (yet). Also, interest in it seems to be [stagnant](https://trends.google.com/trends/explore?q=git%20lfs). This makes me worry about the future of the protocol.
 
 
-### Git LFS is a Stop Gap Solution
-
-Git LFS was developed outside the official Git project to fulfill a very real market need that Git didn't/doesn't handle large files very well.
-
-I believe it is inevitable that Git will gain better support for handling of large files, as this seems like a critical feature for a popular version control tool.
-
-If you make this long bet, LFS is only an interim solution and its value proposition disappears after Git has better native support for large files.
-
-LFS as a stop gap solution would be tolerable except for the fact that...
-
 ### Git LFS is a One Way Door
 
 The adoption or removal of Git LFS in a repository is an irreversible decision that requires rewriting history and losing your original commit SHAs.
