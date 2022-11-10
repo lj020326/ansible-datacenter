@@ -13,6 +13,7 @@ To learn more about Git-LFS, head over to the [project home page](https://git-lf
 
 While Git-LFS is certainly useful, there are few things to consider before moving ahead to use it.
 
+-   **Git pull performance**: The git pull request itself will slow down, and subsequently impede the development pace.
 -   ~**Cross-compatibility**: With git, you can, on any day, move from (say) GitHub to any other hosting provider. But you would lose issues and other data specific to GitHub. If you are moving to GitLab, you can move such GH specific information using GitLab’s custom [GitHub importer](https://docs.gitlab.com/ee/user/project/import/github.html) tool. LFS falls into the same bucket. There is a need for such importers to transfer LFS version information between providers. There aren’t any at the moment though (that I know of).~ Edit: Seems like this is indeed possible to do. See “Moving a Git LFS repository between hosts” section in this page https://www.atlassian.com/git/tutorials/git-lfs.
 -   **Pricing**: This is more of a GitHub specific issue, but still is important to note as GitHub is the largest Git hosting provider. The issue is GitHub’s peculiar choice to charge users for bandwidth in addition to storage (see references 2 & 3). Note that Bitbucket charges only for storage (along with most other file hosting services).
 -   **Implementation issues**: Issues with forks and transfer of ownership (see references 2 & 6)
