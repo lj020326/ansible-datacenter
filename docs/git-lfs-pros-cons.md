@@ -18,6 +18,9 @@ While Git-LFS is certainly useful, there are few things to consider before movin
 -   **Implementation issues**: Issues with forks and transfer of ownership (see references 2 & 6)
 -   **Real-world usage & popularity**: Git-LFS seems to be not widely used (yet). Also, interest in it seems to be [stagnant](https://trends.google.com/trends/explore?q=git%20lfs). This makes me worry about the future of the protocol.
 
+### Clone/Pull performance
+
+The git pull request itself will slow down, and subsequently impede the development pace.
 
 ### Git LFS is a One Way Door
 
