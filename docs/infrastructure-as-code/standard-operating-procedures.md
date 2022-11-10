@@ -299,14 +299,16 @@ The challenge and possible problem(s) with the monitoring-only approach is:
 1) the resource configurations should be defined for hosts in the host inventory
 2) validation is done comparing the host runtime state against defined inventory state derived from the host group_vars and/or host_vars.<br>
    For example, hosts defined in a 'windows_mssql' group can have group_vars defining the 'tempDb' configuration with group 'mssql' specific storage specifications.
-   The site smoke test can then compare the group_vars defined with the host runtime configuration to determine the smoke test pass/fail status.
-   This approach benefits from a single-source-of-truth for the type of host based on group_vars defined in the inventory.
+   The site smoke test can then compare the group_vars/host_vars defined with the host runtime configuration to determine the smoke test pass/fail status.
+   This approach benefits from a single-source-of-truth for the type of host based on group_vars/host_vars defined in the inventory.
+
+### Solution to monitoring host runtime configuration with inventory group_vars/host_vars specifications
 
 A better solution would be to run a smoke test with the change report as a part of an overall suite of 'monitoring' solutions/tools.
 
 #### Inventory host configurations comparison with host runtime state
 
-Assuming all group_vars and host_vars are setup to fully configure and specify any host machine, smoke tests can then be executed on a regular basis to compare the host runtime configuration versus the intended inventory configuration.  This would provide a very robust solution for monitoring and assessing the state of the inventory.
+Assuming all group_vars and host_vars are set up to fully configure and specify any host machine, smoke tests can then be executed on a regular basis to compare the host runtime configuration versus the intended inventory configuration.  This would provide a very robust solution for monitoring and assessing the state of the inventory.
 Failed tests should highlight hosts requiring some care in aligning with the inventory, or the inventory may require to be updated to reflect the new configuration of any host that does not align with the group_vars/host_vars state.  
 
 #### Regression tests
