@@ -304,7 +304,7 @@ The challenge and possible problem(s) with the monitoring-only approach is:
 
 ### Solution to monitoring host runtime configuration with inventory group_vars/host_vars specifications
 
-A better solution would be to run a smoke test with the change report as a part of an overall suite of 'monitoring' solutions/tools.
+A better solution would be to run a 'site.yml' defined set of smoke tests with the change report as a part of an overall suite of 'monitoring' solutions/tools.
 
 #### Inventory host configurations comparison with host runtime state
 
