@@ -26,13 +26,11 @@ The adoption or removal of Git LFS in a repository is an irreversible decision t
 Since the LFS pointer is part of the Merkle tree that a Git commit derives from, you can't add or remove LFS from a repo without rewriting existing Git commit SHAs.
 In some contexts, rewriting history is tolerable. In many others, it is an extremely expensive proposition. 
 
-I want to explicitly call out that even if a rewrite is acceptable in the short term, things may change in the future. If you adopt LFS today, you are committing to 
+Even if a rewrite is acceptable in the short term, things may change in the future. If you adopt LFS today, you are committing to 
 
 a) running an LFS server forever 
 b) incurring a history rewrite in the future in order to remove LFS from your repo, or 
 c) ceasing to provide an LFS server and locking out people from using older Git commits. 
-
-These are not great options.
 
 ### LFS is More Complexity
 
