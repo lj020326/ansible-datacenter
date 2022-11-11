@@ -12,10 +12,7 @@ vault__hash_seed: "myhashseed"
 vault__idrac_user: "root"
 vault__idrac_password: "passwordhere"
 
-vault__bind_tsig_keys:
-  - name: rndc-key
-    algorithm: hmac-md5
-    secret: "HasmFAbvvlakrgarvmavr0var=="
+vault__bind_tsig_keys_secret: "HasmFAbvvlakrgarvmavr0var=="
 
 #awx_pb_admin_password: "passwordhere"
 vault__awx_admin_password: "passwordhere"
