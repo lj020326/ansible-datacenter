@@ -231,12 +231,12 @@ group_names:
 
 ```
 
-Placing the test machine into the group using the ansible special variable 'group_names' is strongly discouraged.
-It will override all the group definitions for the machine including any/all that may be necessary for other play logic to work correctly.  
+Placing the test machine into the group by overriding the ansible magic/special variable 'group_names' is strongly discouraged.
+It will override all the group configurations/definitions for the target host including any/all that may be necessary for other play logic to work correctly.  
 
 The advantage of using the aforementioned inventory group based approach is that any/all existing inventory host groups are readily available supporting all/any supporting/dependent/downstream play/role logic.  
 
-In fact, as a general rule, do not override 'ansible special variables' since much is lost with little to gain.
+In fact, as a general rule, do not override 'ansible magic/special variables' since much is lost with little to gain.
 Using such methods, the results can often be considered suspect since they can be inconsistent with actual production playbook run results.  
 
 
