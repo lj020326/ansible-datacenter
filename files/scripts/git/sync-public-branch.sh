@@ -32,11 +32,14 @@ PUBLIC_GITIGNORE=files/git/pub.gitignore
 declare -a PRIVATE_CONTENT_ARRAY
 PRIVATE_CONTENT_ARRAY+=('**/private/***')
 PRIVATE_CONTENT_ARRAY+=('**/save/***')
+PRIVATE_CONTENT_ARRAY+=('**/vault.yml')
+PRIVATE_CONTENT_ARRAY+=('**/*vault.yml')
 PRIVATE_CONTENT_ARRAY+=('**/secrets.yml')
 PRIVATE_CONTENT_ARRAY+=('**/*secrets.yml')
 PRIVATE_CONTENT_ARRAY+=('.vault_pass')
 PRIVATE_CONTENT_ARRAY+=('***/*vault*')
-PRIVATE_CONTENT_ARRAY+=('integration_config.yml')
+PRIVATE_CONTENT_ARRAY+=('**/integration_config.yml')
+PRIVATE_CONTENT_ARRAY+=('**/integration_config.vault.yml')
 PRIVATE_CONTENT_ARRAY+=('*.log')
 
 printf -v EXCLUDE_AND_REMOVE '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"

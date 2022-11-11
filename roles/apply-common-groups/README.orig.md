@@ -11,7 +11,7 @@ Example usage:
   ignore_unreachable: yes
   gather_facts: yes
   vars_files:
-    - vars/secrets.yml
+    - vars/vault.yml
   roles:
     - role: apply-common-groups
 

@@ -12,7 +12,7 @@ Example usage:
   ignore_unreachable: yes
   gather_facts: no
   vars_files:
-    - vars/secrets.yml
+    - vars/vault.yml
   roles:
     - role: ansible-ping-test
       when:

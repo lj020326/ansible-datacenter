@@ -68,9 +68,9 @@ ansible -i inventory/hosts.yml all -m ping -b -vvvv
 The vault file used has to have the name private_vars.yml. Ensure your editor environment variable is set or it defaults to vim.
 
     # create private file
-    ansible-vault create vars/secrets.yml
+    ansible-vault create vars/vault.yml
 
-Running the command above will ask you for a password to encrypt with, and open an editor. In that file set the variables highlighted in the secrets.yml.example file.
+Running the command above will ask you for a password to encrypt with, and open an editor. In that file set the variables highlighted in the vault.yml.example file.
 
 
 ## Jenkins Pipeline Usage
