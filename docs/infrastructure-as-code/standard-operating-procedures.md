@@ -354,6 +354,7 @@ Advantages using this approach are
 2) with regular/periodic site playbook runs:
    1) minimized drift between the runtime and defined group_vars/host_vars specifications can readily be determined.
    2) tasks display 'change' to monitor drift between the runtime and defined group_vars/host_vars specifications.
+   3) report any smoke-test play-level changes/fails using enterprise reporting platform of choice (e.g, jira, slack, confluence, etc)
 
 #### Inventory host configurations comparison with host runtime state
 
