@@ -29,6 +29,7 @@ In some case, multiple sets of use case SOPs may be required depending on the ty
     * [Challenge/Limits to "monitoring-agent" focused approach to inventory state](#challengelimits-to-monitoring-agent-focused-approach-to-inventory-state)
     * [Solution to monitoring host runtime configuration with inventory group_vars/host_vars specifications](#solution-to-monitoring-host-runtime-configuration-with-inventory-group_varshost_vars-specifications)
     * [Inventory host configurations comparison with host runtime state](#inventory-host-configurations-comparison-with-host-runtime-state)
+  * [Monitoring versus site alignment/synchronization with the defined inventory](#inventory-host-configurations-comparison-with-host-runtime-state)
   * [Multiple target hosts validation](#multiple-target-hosts-validation)
   * [Multiple target groups validation](#multiple-target-groups-validation)
     * [Binding test groups to intended 'production'/'final' deployment groups](#binding-test-groups-to-intended-productionfinal-deployment-groups)
@@ -365,6 +366,10 @@ Advantages using this approach are
 
 Assuming all group_vars and host_vars are set up to fully configure and specify any host machine, smoke tests can then be executed on a regular basis to compare the host runtime configuration versus the intended inventory configuration.  This would provide a very robust solution for monitoring and assessing the state of the inventory.
 Failed tests should highlight hosts requiring some care in aligning with the inventory, or the inventory may require to be updated to reflect the new configuration of any host that does not align with the group_vars/host_vars state.  
+
+### Monitoring versus site alignment/synchronization with the defined inventory
+
+While reporting can be helpful to determine if changes are occuring outside of the ansible automation framework, another tool to add to the arsenal would be to run regular site synchronization plays for the essential/core OS level bootstrap to guarantee and assert the site is in alignment with the inventory state.  
 
 
 ### Multiple target hosts validation
