@@ -25,6 +25,10 @@ In some case, multiple sets of use case SOPs may be required depending on the ty
     * [New Feature tests](#new-feature-tests)
   * [Interoperability validation](#interoperability-validation)
   * [Performance validation](#performance-validation)
+  * [Monitoring host runtime configuration](#monitoring-host-runtime-configuration)
+    * [Challenge/Limits to "monitoring-agent" focused approach to inventory state](#challengelimits-to-monitoring-agent-focused-approach-to-inventory-state)
+    * [Solution to monitoring host runtime configuration with inventory group_vars/host_vars specifications](#solution-to-monitoring-host-runtime-configuration-with-inventory-group_varshost_vars-specifications)
+    * [Inventory host configurations comparison with host runtime state](#inventory-host-configurations-comparison-with-host-runtime-state)
   * [Multiple target hosts validation](#multiple-target-hosts-validation)
   * [Multiple target groups validation](#multiple-target-groups-validation)
     * [Binding test groups to intended 'production'/'final' deployment groups](#binding-test-groups-to-intended-productionfinal-deployment-groups)
@@ -44,6 +48,7 @@ In some case, multiple sets of use case SOPs may be required depending on the ty
   * [7: Middleware Inventory, Playbook, Role Development (TBC)](#7-middleware-inventory-playbook-role-development-tbc)
   * [8: Ansible Automation Management Role and/or Module Development (TBC)](#8-ansible-automation-management-role-andor-module-development-tbc)
   * [9: Ansible Inventory Change/Enhancement Development (TBC)](#9-ansible-inventory-changeenhancement-development-tbc)
+
 
 
 ## Prerequisite to any feature development
@@ -288,37 +293,6 @@ For infrastructure automation smoke testing, one might consider a having a set o
     2) tempDb size
 11) validate VM backups are valid/current if defined
 
-#### Challenge/Limits to "monitoring-agent" focused approach to inventory state
-
-In many circumstances, some/many of these "lights-on" tests/checks can also fall into site "monitoring" checks.
-
-As such, it can be debated that some/many of these may not be needed or necessary for deployment smoke tests purposes since they would be redundant.
-
-The challenge and possible problem(s) with the monitoring-only approach is:
-
-1) the resource configurations should be defined for hosts in the host inventory
-2) validation is done comparing the host runtime state against defined inventory state derived from the host group_vars and/or host_vars.<br>
-   For example, hosts defined in a 'windows_mssql' group can have group_vars defining the 'tempDb' configuration with group 'mssql' specific storage specifications.
-   The site smoke test can then compare the group_vars/host_vars defined with the host runtime configuration to determine the smoke test pass/fail status.
-   This approach benefits from a single-source-of-truth for the type of host based on group_vars/host_vars defined in the inventory.
-
-### Solution to monitoring host runtime configuration with inventory group_vars/host_vars specifications
-
-A better solution would be to run a 'site.yml' defined set of smoke tests with the change report as a part of an overall suite of 'monitoring' solutions/tools.
-Advantages using this approach are 
-
-1) full alignment of site group_vars/host_vars configurations in defined inventory state.
-2) with regular/periodic site playbook runs:
-   1) minimized drift between the runtime and defined group_vars/host_vars specifications can readily be determined.
-   2) tasks display 'change' to monitor drift between the runtime and defined group_vars/host_vars specifications.
-
-
-
-#### Inventory host configurations comparison with host runtime state
-
-Assuming all group_vars and host_vars are set up to fully configure and specify any host machine, smoke tests can then be executed on a regular basis to compare the host runtime configuration versus the intended inventory configuration.  This would provide a very robust solution for monitoring and assessing the state of the inventory.
-Failed tests should highlight hosts requiring some care in aligning with the inventory, or the inventory may require to be updated to reflect the new configuration of any host that does not align with the group_vars/host_vars state.  
-
 #### Regression tests
 
 The feature regression tests are usually comprehensive sets of tests used to validate all the feature use cases.
@@ -353,6 +327,38 @@ The benefit of implementing performance test automation is that at any time goin
 1) new features are added to the existing feature set (regression)
 2) changes are made with respect to supporting/dependent libraries/components used by the feature
 3) changes are made with respect to the feature environment
+
+
+### Monitoring host runtime configuration
+
+#### Challenge/Limits to "monitoring-agent" focused approach to inventory state
+
+In many circumstances, some/many of these "lights-on" tests/checks can also fall into site "monitoring" checks.
+
+As such, it can be debated that some/many of these may not be needed or necessary for deployment smoke tests purposes since they would be redundant.
+
+The challenge and possible problem(s) with the monitoring-only approach is:
+
+1) the resource configurations should be defined for hosts in the host inventory
+2) validation is done comparing the host runtime state against defined inventory state derived from the host group_vars and/or host_vars.<br>
+   For example, hosts defined in a 'windows_mssql' group can have group_vars defining the 'tempDb' configuration with group 'mssql' specific storage specifications.
+   The site smoke test can then compare the group_vars/host_vars defined with the host runtime configuration to determine the smoke test pass/fail status.
+   This approach benefits from a single-source-of-truth for the type of host based on group_vars/host_vars defined in the inventory.
+
+#### Solution to monitoring host runtime configuration with inventory group_vars/host_vars specifications
+
+A better solution would be to run a 'site.yml' defined set of smoke tests with the change report as a part of an overall suite of 'monitoring' solutions/tools.
+Advantages using this approach are 
+
+1) full alignment of site group_vars/host_vars configurations in defined inventory state.
+2) with regular/periodic site playbook runs:
+   1) minimized drift between the runtime and defined group_vars/host_vars specifications can readily be determined.
+   2) tasks display 'change' to monitor drift between the runtime and defined group_vars/host_vars specifications.
+
+#### Inventory host configurations comparison with host runtime state
+
+Assuming all group_vars and host_vars are set up to fully configure and specify any host machine, smoke tests can then be executed on a regular basis to compare the host runtime configuration versus the intended inventory configuration.  This would provide a very robust solution for monitoring and assessing the state of the inventory.
+Failed tests should highlight hosts requiring some care in aligning with the inventory, or the inventory may require to be updated to reflect the new configuration of any host that does not align with the group_vars/host_vars state.  
 
 
 ### Multiple target hosts validation
