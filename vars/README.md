@@ -27,10 +27,11 @@ vault__esxi_license: 00000-000000-00000-00000-00000
 
 ##	VMWARE VSPHERE 6 ENTERPRISE PLUS
 vault__vsphere_licenses:
-  esx00.dettonville.int: "{{ esxi_license }}"
-  esx01.dettonville.int: "{{ esxi_license }}"
-  esx02.dettonville.int: "{{ esxi_license }}"
-  vesxi01.dettonville.int: "{{ esxi_license }}"
+  esx00.example.int: "{{ esxi_license }}"
+  esx01.example.int: "{{ esxi_license }}"
+  esx02.example.int: "{{ esxi_license }}"
+  ## nested/virtual esxi host
+  vesxi01.example.int: "{{ esxi_license }}"
 
 ## role: vsphere-deploy-dc
 vault__esxi_password: "passwordhere"

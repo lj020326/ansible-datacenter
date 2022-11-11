@@ -64,6 +64,7 @@ ansible -i inventory/hosts.yml all -m ping -b -vvvv
 
 4. Create the vault file used to protect important data in source control.
     For more information go [here](http://docs.ansible.com/playbooks_vault.html).
+    Also, [see here for an example of the vault file used for this project](vars/README.md) 
 
 The vault file used has to have the name private_vars.yml. Ensure your editor environment variable is set or it defaults to vim.
 
