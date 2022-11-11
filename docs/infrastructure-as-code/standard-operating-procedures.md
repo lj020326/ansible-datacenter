@@ -64,7 +64,7 @@ Also consider that the test machine does not fit the 'network' characteristics t
 #### Create Inventory Repo feature development branch
 
 1. Clone the inventory repository from Bitbucket  
-    1.  The repository contains a Prod folder for the Production Ansible install and a Sandbox folder for the Sandbox Ansible install.
+    1.  The repository contains a Prod folder for the Production Ansible install and a TEST folder for the TEST Ansible install.
     2.  Inside each of those subfolders are folders for specific inventories. We are moving towards one example.int folder that contains all of the hosts managed by that instance of Ansible and one aap-inventory folder that contains only the Ansible hosts themselves for managing itself.
 2. Create a branch from an active Jira ticket in the repository
 3. Locate the appropriate yaml file and update the group membership for any hosts being added/deleted.
@@ -79,7 +79,7 @@ Upon successful feature development / validation:<br>
 Do not manage group vars/memberships via the UI as those will be overwritten with the next Bitbucket refresh. 
 The best workflow to update/synchronize the development inventory into AWX is to:
 
-1.  Create a Project in Ansible Sandbox that you can use for your inventory changes - e.g.
+1.  Create a Project in Ansible TEST that you can use for your inventory changes - e.g.
     1.  Name: "example.int - Tower Inventory"
     2.  Organization: "example.int"
     3.  SCM Type: "git"
@@ -95,12 +95,12 @@ The best workflow to update/synchronize the development inventory into AWX is to
     2.  Name: "Bitbucket developer branch"
     3.  Source: Sourced from Project
     4.  Project: "example.int - Tower Inventory"
-    5.  Inventory File: "Sandbox/"
+    5.  Inventory File: "TEST/"
     6.  Update Options: Overwrite, Update on Project Update
 
 #### Synchronize Developer Inventory Project in AWX
 
-Once this Project/Inventory exists, you can reuse it for development by updating the branch in the Project. To update the inventory in Sandbox:
+Once this Project/Inventory exists, you can reuse it for development by updating the branch in the Project. To update the inventory in TEST:
 
 1.  Follow the procedure above to make changes to the inventory
 2.  Go to [https://ansible.qa.example.int/#/projects](https://ansible.qa.example.int/#/projects) and click the refresh button to the right of your Project
@@ -149,7 +149,7 @@ This will allow the test machine to be present in the intended group explicitly.
 
 #### Add test host(s) to ivanti or foreman groups
 
-Additionally, the Sandbox inventory often does not include all test machines in the set of ivanti/foreman groups.
+Additionally, the TEST inventory often does not include all test machines in the set of ivanti/foreman groups.
 
 These groups are often essential for setting characteristics in derived location/network groups.
 
@@ -157,7 +157,7 @@ These derived groups and respective configuration settings are often essential f
 
 To efficiently assign/simulate test machines into the ivanti/foreman inventory groups, simply add the assignments into the testgroup hosts YAML as follows.
 
-Sandbox/testgroup.yml:
+TEST/testgroup.yml:
 
 ```yaml
 testgroup:
@@ -305,6 +305,14 @@ The challenge and possible problem(s) with the monitoring-only approach is:
 ### Solution to monitoring host runtime configuration with inventory group_vars/host_vars specifications
 
 A better solution would be to run a 'site.yml' defined set of smoke tests with the change report as a part of an overall suite of 'monitoring' solutions/tools.
+Advantages using this approach are 
+
+1) full alignment of site group_vars/host_vars configurations in defined inventory state.
+2) with regular/periodic site playbook runs:
+   1) minimized drift between the runtime and defined group_vars/host_vars specifications can readily be determined.
+   2) tasks display 'change' to monitor drift between the runtime and defined group_vars/host_vars specifications.
+
+
 
 #### Inventory host configurations comparison with host runtime state
 
@@ -383,9 +391,9 @@ The test inventory can then define test groups to add test machines in the resul
 
 1) Setup the 'production'/'final' groups to be PR'd and deployed:
 
-This can be in a separate 'Sandbox/postfix.yml' inventory file or merged into the existing 'Sandbox/all.yml'.
+This can be in a separate 'TEST/postfix.yml' inventory file or merged into the existing 'TEST/all.yml'.
 
-Sandbox/postfix.yml
+TEST/postfix.yml
 ```yaml
 ---
 postfix:
@@ -403,7 +411,7 @@ postfix:
 
 2) Setup the test groups used to validate the group configuration to be PR'd and deployed:
 
-Sandbox/testgroup.yml
+TEST/testgroup.yml
 ```yaml
 ---
 testgroup:
@@ -448,28 +456,28 @@ This will allow the test machines to be present in the 4 groups to be tested exp
 1) Check test inventory
 
 ```shell
-ansible-inventory -i Sandbox/ --graph --yaml testgroup_postfix
-ansible-inventory -i Sandbox/ --graph --yaml test_postfix_primary_relay
-ansible-inventory -i Sandbox/ --graph --yaml test_postfix_relay_client
+ansible-inventory -i TEST/ --graph --yaml testgroup_postfix
+ansible-inventory -i TEST/ --graph --yaml test_postfix_primary_relay
+ansible-inventory -i TEST/ --graph --yaml test_postfix_relay_client
 ```
 
 2) Check the group vars are correctly setup for the test hosts 
 
 Group based query:
 ```shell
-ansible -i Sandbox/ -m debug -a var=group_names testgroup_postfix
-ansible -i Sandbox/ -m debug -a var=postfix_relay_server test_postfix_relay_client
+ansible -i TEST/ -m debug -a var=group_names testgroup_postfix
+ansible -i TEST/ -m debug -a var=postfix_relay_server test_postfix_relay_client
 
 ```
 
 3) Run on groups
 
-Make sure to set up test groups to be tested in ./Sandbox/testgroup.yml
+Make sure to set up test groups to be tested in ./TEST/testgroup.yml
 
 ```shell
-ansible-playbook run-role-tests.yml -i Sandbox/ -v -l testgroup_postfix
-ansible-playbook run-role-tests.yml -i Sandbox/ -v -l test_postfix_primary_relay
-ansible-playbook run-role-tests.yml -i Sandbox/ -v -l test_postfix_relay_client
+ansible-playbook run-role-tests.yml -i TEST/ -v -l testgroup_postfix
+ansible-playbook run-role-tests.yml -i TEST/ -v -l test_postfix_primary_relay
+ansible-playbook run-role-tests.yml -i TEST/ -v -l test_postfix_relay_client
 ```
 
 
