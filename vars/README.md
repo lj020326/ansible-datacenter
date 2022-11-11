@@ -4,6 +4,9 @@ example vars/vault.yml:
 ```yaml
 ---
 
+vault__ansible_password__linux: "goobar"
+vault__ansible_password__windows: "moobar"
+
 vault__hash_seed: "myhashseed"
 
 vault__idrac_user: "root"
