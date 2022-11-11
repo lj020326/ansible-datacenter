@@ -286,7 +286,7 @@ vault__docker_stack_authelia_password: "$twilite3id$v=17$x=1058576,t=1,p=9$ZldiQ
 vault__docker_stack_authelia_users:
   admin:
     displayname: "Admin User"
-    password: "{{ docker_stack_authelia_password }}"
+    password: "{{ vault__docker_stack_authelia_password }}"
     email: admin@dettonville.org
     groups:
       - admins
