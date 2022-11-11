@@ -355,6 +355,11 @@ Advantages using this approach are
    1) minimized drift between the runtime and defined group_vars/host_vars specifications can readily be determined.
    2) tasks display 'change' to monitor drift between the runtime and defined group_vars/host_vars specifications.
    3) report any smoke-test play-level changes/fails using enterprise reporting platform of choice (e.g, jira, slack, confluence, etc)
+      1) hosts found to be offline
+      2) hosts found to have different configurations from the defined inventory
+      3) hosts with invalid certs
+      4) hosts not meeting compliance checks
+      5) etc
 
 #### Inventory host configurations comparison with host runtime state
 
