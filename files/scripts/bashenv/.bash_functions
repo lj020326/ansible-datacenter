@@ -25,12 +25,6 @@ function add_winpath() {
 }
 
 ##
-## TODO: make the following function work for DRY reasons
-## cant get this to work for some reason
-## getting the following error:
-##
-## $ setenv-python 2 
-## bash: =2: command not found
 ##
 unset -f setenv-python || true
 function setenv-python() {

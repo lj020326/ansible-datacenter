@@ -334,7 +334,7 @@ alias gitclonework="GIT_SSH_COMMAND=\"ssh -i ~/.ssh/${SSH_KEY_WORK2}\" git clone
 #alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@studentvm.${RH_VM_GUID}.example.opentlc.com"
 alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@${RH_VM_HOST}"
 alias sshopentlc-pw="sshpass -p ${RH_USER_PWD} ssh lab-user@${RH_VM_HOST}"
-alias sshopentlc-tower='ssh -i ~/.ssh/${SSH_KEY_REDHAT} ljohnson-silexdata.com@control.78cb.example.opentlc.com'
+alias sshopentlc-tower="ssh -i ~/.ssh/${SSH_KEY_REDHAT} ${RH_USER_ID}"
 
 alias sshtest1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST1}"
 alias sshtest2="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST2}"
