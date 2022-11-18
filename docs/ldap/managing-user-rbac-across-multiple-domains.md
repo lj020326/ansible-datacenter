@@ -21,9 +21,11 @@ In most cases, the company environments I have been in make use of internal subd
 
 It seems that is the entire point of having LDAP/AD to manage user configuration/RBAC in a centralized manner for each respective network/domain.
 
-To greatly accelerate the non-prod LDAP network domain instance setup since there can be a number of non-prod LDAP network subdomains, I quickly setup docker openldap instances for each subdomain and initialize with the respective LDAP LDIF seed data.  
+In this multi-domain setting with requirements for multiple LDAP instances, it becomes evident that there must be efficient methods to quickly provision/bootstrap LDAP instances upon demand as each domain is provisioned.  This is coupled with the realistic scenario that multiple domains is a given requirement. 
 
-See the [openldap ldif jinja2 template here](https://github.com/lj020326/ansible-datacenter/blob/main/files/openldap/ldif/ldap_seed_info.ldif.j2) used to seed the openldap docker container instance for each subdomain. 
+Towards that objective/goal, and to greatly accelerate the non-prod LDAP network domain instance setup since there can be a number of non-prod LDAP network subdomains, I set up a dockerized openldap framework to quickly enable/bootstrap non-prod LDAP instances for multiple non-prod  domains and initialize with the respective LDAP LDIF seed data.  
+
+See the [openldap ldif jinja2 template here](https://github.com/lj020326/ansible-datacenter/blob/main/files/openldap/ldif/ldap_seed_info.ldif.j2) used to seed the openldap docker container instance for each non-prod domain. 
 
 See the [docker-compose.yml template here](https://github.com/lj020326/ansible-datacenter/blob/main/roles/docker-stack/vars/app-services/v2/docker_stack_openldap.yml) element used by the [docker stack orchestration role](https://github.com/lj020326/ansible-datacenter/tree/main/roles/docker-stack) here. 
 
