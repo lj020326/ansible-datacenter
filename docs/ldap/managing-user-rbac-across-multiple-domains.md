@@ -27,7 +27,7 @@ See the [openldap ldif jinja2 template here](https://github.com/lj020326/ansible
 
 See the [docker-compose.yml template here](https://github.com/lj020326/ansible-datacenter/blob/main/roles/docker-stack/vars/app-services/v2/docker_stack_openldap.yml) element used by the [docker stack orchestration role](https://github.com/lj020326/ansible-datacenter/tree/main/roles/docker-stack) here. 
 
-Note the ansible variable 'ldap_internal_base_dn' is set by the playbook that is bootstrapping the domain inventory.
+Note the ansible variable 'ldap_internal_base_dn' is set by the playbook that is bootstrapping the site/domain inventory.
 
 E.g., 
 
