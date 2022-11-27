@@ -80,7 +80,7 @@ deploy_image() {
     DOCKER_IMAGE_NAME=$1
 
 #    DOCKER_IMAGE_NAME="${DOCKER_REGISTRY_LABEL}/${DOCKER_IMAGE_NAME}"
-    #DOCKER_REPO_URL="artifactory.example.local:6555"
+    #DOCKER_REPO_URL="artifactory.example.int:6555"
     DOCKER_REPO_URL="localhost:5000"
 
     docker tag ${DOCKER_IMAGE_NAME} ${DOCKER_REPO_URL}/${DOCKER_IMAGE_NAME}
