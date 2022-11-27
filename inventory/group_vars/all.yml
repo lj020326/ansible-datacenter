@@ -9,20 +9,25 @@ host_key_checking: no
 ansible_user: "ansible"
 ansible_ssh_user: "{{ ansible_user }}"
 #ansible_debug_mode: yes
+bootstrap_user: "{{ ansible_user }}"
 
 #####################
 ## vaulted vars
 #####################
 ansible_password__linux: "{{ vault__ansible_password__linux }}"
 ansible_password__windows: "{{ vault__ansible_password__windows }}"
+ansible_ssh_private_key: "{{ vault__ansible_ssh_private_key }}"
+ansible_ssh_public_key: "{{ vault__ansible_ssh_public_key }}"
+admin_ssh_private_key: "{{ vault__admin_ssh_private_key }}"
+admin_ssh_public_key: "{{ vault__admin_ssh_public_key }}"
 
-bootstrap_user: "{{ ansible_user }}"
 bootstrap_user_password: "{{ vault__bootstrap_user_password }}"
 bootstrap_linux_user_hash_seed: "{{ vault__bootstrap_linux_user_hash_seed | d('asdfklrgarvrjtn54er3') }}"
 bootstrap_linux_docker_user_hash_seed: "{{ vault__bootstrap_linux_docker_user_hash_seed | d('34rsvfdvdhyu5trfsd') }}"
 vsphere_deploy_iso_hash_seed: "{{ vault__vsphere_deploy_iso_hash_seed | d('rtfgiujuj5iytfogk434rtghh') }}"
 sha512_hashed_packer_password: "{{ vault__sha512_hashed_packer_password | d('y6irhtfnvubytgsyrehtjntmyry') }}"
 harden_linux_os_grub_secure_boot: "{{ vault__harden_linux_os_grub_secure_boot | d('56576uyjhgr345') }}"
+bind_admin_password: "{{ vault__bind_admin_password }}"
 bind_tsig_keys_secret: "{{ vault__bind_tsig_keys_secret | d('') }}"
 awx_admin_password: "{{ vault__awx_admin_password }}"
 vcenter_username: "{{ vault__vcenter_username }}"
@@ -33,10 +38,6 @@ vcenter_license: "{{ vault__vcenter_license }}"
 esxi_license: "{{ vault__esxi_license }}"
 vsphere_licenses: "{{ vault__vsphere_licenses }}"
 veeam_agent_password: "{{ vault__veeam_agent_password }}"
-admin_ssh_private_key: "{{ vault__admin_ssh_private_key }}"
-admin_ssh_public_key: "{{ vault__admin_ssh_public_key }}"
-ansible_ssh_private_key: "{{ vault__ansible_ssh_private_key }}"
-ansible_ssh_public_key: "{{ vault__ansible_ssh_public_key }}"
 git_ssh_private_keyfile: "{{ vault__git_ssh_private_keyfile }}"
 openstack_ssh_public_key_file: "{{ vault__openstack_ssh_public_key_file }}"
 smtp_relay_username: "{{ vault__smtp_relay_username }}"
@@ -44,45 +45,12 @@ smtp_relay_password: "{{ vault__smtp_relay_password }}"
 postfix_recipient_target: "{{ vault__postfix_recipient_target }}"
 cloudflare_email: "{{ vault__cloudflare_email }}"
 cloudflare_apikey: "{{ vault__cloudflare_apikey }}"
+registry_username: "{{ vault__registry_username }}"
+registry_password: "{{ vault__registry_password }}"
+registry_users: "{{ vault__registry_users }}"
+admin_password: "{{ vault__admin_password }}"
+mysql_root_password: "{{ vault__mysql_root_password }}"
 
-stepca_root_ca_fingerprint: "{{ vault__stepca_root_ca_fingerprint }}"
-docker_stepca_enc_key: "{{ vault__docker_stepca_enc_key }}"
-
-docker_stack_mysql_root_password: "{{ vault__docker_stack_mysql_root_password }}"
-docker_stack_grafana_admin_password: "{{ vault__docker_stack_grafana_admin_password }}"
-
-docker_stack_auth_google_client_id: "{{ vault__docker_stack_auth_google_client_id }}"
-docker_stack_auth_google_client_secret: "{{ vault__docker_stack_auth_google_client_secret }}"
-
-docker_stack_auth_oauth_secret: "{{ vault__docker_stack_auth_oauth_secret }}"
-docker_stack_auth_whitelist: "{{ vault__docker_stack_auth_whitelist }}"
-docker_stack_authelia_jwt_secret: "{{ vault__docker_stack_authelia_jwt_secret }}"
-docker_stack_authelia_encryption_key: "{{ vault__docker_stack_authelia_encryption_key }}"
-docker_stack_authelia_password: "{{ vault__docker_stack_authelia_password }}"
-docker_stack_authelia_users: "{{ vault__docker_stack_authelia_users }}"
-
-docker_stack_redis_password: "{{ vault__docker_stack_redis_password }}"
-
-docker_stack_gitea_lfs_jwt_secret: "{{ vault__docker_stack_gitea_lfs_jwt_secret }}"
-docker_stack_gitea_secret_key: "{{ vault__docker_stack_gitea_secret_key }}"
-docker_stack_gitea_internal_token: "{{ vault__docker_stack_gitea_internal_token }}"
-docker_stack_gitea_oauth_jwt_secret: "{{ vault__docker_stack_gitea_oauth_jwt_secret }}"
-
-docker_stack_healthchecks_email_su_password: "{{ vault__docker_stack_healthchecks_email_su_password }}"
-
-docker_stack_keycloak_user: "{{ vault__docker_stack_keycloak_user }}"
-docker_stack_keycloak_password: "{{ vault__docker_stack_keycloak_password }}"
-
-docker_stack_wordpress_db_password: "{{ vault__docker_stack_wordpress_db_password }}"
-
-docker_stack_jenkins_mgr_pwd_secret: "{{ vault__docker_stack_jenkins_mgr_pwd_secret }}"
-docker_stack_jenkins_agent_secret: "{{ vault__docker_stack_jenkins_agent_secret }}"
-
-docker_stack_keycloak_postgres_password: "{{ vault__docker_stack_keycloak_postgres_password }}"
-
-docker_stack_gitea_postgres_password: "{{ vault__docker_stack_gitea_postgres_password }}"
-
-docker_stack_vnc_passwd: "{{ vault__docker_stack_vnc_passwd }}"
 
 postgres_user: "{{ vault__postgres_user }}"
 postgres_password: "{{ vault__postgres_password }}"
@@ -110,13 +78,13 @@ tags_excluded_from_ping_test:
   - bootstrap-ansible-user
   - deploy-vm
   - deploy-vsphere-dc
-#  - bootstrap-user
-#  - bootstrap-vmware-esxi
+  - bootstrap-user
+  - bootstrap-vmware-esxi
 
 ## ref: https://stackoverflow.com/questions/62701036/filter-out-elements-from-list-if-matching-multiple-patterns
 run_tags_included_ping_test: "{{ ansible_run_tags | reject('match', '(' +  tags_excluded_from_ping_test | join('|') + ')') | list }}"
 run_tags_excluded_ping_test: "{{ ansible_run_tags | intersect(tags_excluded_from_ping_test) }}"
-ping_exclude: "{{ run_tags_excluded_ping_test|length>0 }}"
+ping_exclude: "{{ run_tags_excluded_ping_test|length==ansible_run_tags|length }}"
 
 apply_os_groups_exclude: "{{ ping_exclude }}"
 
@@ -181,10 +149,10 @@ dns_nameservers:
 ############
 ## LDAP vars
 ############
-
-ldap_config_password: "password"
-ldap_admin_password: "password"
-ldap_readonly_user_password: "foobar123"
+ldap_root_password: "{{ vault__ldap_root_password }}"
+ldap_config_password: "{{ vault__ldap_config_password }}"
+ldap_admin_password: "{{ vault__ldap_admin_password }}"
+ldap_readonly_user_password: "{{ vault__ldap_readonly_user_password }}"
 
 #ldap_internal_domain: "johnson.int"
 #ldap_internal_base_dn: "dc=johnson,dc=int"
@@ -223,14 +191,22 @@ ldap_external:
 ############
 ## Samba (SMB) vars
 ############
+samba_domain: JOHNSON.INT
+samba_data_path: /data
+samba_server: samba.johnson.int
+samba_mail_domain: dettonville.org
+
+# user to join domain
+samba_join_user: admin
+samba_join_passwd: "{{ ldap_admin_password }}"
 
 ## if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
 #smb_ldap_admindn: "cn=admin,{{ ldap_internal.ldap_base_dn }}"
 smb_ldap_admindn: "{{ ldap_admindn }}"
 smb_ldap_adminpw: "{{ ldap_admin_password }}"
 
+smb_ldap_uri: "ldap://ldap.{{ smb_domain }}"
 #smb_ldap_uri: "ldap://{{ hostvars[groups['ldap_server'][0]]['inventory_hostname'].{{ smb_domain }}"
-smb_ldap_uri: "ldap://{{ hostvars[groups['docker_stack_admin'][0]]['inventory_hostname'].{{ smb_domain }}"
 #smb_ldap_suffix: "dc=johnson,dc=int"
 smb_ldap_suffix: "dc={{ internal_domain.split('.')[-2] }},dc={{ internal_domain.split('.')[-1] }}"
 smb_ldap_group_suffix: 'ou=groups'
@@ -240,6 +216,34 @@ smb_ldap_idmap_suffix: "ou=Idmap"
 smb_ldap_replication_sleep: 2000
 smb_ldap_ssl: 'off'
 smb_ldap_passwd_sync: 'Yes'
+
+#smb_group_shares:
+#  - name: "netlogon"
+##    path: "/shares/netlogon"
+#    path: "/srv/storage/netlogon"
+#    cifs: True
+#    smbparms:
+#      guest ok: yes
+#      read only: yes
+#      valid users: "@smbadmin, @smbuser"
+#      comment: "Netlogon service"
+##      root preexec: "/my/script/mknetlogon %U %G %I"
+
+smb_group_shares:
+  - name: "data"
+    path: "/data"
+    cifs: True
+    smbparms:
+      valid users: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
+      public: "yes"
+      guest ok: "yes"
+      force group: "smbguest"
+      force directory mode: "775"
+      force create mode: "775"
+      write list: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
+      writeable: "yes"
+      create mode: "0777"
+      directory mode: "0777"
 
 ############
 ## Certificate Authority (CA) vars

@@ -8,11 +8,23 @@
       - "bootstrap_linux_hostname_name_short={{ bootstrap_linux_hostname_name_short }}"
       - "bootstrap_linux_hostname_name_full={{ bootstrap_linux_hostname_name_full }}"
 
+## Resolves potential dbus issue
+## ref: https://unix.stackexchange.com/questions/560859/hostnamectl-shows-error-failed-to-create-bus-connection-no-such-file-or-direc
+- name: "Hostname | Ensure dbus.socket is initialized"
+  ansible.builtin.systemd:
+    name: dbus.socket
+    state: started
+    enabled: yes
+
 ## https://github.com/insspb/ansible-role-hostname/blob/master/tasks/main.yml
-- name: Hostname | Setting up hostname
+- name: "Hostname | Setting up hostname"
   become: True
-  hostname:
+  ansible.builtin.hostname:
     name: "{{ bootstrap_linux_hostname_name_short }}"
+  register: __hostname_update_results
+  until: __hostname_update_results is not failed
+  retries: 3
+  delay: 5
 
 #- name: Hostname | Update the IPv4 part of hosts file
 #  become: True

@@ -31,7 +31,7 @@ This is a repo showing how you can create multiple VM's in vmware using ansible 
             vcenter_password: "Password"
             vcenter_allow_unverified_ssl: true
             vcenter_datacenter: "Datacenter"
-            vcenter_cluster: "Cluster"
+            vsphere_deploy_dc_vcenter_cluster: "Cluster"
 
 ```
 

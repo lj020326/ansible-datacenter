@@ -7,7 +7,7 @@ class FilterModule:
     def add_home(_user_list):
         for user in _user_list:
             if 'homedir' not in user:
-                user['homedir']='/home/{0}/'.format(user['name'])
+                user['homedir']='/home/{0}'.format(user['name'])
 
         return _user_list
 

@@ -69,6 +69,14 @@ Add functionality to deploy-vm role to support automated deployment for VM appli
 
 Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](https://github.com/lj020326/ansible-datacenter/tree/main/docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
+## Migrate tech-docs to gitbook
+
+* https://www.gitbook.com/
+* https://github.com/GitbookIO
+* https://docs.gitbook.com/troubleshooting/connectivity-issues
+* https://github.com/GitbookIO/example
+* https://github.com/GitbookIO/gitbook
+* https://docs.ibracorp.io/authelia/configuration-files/configuration.yml
 
 ## Pie-in-the-sky / moonshot
 

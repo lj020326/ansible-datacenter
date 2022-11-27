@@ -2,19 +2,19 @@
 
 - name: "configure_vcenter | Add vCenter license"
   community.vmware.vcenter_license:
-    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
-    username: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].password | d(esxi_password) }}"
-    license: "{{ vsphere_deploy__vcenter.license }}"
+    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
+    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    license: "{{ vsphere_deploy_dc__vcenter.license }}"
     state: present
     validate_certs: False
 
 - name: "configure_vcenter | Create Datacenter"
   community.vmware.vmware_datacenter:
-    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
-    username: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
+    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    datacenter_name: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
     state: present
     validate_certs: False
 
@@ -23,39 +23,39 @@
 ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_cluster_module.html
 - name: "configure_vcenter | Create Clusters"
   community.vmware.vmware_cluster:
-    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
-    username: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
+    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    datacenter_name: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
     cluster_name: "{{ item.key }}"
     validate_certs: False
     state: present
-  with_dict: "{{ vcenter_clusters }}"
+  with_dict: "{{ vsphere_deploy_dc_vcenter_clusters }}"
 
 - name: "configure_vcenter | Configure Cluster DRS behavior"
 #  vmware_cluster:
   community.vmware.vmware_cluster_drs:
-    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
-    username: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
+    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    datacenter_name: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
     cluster_name: "{{ item.key }}"
     validate_certs: False
 #    enable: true
 #    enable_drs: "{{ item.value.drs }}"
     drs_default_vm_behavior: "{{ item.value.drs_default_vm_behavior | d(omit) }}"
-  with_dict: "{{ vcenter_clusters }}"
+  with_dict: "{{ vsphere_deploy_dc_vcenter_clusters }}"
 
 - name: "configure_vcenter | Disable Cluster HA"
   community.vmware.vmware_cluster_ha:
-    hostname: "{{ vsphere_deploy__vcenter.hostname }}"
-    username: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
+    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
+    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    datacenter_name: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
     cluster_name: "{{ item.key }}"
     validate_certs: False
     enable: False # Hardcoded as we need to enable HA after vSAN is enabled and disks are claimed
-  with_dict: "{{ vcenter_clusters }}"
+  with_dict: "{{ vsphere_deploy_dc_vcenter_clusters }}"
 
 ## this role requires installing the vsan SDK manually
 ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_cluster_vsan_module.html
@@ -63,24 +63,24 @@
 #- name: "configure_vcenter | Disable Clusters vSAN"
 ##  community.vmware.vmware_cluster_vsan:
 #  community.vmware.vmware_cluster_vsan:
-#    hostname: "{{ vsphere_deploy__vcenter.ip }}"
-#    username: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].username | d(esxi_username) }}"
-#    password: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].password | d(esxi_password) }}"
-#    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
+#    hostname: "{{ vsphere_deploy_dc__vcenter.ip }}"
+#    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+#    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+#    datacenter_name: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
 #    cluster_name: "{{ item.key }}"
 #    validate_certs: False
 #    enable_vsan: False  # Hardcoded as we need to enable vSAN when the hosts are added to the cluster
-#  with_dict: "{{ vcenter_clusters }}"
+#  with_dict: "{{ vsphere_deploy_dc_vcenter_clusters }}"
 
 - name: "configure_vcenter | Create a VM folder on given datacenter"
   vcenter_folder:
-    hostname: '{{ vsphere_deploy__vcenter.hostname }}'
-    username: "{{ vault__vsphere_credentials[vsphere_deploy__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vsphere_credentials[vsphere_deploy__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter_name: "{{ vsphere_deploy__vcenter.datacenter }}"
+    hostname: '{{ vsphere_deploy_dc__vcenter.hostname }}'
+    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    datacenter_name: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
     folder_name: "{{ item.name }}"
     folder_type: "{{ item.type }}"
     state: present
     validate_certs: False
-  loop: "{{ vcenter_folders }}"
+  loop: "{{ vsphere_deploy_dc_vcenter_folders }}"
   register: vm_folder_creation_result

@@ -250,8 +250,8 @@ vault__deploy_vm__vm_ansible_password: "{{ ansible__user_password }}"
 ## python3 -c 'import crypt; print(crypt.crypt("f00b4r987", "$6$In279KJIUOzcmUwM"))'
 #
 
-vault__http_username: username
-vault__http_password: passwordhere
+vault__docker_stack_http_username: username
+vault__docker_stack_http_password: passwordhere
 
 vault__mysql_root_password: "passwordhere"
 
