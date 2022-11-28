@@ -6,12 +6,13 @@
       - /etc/ssh/sshd_config.d/00-ansible_system_role.conf
       - /etc/ssh/ssh_host_rsa_key
       - /etc/ssh/ssh_host_rsa_key.pub
+
   tasks:
     - name: Backup configuration files
-      include_tasks: tasks/backup.yml
+      ansible.builtin.include_tasks: tasks/backup.yml
 
     - name: Show effective configuration before running role (system defaults)
-      shell: |
+      ansible.builtin.shell: |
         set -eu
         if set -o | grep pipefail 2>&1 /dev/null ; then
           set -o pipefail
@@ -22,20 +23,36 @@
         sshd -T
       register: runtime_before
       changed_when: false
+
     - name: Configure sshd
-      include_role:
+      ansible.builtin.include_role:
         name: ansible-sshd
+        public: true
+
     - name: Show effective configuration after running role (role defaults)
-      command: sshd -T
+      ansible.builtin.command: sshd -T
       register: runtime_after
       changed_when: false
+
     - name: Check that the effective configuration did not change from OS defaults
-      assert:
+      ansible.builtin.assert:
         that:
           - runtime_before.stdout == runtime_after.stdout
       when:
         # RHEL6/CentOS6 images have modified sshd_config, different from what is in rpm package
         - not (ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution_major_version'] == '6')
 
+    - name: Read drop in directory mode
+      ansible.builtin.stat:
+        path: "{{ __sshd_defaults.Include | dirname }}"
+      register: drop_in_dir_stat
+      when: __sshd_defaults.Include is defined
+
+    - name: Check drop in directory mode has not changed
+      assert:
+        that:
+          - drop_in_dir_stat.stat.mode == __sshd_drop_in_dir_mode
+      when: __sshd_defaults.Include is defined
+
     - name: Restore configuration files
-      include_tasks: tasks/restore.yml
+      ansible.builtin.include_tasks: tasks/restore.yml

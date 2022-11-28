@@ -26,7 +26,7 @@ Requirements
 
 Tested on:
 
-* Ubuntu precise, trusty, xenial, bionic, focal
+* Ubuntu precise, trusty, xenial, bionic, focal, jammy
   * [![Run tests on Ubuntu latest](https://github.com/willshersystems/ansible-sshd/actions/workflows/ansible-ubuntu.yml/badge.svg)](https://github.com/willshersystems/ansible-sshd/actions/workflows/ansible-ubuntu.yml)
 * Debian wheezy, jessie, stretch, buster, bullseye
   * [![Run tests on Debian bullseye (11)](https://github.com/willshersystems/ansible-sshd/actions/workflows/ansible-debian-bullseye.yml/badge.svg)](https://github.com/willshersystems/ansible-sshd/actions/workflows/ansible-debian-bullseye.yml)
@@ -41,6 +41,7 @@ Tested on:
 * FreeBSD 10.1
 * OpenBSD 6.0
 * AIX 7.1, 7.2
+* OpenWrt 21.03
 
 It will likely work on other flavours and more direct support via suitable
 [vars/](vars/) files is welcome.
@@ -60,7 +61,7 @@ If set to *false*, the role will be completely disabled. Defaults to *true*.
 If set to *true*, don't apply default values. This means that you must have a
 complete set of configuration defaults via either the `sshd` dict, or
 `sshd_Key` variables. Defaults to *false* unless `sshd_config_namespace` is
-set.
+set or `sshd_config_file` points to a drop-in directory to avoid recursive include.
 
 * `sshd_manage_service`
 
@@ -133,7 +134,8 @@ ListenAddress ::
 
 A list of dicts or just a dict for a Match section. Note, that these variables
 do not override match blocks as defined in the `sshd` dict. All of the sources
-will be reflected in the resulting configuration file.
+will be reflected in the resulting configuration file. The use of
+`sshd_match_*` variant is deprecated and no longer recommended.
 
 * `sshd_backup`
 
@@ -144,31 +146,39 @@ is *true*.
 
 On RHEL-based systems, sysconfig is used for configuring more details of sshd
 service. If set to *true*, this role will manage also the `/etc/sysconfig/sshd`
-configuration file based on the following configuration. Default is *false*.
+configuration file based on the following configurations. Default is *false*.
 
 * `sshd_sysconfig_override_crypto_policy`
 
 In RHEL8-based systems, this can be used to override system-wide crypto policy
-by setting to *true*. Defaults to *false*.
+by setting to *true*. Without this option, changes to ciphers, MACs, public
+key algorithms will have no effect on the resulting service in RHEL8. Defaults
+to *false*.
 
 * `sshd_sysconfig_use_strong_rng`
 
-In RHEL-based systems, this can be used to force sshd to reseed openssl random
-number generator with the given amount of bytes as an argument. The default is
-*0*, which disables this functionality. It is not recommended to turn this on
-if the system does not have hardware random number generator.
+In RHEL-based systems (before RHEL9), this can be used to force sshd to reseed
+openssl random number generator with the given amount of bytes as an argument.
+The default is *0*, which disables this functionality. It is not recommended to
+turn this on if the system does not have hardware random number generator.
 
 * `sshd_config_file`
 
 The path where the openssh configuration produced by this role should be saved.
-This is useful mostly when generating configuration snippets to Include.
+This is useful mostly when generating configuration snippets to Include from
+drop-in directory (default in Fedora and RHEL9).
+
+When this path points to a drop-in directory (like
+`/etc/ssh/sshd_confg.d/00-custom.conf`), the main configuration file (defined
+with the variable `sshd_main_config_file`) is checked to contain a proper
+`Include` directive.
 
 * `sshd_config_namespace`
 
 By default (*null*), the role defines whole content of the configuration file
 including system defaults. You can use this variable to invoke this role from
-other roles or from multiple places in a single playbook on systems that do not
-support drop-in directory. The `sshd_skip_defaults` is ignored and no system
+other roles or from multiple places in a single playbook as an alternative to
+using a drop-in directory. The `sshd_skip_defaults` is ignored and no system
 defaults are used in this case.
 
 When this variable is set, the role places the configuration that you specify
@@ -193,11 +203,14 @@ file that this role produces.
 * `sshd_verify_hostkeys`
 
 By default (*auto*), this list contains all the host keys that are present in
-the produced configuration file. The paths are checked for presence and
-generated if missing. Additionally, permissions and file owners are set to sane
-defaults. This is useful if the role is used in deployment stage to make sure
-the service is able to start on the first attempt. To disable this check, set
-this to empty list.
+the produced configuration file. If there are none, the OpenSSH default list
+will be used after excluding non-FIPS approved keys in FIPS mode. The paths
+are checked for presence and new keys are generated if they are missing.
+Additionally, permissions and file owners are set to sane defaults. This is
+useful if the role is used in deployment stage to make sure the service is
+able to start on the first attempt.
+
+To disable this check, set this to empty list.
 
 * `sshd_hostkey_owner`, `sshd_hostkey_group`, `sshd_hostkey_mode`
 
@@ -207,7 +220,8 @@ the above list.
 ### Secondary role variables
 
 These variables are used by the role internals and can be used to override the
-defaults that correspond to each supported platform.
+defaults that correspond to each supported platform. They are not tested and
+generally are not needed as the role will determine them from the OS type.
 
 * `sshd_packages`
 
@@ -239,6 +253,9 @@ Dependencies
 
 None
 
+For tests the `ansible.posix` collection is required for the `mount` role to
+emulate FIPS mode.
+
 Example Playbook
 ----------------
 
@@ -264,7 +281,7 @@ provides. Running it will likely break your SSH access to the server!
         - Condition: "Group xusers"
           X11Forwarding: yes
   roles:
-    - role: willshersystems.sshd
+    - role: boostrap-sshd.sshd
 ```
 
 Results in:
@@ -341,9 +358,15 @@ More example playbooks can be found in [`examples/`](examples/) directory.
 Template Generation
 -------------------
 
-The [`sshd_config.j2`](templates/sshd_config.j2) template is programatically
-generated by the scripts in meta. New options should be added to the
-`options_body` or `options_match`.
+The [`sshd_config.j2`](templates/sshd_config.j2) and
+[`sshd_config_snippet.j2`](templates/sshd_config_snippet.j2) templates are
+programatically generated by the scripts in meta. New options should be added
+to the `options_body` and/or `options_match`.
 
-To regenerate the template, from within the meta/ directory run:
+To regenerate the templates, from within the `meta/` directory run:
 `./make_option_lists`
+
+## Reference 
+
+* https://github.com/willshersystems/ansible-sshd
+* 

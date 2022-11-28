@@ -1,6 +1,6 @@
 ---
 - name: Restore backed up files and remove what was not present
-  shell: |
+  ansible.builtin.shell: |
     set -eu
     if set -o | grep pipefail 2>&1 /dev/null ; then
       set -o pipefail
@@ -17,7 +17,7 @@
     - __sshd_test_backup.path is defined
 
 - name: Remove temporary directory for backup files
-  file:
+  ansible.builtin.file:
     path: "{{ __sshd_test_backup.path }}"
     state: absent
   changed_when: false
@@ -25,16 +25,19 @@
     - __sshd_test_backup is defined
     - __sshd_test_backup.path is defined
 
+- name: Include common variables
+  ansible.builtin.include_role:
+    name: ansible-sshd
+    tasks_from: variables.yml
+    public: true
+
 - name: Restart sshd service
-  service:
+  ansible.builtin.service:
     name: sshd
     state: reloaded
   changed_when: false
   when:
     - __sshd_test_backup is defined
-    - ansible_virtualization_type|default(None) != 'docker'
-    - ansible_virtualization_type|default(None) != 'podman'
-    - ansible_virtualization_type|default(None) != 'containerd'
-    - ansible_virtualization_type|default(None) != 'VirtualPC'  # for Github Actions
+    - ansible_virtualization_type|default(None) not in __sshd_skip_virt_env
     - ansible_connection != 'chroot'
     - ansible_os_family != 'AIX'
