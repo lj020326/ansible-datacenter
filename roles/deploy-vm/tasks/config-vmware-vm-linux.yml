@@ -164,6 +164,7 @@
   when:
     - __deploy_vm__guest_info.instance.summary.runtime.powerState=="poweredOn"
     - __deploy_vm__guest_info.instance.guest.hostName != vm_info.hostname
+    - vm_info.network_type|d('dhcp') == 'dhcp'
   block:
 
     - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Change hostname of guest machine"
@@ -178,18 +179,20 @@
         vm_shell: /usr/bin/sudo
         vm_shell_args: "{{ item }}"
       loop:
+        - "machine_id=$(sudo cat /etc/machine-id) && echo \"==> machine_id=${machine_id}\""
 #        - "hostnamectl set-hostname {{ vm_info.name }}.{{ vm_info.guest_domain }} > /tmp/$$.txt 2>&1"
         - "hostnamectl set-hostname {{ vm_info.name }} > /tmp/$$.txt 2>&1"
         - "sed -i -E 's/^127.0.0.1(\\s*)(.*)/127.0.0.1\\1{{ vm_info.hostname }} {{ vm_info.name }} \\2/' /etc/hosts"
         - "dhclient -r"
         - "dhclient"
         - "systemctl restart {{ deploy_vm_template_info[vm_info.template_id].network_service }}"
+      register: vmware_vm_shell_results
 
 ## ref: https://rutgerblom.com/2020/07/27/automated-ubuntu-server-20-04-installation-with-ansible/
 - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Configure netplan on new machine"
   when:
     - __deploy_vm__guest_info.instance.summary.runtime.powerState=="poweredOn"
-    - vm_info.network_type|d('dhcp') == "static"
+    - vm_info.network_type|d('dhcp') == 'static'
     - vm_info.ip is defined
     - __deploy_vm__guest_info.instance.guest.ipAddress != vm_info.ip
     - "'ubuntu' in __deploy_vm__guest_info.instance.config.guestId"
@@ -277,8 +280,14 @@
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
     validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
-    name: "{{ vm_info.name }}"
-    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
+    uuid: "{{ __deploy_vmware_vm_info_by_name[vm_info.name].uuid }}"
+#    name: "{{ vm_info.name }}"
+#    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
+  register: __vmware_guest_tools_wait_result
+
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Display __vmware_guest_tools_wait_result"
+  debug:
+    var: __vmware_guest_tools_wait_result
 
 - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Confirm vm host now responds to SSH by hostname"
   block:
@@ -298,7 +307,7 @@
 
   rescue:
 
-  - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Restart Virtual Machine if still not responding"
+  - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Rescue | Restart Virtual Machine if still not responding"
     when:  __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
     community.vmware.vmware_guest:
       hostname: "{{ deploy_vm_vcenter_hostname }}"
@@ -311,7 +320,7 @@
       wait_for_ip_address: yes
 
   # Do not assume the vm hostname is resolvable and delay 10 seconds at start
-  - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Wait 300 seconds for port 22 to become open and contain 'OpenSSH'"
+  - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Rescue | Wait 300 seconds for port 22 to become open and contain 'OpenSSH'"
     delegate_to: localhost
     wait_for:
       port: 22
