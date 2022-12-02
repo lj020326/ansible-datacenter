@@ -1,61 +1,62 @@
 ---
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Display vm_info"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Display vm_info"
   debug:
     var: vm_info
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Display  __deploy_vmware_vm_info_by_name[vm_info.name]"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Display  __deploy_vmware_vm_info_by_name[vm_info.name]"
   debug:
     var:  __deploy_vmware_vm_info_by_name[vm_info.name]
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Get vm instance facts to use for post-poweron vm configuration operations"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Get vm instance facts to use for post-poweron vm configuration operations"
   set_fact:
     __deploy_vm_host: "{{ hostvars[vm_info.name]['ansible_default_ipv4']['address'] | d(hostvars[vm_info.name]['ansible_all_ipv4_addresses'][0]) | d('') }}"
     __deploy_vm__vm_ansible_user: "{{ hostvars[vm_info.name]['ansible_user'] | d(ansible_user) }}"
     __deploy_vm__vm_ansible_password: "{{ hostvars[vm_info.name]['ansible_password'] | d(ansible_password__linux) }}"
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Display __deploy_vm_* vars"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Display __deploy_vm_* vars"
   debug:
     msg:
       - "__deploy_vm_host={{ __deploy_vm_host }}"
-      - "__deploy_vm__vm_ansible_user={{ __deploy_vm__vm_ansible_user }}"
-      - "__deploy_vm__vm_ansible_password={{ __deploy_vm__vm_ansible_password }}"
+#      - "__deploy_vm__vm_ansible_user={{ __deploy_vm__vm_ansible_user }}"
+#      - "__deploy_vm__vm_ansible_password={{ __deploy_vm__vm_ansible_password }}"
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Power on Virtual Machine"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Power on Virtual Machine"
   when:  __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
   community.vmware.vmware_guest:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
     validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
-    datacenter: "{{ vmware_vm_datacenter }}"
+    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
     name: "{{ vm_info.name }}"
     state: poweredon
     wait_for_ip_address: yes
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Gather VM info for {{ vm_info.name }}"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Gather VM info for {{ vm_info.name }}"
   community.vmware.vmware_guest_info:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
     validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
-    datacenter: "{{ vmware_vm_datacenter }}"
+    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
     schema: "vsphere"
     uuid: "{{ __deploy_vmware_vm_info_by_name[vm_info.name].uuid }}"
 #  delegate_to: localhost
   register: __deploy_vm__guest_info
 
-#- name: "config-vm-vmware-linux:{{ vm_info.name }} | Display __deploy_vm__guest_info"
-#  debug:
-#    var: __deploy_vm__guest_info
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Display __deploy_vm__guest_info"
+  debug:
+    var: __deploy_vm__guest_info
+    verbosity: 2
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Get vm path info"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Get vm path info"
   set_fact:
 #    __deploy_vm__vm_path_name: "deploy.hw_files | select('match','.*\.vmx') | list | first"
     __deploy_vm__vm_path_name: "{{ __deploy_vm__guest_info.instance.config.files.vmPathName }}"
     __deploy_vm__vm_path_dir: "{{ __deploy_vm__guest_info.instance.config.files.vmPathName.split(' ')[1].split('/')[:-2] | join('/') }}"
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Display vm path info"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Display vm path info"
   debug:
     msg:
       - "__deploy_vm__vm_path_name={{ __deploy_vm__vm_path_name }}"
@@ -63,11 +64,11 @@
       - "vm_info.datastore_folder={{ vm_info.datastore_folder }}"
 
 ## ref: https://rutgerblom.com/2020/07/27/automated-ubuntu-server-20-04-installation-with-ansible/
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Move vm from {{ __deploy_vm__vm_path_name }} to {{ vm_info.datastore_folder }}"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Move vm from {{ __deploy_vm__vm_path_name }} to {{ vm_info.datastore_folder }}"
   when: __deploy_vm__vm_path_dir != vm_info.datastore_folder
   block:
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Set powerstate of a virtual machine to poweredoff"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Set powerstate of a virtual machine to poweredoff"
       community.vmware.vmware_guest:
         hostname: "{{ deploy_vm_vcenter_hostname }}"
         username: "{{ deploy_vm_vcenter_username }}"
@@ -76,20 +77,20 @@
         name: "{{ vm_info.name }}"
         state: poweredoff
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Unregister VM"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Unregister VM"
       command: "govc vm.unregister {{ vm_info.name }}"
       environment: "{{ deploy_vm_govc_environment }}"
 
     ## ref: https://opensourcelibs.com/lib/govc
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Create directory {{ vm_info.datastore_folder }} on VM datastore {{ vm_info.datastore }}"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Create directory {{ vm_info.datastore_folder }} on VM datastore {{ vm_info.datastore }}"
       command: "govc datastore.mkdir -p -ds={{ vm_info.datastore }} {{ vm_info.datastore_folder }}"
       environment: "{{ deploy_vm_govc_environment }}"
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Move VM datastore folder to {{ vm_info.datastore_folder }}"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Move VM datastore folder to {{ vm_info.datastore_folder }}"
       command: "govc datastore.mv -f -ds={{ vm_info.datastore }} {{ vm_info.name }} {{ vm_info.datastore_folder }}/{{ vm_info.name }}"
       environment: "{{ deploy_vm_govc_environment }}"
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Register VM"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Register VM"
       command: "govc vm.register -template=false -ds={{ vm_info.datastore }} -folder={{ vm_info.folder }} -host={{ vm_info.host }} {{ vm_info.datastore_folder }}/{{ vm_info.name }}/{{ vm_info.name }}.vmx"
       environment: "{{ deploy_vm_govc_environment }}"
 
@@ -97,7 +98,7 @@
     ## ref: https://docs.vmware.com/en/VMware-Workstation-Pro/16.0/com.vmware.ws.using.doc/GUID-E601BE81-59B5-4B6C-BD96-2E1F41CBBDB2.html
     ## ref: https://github.com/ansible/ansible/commit/d23da2e4943642b007b4e46971244bd66917d4ec
     ## [root@esx02:~] cat /vmfs/volumes/54453819-a19ddd4c-aa71-001ec956143b/vm/vm02/vm02.vmx
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Update VM UUID action to keep"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Update VM UUID action to keep"
       command: "govc vm.change -e='uuid.action=keep' -vm={{ vm_info.name }}"
       environment: "{{ deploy_vm_govc_environment }}"
 
@@ -105,7 +106,7 @@
 #    ## ref: https://ubuntuforums.org/showthread.php?t=2441797
 #    ## ref: https://access.redhat.com/solutions/4606201
 #    ## ref: https://github.com/ansible/ansible/issues/64291
-#    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Set disk.EnableUUID"
+#    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Set disk.EnableUUID"
 #      community.vmware.vmware_guest:
 #        hostname: "{{ deploy_vm_vcenter_hostname }}"
 #        username: "{{ deploy_vm_vcenter_username }}"
@@ -117,7 +118,7 @@
 #            value: 'True'
 #      register: vm_deploy_config
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Set powerstate of a virtual machine to poweredon"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Set powerstate of a virtual machine to poweredon"
       vmware_guest:
         hostname: "{{ deploy_vm_vcenter_hostname }}"
         username: "{{ deploy_vm_vcenter_username }}"
@@ -137,7 +138,7 @@
 ##		https://github.com/ansible/ansible/pull/66648
 ##
 
-#- name: "config-vm-vmware-linux:{{ vm_info.name }} | Add disk to virtual machine"
+#- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Add disk to virtual machine"
 #  when: vm_info.disk is defined
 #  vmware_guest_disk:
 #    hostname: "{{ deploy_vm_vcenter_hostname }}"
@@ -149,7 +150,7 @@
 #    wait_for_ip_address: yes
 
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Display inputs to conditional block to configure netplan / hostname"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Display inputs to conditional block to configure netplan / hostname"
   debug:
     msg:
       - "__deploy_vm__guest_info.instance.summary.runtime.powerState={{__deploy_vm__guest_info.instance.summary.runtime.powerState}}"
@@ -159,14 +160,13 @@
       - "__deploy_vm__guest_info.instance.guest.ipAddress={{__deploy_vm__guest_info.instance.guest.ipAddress}}"
       - "__deploy_vm__guest_info.instance.config.guestId={{__deploy_vm__guest_info.instance.config.guestId}}"
 
-
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Configure hostname on new machine"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Configure hostname on new machine"
   when:
     - __deploy_vm__guest_info.instance.summary.runtime.powerState=="poweredOn"
-    - __deploy_vm__guest_info.instance.guest.hostName != vm_info.name
+    - __deploy_vm__guest_info.instance.guest.hostName != vm_info.hostname
   block:
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Change hostname of guest machine"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Change hostname of guest machine"
       vmware_vm_shell:
         hostname: "{{ deploy_vm_vcenter_hostname }}"
         username: "{{ deploy_vm_vcenter_username }}"
@@ -180,33 +180,32 @@
       loop:
 #        - "hostnamectl set-hostname {{ vm_info.name }}.{{ vm_info.guest_domain }} > /tmp/$$.txt 2>&1"
         - "hostnamectl set-hostname {{ vm_info.name }} > /tmp/$$.txt 2>&1"
-        - "sed -i -E 's/^127.0.0.1(\\s*)(.*)/127.0.0.1\\1{{ vm_info.name }}.{{ vm_info.guest_domain }} {{ vm_info.name }} \\2/' /etc/hosts"
+        - "sed -i -E 's/^127.0.0.1(\\s*)(.*)/127.0.0.1\\1{{ vm_info.hostname }} {{ vm_info.name }} \\2/' /etc/hosts"
         - "dhclient -r"
         - "dhclient"
         - "systemctl restart {{ deploy_vm_template_info[vm_info.template_id].network_service }}"
 
 ## ref: https://rutgerblom.com/2020/07/27/automated-ubuntu-server-20-04-installation-with-ansible/
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Configure netplan on new machine"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Configure netplan on new machine"
   when:
     - __deploy_vm__guest_info.instance.summary.runtime.powerState=="poweredOn"
-    - vm_info.network_type == "static"
+    - vm_info.network_type|d('dhcp') == "static"
     - vm_info.ip is defined
     - __deploy_vm__guest_info.instance.guest.ipAddress != vm_info.ip
     - "'ubuntu' in __deploy_vm__guest_info.instance.config.guestId"
   block:
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Create working directory on Ansible Controller"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Create working directory on Ansible Controller"
       file:
         path: "{{ deploy_vm_workdir }}"
         state: directory
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Copy network configuration file to working directory at {{ deploy_vm_workdir }}"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Copy network configuration file to working directory at {{ deploy_vm_workdir }}"
       template:
-        src: "netplan.yml.j2"
+        src: "netplan.static.yml.j2"
         dest: "{{ deploy_vm_workdir }}/00-installer-config.yaml"
-#        dest: "{{ deploy_vm_workdir }}/01-netcfg.yaml"
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Copy network configuration file to Ubuntu VM"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Copy network configuration file to Ubuntu VM"
       vmware_guest_file_operation:
         hostname: "{{ deploy_vm_vcenter_hostname }}"
         username: "{{ deploy_vm_vcenter_username }}"
@@ -218,12 +217,10 @@
         vm_username: "{{ __deploy_vm__vm_ansible_user }}"
         vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         copy:
-#            src: "{{ deploy_vm_workdir }}/01-netcfg.yaml"
-#            dest: "/home/{{ __deploy_vm__vm_ansible_user }}/01-netcfg.yaml"
-            src: "{{ deploy_vm_workdir }}/00-installer-config.yaml"
-            dest: "/home/{{ __deploy_vm__vm_ansible_user }}/00-installer-config.yaml"
+          src: "{{ deploy_vm_workdir }}/00-installer-config.yaml"
+          dest: "/home/{{ __deploy_vm__vm_ansible_user }}/00-installer-config.yaml"
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Move network configuration file to right location on Ubuntu VM"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Move network configuration file to right location on Ubuntu VM"
       vmware_vm_shell:
         hostname: "{{ deploy_vm_vcenter_hostname }}"
         username: "{{ deploy_vm_vcenter_username }}"
@@ -234,13 +231,12 @@
         vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         vm_shell: /usr/bin/sudo
         vm_shell_args: "{{ item }}"
-#        vm_shell_args: "mv /home/{{ __deploy_vm__vm_ansible_user }}/01-netcfg.yaml /etc/netplan/01-netcfg.yaml && chown root.root /etc/netplan/01-netcfg.yaml"
       loop:
         - "mv /home/{{ __deploy_vm__vm_ansible_user }}/00-installer-config.yaml /etc/netplan/00-installer-config.yaml"
         - "chown root.root /etc/netplan/00-installer-config.yaml"
         - "netplan apply"
 
-    - name: "config-vm-vmware-linux:{{ vm_info.name }} | Delete working directory on Ansible controller"
+    - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Delete working directory on Ansible controller"
       file:
         path: "{{ deploy_vm_workdir }}"
         state: absent
@@ -248,7 +244,7 @@
 
 ## in both DHCP and static IP cases, it should be expected that the DNS entry for the vm has been created.
 ## TODO: add ping_test to verify that the DNS entry is setup and the host responds correctly.
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Add new VM to dynamic inventory for further tasks"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Add new VM to dynamic inventory for further tasks"
   add_host:
     name: "{{ vm_info.name }}"
     groups: "{{ vm_info.deploy_groups | d(omit) }}"
@@ -263,7 +259,7 @@
     ansible_ssh_extra_args: '-o StrictHostKeyChecking=no'
 #  changed_when: false
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Add tags to new virtual machines"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Add tags to new virtual machines"
 #  when: vm_info.vm_tags|d([])|length>0
   community.vmware.vmware_tag_manager:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
@@ -275,25 +271,52 @@
     object_type: VirtualMachine
     state: add
 
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Wait for VMware tools to become available by name"
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Wait for VMware tools to become available by name"
   community.vmware.vmware_guest_tools_wait:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
     password: "{{ deploy_vm_vcenter_password }}"
     validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
     name: "{{ vm_info.name }}"
-    datacenter: "{{ vmware_vm_datacenter }}"
+    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
 
-# Do not assume the vm hostname is resolvable and delay 10 seconds at start
-- name: "config-vm-vmware-linux:{{ vm_info.name }} | Wait 300 seconds for port 22 to become open and contain 'OpenSSH'"
-  wait_for:
-    port: 22
-    host: "{{ vm_info.name }}.{{ vm_info.guest_domain }}"
-    search_regex: OpenSSH
-    delay: 10
-    timeout: 600
-#    timeout: 60
-#    timeout: 300
-#    timeout: 1500
-#  connection: local
-  delegate_to: localhost
+- name: "config-vm-vmware-linux[{{ vm_info.name }}] | Confirm vm host now responds to SSH by hostname"
+  block:
+
+  # Do not assume the vm hostname is resolvable and delay 10 seconds at start
+  - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Wait 300 seconds for port 22 to become open and contain 'OpenSSH'"
+    delegate_to: localhost
+    wait_for:
+      port: 22
+      host: "{{ vm_info.hostname }}"
+      search_regex: OpenSSH
+      delay: 10
+      timeout: 600
+  #    timeout: 60
+  #    timeout: 300
+  #    timeout: 1500
+
+  rescue:
+
+  - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Restart Virtual Machine if still not responding"
+    when:  __deploy_vmware_vm_info_by_name[vm_info.name].power_state != "poweredOn"
+    community.vmware.vmware_guest:
+      hostname: "{{ deploy_vm_vcenter_hostname }}"
+      username: "{{ deploy_vm_vcenter_username }}"
+      password: "{{ deploy_vm_vcenter_password }}"
+      validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+      datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
+      name: "{{ vm_info.name }}"
+      state: restarted
+      wait_for_ip_address: yes
+
+  # Do not assume the vm hostname is resolvable and delay 10 seconds at start
+  - name: "config-vm-vmware-linux[{{ vm_info.name }}] | Wait 300 seconds for port 22 to become open and contain 'OpenSSH'"
+    delegate_to: localhost
+    wait_for:
+      port: 22
+      host: "{{ vm_info.hostname }}"
+      search_regex: OpenSSH
+      delay: 10
+      timeout: 600
+    retries: 3

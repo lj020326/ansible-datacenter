@@ -3,7 +3,7 @@
 ## orig source: https://github.com/justai-net/ansible_vmware_deploy_provision.git
 ## ref: https://github.com/justai-net/ansible_vmware_deploy_provision/blob/master/deploy.yml
 
-- name: Bootstrap category related to new VMs
+- name: "Bootstrap category related to new VMs"
   community.vmware.vmware_category:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
@@ -15,10 +15,11 @@
     state: present
   register: vm_category_results
 
-- debug:
+- name: "Display vm_category_results"
+  debug:
     var: vm_category_results
 
-- name: Initialize all tags related to new VMs
+- name: "Initialize all tags related to new VMs"
   community.vmware.vmware_tag:
     hostname: "{{ deploy_vm_vcenter_hostname }}"
     username: "{{ deploy_vm_vcenter_username }}"
@@ -49,7 +50,7 @@
 
 - name: "Set __deploy_vm__vmware_vm_info"
   set_fact:
-    __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info| d({}) |
+    __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info | d({}) |
         combine( { item: deploy_vm__vmware_vm_defaults } ) |
         combine( { item: hostvars[item].deploy_vm__vmware_vm_config | d({}) }, recursive=True ) }}"
   loop: "{{ deploy_vm_vmware_vm_list }}"
@@ -63,7 +64,7 @@
 - name: "Display __deploy_vm__vmware_vm_info"
   debug:
     var: __deploy_vm__vmware_vm_info
-    verbosity: 1
+#    verbosity: 1
 
 - name: "Set __deploy_vm__vmware_vm_list fact"
   set_fact:
@@ -73,7 +74,7 @@
 - name: "Display __deploy_vm__vmware_vm_list"
   debug:
     var: __deploy_vm__vmware_vm_list
-    verbosity: 1
+#    verbosity: 1
 
 - name: "Set __deploy_vm__vmware_vm_facts_initial_by_name fact"
   set_fact:
@@ -82,7 +83,7 @@
   loop_control:
     label: "{{ item.guest_name }}"
 
-- name: Display __deploy_vm__vmware_vm_facts_initial_by_name
+- name: "Display __deploy_vm__vmware_vm_facts_initial_by_name"
   debug:
     var: __deploy_vm__vmware_vm_facts_initial_by_name
     verbosity: 1
@@ -103,10 +104,21 @@
     state: present
     template: "{{ deploy_vm_template_info[item.template_id].name }}"
     hardware: "{{ item.hardware }}"
-#    networks: "{{ item.networks | d(omit) }}"
     disk: "{{ item.disks }}"
     notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
     wait_for_ip_address: yes
+#    networks:
+#      - name: "{{ workflow_stats[location][env].name }}"
+#        ip: "{{ ip }}"
+#        netmask: "{{ workflow_stats[location][env].netmask }}"
+#        gateway: "{{ workflow_stats[location][env].gateway }}"
+#        start_connected: True
+#        type: static
+    networks: "{{ item.networks | d(omit) }}"
+    customization:
+      dns_servers: "{{ item.dns_servers | d(__deploy_vm__vmware_vm_dns_nameservers) }}"
+      domain: "{{ item.guest_domain | d(__deploy_vm__vmware_guest_domain) }}"
+      hostname: "{{ item.hostname }}"
   loop: "{{ __deploy_vm__vmware_vm_list }}"
   loop_control:
     label: "{{ item.name }}"
@@ -162,7 +174,7 @@
 
 - name: "Set __deploy_vm_new_vm"
   set_fact:
-    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm|default({}) | combine( { item.item.item.name: item } ) }}"
+    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm|d({}) | combine( { item.item.item.name: item } ) }}"
   loop: "{{ __deploy_vm_job_results }}"
   loop_control:
     label: "{{ item.item.item.name }}"
@@ -170,7 +182,7 @@
 - name: "Display __deploy_vm_new_vm"
   debug:
     var: __deploy_vm_new_vm
-    verbosity: 1
+#    verbosity: 1
 
 - name: "Set __deploy_vm__vmware_vm_facts"
   community.vmware.vmware_vm_info:
