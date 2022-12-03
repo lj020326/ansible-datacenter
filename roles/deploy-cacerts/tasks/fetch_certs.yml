@@ -77,7 +77,7 @@
       register: cacert_root_result
 
     - name: "fetch_certs | check host cert info"
-      when: group_names | intersect(['vm_template']) | list | length == 0
+      when: deploy_cacerts_validate_certs|d(True)|bool
       block:
         - name: "fetch_certs | Check if {{ deploy_cacerts_ca_local_cert_dir }}/{{ deploy_cacerts_hostname_full }}.pem exists"
           stat:
@@ -104,7 +104,7 @@
       shell: step ca root {{ deploy_cacerts_ca_local_cert_dir }}/{{ deploy_cacerts_pki_caroot_cert }}
 
     - name: "fetch_certs | Validate root cert"
-      when: group_names | intersect(['vm_template']) | list | length == 0
+      when: deploy_cacerts_validate_certs|d(True)|bool
       block:
 
         - name: "fetch_certs | Validate cacerts by querying {{ deploy_cacerts_stepca_host_url }}health"
@@ -132,7 +132,7 @@
 
 
     - name: "fetch_certs | Fetch host cert and key"
-      when: group_names | intersect(['vm_template']) | list | length == 0
+      when: deploy_cacerts_deploy_host_certs|d(True)|bool
       block:
 
         - name: temporarily permit traffic on port 80/tcp in order to perform stepca host verification
@@ -164,7 +164,7 @@
               --http-listen :{{ stepca_acme_http_challenge_proxy_port }}
 
     - name: "fetch_certs | Create bundle"
-      when: group_names | intersect(['vm_template']) | list | length == 0
+      when: deploy_cacerts_create_cert_bundle|d(True)|bool
       block:
 
         - name: "fetch_certs | Create cert bundle from stepca to {{ deploy_cacerts_ca_local_cert_dir }}"
@@ -179,7 +179,7 @@
       include_tasks: stepca_renewal_service.yml
 
 - name: "fetch_certs | fetch intermediate certs"
-  when: group_names | intersect(['vm_template']) | list | length == 0
+  when: deploy_cacerts_deploy_intermediate_certs|d(True)|bool
 #  become: no
   block:
 
