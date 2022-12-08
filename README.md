@@ -7,9 +7,16 @@
 ## Build Status
 
 This is an ansible playbook that will configure your datacenter based on multi-OS-platform roles on Ubuntu/Centos/Debian linux and windows servers.
-The [vm_template.yml](./vm_template.yml) playbook is used by [packer-template repo](https://github.com/lj020326/packer-templates) to build VMware Ubuntu/Centos templates. 
+
+The [bootstrap_vm_template.yml](./bootstrap_vm_template.yml) playbook is used by [packer-template repo](https://github.com/lj020326/packer-templates) to build VMware Ubuntu, Debian, and Centos templates. 
 
 The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
+
+## Linux OS Platform Testing using molecule and github actions
+
+Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](./molecule/shared/converge.yml) set on the [bootstrap_docker_ci.yml](./bootstrap_docker_ci.yml) playbook.
+
+The test pipeline is set up in the github actions [ci.yml](.github/workflows/ci.yml) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
 
 ## Summary
 
