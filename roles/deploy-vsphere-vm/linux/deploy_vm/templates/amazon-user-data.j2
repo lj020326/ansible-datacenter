@@ -1,0 +1,27 @@
+#cloud-config
+chpasswd:
+  list: |
+    ec2-user:{{ vm_password_hash }}
+    root:{{ vm_password_hash }}
+  expire: false
+ssh_pwauth: true
+disable_root: false
+repo_upgrade: none
+ssh_authorized_keys:
+  - {{ ssh_public_key }}
+
+{% if new_user is defined and new_user != 'root' %}
+users:
+  - name: {{ new_user }}
+    passwd: {{ vm_password_hash }}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - {{ ssh_public_key }}
+{% endif %}
+
+write_files:
+  - content: |
+      network:
+        config: disabled
+    path: /etc/cloud/cloud.cfg.d/80_disable_network_after_firstboot.cfg
+    permissions: '0644'

@@ -3,41 +3,140 @@
 
 ## Datacenter Client Applications
 
+### Standardized 'docker service mesh' setup using ansible
+
+Automate a standardized 'docker service mesh' using ansible:
+* [Ansible playbook to setup array of docker mesh services](https://github.com/lj020326/matrix-docker-ansible-deploy)
+  * This ansible playbook bootstraps your own [Docker Matrix](http://matrix.org/) server, along with the [various services](#supported-services) related to that.
+
 ### Setup apache Spark cluster
 
 #### Setup models using Spark
 
 ## CICD Infrastructure Automation Priorities
 
-### Idempotent roles for key plays
+### Setup example.int domain for running client demos
 
-Develop roles for idempotency and ability to run independently to achieve correct end-state:
+* Setup pipeline demos
+  * ansible 'bootstrap' pipelines
+  * ansible CICD / SDLC pipelines
+    * pipeline based CICD promotions DEV -> QA -> PROD
 
-Specifically, target the roles that take lists most often needed by other roles for implementing.
+Create / document detailed AAP CICD workflow/pipeline use cases
 
-    [ ] bootstrap-linux-packages
-    [ ] bootstrap-linux-service-accounts
-    [ ] bootstrap-linux-firewalld
-    [ ] bootstrap-linux-mounts
-    [ ] bootstrap-linux-nfs (e.g., nfs-server)
+The demo PoC's should prove following CICD / SDLC pipeline/workflows:
 
-    Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
+  * create/update 'develop' branch  
+    1) new/update playbook(s), 
+    2) new/update roles
+    3) new/update collections
+    4) new/update AWX job templates
+    5) update inventory
+  * create PR branch for code repo(s) and inventory repo(s) 
+    * use PR branches to test/run in QA AWX environment
+  * create PR pull request into 'release' branch 
+    * upon PR request, run full regression test automation 
+    * run regression test playbooks (site.yml and any other key test playbooks) in QA AWX environment
+    * review PR request and test status
+  * merge PR into 'release' branch
+    * test/run using the release branch in QA AWX environment
+
+### Setup Ansible Automation Platform (AAP)
+
+Implement ansible bootstrap play to set up multi-stage environment
+
+[Ansible role to bootstrap AAP env](./roles/bootstrap-awx/README.md)
+
+* https://docs.ansible.com/ansible-tower/latest/html/quickinstall/install_script.html
+* [Setting up LDAP for AAP controller and hub](./docs/ansible/ansible-automation-platform/lab-ldap-for-aap.md)
+
+Setting up execution environments
+
+* https://weiyentan.github.io/2021/creating-execution-environments/
+* https://ansible-runner.readthedocs.io/en/latest/execution_environments/
+* https://ansible-builder.readthedocs.io/en/latest/index.html
+* https://devops.cisel.ch/awx-19-create-a-custom-awx-ee-docker-image
+
+Setting up collections in tower using automation hub
+
+* https://www.ansible.com/blog/installing-and-using-collections-on-ansible-tower
+* https://www.ansible.com/blog/importing/exporting-collections-in-automation-hubs
+* https://goetzrieger.github.io/ansible-collections/6-automation-hub-and-galaxy/
+
+Set up constructed inventory demo using fact cache yaml plugin
+* https://docs.ansible.com/ansible/latest/collections/ansible/builtin/constructed_inventory.html
+* https://docs.ansible.com/ansible/latest/plugins/cache.html
+* https://stackoverflow.com/questions/57529059/can-inventory-plugin-constructed-create-a-groups-based-on-ansible-facts
+* https://www.lutro.me/posts/complex-groups-in-ansible-using-the-constructed-inventory-plugin
+* https://stackoverflow.com/questions/52652782/where-are-set-facts-stored-for-ansible-when-cacheable-true
+* https://www.typeerror.org/docs/ansible/collections/ansible/builtin/constructed_inventory 
+* https://github.com/ansible/ansible/issues/37397
+
+
+
+Similar methods not using ansible to set up for reference:
+
+  * 'Kind' Method
+    * https://netapp.io/2021/08/19/how-to-guide-setting-up-awx-on-a-single-host/
+    * Creating a custom Docker image to install Kubernetes in Docker, referred to as ‘kind’, on the host with Docker
+    * Note about kind: [kind](https://sigs.k8s.io/kind) is a tool for running local Kubernetes clusters using Docker container “nodes”.  
+      * kind was primarily designed for testing Kubernetes itself, but may be used for local development or CI.
+  * Openshift / AWX Series by ayakoubo covers: 
+    1) installing tower into vsphere using template 
+    2) setting up tower resources to support openshift deployment
+    3) using tower to stand up openshift 
+      * [ayakoubo](https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6)
+      * [ayakoubo](https://medium.com/@ayakoubo/openshift-4-x-automation-of-upi-deployment-by-ansible-f7cc902e3ade)
+
+  * [WSL2 - manual CLI based setup](http://vcloud-lab.com/entries/devops/install-ansible-awx-tower-on-ubuntu-linux-os)
+  * [WSL2 - primarily using powershell setup script `awxly-install.ps1`](https://github.com/TJoshua/awxly)
+  * [Ubuntu manual](https://computingforgeeks.com/how-to-install-ansible-awx-on-ubuntu-linux/)
+
+Redhat Ansible Automation Platform download(s)/blog(s)
+* https://catalog.redhat.com/software/containers/ansible-automation-platform-21/ee-supported-rhel8/6177cff2be25a74c009224fa?container-tabs=gti
+* https://www.ansible.com/blog/control-your-content-with-private-automation-hub
+* https://www.ansible.com/blog/fun-with-private-automation-hub-part-1
+
+
+
+
+### Setup AWX integration with conjur
+
+* [Setup Conjur Dev Env](https://www.conjur.org/get-started/quick-start/oss-environment/)
+  * https://github.com/cyberark/conjur-quickstart.git
+* [Ansible integration with conjur](https://docs.conjur.org/Latest/en/Content/Integrations/ansible.html?tocpath=Integrations%7C_____1)
+* https://github.com/cyberark/ansible-conjur-collection
+* https://github.com/cyberark/ansible-conjur-collection/blob/main/plugins/lookup/conjur_variable.py
+* https://github.com/infamousjoeg/instruqt/blob/22654a6ae7681846ae516489c5594935456fea33/tracks/conjur.org/secure-ansible-automation/09-secure-playbook/solve-host01#L13-L17
 
 
 ### Setup DEV, QA and PROD AWX clusters
 
-### Setup DEV, QA and PROD openshift clusters
+### Setup DEV, QA and PROD docker/k8s/openshift clusters
 
+* [Vsphere Openshift Setup](https://github.com/alanadiprastyo/openshift-4.6)
+  * comprehensive easy-to-follow setup
+  * [openshift registry setup](https://github.com/alanadiprastyo/openshift-4.6/tree/master/registry)
 * https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.2/latest/
 * https://ayakoubo.medium.com/openshift-4-x-automation-of-upi-deployment-by-ansible-tower-and-vsphere-preparations-81bb4001efe6
 * https://github.com/openshift/installer/blob/master/docs/user/overview.md#installer-overview
 * https://giters.com/rmetzler/openshift-ansible
+* [proxied-openshift-nvidia-gpu-operator](./docs/openshift/proxied-openshift-nvidia-gpu-operator.md)
+
+Install methods for reference:
+* [installation of OCP 4.3 on VMware vSphere with static IPs using User Provisioned Infrastructure (UPI)](https://medium.com/icp-for-data/installing-openshift-4-3-7d8053cd64fd)
+  * covers best practices for deploy IBM Cloud Pak for Data (CPD) 3.0.1 on OCP 4.3
+  * provides realistic resource / network specifications 
 
 * Setup hypervisor based router for respective PaaS environmental subnets
   * https://univirt.wordpress.com/2020/04/29/a-basic-lab-setup-using-vyos-on-vsphere/
   * http://keithlee.ie/2018/11/05/pks-nsx-t-home-lab-part-3-core-vms/
   * http://keithlee.ie/2018/11/08/pks-nsx-t-home-lab-part-4-configuring-pfsense-router/
   
+### pfsense VMs - Set up multiple VM subnet gateways
+
+* https://docs.netgate.com/pfsense/en/latest/recipes/virtualize-esxi.html
+
 ### VM appliances
 
 Add functionality to deploy-vm role to support automated deployment for VM appliances:
@@ -61,13 +160,26 @@ Add functionality to deploy-vm role to support automated deployment for VM appli
     https://github.com/lj020326/ansible-datacenter/blob/main/docs/terraform-deployments-with-ansible-part-1.md
 
 
-### add chef inspec tests to VM provisioning pipeline
+### Ansible Role to run chef inspec tests on target hosts
 
-    https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md
+* [ansible-role-inspec](https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md)
+* https://www.digitalocean.com/community/tutorials/how-to-test-your-ansible-deployment-with-inspec-and-kitchen
+* https://www.chef.io/blog/compliance-with-inspec-any-node-any-time-anywhere
+* https://www.stackovercloud.com/2019/11/19/how-to-test-your-ansible-deployment-with-inspec-and-kitchen/
+* 
+
+### POC - Windows Role to manage AD Admin credentials for local machines
+
+* [ansible-role-win_laps](https://github.com/jborean93/ansible-role-win_laps)
+  This role can be used to do the following:
+
+  - Install the server side components and add the required active directory schema objects and permissions 
+  - Create a GPO to automatically push the LAPS configuration to clients 
+  - Install the client side components
 
 ### Container service delivery
 
-Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](https://github.com/lj020326/ansible-datacenter/tree/main/docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](https://github.com/lj020326/ansible-datacenter/tree/main/docs/ansible/inventory/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
 ## Migrate tech-docs to gitbook
 
@@ -78,7 +190,24 @@ Migrate configs and service delivery to [modern way to manage configurations for
 * https://github.com/GitbookIO/gitbook
 * https://docs.ibracorp.io/authelia/configuration-files/configuration.yml
 
-## Pie-in-the-sky / moonshot
+## Other 
+
+### Idempotent roles for key plays
+
+Develop roles for idempotency and ability to run independently to achieve correct end-state:
+
+Specifically, target the roles that take lists most often needed by other roles for implementing.
+
+    [ ] bootstrap-linux-packages
+    [ ] bootstrap-linux-service-accounts
+    [ ] bootstrap-linux-firewalld
+    [ ] bootstrap-linux-mounts
+    [ ] bootstrap-linux-nfs (e.g., nfs-server)
+
+    Use consistent group based pattern such that all settings can be compared with runtime to verify / generate drift reporting for each above as needed. 
+
+
+### Graph/node view/editor of inventory
 
 Ideally find a good node querying/editor opensource codebase that can used/adapted/refactored to view/query and edit the ansible-inventory repo YAMLs.
 
@@ -86,7 +215,6 @@ Ideally find a good node querying/editor opensource codebase that can used/adapt
 
     * https://docs.cloudify.co/5.1/trial_getting_started/examples/local/local_hello_world_example/
       * https://docs.cloudify.co/5.1/trial_getting_started/examples/first_service/aws_hello_world_example/
-
 
     * https://github.com/Cloud-Pipelines/pipeline-editor
     * https://github.com/newcat/baklavajs
@@ -112,7 +240,7 @@ Ideally find a good node querying/editor opensource codebase that can used/adapt
     * https://github.com/miroiu/nodify
     * https://github.com/jerosoler/Drawflow
 
-### Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./docs/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
+### Migrate configs and service delivery to [modern way to manage configurations for multiple environments and clouds](./docs/ansible/inventory/common-way-to-manage-configurations-for-multiple-environments-and-clouds.md)
 
 ### Setup KEA DHCP + PowerDNS Containers for API based DNS record updates using ansible
 
@@ -157,6 +285,12 @@ Some good modern UI implementations:
     https://github.com/mrjoh3/blog
 
 ## Datacenter Priorities
+
+### Setup artifactory using ansible
+
+* https://www.jfrog.com/confluence/display/JFROG/Installing+the+JFrog+Platform+Using+Ansible
+* https://github.com/mattandes/ansible-role-artifactory
+* https://github.com/quadewarren/ansible-role-artifactory
 
 [X] add chef inspec to buildVmTemplate pipeline - performs checks before completing build
 

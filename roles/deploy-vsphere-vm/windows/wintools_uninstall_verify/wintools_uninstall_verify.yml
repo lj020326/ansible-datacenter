@@ -1,0 +1,63 @@
+---
+# Description:
+#   This test case is used for test VMware Tools uninstall in
+# Windows guest OS.
+#
+- name: wintools_uninstall_verify
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - block:
+        - include_tasks: ../setup/test_setup.yml
+
+        # VMware Tools status got in test_setup before this test
+        - name: "Set fact of the VMware Tools status before uninstall"
+          ansible.builtin.set_fact:
+            vmtools_is_installed_before: "{{ vmtools_is_installed | default(false) }}"
+            vmtools_is_running_before: "{{ vmtools_is_running | default(false) }}"
+        - name: "Display the VMware Tools status before uninstall"
+          ansible.builtin.debug:
+            msg: "VMware Tools installed: {{ vmtools_is_installed_before }}, running: {{ vmtools_is_running_before }}"
+
+        - include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Test case '{{ ansible_play_name }}' is blocked because VMware Tools installed: {{ vmtools_is_installed_before }}, running: {{ vmtools_is_running_before }}"
+            skip_reason: "Blocked"
+          when: not vmtools_is_installed_before
+
+        - name: "Check VMware Tools is running before uninstall"
+          ansible.builtin.fail:
+            msg: "VMware tools installed: {{ vmtools_is_installed_before }}, running: {{ vmtools_is_running_before }}"
+          when: not vmtools_is_running_before
+
+        # Add a new pvscsi controller and vmxnet3 network adapter to the VM
+        # when there are inbox drivers
+        - include_tasks: add_new_devices_check_status.yml
+          when:
+            - guest_os_with_inbox_drivers is defined
+            - guest_os_with_inbox_drivers | bool
+
+        - include_tasks: uninstall_vmtools.yml
+        - include_tasks: verify_uninstall.yml
+
+        - name: "Remove added network adapter, portgroup and vSwitch"
+          block:
+            - include_tasks: ../../common/vm_remove_network_adapter.yml
+              vars:
+                netadapter_mac_addr: "{{ new_network_adapter_mac }}"
+            - include_tasks: ../../common/esxi_remove_portgroup.yml
+              vars:
+                vswitch_name: "{{ new_device_vswitch }}"
+                portgroup_name: "{{ new_device_pg }}"
+            - include_tasks: ../../common/esxi_remove_vswitch.yml
+              vars:
+                vswitch_name: "{{ new_device_vswitch }}"
+          when:
+            - guest_os_with_inbox_drivers is defined
+            - guest_os_with_inbox_drivers | bool
+            - new_network_adapter_mac is defined
+            - new_network_adapter_mac
+      rescue:
+        - include_tasks: ../../common/test_rescue.yml

@@ -1,0 +1,57 @@
+---
+# Below tasks will be executed at the beginning of each test case, to check
+# if base snapshot exists, revert to the base snapshot when it exists.
+# If base snapshot does not exist, then take a snapshot of VM as the base snapshot.
+#
+- name: "Set current test case name and log path on local machine"
+  ansible.builtin.set_fact:
+    current_testcase_name: "{{ ansible_play_name }}"
+    current_test_log_folder: "{{ testrun_log_path }}/{{ ansible_play_name }}"
+
+- include_tasks: base_snapshot_check_revert.yml
+
+- include_tasks: ../../common/vm_get_ip.yml
+  vars:
+    vm_get_ip_timeout: 600
+- include_tasks: ../utils/win_check_winrm.yml
+- include_tasks: ../utils/add_windows_host.yml
+- name: "Print VM guest IP address"
+  ansible.builtin.debug: var=vm_guest_ip
+
+# Pause Windows Update
+- include_tasks: ../utils/win_pause_windows_update.yml
+  when: not base_snapshot_exists
+
+# Get VMware tools status
+- include_tasks: ../../common/vm_get_vmtools_status.yml
+
+# Skip test case run when VMware tools is required but not installed or not running
+- include_tasks: ../../common/skip_test_case.yml
+  vars:
+    skip_msg: "Test case '{{ current_testcase_name }}' is blocked because VMware tools installed: {{ vmtools_is_installed | default(false) }}, running: {{ vmtools_is_running | default(false) }}"
+    skip_reason: "Blocked"
+  when:
+    - skip_test_no_vmtools is defined
+    - skip_test_no_vmtools
+    - not (vmtools_is_running is defined and vmtools_is_running | bool)
+
+- include_tasks: ../utils/win_get_vmtools_version_build.yml
+  when:
+    - vmtools_is_installed is defined
+    - vmtools_is_installed | bool
+    - vmtools_info_from_vmtoolsd is undefined or not vmtools_info_from_vmtoolsd
+
+# Get guest OS info if not defined
+- include_tasks: ../utils/get_windows_system_info.yml
+  when: guest_os_system_info_retrieved is undefined or not guest_os_system_info_retrieved
+
+# Get VM guest info guest id, guest full name and guest detailed data
+- include_tasks: ../../common/vm_get_guest_info.yml
+  when:
+    - vmtools_is_running is defined
+    - vmtools_is_running | bool
+    - guestinfo_gathered is undefined or not guestinfo_gathered
+
+# Take base snapshot if not exist
+- include_tasks: create_base_snapshot.yml
+  when: not base_snapshot_exists

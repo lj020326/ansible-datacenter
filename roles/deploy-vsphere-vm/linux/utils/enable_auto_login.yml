@@ -1,0 +1,132 @@
+---
+# Enable auto login for user
+# Parameter:
+#   autologin_user: The username to auto login
+
+- name: "Initialize facts for enabling auto login"
+  ansible.builtin.set_fact:
+    enable_autologin: false
+    dm_conf_file: ""
+    dm_conf_section: ""
+    dm_autologin_options: {}
+
+- name: "Can not enable auto login for unknown display manager"
+  ansible.builtin.fail:
+    msg: "Can not enable auto login when guest_os_display_manager is {{ guest_os_display_manager | default('') }}."
+  when: >
+    guest_os_display_manager is undefined or
+    guest_os_display_manager not in ["gdm", "xdm", "lightdm", "lxdm", "sddm"]
+
+- name: "Set facts for enabling GNOME auto login"
+  block:
+    - name: "Set GNOME config file path in {{ guest_os_ansible_distribution }}"
+      ansible.builtin.set_fact:
+        dm_conf_path: "/etc/gdm/custom.conf"
+      when: guest_os_family == "RedHat"
+
+    - name: "Set GNOME config file path for Ubuntu"
+      ansible.builtin.set_fact:
+        dm_conf_path: "/etc/gdm3/custom.conf"
+      when: guest_os_ansible_distribution == "Ubuntu"
+
+    - name: "Set GNOME config file path for Debian"
+      ansible.builtin.set_fact:
+        dm_conf_path: "/etc/gdm3/daemon.conf"
+      when: guest_os_ansible_distribution == "Debian"
+
+    - name: "Set facts of autologin section and options"
+      ansible.builtin.set_fact:
+        dm_conf_section: "daemon"
+        dm_autologin_options: {"AutomaticLogin": "{{ autologin_user }}", "AutomaticLoginEnable": "True"}
+  when: guest_os_display_manager == "gdm"
+
+- name: "Set facts for enabling XDM auto login"
+  block:
+    - name: "Set XDM config file path and options in {{ guest_os_ansible_distribution }}"
+      ansible.builtin.set_fact:
+        dm_conf_path: "/etc/sysconfig/displaymanager"
+        dm_conf_section: ""
+        dm_autologin_options: {"DISPLAYMANAGER_AUTOLOGIN": "{{ autologin_user }}"}
+      when: guest_os_family == "Suse"
+  when: guest_os_display_manager == "xdm"
+
+- name: "Set facts for enabling LightDM auto login"
+  ansible.builtin.set_fact:
+    dm_conf_path: "/etc/lightdm/lightdm.conf"
+    dm_conf_section: "Seat:*"
+    dm_autologin_options: {"autologin-user": "{{ autologin_user }}"}
+  when: guest_os_display_manager == "lightdm"
+
+- name: "Set facts for enabling FLY-DM auto login"
+  ansible.builtin.set_fact:
+    dm_conf_path: "/etc/X11/fly-dm/fly-dmrc"
+    dm_conf_section: "X-:0-Core"
+    dm_autologin_options: {"AutoLoginEnable": "true", "AutoLoginUser": "{{ autologin_user }}"}
+  when: guest_os_display_manager == "fly-dm"
+
+- name: "Set facts for enabling LXDM auto login"
+  ansible.builtin.set_fact:
+    dm_conf_path: "/etc/lxdm/lxdm.conf"
+    dm_conf_section: "base"
+    dm_autologin_options:  {"autologin": "{{ autologin_user }}"}
+  when: guest_os_display_manager == "lxdm"
+
+- name: "Set facts for enabling SDDM auto login"
+  ansible.builtin.set_fact:
+    dm_conf_path: "/etc/sddm.conf.d/autologin.conf"
+    dm_conf_section: "Autologin"
+    dm_autologin_options:  {"User": "{{ autologin_user }}"}
+  when: guest_os_display_manager == "sddm"
+
+- name: "Can not enable auto login when dm_conf_path is not set"
+  ansible.builtin.fail:
+    msg: "Can not enable auto login because display manager config file is not set for {{ guest_os_display_manager }} display manager."
+  when: not dm_conf_path
+
+- name: "Enable autologin in display manager config file path"
+  block:
+    - name: "Check display manager config file status"
+      ansible.builtin.stat:
+        path: "{{ dm_conf_path }}"
+      register: dm_stat_result
+      delegate_to: "{{ vm_guest_ip }}"
+
+    - name: "{{ dm_conf_path }} exists. Auto login can be enabled"
+      ansible.builtin.set_fact:
+        enable_autologin: true
+      when:
+        - dm_stat_result is defined
+        - dm_stat_result.stat is defined
+        - dm_stat_result.stat.exists is defined
+        - dm_stat_result.stat.exists
+
+    - name: "Can not enable auto login when display manager config file doesn't exist"
+      ansible.builtin.fail:
+        msg: "Can not enable auto login because display manager config file {{ dm_conf_path }} doesn't exist"
+      when: not enable_autologin
+
+    - name: "Enable auto login for user {{ autologin_user }}"
+      block:
+        - name: "Enable auto login for user {{ autologin_user }} in {{ guest_os_ansible_distribution }}"
+          block:
+            - include_tasks: ../../common/update_ini_style_file.yml
+              vars:
+                file_path: "{{ dm_conf_path }}"
+                section_name: "{{ dm_conf_section }}"
+                option_name: "{{ item.key }}"
+                option_value: "{{ item.value }}"
+              with_list: "{{ dm_autologin_options | dict2items }}"
+          when: guest_os_display_manager in ["gdm", "lightdm", "fly-dm", "lxdm", "sddm"]
+
+        # Enable auto login for SLES/SLED
+        - name: "Enable auto login for user {{ autologin_user }} in {{ guest_os_ansible_distribution }}"
+          include_tasks: replace_or_add_line_in_file.yml
+          vars:
+            file: "{{ dm_conf_path }}"
+            reg_exp: "DISPLAYMANAGER_AUTOLOGIN=.*"
+            line_content: "DISPLAYMANAGER_AUTOLOGIN={{ autologin_user }}"
+          when:
+            - guest_os_display_manager == "xdm"
+            - guest_os_family == "Suse"
+      when: enable_autologin
+  when: dm_conf_path

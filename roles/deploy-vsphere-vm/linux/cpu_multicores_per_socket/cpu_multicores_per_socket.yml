@@ -1,0 +1,46 @@
+---
+# Description:
+#   This test case is used for test multiple cores per socket configuration
+# of VM vCPU. When calculated vCPU number list from ESXi server CPU number
+# and configured maximum CPU number (default 16) is empty, this test case
+# result is 'No Run'.
+# Note: VM vCPU number will be set to 2, cores per socket will be set to 1
+# before multiple cores test.
+#
+- name: cpu_multicores_per_socket
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - name: "Test case block"
+      block:
+        - name: Set fact of the initial VM vCPU number
+          ansible.builtin.set_fact:
+            initial_cpu_num: 2
+            initial_cores_num: 2
+        - include_tasks: ../cpu_hot_add_basic/generate_cpu_hot_add_list.yml
+
+        - include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Test case '{{ ansible_play_name }}' is blocked because vCPU value increase list is empty"
+            skip_reason: "Blocked"
+          when: cpu_hotadd_num_list | length == 0
+
+        - include_tasks: ../setup/test_setup.yml
+
+        - name: Initialize the test result
+          ansible.builtin.set_fact:
+            cpu_multicores_per_socket_results: []
+
+        - include_tasks: ../cpu_hot_add_basic/cpu_hot_add_prepare.yml
+          vars:
+            enable_vm_cpu_hotadd: false
+        - include_tasks: cpu_multicores_validate.yml
+          loop: "{{ cpu_hotadd_num_list }}"
+          loop_control:
+            loop_var: cores_per_socket_add
+        - name: Display the test results
+          ansible.builtin.debug: var=cpu_multicores_per_socket_results
+      rescue:
+        - include_tasks: ../../common/test_rescue.yml

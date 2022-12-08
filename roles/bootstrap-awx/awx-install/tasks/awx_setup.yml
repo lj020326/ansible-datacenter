@@ -1,0 +1,145 @@
+---
+
+- name: Ensure /root/cert-manager folder exists
+  file:
+    path: /root/cert-manager
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Download cmctl
+  get_url:
+    url: https://github.com/cert-manager/cert-manager/releases/download/v1.10.1/cmctl-linux-amd64.tar.gz
+    dest: /root/cert-manager/
+    checksum: sha256:c0996ec98b87c8ee2854162da25238c4e74092c3ab156710619423f794eb1aa6
+
+- name: Extract cmctl
+  unarchive:
+    src: /root/cert-manager/cmctl-linux-amd64.tar.gz
+    dest: /root/cert-manager
+    remote_src: yes
+
+- name: Install cmctl
+  copy:
+    src: /root/cert-manager/cmctl
+    dest: /usr/local/bin
+    remote_src: yes
+    mode: 0755
+
+- name: Git clone awx-operator 1.1.0 (AWX 21.9.0)
+  git:
+    repo: 'https://github.com/ansible/awx-operator.git'
+    dest: /root/awx-operator/
+    version: 1.1.0
+    force: yes
+
+- name: Deploy awx-operator to K3s
+  shell: |
+      export 'NAMESPACE=awx' && make deploy --directory=/root/awx-operator/
+
+- name: Extract awx-on-k3s-1.1.0.tar.xz repo
+  unarchive:
+    src: '{{ role_path }}/repos/awx-on-k3s-1.1.0.tar.xz'
+    dest: /root/
+
+- name: Template namespace.yaml
+  template:
+    src: '{{ role_path }}/templates/namespace.yaml'
+    dest: /root/awx-on-k3s-1.1.0/base/namespace.yaml
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Template base/awx.yml
+  template:
+    src: '{{ role_path }}/templates/awx.yaml.j2'
+    dest: /root/awx-on-k3s-1.1.0/base/awx.yaml
+    owner: root
+    group: root
+    mode: '0640'
+    
+- name: Template base/kustomization.yml
+  template:
+    src: '{{ role_path }}/templates/kustomization.yaml.j2'
+    dest: /root/awx-on-k3s-1.1.0/base/kustomization.yaml
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Download cert-manager.yaml manifest
+  get_url:
+    url: https://github.com/cert-manager/cert-manager/releases/download/v1.10.1/cert-manager.yaml
+    dest: /root/cert-manager/
+    checksum: sha256:be169fc5333a80c5c4e272f1603ab65361636e27ed513a1ae2c701f93893c0fc
+
+- name: Apply cert-manager.yaml manifest
+  command: |
+      kubectl apply -f /root/cert-manager/cert-manager.yaml
+
+- name: Check the cert-manager API until it's ready (max 10min)
+  command: |
+      cmctl check api --kubeconfig /etc/rancher/k3s/k3s.yaml
+  register: result
+  until: result.stdout.find("The cert-manager API is ready") != -1
+  retries: 20
+  delay: 30
+
+- name: Template issuer.yaml
+  template:
+    src: '{{ role_path }}/templates/issuer.yaml.j2'
+    dest: /root/awx-on-k3s-1.1.0/acme/issuer.yaml
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Deploy the issuer
+  command: |
+      kubectl apply -k /root/awx-on-k3s-1.1.0/acme
+
+- name: Copy base/middleware.yaml
+  template:
+    src: '{{ role_path }}/templates/middleware.yaml'
+    dest: /root/awx-on-k3s-1.1.0/base/middleware.yaml
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Apply middleware.yaml to redirect HTTP to HTTPS
+  command: |
+      kubectl -n default apply -f /root/awx-on-k3s-1.1.0/base/middleware.yaml
+
+- name: Prepare Persistent Volume directories (1/2)
+  ansible.builtin.file:
+    state: directory
+    path: /data/postgres-13
+    recurse: true
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Prepare Persistent Volume directories (2/2)
+  ansible.builtin.file:
+    state: directory
+    path: /data/projects
+    recurse: true
+    owner: 1000
+    group: root
+    mode: '0755'
+
+- name: Deploy AWX/Automation Controller onto K3s
+  command: |
+      kubectl apply -k /root/awx-on-k3s-1.1.0/base
+
+- name: Check if AWX/Automation Controller is deployed (max 10min)
+  command: |
+      kubectl -n awx logs --tail=10 deployments/awx-operator-controller-manager -c awx-manager
+  register: result
+  until: result.stdout.find("failed=0") != -1
+  failed_when: result.stdout.find("failed=1") != -1
+  retries: 20
+  delay: 30
+
+- name: Deploy the required AWX/Automation Controller Operator objects in the awx namespace.
+  command: |
+      kubectl -n awx get awx,all,ingress,secrets

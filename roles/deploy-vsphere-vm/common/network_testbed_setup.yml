@@ -1,0 +1,45 @@
+---
+# Add new vSwitch and portgroup to ESXi host and deploy a router VM
+# Parameters:
+#   router_vm_name: the name of router VM which is used to assign
+#     DHCP IP to new network interface.
+#   vswitch_name: the name of vSwitch to be added for new network
+#     interface testing or GOSC testing.
+#   portgroup_name: the name of vSwitch portgroup to be added for
+#     new network interface testing or GOSC testing.
+#
+- name: Set fact of the variables deploying router VM required
+  ansible.builtin.set_fact:
+    router_vm_name: "Ansible_Router_VM_{{ testrun_timestamp }}"
+    vswitch_name: "vSwitch{{ testrun_timestamp }}"
+    portgroup_name: "vSwitch{{ testrun_timestamp }}_PG"
+    vlan_gateway: "192.168.192.1"
+    router_vm_ovf_path: "{{ main_playbook_path }}/tools/openwrt_19.07.2_x86.ova"
+
+# Add a new standard vSwitch without physical network adapters
+- include_tasks: esxi_add_vswitch.yml
+
+# Create a new portgroup for VM network
+- include_tasks: esxi_add_portgroup.yml
+
+# Deploy a router VM
+- include_tasks: router_vm_deploy.yml
+
+# Hotadd a new e1000 network adapter to router VM
+- include_tasks: vm_add_network_adapter.yml
+  vars:
+    adapter_type: e1000
+    vm_name: "{{ router_vm_name }}"
+
+# Power on the router VM
+- include_tasks: vm_set_power_state.yml
+  vars:
+    vm_power_state_set: 'powered-on'
+    vm_name: "{{ router_vm_name }}"
+- name: "Wait 10 seconds to let router VM start up"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Set fact of router_vm_deployed to True"
+  ansible.builtin.set_fact:
+    router_vm_deployed: true

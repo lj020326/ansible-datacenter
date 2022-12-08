@@ -1,6 +1,5 @@
 
-Infrastructure Secret Management Software Overview
-===
+# Infrastructure Secret Management Software Overview
 
 Currently, there is an explosion of tools that aim to manage secrets for automated, cloud native
 infrastructure management. Here is a recent effort to summarize the various tools.
@@ -41,8 +40,7 @@ My approach is "if a feature is not described in the documentation, it does not 
 to setting up a high availability secret storage service. I will not read the source or spend significant time
 experimenting with a particular tool to figure out if something can be supported.
 
-Index of Tools
-===
+## Index of Tools
 - [Ansible Vault](#ansible-vault)
 - [Barbican](#barbican)
 - [Chef Data Bags](#chef-data-bags)
@@ -59,8 +57,7 @@ Index of Tools
 - [Trousseau](#trousseau)
 - [Vault (Hashicorp)](#vault-hashicorp)
 
-Ansible Vault
----
+### Ansible Vault
 This is Ansible's built in secret management system, based on encrypting secrets into a file. Its usage 
 can be more general than Chef's encrypted data bags, as it can be applied to tasks, handlers, etc. 
 and not just to variables; but it is not transparent, in the sense that some tasks will be configured 
@@ -75,8 +72,7 @@ probably be your natural choice.
 Read more:
 - http://docs.ansible.com/ansible/playbooks_vault.html
 
-Barbican
----
+### Barbican
 Currently an OpenStack project, Barbican is used to cater to secret storage needs of other OpenStack services.
 It is meant to contain certificates, encryption keys, and other secrets, replacing the multitude of methods used
 by individual OpenStack projects (encrypted files at rest, database tables, and so on). It takes the "enterprisey"
@@ -96,8 +92,7 @@ Read more:
 - https://wiki.openstack.org/wiki/Barbican
 - http://docs.openstack.org/developer/barbican/api/index.html (REST API documentation)
 
-Chef Data Bags
----
+### Chef Data Bags
 This is a built in capability of Chef. A data bag is a JSON file stored on a Chef server and accessible by clients.
 Neither Chef server nor client care about the exact format of contents of the data bag. An encrypted data bag is
 the same entity encrypted with a symmetric key. Anyone who wants access to an encrypted data bag's contents needs
@@ -116,8 +111,7 @@ Read more:
 - https://docs.chef.io/data_bags.html
 - https://blog.engineyard.com/2014/encrypted-data-bags
 
-Chef Vault
----
+### Chef Vault
 The easiest way to understand Chef Vault is as a framework to use a different shared secret
 key for every Chef encrypted data bag. Chef Vault addresses the problem of distributing data bag secret
 keys by encrypting them with each client's public key (used by Chef for client authentication already)
@@ -135,8 +129,7 @@ Read more:
 - https://www.chef.io/blog/2016/01/21/chef-vault-what-is-it-and-what-can-it-do-for-you/
 - https://github.com/chef/chef-vault/blob/master/THEORY.md
 
-Citadel
----
+### Citadel
 A Chef cookbook that retrieves secrets as files from an AWS S3 bucket and relies on AWS IAM policies to
 enforce access to individual secrets / files. Needless to say, this solution is AWS only.
 
@@ -149,8 +142,7 @@ for one machine to serve multiple roles.
 Read more:
 - https://github.com/poise/citadel
 
-Confidant
----
+### Confidant
 A tool to manage secrets built by Lyft. It is an AWS-only solution using DynamoDB for storage and AWS KMS
 for both encryption and access control. The service is written in Python.
 
@@ -164,8 +156,7 @@ Read more:
 - https://eng.lyft.com/announcing-confidant-an-open-source-secret-management-service-from-lyft-1e256fe628a3#.rz20ffjte
 - https://lyft.github.io/confidant/
 
-Configuration Storage Systems (Consul, etcd, Zookeeper)
----
+### Configuration Storage Systems (Consul, etcd, Zookeeper)
 There is a bunch of tools for storing configuration that is not necessarily a secret in a highly available,
 datacenter scale setup. Most of those systems have a tree-like data structure, version their edits,
 support ACLs and some even offer notification on changes-–something no secret management system provides.
@@ -183,8 +174,7 @@ Read more:
 - https://coreos.com/etcd/
 - https://zookeeper.apache.org/
 
-Conjur
----
+### Conjur
 Conjur is a closed-source appliance that does secret management as well as generic directory and access
 management with a RBAC model. The appliance is self-contained and provided as a Docker or AWS AMI image.
 UI and CLI interfaces are provided to the core REST API exposed by the appliance. As a directory, Conjur
@@ -201,8 +191,7 @@ Read more:
 - https://developer.conjur.net/
 - http://docs.conjur.apiary.io/
 
-Crypt
----
+### Crypt
 If you prefer a spartan approach but would like to use a (hopefully highly available) key-value store 
 instead of files, Crypt could be a solution for you. It relies on etcd or Consul for persistence,
 storing arbitrary data (which might be a single secret or any structured format like JSON) encrypted 
@@ -218,8 +207,7 @@ to be rotated, is left as an exercise to the user.
 Read more:
 - http://xordataexchange.github.io/crypt/
 
-EJSON
----
+### EJSON
 Designed by Shopify and one of the simplest solutions available, EJSON is a command-line tool (and
 library?) to encrypt secrets inside of JSON files (turning them into EJSON files) using public key crypto,
 probably NaCl. There is only one secret key for a particular EJSON file, and that key is required to decrypt
@@ -236,8 +224,7 @@ Read more:
 - https://engineering.shopify.com/79963908-secrets-at-shopify-introducing-ejson
 - https://github.com/Shopify/ejson
 
-Keywhiz
----
+### Keywhiz
 Keywhiz comes from Square and helps them distribute infrastructure secrets to services. It is a Java
 service with a JSON API, backed by a MySQL or Postgres store. A separate client provides a FUSE
 presentation for secrets. Authentication is performed using mutual TLS using a client certificate,
@@ -254,8 +241,7 @@ Read more:
 - https://github.com/square/keywhiz
 - http://square.github.io/keywhiz/apidocs/
 
-Knox
----
+### Knox
 A brand new solution from Pinterest, Knox has plenty of rough edges but gets one important concept right, namely the separation of versions of the same secret into three groups: primary (recommended/most recent), active (still working) and old (no longer working). It is certainly possible to rotate secrets smoothly without implementing such a feature (even in systems that only store one version of the secret, simply by keeping the previous version active until after the new one is deployed), but making this classification explicit helps.
 
 Knox follows a client-server architecture backed by a persistent store. Stored secrets are encrypted but ACLs and all the rest of the metadata are not, so the store must still be trusted. The encryption key is a file on each Knox server. Servers expose the Knox API to a client daemon that runs in the background to cache up-to-date secrets locally and to a CLI management tool. Installation requires modifying the Go code and compiling from source even for configuring a particular database type. Authentication for machines is done with client certificates, and for humans via GitHub credentials or OAuth – switching between those and configuration appears to require code changes as well. Client setup requires multiple steps and is not automated.
@@ -266,8 +252,7 @@ Read more:
 - https://engineering.pinterest.com/blog/open-sourcing-knox-secret-key-management-service
 - https://github.com/pinterest/knox/wiki
 
-Red October
----
+### Red October
 Red October is a CloudFlare-designed system to automate a two-person rule for secret storage (two keys
 belonging to two different users are needed to decrypt a secret). A server implemented in Go and
 exposing a JSON API implements encryption and decryption workflows, and allows a user to "delegate"
@@ -283,8 +268,7 @@ Read more:
 - https://blog.cloudflare.com/red-october-cloudflares-open-source-implementation-of-the-two-man-rule/
 - https://github.com/cloudflare/redoctober
 
-Trousseau
----
+### Trousseau
 Trousseau is a Go tool that manages secrets in a single OpenPGP-encrypted file. The creator of the file
 can specify who can open and modify the store. As far as I can see, the access control is global.
 It seems to be more suitable for personal secret storage or a small project than an enterprise rollout.
@@ -292,8 +276,7 @@ Support for several storage backends (S3, scp, Gist) is built in.
 
 Project page: https://github.com/oleiade/trousseau
 
-Vault (Hashicorp)
----
+### Vault (Hashicorp)
 Vault is perhaps the most commonly heard name in secret storage for infrastructure these days. Developed
 by Hashicorp, it is not a surprise that Vault suggests other Hashicorp infrastructure (for example,
 Consul is the only high availability backend supported by Hashicorp). Secrets are arranged in a tree
@@ -320,8 +303,8 @@ Read more:
 - https://www.vaultproject.io/
 - http://sysadminsjourney.com/blog/2015/10/30/replicating-hashicorp-vault-in-a-multi-datacenter-setup/
 
-Other Comparisons, Reviews, and Suggestions
-===
+### Other Comparisons, Reviews, and Suggestions
+
 - https://coderanger.net/chef-secrets/ (August 2014)
 - https://github.com/pinterest/knox/wiki/Similar-Solutions (September 2016)
 

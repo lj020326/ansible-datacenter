@@ -1,0 +1,44 @@
+---
+# Flatcar doesn't have python installed, so we need to install ActivePython3 at first
+- name: "Installing python3 on Flatcar VM {{ vm_name }}"
+  ansible.builtin.script: "./install_python3.sh '{{ flatcar_python3_download_url }}'"
+  register: ap3_install_result
+  delegate_to: "{{ vm_guest_ip }}"
+
+- name: "Display the result of python install"
+  ansible.builtin.debug: var=ap3_install_result
+
+- name: "Check /etc/ssh/sshd_config status"
+  ansible.builtin.stat:
+    path: "/etc/ssh/sshd_config"
+  register: sshd_config_stat
+  delegate_to: "{{ vm_guest_ip }}"
+
+# If /etc/ssh/sshd_config is a symbolic link
+# it means the file has not been changed
+- block:
+    - name: "Permit root login through ssh"
+      ansible.builtin.shell: sed -i '' /etc/ssh/sshd_config
+      become: true
+      delegate_to: "{{ vm_guest_ip }}"
+
+    - include_tasks: ../../utils/replace_or_add_line_in_file.yml
+      vars:
+        file: "/etc/ssh/sshd_config"
+        reg_exp: "^#?PermitRootLogin"
+        line_content: "PermitRootLogin yes"
+  when: sshd_config_stat.stat.islnk
+
+# Change user password
+- name: "Get user names for password changing"
+  ansible.builtin.set_fact:
+    usernames: "{{ [vm_username] | union(['core']) }}"
+
+- name: "Change password for user {{ vm_username }}"
+  ansible.builtin.user:
+    name: "{{ username }}"
+    password: "{{ vm_password | password_hash('sha512') }}"
+  delegate_to: "{{ vm_guest_ip }}"
+  with_items: "{{ usernames }}"
+  loop_control:
+    loop_var: username

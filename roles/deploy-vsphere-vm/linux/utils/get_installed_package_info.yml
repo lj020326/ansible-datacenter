@@ -1,0 +1,53 @@
+---
+# Get the installed package information
+# Parameter:
+#   package_name: The package name to query
+# Return:
+#   package_info: The package information
+
+- name: "Initialize variables for package information"
+  ansible.builtin.set_fact:
+    package_info: {}
+    package_query_cmd: ""
+
+# Get package query command in guest OS
+- name: "Get package query command for OS packages managed by {{ guest_os_ansible_pkg_mgr | upper }}"
+  ansible.builtin.set_fact:
+    package_query_cmd: "rpm -qi"
+  when: guest_os_ansible_pkg_mgr in ['yum', 'dnf', 'zypper']
+
+- name: "Get package query command for OS packages managed by {{ guest_os_ansible_pkg_mgr | upper }}"
+  ansible.builtin.set_fact:
+    package_query_cmd: "dpkg -s"
+  when: guest_os_ansible_pkg_mgr == 'apt'
+
+# Run command to query package info
+- block:
+    - name: "Get information about package '{{ package_name }}'"
+      ansible.builtin.command: "{{ package_query_cmd }} {{ package_name }}"
+      failed_when: false
+      register: package_fact_result
+      delegate_to: "{{ vm_guest_ip }}"
+
+    - block:
+        - name: "Set the fact of package info about '{{ package_name }}'"
+          ansible.builtin.set_fact:
+            package_info: "{{ '\n'.join(package_fact_result.stdout_lines | select('match', '^\\w+\\s*:.*[^:]$')) | from_yaml }}"
+
+        # In the output of querying packages on Ubuntu/Debian, it is using 'Package' parameter for package name
+        - name: "Set package name in package info"
+          ansible.builtin.set_fact:
+            package_info: "{{ package_info | combine({ 'Name': package_info['Package'] }) }}"
+          when:
+            - guest_os_ansible_pkg_mgr == 'apt'
+            - package_info['Package'] is defined
+      when:
+        - package_fact_result is defined
+        - package_fact_result.rc is defined
+        - package_fact_result.rc == 0
+        - package_fact_result.stdout is defined
+        - package_fact_result.stdout
+
+    - name: "Print package info"
+      ansible.builtin.debug: var=package_info
+  when: package_query_cmd

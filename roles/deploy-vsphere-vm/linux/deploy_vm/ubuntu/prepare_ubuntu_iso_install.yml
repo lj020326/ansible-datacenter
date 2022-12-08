@@ -1,0 +1,32 @@
+---
+- name: "Set fact of ISO file name"
+  ansible.builtin.set_fact:
+    ubuntu_iso_file_name: "{{ os_installation_iso_list[0].split('/')[-1] }}"
+
+- name: "Get Ubuntu OS version and edition from ISO file name"
+  ansible.builtin.set_fact:
+    ubuntu_version: "{{ ubuntu_iso_file_name | regex_search('\\d+.\\d+(.\\d+)?') }}"
+    ubuntu_edition: |-
+      {%- if ubuntu_iso_file_name.find("server") != -1 -%}server
+      {%- elif ubuntu_iso_file_name.find("desktop") != -1 -%}desktop
+      {%- else -%}unknown
+      {%- endif -%}
+
+- name: "Set Ubuntu autoinstall method"
+  ansible.builtin.set_fact:
+    ubuntu_install_method: |-
+      {%- if ubuntu_version and ubuntu_version is version('20.04', '>=') -%}cloud-init
+      {%- elif ubuntu_version and ubuntu_version is version('20.04', '<') -%}simulation
+      {%- else -%}cloud-init
+      {%- endif -%}
+  when: ubuntu_edition == 'server'
+
+- name: "Set fact of Ubuntu unattend install file"
+  ansible.builtin.set_fact:
+    unattend_install_conf: "Ubuntu/Server/user-data.j2"
+  when: ubuntu_install_method is defined and ubuntu_install_method == "cloud-init"
+
+- name: "Set fact of Ubuntu desktop unattend install file"
+  ansible.builtin.set_fact:
+    unattend_install_conf: "Ubuntu/Desktop/ubuntu.seed"
+  when: ubuntu_edition == 'desktop'

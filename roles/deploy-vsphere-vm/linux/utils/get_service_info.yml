@@ -1,0 +1,34 @@
+---
+# Get system service informatoin
+# Parameter:
+#   service_name: the service name to query
+# Return:
+#   service_info: the information about the service
+
+- name: "Initialize variables for service information"
+  ansible.builtin.set_fact:
+    service_info: ""
+
+- name: "Get facts of all services"
+  ansible.builtin.service_facts:
+  register: service_facts_result
+  delegate_to: "{{ vm_guest_ip }}"
+
+- name: "Set the full name for service '{{ service_name }}'"
+  ansible.builtin.set_fact:
+    service_fullname: |-
+      {%- if ".service" in service_name -%}{{ service_name }}
+      {%- else -%}{{ service_name + ".service" }}{%- endif -%}
+
+- block:
+    - name: "Get service information about '{{ service_fullname }}'"
+      ansible.builtin.set_fact:
+        service_info: "{{ service_facts_result.ansible_facts.services[service_fullname] }}"
+
+    - name: "Print service information"
+      ansible.builtin.debug:
+        msg: "Service information: {{ service_info }}"
+  when:
+    - service_facts_result.ansible_facts is defined
+    - service_facts_result.ansible_facts.services is defined
+    - service_fullname in service_facts_result.ansible_facts.services

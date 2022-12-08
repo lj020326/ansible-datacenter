@@ -1,0 +1,135 @@
+---
+- name: "Test case block"
+  block:
+    - include_tasks: ../setup/test_setup.yml
+
+    - include_tasks: ../../common/skip_test_case.yml
+      vars:
+        skip_msg: "Skip test case because guest OS doesn't support {{ new_disk_ctrl_type }} controller"
+        skip_reason: "Not Supported"
+      when:
+        - new_disk_ctrl_type in ["lsilogic", "lsilogicsas"]
+        - guest_os_ansible_distribution in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+        - guest_os_ansible_distribution_major_ver | int >= 8
+
+    - include_tasks: ../../common/skip_test_case.yml
+      vars:
+        skip_msg: "Skip test case because VM with hardware version {{ vm_hardware_version_num }} doesn't support {{ new_disk_ctrl_type }} controller hot add or hot remove"
+        skip_reason: "Not Supported"
+      when:
+        - new_disk_ctrl_type == "nvme"
+        - ((guest_os_ansible_distribution != "VMware Photon OS" and vm_hardware_version_num | int < 13) or
+           (guest_os_ansible_distribution == "VMware Photon OS" and vm_hardware_version_num | int < 19))
+
+    # Install SCSI command tools for rescan LSI Logic controller
+    - block:
+        - name: "Set SCSI command tools package name"
+          ansible.builtin.set_fact:
+            sg3_utils_pkg: "{{ 'sg3-utils' if guest_os_family in ['Debian', 'Astra Linux (Orel)'] else 'sg3_utils' }}"
+
+        - include_tasks: ../utils/get_installed_package_info.yml
+          vars:
+            package_name: "{{ sg3_utils_pkg }}"
+
+        - include_tasks: ../utils/install_uninstall_package.yml
+          vars:
+            package_name: "{{ sg3_utils_pkg }}"
+            package_state: "present"
+          when:
+            - package_info is defined
+            - package_info | length == 0
+      when:
+        - new_disk_ctrl_type == 'lsilogic'
+        - "'Flatcar' not in guest_os_ansible_distribution"
+
+    - name: "Get the vHBA type for {{ new_disk_ctrl_type }} controller"
+      ansible.builtin.set_fact:
+        new_vhba_type: "{{ new_disk_ctrl_type if new_disk_ctrl_type in ['sata', 'nvme'] else 'scsi' }}"
+
+    # Get VM current disk controller info before doing hotadd testing
+    - include_tasks: ../../common/vm_get_disk_controller_facts.yml
+
+    - name: "Set fact of VM disk controllers before hot adding tests"
+      ansible.builtin.set_fact:
+        disk_controller_facts_old: "{{ disk_controller_facts['disk_controller_data'] }}"
+
+    - name: "Print VM controller facts before hot adding tests"
+      ansible.builtin.debug: var=disk_controller_facts_old
+
+    - include_tasks: ../../common/vm_get_new_vhba_bus_number.yml
+      vars:
+        disk_controller_facts_data: "{{ disk_controller_facts_old }}"
+
+    - include_tasks: ../../common/skip_test_case.yml
+      vars:
+        skip_msg: "Test case '{{ ansible_play_name }}' is blocked because not found available {{ new_vhba_type }} controllers bus number."
+        skip_reason: "Blocked"
+      when: new_vhba_bus_found is undefined or not new_vhba_bus_found | bool
+
+    # Add a new disk controller and a new disk attaching to it
+    # when the total existing controller number < 4
+    - name: "Get new {{ new_vhba_type }} controller bus number"
+      ansible.builtin.set_fact:
+        new_ctrl_number: "{{ new_vhba_bus_number }}"
+        new_unit_number: "0"
+
+    # Get current device list in guest OS
+    - include_tasks: ../utils/get_device_list.yml
+      vars:
+        guest_device_type: "disk"
+
+    - name: "Set the fact of guest disk list before hot add"
+      ansible.builtin.set_fact:
+        guest_disk_list_before_hotadd: "{{ guest_device_list }}"
+
+    - name: "Print guest disk list before hot add"
+      ansible.builtin.debug: var=guest_disk_list_before_hotadd
+
+    - name: "Firstly hot add a new disk controller and disk at the same time"
+      ansible.builtin.set_fact:
+        add_new_controller: true
+
+    # Hot add a new controller and disk at the same time, run disk iozone test and then remove it
+    - include_tasks: hot_add_remove_disk.yml
+
+    # Get VM disk controller info after hot adding
+    - include_tasks: ../../common/vm_get_disk_controller_facts.yml
+
+    - name: "Print disk controller facts after disk hot adding"
+      ansible.builtin.debug: var=disk_controller_facts['disk_controller_data']
+
+    - name: "Fail the test if new disk controller doesn't exist"
+      ansible.builtin.fail:
+        msg: "Failed to create a new {{ new_disk_ctrl_type }} controller while adding new disk"
+      when: >
+        disk_controller_facts['disk_controller_data'][new_vhba_type] is undefined or
+        disk_controller_facts['disk_controller_data'][new_vhba_type][new_ctrl_number | quote] is undefined
+
+    - name: "Then hot add a new disk on previously added controller {{new_disk_ctrl_type }}{{ new_ctrl_number }}"
+      ansible.builtin.set_fact:
+        add_new_controller: false
+
+    # Hot add a new disk on the previous added controller, run disk iozone test and then remove it
+    - include_tasks: hot_add_remove_disk.yml
+
+    # Hot remove new added disk controller
+    - include_tasks: ../../common/vm_hot_add_remove_disk_ctrl.yml
+      vars:
+        disk_controller_ops: "absent"
+        disk_controller_type: "{{ new_disk_ctrl_type }}"
+        disk_controller_number: "{{ new_ctrl_number }}"
+
+    - name: "Set facts of disk controller on VM '{{ vm_name }}'"
+      ansible.builtin.set_fact:
+        disk_controller_facts_new: "{{ disk_controller_facts['disk_controller_data'] }}"
+
+    - name: "Print VM disk controller facts after controller hot removing"
+      ansible.builtin.debug: var=disk_controller_facts_new
+
+    - name: "Check disk controller facts are same as before hot adding tests"
+      ansible.builtin.assert:
+        that:
+          - disk_controller_facts_old[new_vhba_type] == disk_controller_facts_new[new_vhba_type]
+        fail_msg: "After tests VM disk controller fact is: {{ disk_controller_facts_new }}; before tests it's: {{ disk_controller_facts_old }}"
+  rescue:
+    - include_tasks: ../../common/test_rescue.yml

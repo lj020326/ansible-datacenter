@@ -1,0 +1,28 @@
+#
+# Get system firmware
+# Return:
+#   guest_firmware: EFI or BIOS
+#
+- name: "Check /sys/firmware/efi existence"
+  ansible.builtin.stat:
+    path: /sys/firmware/efi
+  register: sys_firmware_efi
+  delegate_to: "{{ vm_guest_ip }}"
+
+- name: "System firmware is EFI"
+  ansible.builtin.set_fact:
+    guest_firmware: "EFI"
+  when:
+    - sys_firmware_efi is defined
+    - sys_firmware_efi.stat is defined
+    - sys_firmware_efi.stat.exists is defined
+    - sys_firmware_efi.stat.exists | bool
+
+- name: "System firmware is BIOS"
+  ansible.builtin.set_fact:
+    guest_firmware: "BIOS"
+  when: >
+    (sys_firmware_efi is undefined) or
+    (sys_firmware_efi.stat is undefined) or
+    (sys_firmware_efi.stat.exists is undefined) or
+    (not sys_firmware_efi.stat.exists | bool)

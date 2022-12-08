@@ -1,0 +1,68 @@
+---
+# Description:
+#   This test case is used for deploying new Windows VM and installing
+# guest OS in VM automatically using Autounattend.xml file when
+# 'vm_deploy_method' is set to 'iso', if 'vm_deploy_method' is set to 'ova',
+# will deploy a new Windows VM using configured OVA or OVF template files.
+#
+- name: deploy_vm
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - include_tasks: ../../common/skip_test_case.yml
+      vars:
+        skip_msg: "Skip test case due to new_vm is set to '{{ new_vm | default(false) }}'"
+        skip_reason: "Skipped"
+      when: new_vm is undefined or not new_vm | bool
+
+    - block:
+        - name: "Set current test case log path on local machine"
+          ansible.builtin.set_fact:
+            current_test_log_folder: "{{ testrun_log_path }}/{{ ansible_play_name }}"
+        - name: "Create the current test case log folder with mode '0755'"
+          ansible.builtin.file:
+            path: "{{ current_test_log_folder }}"
+            state: directory
+            mode: '0755'
+          register: create_log_path
+        - ansible.builtin.debug: var=create_log_path
+          when: enable_debug is defined and enable_debug
+        
+        - include_tasks: deploy_vm_from_iso.yml
+          when: >
+            (vm_deploy_method is undefined) or
+            (vm_deploy_method | lower == 'iso')
+
+        - include_tasks: deploy_vm_from_ova.yml
+          when:
+            - vm_deploy_method is defined
+            - vm_deploy_method | lower == 'ova' 
+        
+        - name: "Print VM guest IP address"
+          ansible.builtin.debug: var=vm_guest_ip
+          when: vm_guest_ip is defined
+
+        # Take screenshot of VM after guest OS install
+        - include_tasks: ../../common/vm_take_screenshot.yml
+          vars:
+            vm_take_screenshot_local_path: "{{ current_test_log_folder }}"
+      rescue:
+        - include_tasks: ../../common/test_rescue.yml
+          vars:
+            exit_testing_when_fail: true
+      always:
+        - block:
+            # Umount NFS share points
+            - include_tasks: ../../common/local_unmount.yml
+              vars:
+                mount_path: "{{ nfs_mount_dir }}"
+                local_unmount_ignore_errors: true
+              when: nfs_mounted is defined and nfs_mounted | bool
+            # Remove temporary folders
+            - include_tasks: ../../common/delete_local_file.yml
+              vars:
+                local_path: "{{ nfs_mount_dir }}"
+                del_local_file_ignore_errors: true
+          when: nfs_mount_dir is defined and nfs_mount_dir
