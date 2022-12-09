@@ -18,6 +18,8 @@ Testing of the linux OS bootstrap playbooks is performed by molecule with platfo
 
 The test pipeline is set up in the github actions [ci.yml](.github/workflows/ci.yml) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
 
+The [github source for the systemd docker images used in the molecule tests can be found here](https://github.com/lj020326/systemd-python-dockerfiles/) with corresponding [dockerhub images are found here](https://hub.docker.com/search?q=lj020326).
+
 ## Summary
 
 -   Collection of Ansible roles, playbooks, plugins, and modules
