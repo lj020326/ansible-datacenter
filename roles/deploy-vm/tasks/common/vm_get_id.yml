@@ -1,0 +1,33 @@
+---
+- name: "Initialize VM ID"
+  ansible.builtin.set_fact:
+    vm_id: ''
+
+- name: "Get VM '{{ vm_name }}' facts from ESXi host"
+  community.vmware.vmware_guest_info:
+    hostname: "{{ esxi_hostname }}"
+    username: "{{ esxi_username }}"
+    password: "{{ esxi_password }}"
+    validate_certs: "{{ validate_certs | default(false) }}"
+    datacenter: "ha-datacenter"
+    name: "{{ vm_name }}"
+  register: vm_moid_facts
+- name: Display the VM guest facts
+  ansible.builtin.debug: var=vm_moid_facts
+  when: enable_debug is defined and enable_debug
+
+- name: "Set fact of the VM ID of VM '{{ vm_name }}'"
+  ansible.builtin.set_fact:
+    vm_id: "{{ vm_moid_facts.instance.moid | int }}"
+  when:
+    - vm_moid_facts is defined
+    - vm_moid_facts.instance is defined
+    - vm_moid_facts.instance.moid is defined
+    - vm_moid_facts.instance.moid
+
+- ansible.builtin.fail:
+    msg: "Failed to get VM ID"
+  when: not vm_id
+
+- ansible.builtin.debug:
+    msg: "Get VM '{{ vm_name }}' ID from ESXi host '{{ esxi_hostname }}': {{ vm_id }}"

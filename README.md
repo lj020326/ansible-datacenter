@@ -16,7 +16,9 @@ The 'ansible' and 'vm template build' pipelines are both automated using the [pi
 
 Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](./molecule/shared/converge.yml) set on the [bootstrap_docker_ci.yml](./bootstrap_docker_ci.yml) playbook.
 
-The test pipeline is set up in the github actions [ci.yml](.github/workflows/ci.yml) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
+The molecule test pipeline is set up in the github actions [ci.yml](.github/workflows/ci.yml) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
+
+The dockerfile image definitions for the systemd python docker platform containers used in the molecule tests use can be found [here](https://github.com/lj020326/systemd-python-dockerfiles).  
 
 ## Summary
 
