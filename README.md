@@ -1,8 +1,8 @@
-[![Molecule Tests](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-GPLv3-brightgreen.svg?style=flat)](LICENSE)
-[![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
 
 # ansible-datacenter
+
+[![Molecule Tests](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-GPLv3-brightgreen.svg?style=flat)](LICENSE)
 
 ## Build Status
 
@@ -22,11 +22,11 @@ The dockerfile image definitions for the systemd python docker platform containe
 
 ## Summary
 
--   Collection of Ansible roles, playbooks, plugins, and modules
--   OS image build systems (packer, vsphere)
--   Runtime environment software installs
--   Runtime environment application deployments
--   Runtime machine instance maintenance
+- Collection of Ansible roles, playbooks, plugins, and modules
+- OS image build systems (packer, vsphere)
+- Runtime environment software installs
+- Runtime environment application deployments
+- Runtime machine instance maintenance
 
 ### Example ansible image build workflow
 
@@ -568,3 +568,6 @@ ansible-playbook site.yml --tags vmware-remount-datastores
 ansible-playbook site.yml --tags upgrade-vmware-esxi
 ```
 
+## Contact
+
+[![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
