@@ -179,47 +179,29 @@ ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.yml -t untagged
 ## Run molecule tests
 
 ```shell
-$ PROJECT_DIR="$( git rev-parse --show-toplevel )"
-$ cd ${COLLECTION_DIR}
-$ export MOLECULE_DISTRO=redhat7
+$ git clone https://github.com/lj020326/ansible-datacenter.git
+$ cd ansible-datacenter
+$ export MOLECULE_DISTRO=redhat7-systemd-python
 $ molecule login
 $ molecule --debug test -s bootstrap-linux-package
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-linux-package
-$ MOLECULE_DISTRO=redhat8 molecule login
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule converge
 $ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
+$ MOLECULE_DISTRO=centos8-systemd-python molecule --debug converge
 $ molecule destroy
-$ tests/molecule_exec.sh ubuntu2004 converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2204 --debug converge
+$ MOLECULE_DISTRO=ubuntu2204-systemd-python molecule --debug converge
 
 ```
 
 To log into container
 
 ```shell
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule create
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
 $ molecule destroy
-$ tests/molecule_exec.sh redhat7 create
-$ tests/molecule_exec.sh redhat7 login
-```
-
-```shell
-$ molecule destroy
-$ tests/molecule_exec.sh redhat7 converge
-$ molecule destroy
-$ tests/molecule_exec.sh debian8 converge
-$ molecule destroy
-$ tests/molecule_exec.sh centos7 converge
-$ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2004 converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2204 --debug converge
-
 ```
 
 ## Other useful 
