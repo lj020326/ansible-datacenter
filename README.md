@@ -14,7 +14,7 @@ The 'ansible' and 'vm template build' pipelines are both automated using the [pi
 
 ## Linux OS Platform Testing using molecule and github actions
 
-Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](./molecule/shared/converge.yml) set on the [bootstrap_docker_ci.yml](./bootstrap_docker_ci.yml) playbook.
+Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](molecule/default/converge.yml) set on the [bootstrap_docker_ci.yml](./bootstrap_docker_ci.yml) playbook.
 
 The molecule test pipeline is set up in the github actions [ci.yml](.github/workflows/ci.yml) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
 
@@ -176,12 +176,41 @@ chmod 600 ~/.vault_pass
 ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.yml -t untagged,report-windows-facts --vault-password-file ~/.vault_pass
 ```
 
-
 ## Run molecule tests
 
 ```shell
 $ PROJECT_DIR="$( git rev-parse --show-toplevel )"
 $ cd ${COLLECTION_DIR}
+$ export MOLECULE_DISTRO=redhat7
+$ molecule login
+$ molecule --debug test -s bootstrap-linux-package
+$ molecule destroy
+$ MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8 molecule login
+$ molecule destroy
+$ tests/molecule_exec.sh centos7 converge
+$ molecule destroy
+$ tests/molecule_exec.sh centos8 --debug converge
+$ molecule destroy
+$ tests/molecule_exec.sh ubuntu2004 converge
+$ molecule destroy
+$ tests/molecule_exec.sh ubuntu2204 --debug converge
+
+```
+
+To log into container
+
+```shell
+$ molecule destroy
+$ tests/molecule_exec.sh redhat7 create
+$ tests/molecule_exec.sh redhat7 login
+```
+
+```shell
+$ molecule destroy
+$ tests/molecule_exec.sh redhat7 converge
+$ molecule destroy
+$ tests/molecule_exec.sh debian8 converge
 $ molecule destroy
 $ tests/molecule_exec.sh centos7 converge
 $ molecule destroy

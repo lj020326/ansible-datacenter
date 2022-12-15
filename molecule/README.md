@@ -25,24 +25,11 @@ $ MOLECULE_DISTRO=ubuntu2204 --debug converge
 
 ```
 
-```shell
-$ tests/molecule_exec.sh centos7 converge
-$ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2004 converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2204 --debug converge
-$ molecule destroy
-
-```
-
 To log into container
 
 ```shell
-$ molecule destroy
-$ tests/molecule_exec.sh redhat7 create
-$ tests/molecule_exec.sh redhat7 login
+$ molecule create
+$ molecule login
 ```
 
 ```shell

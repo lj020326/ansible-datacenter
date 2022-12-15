@@ -1,5 +1,6 @@
 
-# Tests
+# Molecule testing with ansible-datacenter 
+
 
 ## Run molecule tests
 
@@ -7,7 +8,7 @@
 $ PROJECT_DIR="$( git rev-parse --show-toplevel )"
 $ cd ${COLLECTION_DIR}
 $ export MOLECULE_DISTRO=redhat7
-$ molecule create
+$ molecule --debug test --destroy never
 $ molecule login
 $ molecule --debug test -s bootstrap-linux-package
 $ molecule destroy

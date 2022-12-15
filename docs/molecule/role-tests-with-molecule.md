@@ -33,7 +33,7 @@ Will now end up something like this
 
 ```
 
-We also are going to have a new folder structure using ansible\_collections/namespace/collection\_name
+We also are going to have a new folder structure using ansible_collections/namespace/collection_name
 
 Luckily the molecule team and all of its contributors ensured that collections are recognized and supported. And I will cover how we can test this with GitHub Actions (which happen to also be the preferred way at this moment to test your collections on the official Ansible-Collections Github [https://github.com/ansible-collections](https://github.com/ansible-collections).
 
@@ -202,44 +202,8 @@ jobs:
           MOLECULE_DISTRO=${{ matrix.molecule_distro.distro }}
           molecule --debug test -s ${{ matrix.collection_role }}
 ```
-          
-However, here’s the issue with this…each commit no matter where it’s made will trigger the matrix to execute meaning 4 x 6 tests! Even though I modified 1 role. Also, EPEL doesn’t work on Ubuntu or Debian. So then I’d have to use a lot of these exclude  statements:
 
-```yaml
-jobs:
-  logrotate:
-    runs-on: ubuntu-18.04
-    env:
-      PY_COLORS: 1 # allows molecule colors to be passed to GitHub Actions
-      ANSIBLE_FORCE_COLOR: 1 # allows ansible colors to be passed to GitHub Actions
-    strategy:
-      fail-fast: true
-      matrix:
-        molecule_distro:
-          - distro: centos:7
-            command: /usr/sbin/init
-          - distro: centos:8
-            command: /usr/sbin/init
-          - distro: ubuntu:16.04
-            command: /sbin/init
-          - distro: ubuntu:18.04
-            command: /lib/systemd/systemd
-          - distro: ubuntu:20.04
-            command: /lib/systemd/systemd
-          - distro: debian:9
-            command: /lib/systemd/systemd
-        collection_role:
-          - logrotate
-          - chrony
-          - epel
-          - ntp
-        exclude:
-          - {"molecule_distro": {"distro": "ubuntu:16.04"}, "collection_role":"epel"}
-          - {"molecule_distro": {"distro": "ubuntu:18.04"}, "collection_role":"epel"}
-          - {"molecule_distro": {"distro": "ubuntu:20.04"}, "collection_role":"epel"}
-```
-
-However, here’s the issue with this…each commit no matter where it’s made will trigger the matrix to execute meaning 4 x 6 tests! Even though I modified 1 role. Also, EPEL doesn’t work on Ubuntu or Debian. So then I’d have to use a lot of these exclude  statements:
+However, here’s the issue with this...each commit no matter where it’s made will trigger the matrix to execute meaning 4 x 6 tests! Even though I modified 1 role. Also, EPEL doesn’t work on Ubuntu or Debian. So then I’d have to use a lot of these exclude  statements:
 
 ```yaml
 jobs:
@@ -339,7 +303,7 @@ jobs:
 
 You can change the operating systems if you want, this is just one of the examples I had. I solved the issue with the cross-contamination I had earlier, as well as made the tests easier to verify and check, as well as independent test state icons for the README.md. But I still had an issue. If I make a change to Role1, Role2 still builds…not desired and wastes build time against GitHub Actions.
 
-Luckily in GitHub Actions, we can do include, or exclude paths on the trigger. So I replaced this section on: \["push", "pull\_request"\] with
+Luckily in GitHub Actions, we can do include, or exclude paths on the trigger. So I replaced this section on: \["push", "pull_request"\] with
 
 ```yaml
 on:
@@ -414,7 +378,7 @@ jobs:
 
 Since these changes have been made now I am able to ensure that all of my roles are independently tested each time they are edited without treating everything as one giant repo and having tests run for 10+ minutes each as all of my roles execute. Now they are all tested in parallel, and against their own supported operating systems.
 
-To see a copy of the repository used for this you can see [https://github.com/dettonville/ansible-collection-system](https://github.com/dettonville/ansible-collection-system) which you are free to clone, modify, change, use a reference. I did make changes to the Dockerfile because I do not host my own docker images, and don’t plan to. I highly suggested taking a look at my molecule/role\_name/Dockerfile.j2  files to get an idea on what I did to get services to work. My changes to Dockerfile.j2 are based on [Multi-distribution Ansible testing with Molecule on Travis-CI](https://dettonville.com/2019/06/23/multi-distribution-ansible-testing-with-molecule-on-travis-ci/), and check out molecule/role\_name/molecule.yml  to see how I pass through the parameters.
+To see a copy of the repository used for this you can see [https://github.com/dettonville/ansible-collection-system](https://github.com/dettonville/ansible-collection-system) which you are free to clone, modify, change, use a reference. I did make changes to the Dockerfile because I do not host my own docker images, and don’t plan to. I highly suggested taking a look at my molecule/role_name/Dockerfile.j2  files to get an idea on what I did to get services to work. My changes to Dockerfile.j2 are based on [Multi-distribution Ansible testing with Molecule on Travis-CI](https://dettonville.com/2019/06/23/multi-distribution-ansible-testing-with-molecule-on-travis-ci/), and check out molecule/role_name/molecule.yml  to see how I pass through the parameters.
 
 If you have questions please feel free to comment.
 
