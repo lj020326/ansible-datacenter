@@ -11,6 +11,12 @@
 #    bare = false
 #    logallrefupdates = true
 
+[includeIf "gitdir:~/repos/team100/"]
+   path = ~/repos/team100/.gitconfig
+
+[includeIf "gitdir:~/repos/team101/"]
+   path = ~/repos/team101/.gitconfig
+
 ## ref: https://emacsformacosx.com/tips
 [merge]
     tool = ediff

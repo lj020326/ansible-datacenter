@@ -7,12 +7,12 @@ At some point in your work life as a software developer, the need to switch betw
 
 ## Table of Contents
 
--   [Requirements](#f637)
--   [Create SSH keys](#4373)
--   [Add SSH keys to GitHub account](#bf89)
--   [Create configuration files to manage keys](#a80e)
--   [Save key identities in local machine](#ebae)
--   [Test on GitHub repository](#c8b5)
+-   [Requirements](#requirements)
+-   [Create SSH keys](#create-ssh-keys)
+-   [Add SSH keys to GitHub account](#add-ssh-keys-to-github-account)
+-   [Create configuration files to manage keys](#create-configuration-files-to-manage-keys)
+-   [Save key identities in local machine](#save-key-identities-in-local-machine)
+-   [Test on GitHub repository](#test-on-github-repository)
 
 ## Requirements:
 
@@ -24,14 +24,29 @@ At some point in your work life as a software developer, the need to switch betw
 
 Let’s start by creating two separate SSH keys. Open your computer terminal. Proceed and follow the steps below to create and save two separate keys.
 
+SSH Key setup:
+
+```shell
+$ cd ~/.ssh
+$ ssh-keygen -t rsa -b 4096 -C "your_personal_email@domain.com"  -f id_rsa_personal
+$ ssh-keygen -t rsa -b 4096 -C "your_work_email@domain.com"  -f id_rsa_work
 ```
-$ cd ~/.ssh$ ssh-keygen -t rsa -b 4096 -C "your_personal_email@domain.com"  # save as id_rsa_personal$ ssh-keygen -t rsa -b 4096 -C "your_work_email@domain.com"  # save as id_rsa_work
+
+E.g.,
+```shell
+ssh-keygen -t rsa -N "" -b 4096 -C your_personal_email@domain.com -f username-ecdsa-ssh.key
+ssh-keygen -t ecdsa -N "" -b 384 -C username@mywork.com -f username-ecdsa-ssh.key
 ```
+
 
 Running the above commands will create four (4) files in the `.ssh` directory in your local machine:
 
-```
-id_rsa_personalid_rsa_personal.pubid_rsa_workid_rsa_work.pub
+```shell
+$ ls -1
+id_rsa_personal
+id_rsa_personal.pub
+id_rsa_work
+id_rsa_work.pub
 ```
 
 _NB: The files with the_ `_.pub_` _extension are the public files that you would add to your GitHub account._
@@ -58,14 +73,24 @@ Go through the same steps to add your work SSH key.
 
 Head back to the `.ssh` folder in your terminal and create a configuration file for your keys using the command below:
 
-```
+```shell
+$ cd ~/.ssh
 $ touch config
 ```
 
 Open and edit the file using nano/vim. I used nano: `$ nano config`
 
-```
-# Personal account - default configHost github.com-personal   HostName github.com   User git   IdentityFile ~/.ssh/id_rsa_personal# Work accountHost github.com-work   HostName github.com   User git   IdentityFile ~/.ssh/id_rsa_work
+```ini
+# Personal account - default config
+Host github.com-personal
+   HostName github.com
+   User git
+   IdentityFile ~/.ssh/id_rsa_personal
+# Work account
+Host github.com-work
+   HostName github.com
+   User git
+   IdentityFile ~/.ssh/id_rsa_work
 ```
 
 To save and exit — `ctr+o` and `ctrl+x` .
@@ -74,27 +99,31 @@ To make the process of managing the SSH keys more stress-free, let’s create tw
 
 Launch your terminal. Navigate to the root directory and create the global git configuration file with the content below:
 
-```
+```shell
 $ cd ~$ nano ~/.gitconfig
 ```
 
 Content:
 
-```
-[user]    name = John Doe    email = johndoe@domain.com[includeIf "gitdir:~/work/"]    path = ~/work/.gitconfig
+```ini
+[user]
+    name = John Doe
+    email = johndoe@domain.com
+[includeIf "gitdir:~/work/"]
+    path = ~/work/.gitconfig
 ```
 
 _NB: To save and exit —_ `_ctr+o_` _and_ `_ctrl+x_` _._
 
 Create the work specific git config:
 
-```
-$ nano ~/work/.gitconfig
+```shell
+$ nano ~/repos/work/.gitconfig
 ```
 
 Content:
 
-```
+```ini
 [user]    email = john.doe@company.com
 ```
 
@@ -106,19 +135,21 @@ In order for the `work` configuration to work correctly, we are assuming that yo
 
 Remove any previously-stored key identities using the command:
 
-```
-$ cd ~$ ssh-add -D
+```shell
+$ cd ~
+$ ssh-add -D
 ```
 
 Add the newly created key identities:
 
-```
-$ ssh-add id_rsa_personal$ ssh-add id_rsa_work
+```shell
+$ ssh-add id_rsa_personal
+$ ssh-add id_rsa_work
 ```
 
 Check if the keys were saved correctly using the command:
 
-```
+```shell
 $ ssh-add -l
 ```
 
@@ -126,16 +157,25 @@ Good job so far 👏🏼👏🏼👏🏼
 
 Proceed to authenticate the keys with GitHub using the commands below:
 
-```
-$ ssh -T github.com-personal  # Hi USERNAME! You've successfully authenticated, but GitHub does not provide shell access.$ ssh -T github.com-work  # Hi USERNAME! You've successfully authenticated, but GitHub does   not provide shell access.
+```shell
+$ ssh -T github.com-personal
+# Hi USERNAME! You've successfully authenticated, but GitHub does not provide shell access.
+$ ssh -T github.com-work
+# Hi USERNAME! You've successfully authenticated, but GitHub does   not provide shell access.
 ```
 
 ## Test on GitHub repository
 
 Head back over to your personal GitHub account. Create a new repository with your desired project name, say, `test-ssh`. Follow the steps below to clone the repository, create your first commit and push to GitHub:
 
-```
-$ git clone git@github.com-personal:USERNAME/test-ssh.git $ cd test-ssh$ touch index.html$ echo "Hello World" >> index.html$ git add .$ git commit -m 'Add index file'$ git push origin master
+```shell
+$ git clone git@github.com-personal:USERNAME/test-ssh.git 
+$ cd test-ssh
+$ touch index.html
+$ echo "Hello World" >> index.html
+$ git add .
+$ git commit -m 'Add index file'
+$ git push origin master
 ```
 
 In this case, you have cloned the project using your personal git configuration which is the default. The same method can be used for your work-related projects. Bear in mind that all work projects need to be in the`work` directory for the `work` git configuration you have set up to work correctly.
@@ -144,3 +184,6 @@ Cheers 🥂🥂
 
 Questions? Feedback? Say hello on [Twitter](http://twitter.com/lj020326) or comment below 👇
 
+## Reference
+
+* https://medium.com/the-andela-way/a-practical-guide-to-managing-multiple-github-accounts-8e7970c8fd46
