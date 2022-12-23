@@ -1,0 +1,51 @@
+---
+
+- name: Create the admin organisation
+  awx.awx.tower_organization:
+    name: "{{ bootstrap_awx_org_name }}"
+    description: "The main organisation that is used to manage other organisations."
+    state: present
+    tower_host: "https://{{ bootstrap_awx_awx_url }}"
+    tower_oauthtoken: "{{ awx_session_token.ansible_facts.tower_token.token }}"
+    validate_certs: yes
+
+- name: Add admin user to their organisation
+  awx.awx.tower_role:
+    user: "admin"
+    organization: "{{ bootstrap_awx_org_name }}"
+    role: member
+    tower_host: "https://{{ bootstrap_awx_awx_url }}"
+    tower_oauthtoken: "{{ awx_session_token.ansible_facts.tower_token.token }}"
+    validate_certs: yes
+
+- name: Add inventory to the admins organisation
+  awx.awx.tower_inventory:
+    name: "{{ bootstrap_awx_org_name }}"
+    description: "{{ bootstrap_awx_org_name }} inventory"
+    organization: "{{ bootstrap_awx_org_name }}"
+    state: present
+    tower_host: "https://{{ bootstrap_awx_awx_url }}"
+    tower_oauthtoken: "{{ awx_session_token.ansible_facts.tower_token.token }}"
+    validate_certs: yes
+
+- name: Allow admin account to administrate/use this inventory
+  awx.awx.tower_role:
+    user: "admin"
+    inventory: "{{ bootstrap_awx_org_name }}"
+    role: use
+    state: present
+    tower_host: "https://{{ bootstrap_awx_awx_url }}"
+    tower_oauthtoken: "{{ awx_session_token.ansible_facts.tower_token.token }}"
+    validate_certs: yes
+
+- name: Add localhost to the admins inventory
+  awx.awx.tower_host:
+    name: "localhost"
+    description: "The AWX/Automation Controller server itself."
+    inventory: "{{ bootstrap_awx_org_name }}"
+    state: present
+    variables:
+      ansible_connection: local
+    tower_host: "https://{{ bootstrap_awx_awx_url }}"
+    tower_oauthtoken: "{{ awx_session_token.ansible_facts.tower_token.token }}"
+    validate_certs: yes

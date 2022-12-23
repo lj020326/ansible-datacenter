@@ -45,7 +45,7 @@ The demo PoC's should prove following CICD / SDLC pipeline/workflows:
 
 Implement ansible bootstrap play to set up multi-stage environment
 
-[Ansible role to bootstrap AAP env](./roles/bootstrap-awx/README.md)
+[Ansible role to bootstrap AAP env](roles/bootstrap_awx/README.md)
 
 * https://docs.ansible.com/ansible-tower/latest/html/quickinstall/install_script.html
 * [Setting up LDAP for AAP controller and hub](./docs/ansible/ansible-automation-platform/lab-ldap-for-aap.md)

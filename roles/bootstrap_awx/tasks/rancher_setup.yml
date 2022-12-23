@@ -1,0 +1,43 @@
+---
+
+- name: Ensure snapd is installed
+  package:
+    name: snapd
+    state: present
+
+- name: Install Helm snap
+  snap:
+    name: helm
+    classic: yes
+
+- name: Ensure k3s.yaml isn't group or world readable
+  ansible.builtin.file:
+    path: /etc/rancher/k3s/k3s.yaml
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Create the namespace cattle-system
+  shell: |
+      kubectl create namespace cattle-system --dry-run=client -o yaml | kubectl apply -f -
+
+- name: Add the helm repo
+  command: |
+      /snap/bin/helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+      
+- name: Run a helm repo update
+  command: |
+      /snap/bin/helm repo update
+
+- name: Deploy the stable Rancher
+  shell: |
+      /snap/bin/helm install rancher rancher-stable/stable \
+        --namespace cattle-system \
+        --set hostname={{ bootstrap_awx_rancher_url }} \
+        --set bootstrapPassword={{ bootstrap_awx_rancher_password }} \
+        --set ingress.tls.source=letsEncrypt \
+        --set letsEncrypt.email={{ bootstrap_awx_certbot_email }} \
+        --set hostname=awx.penholder.xyz \
+        --kubeconfig /etc/rancher/k3s/k3s.yaml
+
+# Setup rancher on another server with docker is one solution! (could also house backups/monitoring)
