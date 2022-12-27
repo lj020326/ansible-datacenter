@@ -113,7 +113,7 @@ IO80211AWDLPeerManager::setAwdlOperatingMode Setting the AWDL operation mode fro
 IO80211AWDLPeerManager::setAwdlAutoMode Resuming AWDL
 ```
 
-I was also seeing errors similar to this, when looking at the /var/log/system.log  files:
+I was also seeing errors similar to this, when looking at the `/var/log/system.log` files:
 
 ```shell
 com.apple.kextd[53]: Cache file /System/Library/Caches/com.apple.kext.caches/Startup/IOKitPersonalities_x86_64.ioplist.gz is out of date; not using.
@@ -121,11 +121,8 @@ com.apple.kextd[53]: Failed to send personalities to the kernel.
 com.apple.kextd[53]: Error: Couldn't send kext personalities to the IOCatalogue.
 ```
 
-[![AWDLPeerManager Errors on OSX Startup](./img/IMG_20161216_100818-150x150.jpg "AWDLPeerManager Errors on OSX Startup")](./img/IMG_20161216_100818.jpg)
-
-AWDLPeerManager Errors on OSX Startup
-
 After searching on Google looking for a fix, I couldn't find much of anything, until I came across a link to a blog post, while searching about kext , on a forum reply, or somewhere else on the internet (can't remember exactly where), which was exactly what I needed! Eureka!
+![AWDLPeerManager Errors on OSX Startup](./img/IMG_20161216_100818.jpg)
 
 [OS X El Capitan 10.11.x Hanging on Boot \[FIXED\]](https://www.justinsilver.com/technology/os-x-el-capitan-10-11-1-hanging-on-boot-fixed/)
 
