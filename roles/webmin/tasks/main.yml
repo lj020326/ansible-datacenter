@@ -116,17 +116,28 @@
   - name: "update-reports-repo | Create temporary download directory"
     ansible.builtin.tempfile:
       state: directory
-      suffix: ".webmin-modules-download"
+      suffix: ".webmin-module-downloads"
     register: __webmin_downloads_tempdir
     notify: "cleanup __webmin_downloads_tempdir"
 
   - name: webmin | Download webmin modules
     get_url:
-      url: "{{ webmin_download_url }}"
-      dest: "{{ __webmin_downloads_tempdir }}/{{ webmin_download_url|basename }}"
+      url: "{{ item.url }}"
+      dest: "{{ __webmin_downloads_tempdir }}/{{ item.url|basename }}"
       validate_certs: false
-    loop: webmin_modules
+    loop: "{{ webmin_modules }}"
+    register: __webmin_modules_download_result
 
-  ## ref: 
+  - name: webmin | Display __webmin_modules_download_result
+    debug:
+      var: __webmin_modules_download_result
+
+  ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/webmin/how-to-install-a-webmin-module-by-command-line-bash.md
   - name: webmin | Install webmin modules
-    shell: "{{webmin_base_dir}} {{ __webmin_downloads_tempdir }}/{{ webmin_download_url|basename }}"
+    shell: "{{ webmin_base_dir }}/install-module.pl {{ __webmin_downloads_tempdir }}/{{ item.url|basename }}"
+    loop: "{{ webmin_modules }}"
+    register: __webmin_modules_install_result
+
+  - name: webmin | Display __webmin_modules_install_result
+    debug:
+      var: __webmin_modules_install_result
