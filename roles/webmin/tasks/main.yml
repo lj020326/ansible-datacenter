@@ -110,3 +110,23 @@
   with_items: webmin_repo_files
 
 
+- name: webmin | Download and install webmin modules
+  when: webmin_modules|d([])|length > 0
+  block:
+  - name: "update-reports-repo | Create temporary download directory"
+    ansible.builtin.tempfile:
+      state: directory
+      suffix: ".webmin-modules-download"
+    register: __webmin_downloads_tempdir
+    notify: "cleanup __webmin_downloads_tempdir"
+
+  - name: webmin | Download webmin modules
+    get_url:
+      url: "{{ webmin_download_url }}"
+      dest: "{{ __webmin_downloads_tempdir }}/{{ webmin_download_url|basename }}"
+      validate_certs: false
+    loop: webmin_modules
+
+  ## ref: 
+  - name: webmin | Install webmin modules
+    shell: "{{webmin_base_dir}} {{ __webmin_downloads_tempdir }}/{{ webmin_download_url|basename }}"
