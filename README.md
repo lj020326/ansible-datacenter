@@ -196,7 +196,7 @@ $ MOLECULE_DISTRO=ubuntu2204-systemd-python molecule --debug converge
 
 ```
 
-To log into container
+### To log into molecule created container
 
 ```shell
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule create
@@ -206,47 +206,57 @@ $ molecule destroy
 
 ## Other useful 
 
-To run play on a group
+### To run/debug the VM template create playbook on packer created VM
 
 ```shell
-ansible-playbook site.yml --tags bootstrap --limit dc_os_Ubuntu
+# find the temp dir used for the ansible-local provisioner from the packer log 
+$ cd /tmp/packer-provisioner-ansible-local/63b193ab-d1c4-b355-f4cf-9e9153570896
+$ ansible-playbook bootstrap_vm_template.yml --vault-password-file=~/.vault_pass -c local -i vm_template.yml
 ```
 
-To build ansible control node
+### To run play on a group
 
 ```shell
-ansible-playbook site.yml --tags bootstrap-ansible --limit admin02
+$ ansible-playbook site.yml --tags bootstrap --limit dc_os_Ubuntu
 ```
 
-To build docker images from source repos
+### To build ansible control node
+
+```shell
+$ ansible-playbook site.yml --tags bootstrap-ansible --limit admin02
+```
+
+### To build docker images from source repos
 Note: this is performed from jenkins docker build pipeline and not performed directly using ansible unless necessary 
 The docker image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildDockerImage.groovy).
 
 ```shell
-ansible-playbook site.yml --tags bootstrap-docker-images --limit admin02
+$ ansible-playbook site.yml --tags bootstrap-docker-images --limit admin02
 ```
 
-To setup/configure samba server node
+### To setup/configure samba server node
 Note: We now use the samba docker container to run the samba server and no longer build on the VM.
 
 ```shell
-ansible-playbook site.yml --tags docker-samba-node
+$ ansible-playbook site.yml --tags docker-samba-node
 ```
 
-To configure samba client node
+### To configure samba client node
 
 ```shell
-ansible-playbook site.yml --tags samba-client
+$ ansible-playbook site.yml --tags samba-client
 ```
 
-To configure linux users
+### To setup/configure linux users
 
 ```shell
-ansible-playbook site.yml --tags bootstrap-user --vault-password-file ~/.vault_pass
+$ ansible-playbook site.yml --tags bootstrap-user --vault-password-file ~/.vault_pass
 ```
 
 
-## Using the run-ansible.sh script to automatically first install all dependencies then run the command
+### Using run-ansible.sh launch script
+
+Using the run-ansible.sh script to automatically first install all dependencies then run the command
 
 A [run-ansible.sh script](run-ansible.sh) is available that will upon execution always (1) check and create a virtualenv named 'venv' if not already exists, (2) install [pip library requirements](./requirements.txt), (3) install [collection requirements](collections/requirements.yml), (4) install [role requirements](roles/requirements.yml) and (5) run the command specified.  It also checks in the latest code via git Add/Commit/Push (ACP) before the steps just mentioned.  Finally, it also allows specification of a control/jump host to run the playbook via ssh wrapper.  
 
@@ -264,13 +274,13 @@ run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags boot
 ```
 
 
-To setup/configure iscsi client node
+### To setup/configure iscsi client node
 
 ```shell
-ansible-playbook site.yml --tags iscsi-client
+$ ansible-playbook site.yml --tags iscsi-client
 ```
 
-working with openstack deploy node setup
+## working with openstack deploy node setup
 
 ```shell
 ansible -i inventory/hosts.yml openstack -m ping
