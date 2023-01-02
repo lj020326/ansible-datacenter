@@ -27,16 +27,28 @@
 
 - name: Docker | CE | APT | Add repository key
   block:
+#    - name: Docker | CE | APT | Add Docker GPG Key
+#      apt_key:
+#        id: "{{ docker_ce_gpg_key_id }}"
+#        url: "{{ docker_ce_gpg_key }}"
+#        validate_certs: "{{ docker_ce_gpg_key_validate_certs }}"
+
+    ## ref: https://github.com/ansible/ansible/issues/78063
+    ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/linux-package/ansible-how-to-fix-aptkey-deprecated-debianubuntu.md
     - name: Docker | CE | APT | Add Docker GPG Key
-      apt_key:
-        id: "{{ docker_ce_gpg_key_id }}"
+      ansible.builtin.get_url:
         url: "{{ docker_ce_gpg_key }}"
-        validate_certs: "{{ docker_ce_gpg_key_validate_certs }}"
+        dest: "{{ docker_apt_keyring_dir }}/docker.asc"
+        mode: '0644'
+        force: true
   rescue:
     - name: Docker | CE | APT | Ensure curl is present (systems without SNI).
       package: name=curl
+    ## ref: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-22-04
     - name: Docker | CE | APT | Download GPG key (systems without SNI).
-      shell: "curl -sSL {{ docker_ce_gpg_key }} | sudo apt-key add -"
+      shell: "curl -sSL {{ docker_ce_gpg_key }} -o {{ docker_apt_keyring_dir }}/docker.asc"
+#      shell: "curl -sSL {{ docker_ce_gpg_key }} | sudo gpg --dearmor -o {{ docker_apt_keyring_dir }}/docker.gpg"
+#      shell: "curl -sSL {{ docker_ce_gpg_key }} | sudo apt-key add -"
 
 - name: Docker | CE | APT | Configure Docker repository
   apt_repository:
