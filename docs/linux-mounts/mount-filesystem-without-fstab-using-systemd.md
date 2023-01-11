@@ -22,7 +22,7 @@ If you check `/etc/fstab` in RHEL/CentOS 7 and 8, you will observe that it conta
 
 Below is my `/etc/fstab` file. This is a very basic setup so I only have only 3 entries
 
-```
+```shell
 [root@rhel-8 system]# cat /etc/fstab
 /dev/mapper/rhel-root   /                       ext4    defaults        1 1
 UUID=abf4aa90-0b58-499a-b601-bc5f208fd2cd /boot                   xfs     defaults        0 0
@@ -31,7 +31,7 @@ UUID=abf4aa90-0b58-499a-b601-bc5f208fd2cd /boot                   xfs     defaul
 
 While I have many more partitions available which are mounted on my RHEL system and most of them are [tmpfs partitions](https://www.golinuxcloud.com/change-tmpfs-partition-size-redhat-linux/ "How to change tmpfs partition size in Linux ( RHEL / CentOS 7 )")
 
-```
+```shell
 [root@rhel-8 system]# df -h
 Filesystem             Size  Used Avail Use% Mounted on
 devtmpfs               900M     0  900M   0% /dev
@@ -45,7 +45,7 @@ tmpfs                  183M     0  183M   0% /run/user/0
 
 If you happen to configure your filesystem within the `/etc/fstab` file, the system will simply convert these entries into dynamic "`mount`" unit types for the life of the running environment. You can see these dynamically created system mount unit types under `/run/systemd/generator`.
 
-```
+```shell
 [root@rhel-8 system]# ls -l /run/systemd/generator/
 total 12
 -rw-r--r--. 1 root root 254 Sep 16 12:37  boot.mount
@@ -60,7 +60,7 @@ drwxr-xr-x. 2 root root  60 Sep 16 12:37  swap.target.requires
 
 To view the currently loaded [systemd](./../systemd/systemd-tutorial.md "systemd tutorial") unit files which are mounting the filesystem you can use below command:
 
-```
+```shell
 [root@rhel-8 system]# systemctl -t mount
 UNIT                    LOAD   ACTIVE SUB     DESCRIPTION
 -.mount                 loaded active mounted Root Mount
@@ -85,13 +85,13 @@ As you see currently 7 units are loaded on my RHEL system.
 
 By default all the [systemd](./../systemd/systemd-tutorial.md "systemd tutorial") unit files for mounting filesystem is available inside `/usr/lib/systemd/system`
 
-```
+```shell
 [root@rhel-8 ~]# cd /usr/lib/systemd/system
 ```
 
 A unit configuration file whose name ends in "`.mount`" encodes information about a file system mount point controlled and supervised by systemd.
 
-```
+```shell
 [root@rhel-8 system]# ls -l *.mount
 -rw-r--r--. 1 root root 750 Jun 22  2018 dev-hugepages.mount
 -rw-r--r--. 1 root root 665 Jun 22  2018 dev-mqueue.mount
@@ -104,9 +104,9 @@ A unit configuration file whose name ends in "`.mount`" encodes information abou
 
 ## Create filesystem
 
-Now for the sake of this article I will create `/dev/sdb1` to demonstrate mount filesystem without fstab. I have removed other [steps required to create filesystem](https://www.golinuxcloud.com/configure-software-linear-raid-linux/#Partitioning_with_fdisk "Step-by-Step Tutorial: Configure software Linear RAID 0 in Linux") as this article is not about this topic.
+Now for the sake of this article I will create `/dev/sdb1` to demonstrate mount filesystem without fstab. 
 
-```
+```shell
 [root@rhel-8 ~]# mkfs.ext4 /dev/sdb1
 mke2fs 1.44.3 (10-July-2018)
 Creating filesystem with 262144 4k blocks and 65536 inodes
@@ -124,7 +124,7 @@ Writing superblocks and filesystem accounting information: done
 
 To mount filesystem without fstab we will use [systemd](./../systemd/systemd-tutorial.md "systemd tutorial") unit file but instead of using filesystem/partition name, we will use UUID of the partition. I have shown two ways to get the UUID of the filesystem
 
-```
+```shell
 [root@rhel-8 system]# ls -l /dev/disk/by-uuid/
 total 0
 lrwxrwxrwx. 1 root root  9 Sep 16 11:23 2019-04-04-08-40-23-00 -> ../../sr0
@@ -136,7 +136,7 @@ lrwxrwxrwx. 1 root root 10 Sep 16 11:23 e6024940-527e-4a08-ac77-0e503b219d27 -> 
 
 OR using blkid
 
-```
+```shell
 [root@rhel-8 system]# blkid /dev/sdb1
 /dev/sdb1: UUID="cea0757d-6329-4bf8-abbf-03f9c313b07f" TYPE="ext4" PARTUUID="0b051d7e-01"
 ```
@@ -149,9 +149,9 @@ IMPORTANT NOTE:
 
 Mount units must be named after the mount point directories they control. Example: the mount point `/home/lennart` must be configured in a unit file `home-lennart.mount`.
 
-Hence here I have created my [systemd](https://www.golinuxcloud.com/beginners-guide-systemd-tutorial-linux/ "systemd tutorial") unit file as `tmp_dir.mount` since my mount point is `/tmp_dir`
+Here I have created my [systemd](https://www.golinuxcloud.com/beginners-guide-systemd-tutorial-linux/ "systemd tutorial") unit file as `tmp_dir.mount` since my mount point is `/tmp_dir`
 
-```
+```shell
 [root@rhel-8 system]# cat tmp_dir.mount
 #  This file is part of systemd.
 
@@ -198,7 +198,7 @@ The following dependencies are added unless `DefaultDependencies=no` is set:
 
 Reload the daemon to refresh the [systemd](https://www.golinuxcloud.com/beginners-guide-systemd-tutorial-linux/ "systemd tutorial") changes
 
-```
+```shell
 [root@rhel-8 system]# systemctl daemon-reload
 ```
 
@@ -206,7 +206,7 @@ Reload the daemon to refresh the [systemd](https://www.golinuxcloud.com/beginner
 
 We are all set here. Next verify the status of this new mount service
 
-```
+```shell
 [root@rhel-8 system]# systemctl show -p ActiveState -p SubState --value tmp_dir.mount
 inactive
 dead
@@ -214,13 +214,13 @@ dead
 
 Since the service is in-active state which means our filesystem is not mounted currently. So we will start our systemd service.
 
-```
+```shell
 [root@rhel-8 system]# systemctl start tmp_dir.mount
 ```
 
 Next verify the filesystem, as expected we could mount filesystem without fstab under `/tmp_dir`
 
-```
+```shell
 [root@rhel-8 system]# df -h /tmp_dir/
 Filesystem      Size  Used Avail Use% Mounted on
 /dev/sdb1       976M  2.6M  907M   1% /tmp_dir
@@ -228,7 +228,7 @@ Filesystem      Size  Used Avail Use% Mounted on
 
 Also as you see now our service is active
 
-```
+```shell
 [root@rhel-8 system]# systemctl show -p ActiveState -p SubState --value tmp_dir.mount
 active
 mounted
@@ -249,14 +249,14 @@ Sep 16 19:01:09 rhel-8.example systemd[1]: Mounted Test Directory (/tmp_dir).
 
 But our service is in disabled state which means post reboot, `/tmp_dir` will not be mounted by default
 
-```
+```shell
 [root@rhel-8 ~]# systemctl is-enabled tmp_dir.mount
 disabled
 ```
 
 To prove this theory I will reboot my node. Post reboot as you see `/tmp_dir` is not mounted
 
-```
+```shell
 [root@rhel-8 ~]# df -h /tmp_dir/
 Filesystem             Size  Used Avail Use% Mounted on
 /dev/mapper/rhel-root   15G  2.1G   12G  16% /
@@ -273,7 +273,7 @@ tmpfs                  183M     0  183M   0% /run/user/0
 
 Also the `tmp_dir` mount service is inactive
 
-```
+```shell
 [root@rhel-8 ~]# systemctl show -p ActiveState -p SubState --value tmp_dir.mount
 inactive
 dead
@@ -281,21 +281,21 @@ dead
 
 So first let us enable the `tmp_dir` service so this filesystem can be mounted post reboot (persistent)
 
-```
+```shell
 [root@rhel-8 system]# systemctl enable tmp_dir.mount
 Created symlink /etc/systemd/system/multi-user.target.wants/tmp_dir.mount → /usr/lib/systemd/system/tmp_dir.mount.
 ```
 
 Verify the status
 
-```
+```shell
 [root@rhel-8 system]# systemctl is-enabled tmp_dir.mount
 enabled
 ```
 
 Next I will reboot the node again, post reboot as you see now systemd shows `tmp_dir` in the list of mounted filesystem so we were able to mount filesystem without fstab
 
-```
+```shell
 [root@rhel-8 ~]# systemctl -t mount
 UNIT                    LOAD   ACTIVE SUB     DESCRIPTION
 -.mount                 loaded active mounted Root Mount
@@ -317,7 +317,7 @@ To show all installed unit files use 'systemctl list-unit-files'.
 
 Verify the `df` output, as expected our `tmp_dir` is in use by `/dev/sdb1`
 
-```
+```shell
 [root@rhel-8 system]# df -h /tmp_dir
 Filesystem             Size  Used Avail Use% Mounted on
 /dev/sdb1              976M  2.6M  907M   1% /tmp_dir
@@ -330,3 +330,5 @@ Lastly I hope the steps from the article to [mount filesystem without fstab](htt
 ** Reference **
 
 * https://www.golinuxcloud.com/mount-filesystem-without-fstab-systemd-rhel-8/
+* [steps required to create filesystem](https://www.golinuxcloud.com/configure-software-linear-raid-linux/#Partitioning_with_fdisk "Step-by-Step Tutorial: Configure software Linear RAID 0 in Linux")
+* 
