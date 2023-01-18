@@ -10,7 +10,7 @@ $
 ```shell
 $ ansible-doc -t module dettonville.util.git_acp
 
-> dettonville.UTIL.GIT_ACP    (/Users/ljohnson/repos/silex/alsac/dettonville/collections/ansible_collections/dettonville/util/plugins/modules/git_acp.py)
+> dettonville.UTIL.GIT_ACP    (/Users/ljohnson/repos/ansible/ansible_collections/dettonville/collections/ansible_collections/dettonville/util/plugins/modules/git_acp.py)
 
         Manage `git add', `git commit' `git push', `git config' user
         name and email on a local or remote git repository.

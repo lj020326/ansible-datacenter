@@ -58,12 +58,8 @@ all:
   hosts:
     web-net[1|2]-q1-s[1|2].example.int:
       trace_var: site[1|2]/web-net[1|2]-q1-s[1|2].example.int
-      foreman: <94 keys>
-      facts: {}
     web-net[1|2]-q2-s[1|2].example.int:
       trace_var: site[1|2]/rhel7/web-net[1|2]-q2-s[1|2].example.int
-      foreman: <94 keys>
-      facts: {}
   children:
     rhel7:
       vars:
@@ -104,22 +100,22 @@ ansible-playbook -i ./inventory/network1/site1.yml playbook.yml
 PLAY [Run trace var play] ************************************************************************************************************************************************************************************************************************************************
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net1-s1.example.int] => {
-    "trace_var": "network1/site1/web-q1-net1-s1.example.int"
+ok: [web01.qa.net1site1.example.int] => {
+    "trace_var": "network1/site1/web01.qa.net1site1.example.int"
 }
-ok: [web-q2-net1-s1.example.int] => {
-    "trace_var": "network1/site1/web-q2-net1-s1.example.int"
+ok: [web02.qa.net1site1.example.int] => {
+    "trace_var": "network1/site1/web02.qa.net1site1.example.int"
 }
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net1-s1.example.int] => {
+ok: [web01.qa.net1site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
         "rhel7"
     ]
 }
-ok: [web-q2-net1-s1.example.int] => {
+ok: [web02.qa.net1site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
@@ -128,8 +124,8 @@ ok: [web-q2-net1-s1.example.int] => {
 }
 
 PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
-web-q1-net1-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net1-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net1site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net1site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
 ```
 
@@ -142,22 +138,22 @@ ansible-playbook -i ./inventory/network1/site2.yml playbook.yml
 PLAY [Run trace var play] ************************************************************************************************************************************************************************************************************************************************
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net1-s2.example.int] => {
-    "trace_var": "network1/site2/web-q1-net1-s2.example.int"
+ok: [web01.qa.net1site2.example.int] => {
+    "trace_var": "network1/site2/web01.qa.net1site2.example.int"
 }
-ok: [web-q2-net1-s2.example.int] => {
-    "trace_var": "network1/site2/web-q2-net1-s2.example.int"
+ok: [web02.qa.net1site2.example.int] => {
+    "trace_var": "network1/site2/web02.qa.net1site2.example.int"
 }
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net1-s2.example.int] => {
+ok: [web01.qa.net1site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
         "rhel7"
     ]
 }
-ok: [web-q2-net1-s2.example.int] => {
+ok: [web02.qa.net1site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
@@ -166,8 +162,8 @@ ok: [web-q2-net1-s2.example.int] => {
 }
 
 PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
-web-q1-net1-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net1-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net1site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net1site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
 ```
 
@@ -181,22 +177,22 @@ ansible-playbook -i ./inventory/network2/site1.yml playbook.yml
 PLAY [Run trace var play] ************************************************************************************************************************************************************************************************************************************************
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net2-s1.example.int] => {
-    "trace_var": "network2/site1/web-q1-net2-s1.example.int"
+ok: [web01.qa.net2site1.example.int] => {
+    "trace_var": "network2/site1/web01.qa.net2site1.example.int"
 }
-ok: [web-q2-net2-s1.example.int] => {
-    "trace_var": "network2/site1/web-q2-net2-s1.example.int"
+ok: [web02.qa.net2site1.example.int] => {
+    "trace_var": "network2/site1/web02.qa.net2site1.example.int"
 }
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net2-s1.example.int] => {
+ok: [web01.qa.net2site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
         "rhel7"
     ]
 }
-ok: [web-q2-net2-s1.example.int] => {
+ok: [web02.qa.net2site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
@@ -205,8 +201,8 @@ ok: [web-q2-net2-s1.example.int] => {
 }
 
 PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
-web-q1-net2-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net2-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net2site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net2site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
 ```
 
@@ -219,22 +215,22 @@ ansible-playbook -i ./inventory/network2/site2.yml playbook.yml
 PLAY [Run trace var play] ************************************************************************************************************************************************************************************************************************************************
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net2-s2.example.int] => {
-    "trace_var": "network2/site2/web-q1-net2-s2.example.int"
+ok: [web01.qa.net2site2.example.int] => {
+    "trace_var": "network2/site2/web01.qa.net2site2.example.int"
 }
-ok: [web-q2-net2-s2.example.int] => {
-    "trace_var": "network2/site2/web-q2-net2-s2.example.int"
+ok: [web02.qa.net2site2.example.int] => {
+    "trace_var": "network2/site2/web02.qa.net2site2.example.int"
 }
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net2-s2.example.int] => {
+ok: [web01.qa.net2site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
         "rhel7"
     ]
 }
-ok: [web-q2-net2-s2.example.int] => {
+ok: [web02.qa.net2site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
@@ -243,8 +239,8 @@ ok: [web-q2-net2-s2.example.int] => {
 }
 
 PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
-web-q1-net2-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net2-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net2site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net2site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
 ```
 
@@ -261,82 +257,82 @@ ansible-playbook -i ./inventory/ playbook.yml
 PLAY [Run trace var play] ************************************************************************************************************************************************************************************************************************************************
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net1-s1.example.int] => {
-    "trace_var": "network1/site1/web-q1-net1-s1.example.int"
+ok: [web01.qa.net1site1.example.int] => {
+    "trace_var": "network1/site1/web01.qa.net1site1.example.int"
 }
-ok: [web-q2-net1-s1.example.int] => {
-    "trace_var": "network1/site1/web-q2-net1-s1.example.int"
+ok: [web02.qa.net1site1.example.int] => {
+    "trace_var": "network1/site1/web02.qa.net1site1.example.int"
 }
-ok: [web-q1-net1-s2.example.int] => {
-    "trace_var": "network1/site2/web-q1-net1-s2.example.int"
+ok: [web01.qa.net1site2.example.int] => {
+    "trace_var": "network1/site2/web01.qa.net1site2.example.int"
 }
-ok: [web-q2-net1-s2.example.int] => {
-    "trace_var": "network1/site2/web-q2-net1-s2.example.int"
+ok: [web02.qa.net1site2.example.int] => {
+    "trace_var": "network1/site2/web02.qa.net1site2.example.int"
 }
-ok: [web-q1-net2-s1.example.int] => {
-    "trace_var": "network2/site1/web-q1-net2-s1.example.int"
+ok: [web01.qa.net2site1.example.int] => {
+    "trace_var": "network2/site1/web01.qa.net2site1.example.int"
 }
-ok: [web-q2-net2-s1.example.int] => {
-    "trace_var": "network2/site1/web-q2-net2-s1.example.int"
+ok: [web02.qa.net2site1.example.int] => {
+    "trace_var": "network2/site1/web02.qa.net2site1.example.int"
 }
-ok: [web-q1-net2-s2.example.int] => {
-    "trace_var": "network2/site2/web-q1-net2-s2.example.int"
+ok: [web01.qa.net2site2.example.int] => {
+    "trace_var": "network2/site2/web01.qa.net2site2.example.int"
 }
-ok: [web-q2-net2-s2.example.int] => {
-    "trace_var": "network2/site2/web-q2-net2-s2.example.int"
+ok: [web02.qa.net2site2.example.int] => {
+    "trace_var": "network2/site2/web02.qa.net2site2.example.int"
 }
 
 TASK [debug] *************************************************************************************************************************************************************************************************************************************************************
-ok: [web-q1-net1-s1.example.int] => {
+ok: [web01.qa.net1site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
         "rhel7"
     ]
 }
-ok: [web-q2-net1-s1.example.int] => {
+ok: [web02.qa.net1site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
         "rhel7"
     ]
 }
-ok: [web-q1-net1-s2.example.int] => {
+ok: [web01.qa.net1site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
         "rhel7"
     ]
 }
-ok: [web-q2-net1-s2.example.int] => {
+ok: [web02.qa.net1site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
         "rhel7"
     ]
 }
-ok: [web-q1-net2-s1.example.int] => {
+ok: [web01.qa.net2site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
         "rhel7"
     ]
 }
-ok: [web-q2-net2-s1.example.int] => {
+ok: [web02.qa.net2site1.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site1",
         "rhel7"
     ]
 }
-ok: [web-q1-net2-s2.example.int] => {
+ok: [web01.qa.net2site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
         "rhel7"
     ]
 }
-ok: [web-q2-net2-s2.example.int] => {
+ok: [web02.qa.net2site2.example.int] => {
     "group_names": [
         "environment_qa",
         "location_site2",
@@ -345,14 +341,14 @@ ok: [web-q2-net2-s2.example.int] => {
 }
 
 PLAY RECAP ***************************************************************************************************************************************************************************************************************************************************************
-web-q1-net1-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q1-net1-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q1-net2-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q1-net2-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net1-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net1-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net2-s1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-web-q2-net2-s2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net1site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net1site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net2site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web01.qa.net2site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net1site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net1site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net2site1.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+web02.qa.net2site2.example.int : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
 ```
 

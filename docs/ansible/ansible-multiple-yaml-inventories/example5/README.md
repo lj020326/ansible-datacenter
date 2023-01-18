@@ -50,24 +50,24 @@ For each of the 4 inventory files, the following group/host hierarchy will be im
 graph TD;
     A[all] --> C[hosts]
     A[all] --> D[children]
-    C --> I["web-[dmz|internal]-q1-s[1|2].example.int"]
-    C --> J["web-[dmz|internal]-q2-s[1|2].example.int"]
+    C --> I["web01.qa.site[1|2].example.[dmz|int]"]
+    C --> J["web02.qa.site[1|2].example.[dmz|int]"]
     D --> E[rhel7]
     D --> F[environment_qa]
     D --> G["location_site[1|2]"]
     D --> H["network_[dmz|internal]"]
     E --> K[hosts]
-    K --> L["web-[dmz|internal]-q1-s[1|2].example.int"]
-    K --> M["web-[dmz|internal]-q2-s[1|2].example.int"]
+    K --> L["web01.qa.site[1|2].example.[dmz|int]"]
+    K --> M["web02.qa.site[1|2].example.[dmz|int]"]
     F --> N[hosts]
-    N --> O["web-[dmz|internal]-q1-s[1|2].example.int"]
-    N --> P["web-[dmz|internal]-q2-s[1|2].example.int"]
+    N --> O["web01.qa.site[1|2].example.[dmz|int]"]
+    N --> P["web02.qa.site[1|2].example.[dmz|int]"]
     G --> Q[hosts]
-    Q --> R["web-[dmz|internal]-q1-s[1|2].example.int"]
-    Q --> S["web-[dmz|internal]-q2-s[1|2].example.int"]
+    Q --> R["web01.qa.site[1|2].example.[dmz|int]"]
+    Q --> S["web02.qa.site[1|2].example.[dmz|int]"]
     H --> T[hosts]
-    T --> U["web-[dmz|internal]-q1-s[1|2].example.int"]
-    T --> W["web-[dmz|internal]-q2-s[1|2].example.int"]
+    T --> U["web01.qa.site[1|2].example.[dmz|int]"]
+    T --> W["web02.qa.site[1|2].example.[dmz|int]"]
 ```
 
 
@@ -76,69 +76,63 @@ Each site.yml inventory will be setup similar to the following with the "[dmz|in
 ```yaml
 all:
   hosts:
-    admin-[dmz|internal]-q1-s[1|2].example.int: 
-      trace_var: site[1|2]/admin-[dmz|internal]-q1-s[1|2].example.int
-      foreman: <94 keys>
-    admin-[dmz|internal]-q2-s[1|2].example.int: 
-      trace_var: site[1|2]/admin-[dmz|internal]-q1-s[1|2].example.int
-      foreman: <94 keys>
-    app-[dmz|internal]-q1-s[1|2].example.int: 
-      trace_var: site[1|2]/app-[dmz|internal]-q1-s[1|2].example.int
-      foreman: <94 keys>
-    app-[dmz|internal]-q2-s[1|2].example.int: 
-      trace_var: site[1|2]/app-[dmz|internal]-q1-s[1|2].example.int
-      foreman: <94 keys>
-    web-[dmz|internal]-q1-s[1|2].example.int:
-      trace_var: site[1|2]/web-[dmz|internal]-q1-s[1|2].example.int
-      foreman: <94 keys>
-    web-[dmz|internal]-q2-s[1|2].example.int:
-      trace_var: site[1|2]/rhel7/web-[dmz|internal]-q2-s[1|2].example.int
-      foreman: <94 keys>
+    admin01.qa.site[1|2].example.[dmz|int]: 
+      trace_var: site[1|2]/admin01.qa.site[1|2].example.[dmz|int]
+    admin02.qa.site[1|2].example.[dmz|int]: 
+      trace_var: site[1|2]/admin01.qa.site[1|2].example.[dmz|int]
+    app01.qa.site[1|2].example.[dmz|int]: 
+      trace_var: site[1|2]/app01.qa.site[1|2].example.[dmz|int]
+    app02.qa.site[1|2].example.[dmz|int]: 
+      trace_var: site[1|2]/app01.qa.site[1|2].example.[dmz|int]
+    web01.qa.site[1|2].example.[dmz|int]:
+      trace_var: site[1|2]/web01.qa.site[1|2].example.[dmz|int]
+    web02.qa.site[1|2].example.[dmz|int]:
+      trace_var: site[1|2]/rhel7/web02.qa.site[1|2].example.[dmz|int]
   children:
     rhel6:
       vars:
         trace_var: dmz/site1/rhel6
       hosts:
-        admin-[dmz|internal]-q1-s[1|2].example.int: {}
+        admin01.qa.site[1|2].example.[dmz|int]: {}
     rhel7:
       vars:
         trace_var: site[1|2]/rhel7
       hosts:
-        admin-[dmz|internal]-q2-s[1|2].example.int: {}
-        app-[dmz|internal]-q1-s[1|2].example.int: {}
-        app-[dmz|internal]-q2-s[1|2].example.int: {}
-        web-[dmz|internal]-q1-s[1|2].example.int: {}
-        web-[dmz|internal]-q2-s[1|2].example.int: {}
+        admin02.qa.site[1|2].example.[dmz|int]: {}
+        app01.qa.site[1|2].example.[dmz|int]: {}
+        app02.qa.site[1|2].example.[dmz|int]: {}
+        web01.qa.site[1|2].example.[dmz|int]: {}
+        web02.qa.site[1|2].example.[dmz|int]: {}
     environment_qa:
       vars:
         trace_var: site[1|2]/environment_qa
       hosts:
-        admin-[dmz|internal]-q1-s[1|2].example.int: {}
-        admin-[dmz|internal]-q1-s[1|2].example.int: {}
-        app-[dmz|internal]-q1-s[1|2].example.int: {}
-        app-[dmz|internal]-q2-s[1|2].example.int: {}
-        web-[dmz|internal]-q1-s[1|2].example.int: {}
-        web-[dmz|internal]-q2-s[1|2].example.int: {}
+        admin01.qa.site[1|2].example.[dmz|int]: {}
+        admin01.qa.site[1|2].example.[dmz|int]: {}
+        app01.qa.site[1|2].example.[dmz|int]: {}
+        app02.qa.site[1|2].example.[dmz|int]: {}
+        web01.qa.site[1|2].example.[dmz|int]: {}
+        web02.qa.site[1|2].example.[dmz|int]: {}
     location_site[1|2]:
       vars:
         trace_var: site[1|2]/location_site[1|2]
       hosts:
-        admin-[dmz|internal]-q1-s[1|2].example.int: {}
-        admin-[dmz|internal]-q1-s[1|2].example.int: {}
-        app-[dmz|internal]-q1-s[1|2].example.int: {}
-        app-[dmz|internal]-q2-s[1|2].example.int: {}
-        web-[dmz|internal]-q1-s[1|2].example.int: {}
-        web-[dmz|internal]-q2-s[1|2].example.int: {}
+        admin01.qa.site[1|2].example.[dmz|int]: {}
+        admin01.qa.site[1|2].example.[dmz|int]: {}
+        app01.qa.site[1|2].example.[dmz|int]: {}
+        app02.qa.site[1|2].example.[dmz|int]: {}
+        web01.qa.site[1|2].example.[dmz|int]: {}
+        web02.qa.site[1|2].example.[dmz|int]: {}
     network_[dmz|internal]:
       vars:
         trace_var: site[1|2]/network_[dmz|internal]
       hosts:
-        admin-[dmz|internal]-q1-s[1|2].example.int: {}
-        admin-[dmz|internal]-q1-s[1|2].example.int: {}
-        app-[dmz|internal]-q1-s[1|2].example.int: {}
-        app-[dmz|internal]-q2-s[1|2].example.int: {}
-        web-[dmz|internal]-q1-s[1|2].example.int: {}
-        web-[dmz|internal]-q2-s[1|2].example.int: {}
+        admin01.qa.site[1|2].example.[dmz|int]: {}
+        admin01.qa.site[1|2].example.[dmz|int]: {}
+        app01.qa.site[1|2].example.[dmz|int]: {}
+        app02.qa.site[1|2].example.[dmz|int]: {}
+        web01.qa.site[1|2].example.[dmz|int]: {}
+        web02.qa.site[1|2].example.[dmz|int]: {}
     ##
     ## 'network_client' group is only used in the internal inventory
     ##    to separate the ntp-clients from the servers
@@ -151,10 +145,10 @@ all:
       vars:
         trace_var: site[1|2]/network_client
       hosts:
-        app-q1-internal-s[1|2].example.int: {}
-        app-q2-internal-s[1|2].example.int: {}
-        web-q1-internal-s[1|2].example.int: {}
-        web-q2-internal-s[1|2].example.int: {}
+        app01.qa.site[1|2].example.int
+        app02.qa.site[1|2].example.int
+        web01.qa.site[1|2].example.int
+        web02.qa.site[1|2].example.int
     ungrouped: {}
 
 ```
@@ -199,10 +193,10 @@ all:
       vars:
         group_trace_var: internal/ntp.yml[ntp_server]
       hosts:
-        admin-q1-internal-s1.example.int: {}
-        admin-q2-internal-s1.example.int: {}
-        admin-q1-internal-s2.example.int: {}
-        admin-q2-internal-s2.example.int: {}
+        admin01.qa.site1.example.int
+        admin02.qa.site1.example.int
+        admin01.qa.site2.example.int
+        admin02.qa.site2.example.int
     ntp:
       children:
         ntp_client: {}
@@ -215,8 +209,8 @@ The __ntp_servers__ variable setting in the ['ntp_client_internal'](./inventory/
 site1:
 ```output
 "ntp_servers": [
-    "admin-q1-internal-s1.example.int",
-    "admin-q2-internal-s1.example.int"
+    "admin01.qa.site1.example.int
+    "admin02.qa.site1.example.int
 ]
 
 ```
@@ -224,8 +218,8 @@ site1:
 site2:
 ```output
 ntp_servers: [
-    "admin-q1-internal-s2.example.int",
-    "admin-q2-internal-s2.example.int"
+    "admin01.qa.site2.example.int
+    "admin02.qa.site2.example.int
 ]
 ```
 
@@ -283,10 +277,10 @@ all:
       vars:
         group_trace_var: internal/ntp.yml[ntp_server]
       hosts:
-        admin-q1-internal-s1.example.int: {}
-        admin-q2-internal-s1.example.int: {}
-        admin-q1-internal-s2.example.int: {}
-        admin-q2-internal-s2.example.int: {}
+        admin01.qa.site1.example.int
+        admin02.qa.site1.example.int
+        admin01.qa.site2.example.int
+        admin02.qa.site2.example.int
     ntp:
       children:
         ntp_client: {}
@@ -302,30 +296,30 @@ We will now run through several ansible CLI tests to verify that the correct mac
 ```shell
 ansible -i ./inventory --list-hosts ntp
   hosts (24):
-    admin-q1-dmz-s1.example.int
-    admin-q2-dmz-s1.example.int
-    app-q1-dmz-s1.example.int
-    app-q2-dmz-s1.example.int
-    web-q1-dmz-s1.example.int
-    web-q2-dmz-s1.example.int
-    admin-q1-dmz-s2.example.int
-    admin-q2-dmz-s2.example.int
-    app-q1-dmz-s2.example.int
-    app-q2-dmz-s2.example.int
-    web-q1-dmz-s2.example.int
-    web-q2-dmz-s2.example.int
-    admin-q1-internal-s1.example.int
-    admin-q2-internal-s1.example.int
-    app-q1-internal-s1.example.int
-    app-q2-internal-s1.example.int
-    web-q1-internal-s1.example.int
-    web-q2-internal-s1.example.int
-    admin-q1-internal-s2.example.int
-    admin-q2-internal-s2.example.int
-    app-q1-internal-s2.example.int
-    app-q2-internal-s2.example.int
-    web-q1-internal-s2.example.int
-    web-q2-internal-s2.example.int
+    admin01.qa.site1.example.dmz
+    admin02.qa.site1.example.dmz
+    app01.qa.site1.example.dmz
+    app02.qa.site1.example.dmz
+    web01.qa.site1.example.dmz
+    web02.qa.site1.example.dmz
+    admin01.qa.site2.example.dmz
+    admin02.qa.site2.example.dmz
+    app01.qa.site2.example.dmz
+    app02.qa.site2.example.dmz
+    web01.qa.site2.example.dmz
+    web02.qa.site2.example.dmz
+    admin01.qa.site1.example.int
+    admin02.qa.site1.example.int
+    app01.qa.site1.example.int
+    app02.qa.site1.example.int
+    web01.qa.site1.example.int
+    web02.qa.site1.example.int
+    admin01.qa.site2.example.int
+    admin02.qa.site2.example.int
+    app01.qa.site2.example.int
+    app02.qa.site2.example.int
+    web01.qa.site2.example.int
+    web02.qa.site2.example.int
 
 ```
 
@@ -333,41 +327,41 @@ ansible -i ./inventory --list-hosts ntp
 
 ```shell
 ansible -i ./inventory/internal -m debug -a var="foreman.ip,ntp_servers|d('')" ntp
-admin-q1-internal-s1.example.int | SUCCESS => {
+admin01.qa.site1.example.int
     "foreman.ip,ntp_servers|d('')": "('10.10.10.56', ['0.us.pool.ntp.org', '1.us.pool.ntp.org', '2.us.pool.ntp.org', '3.us.pool.ntp.org'])"
 }
-admin-q2-internal-s1.example.int | SUCCESS => {
+admin02.qa.site1.example.int
     "foreman.ip,ntp_servers|d('')": "('10.10.10.60', ['0.us.pool.ntp.org', '1.us.pool.ntp.org', '2.us.pool.ntp.org', '3.us.pool.ntp.org'])"
 }
-admin-q1-internal-s2.example.int | SUCCESS => {
+admin01.qa.site2.example.int
     "foreman.ip,ntp_servers|d('')": "('10.10.20.56', ['0.us.pool.ntp.org', '1.us.pool.ntp.org', '2.us.pool.ntp.org', '3.us.pool.ntp.org'])"
 }
-admin-q2-internal-s2.example.int | SUCCESS => {
+admin02.qa.site2.example.int
     "foreman.ip,ntp_servers|d('')": "('10.10.20.60', ['0.us.pool.ntp.org', '1.us.pool.ntp.org', '2.us.pool.ntp.org', '3.us.pool.ntp.org'])"
 }
-app-q1-internal-s1.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.10.61', ['admin-q1-internal-s1.example.int', 'admin-q2-internal-s1.example.int'])"
+app01.qa.site1.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.10.61', ['admin01.qa.site1.example.int', 'admin02.qa.site1.example.int
 }
-app-q2-internal-s1.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.10.62', ['admin-q1-internal-s1.example.int', 'admin-q2-internal-s1.example.int'])"
+app02.qa.site1.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.10.62', ['admin01.qa.site1.example.int', 'admin02.qa.site1.example.int
 }
-web-q1-internal-s1.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.10.63', ['admin-q1-internal-s1.example.int', 'admin-q2-internal-s1.example.int'])"
+web01.qa.site1.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.10.63', ['admin01.qa.site1.example.int', 'admin02.qa.site1.example.int
 }
-web-q2-internal-s1.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.10.64', ['admin-q1-internal-s1.example.int', 'admin-q2-internal-s1.example.int'])"
+web02.qa.site1.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.10.64', ['admin01.qa.site1.example.int', 'admin02.qa.site1.example.int
 }
-app-q1-internal-s2.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.20.90', ['admin-q1-internal-s2.example.int', 'admin-q2-internal-s2.example.int'])"
+app01.qa.site2.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.20.90', ['admin01.qa.site2.example.int', 'admin02.qa.site2.example.int
 }
-app-q2-internal-s2.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.20.91', ['admin-q1-internal-s2.example.int', 'admin-q2-internal-s2.example.int'])"
+app02.qa.site2.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.20.91', ['admin01.qa.site2.example.int', 'admin02.qa.site2.example.int
 }
-web-q1-internal-s2.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.20.92', ['admin-q1-internal-s2.example.int', 'admin-q2-internal-s2.example.int'])"
+web01.qa.site2.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.20.92', ['admin01.qa.site2.example.int', 'admin02.qa.site2.example.int
 }
-web-q2-internal-s2.example.int | SUCCESS => {
-    "foreman.ip,ntp_servers|d('')": "('10.10.20.93', ['admin-q1-internal-s2.example.int', 'admin-q2-internal-s2.example.int'])"
+web02.qa.site2.example.int
+    "foreman.ip,ntp_servers|d('')": "('10.10.20.93', ['admin01.qa.site2.example.int', 'admin02.qa.site2.example.int
 }
 
 ```
@@ -398,10 +392,10 @@ all:
   children:
     ntp_server:
       hosts:
-        admin-q1-dmz-s1.example.int: {}
-        admin-q2-dmz-s1.example.int: {}
-        admin-q1-dmz-s2.example.int: {}
-        admin-q2-dmz-s2.example.int: {}
+        admin01.qa.site1.example.dmz
+        admin02.qa.site1.example.dmz
+        admin01.qa.site2.example.dmz
+        admin02.qa.site2.example.dmz
     ntp_client:
       children:
         environment_test: {}
@@ -439,10 +433,10 @@ all:
       vars:
         group_trace_var: internal/ntp.yml[ntp_server]
       hosts:
-        admin-q1-internal-s1.example.int: {}
-        admin-q2-internal-s1.example.int: {}
-        admin-q1-internal-s2.example.int: {}
-        admin-q2-internal-s2.example.int: {}
+        admin01.qa.site1.example.int
+        admin02.qa.site1.example.int
+        admin01.qa.site2.example.int
+        admin02.qa.site2.example.int
     ntp:
       children:
         ntp_client: {}
@@ -464,16 +458,16 @@ all:
 
 ```shell
 ansible -i ./inventory/ -m debug -a var=group_trace_var,gateway_ipv4 ntp_server
-admin-q1-internal-s1.example.int | SUCCESS => {
+admin01.qa.site1.example.int
     "group_trace_var,gateway_ipv4": "('group_vars/ntp_client.yml', '10.10.10.1')"
 }
-admin-q2-internal-s1.example.int | SUCCESS => {
+admin02.qa.site1.example.int
     "group_trace_var,gateway_ipv4": "('group_vars/ntp_client.yml', '10.10.10.1')"
 }
-admin-q1-internal-s2.example.int | SUCCESS => {
+admin01.qa.site2.example.int
     "group_trace_var,gateway_ipv4": "('group_vars/ntp_client.yml', '10.10.20.1')"
 }
-admin-q2-internal-s2.example.int | SUCCESS => {
+admin02.qa.site2.example.int
     "group_trace_var,gateway_ipv4": "('group_vars/ntp_client.yml', '10.10.20.1')"
 }
 
@@ -590,7 +584,7 @@ group_trace_var: internal/groups_vars/ntp_client.yml
 Run for groups 'ntp_server,\&network_internal'
 ```shell
 ansible -i ./inventory/ -m debug -a var=ntp_servers ntp_server,\&network_internal
-admin-q1-internal-s1.example.int | SUCCESS => {
+admin01.qa.site1.example.int
     "ntp_servers": [
         "0.us.pool.ntp.org iburst xleave",
         "1.us.pool.ntp.org iburst xleave",
@@ -598,7 +592,7 @@ admin-q1-internal-s1.example.int | SUCCESS => {
         "3.us.pool.ntp.org iburst xleave"
     ]
 }
-admin-q2-internal-s1.example.int | SUCCESS => {
+admin02.qa.site1.example.int
     "ntp_servers": [
         "0.us.pool.ntp.org iburst xleave",
         "1.us.pool.ntp.org iburst xleave",
@@ -606,7 +600,7 @@ admin-q2-internal-s1.example.int | SUCCESS => {
         "3.us.pool.ntp.org iburst xleave"
     ]
 }
-admin-q1-internal-s2.example.int | SUCCESS => {
+admin01.qa.site2.example.int
     "ntp_servers": [
         "0.us.pool.ntp.org iburst xleave",
         "1.us.pool.ntp.org iburst xleave",
@@ -614,7 +608,7 @@ admin-q1-internal-s2.example.int | SUCCESS => {
         "3.us.pool.ntp.org iburst xleave"
     ]
 }
-admin-q2-internal-s2.example.int | SUCCESS => {
+admin02.qa.site2.example.int
     "ntp_servers": [
         "0.us.pool.ntp.org iburst xleave",
         "1.us.pool.ntp.org iburst xleave",
@@ -635,17 +629,17 @@ Run debug using a group defined set of hosts.
 Run for groups 'ntp_server,\&network_internal'
 ```shell
 ansible -i ./inventory/ -m debug -a var=trace_var,group_names ntp_server,\&network_internal
-admin-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/admin-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/admin01.qa.site1.example.int
 }
-admin-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/admin-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/admin02.qa.site1.example.int
 }
-admin-q1-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q1-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin01.qa.site2.example.int
 }
-admin-q2-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q2-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin02.qa.site2.example.int
 }
 
 ```
@@ -653,17 +647,17 @@ admin-q2-internal-s2.example.int | SUCCESS => {
 Run for groups 'ntp_server,\&location_site2'
 ```shell
 ansible -i ./inventory/ -m debug -a var=trace_var,group_names ntp_server,\&location_site2
-admin-q1-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/admin-q1-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/admin01.qa.site2.example.dmz
 }
-admin-q2-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/admin-q2-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/admin02.qa.site2.example.dmz
 }
-admin-q1-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q1-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin01.qa.site2.example.int
 }
-admin-q2-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q2-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin02.qa.site2.example.int
 }
 
 ```
@@ -673,41 +667,41 @@ admin-q2-internal-s2.example.int | SUCCESS => {
 Run for group 'network_internal'
 ```shell
 ansible -i ./inventory/ -m debug -a var=trace_var,group_names network_internal
-admin-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/admin-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/admin01.qa.site1.example.int
 }
-admin-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/admin-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/admin02.qa.site1.example.int
 }
-app-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/app-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+app01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/app01.qa.site1.example.int
 }
-app-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/app-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+app02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/app02.qa.site1.example.int
 }
-web-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/web-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+web01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/web01.qa.site1.example.int
 }
-web-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/web-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+web02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/web02.qa.site1.example.int
 }
-admin-q1-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q1-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin01.qa.site2.example.int
 }
-admin-q2-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q2-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin02.qa.site2.example.int
 }
-app-q1-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/app-q1-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'rhel7'])"
+app01.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/app01.qa.site2.example.int
 }
-app-q2-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/app-q2-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'rhel7'])"
+app02.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/app02.qa.site2.example.int
 }
-web-q1-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/web-q1-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'rhel7'])"
+web01.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/web01.qa.site2.example.int
 }
-web-q2-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/web-q2-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'rhel7'])"
+web02.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/web02.qa.site2.example.int
 }
 
 ```
@@ -715,41 +709,41 @@ web-q2-internal-s2.example.int | SUCCESS => {
 Run for group 'location_site1'
 ```shell
 ansible -i ./inventory/ -m debug -a var=trace_var,group_names location_site1
-admin-q1-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/admin-q1-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/admin01.qa.site1.example.dmz
 }
-admin-q2-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/admin-q2-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/admin02.qa.site1.example.dmz
 }
-app-q1-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/app-q1-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'rhel7'])"
+app01.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/app01.qa.site1.example.dmz
 }
-app-q2-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/app-q2-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'rhel7'])"
+app02.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/app02.qa.site1.example.dmz
 }
-web-q1-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/web-q1-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'rhel7'])"
+web01.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/web01.qa.site1.example.dmz
 }
-web-q2-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/web-q2-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'rhel7'])"
+web02.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/web02.qa.site1.example.dmz
 }
-admin-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/admin-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/admin01.qa.site1.example.int
 }
-admin-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/admin-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/admin02.qa.site1.example.int
 }
-app-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/app-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+app01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/app01.qa.site1.example.int
 }
-app-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/app-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+app02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/app02.qa.site1.example.int
 }
-web-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/web-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+web01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/web01.qa.site1.example.int
 }
-web-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/web-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+web02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/web02.qa.site1.example.int
 }
 
 ```
@@ -757,17 +751,17 @@ web-q2-internal-s1.example.int | SUCCESS => {
 Run for group(s) matching multiple groups 'ntp_server,&network_dmz'
 ```shell
 ansible -i ./inventory/ -m debug -a var=trace_var,group_names ntp_server,\&network_dmz
-admin-q1-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/admin-q1-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/admin01.qa.site1.example.dmz
 }
-admin-q2-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/admin-q2-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/admin02.qa.site1.example.dmz
 }
-admin-q1-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/admin-q1-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/admin01.qa.site2.example.dmz
 }
-admin-q2-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/admin-q2-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/admin02.qa.site2.example.dmz
 }
 
 ```
@@ -775,17 +769,17 @@ admin-q2-dmz-s2.example.int | SUCCESS => {
 Run for group(s) matching multiple groups 'location_site2,&ntp_server'
 ```shell
 ansible -i ./inventory/ -m debug -a var=trace_var,group_names location_site2,\&ntp_server
-admin-q1-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/admin-q1-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/admin01.qa.site2.example.dmz
 }
-admin-q2-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/admin-q2-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/admin02.qa.site2.example.dmz
 }
-admin-q1-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q1-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel6'])"
+admin01.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin01.qa.site2.example.int
 }
-admin-q2-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/admin-q2-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'ntp_server', 'rhel7'])"
+admin02.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/admin02.qa.site2.example.int
 }
 
 ```
@@ -795,9 +789,9 @@ admin-q2-internal-s2.example.int | SUCCESS => {
 ### Limit to specific hosts in a group
 
 ```shell
-ansible -i ./inventory/ -m debug -a var=trace_var,group_names ntp_server -l admin-q1-dmz-s1.example.int
-admin-q1-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/admin-q1-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'ntp_server', 'rhel6'])"
+ansible -i ./inventory/ -m debug -a var=trace_var,group_names ntp_server -l admin01.qa.site1.example.dmz
+admin01.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/admin01.qa.site1.example.dmz
 }
 
 ```
@@ -807,29 +801,29 @@ admin-q1-dmz-s1.example.int | SUCCESS => {
 Run for the role-based group 'ntp_client' with a specified limit
 ```shell
 ansible -i ./inventory/ -m debug -a var=trace_var,group_names ntp_client -l web-*
-web-q1-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/web-q1-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'rhel7'])"
+web01.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/web01.qa.site1.example.dmz
 }
-web-q2-dmz-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site1/web-q2-dmz-s1.example.int', ['environment_test', 'location_site1', 'network_dmz', 'ntp_client', 'rhel7'])"
+web02.qa.site1.example.dmz
+    "trace_var,group_names": "('dmz/site1/web02.qa.site1.example.dmz
 }
-web-q1-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/web-q1-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'rhel7'])"
+web01.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/web01.qa.site2.example.dmz
 }
-web-q2-dmz-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('dmz/site2/web-q2-dmz-s2.example.int', ['environment_test', 'location_site2', 'network_dmz', 'ntp_client', 'rhel7'])"
+web02.qa.site2.example.dmz
+    "trace_var,group_names": "('dmz/site2/web02.qa.site2.example.dmz
 }
-web-q1-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/web-q1-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+web01.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/web01.qa.site1.example.int
 }
-web-q2-internal-s1.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site1/web-q2-internal-s1.example.int', ['environment_test', 'location_site1', 'network_internal', 'ntp_client', 'rhel7'])"
+web02.qa.site1.example.int
+    "trace_var,group_names": "('internal/site1/web02.qa.site1.example.int
 }
-web-q1-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/web-q1-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'rhel7'])"
+web01.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/web01.qa.site2.example.int
 }
-web-q2-internal-s2.example.int | SUCCESS => {
-    "trace_var,group_names": "('internal/site2/web-q2-internal-s2.example.int', ['environment_test', 'location_site2', 'network_internal', 'ntp_client', 'rhel7'])"
+web02.qa.site2.example.int
+    "trace_var,group_names": "('internal/site2/web02.qa.site2.example.int
 }
 
 ```

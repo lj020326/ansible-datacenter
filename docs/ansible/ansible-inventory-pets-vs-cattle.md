@@ -97,7 +97,7 @@ For example, global vars for all of production would go in:
     
     trust_ca_cacert_dir: /etc/pki/ca-trust/source/anchors
     trust_ca_update_trust_cmd: update-ca-trust extract
-    root_domain: "alsac.stjude.org"
+    root_domain: "example.org"
     subdomain: "prod"
     domain: "{{ subdomain }}.{{ root_domain }}"
     ```

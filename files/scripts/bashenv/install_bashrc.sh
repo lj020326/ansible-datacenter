@@ -17,11 +17,6 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 #PROJECT_DIR=$(git rev-parse --show-toplevel)
 PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
 
-#PROJECT_DIR2="~/repos/silex/alsac/ansible-dcc"
-## expand ~ for rsync to work correctly
-#PROJECT_DIR2="$( cd "$PROJECT_DIR2" && pwd )"
-#eval PROJECT_DIR2=$PROJECT_DIR2
-
 #SECRETS_DIR="$( cd "$SCRIPT_DIR/../../private/env/" && pwd )"
 SECRETS_DIR="${PROJECT_DIR}/files/private/env"
 export ANSIBLE_VAULT_PASSWORD_FILE=$HOME/.vault_pass

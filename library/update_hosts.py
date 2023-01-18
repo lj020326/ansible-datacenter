@@ -321,7 +321,7 @@ def main():
 
     git_user_config = {
         'name': "ansible",
-        'email': "ansible@alsac.stjude.org"
+        'email': "ansible@example.int"
     }
 
     git = Git(module, repo_config)

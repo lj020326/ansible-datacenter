@@ -40,7 +40,7 @@ Example usage:
 Example play output:
 ```output
 TASK [Display common group information] ***
-ok: [app-d1.alsac.stjude.org] => {
+ok: [app-d1.example.int] => {
     "msg": [
         "dc_oc_family=dc_oc_linux", 
         "dc_oc_distribution=dc_oc_redhat", 
@@ -50,7 +50,7 @@ ok: [app-d1.alsac.stjude.org] => {
 }
 
 TASK [Display group_names] ***
-ok: [app-d1.alsac.stjude.org] => {
+ok: [app-d1.example.int] => {
     "group_names": [
         "appweb",
         "dev",
@@ -59,7 +59,7 @@ ok: [app-d1.alsac.stjude.org] => {
         "foreman_content_view_rhel7_composite",
         "foreman_lifecycle_environment_dev",
         "foreman_location_mem",
-        "foreman_organization_alsac",
+        "foreman_organization_example",
         "linux",
         "lnx_all",
         "lnx_dev",
