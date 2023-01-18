@@ -1,5 +1,5 @@
 
-# Example 6: Using dynamic groups to derive large "subset" groups
+# Example 7: Using derived/dynamic groups to derive large "subset" groups
 
 This example use case is related to whenever the need exists to set up a set and disjoint set of sub-group configurations required for any playbook and corresponding roles (e.g., client/server configurations).
 
@@ -83,29 +83,30 @@ But alas, the YAML-based ansible inventory does not support this feature, at lea
 
 #### Generalized Case
 
-In the prior [Example 5](../example5/README.md), we successfully matched role-based group settings to an existing YAML-based inventory.
+In the prior [Example 6](../example6/README.md), we successfully derived the ntp client group.
 
-We also leveraged a special group called 'network_client' to apply the ntp client settings.
+In this example we introduce a role specific parent group, called 'ntp_network', and a subgroup called 'ntp_server' in each network to simplify deriving/setting the ntp client settings.
 
 Maintaining such a group configuration can be problematic.
 
 E.g., Say the following parameters are given:
 
-* A 'network' (parent) group has 100, 1000, or lets say __N machines__ and 
-* A subset 'network_server' group only has a far less _finite number_ of instances, say 2, 4, or __M machines__
-* A derived 'network_client' defined as the parent group of __N machines__ minus the server group of __M machines__.
+* A 'ntp_network' (parent) group has 100, 1000, or lets say __N machines__ and 
+* A subset 'ntp_server' group only has a far less _finite number_ of instances, say 2, 4, or __M machines__
+* A derived 'ntp_client' derived by group_names | intersect(['ntp_network'])==1 and group_names | intersect(['ntp_server'])==0 
+  * this results in __N machines__ minus the server group of __M machines__.
 
-So given an inventory with a 'network' group of 1000 machines, and a 'network_server' group of 4 machines, then the 'network_client' group would have 996 machines. 
+So given an inventory with a 'ntp_network' group of 1000 machines, and a 'ntp_server' group of 4 machines, then the 'ntp_client' group would have 996 machines. 
 
-Maintaining a 'network_client' group for multiple use-cases would have to re-define the child group of __(N - M) machines__. 
+Maintaining a 'ntp_client' group for multiple use-cases would have to redefine the child group of __(N - M) machines__. 
 
-This can present risks since then each 'network_client' group is almost the same size as the parent 'network_server' group and exposes risks of maintaining synchronization of the group.
+This can present risks since then each 'ntp_client' group is almost the same size as the parent 'network_server' group and exposes risks of maintaining synchronization of the group.
 
 Multiply this by the number of use cases having the same/similar pattern.
 
-Ideally, we do not want to explicitly define and maintain a 'network_client' group since it can be simply derived from the obtaining the difference of the 'network' and 'network_server' groups.
+Ideally, we do not want to explicitly define and maintain a 'ntp_client' group since it can be simply derived from the obtaining the difference of the 'network' and 'network_server' groups.
 
-The following example will look to resolve the challenge of deriving the 'network_client' child group.  More specifically, the following example will demonstrate for the case of the internal ntp client example to derive a 'ntp_client_internal' group.
+The following example will look to resolve the challenge of deriving the 'ntp_client' child group.  More specifically, the following example will demonstrate for the case of the internal ntp client example to derive a 'ntp_client_internal' group.
 
 ## Overview
 
@@ -156,16 +157,22 @@ all:
   hosts:
     admin01.qa.site[1|2].example.[dmz|int]: 
       trace_var: site[1|2]/admin01.qa.site[1|2].example.[dmz|int]
+      foreman: <94 keys>
     admin02.qa.site[1|2].example.[dmz|int]: 
       trace_var: site[1|2]/admin01.qa.site[1|2].example.[dmz|int]
+      foreman: <94 keys>
     app01.qa.site[1|2].example.[dmz|int]: 
       trace_var: site[1|2]/app01.qa.site[1|2].example.[dmz|int]
+      foreman: <94 keys>
     app02.qa.site[1|2].example.[dmz|int]: 
       trace_var: site[1|2]/app01.qa.site[1|2].example.[dmz|int]
+      foreman: <94 keys>
     web01.qa.site[1|2].example.[dmz|int]:
       trace_var: site[1|2]/web01.qa.site[1|2].example.[dmz|int]
+      foreman: <94 keys>
     web02.qa.site[1|2].example.[dmz|int]:
       trace_var: site[1|2]/rhel7/web02.qa.site[1|2].example.[dmz|int]
+      foreman: <94 keys>
   children:
     rhel6:
       vars:
@@ -250,19 +257,15 @@ all:
       vars:
         group_trace_var: internal/ntp.yml[ntp_client_internal]
       children:
-        network_client: {}
+        ntp_client: {}
     ntp_server:
       vars:
         group_trace_var: internal/ntp.yml[ntp_server]
       hosts:
-        admin01.qa.site1.example.int
-        admin02.qa.site1.example.int
-        admin01.qa.site2.example.int
-        admin02.qa.site2.example.int
-    ntp:
-      children:
-        ntp_client: {}
-        ntp_server: {}
+        admin01.qa.site1.example.int: {}
+        admin02.qa.site1.example.int: {}
+        admin01.qa.site2.example.int: {}
+        admin02.qa.site2.example.int: {}
 ```
 
 The 'ntp_client_internal' _placeholder_ group also allows the binding to the respective group_vars found in [ntp_client_internal.yml](./internal/group_vars/ntp_client_internal.yml) needed for hosts that get applied to this group.
@@ -272,8 +275,8 @@ The expected results from the __ntp_servers__ variable evaluation in the ['ntp_c
 site1:
 ```output
 "ntp_servers": [
-    "admin01.qa.site1.example.int
-    "admin02.qa.site1.example.int
+    "admin01.qa.site1.example.int",
+    "admin02.qa.site1.example.int"
 ]
 
 ```
@@ -281,8 +284,8 @@ site1:
 site2:
 ```output
 ntp_servers: [
-    "admin01.qa.site2.example.int
-    "admin02.qa.site2.example.int
+    "admin01.qa.site2.example.int",
+    "admin02.qa.site2.example.int"
 ]
 ```
 
@@ -320,34 +323,29 @@ ntp_servers:
 ```
 
 ## NTP parent group
-A ntp parent group is defined such that it contains all the related groups useful for targetting plays to run against for the entire NTP configuration playbook.
+A ntp parent group is defined such that it contains all the related groups useful for targeting plays to run against for the entire NTP configuration playbook.
 
 [inventory/internal/ntp.yml](./inventory/internal/ntp.yml):
 ```yaml
 all:
   children:
-    ntp_client:
-      vars:
-        group_trace_var: internal/ntp.yml[ntp_client]
+    ntp_network:
       children:
-        ntp_client_internal: {}
-    ntp_client_internal:
-      vars:
-        group_trace_var: internal/ntp.yml[ntp_client_internal]
-      children:
-        network_client: {}
-    ntp_server:
-      vars:
-        group_trace_var: internal/ntp.yml[ntp_server]
-      hosts:
-        admin01.qa.site1.example.int
-        admin02.qa.site1.example.int
-        admin01.qa.site2.example.int
-        admin02.qa.site2.example.int
-    ntp:
-      children:
-        ntp_client: {}
-        ntp_server: {}
+        some_network: {}
+        ntp_client:
+          vars:
+            group_trace_var: internal/ntp.yml[ntp_client]
+        ntp_client_internal:
+          vars:
+            group_trace_var: internal/ntp.yml[ntp_client_internal]
+        ntp_server:
+          vars:
+            group_trace_var: internal/ntp.yml[ntp_server]
+          hosts:
+            admin01.qa.site1.example.int: {}
+            admin02.qa.site1.example.int: {}
+            admin01.qa.site2.example.int: {}
+            admin02.qa.site2.example.int: {}
 ```
 
 ## Setup play to derive the ntp_client_internal group
@@ -358,53 +356,30 @@ Next we define a play to derive the ntp_client_internal group
 ```yaml
 ---
 
-- name: "Define derived ntp_client_internal"
-  hosts: localhost
-  gather_facts: false
-  connection: local
-  tasks:
-
-    - name: Derive __ntp_client_internal list of hosts based on difference of network_internal and ntp_server groups
-      set_fact:
-        __ntp_client_internal: "{{ groups['network_internal'] | difference(groups['ntp_server']) }}"
-
-    - debug:
-        var: groups['network_internal']
-        verbosity: 1
-
-    - debug:
-        var: groups['ntp_server']
-        verbosity: 1
-
-    - debug:
-        var: __ntp_client_internal
-        verbosity: 1
-
-    ## Using set_fact with delegate_to, delegate_facts and with_items to set facts derived on first play on localhost to targeted host
-    ## ref: https://github.com/ansible/ansible/issues/20508
-    - name: "Copy __ntp_client_internal fact to other servers"
-      set_fact:
-        __ntp_client_internal: "{{ __ntp_client_internal }}"
-      delegate_to: "{{ item }}"
-      delegate_facts: True
-      with_items: "{{ groups['all'] }}"
-      when: item != "localhost"
-
-- name: "Apply ntp_client_internal group setting to machines in the derived list"
-  hosts: network_internal
+- name: "Apply ntp_server"
+  hosts: ntp_server
   gather_facts: false
   connection: local
   tasks:
 
     - debug:
-        var: __ntp_client_internal
+        var: group_names
         verbosity: 1
+    - debug:
+        var: ntp_servers
+
+- name: "Apply ntp_client group setting"
+  hosts: ntp_network,!ntp_server
+  gather_facts: false
+  connection: local
+  tasks:
 
     - name: Derive ntp_client_internal child group of hosts based on difference of network_internal and ntp_server
       when: inventory_hostname in __ntp_client_internal
       group_by:
-        key: "ntp_client_internal"
-        parents: ['ntp','ntp_client','network_internal']
+        key: "ntp_client"
+    - debug:
+        var: ntp_servers
 
 - name: "Run trace var play for machines in the newly defined ntp_client_internal group"
 #  hosts: ntp_client_internal
@@ -427,7 +402,6 @@ Next we define a play to derive the ntp_client_internal group
         verbosity: 1
     - debug:
         var: ntp_servers
-
 ```
 
 ## Expected Play Results
@@ -450,8 +424,8 @@ Upon running the [display-ntp-servers.yml play](display-ntp-servers.yml), the ex
 site1:
 ```output
 "ntp_servers": [
-    "admin01.qa.site1.example.int
-    "admin02.qa.site1.example.int
+    "admin01.qa.site1.example.int",
+    "admin02.qa.site1.example.int"
 ]
 
 ```
@@ -459,8 +433,8 @@ site1:
 site2:
 ```output
 ntp_servers: [
-    "admin01.qa.site2.example.int
-    "admin02.qa.site2.example.int
+    "admin01.qa.site2.example.int",
+    "admin02.qa.site2.example.int"
 ]
 ```
 
@@ -486,109 +460,109 @@ TASK [debug] *******************************************************************
 skipping: [localhost]
 
 TASK [Copy __ntp_client_internal fact to other servers] *****************************************************************************************************************************************************************************************************************
-ok: [localhost -> admin01.qa.site1.example.int] => (item=admin01.qa.site1.example.int
-ok: [localhost -> admin02.qa.site1.example.int] => (item=admin02.qa.site1.example.int
-ok: [localhost -> app01.qa.site1.example.int] => (item=app01.qa.site1.example.int
-ok: [localhost -> app02.qa.site1.example.int] => (item=app02.qa.site1.example.int
-ok: [localhost -> web01.qa.site1.example.int] => (item=web01.qa.site1.example.int
-ok: [localhost -> web02.qa.site1.example.int] => (item=web02.qa.site1.example.int
-ok: [localhost -> admin01.qa.site2.example.int] => (item=admin01.qa.site2.example.int
-ok: [localhost -> admin02.qa.site2.example.int] => (item=admin02.qa.site2.example.int
-ok: [localhost -> app01.qa.site2.example.int] => (item=app01.qa.site2.example.int
-ok: [localhost -> app02.qa.site2.example.int] => (item=app02.qa.site2.example.int
-ok: [localhost -> web01.qa.site2.example.int] => (item=web01.qa.site2.example.int
-ok: [localhost -> web02.qa.site2.example.int] => (item=web02.qa.site2.example.int
+ok: [localhost -> admin01.qa.site1.example.int] => (item=admin01.qa.site1.example.int)
+ok: [localhost -> admin02.qa.site1.example.int] => (item=admin02.qa.site1.example.int)
+ok: [localhost -> app01.qa.site1.example.int] => (item=app01.qa.site1.example.int)
+ok: [localhost -> app02.qa.site1.example.int] => (item=app02.qa.site1.example.int)
+ok: [localhost -> web01.qa.site1.example.int] => (item=web01.qa.site1.example.int)
+ok: [localhost -> web02.qa.site1.example.int] => (item=web02.qa.site1.example.int)
+ok: [localhost -> admin01.qa.site2.example.int] => (item=admin01.qa.site2.example.int)
+ok: [localhost -> admin02.qa.site2.example.int] => (item=admin02.qa.site2.example.int)
+ok: [localhost -> app01.qa.site2.example.int] => (item=app01.qa.site2.example.int)
+ok: [localhost -> app02.qa.site2.example.int] => (item=app02.qa.site2.example.int)
+ok: [localhost -> web01.qa.site2.example.int] => (item=web01.qa.site2.example.int)
+ok: [localhost -> web02.qa.site2.example.int] => (item=web02.qa.site2.example.int)
 
 PLAY [Apply ntp_client_internal group setting to machines in the derived list] ******************************************************************************************************************************************************************************************
 
 TASK [debug] ************************************************************************************************************************************************************************************************************************************************************
-skipping: [admin01.qa.site1.example.int
-skipping: [admin02.qa.site1.example.int
-skipping: [app01.qa.site1.example.int
-skipping: [app02.qa.site1.example.int
-skipping: [web01.qa.site1.example.int
-skipping: [web02.qa.site1.example.int
-skipping: [admin01.qa.site2.example.int
-skipping: [admin02.qa.site2.example.int
-skipping: [app01.qa.site2.example.int
-skipping: [app02.qa.site2.example.int
-skipping: [web01.qa.site2.example.int
-skipping: [web02.qa.site2.example.int
+skipping: [admin01.qa.site1.example.int]
+skipping: [admin02.qa.site1.example.int]
+skipping: [app01.qa.site1.example.int]
+skipping: [app02.qa.site1.example.int]
+skipping: [web01.qa.site1.example.int]
+skipping: [web02.qa.site1.example.int]
+skipping: [admin01.qa.site2.example.int]
+skipping: [admin02.qa.site2.example.int]
+skipping: [app01.qa.site2.example.int]
+skipping: [app02.qa.site2.example.int]
+skipping: [web01.qa.site2.example.int]
+skipping: [web02.qa.site2.example.int]
 
 TASK [Derive ntp_client_internal child group of hosts based on difference of network_internal and ntp_server] ***********************************************************************************************************************************************************
-skipping: [admin01.qa.site1.example.int
-skipping: [admin02.qa.site1.example.int
-changed: [app01.qa.site1.example.int
-changed: [app02.qa.site1.example.int
-changed: [web01.qa.site1.example.int
-changed: [web02.qa.site1.example.int
-skipping: [admin01.qa.site2.example.int
-skipping: [admin02.qa.site2.example.int
-changed: [app01.qa.site2.example.int
-changed: [app02.qa.site2.example.int
-changed: [web01.qa.site2.example.int
-changed: [web02.qa.site2.example.int
+skipping: [admin01.qa.site1.example.int]
+skipping: [admin02.qa.site1.example.int]
+changed: [app01.qa.site1.example.int]
+changed: [app02.qa.site1.example.int]
+changed: [web01.qa.site1.example.int]
+changed: [web02.qa.site1.example.int]
+skipping: [admin01.qa.site2.example.int]
+skipping: [admin02.qa.site2.example.int]
+changed: [app01.qa.site2.example.int]
+changed: [app02.qa.site2.example.int]
+changed: [web01.qa.site2.example.int]
+changed: [web02.qa.site2.example.int]
 
 PLAY [Run trace var play for machines in the newly defined ntp_client_internal group] ***********************************************************************************************************************************************************************************
 
 TASK [debug] ************************************************************************************************************************************************************************************************************************************************************
-skipping: [admin01.qa.site1.example.int
-skipping: [admin02.qa.site1.example.int
-skipping: [admin01.qa.site2.example.int
-skipping: [admin02.qa.site2.example.int
-skipping: [app01.qa.site1.example.int
-skipping: [app02.qa.site1.example.int
-skipping: [web01.qa.site1.example.int
-skipping: [web02.qa.site1.example.int
-skipping: [app01.qa.site2.example.int
-skipping: [app02.qa.site2.example.int
-skipping: [web01.qa.site2.example.int
-skipping: [web02.qa.site2.example.int
+skipping: [admin01.qa.site1.example.int]
+skipping: [admin02.qa.site1.example.int]
+skipping: [admin01.qa.site2.example.int]
+skipping: [admin02.qa.site2.example.int]
+skipping: [app01.qa.site1.example.int]
+skipping: [app02.qa.site1.example.int]
+skipping: [web01.qa.site1.example.int]
+skipping: [web02.qa.site1.example.int]
+skipping: [app01.qa.site2.example.int]
+skipping: [app02.qa.site2.example.int]
+skipping: [web01.qa.site2.example.int]
+skipping: [web02.qa.site2.example.int]
 
 TASK [debug] ************************************************************************************************************************************************************************************************************************************************************
-skipping: [admin01.qa.site1.example.int
-skipping: [admin02.qa.site1.example.int
-skipping: [admin01.qa.site2.example.int
-skipping: [admin02.qa.site2.example.int
-skipping: [app01.qa.site1.example.int
-skipping: [app02.qa.site1.example.int
-skipping: [web01.qa.site1.example.int
-skipping: [web02.qa.site1.example.int
-skipping: [app01.qa.site2.example.int
-skipping: [app02.qa.site2.example.int
-skipping: [web01.qa.site2.example.int
-skipping: [web02.qa.site2.example.int
+skipping: [admin01.qa.site1.example.int]
+skipping: [admin02.qa.site1.example.int]
+skipping: [admin01.qa.site2.example.int]
+skipping: [admin02.qa.site2.example.int]
+skipping: [app01.qa.site1.example.int]
+skipping: [app02.qa.site1.example.int]
+skipping: [web01.qa.site1.example.int]
+skipping: [web02.qa.site1.example.int]
+skipping: [app01.qa.site2.example.int]
+skipping: [app02.qa.site2.example.int]
+skipping: [web01.qa.site2.example.int]
+skipping: [web02.qa.site2.example.int]
 
 TASK [debug] ************************************************************************************************************************************************************************************************************************************************************
-skipping: [admin01.qa.site1.example.int
-skipping: [admin02.qa.site1.example.int
-skipping: [admin01.qa.site2.example.int
-skipping: [admin02.qa.site2.example.int
-skipping: [app01.qa.site1.example.int
-skipping: [app02.qa.site1.example.int
-skipping: [web01.qa.site1.example.int
-skipping: [web02.qa.site1.example.int
-skipping: [app01.qa.site2.example.int
-skipping: [app02.qa.site2.example.int
-skipping: [web01.qa.site2.example.int
-skipping: [web02.qa.site2.example.int
+skipping: [admin01.qa.site1.example.int]
+skipping: [admin02.qa.site1.example.int]
+skipping: [admin01.qa.site2.example.int]
+skipping: [admin02.qa.site2.example.int]
+skipping: [app01.qa.site1.example.int]
+skipping: [app02.qa.site1.example.int]
+skipping: [web01.qa.site1.example.int]
+skipping: [web02.qa.site1.example.int]
+skipping: [app01.qa.site2.example.int]
+skipping: [app02.qa.site2.example.int]
+skipping: [web01.qa.site2.example.int]
+skipping: [web02.qa.site2.example.int]
 
 TASK [debug] ************************************************************************************************************************************************************************************************************************************************************
-skipping: [admin01.qa.site1.example.int
-skipping: [admin02.qa.site1.example.int
-skipping: [admin01.qa.site2.example.int
-skipping: [admin02.qa.site2.example.int
-skipping: [app01.qa.site1.example.int
-skipping: [app02.qa.site1.example.int
-skipping: [web01.qa.site1.example.int
-skipping: [web02.qa.site1.example.int
-skipping: [app01.qa.site2.example.int
-skipping: [app02.qa.site2.example.int
-skipping: [web01.qa.site2.example.int
-skipping: [web02.qa.site2.example.int
+skipping: [admin01.qa.site1.example.int]
+skipping: [admin02.qa.site1.example.int]
+skipping: [admin01.qa.site2.example.int]
+skipping: [admin02.qa.site2.example.int]
+skipping: [app01.qa.site1.example.int]
+skipping: [app02.qa.site1.example.int]
+skipping: [web01.qa.site1.example.int]
+skipping: [web02.qa.site1.example.int]
+skipping: [app01.qa.site2.example.int]
+skipping: [app02.qa.site2.example.int]
+skipping: [web01.qa.site2.example.int]
+skipping: [web02.qa.site2.example.int]
 
 TASK [debug] ************************************************************************************************************************************************************************************************************************************************************
-ok: [admin01.qa.site1.example.int
+ok: [admin01.qa.site1.example.int] => {
     "ntp_servers": [
         "0.us.pool.ntp.org",
         "1.us.pool.ntp.org",
@@ -596,7 +570,7 @@ ok: [admin01.qa.site1.example.int
         "3.us.pool.ntp.org"
     ]
 }
-ok: [admin02.qa.site1.example.int
+ok: [admin02.qa.site1.example.int] => {
     "ntp_servers": [
         "0.us.pool.ntp.org",
         "1.us.pool.ntp.org",
@@ -604,7 +578,7 @@ ok: [admin02.qa.site1.example.int
         "3.us.pool.ntp.org"
     ]
 }
-ok: [admin01.qa.site2.example.int
+ok: [admin01.qa.site2.example.int] => {
     "ntp_servers": [
         "0.us.pool.ntp.org",
         "1.us.pool.ntp.org",
@@ -612,7 +586,7 @@ ok: [admin01.qa.site2.example.int
         "3.us.pool.ntp.org"
     ]
 }
-ok: [admin02.qa.site2.example.int
+ok: [admin02.qa.site2.example.int] => {
     "ntp_servers": [
         "0.us.pool.ntp.org",
         "1.us.pool.ntp.org",
@@ -620,69 +594,69 @@ ok: [admin02.qa.site2.example.int
         "3.us.pool.ntp.org"
     ]
 }
-ok: [app01.qa.site1.example.int
+ok: [app01.qa.site1.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site1.example.int
-        "admin02.qa.site1.example.int
+        "admin01.qa.site1.example.int",
+        "admin02.qa.site1.example.int"
     ]
 }
-ok: [app02.qa.site1.example.int
+ok: [app02.qa.site1.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site1.example.int
-        "admin02.qa.site1.example.int
+        "admin01.qa.site1.example.int",
+        "admin02.qa.site1.example.int"
     ]
 }
-ok: [web01.qa.site1.example.int
+ok: [web01.qa.site1.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site1.example.int
-        "admin02.qa.site1.example.int
+        "admin01.qa.site1.example.int",
+        "admin02.qa.site1.example.int"
     ]
 }
-ok: [web02.qa.site1.example.int
+ok: [web02.qa.site1.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site1.example.int
-        "admin02.qa.site1.example.int
+        "admin01.qa.site1.example.int",
+        "admin02.qa.site1.example.int"
     ]
 }
-ok: [app01.qa.site2.example.int
+ok: [app01.qa.site2.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site2.example.int
-        "admin02.qa.site2.example.int
+        "admin01.qa.site2.example.int",
+        "admin02.qa.site2.example.int"
     ]
 }
-ok: [app02.qa.site2.example.int
+ok: [app02.qa.site2.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site2.example.int
-        "admin02.qa.site2.example.int
+        "admin01.qa.site2.example.int",
+        "admin02.qa.site2.example.int"
     ]
 }
-ok: [web01.qa.site2.example.int
+ok: [web01.qa.site2.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site2.example.int
-        "admin02.qa.site2.example.int
+        "admin01.qa.site2.example.int",
+        "admin02.qa.site2.example.int"
     ]
 }
-ok: [web02.qa.site2.example.int
+ok: [web02.qa.site2.example.int] => {
     "ntp_servers": [
-        "admin01.qa.site2.example.int
-        "admin02.qa.site2.example.int
+        "admin01.qa.site2.example.int",
+        "admin02.qa.site2.example.int"
     ]
 }
 
 PLAY RECAP **************************************************************************************************************************************************************************************************************************************************************
-admin01.qa.site1.example.int
-admin01.qa.site2.example.int
-admin02.qa.site1.example.int
-admin02.qa.site2.example.int
-app01.qa.site1.example.int
-app01.qa.site2.example.int
-app02.qa.site1.example.int
-app02.qa.site2.example.int
+admin01.qa.site1.example.int : ok=1    changed=0    unreachable=0    failed=0    skipped=6    rescued=0    ignored=0   
+admin01.qa.site2.example.int : ok=1    changed=0    unreachable=0    failed=0    skipped=6    rescued=0    ignored=0   
+admin02.qa.site1.example.int : ok=1    changed=0    unreachable=0    failed=0    skipped=6    rescued=0    ignored=0   
+admin02.qa.site2.example.int : ok=1    changed=0    unreachable=0    failed=0    skipped=6    rescued=0    ignored=0   
+app01.qa.site1.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+app01.qa.site2.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+app02.qa.site1.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+app02.qa.site2.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
 localhost                  : ok=2    changed=0    unreachable=0    failed=0    skipped=3    rescued=0    ignored=0   
-web01.qa.site1.example.int
-web01.qa.site2.example.int
-web02.qa.site1.example.int
-web02.qa.site2.example.int
+web01.qa.site1.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+web01.qa.site2.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+web02.qa.site1.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
+web02.qa.site2.example.int : ok=2    changed=1    unreachable=0    failed=0    skipped=5    rescued=0    ignored=0   
 
 
 ```

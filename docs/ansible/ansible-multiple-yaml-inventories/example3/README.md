@@ -42,24 +42,24 @@ For each of the 4 inventory files, the following group/host hierarchy will be im
 graph TD;
     A[all] --> C[hosts]
     A[all] --> D[children]
-    C --> I["web-net[1|2]-q1-s[1|2].example.int"]
-    C --> J["web-net[1|2]-q2-s[1|2].example.int"]
+    C --> I["web01.qa.net[1|2]site[1|2].example.int"]
+    C --> J["web02.qa.net[1|2]site[1|2].example.int"]
     D --> E[rhel7]
     D --> F[environment_qa]
     D --> G["location_site[1|2]"]
     D --> H["network[1|2]"]
     E --> K[hosts]
-    K --> L["web-net[1|2]-q1-s[1|2].example.int"]
-    K --> M["web-net[1|2]-q2-s[1|2].example.int"]
+    K --> L["web01.qa.net[1|2]site[1|2].example.int"]
+    K --> M["web02.qa.net[1|2]site[1|2].example.int"]
     F --> N[hosts]
-    N --> O["web-net[1|2]-q1-s[1|2].example.int"]
-    N --> P["web-net[1|2]-q2-s[1|2].example.int"]
+    N --> O["web01.qa.net[1|2]site[1|2].example.int"]
+    N --> P["web02.qa.net[1|2]site[1|2].example.int"]
     G --> Q[hosts]
-    Q --> R["web-net[1|2]-q1-s[1|2].example.int"]
-    Q --> S["web-net[1|2]-q2-s[1|2].example.int"]
+    Q --> R["web01.qa.net[1|2]site[1|2].example.int"]
+    Q --> S["web02.qa.net[1|2]site[1|2].example.int"]
     H --> T[hosts]
-    T --> U["web-net[1|2]-q1-s[1|2].example.int"]
-    T --> W["web-net[1|2]-q2-s[1|2].example.int"]
+    T --> U["web01.qa.net[1|2]site[1|2].example.int"]
+    T --> W["web02.qa.net[1|2]site[1|2].example.int"]
 ```
 
 
@@ -68,35 +68,35 @@ Each site.yml inventory will be setup similar to the following with the "[1|2]" 
 ```yaml
 all:
   hosts:
-    web-net[1|2]-q1-s[1|2].example.int:
-      trace_var: site[1|2]/web-net[1|2]-q1-s[1|2].example.int
-    web-net[1|2]-q2-s[1|2].example.int:
-      trace_var: site[1|2]/rhel7/web-net[1|2]-q2-s[1|2].example.int
+    web01.qa.net[1|2]site[1|2].example.int:
+      trace_var: site[1|2]/web01.qa.net[1|2]site[1|2].example.int
+    web02.qa.net[1|2]site[1|2].example.int:
+      trace_var: site[1|2]/rhel7/web02.qa.net[1|2]site[1|2].example.int
   children:
     rhel7:
       vars:
         trace_var: site[1|2]/rhel7
       hosts:
-        web-net[1|2]-q1-s[1|2].example.int: {}
-        web-net[1|2]-q2-s[1|2].example.int: {}
+        web01.qa.net[1|2]site[1|2].example.int: {}
+        web02.qa.net[1|2]site[1|2].example.int: {}
     environment_qa:
       vars:
         trace_var: site[1|2]/environment_qa
       hosts:
-        web-net[1|2]-q1-s[1|2].example.int: {}
-        web-net[1|2]-q2-s[1|2].example.int: {}
+        web01.qa.net[1|2]site[1|2].example.int: {}
+        web02.qa.net[1|2]site[1|2].example.int: {}
     location_site[1|2]:
       vars:
         trace_var: site[1|2]/location_site[1|2]
       hosts:
-        web-net[1|2]-q1-s[1|2].example.int: {}
-        web-net[1|2]-q2-s[1|2].example.int: {}
+        web01.qa.net[1|2]site[1|2].example.int: {}
+        web02.qa.net[1|2]site[1|2].example.int: {}
     network[1|2]:
       vars:
         trace_var: site[1|2]/network[1|2]
       hosts:
-        web-net[1|2]-q1-s[1|2].example.int: {}
-        web-net[1|2]-q2-s[1|2].example.int: {}
+        web01.qa.net[1|2]site[1|2].example.int: {}
+        web02.qa.net[1|2]site[1|2].example.int: {}
     ungrouped: {}
 
 ```
@@ -464,136 +464,18 @@ web02.qa.net2site1.example.int | SUCCESS => {
 ```
 
 ```shell
-ansible -i ./inventory/ -m debug -a var=foreman.capabilities location_site1 -l web-q1*
+ansible -i ./inventory/ network1  -m debug -a var=trace_var
 web01.qa.net1site1.example.int | SUCCESS => {
-    "foreman.capabilities": [
-        "build"
-    ]
-}
-web01.qa.net2site1.example.int | SUCCESS => {
-    "foreman.capabilities": [
-        "build"
-    ]
-}
-
-```
-
-```shell
-ansible -i ./inventory/ network2 -l web-q1* -m debug -a var=foreman.content_facet_attributes.lifecycle_environment.name
-web01.qa.net2site1.example.int | SUCCESS => {
-    "foreman.content_facet_attributes.lifecycle_environment.name": "QA"
-}
-web01.qa.net2site2.example.int | SUCCESS => {
-    "foreman.content_facet_attributes.lifecycle_environment.name": "QA"
-}
-
-```
-
-
-```shell
-ansible -i ./inventory/ network2 -l web-q1* -m debug -a var=foreman.content_facet_attributes.lifecycle_environment
-web01.qa.net2site1.example.int | SUCCESS => {
-    "foreman.content_facet_attributes.lifecycle_environment": {
-        "id": 3,
-        "name": "QA"
-    }
-}
-web01.qa.net2site2.example.int | SUCCESS => {
-    "foreman.content_facet_attributes.lifecycle_environment": {
-        "id": 3,
-        "name": "QA"
-    }
-}
-
-```
-
-```shell
-ansible -i ./inventory/ network1  -m debug -a var=trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name
-web01.qa.net1site1.example.int | SUCCESS => {
-    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site1/web01.qa.net1site1.example.int', 'QA', 'SITE1')"
+    "trace_var": "('network1/site1/web01.qa.net1site1.example.int', 'QA', 'SITE1')"
 }
 web02.qa.net1site1.example.int | SUCCESS => {
-    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site1/web02.qa.net1site1.example.int', 'QA', 'SITE1')"
+    "trace_var": "('network1/site1/web02.qa.net1site1.example.int', 'QA', 'SITE1')"
 }
 web01.qa.net1site2.example.int | SUCCESS => {
-    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site2/web01.qa.net1site2.example.int', 'QA', 'SITE2')"
+    "trace_var": "('network1/site2/web01.qa.net1site2.example.int', 'QA', 'SITE2')"
 }
 web02.qa.net1site2.example.int | SUCCESS => {
-    "trace_var,foreman.content_facet_attributes.lifecycle_environment.name,foreman.location_name": "('network1/site2/web02.qa.net1site2.example.int', 'QA', 'SITE2')"
+    "trace_var": "('network1/site2/web02.qa.net1site2.example.int', 'QA', 'SITE2')"
 }
 
 ```
-
-```shell
-ansible -i ./inventory/ -m debug -a var=foreman.content_facet_attributes network2 -l web-q1*
-web01.qa.net2site1.example.int | SUCCESS => {
-    "foreman.content_facet_attributes": {
-        "applicable_module_stream_count": 0,
-        "applicable_package_count": 7,
-        "content_source": null,
-        "content_source_id": null,
-        "content_source_name": null,
-        "content_view": {
-            "id": 8,
-            "name": "RHEL7_composite"
-        },
-        "content_view_id": 8,
-        "content_view_name": "RHEL7_composite",
-        "errata_counts": {
-            "bugfix": 0,
-            "enhancement": 0,
-            "security": 0,
-            "total": 0
-        },
-        "id": 105,
-        "kickstart_repository": null,
-        "kickstart_repository_id": null,
-        "kickstart_repository_name": null,
-        "lifecycle_environment": {
-            "id": 3,
-            "name": "QA"
-        },
-        "lifecycle_environment_id": 3,
-        "lifecycle_environment_name": "QA",
-        "upgradable_module_stream_count": 0,
-        "upgradable_package_count": 0,
-        "uuid": "7a1cb585-1265-4232-baf1-eee16f2cf819"
-    }
-}
-web01.qa.net2site2.example.int | SUCCESS => {
-    "foreman.content_facet_attributes": {
-        "applicable_module_stream_count": 0,
-        "applicable_package_count": 7,
-        "content_source": null,
-        "content_source_id": null,
-        "content_source_name": null,
-        "content_view": {
-            "id": 8,
-            "name": "RHEL7_composite"
-        },
-        "content_view_id": 8,
-        "content_view_name": "RHEL7_composite",
-        "errata_counts": {
-            "bugfix": 0,
-            "enhancement": 0,
-            "security": 0,
-            "total": 0
-        },
-        "id": 105,
-        "kickstart_repository": null,
-        "kickstart_repository_id": null,
-        "kickstart_repository_name": null,
-        "lifecycle_environment": {
-            "id": 3,
-            "name": "QA"
-        },
-        "lifecycle_environment_id": 3,
-        "lifecycle_environment_name": "QA",
-        "upgradable_module_stream_count": 0,
-        "upgradable_package_count": 0,
-        "uuid": "7a1cb585-1265-4232-baf1-eee16f2cf819"
-    }
-}
-
-```
-

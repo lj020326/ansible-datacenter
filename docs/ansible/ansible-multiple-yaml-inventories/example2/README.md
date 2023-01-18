@@ -48,17 +48,17 @@ graph TD;
     C --> E[rhel7]
     C --> F[environment_qa]
     C --> G["location_site[1|2]"]
-    D --> I["web-net[1|2]-q1-s[1|2].example.int"]
-    D --> J["web-net[1|2]-q2-s[1|2].example.int"]
+    D --> I["web01.qa.net[1|2]site[1|2].example.int"]
+    D --> J["web02.qa.net[1|2]site[1|2].example.int"]
     E --> K[hosts]
-    K --> L["web-net[1|2]-q1-s[1|2].example.int"]
-    K --> M["web-net[1|2]-q2-s[1|2].example.int"]
+    K --> L["web01.qa.net[1|2]site[1|2].example.int"]
+    K --> M["web02.qa.net[1|2]site[1|2].example.int"]
     F --> N[hosts]
-    N --> O["web-net[1|2]-q1-s[1|2].example.int"]
-    N --> P["web-net[1|2]-q2-s[1|2].example.int"]
+    N --> O["web01.qa.net[1|2]site[1|2].example.int"]
+    N --> P["web02.qa.net[1|2]site[1|2].example.int"]
     G --> Q[hosts]
-    Q --> R["web-net[1|2]-q1-s[1|2].example.int"]
-    Q --> S["web-net[1|2]-q2-s[1|2].example.int"]
+    Q --> R["web01.qa.net[1|2]site[1|2].example.int"]
+    Q --> S["web02.qa.net[1|2]site[1|2].example.int"]
 ```
 
 
@@ -70,10 +70,10 @@ all:
     network[1|2]:
       children:
         hosts:
-          web-net[1|2]-q1-s[1|2].example.int:
-            trace_var: site[1|2]/web-net[1|2]-q1-s[1|2].example.int
-          web-net[1|2]-q2-s[1|2].example.int:
-            trace_var: site[1|2]/rhel7/web-net[1|2]-q2-s[1|2].example.int
+          web01.qa.net[1|2]site[1|2].example.int:
+            trace_var: site[1|2]/web01.qa.net[1|2]site[1|2].example.int
+          web02.qa.net[1|2]site[1|2].example.int:
+            trace_var: site[1|2]/rhel7/web02.qa.net[1|2]site[1|2].example.int
         rhel7:
           vars:
             trace_var: site[1|2]/rhel7
