@@ -44,8 +44,7 @@ with it then check out
 
 ## Quick start
 
-The philosophy for all of my roles is to make it easy to get going, but provide
-a way to customize nearly everything.
+The philosophy for all of my roles is to make it easy to get going, but provide a way to customize nearly everything to maximize DRY flexibility/usability/re-usability.
 
 ### What's configured by default?
 
