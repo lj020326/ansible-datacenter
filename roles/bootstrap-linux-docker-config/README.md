@@ -35,11 +35,10 @@ with it then check out
 - Ubuntu 16.04 LTS (Xenial)
 - Ubuntu 18.04 LTS (Bionic)
 - Debian 9 (Stretch)
-
----
-
-*You are viewing the master branch's documentation which might be ahead of the
-latest release. [Switch to the latest release](https://github.com/nickjj/ansible-docker/tree/v1.8.0).*
+- Centos 7
+- Centos 8
+- Redhat 7
+- Redhat 8
 
 ---
 
@@ -82,65 +81,6 @@ will happen once a week and Docker container logs will be sent to `journald`.
 
 ## Default role variables
 
-### Installing Docker
-
-#### Edition
-
-Do you want to use "ce" (community edition) or "ee" (enterprise edition)?
-
-```yml
-docker__edition: "ce"
-```
-
-#### Channel
-
-Do you want to use the "stable", "edge", "testing" or "nightly" channels? You
-can add more than one (order matters).
-
-```yml
-docker__channel: ["stable"]
-```
-
-#### Version
-
-- When set to "", the current latest version of Docker will be installed
-- When set to a specific version, that version of Docker will be installed and pinned
-
-```yml
-docker__version: ""
-
-# For example, pin it to 18.06.
-docker__version: "18.06"
-
-# For example, pin it to a more precise version of 18.06.
-docker__version: "18.06.1"
-```
-
-*Pins are set with `*` at the end of the package version so you will end up
-getting minor and security patches unless you pin an exact version.*
-
-##### Upgrade strategy
-
-- When set to `"present"`, running this role in the future won't install newer
-versions (if available)
-- When set to `"latest"`, running this role in the future will install newer
-versions (if available)
-
-```yml
-docker__state: "present"
-```
-
-##### Downgrade strategy
-
-The easiest way to downgrade would be to uninstall the Docker package manually
-and then run this role afterwards while pinning whatever specific Docker version
-you want.
-
-```sh
-# An ad-hoc Ansible command to stop and remove the Docker CE package on all hosts.
-ansible all -m systemd -a "name=docker-ce state=stopped" \
-  -m apt -a "name=docker-ce autoremove=true purge=true state=absent" -b
-```
 
 ### Installing Docker Compose
 
