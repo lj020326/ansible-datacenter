@@ -1,27 +1,64 @@
 # bootstrap-docker
 
 ## Role Summary
+
 This role provides the following:
 * Installation of Docker following Docker-Engine install procedures as documented by Docker.
 * It will manage kernel versions as well, verifying the that the correct kernel for Docker support is installed.
 
 Supports the following Operating Systems:
 * CentOS 7
+* CentOS 8
 * RedHat 7
-* Fedora 24
-* Fedora 23
-* Fedora 26
-* Fedora 27
-* Fedora 29
-* OracleLinux 7
-* Ubuntu 14.04
-* Ubuntu 16.04
+* RedHat 8
+* Ubuntu 18.04
+* Ubuntu 20.04
+* Ubuntu 22.04
+
+---
+
+## Quick start
+
+The philosophy for all of my roles is to make it easy to get going, but provide a way to customize nearly everything to maximize DRY flexibility/usability/re-usability.
 
 ## Requirements
 
 This role requires Ansible 2.4 or higher. Requirements are listed in the metadata file.
 
-If you rely on privileage escalation (e.g. `become: true`) with this role, you will need Ansible 2.2.1 or higher to take advantage of this issue being fixed: https://github.com/ansible/ansible/issues/17490
+If you rely on privilege escalation (e.g. `become: true`) with this role, you will need Ansible 2.2.1 or higher to take advantage of this issue being fixed: https://github.com/ansible/ansible/issues/17490
+
+
+### What's configured by default?
+
+The latest Docker-ce will be installed, Docker disk clean up
+will happen once a week and Docker container logs will be sent to `journald`.
+
+### Example playbook
+
+```yml
+---
+
+# site.yml
+
+- name: "Bootstrap docker nodes"
+  hosts: docker,!node_offline
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - bootstrap
+    - docker
+    - bootstrap-linux
+    - bootstrap-linux-docker
+    - bootstrap-docker
+    - bootstrap-registry
+  become: True
+  roles:
+  - role: bootstrap-linux-docker-config
+    tags:
+      - bootstrap-linux-docker-config
+      - bootstrap-docker-config
+      - docker-config
+```
 
 ## Role Variables
 For more information about the variables many can be found https://docs.docker.com/engine/reference/commandline/dockerd/
