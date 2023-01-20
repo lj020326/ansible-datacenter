@@ -60,20 +60,25 @@ will happen once a week and Docker container logs will be sent to `journald`.
 
 # site.yml
 
-- name: Example
-  hosts: "all"
-  become: true
-
+- name: "Bootstrap docker nodes"
+  hosts: docker,!node_offline
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - bootstrap
+    - docker
+    - bootstrap-linux
+    - bootstrap-linux-docker
+    - bootstrap-docker
+    - bootstrap-registry
+  become: True
   roles:
-    - role: "nickjj.docker"
-      tags: ["docker"]
+  - role: bootstrap-linux-docker-config
+    tags:
+      - bootstrap-linux-docker-config
+      - bootstrap-docker-config
+      - docker-config
 ```
-
-Usage: `ansible-playbook site.yml -t docker`
-
-### Installation
-
-`$ ansible-galaxy install nickjj.docker`
 
 ## Default role variables
 
