@@ -60,10 +60,7 @@ will happen once a week and Docker container logs will be sent to `journald`.
 
 - name: "Bootstrap docker nodes"
   hosts: docker,!node_offline
-  vars_files:
-    - vars/vault.yml
   tags:
-    - bootstrap
     - docker
     - bootstrap-linux
     - bootstrap-linux-docker

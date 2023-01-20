@@ -42,22 +42,12 @@ will happen once a week and Docker container logs will be sent to `journald`.
 
 - name: "Bootstrap docker nodes"
   hosts: docker,!node_offline
-  vars_files:
-    - vars/vault.yml
   tags:
-    - bootstrap
-    - docker
-    - bootstrap-linux
     - bootstrap-linux-docker
     - bootstrap-docker
-    - bootstrap-registry
   become: True
   roles:
-  - role: bootstrap-linux-docker-config
-    tags:
-      - bootstrap-linux-docker-config
-      - bootstrap-docker-config
-      - docker-config
+  - role: bootstrap-linux-docker
 ```
 
 ## Role Variables
@@ -139,7 +129,7 @@ Install docker to the hosts with basic defaults. This does not install devicemap
 ```
 - hosts: servers
   roles:
-    - role: bootstrap-docker
+  - role: bootstrap-linux-docker
 ```
 
 Install docker with devicemapper. Please note, this will create a new LVM on /dev/sda3, please do not use a block device already in use. This is the recommended production deployment on RHEL/CentOS/Fedora systems.
@@ -147,9 +137,9 @@ Install docker with devicemapper. Please note, this will create a new LVM on /de
 ```
 - hosts: servers
   roles:
-    - role: bootstrap-docker
-      docker_storage_driver: devicemapper
-      docker_block_device: /dev/sda3
+  - role: bootstrap-linux-docker
+    docker_storage_driver: devicemapper
+    docker_block_device: /dev/sda3
 ```
 
 Install docker with AUFS. This is recommended for production deployment on Ubuntu systems.
@@ -157,8 +147,8 @@ Install docker with AUFS. This is recommended for production deployment on Ubunt
 ```
 - hosts: servers
   roles:
-    - role: bootstrap-docker
-      docker_storage_driver: aufs
+  - role: bootstrap-linux-docker
+    docker_storage_driver: aufs
 ```
 
 
