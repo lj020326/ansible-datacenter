@@ -59,7 +59,7 @@ all:
     web01.qa.net[1|2]site[1|2].example.int:
       trace_var: site[1|2]/web01.qa.net[1|2]site[1|2].example.int
     web02.qa.net[1|2]site[1|2].example.int:
-      trace_var: site[1|2]/rhel7/web02.qa.net[1|2]site[1|2].example.int
+      trace_var: site[1|2]/web02.qa.net[1|2]site[1|2].example.int
   children:
     rhel7:
       vars:

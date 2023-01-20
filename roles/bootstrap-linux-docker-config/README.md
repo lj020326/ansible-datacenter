@@ -1,10 +1,21 @@
 ## What is ansible-docker? [![Build Status](https://secure.travis-ci.org/nickjj/ansible-docker.png)](http://travis-ci.org/nickjj/ansible-docker)
 
-It is an [Ansible](http://www.ansible.com/home) role to:
+It is an [Ansible](http://www.ansible.com/home) role to configure Docker runtime environment:
 
-- Install Docker (editions, channels and version pinning are all supported)
-- Install Docker Compose using PIP (version pinning is supported)
 - Install the `docker` PIP package so Ansible's `docker_*` modules work
+- Setup Docker python virtualenv
+  - Install Docker Compose using PIP (version pinning is supported)
+  - Symlink Docker Python binary to {{ ansible_python_docker_interpreter }}
+- Add user(s) to "docker" group
+- Create Docker configuration directories
+- Set the Post Docker install configuration options
+- Deploy updated /etc/docker/daemon.json
+- Configure Docker daemon options (flags)
+- Configure Docker daemon environment variables
+- Configure custom systemd unit file override
+- Reload systemd daemon
+- Setup Docker related cron jobs
+- Create docker app user | Create docker group and user, enable sudo access
 - Manage Docker registry login credentials
 - Configure 1 or more users to run Docker without needing root access
 - Configure the Docker daemon's options and environment variables
