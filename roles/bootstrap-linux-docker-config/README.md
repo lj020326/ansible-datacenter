@@ -49,7 +49,7 @@ a way to customize nearly everything.
 
 ### What's configured by default?
 
-The latest Docker CE and Docker Compose will be installed, Docker disk clean up
+The latest Docker Compose will be installed, Docker disk clean up
 will happen once a week and Docker container logs will be sent to `journald`.
 
 ### Example playbook
