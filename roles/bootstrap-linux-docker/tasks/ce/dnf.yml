@@ -1,16 +1,25 @@
 ---
-# - name: Docker | CE | DNF | Remove older Docker installations
-#   dnf: name={{ item }} state=absent
-#   with_items:
-#     - docker
-#     - docker-common
-#     - docker-engine
+
+- name: Docker | CE | DNF | Remove older Docker installations
+  package:
+    name:
+      - docker
+      - docker-common
+      - docker-engine
+    state: absent
+
+- name: Docker | CE | DNF | Remove conflicting runc installations
+  package:
+    name:
+      - runc
+    state: absent
 
 - name: Docker | CE | DNF | Add repository key
   block:
     - name: Docker | CE | DNF | Add repository key
       rpm_key:
         key: "{{ docker_ce_gpg_key }}"
+        state: present
   rescue:
     - name: Docker | CE | DNF | Ensure curl is present (systems without SNI).
       package: name=curl
@@ -23,7 +32,9 @@
     - name: Docker | CE | DNF | Add Docker GPG key (systems without SNI).
       shell: rpm --import /tmp/docker-gpg
     - name: Docker | CE | DNF | Remove docker-gpg from tmp folder
-      file: path=/tmp/docker-gpg state=absent
+      file:
+        path: /tmp/docker-gpg
+        state: absent
 
 - name: Docker | CE | DNF | Deploy repository
   block:
@@ -62,6 +73,19 @@
   with_first_found:
     - os/{{ ansible_distribution.split(' ', 1)[0]|lower }}.yml
     - os/default.yml
+
+- name: Docker | CE | DNF | Configure containerd on RHEL 8.
+  when: ansible_distribution_major_version | int == 8
+  block:
+    - name: Docker | CE | DNF | Ensure container-selinux is installed.
+      package:
+        name: container-selinux
+        state: present
+
+    - name: Docker | CE | DNF | Ensure containerd.io is installed.
+      package:
+        name: containerd.io
+        state: present
 
 - name: Docker | CE | DNF | Install docker-ce
   dnf:

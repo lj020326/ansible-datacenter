@@ -6,12 +6,24 @@
 ```shell
 $ git clone https://github.com/lj020326/ansible-datacenter.git
 $ cd ansible-datacenter
+## do this will reset any prior instance state(s) such that converge should create new instance
+## ref: https://github.com/ansible-community/molecule/issues/3094#issuecomment-1157865556
+$ molecule destroy --all
 $ export MOLECULE_DISTRO=redhat7-systemd-python
 $ molecule create
 $ molecule login
 $ molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy --all
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule converge -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy --all
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule test -s bootstrap-linux-package --destroy never
 $ molecule destroy
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule create
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
+$ molecule destroy
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule create
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-docker --destroy never
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule login
 $ molecule destroy
 $ MOLECULE_DISTRO=centos7-systemd-python molecule converge --destroy never

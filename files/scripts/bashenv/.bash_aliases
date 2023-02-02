@@ -336,8 +336,14 @@ alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@${RH_VM_HOST}"
 alias sshopentlc-pw="sshpass -p ${RH_USER_PWD} ssh lab-user@${RH_VM_HOST}"
 alias sshopentlc-tower="ssh -i ~/.ssh/${SSH_KEY_REDHAT} ${RH_USER_ID}"
 
-alias sshtest1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST1}"
-alias sshtest2="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOST2}"
+alias sshcicd="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${CICD_HOST1}"
+alias sshanscicd="sshpass -p ${ANSIBLE_PASSWORD_LNX_WORK} ssh ${ANSIBLE_USER_LNX_WORK}@${CICD_HOST1}"
+
+alias sshtestd1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD1S1}"
+alias sshtestd2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD2S1}"
+alias sshtestd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD1S4}"
+alias sshtestd2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD2S4}"
+
 alias sshatrnextd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRNEXTDS1S4}"
 alias sshatrup1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRUP1S4}"
 alias sshtime5s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S1}"
