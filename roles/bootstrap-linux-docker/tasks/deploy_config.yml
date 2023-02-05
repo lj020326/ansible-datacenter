@@ -1,10 +1,26 @@
 ---
-- name: Docker | Deploy Config | Make sure /etc/docker exists
-  file: path=/etc/docker state=directory
 
-# - name: Docker | Deploy Config | Deploy /etc/docker/daemon.json
-#   template: src=docker_config.j2 dest=/etc/docker/daemon.json
-#   notify: Docker | Restart Docker
+#- name: Docker | Deploy Config | Make sure /etc/docker exists
+#  file:
+#    path: /etc/docker
+#    state: directory
+
+- name: Docker | Deploy Config | Ensure Docker configuration directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  loop:
+    - "/etc/docker"
+    - "/etc/systemd/system/docker.service.d"
+
+#- name: Docker | Deploy Config | Deploy /etc/docker/daemon.json
+#  template:
+#    src: docker_config.j2
+#    dest: /etc/docker/daemon.json
+#  notify: Docker | Restart Docker
 
 #### THESE ALLOW NOT USING TEMPLATE FILE ###
 - name: Docker | Deploy Config | Set the Docker configuration
@@ -18,4 +34,20 @@
     content: "{{ docker_config | to_nice_json }}\n"
     dest: /etc/docker/daemon.json
   when: docker_config != {}
+  notify: Docker | Restart Docker
+
+- name: Docker | Deploy Config | Display docker__daemon_flags
+  debug:
+    var: docker__daemon_flags
+
+- name: Docker | Deploy Config | Configure Docker daemon options (flags)
+  when: docker__daemon_flags|d([]) | count > 0
+  template:
+    src: "etc/systemd/system/docker.service.d/options.conf.j2"
+    dest: "/etc/systemd/system/docker.service.d/options.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    backup: yes
+  register: docker__register_daemon_flags
   notify: Docker | Restart Docker
