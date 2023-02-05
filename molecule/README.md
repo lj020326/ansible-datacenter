@@ -1,7 +1,13 @@
 
 # Tests
 
-## Run molecule tests
+## To sync the latest image version
+
+```shell
+$ docker-image-sync.sh redhat8-systemd-python
+```
+
+## Run molecule test
 
 ```shell
 $ git clone https://github.com/lj020326/ansible-datacenter.git
@@ -9,19 +15,36 @@ $ cd ansible-datacenter
 ## do this will reset any prior instance state(s) such that converge should create new instance
 ## ref: https://github.com/ansible-community/molecule/issues/3094#issuecomment-1157865556
 $ molecule destroy --all
-$ export MOLECULE_DISTRO=redhat7-systemd-python
+$ export MOLECULE_DISTRO=redhat8-systemd-python
 $ molecule create
 $ molecule login
 $ molecule --debug test -s bootstrap-linux-package
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy -s bootstrap-linux-package
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule converge -s bootstrap-linux-package
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy -s bootstrap-linux-package
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule test -s bootstrap-linux-package --destroy never
+```
+
+### converge/test on role 'bootstrap-linux'
+
+```shell
+$ docker-image-sync.sh redhat8-systemd-python
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule converge -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule test -s bootstrap-linux --destroy never
 $ molecule destroy
+```
+
+### converge/test on role 'bootstrap-linux-package'
+
+```shell
+$ docker-image-sync.sh redhat8-systemd-python
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule create
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule login
 $ molecule destroy
+```
+
+### converge/test on role 'bootstrap-linux-docker'
+
+```shell
+$ docker-image-sync.sh redhat8-systemd-python
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule create
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-docker --destroy never
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule login

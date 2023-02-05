@@ -13,8 +13,8 @@
 - hosts: all
   roles:
     - role: bootstrap-docker
-      docker_storage_driver: devicemapper
-      docker_block_device: /dev/sda3
+      bootstrap_docker__storage_driver: devicemapper
+      bootstrap_docker__block_device: /dev/sda3
 ```
 
 ### Install Docker w/HTTP Proxy Support
@@ -23,8 +23,8 @@
 - hosts: all
   roles:
     - role: bootstrap-docker
-      docker_http_proxy: http://proxy.example.com:80/
-      docker_https_proxy: https://proxy.example.com:443/
+      bootstrap_docker__http_proxy: http://proxy.example.com:80/
+      bootstrap_docker__https_proxy: https://proxy.example.com:443/
 ```
 
 ### Install Docker w/HTTP Proxy Support & without proxy on internal sites
@@ -33,9 +33,9 @@
 - hosts: all
   roles:
     - role: bootstrap-docker
-      docker_http_proxy: http://proxy.example.com:80/
-      docker_https_proxy: https://proxy.example.com:443/
-      docker_no_proxy_params: "localhost,127.0.0.0/8,docker-registry.example.com"
+      bootstrap_docker__http_proxy: http://proxy.example.com:80/
+      bootstrap_docker__https_proxy: https://proxy.example.com:443/
+      bootstrap_docker__no_proxy_params: "localhost,127.0.0.0/8,docker-registry.example.com"
 ```
 
 ### Install Docker and customize the storage directory of images and containers
@@ -44,7 +44,7 @@
 - hosts: all
   roles:
     - role: bootstrap-docker
-      docker_graph: /home/docker
+      bootstrap_docker__graph: /home/docker
 ```
 
 ### Install/Upgrade Docker. Avoid container downtime during the upgrade of a Docker
@@ -53,5 +53,5 @@
 - hosts: all
   roles:
     - role: bootstrap-docker
-      docker_live_restore: true
+      bootstrap_docker__live_restore: true
 ```
