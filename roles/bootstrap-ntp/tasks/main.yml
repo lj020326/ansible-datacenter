@@ -1,154 +1,32 @@
 ---
 
-- name: Include OS-specific variables.
-  include_vars: "{{ item }}"
-  with_first_found:
-    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
-    - "default.yml"
+- name: "Init {{ role_name }} vars"
+  include_tasks: init-vars.yml
 
-- debug:
-    var: bootstrap_ntp_servers
+## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
+- name: "Populate service facts to determine if ntpd is installed"
+  service_facts:
 
-#- name "Set __bootstrap_ntp_servers"
-#  set_fact:
-#    __bootstrap_ntp_servers: "{{ __bootstrap_ntp_servers|d([]) }}"
-
-#- name "Set __bootstrap_ntp_servers"
-#  set_fact:
-##    __bootstrap_ntp_servers: "{{ __bootstrap_ntp_servers|d([]) + [ item|string + ' ' + bootstrap_ntp_server_options ] }}"
-#    __bootstrap_ntp_servers: "{{ __bootstrap_ntp_servers|d([]) + [ item ] }}"
-#  loop: bootstrap_ntp_servers
-
-- debug:
-    var: __bootstrap_ntp_servers
-
-- name: When chronyd is used, assert that the ntpd service is not installed/running
-  when: __bootstrap_ntp_daemon == 'chronyd'
+- name: "When chronyd is used, assert that the ntpd service is not installed/running"
+  when:
+    - bootstrap_ntp_daemon == 'chronyd'
+    - services | intersect(['ntpd', 'ntpd.service']) | list | length>0
   block:
-    ## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
-    - name: Populate service facts to determine if ntpd is installed
-      service_facts:
 
-#    - name: Assert ntpd service is not installed/running when intended service is chronyd
-#      assert:
-#        that:
-#          - "'ntpd' not in services"
-#          - "'ntpd.service' not in services"
+  - name: "Ensure ntpd service is stopped and disabled"
+    ignore_errors: yes
+    service:
+      name: item
+      state: stopped
+      enabled: false
+    loop:
+      - ntpd
+      - ntpd.service
 
-    - name: Remove ntpd service when intended service is chronyd
-      when:
-        - "'ntpd' not in services"
-        - "'ntpd.service' not in services"
-      block:
-
-        - name: Ensure ntpd service is stopped and disabled
-          ignore_errors: yes
-          service:
-            name: item
-            state: stopped
-            enabled: false
-          loop:
-            - ntpd
-            - ntpd.service
-
-        - name: Ensure ntp package is uninstalled
-          package:
-            name: ntp
-            state: absent
-
-
-- name: Display bootstrap_ntp_var_source
-  debug:
-    var: bootstrap_ntp_var_source
-
-- name: Display bootstrap_ntp_servers
-  debug:
-    var: bootstrap_ntp_servers
-
-- name: Display bootstrap_ntp_peers
-  when: bootstrap_ntp_peers|d([])|length>0
-  debug:
-    var: bootstrap_ntp_peers
-
-- name: Display bootstrap_ntp_cmdport_disabled
-  debug:
-    var: bootstrap_ntp_cmdport_disabled
-
-- name: Display bootstrap_ntp_allow_networks
-  debug:
-    var: bootstrap_ntp_allow_networks
-
-- name: Display bootstrap_ntp_restrict
-  debug:
-    var: bootstrap_ntp_restrict
-
-- name: "Set __bootstrap_ntp_restrict"
-  set_fact:
-    __bootstrap_ntp_restrict: "{{ bootstrap_ntp_restrict|d([]) }}"
-
-- name: "Display ansible python env"
-  debug:
-    msg:
-      - "ansible_version={{ ansible_version | d('') }}"
-      - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
-      - "ansible_python_version={{ ansible_python_version | d('') }}"
-      - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('') }}"
-
-## https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
-- name: "Add bootstrap_ntp_allow_networks to __bootstrap_ntp_restrict by converting the CIDR to netmask"
-  set_fact:
-#    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ansible.utils.ipaddr('network') +' mask ' + item|ansible.utils.ipaddr('netmask')|string + ' notrust'] }}"
-    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ipaddr('network') +' mask ' + item|ipaddr('netmask')|string + ' notrust'] }}"
-  loop: "{{ bootstrap_ntp_allow_networks }}"
-
-- name: "Uniquify __bootstrap_ntp_restrict"
-  set_fact:
-    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) | sort | unique }}"
-
-- name: Display __bootstrap_ntp_restrict
-  debug:
-    var: __bootstrap_ntp_restrict
-
-- name: "Set __bootstrap_ntp_allow_networks"
-  set_fact:
-    __bootstrap_ntp_allow_networks: "{{ bootstrap_ntp_allow_networks|d([]) }}"
-
-## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
-- name: "Add bootstrap_ntp_restrict to __bootstrap_ntp_allow_networks by converting the netmask to CIDR"
-  set_fact:
-#    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ansible.utils.ipaddr('network/prefix') ] }}"
-    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ipaddr('network/prefix') ] }}"
-  loop: "{{ bootstrap_ntp_allow_networks }}"
-
-- name: "Uniquify __bootstrap_ntp_allow_networks"
-  set_fact:
-    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) | sort | unique }}"
-
-- name: Display __bootstrap_ntp_allow_networks
-  debug:
-    var: __bootstrap_ntp_allow_networks
-
-- name: Set bootstrap_ntp_driftfile
-  when: bootstrap_ntp_driftfile is not defined
-  set_fact:
-    bootstrap_ntp_driftfile: "{{ __bootstrap_ntp_driftfile }}"
-
-- name: Set bootstrap_ntp_package
-  when: bootstrap_ntp_package is not defined
-  set_fact:
-    bootstrap_ntp_package: "{{ __bootstrap_ntp_package }}"
-
-- name: Set bootstrap_ntp_config_file
-  when: bootstrap_ntp_config_file is not defined
-  set_fact:
-    bootstrap_ntp_config_file: "{{ __bootstrap_ntp_config_file }}"
-
-- name: Set bootstrap_ntp_daemon
-  when: bootstrap_ntp_daemon is not defined
-  set_fact:
-    bootstrap_ntp_daemon: "{{ __bootstrap_ntp_daemon }}"
+  - name: "Ensure ntp package is uninstalled"
+    package:
+      name: ntp
+      state: absent
 
 - name: "Ensure {{ bootstrap_ntp_package }} package is installed."
   package:
@@ -166,10 +44,10 @@
     name: "{{ bootstrap_ntp_timezone }}"
   notify: restart cron
 
-- name: Populate service facts.
+- name: "Populate post-install service facts."
   service_facts:
 
-- name: Disable systemd-timesyncd if it's running but ntp is enabled.
+- name: "Disable systemd-timesyncd if it's running but ntp is enabled."
   when:
     - bootstrap_ntp_enabled | bool
     - '"systemd-timesyncd.service" in services'
@@ -203,3 +81,14 @@
     state: restarted
     enabled: true
 
+- name: "Sync chronyc"
+  when:
+    - bootstrap_ntp_daemon == 'chronyd'
+    - bootstrap_ntp_chrony_role_action in ['all', 'sync']
+  include_tasks: sync-chrony.yml
+
+- name: "Test chronyc"
+  when:
+    - bootstrap_ntp_daemon == 'chronyd'
+    - bootstrap_ntp_chrony_role_action in ['all', 'test']
+  include_tasks: test-chrony.yml
