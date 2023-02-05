@@ -1,28 +1,46 @@
 ---
 
 - name: Docker | CE | DNF | Remove older Docker installations
-  package:
+  ansible.builtin.package:
     name:
       - docker
       - docker-common
       - docker-engine
     state: absent
 
-- name: Docker | CE | DNF | Remove conflicting runc installations
-  package:
-    name:
-      - runc
+## ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
+- name: Docker | CE | DNF | Remove conflicting container-tools installation
+  ansible.builtin.dnf:
+    name: '@container-tools'
     state: absent
+    autoremove: yes
+
+## ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
+#- name: Docker | CE | DNF | Remove conflicting container-tools/runc/buildah installations
+#  ansible.builtin.package:
+#    name:
+#      - runc
+#      - podman
+#      - buildah
+#    state: absent
+
+## ref: https://github.com/ansible/ansible/issues/64852
+## ref: https://access.redhat.com/discussions/5895421 (See comment from Paul Roesler)
+- name: Docker | CE | DNF | Disable conflicting module container-tools
+  ansible.builtin.shell:
+    cmd: dnf -y module disable container-tools
 
 - name: Docker | CE | DNF | Add repository key
   block:
     - name: Docker | CE | DNF | Add repository key
-      rpm_key:
+      ansible.builtin.rpm_key:
         key: "{{ docker_ce_gpg_key }}"
         state: present
+
   rescue:
     - name: Docker | CE | DNF | Ensure curl is present (systems without SNI).
-      package: name=curl
+      ansible.builtin.package:
+        name: curl
       register: task_result
       until: task_result is success
       retries: 10
@@ -39,7 +57,7 @@
 - name: Docker | CE | DNF | Deploy repository
   block:
     - name: Docker | CE | DNF | Deploy repository
-      get_url:
+      ansible.builtin.get_url:
         url: "{{ docker_ce_repo_file_url }}"
         dest: /etc/yum.repos.d/docker-ce.repo
         owner: root
@@ -47,7 +65,8 @@
         mode: 0644
   rescue:
     - name: Docker | CE | DNF | Install dnf-utils (systems without SNI)
-      dnf: name=dnf-plugins-core
+      ansible.builtin.dnf:
+        name: dnf-plugins-core
       register: task_result
       until: task_result is success
       retries: 10
@@ -58,7 +77,7 @@
         creates: /etc/yum.repos.d/docker-ce.repo
 
 - name: Docker | CE | DNF | Enable edge repository
-  yum_repository:
+  ansible.builtin.yum_repository:
     name: docker-ce-edge
     description: "Docker CE Edge - $basearch"
     baseurl: "{{ docker_ce_edge_repo_url }}"
@@ -78,17 +97,17 @@
   when: ansible_distribution_major_version | int == 8
   block:
     - name: Docker | CE | DNF | Ensure container-selinux is installed.
-      package:
+      ansible.builtin.package:
         name: container-selinux
         state: present
 
     - name: Docker | CE | DNF | Ensure containerd.io is installed.
-      package:
+      ansible.builtin.package:
         name: containerd.io
         state: present
 
 - name: Docker | CE | DNF | Install docker-ce
-  dnf:
+  ansible.builtin.package:
     name: docker-ce
     state: present
   notify: Docker | Restart Docker

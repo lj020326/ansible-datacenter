@@ -1,5 +1,4 @@
 ---
-
 ## ref: https://github.com/ansible-community/molecule/discussions/3540?sort=top
 ## ref:
 #prerun: true
@@ -9,10 +8,9 @@ dependency:
   name: galaxy
   enabled: true
   options:
-    vvv: true
     ignore-certs: true
     ignore-errors: true
-    role-file: roles/requirements.source.yml
+    role-file: roles/requirements.molecule.yml
     requirements-file: collections/requirements.molecule.yml
 driver:
   name: docker
@@ -21,19 +19,11 @@ lint: |
   yamllint .
   ansible-lint .
 
-## ref: https://molecule.readthedocs.io/en/stable/configuration.html#platforms
-## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/molecule/default/molecule.yml
-## ref: https://github.com/marketplace/actions/test-ansible-roles-with-molecule
 platforms:
 
-  ## solved "Failed to create temporary directory." issue
-  ## by commenting out the 'command'  key
-  ## ref: https://groups.google.com/g/ansible-project/c/lhPDvNwEoL0
-  - name: ${MOLECULE_DISTRO:-centos8-systemd-python}
-    image: "${MOLECULE_IMAGE_NAMESPACE:-lj020326}/${MOLECULE_DISTRO:-centos8-systemd-python}:${MOLECULE_IMAGE_TAG:-latest}"
-#    command: ${MOLECULE_DOCKER_COMMAND:-"/usr/sbin/init"}
-#    command: "/usr/lib/systemd/systemd"
-#    command: "/usr/sbin/init"
+  - name: ${MOLECULE_DISTRO:-redhat8-systemd-python}
+    image: "${MOLECULE_IMAGE_NAMESPACE:-lj020326}/${MOLECULE_DISTRO:-redhat8-systemd-python}:${MOLECULE_IMAGE_TAG:-latest}"
+    command: ${MOLECULE_DOCKER_COMMAND:-"/usr/sbin/init"}
     tmpfs:
      - /run
      - /tmp
@@ -64,10 +54,10 @@ provisioner:
     converge: ${MOLECULE_PLAYBOOK:-converge.yml}
   inventory:
     links:
-      group_vars: ../../inventory/group_vars
+      group_vars: ../_test_inventory/group_vars
 
 scenario:
-  name: bootstrap-linux-package
+  name: bootstrap-ntp
   ## ref: https://blog.florianlopes.io/testing-ansible-roles-and-playbooks-with-molecule/
   test_sequence:
 #    - lint
@@ -78,9 +68,9 @@ scenario:
     - prepare
     - converge
 #    - idempotence
-#    - verify
+    - verify
 #    - cleanup
     - destroy
 
-#verifier:
-#  name: testinfra
+verifier:
+  name: ansible

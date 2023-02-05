@@ -1,0 +1,60 @@
+---
+
+## ref: https://jfearn.fedorapeople.org/fdocs/en-US/Fedora_Draft_Documentation/0.1/html/System_Administrators_Guide/sect-Checking_if_chrony_is_synchronized.html
+## ref: https://unix.stackexchange.com/questions/554509/chrony-synchronitation
+## ref: https://stackoverflow.com/questions/65951206/time-is-not-getting-synchronized-in-chrony-setup
+- name: "Run chronyc tracking"
+  command: chronyc tracking
+  register: __chronyc_tracking_results
+
+- name: "Display __chronyc_tracking_results"
+  debug:
+    var: __chronyc_tracking_results
+
+- name: "Check chronyc tracking results"
+  assert:
+    that:
+      - __chronyc_tracking_results.rc == 0
+
+- name: "Check chronyc tracking results are normal"
+  ignore_errors: yes
+  assert:
+    that:
+      - (__chronyc_tracking_results.stdout_lines | select('match', "Leap status.*Normal") | list | count) == 1
+
+- name: "Run chronyc sources"
+  command: chronyc sources
+  register: __chronyc_sources_results
+
+- name: "Display __chronyc_sources_results"
+  debug:
+    var: __chronyc_sources_results
+
+- name: "Check chronyc tracking results"
+  assert:
+    that:
+      - __chronyc_sources_results.rc == 0
+
+- name: "Check chronyc sources include all defined ntp servers"
+  ignore_errors: yes
+  assert:
+    that:
+      - (__chronyc_sources_results.stdout_lines | select('search', item) | list | count) == 1
+#      - __chronyc_sources_results.stdout is search(item)
+#      - __chronyc_sources_results.stdout | regex_search(item)
+  loop: "{{ __bootstrap_ntp_servers }}"
+
+#- name: "Run chronyc accheck on all servers in __bootstrap_ntp_servers"
+#  command: "chronyc accheck {{ item }}"
+#  loop: "{{ __bootstrap_ntp_servers }}"
+#  register: __chronyc_accheck_results
+#
+#- name: "Display __chronyc_accheck_results"
+#  debug:
+#    var: __chronyc_accheck_results
+#
+#- name: "Check chronyc accheck results"
+#  ignore_errors: yes
+#  assert:
+#    that:
+#      - __chronyc_accheck_results is not failed
