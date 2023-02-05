@@ -55,72 +55,72 @@ For more information about the variables many can be found https://docs.docker.c
 
 | Variable | Required | Default | Comments |
 |----------|----------|---------|----------|
-| `docker_edition` | No | `ce` | Specifies either ce, or ee version of Docker. |
-| `docker_ee_url` | No | `Undefined` | Docker EE URL from the Docker Store |
-| `docker_repo` | No | `docker` | Defines how Ansible manages the repository. Options are "other" and "docker" |
-| `docker_channel` | No | `stable` | What release channel of Docker to install. |
-| `docker_ee_version` | No | `17.03` | Docker EE version for EE repository |
-| `docker_storage_driver` | No | `Undefined` | Storage driver to use |
-| `docker_block_device` | No | `Undefined` | The device name used for the storage driver. |
-| `docker_mount_opts` | No | `Undefined` | The mount options when mounting filesystems |
-| `docker_storage_opts` | No | `Undefined` | Storage driver options |
-| `docker_api_cors_header` | No | `Undefined` | Set CORS headers in the remote API |
-| `docker_authorization_plugins` | No | `Undefined` | Authorization plugins to load |
-| `docker_bip` | No | `Undefined` | Specify network bridge IP |
-| `docker_bridge` | No | `Undefined` | Attach containers to a network bridge |
-| `docker_cgroup_parent` | No | `Undefined` | Set parent cgroup for all containers |
-| `docker_cluster_store` | No | `Undefined` | Set cluster store options |
-| `docker_cluster_store_opts` | No | `Undefined` | Please see dockerd manual for info |
-| `docker_cluster_advertise` | No | `Undefined` | Address or interface name to advertise |
-| `docker_debug` | No | `Undefined` | Enable debug mode |
-| `docker_default_gateway` | No | `Undefined` | Container default gateway IPv4 address |
-| `docker_default_gateway_v6` | No | `Undefined` | Container default gateway IPv6 address |
-| `docker_default_runtime` | No | `Undefined` | Default OCI runtime for containers |
-| `docker_default_ulimits` | No | `Undefined` | Default ulimits for containers |
-| `docker_disable_legacy_registry` | No | `Undefined` | Disable contacting legacy registries |
-| `docker_dns` | No | `Undefined` | DNS server to use |
-| `docker_dns_opts` | No | `Undefined` | DNS options to use |
-| `docker_dns_search` | No | `Undefined` | DNS search domains to use |
-| `docker_exec_opts` | No | `Undefined` | Runtime execution options |
-| `docker_exec_root` | No | `Undefined` | Root directory for execution state files |
-| `docker_fixed_cidr` | No | `Undefined` | IPv4 subnet for fixed IPs |
-| `docker_fixed_cidr_v6` | No | `Undefined` | IPv6 subnet for fixed IPs |
-| `docker_graph` | No | `Undefined` | Root of the Docker runtime |
-| `docker_group` | No | `Undefined` | Group for the unix socket |
-| `docker_hosts` | No | `Undefined` | Daemon socket(s) to connect to |
-| `docker_icc` | No | `Undefined` | Enable inter-container communication |
-| `docker_insecure_registries` | No | `Undefined` | Enable insecure registry communication |
-| `docker_ip` | No | `Undefined` | Default IP when binding container ports |
-| `docker_iptables` | No | `Undefined` | Enable addition of iptables rules |
-| `docker_ipv6` | No | `Undefined` | Enable IPv6 networking |
-| `docker_ip_forward` | No | `Undefined` | Enable net.ipv4.ip_forward |
-| `docker_ip_masq` | No | `Undefined` | Enable IP masquerading |
-| `docker_labels` | No | `Undefined` | 	Set key=value labels to the daemon |
-| `docker_live_restore` | No | `Undefined` | Enables keeping containers alive during daemon downtime |
-| `docker_log_driver` | No | `Undefined` | Default driver for container logs |
-| `docker_log_level` | No | `Undefined` | Set the logging level |
-| `docker_log_opts` | No | `Undefined` | Default log driver options for containers |
-| `docker_max_concurrent_downloads` | No | `Undefined` | Set the max concurrent downloads for each pull |
-| `docker_max_concurrent_uploads` | No | `Undefined` | Set the max concurrent uploads for each push |
-| `docker_mtu` | No | `Undefined` | Set the containers network MTU |
-| `docker_oom_score_adjust` | No | `Undefined` | Set the oom_score_adj for the daemon |
-| `docker_pidfile` | No | `Undefined` | Path to use for daemon PID file |
-| `docker_raw_logs` | No | `Undefined` | Full timestamps without ANSI coloring |
-| `docker_registry_mirrors` | No | `Undefined` | Preferred Docker registry mirror |
-| `docker_runtimes` | No | `Undefined` | Register an additional OCI compatible runtime |
-| `docker_selinux_enabled` | No | `Undefined` | Enable selinux support |
-| `docker_swarm_default_advertise_addr` | No | `Undefined` | Set default address or interface for swarm advertised address |
-| `docker_tls` | No | `Undefined` | Use TLS; implied by –tlsverify |
-| `docker_tlscacert` | No | `Undefined` | Trust certs signed only by this CA |
-| `docker_tlscert` | No | `Undefined` | Path to TLS certificate file |
-| `docker_tlskey` | No | `Undefined` | Path to TLS key file |
-| `docker_tlsverify` | No | `Undefined` | Use TLS and verify the remote |
-| `docker_userland_proxy` | No | `Undefined` | Use userland proxy for loopback traffic |
-| `docker_userns_remap` | No | `Undefined` | User/Group setting for user namespaces |
-| `docker_users` | No | `Undefined` | A list of system users to be added to the docker group (so they can use Docker on the server) |
-| `docker_http_proxy` | No | `Undefined` | Set the Docker service to use HTTP_PROXY |
-| `docker_https_proxy` | No | `Undefined` | Set the Docker service to use HTTPS_PROXY |
-| `docker_no_proxy_params` | No | `Undefined` | Do not proxy for Docker service params |
+| `bootstrap_docker__edition` | No | `ce` | Specifies either ce, or ee version of Docker. |
+| `bootstrap_docker__ee_url` | No | `Undefined` | Docker EE URL from the Docker Store |
+| `bootstrap_docker__repo` | No | `docker` | Defines how Ansible manages the repository. Options are "other" and "docker" |
+| `bootstrap_docker__channel` | No | `stable` | What release channel of Docker to install. |
+| `bootstrap_docker__ee_version` | No | `17.03` | Docker EE version for EE repository |
+| `bootstrap_docker__storage_driver` | No | `Undefined` | Storage driver to use |
+| `bootstrap_docker__block_device` | No | `Undefined` | The device name used for the storage driver. |
+| `bootstrap_docker__mount_opts` | No | `Undefined` | The mount options when mounting filesystems |
+| `bootstrap_docker__storage_opts` | No | `Undefined` | Storage driver options |
+| `bootstrap_docker__api_cors_header` | No | `Undefined` | Set CORS headers in the remote API |
+| `bootstrap_docker__authorization_plugins` | No | `Undefined` | Authorization plugins to load |
+| `bootstrap_docker__bip` | No | `Undefined` | Specify network bridge IP |
+| `bootstrap_docker__bridge` | No | `Undefined` | Attach containers to a network bridge |
+| `bootstrap_docker__cgroup_parent` | No | `Undefined` | Set parent cgroup for all containers |
+| `bootstrap_docker__cluster_store` | No | `Undefined` | Set cluster store options |
+| `bootstrap_docker__cluster_store_opts` | No | `Undefined` | Please see dockerd manual for info |
+| `bootstrap_docker__cluster_advertise` | No | `Undefined` | Address or interface name to advertise |
+| `bootstrap_docker__debug` | No | `Undefined` | Enable debug mode |
+| `bootstrap_docker__default_gateway` | No | `Undefined` | Container default gateway IPv4 address |
+| `bootstrap_docker__default_gateway_v6` | No | `Undefined` | Container default gateway IPv6 address |
+| `bootstrap_docker__default_runtime` | No | `Undefined` | Default OCI runtime for containers |
+| `bootstrap_docker__default_ulimits` | No | `Undefined` | Default ulimits for containers |
+| `bootstrap_docker__disable_legacy_registry` | No | `Undefined` | Disable contacting legacy registries |
+| `bootstrap_docker__dns` | No | `Undefined` | DNS server to use |
+| `bootstrap_docker__dns_opts` | No | `Undefined` | DNS options to use |
+| `bootstrap_docker__dns_search` | No | `Undefined` | DNS search domains to use |
+| `bootstrap_docker__exec_opts` | No | `Undefined` | Runtime execution options |
+| `bootstrap_docker__exec_root` | No | `Undefined` | Root directory for execution state files |
+| `bootstrap_docker__fixed_cidr` | No | `Undefined` | IPv4 subnet for fixed IPs |
+| `bootstrap_docker__fixed_cidr_v6` | No | `Undefined` | IPv6 subnet for fixed IPs |
+| `bootstrap_docker__graph` | No | `Undefined` | Root of the Docker runtime |
+| `bootstrap_docker__group` | No | `Undefined` | Group for the unix socket |
+| `bootstrap_docker__hosts` | No | `Undefined` | Daemon socket(s) to connect to |
+| `bootstrap_docker__icc` | No | `Undefined` | Enable inter-container communication |
+| `bootstrap_docker__insecure_registries` | No | `Undefined` | Enable insecure registry communication |
+| `bootstrap_docker__ip` | No | `Undefined` | Default IP when binding container ports |
+| `bootstrap_docker__iptables` | No | `Undefined` | Enable addition of iptables rules |
+| `bootstrap_docker__ipv6` | No | `Undefined` | Enable IPv6 networking |
+| `bootstrap_docker__ip_forward` | No | `Undefined` | Enable net.ipv4.ip_forward |
+| `bootstrap_docker__ip_masq` | No | `Undefined` | Enable IP masquerading |
+| `bootstrap_docker__labels` | No | `Undefined` | 	Set key=value labels to the daemon |
+| `bootstrap_docker__live_restore` | No | `Undefined` | Enables keeping containers alive during daemon downtime |
+| `bootstrap_docker__log_driver` | No | `Undefined` | Default driver for container logs |
+| `bootstrap_docker__log_level` | No | `Undefined` | Set the logging level |
+| `bootstrap_docker__log_opts` | No | `Undefined` | Default log driver options for containers |
+| `bootstrap_docker__max_concurrent_downloads` | No | `Undefined` | Set the max concurrent downloads for each pull |
+| `bootstrap_docker__max_concurrent_uploads` | No | `Undefined` | Set the max concurrent uploads for each push |
+| `bootstrap_docker__mtu` | No | `Undefined` | Set the containers network MTU |
+| `bootstrap_docker__oom_score_adjust` | No | `Undefined` | Set the oom_score_adj for the daemon |
+| `bootstrap_docker__pidfile` | No | `Undefined` | Path to use for daemon PID file |
+| `bootstrap_docker__raw_logs` | No | `Undefined` | Full timestamps without ANSI coloring |
+| `bootstrap_docker__registry_mirrors` | No | `Undefined` | Preferred Docker registry mirror |
+| `bootstrap_docker__runtimes` | No | `Undefined` | Register an additional OCI compatible runtime |
+| `bootstrap_docker__selinux_enabled` | No | `Undefined` | Enable selinux support |
+| `bootstrap_docker__swarm_default_advertise_addr` | No | `Undefined` | Set default address or interface for swarm advertised address |
+| `bootstrap_docker__tls` | No | `Undefined` | Use TLS; implied by –tlsverify |
+| `bootstrap_docker__tlscacert` | No | `Undefined` | Trust certs signed only by this CA |
+| `bootstrap_docker__tlscert` | No | `Undefined` | Path to TLS certificate file |
+| `bootstrap_docker__tlskey` | No | `Undefined` | Path to TLS key file |
+| `bootstrap_docker__tlsverify` | No | `Undefined` | Use TLS and verify the remote |
+| `bootstrap_docker__userland_proxy` | No | `Undefined` | Use userland proxy for loopback traffic |
+| `bootstrap_docker__userns_remap` | No | `Undefined` | User/Group setting for user namespaces |
+| `bootstrap_docker__users` | No | `Undefined` | A list of system users to be added to the docker group (so they can use Docker on the server) |
+| `bootstrap_docker__http_proxy` | No | `Undefined` | Set the Docker service to use HTTP_PROXY |
+| `bootstrap_docker__https_proxy` | No | `Undefined` | Set the Docker service to use HTTPS_PROXY |
+| `bootstrap_docker__no_proxy_params` | No | `Undefined` | Do not proxy for Docker service params |
 
 ## Example Playbooks
 
@@ -138,8 +138,8 @@ Install docker with devicemapper. Please note, this will create a new LVM on /de
 - hosts: servers
   roles:
   - role: bootstrap-linux-docker
-    docker_storage_driver: devicemapper
-    docker_block_device: /dev/sda3
+    bootstrap_docker__storage_driver: devicemapper
+    bootstrap_docker__block_device: /dev/sda3
 ```
 
 Install docker with AUFS. This is recommended for production deployment on Ubuntu systems.
@@ -148,7 +148,7 @@ Install docker with AUFS. This is recommended for production deployment on Ubunt
 - hosts: servers
   roles:
   - role: bootstrap-linux-docker
-    docker_storage_driver: aufs
+    bootstrap_docker__storage_driver: aufs
 ```
 
 
