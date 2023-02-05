@@ -13,9 +13,9 @@ $ export MOLECULE_DISTRO=redhat7-systemd-python
 $ molecule create
 $ molecule login
 $ molecule --debug test -s bootstrap-linux-package
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy --all -s s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy -s bootstrap-linux-package
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule converge -s bootstrap-linux-package
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy --all -s s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy -s bootstrap-linux-package
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule test -s bootstrap-linux-package --destroy never
 $ molecule destroy
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule create
@@ -25,14 +25,14 @@ $ molecule destroy
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule create
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-docker --destroy never
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule login
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy --all -s s bootstrap-linux-docker
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule destroy -s bootstrap-linux-docker
 $ MOLECULE_DISTRO=centos7-systemd-python molecule converge --destroy never
 $ MOLECULE_DISTRO=centos7-systemd-python molecule login
-$ molecule destroy
+$ molecule destroy --all
 $ MOLECULE_DISTRO=centos8-systemd-python --debug converge
-$ molecule destroy
+$ molecule destroy --all
 $ MOLECULE_DISTRO=ubuntu2004-systemd-python converge
-$ molecule destroy
+$ molecule destroy --all
 $ MOLECULE_DISTRO=ubuntu2204-systemd-python --debug converge
 
 ```
