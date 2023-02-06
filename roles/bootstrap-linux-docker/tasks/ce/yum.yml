@@ -1,40 +1,37 @@
 ---
 
-- name: Docker | CE | YUM | Remove older Docker installations
+- name: "Docker | CE | YUM | Remove older Docker installations"
   package:
-    name:
-      - docker
-      - docker-common
-      - docker-engine
+    name: "{{ bootstrap_docker__package_list }}"
     state: absent
 
-- name: Docker | CE | YUM | Remove conflicting runc installations
+- name: "Docker | CE | YUM | Remove conflicting runc installations"
   package:
     name: runc
     state: absent
 
-- name: Docker | CE | YUM | Add repository key
+- name: "Docker | CE | YUM | Add repository key"
   block:
-    - name: Docker | CE | YUM | Add repository key
+    - name: "Docker | CE | YUM | Add repository key"
       rpm_key:
         key: "{{ bootstrap_docker__ce_gpg_key }}"
         state: present
 
   rescue:
-    - name: Docker | CE | YUM | Ensure curl is present (systems without SNI).
+    - name: "Docker | CE | YUM | Ensure curl is present (systems without SNI)."
       package: name=curl
-    - name: Docker | CE | YUM | Download GPG key (systems without SNI).
+    - name: "Docker | CE | YUM | Download GPG key (systems without SNI)."
       shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o /tmp/docker-gpg"
-    - name: Docker | CE | YUM | Add Docker GPG key (systems without SNI).
+    - name: "Docker | CE | YUM | Add Docker GPG key (systems without SNI)."
       shell: rpm --import /tmp/docker-gpg
-    - name: Docker | CE | YUM | Remove docker-gpg from tmp folder
+    - name: "Docker | CE | YUM | Remove docker-gpg from tmp folder"
       file:
         path: /tmp/docker-gpg
         state: absent
 
-- name: Docker | CE | YUM | Deploy repository
+- name: "Docker | CE | YUM | Deploy repository"
   block:
-    - name: Docker | CE | YUM | Deploy repository
+    - name: "Docker | CE | YUM | Deploy repository"
       get_url:
         url: "{{ bootstrap_docker__ce_repo_file_url }}"
         dest: /etc/yum.repos.d/docker-ce.repo
@@ -42,18 +39,18 @@
         group: root
         mode: 0644
   rescue:
-    - name: Docker | CE | YUM | Install yum-utils (systems without SNI)
+    - name: "Docker | CE | YUM | Install yum-utils (systems without SNI)"
       yum: name=yum-utils
       register: task_result
       until: task_result is success
       retries: 10
       delay: 2
-    - name: Docker | CE | YUM | Deploy repository (systems without SNI)
+    - name: "Docker | CE | YUM | Deploy repository (systems without SNI)"
       shell: "yum-config-manager --add-repo {{ bootstrap_docker__ce_repo_file_url }}"
       args:
         creates: /etc/yum.repos.d/docker-ce.repo
 
-- name: Docker | CE | YUM | Enable edge repository
+- name: "Docker | CE | YUM | Enable edge repository"
   yum_repository:
     name: docker-ce-edge
     description: "Docker CE Edge - $basearch"
@@ -64,13 +61,13 @@
     file: docker-ce
   when: bootstrap_docker__channel == "edge"
 
-- name: Docker | CE | YUM | Perform specific os tasks
+- name: "Docker | CE | YUM | Perform specific os tasks"
   include_tasks: "{{ item }}"
   with_first_found:
     - os/{{ ansible_distribution.split(' ', 1)[0]|lower }}.yml
     - os/default.yml
 
-- name: Docker | CE | YUM | Install docker-ce
+- name: "Docker | CE | YUM | Install docker-ce"
   package:
     name: docker-ce
     state: present
