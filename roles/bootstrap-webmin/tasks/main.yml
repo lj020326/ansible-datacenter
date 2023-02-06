@@ -2,18 +2,13 @@
 
 - include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
     - "{{ ansible_distribution }}.yml"
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
-- name: webmin | Display webmin_packages
-  debug:
-    var: webmin_packages
-
 - name: "Installing Packages required by webmin"
   package:
-    name: "{{ webmin_packages }}"
+    name: "{{ bootstrap_webmin__packages }}"
     state: present
 
 # It makes perl automatically answer "yes" when CPAN asks "Would you like to configure as much as possible automatically? [yes]"
@@ -36,12 +31,12 @@
   include_tasks: "install-{{ ansible_os_family|lower }}.yml"
 
 - name: webmin | Download and install webmin modules
-  when: webmin_modules|d([])|length > 0
+  when: bootstrap_webmin__modules|d([])|length > 0
   block:
 
-  - name: webmin | Display webmin_modules
+  - name: webmin | Display bootstrap_webmin__modules
     debug:
-      var: webmin_modules
+      var: bootstrap_webmin__modules
 
   - name: "update-reports-repo | Create temporary download directory"
     ansible.builtin.tempfile:
@@ -55,7 +50,7 @@
       url: "{{ item.url }}"
       dest: "{{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
       validate_certs: false
-    loop: "{{ webmin_modules }}"
+    loop: "{{ bootstrap_webmin__modules }}"
     register: __webmin_modules_download_result
 
   - name: webmin | Display __webmin_modules_download_result
@@ -64,8 +59,8 @@
 
   ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/webmin/how-to-install-a-webmin-module-by-command-line-bash.md
   - name: webmin | Install webmin modules
-    shell: "{{ webmin_base_dir }}/install-module.pl {{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
-    loop: "{{ webmin_modules }}"
+    shell: "{{ bootstrap_webmin__base_dir }}/install-module.pl {{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
+    loop: "{{ bootstrap_webmin__modules }}"
     register: __webmin_modules_install_result
 
   - name: webmin | Display __webmin_modules_install_result

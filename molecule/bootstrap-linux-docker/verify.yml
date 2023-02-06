@@ -1,9 +1,41 @@
 ---
-# This is an example playbook to execute Ansible tests.
+# execute Ansible tests.
 
-- name: Verify
+- name: "Verify"
   hosts: all
+  vars:
+    bootstrap_docker__repo: docker
   tasks:
-  - name: Example assertion
+
+  - name: "Include OS-specific variables."
+    include_vars: "{{ item }}"
+    with_first_found:
+      - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+      - "{{ ansible_distribution }}.yml"
+      - "{{ ansible_os_family }}.yml"
+      - "default.yml"
+
+  - name: "Include {{ ansible_pkg_mgr }} package manager specific variables"
+    include_vars: "ansible_pkg_mgr/{{ ansible_pkg_mgr|lower }}.yml"
+
+  - name: "Check docker package status"
+    package:
+      name: "{{ bootstrap_docker__package_list }}"
+      state: "installed"
+    check_mode: yes
+    register: pkg_status
+
+  - name: "Check packages are installed"
     assert:
-      that: true
+      that:
+        - not pkg_status.changed
+
+  ## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
+  - name: "Populate service facts to determine if docker service is installed"
+    service_facts:
+#    register: services_state
+
+  - name: "Assert docker service is installed/running"
+    assert:
+      that:
+        - services | intersect(['docker', 'docker.service'])| d([]) | length > 0
