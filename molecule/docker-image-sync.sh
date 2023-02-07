@@ -2,6 +2,12 @@
 
 ## ref: https://stackoverflow.com/questions/26423515/how-to-automatically-update-your-docker-containers-if-base-images-are-updated
 
+## example usage:
+## source image from docker hub:
+## molecule/docker-image-sync.sh lj020326/centos8-systemd-python registry.hub.docker.com
+## source image from local:
+## molecule/docker-image-sync.sh centos8-systemd-python
+
 set -e
 BASE_IMAGE=${1:-registry}
 REGISTRY=${2:-media.johnson.int:5000}

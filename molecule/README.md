@@ -7,6 +7,30 @@
 $ docker-image-sync.sh redhat8-systemd-python
 ```
 
+## Create molecule container
+
+```shell
+$ MOLECULE_IMAGE_NAMESPACE=lj020326 \
+  MOLECULE_DISTRO=centos8-systemd-python \
+  molecule --debug create -s bootstrap-linux
+```
+
+## Converge molecule container
+
+```shell
+$ MOLECULE_IMAGE_NAMESPACE=lj020326 \
+  MOLECULE_DISTRO=centos8-systemd-python \
+  molecule --debug converge -s bootstrap-linux --destroy never
+```
+
+## Test molecule container
+
+```shell
+$ MOLECULE_IMAGE_NAMESPACE=lj020326 \
+  MOLECULE_DISTRO=centos8-systemd-python \
+  molecule --debug test -s bootstrap-linux --destroy never
+```
+
 ## Run molecule test
 
 ```shell
