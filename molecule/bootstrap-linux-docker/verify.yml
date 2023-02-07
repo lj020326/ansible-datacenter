@@ -3,35 +3,32 @@
 
 - name: "Verify"
   hosts: all
-  vars:
-    bootstrap_docker__repo: docker
   tasks:
 
-  - name: "Include OS-specific variables."
-    include_vars: "{{ item }}"
-    with_first_found:
-      - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
-      - "{{ ansible_distribution }}.yml"
-      - "{{ ansible_os_family }}.yml"
-      - "default.yml"
+  - name: "Include docker {{ ansible_distribution }} specific variables"
+    include_vars: "docker/ansible_distribution/{{ ansible_distribution.split(' ', 1)[0]|lower }}.yml"
 
-  - name: "Include {{ ansible_pkg_mgr }} package manager specific variables"
-    include_vars: "ansible_pkg_mgr/{{ ansible_pkg_mgr|lower }}.yml"
+  - name: "Include docker {{ ansible_os_family }} Family specific variables"
+    include_vars: "docker/ansible_os_family/{{ ansible_os_family.split(' ', 1)[0]|lower }}.yml"
 
   - name: "Check docker package status"
     package:
-      name: "{{ bootstrap_docker__package_list }}"
+      name: docker-ce
       state: "installed"
     check_mode: yes
-    register: pkg_status
+    register: pkg_status_docker
 
-  - name: "Check packages are installed"
+  - name: "Display pkg_status_docker"
+    debug:
+      var: pkg_status_docker
+
+  - name: "Check docker packages are installed"
     assert:
       that:
-        - not pkg_status.changed
+        - not pkg_status_docker.changed
 
   ## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
-  - name: "Populate service facts to determine if docker service is installed"
+  - name: "Populate service facts to determine if services are installed"
     service_facts:
 #    register: services_state
 
