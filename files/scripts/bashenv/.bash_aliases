@@ -155,6 +155,10 @@ alias sshresetkeys="ssh-keygen -R ${TARGET_HOST} && ssh-keyscan -H ${TARGET_HOST
 alias create-crypt-passwd="openssl passwd -1 "
 
 alias dockernuke='docker ps -a -q | xargs --no-run-if-empty docker rm -f'
+## https://www.howtogeek.com/devops/what-is-a-docker-image-manifest/
+## https://github.com/docker/hub-feedback/issues/2043#issuecomment-1161578466
+## docker manifest inspect lj020326/centos8-systemd-python:latest | jq .manifests[0].digest
+alias dockerdigest='docker manifest inspect'
 alias gethist="history | tr -s ' ' | cut -d' ' -f3-"
 alias startheroku='heroku local'
 

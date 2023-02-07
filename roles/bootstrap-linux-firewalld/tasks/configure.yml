@@ -1,6 +1,6 @@
 ---
 
-- name: Configure firewalld custom services
+- name: "Configure firewalld custom services"
   when: item.custom|d(false)|bool
   template:
     src: service_template.xml.j2
@@ -12,26 +12,26 @@
   notify: reload firewalld
   register: firewalld_service_backup
 
-#- name: reload firewalld
+#- name: "reload firewalld"
 #  command: firewall-cmd --reload
 #  ignore_errors: yes
-
-- name: Restart firewalld
-  service:
-    name: firewalld
-    state: restarted
+#
+#- name: "Restart firewalld"
+#  service:
+#    name: firewalld
+#    state: restarted
 
 - name: "Display firewalld_zones"
   debug:
     var: firewalld_zones
 
-- name: Get zones in /etc/firewalld/zones
+- name: "Get zones in /etc/firewalld/zones"
   shell: ls -1 /etc/firewalld/zones/ | grep -E .xml$
   register: get_firewalld_zones
   changed_when: false
   failed_when: false
 
-- name: Remove unmanaged zones in /etc/firewalld/zones
+- name: "Remove unmanaged zones in /etc/firewalld/zones"
   file:
     path: "/etc/firewalld/zones/{{ item }}"
     state: absent
@@ -39,7 +39,7 @@
   notify: reload firewalld
   when: item|replace('.xml','') not in firewalld_zones|map(attribute='name')|list
 
-- name: Configure firewalld zones
+- name: "Configure firewalld zones"
   template:
     src: zone_template.xml.j2
     dest: /etc/firewalld/zones/{{ item.name }}.xml
@@ -50,7 +50,7 @@
     label: "{{ item.name }}"
   register: firewalld_zone_backup
 
-#- name: Display firewalld_zone_backup
+#- name: "Display firewalld_zone_backup"
 #  debug:
 #    var: firewalld_zone_backup
 #
@@ -65,13 +65,13 @@
   debug:
     var: firewalld_ipsets
 
-- name: Get current ipsets in /etc/firewalld/ipsets
+- name: "Get current ipsets in /etc/firewalld/ipsets"
   shell: ls -1 /etc/firewalld/ipsets/ | grep -E .xml$
   register: get_firewalld_ipsets
   changed_when: false
   failed_when: false
 
-- name: Remove unmanaged ipsets in /etc/firewalld/ipsets
+- name: "Remove unmanaged ipsets in /etc/firewalld/ipsets"
   file:
     path: "/etc/firewalld/ipsets/{{ item }}"
     state: absent
@@ -79,7 +79,7 @@
   notify: reload firewalld
   when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
 
-- name: Configure firewalld ipsets
+- name: "Configure firewalld ipsets"
   template:
     src: ipset_template.xml.j2
     dest: /etc/firewalld/ipsets/{{ item.name }}.xml
@@ -89,8 +89,13 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: "Restart firewalld"
+  service:
+    name: firewalld
+    state: restarted
+
 ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html
-- name: Configure firewalld services
+- name: "Configure firewalld services"
   when:
     - firewalld_zones|flatten|d([])|count>0
     - __firewalld_services|flatten|d([])|count>0
@@ -110,7 +115,7 @@
     label: "{{ item.0.name }} - {{ item.1.name }}"
   notify: reload firewalld
 
-- name: Configure firewalld ports
+- name: "Configure firewalld ports"
   when:
     - firewalld_zones|d([])|flatten|count>0
     - __firewalld_ports|d([])|flatten|count>0
@@ -129,13 +134,13 @@
     label: "{{ item.0.name }} - {{ item.1 }}"
   notify: "reload firewalld"
 
-- name: Get services in /etc/firewalld/services
+- name: "Get services in /etc/firewalld/services"
   shell: ls -1 /etc/firewalld/services/ | grep -E .xml$
   register: get_firewalld_services
   changed_when: false
   failed_when: false
 
-- name: Remove unmanaged services in /etc/firewalld/services
+- name: "Remove unmanaged services in /etc/firewalld/services"
   when: item|replace('.xml','') not in __firewalld_services|map(attribute='name')|list
   file:
     path: "/etc/firewalld/services/{{ item }}"
@@ -143,7 +148,7 @@
   with_items: "{{ get_firewalld_services.stdout_lines }}"
   notify: reload firewalld
 
-- name: Configure defined firewalld_rules
+- name: "Configure defined firewalld_rules"
   when: firewalld_rules|d([])|length>0
   ansible.posix.firewalld:
     immediate: "{{ item.immediate|default('yes') }}"
