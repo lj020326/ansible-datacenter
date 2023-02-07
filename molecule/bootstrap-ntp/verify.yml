@@ -5,95 +5,15 @@
   hosts: all
   tasks:
 
-  - name: "Include ntp OS-specific variables."
-    include_vars: "{{ item }}"
-    with_first_found:
-      - "ntp/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
-      - "ntp/{{ ansible_distribution }}.yml"
-      - "ntp/{{ ansible_os_family }}.yml"
-      - "ntp/default.yml"
-
-  - name: "Check {{ bootstrap_ntp_package }} package status"
-    package:
-      name: "{{ bootstrap_ntp_package }}"
-      state: "installed"
-    check_mode: yes
-    register: pkg_status_ntp
-
-  - name: "Display pkg_status_ntp"
-    debug:
-      var: pkg_status_ntp
-
-  - name: "Check {{ bootstrap_ntp_package }} package is installed"
-    assert:
-      that:
-        - not pkg_status_ntp.changed
-
   ## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
   - name: "Populate service facts to determine if services are installed"
     service_facts:
 #    register: services_state
 
-  - name: "Assert ntp service is installed/running"
-    assert:
-      that:
-        - services | intersect([bootstrap_ntp_daemon, bootstrap_ntp_daemon+'.service'])| d([]) | length > 0
+  - name: "Test NTP"
+    when: bootstrap_linux_install_ntp|d(True)|bool
+    include_tasks: verify-ntp.yml
 
-  ## ref: https://jfearn.fedorapeople.org/fdocs/en-US/Fedora_Draft_Documentation/0.1/html/System_Administrators_Guide/sect-Checking_if_chrony_is_synchronized.html
-  ## ref: https://unix.stackexchange.com/questions/554509/chrony-synchronitation
-  ## ref: https://stackoverflow.com/questions/65951206/time-is-not-getting-synchronized-in-chrony-setup
-  - name: "Run chronyc tracking"
-    command: chronyc tracking
-    register: __chronyc_tracking_results
-
-  - name: "Display __chronyc_tracking_results"
-    debug:
-      var: __chronyc_tracking_results
-
-  - name: "Check chronyc tracking results"
-    assert:
-      that:
-        - __chronyc_tracking_results.rc == 0
-
-  - name: "Check chronyc tracking results are normal"
-    ignore_errors: yes
-    assert:
-      that:
-        - (__chronyc_tracking_results.stdout_lines | select('match', "Leap status.*Normal") | list | count) == 1
-
-  - name: "Run chronyc sources"
-    command: chronyc sources
-    register: __chronyc_sources_results
-
-  - name: "Display __chronyc_sources_results"
-    debug:
-      var: __chronyc_sources_results
-
-  - name: "Check chronyc tracking results"
-    assert:
-      that:
-        - __chronyc_sources_results.rc == 0
-
-#  - name: "Check chronyc sources include all defined ntp servers"
-#    ignore_errors: yes
-#    assert:
-#      that:
-#        - (__chronyc_sources_results.stdout_lines | select('search', item) | list | count) == 1
-#  #      - __chronyc_sources_results.stdout is search(item)
-#  #      - __chronyc_sources_results.stdout | regex_search(item)
-#    loop: "{{ __bootstrap_ntp_servers }}"
-
-  #- name: "Run chronyc accheck on all servers in __bootstrap_ntp_servers"
-  #  command: "chronyc accheck {{ item }}"
-  #  loop: "{{ __bootstrap_ntp_servers }}"
-  #  register: __chronyc_accheck_results
-  #
-  #- name: "Display __chronyc_accheck_results"
-  #  debug:
-  #    var: __chronyc_accheck_results
-  #
-  #- name: "Check chronyc accheck results"
-  #  ignore_errors: yes
-  #  assert:
-  #    that:
-  #      - __chronyc_accheck_results is not failed
+  - name: "Test Docker"
+    when: bootstrap_linux_setup_docker|d(True)|bool
+    include_tasks: verify-docker.yml
