@@ -1,0 +1,29 @@
+---
+
+- name: "Include docker {{ ansible_distribution }} specific variables"
+  include_vars: "docker/ansible_distribution/{{ ansible_distribution.split(' ', 1)[0]|lower }}.yml"
+
+- name: "Include docker {{ ansible_os_family }} Family specific variables"
+  include_vars: "docker/ansible_os_family/{{ ansible_os_family.split(' ', 1)[0]|lower }}.yml"
+
+- name: "Check docker package status"
+  package:
+    name: docker-ce
+    state: "installed"
+  check_mode: yes
+  register: pkg_status_docker
+
+- name: "Display pkg_status_docker"
+  debug:
+    var: pkg_status_docker
+
+- name: "Check docker packages are installed"
+  assert:
+    that:
+      - not pkg_status_docker.changed
+
+- name: "Assert docker service is installed/running"
+  assert:
+    that:
+      - services | intersect(['docker', 'docker.service'])| d([]) | length > 0
+
