@@ -1,36 +1,40 @@
 ---
 # execute Ansible tests.
 
-- name: Verify
+- name: "Verify"
   hosts: all
   tasks:
 
-  - name: Include OS-specific variables.
+  - name: "Include ntp OS-specific variables."
     include_vars: "{{ item }}"
     with_first_found:
-      - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
-      - "{{ ansible_distribution }}.yml"
-      - "{{ ansible_os_family }}.yml"
-      - "default.yml"
+      - "ntp/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+      - "ntp/{{ ansible_distribution }}.yml"
+      - "ntp/{{ ansible_os_family }}.yml"
+      - "ntp/default.yml"
 
-  - name: "Check ntp package status"
+  - name: "Check {{ bootstrap_ntp_package }} package status"
     package:
       name: "{{ bootstrap_ntp_package }}"
       state: "installed"
     check_mode: yes
-    register: pkg_status
+    register: pkg_status_ntp
+
+  - name: "Display pkg_status_ntp"
+    debug:
+      var: pkg_status_ntp
 
   - name: "Check {{ bootstrap_ntp_package }} package is installed"
     assert:
       that:
-        - not pkg_status.changed
+        - not pkg_status_ntp.changed
 
   ## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
-  - name: Populate service facts to determine if ntp service is installed
+  - name: "Populate service facts to determine if services are installed"
     service_facts:
 #    register: services_state
 
-  - name: "Debian | Assert ntpd service is installed/running"
+  - name: "Assert ntp service is installed/running"
     assert:
       that:
         - services | intersect([bootstrap_ntp_daemon, bootstrap_ntp_daemon+'.service'])| d([]) | length > 0
