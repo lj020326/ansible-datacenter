@@ -9,7 +9,7 @@
 #### THESE ALLOW NOT USING TEMPLATE FILE ###
 - name: "Docker | Deploy Config | Set the Docker configuration"
   set_fact:
-    bootstrap_docker__config: "{{ bootstrap_docker__config|combine({ item.key: item.value }) }}"
+    bootstrap_docker__config: "{{ bootstrap_docker__config|d({}) | combine({ item.key: item.value }) }}"
   when: item.value | string | length > 0
   with_dict: "{{ bootstrap_docker__options }}"
 
@@ -19,3 +19,138 @@
     dest: /etc/docker/daemon.json
   when: bootstrap_docker__config != {}
   notify: Docker | Restart Docker
+
+#########
+## ADDITIONAL CONFIG OPTIONS
+#########
+- name: "Docker | Deploy Config | Create Docker configuration directories"
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  loop:
+    - "/etc/docker"
+    - "/etc/systemd/system/docker.service.d"
+
+#- name: Docker | Deploy Config | Configure Docker daemon options (json)
+#  template:
+#    src: "etc/docker/daemon.json.j2"
+#    dest: "/etc/docker/daemon.json"
+#    owner: "root"
+#    group: "root"
+#    mode: "0644"
+#  when: bootstrap_docker__default_daemon_json or bootstrap_docker__daemon_json
+#  notify: Docker | Restart Docker
+#
+# - name: Docker | Deploy Config | Deploy /etc/docker/daemon.json
+#   template: src=docker_config.j2 dest=/etc/docker/daemon.json
+#   notify: Docker | Restart Docker
+
+- name: Docker | Deploy Config | Deploy updated /etc/docker/daemon.json
+  copy:
+    content: "{{ bootstrap_docker__config | to_nice_json }}\n"
+    dest: /etc/docker/daemon.json
+    backup: yes
+  when: bootstrap_docker__config != {}
+  notify: Docker | Restart Docker
+
+- name: Docker | Deploy Config | Display bootstrap_docker__daemon_flags
+  debug:
+    var: bootstrap_docker__daemon_flags
+
+- name: Docker | Deploy Config | Configure Docker daemon options (flags)
+  template:
+    src: "etc/systemd/system/docker.service.d/options.conf.j2"
+    dest: "/etc/systemd/system/docker.service.d/options.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    backup: yes
+  register: bootstrap_docker__register_daemon_flags
+  when: bootstrap_docker__daemon_flags|d([]) | count > 0
+  notify: Docker | Restart Docker
+
+- name: Docker | Deploy Config | Configure Docker daemon environment variables
+  template:
+    src: "etc/systemd/system/docker.service.d/environment.conf.j2"
+    dest: "/etc/systemd/system/docker.service.d/environment.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    backup: yes
+  register: bootstrap_docker__register_daemon_environment
+  when: bootstrap_docker__daemon_environment is defined and bootstrap_docker__daemon_environment | count > 0
+  notify: Docker | Restart Docker
+
+- name: Docker | Deploy Config | Configure custom systemd unit file override
+  template:
+    src: "etc/systemd/system/docker.service.d/custom.conf.j2"
+    dest: "/etc/systemd/system/docker.service.d/custom.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    backup: yes
+  register: bootstrap_docker__register_custom_override
+  when: bootstrap_docker__systemd_override | d()
+  notify: Docker | Restart Docker
+
+#- name: Docker | Deploy Config | Override docker service for zfs dependencies
+#  include_tasks: docker-zfs-override.yml
+#  when: bootstrap_docker__zfs_override
+
+- name: Docker | Deploy Config | Reload systemd daemon
+  systemd:
+    daemon_reload: true
+  when: (bootstrap_docker__register_daemon_flags | d() and
+         bootstrap_docker__register_daemon_flags is changed)
+         or (bootstrap_docker__register_daemon_environment | d() and
+         bootstrap_docker__register_daemon_environment is changed)
+         or (bootstrap_docker__register_custom_override | d() and
+         bootstrap_docker__register_custom_override is changed)
+  notify: Docker | Restart Docker
+
+#- name: Docker | Deploy Config | Restart Docker now to make sure `docker login` works
+#  meta: "flush_handlers"
+#
+#- name: Docker | Deploy Config | Manage Docker registry login credentials
+#  community.docker.docker_login:
+#    registry_url: "{{ item.registry_url | d(omit) }}"
+#    username: "{{ item.username }}"
+#    password: "{{ item.password }}"
+#    email: "{{ item.email | d(omit) }}"
+#    reauthorize: "{{ item.reauthorize | d(omit) }}"
+#    config_path: "{{ item.config_path | d((ansible_env.PWD | d('/root')) + '/.docker/config.json') }}"
+#    state: "{{ item.state | d('present') }}"
+#  loop: "{{ bootstrap_docker__registries }}"
+#  when: item.username | d() and item.password | d()
+#  vars:
+#    ansible_python_interpreter: "{{ '/usr/bin/env python-docker' if bootstrap_docker__pip_virtualenv | d() else ansible_python.executable }}"
+
+- name: Docker | Deploy Config | Remove Docker related cron jobs
+  file:
+    path: "/etc/cron.d/{{ item.cron_file }}"
+    state: "absent"
+  loop: "{{ bootstrap_docker__cron_jobs }}"
+  when:
+    - item.state | d("present") == "absent"
+    - item.name | d() and item.job | d()
+    - item.schedule | d() and item.cron_file | d()
+
+- name: Docker | Deploy Config | Create Docker related cron jobs
+  cron:
+    name: "{{ item.name }}"
+    job: "{{ item.job }}"
+    minute: "{{ item.schedule[0] }}"
+    hour: "{{ item.schedule[1] }}"
+    day: "{{ item.schedule[2] }}"
+    month: "{{ item.schedule[3] }}"
+    weekday: "{{ item.schedule[4] }}"
+    cron_file: "{{ item.cron_file }}"
+    user: "{{ item.user | d('root') }}"
+  loop: "{{ bootstrap_docker__cron_jobs }}"
+  when:
+    - item.state | d("present") != "absent"
+    - item.name | d() and item.job | d()
+    - item.schedule | d() and item.cron_file | d()
