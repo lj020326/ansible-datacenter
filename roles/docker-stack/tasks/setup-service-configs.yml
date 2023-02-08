@@ -4,22 +4,26 @@
     log_prefix_local: "setup-service-configs |"
 
 - name: "{{ log_prefix_local }} Configure htpasswd users file"
-  when: docker_stack_http_username != "" and docker_stack_http_password != ""
-  no_log: yes
-  community.general.htpasswd:
-    path: "{{ docker_stack_dir }}/shared/.htpasswd"
-    name: "{{ docker_stack_http_username }}"
-    password: "{{ docker_stack_http_password }}"
-    owner: "{{ docker_user_username }}"
-    group: "{{ docker_user_group }}"
-    mode: "0600"
-    crypt_scheme: "bcrypt"
+  when:
+    - docker_stack_http_username|d('')|length>0
+    - docker_stack_http_password|d('')|length>0
+  block:
+    - name: "{{ log_prefix_local }} Configure htpasswd users file"
+    #  no_log: yes
+      community.general.htpasswd:
+        path: "{{ docker_stack_dir }}/shared/.htpasswd"
+        name: "{{ docker_stack_http_username }}"
+        password: "{{ docker_stack_http_password }}"
+        owner: "{{ docker_user_username }}"
+        group: "{{ docker_user_group }}"
+        mode: "0600"
+        crypt_scheme: "bcrypt"
 
-## ref: https://stackoverflow.com/questions/24003880/ansible-set-variable-to-file-content/24014549
-- name: "{{ log_prefix_local }} Load htpasswd data"
-  slurp:
-    src: "{{ docker_stack_dir }}/shared/.htpasswd"
-  register: htpasswd
+    ## ref: https://stackoverflow.com/questions/24003880/ansible-set-variable-to-file-content/24014549
+    - name: "{{ log_prefix_local }} Load htpasswd data"
+      slurp:
+        src: "{{ docker_stack_dir }}/shared/.htpasswd"
+      register: htpasswd
 
 - name: "{{ log_prefix_local }} Ensure docker dirs exist"
   file:
