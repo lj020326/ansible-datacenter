@@ -14,24 +14,38 @@
     __bootstrap_docker__compose_vsn.stdout is defined
     and (__bootstrap_docker__compose_vsn.stdout | length > 0)
 
-- name: Docker | Docker Compose | Delete existing docker-compose version if it's different.
-  file:
-    path: "{{ bootstrap_docker__compose_path }}"
-    state: absent
+- name: Docker | Docker Compose | Init __replace_docker_compose
+  set_fact:
+    __replace_docker_compose: no
+
+- name: Docker | Docker Compose | Set __replace_docker_compose
+  when: >
+    __bootstrap_docker__compose_current_version is not defined
+    or (__bootstrap_docker__compose_current_version | length == 0)
+  set_fact:
+    __replace_docker_compose: yes
+
+- name: Docker | Docker Compose | Set __replace_docker_compose
   when:
     - bootstrap_docker__compose_version is defined
-    - __bootstrap_docker__compose_current_version is defined
     - (bootstrap_docker__compose_version | regex_replace('v', '')) not in __bootstrap_docker__compose_current_version
+  set_fact:
+    __replace_docker_compose: yes
 
-- name: Docker | Docker Compose | Install Docker Compose (if configured).
-  get_url:
-    url: "{{ bootstrap_docker__compose_url }}"
-    dest: "{{ bootstrap_docker__compose_path }}"
-    mode: 0755
-  when: >
-    (__bootstrap_docker__compose_current_version is not defined)
-    or (__bootstrap_docker__compose_current_version | length == 0)
-    or (__bootstrap_docker__compose_current_version is version((bootstrap_docker__compose_version | regex_replace('v', '')), '<'))
+- name: Docker | Docker Compose | Replace existing docker-compose
+  when: __replace_docker_compose|bool
+  block:
+
+    - name: Docker | Docker Compose | Delete existing docker-compose version if it's different.
+      file:
+        path: "{{ bootstrap_docker__compose_path }}"
+        state: absent
+
+    - name: Docker | Docker Compose | Install Docker Compose (if configured).
+      get_url:
+        url: "{{ bootstrap_docker__compose_url }}"
+        dest: "{{ bootstrap_docker__compose_path }}"
+        mode: 0755
 
 #########
 ## ADDITIONAL ENV SETUP
