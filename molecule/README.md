@@ -106,3 +106,64 @@ $ molecule destroy
 $ tests/molecule_exec.sh ubuntu2204 --debug converge
 
 ```
+
+```shell
+MOLECULE_DISTRO=centos7-systemd-python molecule --debug converge -s bootstrap-linux
+MOLECULE_DISTRO=centos7-systemd-python molecule --debug create -s bootstrap-linux
+MOLECULE_DISTRO=centos7-systemd-python molecule --debug destroy -s bootstrap-linux
+MOLECULE_DISTRO=centos7-systemd-python molecule --debug test -s bootstrap-linux
+MOLECULE_DISTRO=centos7-systemd-python molecule --debug test -s bootstrap-linux --destroy never
+MOLECULE_DISTRO=centos7-systemd-python molecule --debug verify -s bootstrap-linux
+MOLECULE_DISTRO=centos7-systemd-python molecule --debug verify -s bootstrap-linux --destroy never
+MOLECULE_DISTRO=centos8-systemd-python molecule --debug converge -s bootstrap-linux-docker
+MOLECULE_DISTRO=centos8-systemd-python molecule --debug destroy -s bootstrap-linux
+MOLECULE_DISTRO=centos8-systemd-python molecule --debug test -s bootstrap-linux --destroy never
+MOLECULE_DISTRO=centos8-systemd-python molecule destroy --all
+MOLECULE_DISTRO=debian9-systemd-python MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap-linux
+MOLECULE_DISTRO=debian9-systemd-python MOLECULE_DOCKER_COMMAND=/usr/sbin/init molecule --debug converge -s bootstrap-linux
+MOLECULE_DISTRO=debian9-systemd-python molecule --debug -s bootstrap-linux destroy --all
+MOLECULE_DISTRO=debian9-systemd-python molecule --debug converge -s bootstrap-linux
+MOLECULE_DISTRO=debian9-systemd-python molecule --debug destroy --all -s bootstrap-linux
+MOLECULE_DISTRO=debian9-systemd-python molecule --debug destroy -s bootstrap-linux
+MOLECULE_DISTRO=debian9-systemd-python molecule --debug destroy -s bootstrap-linux destroy
+MOLECULE_DISTRO=lj020326/centos8-systemd-python molecule --debug create -s bootstrap-linux
+MOLECULE_DISTRO=lj020326/centos8-systemd-python molecule --debug create -s bootstrap-linux --destroy never
+MOLECULE_DISTRO=redhat8-systemd-python MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap-linux
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug -s bootstrap-linux converge
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug converge --all -s bootstrap-linux
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug converge -s bootstrap-linux
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug converge -s bootstrap-linux-docker
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug converge -s bootstrap-linux-docker --destroy never
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug create -s bootstrap-linux
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug destroy --all
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug destroy --all -s bootstrap-linux
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug destroy --all -s bootstrap-linux-docker
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug destroy -s bootstrap-linux
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug destroy -s bootstrap-linux-docker
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux --destroy never
+MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-docker --destroy never
+MOLECULE_DISTRO=redhat8-systemd-python molecule create
+MOLECULE_DISTRO=redhat8-systemd-python molecule destroy
+MOLECULE_DISTRO=redhat8-systemd-python molecule destroy --all
+MOLECULE_DISTRO=redhat8-systemd-python molecule login
+MOLECULE_DISTRO=ubuntu22-systemd-python molecule --debug converge -s bootstrap-linux-docker
+MOLECULE_DISTRO=ubuntu2204-systemd-python molecule --debug converge -s bootstrap-linux-docker
+MOLECULE_DISTRO=ubuntu2204-systemd-python molecule destroy
+MOLECULE_DISTRO=ubuntu2204-systemd-python molecule destroy --all
+MOLECULE_IMAGE=centos8-systemd-python molecule --debug destroy -s bootstrap-linux
+MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_DISTRO=centos8-systemd-python molecule --debug create -s bootstrap-linux
+MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_DISTRO=centos8-systemd-python molecule --debug test -s bootstrap-linux --destroy never
+ansible-galaxy collection install -vvv -fr collections/requirements.molecule.yml 
+cat requirements.molecule.txt 
+echo $MOLECULE_DISTRO
+echo $MOLECULE_IMAGE_NAMESPACE
+molecule --version
+molecule destroy
+molecule destroy --all
+molecule/docker-image-sync.sh centos7-systemd-python
+molecule/docker-image-sync.sh centos8-systemd-python
+molecule/docker-image-sync.sh centos8-systemd-python hub.docker.com
+molecule/docker-image-sync.sh centos8-systemd-python registry.hub.docker.com
+molecule/docker-image-sync.sh lj020326/centos8-systemd-python registry.hub.docker.com
+molecule/docker-image-sync.sh redhat8-systemd-python
+```
