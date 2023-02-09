@@ -15,34 +15,35 @@
     state: present
 
 ## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
-- name: Create docker user
+- name: "Create docker user"
   user:
     name: "{{ bootstrap_docker__user_username }}"
-    password: "{{ bootstrap_docker__user_password | password_hash('sha512',65534 | random(seed=bootstrap_linux_docker_user_hash_seed) | string) }}"
+    password: "{{ bootstrap_docker__user_password | password_hash('sha512',65534
+      | random(seed=bootstrap_docker__user_hash_seed) | string) }}"
     uid: "{{ bootstrap_docker__user_uid | d(omit) }}"
     group: "{{ bootstrap_docker__user_group }}"
     update_password: on_create
     state: present
     createhome: yes
-    shell: "{{ bootstrap_docker__user_shell }}"
+    shell: "{{ bootstrap_docker__user_shell | d(omit) }}"
     groups: "{{ bootstrap_docker__user_groups[ansible_distribution] | join(',') }}"
     append: yes
     home: "{{ bootstrap_docker__user_home | d(omit) }}"
-  register: bootstrap_docker__user_verify_user
+  register: __bootstrap_docker__user_result
 
 - debug:
-    var: bootstrap_docker__user_verify_user
+    var: __bootstrap_docker__user_result
     verbosity: 1
 
-- name: Set docker user info facts
+- name: "Set docker user info facts"
   set_fact:
-    bootstrap_docker__user_uid: "{{ bootstrap_docker__user_verify_user.uid }}"
-    bootstrap_docker__user_gid: "{{ docker_user_verify_user.group }}"
-    docker_user_home: "{{ docker_user_verify_user.home }}"
+    bootstrap_docker__user_uid: "{{ __bootstrap_docker__user_result.uid }}"
+    bootstrap_docker__user_gid: "{{ __bootstrap_docker__user_result.group }}"
+    docker_user_home: "{{ __bootstrap_docker__user_result.home }}"
 
-- name: Enable sudo for docker user
+- name: "Enable sudo for docker user"
   user:
     name: "{{ docker_user_username }}"
     groups: "{{ docker_sudo_group[ansible_distribution] }}"
     append: yes
-  when: docker_user_sudo_access | bool
+  when: bootstrap_docker__user_sudo_access | bool
