@@ -1,14 +1,76 @@
 ---
-- name: Ensure Pip is installed.
-  package:
-    name: "{{ pip_package }}"
-    state: present
 
-- name: Ensure pip_install_packages are installed.
+- name: "Include OS-specific variables"
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+- name: "Install pip env support packages"
+  package:
+    state: present
+    name: "{{ bootstrap_pip_packages }}"
+
+## ref: https://pip.pypa.io/en/stable/topics/configuration/
+- name: "Ensure /etc/pip.conf"
+  copy:
+    src: pip.conf
+    dest: "/etc/pip.conf"
+    mode: 0644
+    owner: "{{ ansible_user }}"
+    backup: yes
+
+#- name: "Create pip user config directory"
+#  file:
+#    path: "{{ bootstrap_pip_config_dir }}"
+#    state: directory
+#    mode: 0755
+#    owner: "{{ ansible_user }}"
+#    group: "{{ ansible_user }}"
+#
+#- name: "Ensure {{ bootstrap_pip_config_dir }}//pip.conf"
+#  copy:
+#    src: pip.conf
+#    dest: "{{ bootstrap_pip_config_dir }}/pip.conf"
+#    mode: 0644
+#    owner: "{{ ansible_user }}"
+#    backup: yes
+
+- name: "Display bootstrap_pip_os_executable"
+  debug:
+    var: bootstrap_pip_os_executable
+
+## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
+- name: "Pip self-update"
   pip:
-    name: "{{ item.name | default(item) }}"
-    version: "{{ item.version | default(omit) }}"
-    virtualenv: "{{ item.virtualenv | default(omit) }}"
-    state: "{{ item.state | default(omit) }}"
-    executable: "{{ pip_executable }}"
-  loop: "{{ pip_install_packages }}"
+    name: pip
+    state: latest
+    extra_args: "--user"
+    executable: "{{ bootstrap_pip_os_executable }}"
+
+- name: Install Virtualenv
+  pip:
+    name: "virtualenv"
+    extra_args: --user
+    virtualenv_site_packages: yes
+    executable: "{{ bootstrap_pip_os_executable }}"
+
+- name: Install common pip libs
+  pip:
+    name: "{{ bootstrap_pip_libs }}"
+    state: present
+#    state: latest
+#    extra_args: --user
+    virtualenv_site_packages: yes
+    executable: "{{ bootstrap_pip_os_executable }}"
+
+#- name: Ensure pip_install_packages are installed.
+#  pip:
+#    name: "{{ item.name | default(item) }}"
+#    version: "{{ item.version | default(omit) }}"
+#    virtualenv: "{{ item.virtualenv | default(omit) }}"
+#    state: "{{ item.state | default(omit) }}"
+#    executable: "{{ bootstrap_pip_executable }}"
+#  loop: "{{ bootstrap_pip_install_packages }}"

@@ -5,6 +5,7 @@
 
 - name: "{{ log_prefix_local }} Login to docker docker-registry"
   ignore_errors: yes
+  when: docker_stack_registry_login | bool
   community.docker.docker_login:
 #    registry_url: "https://{{ docker_stack_registry_endpoint }}/v2/"
 #    registry: "https://{{ docker_stack_registry_endpoint }}/v2/"
@@ -14,14 +15,14 @@
     ca_cert: ""
     debug: yes
     tls: yes
-  when: docker_stack_registry_login | bool
 
 - name: "{{ log_prefix_local }} Display docker_stack_networks"
   debug:
     var: docker_stack_networks
+    verbosity: 2
 
 - name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
-  docker_network:
+  community.docker.docker_network:
     name: "{{ item.key }}"
 #  when: item.value.external|d(False)==True
   when: item.value.external is defined
@@ -30,16 +31,13 @@
 ## run docker compose
 ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
 - name: "{{ log_prefix_local }} Run the services defined in docker-compose.yml"
-  docker_compose:
+  community.docker.docker_compose:
     project_src: "{{ docker_stack_dir }}"
     remove_orphans: "{{ docker_stack_remove_orphans }}"
-
-#  - name: "{{ log_prefix_local }} Run the services defined in docker-compose.yml"
-#    docker_stack:
-#      state: present
-#      name: stack1
-#      compose:
-#      - "{{ docker_stack_dir }}/docker-compose.yml"
+  register: __compose_result
+  retries: 5
+  delay: 20
+  until: __compose_result is not failed
 
 - name: "{{ log_prefix_local }} Setup container configs"
   include_tasks: setup-container-configs.yml

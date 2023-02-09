@@ -1,11 +1,14 @@
 ---
 
-#include_vars: media-vars.yml
+docker_stack_python_docker_interpreter: "/usr/local/bin/python-docker"
 
 docker_stack_base_services:
   - base
 
 docker_stack_services: []
+
+docker_stack_traefik_routing_method: dns
+#docker_stack_traefik_routing_method: context
 
 __docker_stack_services: "{{ (docker_stack_base_services + docker_stack_services|d([])) | unique }}"
 
@@ -23,6 +26,11 @@ docker_stack_traefik_https_suffix: "{{ ':' + docker_stack_traefik_https|string i
 docker_stack_traefik_ssh: 2022
 
 docker_stack_acme_http_challenge_proxy_port: 8980
+
+docker_stack_enable_cacerts: no
+docker_stack_enable_selfsigned_certs: yes
+
+docker_stack_setup_admin_scripts: yes
 
 docker_stack_compose_http_timeout: 120
 
@@ -77,8 +85,8 @@ docker_user_gid: 1006
 docker_group_gid: 991
 
 ## docker stack vars
-#docker_stack_dir: "{{ docker_user_home }}/docker"
-docker_stack_dir: "{{ docker_user_home }}/docker/{{ inventory_hostname }}"
+docker_stack_dir: "{{ docker_user_home }}/docker"
+#docker_stack_dir: "{{ docker_user_home }}/docker/{{ inventory_hostname }}"
 docker_stack_compose_file: "{{ docker_stack_dir }}/docker-compose.yml"
 docker_stack_remove_orphans: yes
 
@@ -87,6 +95,7 @@ ca_cert_bundle: "/etc/pki/tls/certs/ca-bundle.crt"
 ca_java_keystore: /etc/pki/ca-trust/extracted/java/cacerts
 
 docker_stack_host_ca_bundle: "{{ ca_cert_bundle }}"
+docker_stack_acme_email: "admin@example.int"
 
 docker_stack_internal_root_domain: "example.int"
 docker_stack_external_root_domain: "example.com"
@@ -155,9 +164,6 @@ docker_stack_stepca_ca_force_create: no
 ca_domains_hosted:
   - "{{ docker_stack_internal_domain }}"
 
-pki_cert_dir: /etc/ssl/certs
-pki_key_dir: /etc/ssl/private
-
 ## SSL settings
 docker_stack_internal_ssl_cert_dir: /usr/local/ssl/certs
 docker_stack_internal_ssl_certkey_dir: /usr/local/ssl/private
@@ -171,6 +177,7 @@ docker_stack_ssl_internal_cacert_file: "ca.{{ docker_stack_internal_domain }}.pe
 #docker_stack_ssl_internal_cert_file: "{{ hostname_name_full }}.pem"
 docker_stack_ssl_internal_cert_file: "{{ docker_stack_internal_domain }}.chain.pem"
 #docker_stack_ssl_internal_cert_file: "{{ docker_stack_internal_domain }}.pem"
+docker_stack_ssl_internal_csr_file: "{{ docker_stack_internal_domain }}.csr"
 
 #docker_stack_ssl_internal_privatekey_file: "{{ hostname_name_full }}-key.pem"
 docker_stack_ssl_internal_privatekey_file: "{{ docker_stack_internal_domain }}-key.pem"
@@ -212,7 +219,10 @@ docker_stack_script_dirs:
 
 docker_stack_scripts:
 #  - { src: 'files/mono_image/entrypoint.sh', dest: "{{ docker_stack_script_dir }}/mono-entrypoint.sh" }
-  - { src: 'files/scripts/certs/validate_ssl_endpoint.sh', dest: "{{ docker_stack_dir }}/shared/validate_ssl_endpoint.sh" }
+  - src: 'files/scripts/validate_ssl_endpoint.sh'
+    dest: "{{ docker_stack_dir }}/shared/validate_ssl_endpoint.sh"
+  - src: 'files/scripts/validate_registry_endpoint.sh'
+    dest: "{{ docker_stack_dir }}/shared/validate_registry_endpoint.sh"
 #  - { src: 'scripts/backups/run-backups.py', dest: "{{ docker_stack_script_dir }}"}
 #  - { src: 'scripts/backups/backups.yml', dest: "{{ docker_stack_script_dir }}"}
 #  - { src: 'scripts/backups/run-daily-backup.sh', dest: "{{ docker_stack_script_dir }}"}
@@ -276,5 +286,4 @@ docker_stack_container_configs: {}
 ######
 
 docker_stack_timezone: "America/New_York"
-
 

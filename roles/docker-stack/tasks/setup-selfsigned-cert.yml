@@ -1,0 +1,91 @@
+---
+
+- set_fact:
+    log_prefix_local: "setup-selfsigned-cert |"
+
+- name: "{{ log_prefix_local }} Ensure ssl cert dirs exist"
+  file:
+    state: directory
+    path: "{{ item.path }}"
+    mode: "{{ item.mode | default(omit) }}"
+  loop:
+    - path: "{{ docker_stack_internal_ssl_cert_dir }}"
+    - path: "{{ docker_stack_internal_ssl_certkey_dir }}"
+      mode: '0600'
+
+- name: "{{ log_prefix_local }} Generate ssl privatekey to {{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+  community.crypto.openssl_privatekey:
+    path: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+
+- name: "{{ log_prefix_local }} Create ssl CSR to {{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_csr_file }}"
+  community.crypto.openssl_csr:
+    path: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_csr_file }}"
+    privatekey_path: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+    subject:
+      commonName: "*.{{ docker_stack_internal_domain }}"
+    subject_alt_name: "{{ item.value | map('regex_replace', '^', 'DNS:') | list }}"
+  with_dict:
+    dns_server:
+    - "dev.{{ docker_stack_internal_domain }}"
+    - "{{ docker_stack_internal_domain }}"
+
+- name: "{{ log_prefix_local }} Create self-signed ssl certificate to {{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_cert_file }}"
+  community.crypto.x509_certificate:
+    path: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_cert_file }}"
+    csr_path: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_csr_file }}"
+    privatekey_path: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+    provider: selfsigned
+    selfsigned_digest: sha256
+  register: selfsigned_certificate
+
+- name: "{{ log_prefix_local }} Copy self-signed cert files to traefik"
+  copy:
+    remote_src: yes
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    force: "{{ item.force | d(omit) }}"
+    backup: yes
+    mode: "{{ item.mode | d('0666') }}"
+    owner: "{{ docker_user_username }}"
+    group: "{{ docker_user_group }}"
+  with_items:
+    - src: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_cert_file }}"
+      dest: "{{ __docker_stack_appspecs__base_traefik_dir }}/certs/{{ docker_stack_ssl_internal_cert_file }}"
+    - src: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+      dest: "{{ __docker_stack_appspecs__base_traefik_dir }}/certs/{{ docker_stack_ssl_internal_privatekey_file }}"
+      mode: "0600"
+
+#
+#- name: Create private keys
+#  community.crypto.openssl_privatekey:
+#    path: "{{ item }}"
+#    mode: "u=rw,go="
+#  loop:
+#    - "{{ test_key_path }}"
+#    - "{{ test_key2_path }}"
+#
+#- name: Generate CSR for self-signed certificate used as a placeholder to create the java keystore
+#  community.crypto.openssl_csr:
+#    path: "{{ test_csr_path }}"
+#    privatekey_path: "{{ test_key_path }}"
+#    commonName: "localhost"
+#
+#- name: Generate CSR for self-signed certificate used for testing
+#  community.crypto.openssl_csr:
+#    path: "{{ test_csr2_path }}"
+#    privatekey_path: "{{ test_key2_path }}"
+#    commonName: "localhost"
+#
+#- name: Generate the self-signed cert used as a placeholder to create the java keystore
+#  community.crypto.x509_certificate:
+#    path: "{{ test_cert_path }}"
+#    csr_path: "{{ test_csr_path }}"
+#    privatekey_path: "{{ test_key_path }}"
+#    provider: selfsigned
+#
+#- name: Generate the self signed cert we will use for testing
+#  community.crypto.x509_certificate:
+#    path: "{{ test_cert2_path }}"
+#    csr_path: "{{ test_csr2_path }}"
+#    privatekey_path: "{{ test_key2_path }}"
+#    provider: selfsigned

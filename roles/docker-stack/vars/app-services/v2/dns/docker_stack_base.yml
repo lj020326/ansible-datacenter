@@ -1,6 +1,7 @@
 ---
 #__docker_stack_appspecs__base_traefik_image: traefik:v2.3
-__docker_stack_appspecs__base_traefik_image: traefik:picodon # the picodon tag refers to v2.3.x
+#__docker_stack_appspecs__base_traefik_image: traefik:picodon # the picodon tag refers to v2.3.x
+__docker_stack_appspecs__base_traefik_image: traefik:latest
 
 __docker_stack_appspecs__base_traefik_auth_labels:
     ## Middlewares
@@ -14,17 +15,15 @@ __docker_stack_appspecs__base_traefik_labels_default:
   traefik.http.routers.http-catchall.rule: HostRegexp(`{host:.+}`)
   traefik.http.routers.http-catchall.middlewares: redirect-to-https
   traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
-  # HTTP Routers
-  traefik.http.routers.traefik-rtr.entrypoints: https
-  traefik.http.routers.traefik-rtr.rule: Host(`traefik.{{ docker_stack_internal_domain }}`)
   ## Services - API
   traefik.http.routers.traefik-rtr.service: api@internal
-#  ## Middlewares
+  traefik.http.routers.traefik-rtr.entrypoints: https
+  traefik.http.routers.traefik-rtr.rule: Host(`traefik.{{ docker_stack_internal_domain }}`)
 #  traefik.http.routers.traefik-rtr.middlewares: chain-oauth@file
   ## Healthcheck/ping
-  #traefik.http.routers.ping.rule: Host(`traefik.{{ docker_stack_internal_domain }}`) && Path(`/ping`)
-  #traefik.http.routers.ping.tls: true
-  #traefik.http.routers.ping.service: ping@internal
+  traefik.http.routers.ping.service: ping@internal
+  traefik.http.routers.ping.rule: Path(`/ping`)
+  traefik.http.routers.ping.entrypoints: https
 
 #__docker_stack_appspecs__base_traefik_labels: "{{ __docker_stack_appspecs__base_traefik_labels_default | combine(__docker_stack_appspecs__base_traefik_auth_labels if 'auth' in docker_stack_services else {}) }}"
 __docker_stack_appspecs__base_traefik_labels: "{{ docker_stack_traefik__traefik_labels | d(__docker_stack_appspecs__base_traefik_labels_default) }}"
@@ -250,6 +249,11 @@ docker_stack_appspec_services__base:
 #      - socket_proxy
 #    depends_on:
 #      - socket-proxy
+    ports:
+     - target: 9000
+       published: 9010
+       protocol: tcp
+       mode: host
     security_opt:
       - no-new-privileges:true
     volumes:
@@ -287,6 +291,11 @@ docker_stack_appspec_services__base:
       DOZZLE_FILTER: "status=running"
       # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
       DOCKER_HOST: tcp://socket-proxy:2375
+    ports:
+     - target: 8080
+       published: 8080
+       protocol: tcp
+       mode: host
     # volumes:
     #  - /var/run/docker.sock:/var/run/docker.sock # Use Docker Socket Proxy instead for improved security
     labels:

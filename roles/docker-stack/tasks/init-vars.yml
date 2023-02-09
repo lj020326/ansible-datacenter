@@ -15,7 +15,7 @@
     - debug:
         var: getent_passwd
 
-    - name: Get docker group info
+    - name: "{{ log_prefix_local }} Get docker group info"
       getent:
         database: group
         split: ':'
@@ -25,8 +25,8 @@
 
     - name: "{{ log_prefix_local }} Set docker user info facts"
       set_fact:
-#        docker_user_uid: "{{ getent_passwd[docker_user_username][1] }}"
-#        docker_user_gid: "{{ getent_passwd[docker_user_username][2] }}"
+        docker_user_uid: "{{ getent_passwd[docker_user_username][1] }}"
+        docker_user_gid: "{{ getent_passwd[docker_user_username][2] }}"
         docker_user_home: "{{ getent_passwd[docker_user_username][4] }}"
         docker_group_gid: "{{ getent_group['docker'][1] }}"
 
@@ -48,28 +48,41 @@
 
     - name: "{{ log_prefix_local }} Set docker user info facts"
       set_fact:
-#        docker_user_uid: "{{ getent_passwd[docker_user_username][1] }}"
-#        docker_user_gid: "{{ getent_passwd[docker_user_username][2] }}"
+        docker_user_uid: "{{ getent_passwd[docker_user_username][1] }}"
+        docker_user_gid: "{{ getent_passwd[docker_user_username][2] }}"
         docker_user_home: "{{ getent_passwd[docker_user_username][4] }}"
+
+- name: "{{ log_prefix_local }} Display docker_stack_services"
+  debug:
+     var: docker_stack_services
 
 - name: "{{ log_prefix_local }} Display __docker_stack_services"
   debug:
      var: __docker_stack_services
 
-- name: "{{ log_prefix_local }} Set the app proxy services vars"
-  include_vars:  "app-services/base/docker_stack_proxy_{{ item }}.yml"
-  with_items: "{{ __docker_stack_proxy_services }}"
+- name: "{{ log_prefix_local }} Setup docker_stack_proxy_services"
+  when: __docker_stack_proxy_services | d([]) | length>0
+  block:
 
-- name: "{{ log_prefix_local }} Set the app proxy services vars specific to traefik version"
-  include_vars:  "app-services/{{ docker_stack_traefik_version }}/docker_stack_proxy_{{ item }}.yml"
-  with_items: "{{ __docker_stack_proxy_services }}"
+  - name: "{{ log_prefix_local }} Display __docker_stack_proxy_services"
+    debug:
+       var: __docker_stack_proxy_services
+       verbosity: 2
+
+  - name: "{{ log_prefix_local }} Set the app proxy services vars"
+    include_vars:  "app-services/base/docker_stack_proxy_{{ item }}.yml"
+    with_items: "{{ __docker_stack_proxy_services }}"
+
+  - name: "{{ log_prefix_local }} Set the app proxy services vars specific to traefik version"
+    include_vars:  "app-services/{{ docker_stack_traefik_version }}/{{ docker_stack_traefik_routing_method }}/docker_stack_proxy_{{ item }}.yml"
+    with_items: "{{ __docker_stack_proxy_services }}"
 
 - name: "{{ log_prefix_local }} Set the app services vars"
   include_vars:  "app-services/base/docker_stack_{{ item }}.yml"
   with_items: "{{ __docker_stack_services }}"
 
 - name: "{{ log_prefix_local }} Set the app services vars specific to traefik version"
-  include_vars:  "app-services/{{ docker_stack_traefik_version }}/docker_stack_{{ item }}.yml"
+  include_vars:  "app-services/{{ docker_stack_traefik_version }}/{{ docker_stack_traefik_routing_method }}/docker_stack_{{ item }}.yml"
   with_items: "{{ __docker_stack_services }}"
 
 - name: "{{ log_prefix_local }} Display docker stack info"
@@ -99,6 +112,7 @@
   when: docker_stack_proxy_configs is defined
   debug:
      var: docker_stack_proxy_configs
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_proxy_service_configs fact"
   when:
@@ -112,6 +126,7 @@
 - name: "{{ log_prefix_local }} Display docker_stack_proxy_service_configs"
   debug:
      var: docker_stack_proxy_service_configs
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_networks fact"
   when:
@@ -124,6 +139,7 @@
 - name: "{{ log_prefix_local }} Display docker_stack_networks"
   debug:
      var: docker_stack_networks
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_volumes fact"
   when:
@@ -136,6 +152,7 @@
 - name: "{{ log_prefix_local }} Display docker_stack_volumes"
   debug:
      var: docker_stack_volumes
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_config_dirs fact"
   when:
@@ -148,6 +165,7 @@
 - name: "{{ log_prefix_local }} Display docker_stack_config_dirs"
   debug:
      var: docker_stack_config_dirs
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_config_files fact"
   when:
@@ -160,6 +178,7 @@
 - name: "{{ log_prefix_local }} Display docker_stack_config_files"
   debug:
      var: docker_stack_config_files
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_config_tpls fact"
   when:
@@ -172,6 +191,7 @@
 - name: "{{ log_prefix_local }} Display docker_stack_config_tpls"
   debug:
      var: docker_stack_config_tpls
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_services_tpl fact"
   when:
@@ -183,6 +203,7 @@
 - name: "{{ log_prefix_local }} Display docker_stack_services_tpl"
   debug:
      var: docker_stack_services_tpl
+     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_container_configs fact"
   when:
