@@ -1,70 +1,42 @@
 ---
 
-- include_vars: "{{ item }}"
+- name: "webmin | Include OS vars"
+  include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
     - "{{ ansible_distribution }}.yml"
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
-- name: "Installing Packages required by webmin"
+- name: "webmin | Installing Packages required by webmin"
   when: bootstrap_webmin__packages|d([])|length>0
   package:
     name: "{{ bootstrap_webmin__packages }}"
     state: present
 
 # It makes perl automatically answer "yes" when CPAN asks "Would you like to configure as much as possible automatically? [yes]"
-- name: webmin | Install automatically perl module PERL_MM_USE_DEFAULT
+- name: "webmin | Install automatically perl module PERL_MM_USE_DEFAULT"
   shell: "echo $PERL_MM_USE_DEFAULT"
   changed_when: no
   environment:
    PERL_MM_USE_DEFAULT: 1
 
-- name: webmin | Echo PERL_MM_USE_DEFAULT again
+- name: "webmin | Echo PERL_MM_USE_DEFAULT again"
   shell: "echo $PERL_MM_USE_DEFAULT"
   changed_when: no
 
-- name: webmin | Check perl
+- name: "webmin | Check perl"
   shell: perl -e 'use FileHandle; print $FileHandle::VERSION'
   changed_when: no
   become: true
 
-- name: webmin | Install webmin
+- name: "webmin | Install webmin"
   include_tasks: "install-{{ ansible_os_family|lower }}.yml"
 
-- name: webmin | Download and install webmin modules
+- name: "webmin | Configure webmin users"
+  when: bootstrap_webmin__users|d([])|length > 0
+  include_tasks: setup-users.yml
+
+- name: "webmin | Download and install webmin modules"
   when: bootstrap_webmin__modules|d([])|length > 0
-  block:
-
-  - name: webmin | Display bootstrap_webmin__modules
-    debug:
-      var: bootstrap_webmin__modules
-
-  - name: "update-reports-repo | Create temporary download directory"
-    ansible.builtin.tempfile:
-      state: directory
-      suffix: ".webmin-module-downloads"
-    register: __webmin_downloads_tempdir
-    notify: "cleanup __webmin_downloads_tempdir"
-
-  - name: webmin | Download webmin modules
-    get_url:
-      url: "{{ item.url }}"
-      dest: "{{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
-      validate_certs: false
-    loop: "{{ bootstrap_webmin__modules }}"
-    register: __webmin_modules_download_result
-
-  - name: webmin | Display __webmin_modules_download_result
-    debug:
-      var: __webmin_modules_download_result
-
-  ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/webmin/how-to-install-a-webmin-module-by-command-line-bash.md
-  - name: webmin | Install webmin modules
-    shell: "{{ bootstrap_webmin__base_dir }}/install-module.pl {{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
-    loop: "{{ bootstrap_webmin__modules }}"
-    register: __webmin_modules_install_result
-
-  - name: webmin | Display __webmin_modules_install_result
-    debug:
-      var: __webmin_modules_install_result
+  include_tasks: setup-modules.yml
