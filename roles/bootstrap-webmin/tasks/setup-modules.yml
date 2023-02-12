@@ -1,0 +1,33 @@
+
+- name: "webmin | Display bootstrap_webmin__modules"
+  debug:
+    var: bootstrap_webmin__modules
+
+- name: "webmin | Create temporary download directory"
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: ".webmin-module-downloads"
+  register: __webmin_downloads_tempdir
+  notify: "cleanup __webmin_downloads_tempdir"
+
+- name: "webmin | Download webmin modules"
+  get_url:
+    url: "{{ item.url }}"
+    dest: "{{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
+    validate_certs: false
+  loop: "{{ bootstrap_webmin__modules }}"
+  register: __webmin_modules_download_result
+
+- name: "webmin | Display __webmin_modules_download_result"
+  debug:
+    var: __webmin_modules_download_result
+
+## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/webmin/how-to-install-a-webmin-module-by-command-line-bash.md
+- name: "webmin | Install webmin modules"
+  shell: "{{ bootstrap_webmin__base_dir }}/install-module.pl {{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
+  loop: "{{ bootstrap_webmin__modules }}"
+  register: __webmin_modules_install_result
+
+- name: "webmin | Display __webmin_modules_install_result"
+  debug:
+    var: __webmin_modules_install_result
