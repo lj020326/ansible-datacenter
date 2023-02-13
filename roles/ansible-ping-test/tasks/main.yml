@@ -4,16 +4,21 @@
   when: inventory_hostname in ansible_play_hosts_all
   block:
 
-    ## Since this is a ping test, we do not rely on gathered facts
-    ## MUST - so we use static inventory groups to determine ping type
+    ##############
+    ## DO NOT hardcode group_names values from inventory here
+    ##   best practice for role development - do not hardcode inventory specific variable states in roles
+    ##   instead, use module input vars set by the invoker to determine the ping module
+    ##############
     - name: "Ping test via module ping"
-      when: group_names | intersect(['linux','dc_os_linux','vmware_vsphere']) | list | length>0
+      when: ping_test__module=='ping'
+#      when: group_names | intersect(['linux','dc_os_linux','vmware_vsphere']) | list | length>0
       action: ping
       register: ping_test
       changed_when: no
 
     - name: "Ping test via module win_ping"
-      when: group_names | intersect(['windows','dc_os_windows']) | list | length>0
+      when: ping_test__module=='win_ping'
+#      when: group_names | intersect(['windows','dc_os_windows']) | list | length>0
       action: win_ping
       register: winping_test
       changed_when: no
@@ -23,7 +28,8 @@
     ## https://www.reddit.com/r/ansible/comments/9dn5ff/possible_values_for_ansible_network_os/
     - name: "Ping test via module net_ping"
       delegate_to: localhost
-      when: group_names | intersect(['network_switch']) | list | length>0
+      when: ping_test__module=='net_ping'
+#      when: group_names | intersect(['network_switch']) | list | length>0
       net_ping:
         dest: "{{ ansible_host }}"
       register: netping_test

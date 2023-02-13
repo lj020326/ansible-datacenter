@@ -1,0 +1,103 @@
+---
+
+- name: "Init-Vars | Include OS-specific variables."
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+- name: "Init-Vars | Display bootstrap_ntp_var_source"
+  debug:
+    var: bootstrap_ntp_var_source
+    verbosity: 1
+
+- name: "Init-Vars | Display group_names"
+  debug:
+    var: group_names
+    verbosity: 1
+
+- name: "Init-Vars | Display bootstrap_ntp_allow_networks"
+  debug:
+    var: bootstrap_ntp_allow_networks
+    verbosity: 1
+
+- name: "Init-Vars | Display bootstrap_ntp_servers"
+  debug:
+    var: bootstrap_ntp_servers
+
+- name: "Init-Vars | Set __bootstrap_ntp_servers"
+  set_fact:
+    __bootstrap_ntp_servers: "{{ bootstrap_ntp_servers | d(bootstrap_ntp_servers_default) }}"
+
+- name: "Init-Vars | Display __bootstrap_ntp_servers"
+  debug:
+    var: __bootstrap_ntp_servers
+
+- name: "Init-Vars | Display bootstrap_ntp_var_source"
+  debug:
+    var: bootstrap_ntp_var_source
+    verbosity: 1
+
+- name: "Init-Vars | Display bootstrap_ntp_peers"
+  when: bootstrap_ntp_peers|d([])|length>0
+  debug:
+    var: bootstrap_ntp_peers
+    verbosity: 1
+
+- name: "Init-Vars | Display bootstrap_ntp_cmdport_disabled"
+  debug:
+    var: bootstrap_ntp_cmdport_disabled
+    verbosity: 1
+
+- name: "Init-Vars | Display bootstrap_ntp_restrict"
+  debug:
+    var: bootstrap_ntp_restrict
+    verbosity: 1
+
+- name: "Init-Vars | Set __bootstrap_ntp_restrict"
+  set_fact:
+    __bootstrap_ntp_restrict: "{{ bootstrap_ntp_restrict|d([]) }}"
+
+## https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
+- name: "Init-Vars | Add bootstrap_ntp_allow_networks to __bootstrap_ntp_restrict by converting the CIDR to netmask"
+  when: item | ipaddr('net')| d(False) | bool
+  set_fact:
+    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) + [ item|ipaddr('network') +' mask ' + item|ipaddr('netmask')|string + ' notrust'] }}"
+  loop: "{{ bootstrap_ntp_allow_networks }}"
+
+- name: "Init-Vars | Uniquify __bootstrap_ntp_restrict"
+  set_fact:
+    __bootstrap_ntp_restrict: "{{ __bootstrap_ntp_restrict|d([]) | sort | unique }}"
+
+- name: "Init-Vars | Display __bootstrap_ntp_restrict"
+  debug:
+    var: __bootstrap_ntp_restrict
+    verbosity: 1
+
+- name: "Init-Vars | Set __bootstrap_ntp_allow_networks"
+  set_fact:
+    __bootstrap_ntp_allow_networks: "{{ bootstrap_ntp_allow_networks|d([]) }}"
+
+## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
+- name: "Init-Vars | Add bootstrap_ntp_restrict to __bootstrap_ntp_allow_networks by converting the netmask to CIDR"
+  when: item | ipaddr('net')| d(False) | bool
+  set_fact:
+    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([])
+      + [ item | regex_replace('(.*) mask ([.0-9]+)\\s?(.*)', '\\1/\\2') | ipaddr('network/prefix') ] }}"
+  loop: "{{ bootstrap_ntp_restrict }}"
+
+- name: "Init-Vars | Uniquify __bootstrap_ntp_allow_networks"
+  set_fact:
+    __bootstrap_ntp_allow_networks: "{{ __bootstrap_ntp_allow_networks|d([]) | sort | unique }}"
+
+- name: "Init-Vars | Display __bootstrap_ntp_allow_networks"
+  debug:
+    var: __bootstrap_ntp_allow_networks
+    verbosity: 1
+
+- name: "Init-Vars | Set bootstrap_ntp_daemon"
+  when: bootstrap_ntp_daemon is not defined
+  set_fact:
+    bootstrap_ntp_daemon: "{{ bootstrap_ntp_daemon }}"
