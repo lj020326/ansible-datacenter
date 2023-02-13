@@ -368,3 +368,5 @@ alias sshawxp2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S4}"
 
 alias mountalsac="mount-sshfs-alsac.sh"
 alias unmountalsac="unmount-sshfs-alsac.sh"
+
+alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
