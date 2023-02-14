@@ -1,5 +1,34 @@
 ---
 
+- name: "webmin | Create {{ bootstrap_webmin__user_group }} group"
+  group:
+    name: "{{ bootstrap_webmin__user_group }}"
+    gid: "{{ bootstrap_webmin__user_gid | d(omit) }}"
+    system: yes
+    state: present
+
+## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
+- name: "webmin | Create webmin users"
+  user:
+    name: "{{ item.username }}"
+    password: "{{ item.password|d(omit) | password_hash('sha512',65534
+      | random(seed=bootstrap_webmin__user_hash_seed) | string) }}"
+    uid: "{{ item.uid | d(omit) }}"
+    group: "{{ bootstrap_webmin__user_group }}"
+    update_password: on_create
+    state: present
+    createhome: yes
+    shell: "{{ bootstrap_webmin__user_shell | d(omit) }}"
+    groups: "{{ bootstrap_webmin__user_groups[ansible_distribution] | join(',') }}"
+    append: yes
+    home: "{{ bootstrap_docker__user_home | d(omit) }}"
+  loop: "{{ bootstrap_webmin__users }}"
+  register: __bootstrap_webmin__user_result
+
+- debug:
+    var: __bootstrap_webmin__user_result
+    verbosity: 1
+
 - name: "webmin | Ensure /etc/webmin/miniserv.users"
   template:
     src: miniserv.users.ini.j2
@@ -9,13 +38,13 @@
 
 - name: "webmin | Ensure /etc/webmin/webmin.acl"
   template:
-    src: miniserv.users.ini.j2
-    dest: /etc/webmin/miniserv.users
+    src: webmin.acl.ini.j2
+    dest: /etc/webmin/webmin.acl
     mode: '0600'
     backup: yes
 
 - name: "webmin | Set webmin user passwords"
-  no_log: yes
+#  no_log: yes
   shell: "{{ bootstrap_webmin__base_dir }}/changepass.pl /etc/webmin admin {{ item.password }}"
   loop: "{{ bootstrap_webmin__users }}"
   register: __set_webmin_user_passwords_result

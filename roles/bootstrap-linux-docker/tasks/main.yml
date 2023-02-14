@@ -23,11 +23,11 @@
   include_vars: "ansible_os_family/{{ ansible_os_family.split(' ', 1)[0]|lower }}.yml"
 
 - name: "Docker | EE | Check Requirements"
+  when:
+    - bootstrap_docker__edition == "ee"
+    - bootstrap_docker__ee_url is not defined
   fail:
     msg: "Variable bootstrap_docker__ee_url is required and is not defined."
-  when:
-    - bootstrap_docker__ee_url is not defined
-    - bootstrap_docker__edition == "ee"
 
 - name: "Docker | Storage Driver"
   include_tasks: "storage_drivers/{{ bootstrap_docker__storage_driver }}.yml"
@@ -36,6 +36,10 @@
 - name: "Docker | Start Installation using {{ ansible_pkg_mgr }} package manager"
   include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_pkg_mgr }}.yml"
   when: bootstrap_docker__repo == "docker"
+
+- name: "Docker | Start Installation using {{ ansible_pkg_mgr }} package manager using RHSM"
+  include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_pkg_mgr }}-rhsm.yml"
+  when: bootstrap_docker__repo == "rhsm"
 
 - name: "Docker | Start Installation | Other repo"
   include_tasks: other_repo.yml
@@ -67,3 +71,20 @@
 - name: "Docker | Setup docker-compose"
   when: bootstrap_docker__install_compose | bool
   include_tasks: docker_compose.yml
+
+- name: "Docker | Get docker system info on docker host"
+  community.docker.docker_host_info:
+  register: __docker_info__result
+
+- name: "Docker | Get docker system info on docker host"
+  community.docker.docker_host_info:
+  register: __docker_info_result
+
+- name: "Docker | Display __docker_info_result"
+  ansible.builtin.debug:
+    var: __docker_info_result
+
+- name: "Docker | Assert docker setup successful"
+  ansible.builtin.assert:
+    that:
+      - not __docker_info_result.failed
