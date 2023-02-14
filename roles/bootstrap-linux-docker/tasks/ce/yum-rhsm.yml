@@ -1,0 +1,43 @@
+---
+
+- name: "Docker | CE | YUM | Remove older Docker installations"
+  ansible.builtin.package:
+    name:
+      - docker
+      - docker-common
+      - docker-engine
+    state: absent
+
+- name: "Docker | CE | YUM | Check if external docker repo config exists at /etc/yum.repos.d/docker-ce.repo"
+  stat:
+    path: /etc/yum.repos.d/docker-ce.repo
+  register: __repo_result
+
+- name: "Docker | CE | YUM | Remove external docker repo if exists."
+  when: __repo_result.stat.exists
+  block:
+    - name: "Docker | CE | YUM | Remove external docker-ce installation"
+      ansible.builtin.package:
+        name: docker-ce
+        state: absent
+        autoremove: yes
+
+    - name: "Docker | CE | YUM | Remove external docker repo."
+      file:
+        name: /etc/yum.repos.d/docker-ce.repo
+        state: absent
+
+- name: "Docker | CE | YUM | Install the RedHat RHSM Docker repository"
+  community.general.rhsm_repository:
+    name: "{{ bootstrap_docker__rhsm_channel }}"
+    state: enabled
+
+- name: "Docker | CE | YUM | Install docker-ce"
+  ansible.builtin.package:
+    name: docker-ce
+    state: present
+  notify: Docker | Restart Docker
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2

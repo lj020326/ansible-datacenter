@@ -26,40 +26,39 @@
 #    - bootstrap_docker__update_exist_compose_version|d(False)|bool
   block:
 
-  - name: Docker | Docker Compose | Set __compose_latest_version_result
-    shell: |
-      curl -w '%{url_effective}' -I -L -s -S {{ bootstrap_docker__compose_url_latest }} -o /dev/null \
-        | sed 's/.*tag\/\(.*\)/\1/'
-    register: __compose_latest_version_result
+    - name: Docker | Docker Compose | Set __compose_latest_version_result
+      uri:
+        url: "{{ bootstrap_docker__compose_url_latest }}"
+      register: __compose_latest_version_result
 
-  - name: Docker | Docker Compose | Set __compose_latest_version_result
-    uri:
-      url: "{{ bootstrap_docker__compose_url_latest }}"
-    register: __compose_latest_version_result
+    - name: Docker | Docker Compose | Display __compose_latest_version_result
+      debug:
+        var: __compose_latest_version_result
+        verbosity: 2
 
-  - name: Docker | Docker Compose | Display __compose_latest_version_result
-    debug:
-      var: __compose_latest_version_result
+    - name: Docker | Docker Compose | Set __docker_compose_latest_version_url
+      set_fact:
+        __docker_compose_latest_version_url: "{{ __compose_latest_version_result.url }}"
 
-  - name: Docker | Docker Compose | Set __docker_compose_latest_version_url
-    set_fact:
-      __docker_compose_latest_version_url: "{{ __compose_latest_version_result.url }}"
+    - name: Docker | Docker Compose | Display __docker_compose_latest_version_url
+      debug:
+        var: __docker_compose_latest_version_url
 
-  - name: Docker | Docker Compose | Display __docker_compose_latest_version_url
-    debug:
-      var: __docker_compose_latest_version_url
+    - name: Docker | Docker Compose | Set __docker_compose_latest_version
+      set_fact:
+        __docker_compose_latest_version: "{{ __docker_compose_latest_version_url | regex_replace('.*tag\\/(.*)', '\\1') }}"
 
-  - name: Docker | Docker Compose | Set __docker_compose_latest_version
-    set_fact:
-      __docker_compose_latest_version: "{{ __docker_compose_latest_version_url | regex_replace('.*tag\\/(.*)', '\\1') }}"
+    - name: Docker | Docker Compose | Display __docker_compose_latest_version
+      debug:
+        var: __docker_compose_latest_version
 
-  - name: Docker | Docker Compose | Display __docker_compose_latest_version
-    debug:
-      var: __docker_compose_latest_version
+    - name: Docker | Docker Compose | Display __docker_compose_latest_version
+      debug:
+        var: __docker_compose_latest_version
 
-  - name: Docker | Docker Compose | Set __bootstrap_docker__compose_version
-    set_fact:
-      __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d(__docker_compose_latest_version) }}"
+    - name: Docker | Docker Compose | Set __bootstrap_docker__compose_version
+      set_fact:
+        __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d(__docker_compose_latest_version) }}"
 
 - name: Docker | Docker Compose | Init __replace_docker_compose
   set_fact:

@@ -9,20 +9,25 @@
     state: absent
 
 - name: "Docker | CE | YUM | Remove conflicting runc installations"
-  package:
+  ansible.builtin.package:
     name: runc
     state: absent
 
 - name: "Docker | CE | YUM | Add repository key"
   block:
     - name: "Docker | CE | YUM | Add repository key"
-      rpm_key:
+      ansible.builtin.rpm_key:
         key: "{{ bootstrap_docker__ce_gpg_key }}"
         state: present
 
   rescue:
     - name: "Docker | CE | YUM | Ensure curl is present (systems without SNI)."
-      package: name=curl
+      ansible.builtin.package:
+        name: curl
+      register: task_result
+      until: task_result is success
+      retries: 10
+      delay: 2
     - name: "Docker | CE | YUM | Download GPG key (systems without SNI)."
       shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o /tmp/docker-gpg"
     - name: "Docker | CE | YUM | Add Docker GPG key (systems without SNI)."
@@ -35,7 +40,7 @@
 - name: "Docker | CE | YUM | Deploy repository"
   block:
     - name: "Docker | CE | YUM | Deploy repository"
-      get_url:
+      ansible.builtin.get_url:
         url: "{{ bootstrap_docker__ce_repo_file_url }}"
         dest: /etc/yum.repos.d/docker-ce.repo
         owner: root
@@ -43,7 +48,8 @@
         mode: 0644
   rescue:
     - name: "Docker | CE | YUM | Install yum-utils (systems without SNI)"
-      yum: name=yum-utils
+      ansible.builtin.yum:
+        name: yum-utils
       register: task_result
       until: task_result is success
       retries: 10
@@ -54,7 +60,7 @@
         creates: /etc/yum.repos.d/docker-ce.repo
 
 - name: "Docker | CE | YUM | Enable edge repository"
-  yum_repository:
+  ansible.builtin.yum_repository:
     name: docker-ce-edge
     description: "Docker CE Edge - $basearch"
     baseurl: "{{ bootstrap_docker__ce_edge_repo_url }}"
@@ -71,7 +77,7 @@
     - os/default.yml
 
 - name: "Docker | CE | YUM | Install docker-ce"
-  package:
+  ansible.builtin.package:
     name: docker-ce
     state: present
   notify: Docker | Restart Docker
