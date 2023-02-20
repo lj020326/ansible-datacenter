@@ -245,27 +245,27 @@ The basic directory structure will look something like this:
 .
 ├── ansible.cfg
 ├── environments/         # Parent directory for our environment-specific directories
-│   │
-│   ├── dev/              # Contains all files specific to the dev environment
-│   │   ├── group_vars/   # dev specific group_vars files
-│   │   │   ├── all
-│   │   │   ├── db
-│   │   │   └── web
-│   │   └── hosts         # Contains only the hosts in the dev environment
-│   │
-│   ├── prod/             # Contains all files specific to the prod environment
-│   │   ├── group_vars/   # prod specific group_vars files
-│   │   │   ├── all
-│   │   │   ├── db
-│   │   │   └── web
-│   │   └── hosts         # Contains only the hosts in the prod environment
-│   │
-│   └── stage/            # Contains all files specific to the stage environment
-│       ├── group_vars/   # stage specific group_vars files
-│       │   ├── all
-│       │   ├── db
-│       │   └── web
-│       └── hosts         # Contains only the hosts in the stage environment
+│   │
+│   ├── dev/              # Contains all files specific to the dev environment
+│   │   ├── group_vars/   # dev specific group_vars files
+│   │   │   ├── all
+│   │   │   ├── db
+│   │   │   └── web
+│   │   └── hosts         # Contains only the hosts in the dev environment
+│   │
+│   ├── prod/             # Contains all files specific to the prod environment
+│   │   ├── group_vars/   # prod specific group_vars files
+│   │   │   ├── all
+│   │   │   ├── db
+│   │   │   └── web
+│   │   └── hosts         # Contains only the hosts in the prod environment
+│   │
+│   └── stage/            # Contains all files specific to the stage environment
+│       ├── group_vars/   # stage specific group_vars files
+│       │   ├── all
+│       │   ├── db
+│       │   └── web
+│       └── hosts         # Contains only the hosts in the stage environment
 │
 ├── playbook.yml
 │
@@ -296,35 +296,35 @@ When you have completed the above steps for each of your environments, your dire
 .
 ├── ansible.cfg
 ├── environments/
-│   │
-│   ├── 000_cross_env_vars
-│   │
-│   ├── dev/
-│   │   ├── group_vars/
-│   │   │   ├── all/
-│       │   │   ├── 000_cross_env_vars -> ../../../000_cross_env_vars
-│   │   │   │   └── env_specific
-│   │   │   ├── db
-│   │   │   └── web
-│   │   └── hosts
-│   │
-│   ├── prod/
-│   │   ├── group_vars/
-│   │   │   ├── all/
-│   │   │   │   ├── 000_cross_env_vars -> ../../../000_cross_env_vars
-│   │   │   │   └── env_specific
-│   │   │   ├── db
-│   │   │   └── web
-│   │   └── hosts
-│   │
-│   └── stage/
-│       ├── group_vars/
-│       │   ├── all/
-│       │   │   ├── 000_cross_env_vars -> ../../../000_cross_env_vars
-│       │   │   └── env_specific
-│       │   ├── db
-│       │   └── web
-│       └── hosts
+│   │
+│   ├── 000_cross_env_vars
+│   │
+│   ├── dev/
+│   │   ├── group_vars/
+│   │   │   ├── all/
+│       │   │   ├── 000_cross_env_vars -> ../../../000_cross_env_vars
+│   │   │   │   └── env_specific
+│   │   │   ├── db
+│   │   │   └── web
+│   │   └── hosts
+│   │
+│   ├── prod/
+│   │   ├── group_vars/
+│   │   │   ├── all/
+│   │   │   │   ├── 000_cross_env_vars -> ../../../000_cross_env_vars
+│   │   │   │   └── env_specific
+│   │   │   ├── db
+│   │   │   └── web
+│   │   └── hosts
+│   │
+│   └── stage/
+│       ├── group_vars/
+│       │   ├── all/
+│       │   │   ├── 000_cross_env_vars -> ../../../000_cross_env_vars
+│       │   │   └── env_specific
+│       │   ├── db
+│       │   └── web
+│       └── hosts
 │
 ├── playbook.yml
 │
@@ -358,12 +358,12 @@ You should now be able to use your default inventory without the `-i` option. Th
 
 ## Example ansible repo using this configuration
 
-See the [ansible-datacenter](../../../../ansible-datacenter) repo here for realistic usage of this multi-stage environment.
+See the [ansible-datacenter inventory](../../../ansible-datacenter/inventory/) repo here for realistic usage of this multi-stage environment.
 
 
 ## Conclusion
 
-In this article, we’ve explored the flexibility that Ansible provides for managing your hosts across multiple environments. This allows users to adopt many different strategies for handling variable precedence when a host is a member of multiple groups, but the ambiguity and lack of official direction can be challenging. As with any technology, the best fit for your organization will depend on your use-cases and the complexity of your requirements. The best way to find a strategy that fits your needs is to experiment. Share your use case and approach in the comments below.
+In this article, we’ve explored the flexibility that Ansible provides for managing your hosts across multiple environments. This allows users to adopt many different strategies for handling variable precedence when a host is a member of multiple groups, but the ambiguity and lack of official direction can be challenging. As with any technology, the best fit for your organization will depend on your use-cases and the complexity of your requirements. The best way to find a strategy that fits your needs is to experiment. 
 
 ## Reference
 

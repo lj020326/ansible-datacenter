@@ -3,69 +3,22 @@
 - set_fact:
     log_prefix_local: "setup-service-configs |"
 
-- name: "{{ log_prefix_local }} Configure htpasswd users file"
-  when:
-    - docker_stack_http_username|d('')|length>0
-    - docker_stack_http_password|d('')|length>0
-  block:
-    - name: "{{ log_prefix_local }} Configure htpasswd users file"
-    #  no_log: yes
-      community.general.htpasswd:
-        path: "{{ docker_stack_dir }}/shared/.htpasswd"
-        name: "{{ docker_stack_http_username }}"
-        password: "{{ docker_stack_http_password }}"
-        owner: "{{ docker_user_username }}"
-        group: "{{ docker_user_group }}"
-        mode: "0600"
-        crypt_scheme: "bcrypt"
+- name: "{{ log_prefix_local }} Display docker_stack_networks"
+  debug:
+    var: docker_stack_networks
+    verbosity: 1
 
-    ## ref: https://stackoverflow.com/questions/24003880/ansible-set-variable-to-file-content/24014549
-    - name: "{{ log_prefix_local }} Load htpasswd data"
-      slurp:
-        src: "{{ docker_stack_dir }}/shared/.htpasswd"
-      register: htpasswd
+- name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
+  when: item.value.external|d(False)|bool
+  community.docker.docker_network:
+    name: "{{ item.key }}"
+  with_dict: "{{ docker_stack_networks }}"
 
-- name: "{{ log_prefix_local }} Ensure docker dirs exist"
-  file:
-    state: directory
-    path: "{{ item.path }}"
-    owner: "{{ item.owner | default( docker_user_username ) }}"
-    group: "{{ item.group | default( docker_user_group ) }}"
-    mode: "{{ item.mode | default(omit) }}"
-    recurse: "{{ item.recurse | default( omit ) }}"
-  with_items: "{{ docker_stack_config_dirs }}"
-
-- name: "{{ log_prefix_local }} Install docker stack proxy service templates"
-  when: __docker_stack_proxy_services | length > 0
-  template:
-    backup: "{{ item.backup | default(True) }}"
-    src: "traefik/rules/proxy-services.yml.j2"
-    dest: "{{ __docker_stack_appspecs__base_traefik_dir }}/rules/proxy-services.yml"
-    mode: "{{ item.mode | default('0664') }}"
-    owner: "{{ docker_user_username }}"
-    group: "{{ docker_user_group }}"
-
-- name: "{{ log_prefix_local }} Install docker stack app config template"
-  template:
-#    backup: "{{ item.backup | default(omit) }}"
-    backup: "{{ item.backup | default(True) }}"
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
-#    force: "{{ docker_stack_overwrite_configs }}"
-    mode: "{{ item.mode | default('0664') }}"
-    owner: "{{ docker_user_username }}"
-    group: "{{ docker_user_group }}"
-  with_items: "{{ docker_stack_config_tpls }}"
-
-- name: "{{ log_prefix_local }} Copy docker stack app config files"
-  copy:
-#    backup: "{{ item.backup | default(omit) }}"
-    backup: "{{ item.backup | default(true) }}"
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
-    owner: "{{ docker_user_username }}"
-    group: "{{ docker_user_group }}"
-    force: "{{ item.force | default(omit) }}"
-    remote_src: "{{ item.remote_src | default(omit) }}"
-    mode: "{{ item.mode | default('0664') }}"
-  with_items: "{{ docker_stack_config_files }}"
+- name: "{{ log_prefix_local }} Create docker secrets for stack if necessary"
+  when: item.value.external|d(False)|bool
+  community.docker.docker_secret:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    labels: "{{ item.labels | d(omit) }}"
+    state: present
+  with_dict: "{{ docker_stack_secrets }}"

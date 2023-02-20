@@ -3,6 +3,10 @@
 - set_fact:
     log_prefix_local: "init-vars |"
 
+- name: "{{ log_prefix_local }} Assert docker_stack_action is in supported actions"
+  assert:
+    that: docker_stack_action in __docker_stack_supported_actions
+
 - name: "{{ log_prefix_local }} Get docker group / user id"
   block:
 
@@ -52,13 +56,13 @@
         docker_user_gid: "{{ getent_passwd[docker_user_username][2] }}"
         docker_user_home: "{{ getent_passwd[docker_user_username][4] }}"
 
-- name: "{{ log_prefix_local }} Display docker_stack_services"
+- name: "{{ log_prefix_local }} Display docker_stack_service_configs"
   debug:
-     var: docker_stack_services
+     var: docker_stack_service_configs
 
-- name: "{{ log_prefix_local }} Display __docker_stack_services"
+- name: "{{ log_prefix_local }} Display __docker_stack_service_configs"
   debug:
-     var: __docker_stack_services
+     var: __docker_stack_service_configs
 
 - name: "{{ log_prefix_local }} Setup docker_stack_proxy_services"
   when: __docker_stack_proxy_services | d([]) | length>0
@@ -79,11 +83,11 @@
 
 - name: "{{ log_prefix_local }} Set the app services vars"
   include_vars:  "app-services/base/docker_stack_{{ item }}.yml"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Set the app services vars specific to traefik version"
   include_vars:  "app-services/{{ docker_stack_traefik_version }}/{{ docker_stack_traefik_routing_method }}/docker_stack_{{ item }}.yml"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Display docker stack info"
   debug:
@@ -97,7 +101,7 @@
 - name: "{{ log_prefix_local }} Set docker_stack_app_configs fact | Combine app varname configs into one dict"
   set_fact:
     docker_stack_app_configs: "{{ docker_stack_app_configs|d({}) | combine({ item: lookup('vars', q('varnames','^docker_stack_appspec__'+item.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
-  loop: "{{ __docker_stack_services }}"
+  loop: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Set docker_stack_proxy_configs fact | Combine proxy varname configs into one dict"
   set_fact:
@@ -134,7 +138,7 @@
     - docker_stack_app_configs[item].networks | length > 0
   set_fact:
     docker_stack_networks: "{{ docker_stack_networks|d({}) | combine(docker_stack_app_configs[item].networks) }}"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Display docker_stack_networks"
   debug:
@@ -147,7 +151,7 @@
     - docker_stack_app_configs[item].volumes | length > 0
   set_fact:
     docker_stack_volumes: "{{ docker_stack_volumes|d({}) | combine(docker_stack_app_configs[item].volumes) }}"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Display docker_stack_volumes"
   debug:
@@ -160,7 +164,7 @@
     - docker_stack_app_configs[item].dirs | length > 0
   set_fact:
     docker_stack_config_dirs: "{{ (docker_stack_config_dirs|d([]) + docker_stack_app_configs[item].dirs) | unique }}"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Display docker_stack_config_dirs"
   debug:
@@ -173,7 +177,7 @@
     - docker_stack_app_configs[item].files | length > 0
   set_fact:
     docker_stack_config_files: "{{ (docker_stack_config_files|d([]) + docker_stack_app_configs[item].files) | unique }}"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Display docker_stack_config_files"
   debug:
@@ -186,37 +190,34 @@
     - docker_stack_app_configs[item].templates | length > 0
   set_fact:
     docker_stack_config_tpls: "{{ (docker_stack_config_tpls|d([]) + docker_stack_app_configs[item].templates) | unique }}"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Display docker_stack_config_tpls"
   debug:
      var: docker_stack_config_tpls
      verbosity: 2
 
-- name: "{{ log_prefix_local }} Set docker_stack_services_tpl fact"
-  when:
-    - docker_stack_app_configs[item].docker_services is defined
+- name: "{{ log_prefix_local }} Set docker_stack_service_configs_tpl fact"
+  when: docker_stack_app_configs[item].docker_services is defined
   set_fact:
-    docker_stack_services_tpl: "{{ docker_stack_services_tpl|d({}) | combine({item: docker_stack_app_configs[item].docker_services}) }}"
-  with_items: "{{ __docker_stack_services }}"
+    docker_stack_service_configs_tpl: "{{ docker_stack_service_configs_tpl|d({}) | combine({item: docker_stack_app_configs[item].docker_services}) }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
-- name: "{{ log_prefix_local }} Display docker_stack_services_tpl"
+- name: "{{ log_prefix_local }} Display docker_stack_service_configs_tpl"
   debug:
-     var: docker_stack_services_tpl
+     var: docker_stack_service_configs_tpl
      verbosity: 2
 
 - name: "{{ log_prefix_local }} Set docker_stack_container_configs fact"
-  when:
-    - docker_stack_app_configs[item].container_configs is defined
-    - docker_stack_app_configs[item].container_configs | length > 0
+  when: docker_stack_app_configs[item].container_configs | d([]) | length > 0
   set_fact:
     docker_stack_container_configs: "{{ docker_stack_container_configs|d({}) | combine({item: docker_stack_app_configs[item].container_configs}) }}"
-  with_items: "{{ __docker_stack_services }}"
+  with_items: "{{ __docker_stack_service_configs }}"
 
 - name: "{{ log_prefix_local }} Set docker_stack_container_config_list fact"
+  when: "item.key in docker_stack_service_configs_tpl"
   set_fact:
     docker_stack_container_config_list: "{{ docker_stack_container_config_list| d([]) + [ { 'container_name' : item.key } | combine(item.value) ] }}"
-  when: "item.key in docker_stack_services_tpl"
   loop: "{{ docker_stack_container_configs | dict2items }}"
 
 - name: "{{ log_prefix_local }} Display docker_stack_container_config_list"

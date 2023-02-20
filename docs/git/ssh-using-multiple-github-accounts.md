@@ -100,7 +100,8 @@ To make the process of managing the SSH keys more stress-free, let’s create tw
 Launch your terminal. Navigate to the root directory and create the global git configuration file with the content below:
 
 ```shell
-$ cd ~$ nano ~/.gitconfig
+$ cd ~
+$ nano ~/.gitconfig
 ```
 
 Content:
