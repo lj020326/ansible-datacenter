@@ -115,6 +115,7 @@ alias dnsreset="ipconfig //flushdns"
 alias dot-turd-show="find . -type f -name '._*' -print"
 alias dot-turd-rm="find . -type f -name '._*' -print -delete"
 
+alias sshsetupkeyaliases="${ANSIBLE_DC_REPO}/files/private/env/git/setup-ssh-key-identities.sh"
 alias sshvcenter='ssh root@vcenter7.dettonville.int'
 alias sshvcenter7='ssh root@vcenter7.dettonville.int'
 alias sshvcenter6='ssh ansible@vcenter.dettonville.int'
@@ -207,7 +208,7 @@ alias gitcleanupoldlocal="git branch -vv | grep 'origin/.*: gone]' | awk '{print
 alias gitaddorigin="git remote add origin ssh://git@gitea.admin.dettonville.int:2222/infra/${PWD##*/}.git && git push -u origin master"
 
 #alias gitsetupstream="git branch --set-upstream-to=origin/master"
-alias gitsetupstream="git branch --set-upstream-to="
+alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
 
 ## make these function so they evaluate at time of exec and not upon shell startup
 ## Prevent bash alias from evaluating statement at shell start
@@ -345,8 +346,10 @@ alias sshanscicd="sshpass -p ${ANSIBLE_PASSWORD_LNX_WORK} ssh ${ANSIBLE_USER_LNX
 
 alias sshtestd1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD1S1}"
 alias sshtestd2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD2S1}"
+alias sshtestd3s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD3S1}"
 alias sshtestd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD1S4}"
 alias sshtestd2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD2S4}"
+alias sshtestd3s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD3S4}"
 
 alias sshatrnextd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRNEXTDS1S4}"
 alias sshatrup1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRUP1S4}"

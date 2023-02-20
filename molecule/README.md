@@ -20,7 +20,7 @@ $ MOLECULE_IMAGE_NAMESPACE=lj020326 \
 ```shell
 $ MOLECULE_IMAGE_NAMESPACE=lj020326 \
   MOLECULE_IMAGE=centos8-systemd-python \
-  molecule --debug converge -s bootstrap-linux --destroy never
+  molecule --debug converge -s bootstrap-linux
 ```
 
 ## Test molecule container

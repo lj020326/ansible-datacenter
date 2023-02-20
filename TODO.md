@@ -209,7 +209,8 @@ Specifically, target the roles that take lists most often needed by other roles 
 
 ### Graph/node view/editor of inventory
 
-Ideally find a good node querying/editor opensource codebase that can used/adapted/refactored to view/query and edit the ansible-inventory repo YAMLs.
+Ideally find a good node querying/editor opensource codebase that can used/adapted/refactored to 
+1) view/query in a blueprint-like way/fashion and 2) edit the ansible-inventory repo YAMLs.
 
   Food for thought / fuel for ideas for some possible candidate in adapting to handling inventory viewing/editing use case possibilities:
 
@@ -471,6 +472,10 @@ Some good modern UI implementations:
         https://netosec.com/protect-home-network/
     [ ] Setup OPT2 nic as subnet2 and have home network connect to OPT2
 
+## Media stack enhancements
+
+Check out container image features additions used in following:
+* https://github.com/martinbjeldbak/self-hosted/blob/main/docker-compose.yml
 
 ## Reference(s)
 
