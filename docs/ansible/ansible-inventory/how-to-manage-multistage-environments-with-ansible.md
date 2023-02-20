@@ -358,7 +358,7 @@ You should now be able to use your default inventory without the `-i` option. Th
 
 ## Example ansible repo using this configuration
 
-See the [ansible-datacenter inventory](../../../ansible-datacenter/inventory/) repo here for realistic usage of this multi-stage environment.
+See the [ansible-datacenter inventory](https://github.com/lj020326/ansible-datacenter/tree/main/inventory) repo here for realistic usage of this multi-stage environment.
 
 
 ## Conclusion
