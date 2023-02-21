@@ -13,21 +13,31 @@
   include_tasks: update-repo-apt.yml
 
 - name: "Install present packages"
-  when: __bootstrap_linux_package_list_present|d([])|length>0
+  when:
+    - __bootstrap_linux_package_list_by_priority[item].present is defined
+    - __bootstrap_linux_package_list_by_priority[item].present.keys()|d([])|length>0
   package:
-    name: "{{ __bootstrap_linux_package_list_present }}"
+    name: "{{ __bootstrap_linux_package_list_by_priority[item].present.keys() }}"
     state: "present"
     update_cache: "{{ bootstrap_linux_package_update_cache }}"
+  loop: "{{ __bootstrap_linux_package_list_by_priority.keys()|sort }}"
 
 - name: "Install latest packages"
-  when: __bootstrap_linux_package_list_latest|d([])|length>0
+  when:
+    - __bootstrap_linux_package_list_by_priority[item].latest is defined
+    - __bootstrap_linux_package_list_by_priority[item].latest.keys()|d([])|length>0
   package:
-    name: "{{ __bootstrap_linux_package_list_latest }}"
+    name: "{{ __bootstrap_linux_package_list_by_priority[item].latest.keys() }}"
     state: "latest"
     update_cache: "{{ bootstrap_linux_package_update_cache }}"
+  loop: "{{ __bootstrap_linux_package_list_by_priority.keys()|sort }}"
 
 - name: "Remove packages"
-  when: __bootstrap_linux_package_list_absent|d([])|length>0
+  when:
+    - __bootstrap_linux_package_list_by_priority[item].absent is defined
+    - __bootstrap_linux_package_list_by_priority[item].absent.keys()|d([])|length>0
   package:
-    name: "{{ __bootstrap_linux_package_list_absent }}"
+    name: "{{ __bootstrap_linux_package_list_by_priority[item].absent.keys() }}"
     state: "absent"
+    update_cache: "{{ bootstrap_linux_package_update_cache }}"
+  loop: "{{ __bootstrap_linux_package_list_by_priority.keys()|sort }}"
