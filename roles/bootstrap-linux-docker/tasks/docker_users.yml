@@ -1,13 +1,13 @@
 ---
 
-- name: "Ensure docker users are added to the docker group."
+- name: "Docker | Users | Ensure docker users are added to the docker group."
   user:
     name: "{{ item }}"
     groups: docker
     append: true
   loop: "{{ bootstrap_docker__users | flatten(levels=1) }}"
 
-- name: "Create {{ bootstrap_docker__user_group }} group"
+- name: "Docker | Users | Create {{ bootstrap_docker__user_group }} group"
   group:
     name: "{{ bootstrap_docker__user_group }}"
     gid: "{{ bootstrap_docker__user_gid | d(omit) }}"
@@ -15,7 +15,7 @@
     state: present
 
 ## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
-- name: "Create docker user"
+- name: "Docker | Users | Create docker user"
   user:
     name: "{{ bootstrap_docker__user_username }}"
     password: "{{ bootstrap_docker__user_password | password_hash('sha512',65534
@@ -31,17 +31,18 @@
     home: "{{ bootstrap_docker__user_home | d(omit) }}"
   register: __bootstrap_docker__user_result
 
-- debug:
+- name: "Docker | Users | Display __bootstrap_docker__user_result"
+  debug:
     var: __bootstrap_docker__user_result
     verbosity: 1
 
-- name: "Set docker user info facts"
+- name: "Docker | Users | Set docker user info facts"
   set_fact:
     bootstrap_docker__user_uid: "{{ __bootstrap_docker__user_result.uid }}"
     bootstrap_docker__user_gid: "{{ __bootstrap_docker__user_result.group }}"
     docker_user_home: "{{ __bootstrap_docker__user_result.home }}"
 
-- name: "Enable sudo for docker user"
+- name: "Docker | Users | Enable sudo for docker user"
   user:
     name: "{{ docker_user_username }}"
     groups: "{{ docker_sudo_group[ansible_distribution] }}"

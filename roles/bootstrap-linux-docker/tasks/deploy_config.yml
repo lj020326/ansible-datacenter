@@ -11,16 +11,11 @@
     - "/etc/docker"
     - "/etc/systemd/system/docker.service.d"
 
-# - name: "Docker | Deploy Config | Deploy /etc/docker/daemon.json"
-#   template: src=docker_config.j2 dest=/etc/docker/daemon.json
-#   notify: Docker | Restart Docker
-
 - name: "Docker | Deploy Config | Display bootstrap_docker__options"
   set_fact:
     var: bootstrap_docker__options
 #    verbosity: 1
 
-#### THESE ALLOW NOT USING TEMPLATE FILE ###
 - name: "Docker | Deploy Config | Set the Docker configuration"
   when: item.value | string | length > 0
   set_fact:
@@ -122,29 +117,32 @@
 #  vars:
 #    ansible_python_interpreter: "{{ '/usr/bin/env python-docker' if bootstrap_docker__pip_virtualenv | d() else ansible_python.executable }}"
 
-- name: "Docker | Deploy Config | Remove Docker related cron jobs"
-  when:
-    - item.state | d("present") == "absent"
-    - item.name | d() and item.job | d()
-    - item.schedule | d() and item.cron_file | d()
-  file:
-    path: "/etc/cron.d/{{ item.cron_file }}"
-    state: absent
-  loop: "{{ bootstrap_docker__cron_jobs }}"
+- name: "Docker | Deploy Config | Setup Docker related cron jobs"
+  when: bootstrap_docker__enable_cron_jobs|bool
+  block:
+    - name: "Docker | Deploy Config | Remove Docker related cron jobs"
+      when:
+        - item.state | d("present") == "absent"
+        - item.name | d() and item.job | d()
+        - item.schedule | d() and item.cron_file | d()
+      file:
+        path: "/etc/cron.d/{{ item.cron_file }}"
+        state: absent
+      loop: "{{ bootstrap_docker__cron_jobs }}"
 
-- name: "Docker | Deploy Config | Create Docker related cron jobs"
-  when:
-    - item.state | d("present") != "absent"
-    - item.name | d() and item.job | d()
-    - item.schedule | d() and item.cron_file | d()
-  cron:
-    name: "{{ item.name }}"
-    job: "{{ item.job }}"
-    minute: "{{ item.schedule[0] }}"
-    hour: "{{ item.schedule[1] }}"
-    day: "{{ item.schedule[2] }}"
-    month: "{{ item.schedule[3] }}"
-    weekday: "{{ item.schedule[4] }}"
-    cron_file: "{{ item.cron_file }}"
-    user: "{{ item.user | d('root') }}"
-  loop: "{{ bootstrap_docker__cron_jobs }}"
+    - name: "Docker | Deploy Config | Create Docker related cron jobs"
+      when:
+        - item.state | d("present") != "absent"
+        - item.name | d() and item.job | d()
+        - item.schedule | d() and item.cron_file | d()
+      cron:
+        name: "{{ item.name }}"
+        job: "{{ item.job }}"
+        minute: "{{ item.schedule[0] }}"
+        hour: "{{ item.schedule[1] }}"
+        day: "{{ item.schedule[2] }}"
+        month: "{{ item.schedule[3] }}"
+        weekday: "{{ item.schedule[4] }}"
+        cron_file: "{{ item.cron_file }}"
+        user: "{{ item.user | d('root') }}"
+      loop: "{{ bootstrap_docker__cron_jobs }}"

@@ -17,10 +17,12 @@
       ansible_distribution|lower == "oraclelinux"
 
 - name: "Docker | Include {{ ansible_distribution }} specific variables"
-  include_vars: "ansible_distribution/{{ ansible_distribution.split(' ', 1)[0]|lower }}.yml"
-
-- name: "Docker | Include {{ ansible_os_family }} Family specific variables"
-  include_vars: "ansible_os_family/{{ ansible_os_family.split(' ', 1)[0]|lower }}.yml"
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+    - "{{ ansible_distribution|lower }}.yml"
+    - "{{ ansible_os_family|lower }}.yml"
+    - "default.yml"
 
 - name: "Docker | EE | Check Requirements"
   when:
@@ -59,7 +61,7 @@
         bootstrap_docker__https_proxy is defined or
         bootstrap_docker__no_proxy_params is defined
 
-- name: "Docker | Setup users"
+- name: "Docker | Setup docker users"
   when: bootstrap_docker__users is defined
   include_tasks: docker_users.yml
 
@@ -71,10 +73,6 @@
 - name: "Docker | Setup docker-compose"
   when: bootstrap_docker__install_compose | bool
   include_tasks: docker_compose.yml
-
-- name: "Docker | Get docker system info on docker host"
-  community.docker.docker_host_info:
-  register: __docker_info__result
 
 - name: "Docker | Get docker system info on docker host"
   community.docker.docker_host_info:

@@ -1,5 +1,11 @@
 ---
 
+- name: "Docker | Docker Compose | Install docker-compose package from package manager {{ ansible_pkg_mgr }}"
+  when: bootstrap_docker__compose_package is defined
+  package:
+    state: present
+    name: "{{ bootstrap_docker__compose_package }}"
+
 - name: Docker | Docker Compose | Check current docker-compose version.
   command: "{{ bootstrap_docker__compose_path }} --version"
   register: __bootstrap_docker__compose_version
@@ -21,9 +27,6 @@
 - name: Docker | Docker Compose | Get __bootstrap_docker__compose_version
   when: bootstrap_docker__compose_version is not defined
   run_once: yes
-#  when:
-#    - bootstrap_docker__compose_version is not defined
-#    - bootstrap_docker__update_exist_compose_version|d(False)|bool
   block:
 
     - name: Docker | Docker Compose | Set __compose_latest_version_result
@@ -102,11 +105,10 @@
   pip:
     name: >
       {{ item.name }}{% if item.version|d() %}=={{ item.version }}{% endif %}
-#      {{ item.name }}{% if item.version|d('')|length>0 %}=={{ item.version }}{% endif %}
     state: "{{ item.state | d('present') }}"
     extra_args: "--user"
     executable: pip3
-  loop: "{{ bootstrap_docker__default_pip_packages + bootstrap_docker__pip_packages }}"
+  loop: "{{ __bootstrap_docker__pip_packages }}"
   when: item.name | d()
 
 - name: Docker | Docker Compose | pip self-update
@@ -118,18 +120,12 @@
 ## Unable to find pip in the virtualenv (python 3.10)
 ## https://github.com/ansible/ansible/issues/77604
 - name: Docker | Docker Compose | Install Python docker packages into docker-python virtualenv
-#  become: yes
   pip:
     name: >
       {{ item.name }}{% if item.version|d('')|length>0 %}=={{ item.version }}{% endif %}
     state: "{{ item.virtualenv_state | d('present') }}"
     virtualenv: "{{ bootstrap_docker__pip_virtualenv }}"
-#    virtualenv_site_packages: yes
-#    virtualenv_python: python3
-    virtualenv_command: "{{ bootstrap_docker__python_virtualenv_command | d(omit) }}"
-#    virtualenv_python: "{{ 'python3' if (bootstrap_docker__python_virtualenv_command is not defined) else omit }}"
-#    executable: "pip3"
-  loop: "{{ bootstrap_docker__default_pip_packages + bootstrap_docker__pip_packages }}"
+  loop: "{{ __bootstrap_docker__pip_packages }}"
   when: item.name | d()
   environment:
     SETUPTOOLS_USE_DISTUTILS: stdlib
@@ -139,14 +135,4 @@
     path: "{{ bootstrap_docker_python_docker_interpreter }}"
     src: "{{ bootstrap_docker__pip_virtualenv }}/bin/python"
     state: link
-
-#- name: Docker | Docker Compose | Symlink selected Python package binaries to /usr/local/bin
-#  file:
-#    path: "{{ item.path }}"
-#    src: "{{ item.src }}"
-#    state: "link"
-#  loop: "{{ bootstrap_docker__default_pip_packages + bootstrap_docker__pip_packages }}"
-#  when:
-#    - item.state | d("present") != "absent"
-#    - item.path | d() and item.src | d()
 

@@ -151,6 +151,30 @@ Install docker with AUFS. This is recommended for production deployment on Ubunt
     bootstrap_docker__storage_driver: aufs
 ```
 
+Install with configured options.
+
+```yaml
+- hosts: servers
+  roles:
+  - role: bootstrap-linux-docker
+    bootstrap_docker__users: ["test"]
+    bootstrap_docker__daemon_json: |
+      "dns": ["8.8.8.8"]
+    bootstrap_docker__daemon_environment:
+      - "HTTP_PROXY=http://proxy.a.com:80"
+      - "HTTPS_PROXY=https://proxy.a.com:443"
+    bootstrap_docker__daemon_flags:
+      - "-H fd://"
+      - "--debug"
+    bootstrap_docker__systemd_override: |
+      [Unit]
+      Invalid=Directive
+
+      [Service]
+      ThisIsJust=ATest
+
+```
+
 
 Please see [examples/](examples/) folder for more examples.
 
