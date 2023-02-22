@@ -42,13 +42,50 @@
   debug:
     var: bootstrap_pip_os_executable
 
+- name: "Display bootstrap_pip_version"
+  debug:
+    var: bootstrap_pip_version
+
 ## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip self-update"
+- name: "Pip self-update to version {{ bootstrap_pip_version }}"
+  when: bootstrap_pip_version!='latest'
   pip:
-    name: pip
-    state: latest
-    extra_args: "--user"
+    name: "pip=={{ bootstrap_pip_version }}"
+    state: present
     executable: "{{ bootstrap_pip_os_executable }}"
+
+## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
+- name: "Pip self-update to latest version"
+  when: bootstrap_pip_version=='latest'
+  pip:
+    name: "pip"
+    state: latest
+    executable: "{{ bootstrap_pip_os_executable }}"
+
+## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
+- name: "Pip3 self-update"
+  pip:
+    name: "pip"
+    state: latest
+    executable: pip3
+
+- name: "Get installed pip version"
+  command: "{{ bootstrap_pip_os_executable }} --version"
+  register: __pip_version_output
+  ignore_errors: yes
+  changed_when: false
+
+- name: "Display __pip_version_output"
+  debug:
+    var: __pip_version_output
+
+## ref: https://github.com/azavea/ansible-pip/blob/develop/tasks/main.yml#L23
+- name: "Verify pip version is {{ bootstrap_pip_version }}"
+  when: bootstrap_pip_version!='latest'
+  assert:
+    that: (__pip_version_output is not failed) and __pip_version_output.stdout is search('pip ' + bootstrap_pip_version)
+    fail_msg: |
+      Pip version found {{ __pip_version_output.stdout }} does not match expected version {{ bootstrap_pip_version }}.
 
 - name: Install Virtualenv
   pip:

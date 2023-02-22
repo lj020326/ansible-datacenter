@@ -8,31 +8,32 @@
       - docker-engine
     state: absent
 
+# ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
+- name: "Docker | CE | DNF | Remove conflicting runc/podman/buildah installations"
+  ansible.builtin.package:
+    name:
+      - runc
+      - podman
+      - buildah
+    state: absent
+
 - name: "Docker | CE | DNF | Check if external docker repo config exists at /etc/yum.repos.d/docker-ce.repo"
   stat:
     path: /etc/yum.repos.d/docker-ce.repo
   register: __repo_result
 
-- name: "Docker | CE | DNF | Remove external docker repo if exists."
+- name: "Docker | CE | DNF | Remove packages from prior repo if exists"
   when: __repo_result.stat.exists
   block:
-    - name: "Docker | CE | DNF | Remove old container-selinux"
+    - name: "Docker | CE | DNF | Remove packages from prior repos if already exists"
       ansible.builtin.package:
-        name: container-selinux
+        name: "{{ item }}"
         state: absent
         autoremove: yes
-
-    - name: "Docker | CE | DNF | Remove old containerd.io"
-      ansible.builtin.package:
-        name: containerd.io
-        state: absent
-        autoremove: yes
-
-    - name: "Docker | CE | DNF | Remove external docker-ce installation"
-      ansible.builtin.package:
-        name: docker-ce
-        state: absent
-        autoremove: yes
+      loop:
+        - container-selinux
+        - containerd.io
+        - docker-ce
 
     - name: "Docker | CE | DNF | Remove external docker repo."
       file:
@@ -45,10 +46,15 @@
     - name: "Docker | CE | DNF | Enable module container-tools that may have been disabled with prior setup"
       ini_file:
         path: /etc/dnf/modules.d/container-tools.module
+        backup: true
+        mode: "0644"
         section: container-tools
-        option: state
-        value: enabled
         no_extra_spaces: yes
+        option: "{{ item.key }}"
+        value: "{{ item.value }}"
+      with_dict:
+        stream: rhel8
+        state: enabled
 
 - name: "Docker | CE | DNF | Install the RedHat RHSM Docker repository"
   community.general.rhsm_repository:
@@ -58,15 +64,44 @@
 - name: "Docker | CE | DNF | Configure containerd on RHEL 8."
   when: ansible_distribution_major_version | int == 8
   block:
-    - name: "Docker | CE | DNF | Ensure container-selinux is installed."
+    - name: "Docker | CE | DNF | Ensure containerd packages"
       ansible.builtin.package:
-        name: container-selinux
+        name: "{{ item }}"
         state: present
+      loop:
+        - container-selinux
+        - containerd.io
+  rescue:
+    - name: "Docker | CE | DNF | Remove packages from prior repos if already exists"
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: absent
+        autoremove: yes
+      loop:
+        - container-selinux
+        - containerd.io
+        - docker-ce
 
-    - name: "Docker | CE | DNF | Ensure containerd.io is installed."
+    - name: "Docker | CE | DNF | Enable module container-tools that may have been disabled with prior setup"
+      ini_file:
+        path: /etc/dnf/modules.d/container-tools.module
+        backup: true
+        mode: "0644"
+        section: container-tools
+        no_extra_spaces: yes
+        option: "{{ item.key }}"
+        value: "{{ item.value }}"
+      with_dict:
+        stream: rhel8
+        state: enabled
+
+    - name: "Docker | CE | DNF | Ensure containerd packages are installed."
       ansible.builtin.package:
-        name: containerd.io
+        name: "{{ item }}"
         state: present
+      loop:
+        - container-selinux
+        - containerd.io
 
 - name: "Docker | CE | DNF | Install docker-ce"
   ansible.builtin.package:
