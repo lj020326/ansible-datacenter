@@ -11,11 +11,11 @@ This role utilizes the `community.docker` modules.
 
 The `community.docker` modules require that python libraries to be available (pyyaml, pyopenssl, cryptography, etc) as well as the docker python library on the target host. 
 
-The python library dependencies are expected to be already prepared in a prior plays by the 'bootstrap-pip' and 'bootstrap-linux-docker' roles which are available in this repo.
+The python library dependencies are expected to be already prepared in a prior plays by the 'bootstrap-pip' and 'bootstrap-docker' roles which are available in this repo.
 
 ### 2: docker runtime dependency
 
-The docker runtime environment is expected to be already prepared in a prior play by the 'bootstrap-linux-docker' role which is available in this repo.
+The docker runtime environment is expected to be already prepared in a prior play by the 'bootstrap-docker' role which is available in this repo.
 
 ## Playbook Usage
 
@@ -31,9 +31,9 @@ bootstrap-docker-stack.yml:
   roles:
     - role: bootstrap-pip
 
-    - role: bootstrap-linux-docker
+    - role: bootstrap-docker
       ## coerce the 'ansible_python_docker_interpreter' global variable into role input/scope variables
-      ## the `bootstrap-linux-docker` sets up the docker python virtualenv along with docker library dependency and symlinks the venv python to the specified value 
+      ## the `bootstrap-docker` sets up the docker python virtualenv along with docker library dependency and symlinks the venv python to the specified value 
       bootstrap_docker_python_docker_interpreter: "{{ ansible_python_docker_interpreter }}"
 
     - role: docker-stack
@@ -75,7 +75,7 @@ bootstrap-docker-stack.yml:
   become: True
   roles:
     - role: bootstrap-pip
-    - role: bootstrap-linux-docker
+    - role: bootstrap-docker
     - role: docker-stack
 
 ```

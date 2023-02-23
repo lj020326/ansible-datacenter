@@ -288,7 +288,7 @@ ansible -i inventory/hosts-openstack.ini openstack -m ping
 
 ansible-playbook site.yml --tags bootstrap-linux --limit dc_os_linux
 ansible-playbook site.yml --tags bootstrap-linux-firewalld --limit vmub2201
-ansible-playbook site.yml --tags bootstrap-linux-docker --limit docker
+ansible-playbook site.yml --tags bootstrap-docker --limit docker
 ansible-playbook site.yml --tags bootstrap-network --limit node01
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-deploy-node
@@ -507,7 +507,7 @@ ansible-playbook site.yml --tags bootstrap-kvm
 ansible-playbook site.yml --tags bootstrap-ldap-client
 ansible-playbook site.yml --tags bootstrap-linux
 ansible-playbook site.yml --tags bootstrap-linux-core
-ansible-playbook site.yml --tags bootstrap-linux-docker
+ansible-playbook site.yml --tags bootstrap-docker
 ansible-playbook site.yml --tags bootstrap-linux-firewalld
 ansible-playbook site.yml --tags configure-linux-firewall
 ansible-playbook site.yml --tags bootstrap-mergerfs
@@ -569,7 +569,7 @@ Useful commands to build/update/configure datacenter:
 ansible-playbook site.yml --tags bootstrap-bind
 ansible-playbook site.yml --tags bootstrap-docker
 ansible-playbook site.yml --tags bootstrap-linux-core
-ansible-playbook site.yml --tags bootstrap-linux-docker
+ansible-playbook site.yml --tags bootstrap-docker
 ansible-playbook site.yml --tags bootstrap-linux-firewalld
 ansible-playbook site.yml --tags bootstrap-openstack
 ansible-playbook site.yml --tags bootstrap-openstack-cloud
