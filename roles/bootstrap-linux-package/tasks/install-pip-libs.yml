@@ -1,24 +1,93 @@
 ---
 
-- name: Display debug info
+- name: "Install | Pip Libs | Display debug info"
   debug:
     var: bootstrap_linux_package_pip_interpreter
 
-- name: Display __bootstrap_linux_package_pip_list
+- name: "Install | Ensure pip env OS packages are installed"
+  package:
+    state: present
+    name: "{{ bootstrap_linux_package_pip_packages }}"
+
+## ref: https://pip.pypa.io/en/stable/topics/configuration/
+- name: "Install | Pip Libs | Ensure /etc/pip.conf"
+  copy:
+    src: pip.conf
+    dest: "/etc/pip.conf"
+    mode: 0644
+    owner: "{{ ansible_user }}"
+    backup: yes
+
+- name: "Install | Pip Libs | Display bootstrap_linux_package_system_pip_interpreter"
   debug:
-    var: __bootstrap_linux_package_pip_list
+    var: bootstrap_linux_package_system_pip_interpreter
+
+- name: "Install | Pip Libs | Display bootstrap_linux_package_pip_version"
+  debug:
+    var: bootstrap_linux_package_pip_version
+
+## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
+- name: "Install | Pip Libs | Pip self-update to version {{ bootstrap_linux_package_pip_version }}"
+  when: bootstrap_linux_package_pip_version!='latest'
+  pip:
+    name: "pip=={{ bootstrap_linux_package_pip_version }}"
+    state: present
+    executable: "{{ bootstrap_linux_package_system_pip_interpreter }}"
+
+## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
+- name: "Install | Pip Libs | {{ bootstrap_linux_package_system_pip_interpreter }} self-update to latest version"
+  when: bootstrap_linux_package_pip_version=='latest'
+  pip:
+    name: "pip"
+    state: latest
+    executable: "{{ bootstrap_linux_package_system_pip_interpreter }}"
+
+## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
+- name: "Install | Pip Libs | {{ bootstrap_linux_package_pip_interpreter }} self-update"
+  when: bootstrap_linux_package_pip_interpreter != bootstrap_linux_package_system_pip_interpreter
+  pip:
+    name: "pip"
+    state: latest
+    executable: "{{ bootstrap_linux_package_pip_interpreter }}"
+
+- name: "Install | Pip Libs | Get installed pip version"
+  command: "{{ bootstrap_linux_package_pip_interpreter }} --version"
+  register: __pip_version_output
+  ignore_errors: yes
+  changed_when: false
+
+- name: "Install | Pip Libs | Display __pip_version_output"
+  debug:
+    var: __pip_version_output
+
+## ref: https://github.com/azavea/ansible-pip/blob/develop/tasks/main.yml#L23
+- name: "Install | Pip Libs | Verify pip version is {{ bootstrap_linux_package_pip_version }}"
+  when: bootstrap_linux_package_pip_version!='latest'
+  assert:
+    that: (__pip_version_output is not failed) and __pip_version_output.stdout is search('pip ' + bootstrap_linux_package_pip_version)
+    fail_msg: |
+      Pip version found {{ __pip_version_output.stdout }} does not match expected version {{ bootstrap_linux_package_pip_version }}.
+
+- name: "Install | Pip Libs | Install Virtualenv"
+  pip:
+    name: "virtualenv"
+    state: present
+    executable: "{{ bootstrap_linux_package_system_pip_interpreter }}"
+
+- name: "Install | Pip Libs | Display __bootstrap_linux_package_system_pip_list"
+  debug:
+    var: __bootstrap_linux_package_system_pip_list
 
 ## DO NOT REMOVE
 ## need system-level env packages to meet collection requirements (e.g., netaddr)
-- name: "Ensure pip packages are installed for system."
+- name: "Install | Pip Libs | Ensure pip libraries are installed for system."
   when: __bootstrap_linux_package_system_pip_list|d([])|length>0
   pip:
     name: "{{ __bootstrap_linux_package_system_pip_list }}"
     state: present
-#    executable: pip
     executable: "{{ bootstrap_linux_package_system_pip_interpreter }}"
 
-#- name: "Ensure pip packages are installed for root."
+#- name: "Install | Pip Libs | Ensure pip packages are installed for root."
 #  when: __bootstrap_linux_package_pip_list|d([])|length>0
 #  pip:
 #    name: "{{ __bootstrap_linux_package_pip_list }}"
@@ -26,7 +95,7 @@
 ##    executable: pip
 ##    extra_args: --user
 
-- name: "Ensure pip packages are installed for {{ bootstrap_linux_package_pip_interpreter }}"
+- name: "Install | Pip Libs | Ensure pip packages are installed for {{ bootstrap_linux_package_pip_interpreter }}"
   when:
     - __bootstrap_linux_package_pip_list|d([])|length>0
     - bootstrap_linux_package_pip_interpreter != bootstrap_linux_package_system_pip_interpreter
@@ -34,4 +103,3 @@
     name: "{{ __bootstrap_linux_package_pip_list }}"
     state: present
     executable: "{{ bootstrap_linux_package_pip_interpreter }}"
-#    extra_args: --user

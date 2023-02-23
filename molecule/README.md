@@ -62,7 +62,7 @@ $ MOLECULE_DISTRO=redhat8 molecule login
 $ molecule destroy
 ```
 
-### converge/test on role 'bootstrap-linux-docker'
+### converge/test on role 'bootstrap-docker'
 
 ```shell
 $ docker-image-sync.sh redhat8-systemd-python

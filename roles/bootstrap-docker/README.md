@@ -1,4 +1,4 @@
-# bootstrap-linux-docker
+# bootstrap-docker
 
 ## Role Summary
 
@@ -43,7 +43,6 @@ will happen once a week and Docker container logs will be sent to `journald`.
 - name: "Bootstrap docker nodes"
   hosts: docker,!node_offline
   tags:
-    - bootstrap-linux-docker
     - bootstrap-docker
   become: True
   roles:
@@ -129,7 +128,7 @@ Install docker to the hosts with basic defaults. This does not install devicemap
 ```
 - hosts: servers
   roles:
-  - role: bootstrap-linux-docker
+  - role: bootstrap-docker
 ```
 
 Install docker with devicemapper. Please note, this will create a new LVM on /dev/sda3, please do not use a block device already in use. This is the recommended production deployment on RHEL/CentOS/Fedora systems.
@@ -137,7 +136,7 @@ Install docker with devicemapper. Please note, this will create a new LVM on /de
 ```
 - hosts: servers
   roles:
-  - role: bootstrap-linux-docker
+  - role: bootstrap-docker
     bootstrap_docker__storage_driver: devicemapper
     bootstrap_docker__block_device: /dev/sda3
 ```
@@ -147,7 +146,7 @@ Install docker with AUFS. This is recommended for production deployment on Ubunt
 ```
 - hosts: servers
   roles:
-  - role: bootstrap-linux-docker
+  - role: bootstrap-docker
     bootstrap_docker__storage_driver: aufs
 ```
 
@@ -156,7 +155,7 @@ Install with configured options.
 ```yaml
 - hosts: servers
   roles:
-  - role: bootstrap-linux-docker
+  - role: bootstrap-docker
     bootstrap_docker__users: ["test"]
     bootstrap_docker__daemon_json: |
       "dns": ["8.8.8.8"]
