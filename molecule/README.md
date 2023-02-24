@@ -49,6 +49,8 @@ $ docker-image-sync.sh redhat8-systemd-python
 $ MOLECULE_DISTRO=redhat8 molecule converge -s bootstrap-linux
 $ MOLECULE_DISTRO=redhat8 molecule destroy -s bootstrap-linux
 $ MOLECULE_DISTRO=redhat8 molecule test -s bootstrap-linux --destroy never
+$ MOLECULE_DISTRO=redhat8 molecule test -s bootstrap-linux-package --destroy never
+$ MOLECULE_DISTRO=redhat8 molecule test -s bootstrap-docker --destroy never
 $ molecule destroy
 ```
 
@@ -110,6 +112,8 @@ MOLECULE_DISTRO=centos7 molecule --debug create -s bootstrap-linux
 MOLECULE_DISTRO=centos7 molecule --debug destroy -s bootstrap-linux
 MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux
 MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux --destroy never
+MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux-package --destroy never
+MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-docker --destroy never
 MOLECULE_DISTRO=centos7 molecule --debug verify -s bootstrap-linux
 MOLECULE_DISTRO=centos7 molecule --debug verify -s bootstrap-linux --destroy never
 MOLECULE_DISTRO=centos8 molecule --debug converge -s bootstrap-docker
