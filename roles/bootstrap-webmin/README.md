@@ -1,5 +1,5 @@
 
-# webmin
+# bootstrap-webmin
 
 This role allows you to install [Webmin](http://www.webmin.com) service on linux hosts.
 
