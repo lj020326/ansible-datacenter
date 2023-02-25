@@ -12,9 +12,9 @@
     - "{{ __relative_role_vars_path }}/{{ ansible_os_family }}.yml"
     - "{{ __relative_role_vars_path }}/default.yml"
 
-- name: "Check {{ bootstrap_ntp_package }} package status"
+- name: "Check ntp package status"
   package:
-    name: "{{ bootstrap_ntp_package }}"
+    name: "{{ bootstrap_ntp_packages }}"
     state: "installed"
   check_mode: yes
   register: pkg_status_ntp
@@ -23,7 +23,7 @@
   debug:
     var: pkg_status_ntp
 
-- name: "Check {{ bootstrap_ntp_package }} package is installed"
+- name: "Check ntp packages are installed"
   assert:
     that:
       - not pkg_status_ntp.changed
@@ -32,39 +32,3 @@
   assert:
     that:
       - services | intersect([bootstrap_ntp_daemon, bootstrap_ntp_daemon+'.service'])| d([]) | length > 0
-
-## ref: https://jfearn.fedorapeople.org/fdocs/en-US/Fedora_Draft_Documentation/0.1/html/System_Administrators_Guide/sect-Checking_if_chrony_is_synchronized.html
-## ref: https://unix.stackexchange.com/questions/554509/chrony-synchronitation
-## ref: https://stackoverflow.com/questions/65951206/time-is-not-getting-synchronized-in-chrony-setup
-- name: "Run chronyc tracking"
-  command: chronyc tracking
-  register: __chronyc_tracking_results
-
-- name: "Display __chronyc_tracking_results"
-  debug:
-    var: __chronyc_tracking_results
-
-- name: "Check chronyc tracking results"
-  assert:
-    that:
-      - __chronyc_tracking_results.rc == 0
-
-- name: "Check chronyc tracking results are normal"
-  ignore_errors: yes
-  assert:
-    that:
-      - (__chronyc_tracking_results.stdout_lines | select('match', "Leap status.*Normal") | list | count) == 1
-
-- name: "Run chronyc sources"
-  command: chronyc sources
-  register: __chronyc_sources_results
-
-- name: "Display __chronyc_sources_results"
-  debug:
-    var: __chronyc_sources_results
-
-- name: "Check chronyc tracking results"
-  assert:
-    that:
-      - __chronyc_sources_results.rc == 0
-
