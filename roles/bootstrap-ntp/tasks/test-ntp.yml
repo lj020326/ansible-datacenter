@@ -1,0 +1,24 @@
+---
+
+## ref: https://vitux.com/how-to-install-ntp-server-and-client-on-ubuntu/
+- name: "Query Time Synchronization Queue"
+  command: ntpq -p
+  register: __ntp_sources_results
+
+- name: "Display __ntp_sources_results"
+  debug:
+    var: __ntp_sources_results
+
+- name: "Check ntp tracking results"
+  assert:
+    that:
+      - __ntp_sources_results.rc == 0
+
+- name: "Check ntp sources include all defined ntp servers"
+  ignore_errors: yes
+  assert:
+    that:
+      - (__ntp_sources_results.stdout_lines | select('search', item) | list | count) == 1
+#      - __ntp_sources_results.stdout is search(item)
+#      - __ntp_sources_results.stdout | regex_search(item)
+  loop: "{{ __bootstrap_ntp_servers }}"

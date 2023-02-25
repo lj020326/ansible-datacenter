@@ -1,21 +1,24 @@
 ---
 
-- name: Set the firewall services
-  when: docker_stack_app_configs[item].firewalld_services | d([]) | length > 0
+- set_fact:
+    log_prefix_local: "Docker Stack | Setup Firewall |"
+
+- name: "{{ log_prefix_local }} Set the firewall services"
+  when: __docker_stack_app_configs[item].firewalld_services | d([]) | length > 0
   set_fact:
-    docker_stack_firewalld_services: "{{ docker_stack_app_configs[item].firewalld_services | flatten | unique }}"
+    __docker_stack_firewalld_services: "{{ __docker_stack_app_configs[item].firewalld_services | flatten | unique }}"
   with_items: "{{ __docker_stack_service_configs }}"
 
-- name: Set the firewall ports
-  when: docker_stack_app_configs[item].firewalld_ports | d([]) | length > 0
+- name: "{{ log_prefix_local }} Set the firewall ports"
+  when: __docker_stack_app_configs[item].firewalld_ports | d([]) | length > 0
   set_fact:
-    docker_stack_firewalld_ports: "{{ docker_stack_app_configs[item].firewalld_ports | flatten | unique }}"
+    __docker_stack_firewalld_ports: "{{ __docker_stack_app_configs[item].firewalld_ports | flatten | unique }}"
   with_items: "{{ __docker_stack_service_configs }}"
 
-- name: configure firewall for docker stack apps
+- name: "{{ log_prefix_local }} Configure firewall for docker stack apps"
   include_role:
     name: bootstrap-linux-firewalld
   vars:
     firewalld_action: configure
-    firewalld_services: "{{ docker_stack_firewalld_services | d([]) }}"
-    firewalld_ports: "{{ docker_stack_firewalld_ports | d([]) }}"
+    firewalld_services: "{{ __docker_stack_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ __docker_stack_firewalld_ports | d([]) }}"

@@ -1,4 +1,5 @@
 ---
+
 - name: bootstrap_linux_systemd | Make networkd directory
   ansible.builtin.file:
     path: "/etc/systemd/network"
@@ -6,14 +7,16 @@
     owner: "root"
     group: "root"
     mode: "0755"
+
 - name: bootstrap_linux_systemd | Set facts about networkd
   ansible.builtin.set_fact:
     systemd_networkd_networkd:
-      "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
+      "{{ bootstrap_linux_systemd_networkd |
       community.general.json_query('[].networkd[]') }}"
     systemd_networkd_interfaces:
-      "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
+      "{{ bootstrap_linux_systemd_networkd |
       community.general.json_query('[].interfaces[].interface') }}"
+
 - name: bootstrap_linux_systemd | Find exists networkd configuration files
   ansible.builtin.find:
     paths: "/etc/systemd/network"
@@ -24,25 +27,28 @@
     use_regex: "true"
   register: "networkd_find_result"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
-       community.general.json_query(vars['networkd_drop_exists']) is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] |
-       community.general.json_query(vars['networkd_drop_exists']) == 'true'"
+    - bootstrap_linux_systemd_networkd |
+       community.general.json_query(networkd_drop_exists) is defined
+    - bootstrap_linux_systemd_networkd |
+       community.general.json_query(networkd_drop_exists) == 'true'
   vars:
     networkd_drop_exists: "[] | map(&drop_exists || 'false', @) | [0]"
+
 - name: bootstrap_linux_systemd | Delete exists networkd configuration files
   ansible.builtin.file:
     path: "{{ item['path'] }}"
     state: "absent"
-  loop: "{{ vars['networkd_find_result']['files'] | flatten(levels=1) }}"
+  loop: "{{ networkd_find_result['files'] | flatten(levels=1) }}"
   loop_control:
     label: "{{ item['path'] }}"
   when:
-    - "vars['networkd_find_result']['files'] is defined"
+    - networkd_find_result['files'] is defined
+
 - name: bootstrap_linux_systemd | Stat default networkd link settings
   ansible.builtin.stat:
     path: "/etc/systemd/network/99-default.link"
   register: "systemd_default_link_stat"
+
 - name: bootstrap_linux_systemd | Mask default networkd link
   ansible.builtin.file:
     path: "/etc/systemd/network/99-default.link"
@@ -51,4 +57,4 @@
     mode: "0644"
     state: "touch"
   when:
-    - "vars['systemd_default_link_stat']['stat']['exists'] == False"
+    - systemd_default_link_stat['stat']['exists'] == False

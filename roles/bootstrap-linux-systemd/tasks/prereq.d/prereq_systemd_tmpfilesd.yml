@@ -1,4 +1,5 @@
 ---
+
 - name: bootstrap_linux_systemd | Make tmpfiles.d directory
   ansible.builtin.file:
     path: "/etc/tmpfiles.d"
@@ -6,17 +7,19 @@
     owner: "root"
     group: "root"
     mode: "0755"
+
 - name: bootstrap_linux_systemd | Set facts about tmpfiles.d
   ansible.builtin.set_fact:
     systemd_tmpfiles_create:
-      "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] |
+      bootstrap_linux_systemd_tmpfiles |
       community.general.json_query('[].create[].file_name') }}"
     systemd_tmpfiles_clean:
-      "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] |
+      bootstrap_linux_systemd_tmpfiles |
       community.general.json_query('[].clean[].file_name') }}"
     systemd_tmpfiles_remove:
-      "{{ hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] |
+      bootstrap_linux_systemd_tmpfiles |
       community.general.json_query('[].remove[].file_name') }}"
+
 - name: bootstrap_linux_systemd | Find exists tmpfiles configuration files
   ansible.builtin.find:
     paths: "/etc/tmpfiles.d"
@@ -26,18 +29,18 @@
     use_regex: "true"
   register: "tmpfiles_find_result"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] |
-       community.general.json_query(vars['tmpfiles_drop_exists']) is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] |
-       community.general.json_query(vars['tmpfiles_drop_exists']) == 'true'"
+    - bootstrap_linux_systemd_tmpfiles |
+       community.general.json_query(tmpfiles_drop_exists) is defined"
+    - bootstrap_linux_systemd_tmpfiles |
+       community.general.json_query(tmpfiles_drop_exists) == 'true'
   vars:
     tmpfiles_drop_exists: "[] | map(&drop_exists || 'false', @) | [0]"
 - name: bootstrap_linux_systemd | Delete exists tmpfiles configuration files
   ansible.builtin.file:
     path: "{{ item['path'] }}"
     state: "absent"
-  loop: "{{ vars['tmpfiles_find_result']['files'] | flatten(levels=1) }}"
+  loop: "{{ tmpfiles_find_result['files'] | flatten(levels=1) }}"
   loop_control:
     label: "{{ item['path'] }}"
   when:
-    - "vars['tmpfiles_find_result']['files'] is defined"
+    - tmpfiles_find_result['files'] is defined
