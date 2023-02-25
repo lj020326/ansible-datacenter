@@ -1,0 +1,25 @@
+---
+
+- name: "Stop service {{ bootstrap_ntp_daemon }}"
+  service:
+    name: "{{ bootstrap_ntp_daemon }}"
+    state: stopped
+
+# The theory here is although we do have the ntp service running on boot,
+# if the time is off, it slowly drifts back in sync.  Since our testnodes
+# are ephemeral, they don't ever have enough time to correctly drift
+# back to the correct time.  So we'll force it in the captured OS images.
+
+## ref: https://superuser.com/questions/639202/updating-time-ntpdate3108-the-ntp-socket-is-in-use-exiting/639516#639516
+- name: "Force time synchronization using stepping"
+  command: "ntpdate -bu {{ __bootstrap_ntp_servers|join(' ') }}"
+  # Fix after RHEL8 GAs!
+  ignore_errors: true
+
+- name: "Start {{ bootstrap_ntp_daemon }} again"
+  service:
+    name: "{{ bootstrap_ntp_daemon }}"
+    state: started
+
+- name: Sync the hardware clock
+  command: "hwclock --systohc"

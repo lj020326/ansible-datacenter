@@ -1,22 +1,27 @@
 ---
+
 - ansible.builtin.import_tasks:
     file: "deploy_networkd_interfaces.d/deploy_networkd_interfaces_prereq.yml"
+
 - ansible.builtin.import_tasks:
     file: "deploy_networkd_interfaces.d/deploy_networkd_interfaces_generic.yml"
+
 - ansible.builtin.import_tasks:
     file: "deploy_networkd_interfaces.d/deploy_networkd_interfaces_vlan.yml"
+
 - ansible.builtin.import_tasks:
     file: "deploy_networkd_interfaces.d/deploy_networkd_interfaces_macvlan.yml"
+
 - ansible.builtin.include_tasks:
     file:
       "deploy_networkd_interfaces.d/deploy_networkd_interfaces_vlan_macvlan.yml"
-  loop: "{{ hostvars[inventory_hostname]['systemd_networkd'] |
+  loop: "{{ systemd_networkd |
     community.general.json_query(\"[].interfaces[?interface=='\" ~
-    vars['outer_item'] ~ \"'].vlans[]\") | flatten(levels=1) }}"
+    outer_item ~ \"'].vlans[]\") | flatten(levels=1) }}"
   loop_control:
     loop_var: "outer_item_vlan"
     label: "{{ 'Try to deploy macvlans on vlan interface: ' ~
       outer_item_vlan['name'] }}"
   when:
-    - "outer_item_vlan['macvlans'] is defined"
-    - "outer_item_vlan['macvlans'] != []"
+    - outer_item_vlan['macvlans'] is defined
+    - outer_item_vlan['macvlans'] != []

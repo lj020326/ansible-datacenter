@@ -1,55 +1,62 @@
 ---
+
 - name: bootstrap_linux_systemd | Stat systemd path
   ansible.builtin.stat:
     path: "/etc/systemd"
   register: "systemd_stat"
+
 - name: bootstrap_linux_systemd | Assert that systemd path exists
   ansible.builtin.assert:
     that:
-      - "vars['systemd_stat']['stat']['exists'] == True"
+      - systemd_stat['stat']['exists'] == True
     msg: "/etc/systemd not exists, something wrong with this system."
     quiet: "true"
+
 - name: bootstrap_linux_systemd | Assert that system manager is systemd
   ansible.builtin.assert:
     that:
-      - "hostvars[inventory_hostname]['ansible_service_mgr'] == 'systemd'"
+      - ansible_service_mgr == 'systemd'
     msg: "System manager is not systemd."
     quiet: "true"
+
 - ansible.builtin.include_tasks:
     file: "prereq.d/prereq_systemd_timedatectl.yml"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_timesyncd'] is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_timesyncd'] != ''"
+    - bootstrap_linux_systemd_timesyncd is defined
+    - bootstrap_linux_systemd_timesyncd != ''
+
 - ansible.builtin.include_tasks:
     file: "prereq.d/prereq_systemd_tmpfilesd.yml"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_tmpfiles'] != ''"
+    - bootstrap_linux_systemd_tmpfiles is defined
+    - bootstrap_linux_systemd_tmpfiles != ''
+
 - ansible.builtin.include_tasks:
     file: "prereq.d/prereq_systemd_modules_load.yml"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_modules_load'] is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_modules_load'] != ''"
+    - bootstrap_linux_systemd_modules_load is defined
+    - bootstrap_linux_systemd_modules_load != ''
+
 - ansible.builtin.include_tasks:
     file: "prereq.d/prereq_systemd_udev.yml"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_udev'] is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_udev'] != ''"
+    - bootstrap_linux_systemd_udev is defined
+    - bootstrap_linux_systemd_udev != ''
+
 - ansible.builtin.include_tasks:
     file: "prereq.d/prereq_systemd_resolved.yml"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_resolved'] is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_resolved'] != ''"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_resolved'] |
-      community.general.json_query(vars['bootstrap_linux_systemd_resolved_make_link']) is
-      defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_resolved'] |
-      community.general.json_query(vars['bootstrap_linux_systemd_resolved_make_link']) ==
-      'true'"
+    - bootstrap_linux_systemd_resolved is defined
+    - bootstrap_linux_systemd_resolved != ''
+    - bootstrap_linux_systemd_resolved |
+      community.general.json_query(bootstrap_linux_systemd_resolved_make_link) is
+      defined
+    - bootstrap_linux_systemd_resolved |
+      community.general.json_query(bootstrap_linux_systemd_resolved_make_link) == 'true'
   vars:
     systemd_resolved_make_link: "[] | map(&make_link || 'false', @) | [0]"
 - ansible.builtin.include_tasks:
     file: "prereq.d/prereq_systemd_networkd.yml"
   when:
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] is defined"
-    - "hostvars[inventory_hostname]['bootstrap_linux_systemd_networkd'] != ''"
+    - bootstrap_linux_systemd_networkd is defined
+    - bootstrap_linux_systemd_networkd != ''

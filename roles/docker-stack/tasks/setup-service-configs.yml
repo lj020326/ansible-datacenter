@@ -1,18 +1,7 @@
 ---
 
 - set_fact:
-    log_prefix_local: "setup-service-configs |"
-
-- name: "{{ log_prefix_local }} Display docker_stack_networks"
-  debug:
-    var: docker_stack_networks
-    verbosity: 1
-
-- name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
-  when: item.value.external|d(False)|bool
-  community.docker.docker_network:
-    name: "{{ item.key }}"
-  with_dict: "{{ docker_stack_networks }}"
+    log_prefix_local: "Docker Stack | Setup Service Configs |"
 
 - name: "{{ log_prefix_local }} Create docker secrets for stack if necessary"
   when: item.value.external|d(False)|bool
@@ -21,4 +10,31 @@
     value: "{{ item.value }}"
     labels: "{{ item.labels | d(omit) }}"
     state: present
-  with_dict: "{{ docker_stack_secrets }}"
+  with_dict: "{{ __docker_stack_secrets }}"
+
+- name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
+  block:
+
+  - name: "{{ log_prefix_local }} Display __docker_stack_networks"
+    debug:
+      var: __docker_stack_networks
+      verbosity: 1
+
+  - name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
+    when: item.value.external|d(False)|bool
+    community.docker.docker_network:
+      name: "{{ item.key }}"
+    with_dict: "{{ __docker_stack_networks }}"
+    register: __configure_docker_service
+
+  rescue:
+
+    - name: "{{ log_prefix_local }} Handle docker service exception"
+      include_tasks: handle-docker-service-exception.yml
+
+    - name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
+      when: item.value.external|d(False)|bool
+      community.docker.docker_network:
+        name: "{{ item.key }}"
+      with_dict: "{{ __docker_stack_networks }}"
+      register: __configure_docker_service

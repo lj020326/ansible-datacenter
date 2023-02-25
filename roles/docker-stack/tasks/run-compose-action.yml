@@ -1,7 +1,7 @@
 ---
 
 - set_fact:
-    log_prefix_local: "run-compose-action |"
+    log_prefix_local: "Docker Stack | Run Compose |"
 
 - name: "{{ log_prefix_local }} Init __docker_stack_compose_state to present"
   set_fact:
@@ -35,6 +35,9 @@
     debug: yes
     tls: yes
 
+- name: "{{ log_prefix_local }} Restart docker service"
+  include_tasks: restart-docker-service.yml
+
 ## run docker compose
 ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
 - name: "{{ log_prefix_local }} Run the services defined in docker-compose.yml"
@@ -46,6 +49,10 @@
     stopped: "{{ __docker_stack_compose_stopped | d(omit) }}"
     services: "{{ docker_stack_services | d(omit) }}"
   register: __compose_result
-  retries: 5
+  retries: 3
   delay: 20
   until: __compose_result is not failed
+
+- name: "{{ log_prefix_local }} Display __compose_result"
+  debug:
+    var: __compose_result
