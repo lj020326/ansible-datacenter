@@ -1,0 +1,25 @@
+---
+
+- name: "Init dc_systemd_running"
+  set_fact:
+    dc_systemd_status: dc_systemd_not_running
+
+- name: "Wait for systemd to complete initialization."  # noqa 303
+  when: ansible_service_mgr == 'systemd'
+  command: systemctl is-system-running
+  register: systemctl_status
+  changed_when: false
+  failed_when: systemctl_status.rc > 1
+
+- name: "Set dc_systemd_running"
+  when: >
+    'running' in systemctl_status.stdout or
+    'starting' in systemctl_status.stdout or
+    'degraded' in systemctl_status.stdout
+  set_fact:
+    dc_systemd_status: dc_systemd_running
+
+- name: "Group hosts based on dc_systemd_status"
+  changed_when: no
+  group_by:
+    key: "{{ dc_systemd_status }}"
