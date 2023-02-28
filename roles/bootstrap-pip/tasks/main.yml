@@ -8,7 +8,7 @@
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
-- name: "Install pip env support packages"
+- name: "Install pip env OS packages"
   package:
     state: present
     name: "{{ bootstrap_pip_packages }}"
@@ -38,39 +38,50 @@
 #    owner: "{{ ansible_user }}"
 #    backup: yes
 
-- name: "Display bootstrap_pip_os_executable"
+- name: "Display bootstrap_pip_system_pip_interpreter"
   debug:
-    var: bootstrap_pip_os_executable
+    var: bootstrap_pip_system_pip_interpreter
 
-- name: "Display bootstrap_pip_version"
+- name: "Display bootstrap_pip_system_pip_version"
   debug:
-    var: bootstrap_pip_version
+    var: bootstrap_pip_system_pip_version
 
 ## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip self-update to version {{ bootstrap_pip_version }}"
-  when: bootstrap_pip_version!='latest'
+- name: "Pip self-update to version {{ bootstrap_pip_system_pip_version }}"
+  when: bootstrap_pip_system_pip_version!='latest'
   pip:
-    name: "pip=={{ bootstrap_pip_version }}"
+    name: "pip=={{ bootstrap_pip_system_pip_version }}"
     state: present
-    executable: "{{ bootstrap_pip_os_executable }}"
+    executable: "{{ bootstrap_pip_system_pip_interpreter }}"
 
 ## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip self-update to latest version"
-  when: bootstrap_pip_version=='latest'
+- name: "{{ bootstrap_pip_system_pip_interpreter }} self-update to latest version"
+  when: bootstrap_pip_system_pip_version=='latest'
   pip:
     name: "pip"
     state: latest
-    executable: "{{ bootstrap_pip_os_executable }}"
+    executable: "{{ bootstrap_pip_system_pip_interpreter }}"
 
-## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip3 self-update"
-  pip:
-    name: "pip"
-    state: latest
-    executable: pip3
+- name: "Get installed system pip version"
+  command: "{{ bootstrap_pip_system_pip_interpreter }} --version"
+  register: __system_pip_version_output
+  ignore_errors: yes
+  changed_when: false
 
-- name: "Get installed pip version"
-  command: "{{ bootstrap_pip_os_executable }} --version"
+- name: "Display __system_pip_version_output"
+  debug:
+    var: __system_pip_version_output
+
+## ref: https://github.com/azavea/ansible-pip/blob/develop/tasks/main.yml#L23
+- name: "Verify pip version is {{ bootstrap_pip_system_pip_version }}"
+  when: bootstrap_pip_system_pip_version!='latest'
+  assert:
+    that: (__system_pip_version_output is not failed) and __system_pip_version_output.stdout is search('pip ' + bootstrap_pip_system_pip_version)
+    fail_msg: |
+      Pip version found {{ __system_pip_version_output.stdout }} does not match expected version {{ bootstrap_pip_system_pip_version }}.
+
+- name: "Get installed pip version for {{ bootstrap_pip_interpreter }}"
+  command: "{{ bootstrap_pip_interpreter }} --version"
   register: __pip_version_output
   ignore_errors: yes
   changed_when: false
@@ -91,7 +102,7 @@
   pip:
     name: "virtualenv"
     state: present
-    executable: "{{ bootstrap_pip_os_executable }}"
+    executable: "{{ bootstrap_pip_interpreter }}"
 
 - name: "Display bootstrap_pip_libs"
   debug:
@@ -100,7 +111,7 @@
 - name: "Set __bootstrap_pip_list_by_priority"
   set_fact:
     __bootstrap_pip_list_by_priority: "{{ __bootstrap_pip_list_by_priority | d({})
-      | combine({ (item.priority | default(bootstrap_linux_package_priority_default)|int): {
+      | combine({ (item.priority | default(bootstrap_pip_lib_priority_default)|int): {
                     item.state | default(bootstrap_pip_lib_state): {
                         ((item is mapping) | ternary( item.name, item)): {}
                       }
@@ -108,15 +119,27 @@
                   }, recursive=True) }}"
   loop: "{{ bootstrap_pip_libs }}"
 
-- name: "Ensure pip packages are installed for {{ bootstrap_pip_os_executable }}"
+- name: "Ensure pip packages are installed for {{ bootstrap_pip_system_pip_interpreter }}"
   when:
-    - __bootstrap_linux_package__pip_list_by_priority[item].present is defined
-    - __bootstrap_linux_package__pip_list_by_priority[item].present.keys()|d([])|length>0
+    - __bootstrap_pip_list_by_priority[item].present is defined
+    - __bootstrap_pip_list_by_priority[item].present.keys()|d([])|length>0
   pip:
-    name: "{{ __bootstrap_linux_package__pip_list_by_priority[item].present.keys() }}"
+    name: "{{ __bootstrap_pip_list_by_priority[item].present.keys() }}"
     state: present
-    executable: "{{ bootstrap_pip_os_executable }}"
-  loop: "{{ __bootstrap_linux_package__pip_list_by_priority.keys()|sort }}"
+    executable: "{{ bootstrap_pip_system_pip_interpreter }}"
+  loop: "{{ __bootstrap_pip_list_by_priority.keys()|sort }}"
+  loop_control:
+    label: "package state=present priority={{ item }}"
+
+- name: "Ensure pip packages are installed for {{ bootstrap_pip_interpreter }}"
+  when:
+    - __bootstrap_pip_list_by_priority[item].present is defined
+    - __bootstrap_pip_list_by_priority[item].present.keys()|d([])|length>0
+  pip:
+    name: "{{ __bootstrap_pip_list_by_priority[item].present.keys() }}"
+    state: present
+    executable: "{{ bootstrap_pip_interpreter }}"
+  loop: "{{ __bootstrap_pip_list_by_priority.keys()|sort }}"
   loop_control:
     label: "package state=present priority={{ item }}"
 
@@ -125,7 +148,7 @@
 #  pip:
 #    name: "{{ bootstrap_pip_libs }}"
 #    state: present
-#    executable: "{{ bootstrap_pip_os_executable }}"
+#    executable: "{{ bootstrap_pip_interpreter }}"
 #
 ##- name: "Ensure bootstrap_pip_packages are installed."
 ##  pip:
@@ -134,5 +157,5 @@
 ##    virtualenv: "{{ item.virtualenv | default(omit) }}"
 ##    virtualenv_site_packages: yes
 ##    state: "{{ item.state | default(omit) }}"
-##    executable: "{{ bootstrap_pip_executable }}"
+##    executable: "{{ bootstrap_pip_interpreter }}"
 ##  loop: "{{ bootstrap_pip_packages }}"

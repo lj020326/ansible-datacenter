@@ -14,9 +14,9 @@ Available variables are listed below, along with default values (see `defaults/m
 
 The name of the packge to install to get `pip` on the system. For older systems that don't have Python 3 available, you can set this to `python-pip`.
 
-    bootstrap_pip_executable: pip3
+    bootstrap_pip_interpreter: pip3
 
-The role will try to autodetect the pip executable based on the `bootstrap_pip_package` (e.g. `pip` for Python 2 and `pip3` for Python 3). You can also override this explicitly, e.g. `bootstrap_pip_executable: pip3.6`.
+The role will try to autodetect the pip executable based on the `bootstrap_pip_package` (e.g. `pip` for Python 2 and `pip3` for Python 3). You can also override this explicitly, e.g. `bootstrap_pip_interpreter: pip3.6`.
 
     bootstrap_pip_install_packages: []
 
