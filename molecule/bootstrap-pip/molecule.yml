@@ -1,0 +1,82 @@
+---
+
+## ref: https://github.com/ansible-community/molecule/discussions/3540?sort=top
+## ref:
+#prerun: true
+prerun: false
+
+dependency:
+  name: galaxy
+  enabled: true
+  options:
+#    vvv: true
+    ignore-certs: true
+    ignore-errors: true
+#    role-file: roles/requirements.molecule.yml
+    requirements-file: collections/requirements.molecule.yml
+driver:
+  name: docker
+lint: |
+  set -e
+  yamllint .
+  ansible-lint .
+
+platforms:
+
+  - name: "${MOLECULE_DISTRO-centos8}"
+    image: "${MOLECULE_IMAGE_NAMESPACE:-lj020326}/${MOLECULE_DISTRO:-centos8}-systemd-python:${MOLECULE_IMAGE_TAG:-latest}"
+#    command: ${MOLECULE_DOCKER_COMMAND:-""}
+#    command: ${MOLECULE_DOCKER_COMMAND:-"/sbin/init"}
+    command: ${MOLECULE_DOCKER_COMMAND:-"/lib/systemd/systemd"}
+    tmpfs:
+     - /run
+     - /tmp
+    capabilities:
+      - SYS_ADMIN
+      - NET_ADMIN
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    privileged: true
+    pre_build_image: true
+    cgroupns_mode: host
+    groups:
+      - molecule_docker_linux
+      - ${MOLECULE_DOCKER_GROUP:-molecule_docker_linux}
+      - ${MOLECULE_DOCKER_GROUP:-molecule_docker_linux}_${MOLECULE_DISTRO:-centos8}
+
+## ref: https://molecule.readthedocs.io/en/latest/configuration.html?highlight=provisioner#molecule.provisioner.ansible.Ansible
+provisioner:
+  name: ansible
+  lint:
+    name: ansible-lint
+  env:
+    ## ref: https://stackoverflow.com/questions/61856958/molecule-test-roles-from-other-directory
+    ANSIBLE_ROLES_PATH: "../../roles"
+#  options:
+#    v: true
+##    vvv: true
+  playbooks:
+    prepare: ../shared/prepare.yml
+    converge: ${MOLECULE_PLAYBOOK:-converge.yml}
+  inventory:
+    links:
+      group_vars: ../../inventory/group_vars
+
+scenario:
+  name: bootstrap-pip
+  ## ref: https://blog.florianlopes.io/testing-ansible-roles-and-playbooks-with-molecule/
+  test_sequence:
+#    - lint
+    - cleanup
+    - dependency
+    - syntax
+    - create
+    - prepare
+    - converge
+#    - idempotence
+    - verify
+    - cleanup
+    - destroy
+
+verifier:
+  name: ansible
