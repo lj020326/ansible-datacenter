@@ -97,19 +97,42 @@
   debug:
     var: bootstrap_pip_libs
 
-- name: "Install pip libs"
-  when: bootstrap_pip_libs|d([])|length>0
+- name: "Set __bootstrap_pip_list_by_priority"
+  set_fact:
+    __bootstrap_pip_list_by_priority: "{{ __bootstrap_pip_list_by_priority | d({})
+      | combine({ (item.priority | default(bootstrap_linux_package_priority_default)|int): {
+                    item.state | default(bootstrap_pip_lib_state): {
+                        ((item is mapping) | ternary( item.name, item)): {}
+                      }
+                    }
+                  }, recursive=True) }}"
+  loop: "{{ bootstrap_pip_libs }}"
+
+- name: "Ensure pip packages are installed for {{ bootstrap_pip_os_executable }}"
+  when:
+    - __bootstrap_linux_package__pip_list_by_priority[item].present is defined
+    - __bootstrap_linux_package__pip_list_by_priority[item].present.keys()|d([])|length>0
   pip:
-    name: "{{ bootstrap_pip_libs }}"
+    name: "{{ __bootstrap_linux_package__pip_list_by_priority[item].present.keys() }}"
     state: present
     executable: "{{ bootstrap_pip_os_executable }}"
+  loop: "{{ __bootstrap_linux_package__pip_list_by_priority.keys()|sort }}"
+  loop_control:
+    label: "package state=present priority={{ item }}"
 
-#- name: "Ensure bootstrap_pip_packages are installed."
+#- name: "Install pip libs"
+#  when: bootstrap_pip_libs|d([])|length>0
 #  pip:
-#    name: "{{ item.name | default(item) }}"
-#    version: "{{ item.version | default(omit) }}"
-#    virtualenv: "{{ item.virtualenv | default(omit) }}"
-#    virtualenv_site_packages: yes
-#    state: "{{ item.state | default(omit) }}"
-#    executable: "{{ bootstrap_pip_executable }}"
-#  loop: "{{ bootstrap_pip_packages }}"
+#    name: "{{ bootstrap_pip_libs }}"
+#    state: present
+#    executable: "{{ bootstrap_pip_os_executable }}"
+#
+##- name: "Ensure bootstrap_pip_packages are installed."
+##  pip:
+##    name: "{{ item.name | default(item) }}"
+##    version: "{{ item.version | default(omit) }}"
+##    virtualenv: "{{ item.virtualenv | default(omit) }}"
+##    virtualenv_site_packages: yes
+##    state: "{{ item.state | default(omit) }}"
+##    executable: "{{ bootstrap_pip_executable }}"
+##  loop: "{{ bootstrap_pip_packages }}"
