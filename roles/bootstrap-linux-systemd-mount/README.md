@@ -34,3 +34,9 @@ This Ansible role configures systemd mount files.
             After:
               - network.target
 ```
+
+## References
+
+* https://github.com/openstack/ansible-role-systemd_mount
+* https://github.com/openstack/ansible-role-systemd_service.git
+* 
