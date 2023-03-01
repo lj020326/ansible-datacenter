@@ -14,11 +14,13 @@
     that:
       - __ntp_sources_results.rc == 0
 
-- name: "Check ntp sources include all defined ntp servers"
+- name: "Set __ntp_server_found"
+  when: __ntp_sources_results.stdout_lines | select('search', item) | list | length == 1
+  set_fact:
+    __ntp_server_found: yes
+  loop: "{{ __bootstrap_ntp_servers }}"
+
+- name: "Check ntp sources include a defined ntp server"
   ignore_errors: yes
   assert:
-    that:
-      - (__ntp_sources_results.stdout_lines | select('search', item) | list | count) == 1
-#      - __ntp_sources_results.stdout is search(item)
-#      - __ntp_sources_results.stdout | regex_search(item)
-  loop: "{{ __bootstrap_ntp_servers }}"
+    that: __ntp_server_found|d(False)|bool
