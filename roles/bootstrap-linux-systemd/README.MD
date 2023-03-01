@@ -1830,3 +1830,7 @@ systemd_networkd:
         address: '10.20.30.1/24'
         mode: 'bridge'
 ```
+
+## Reference
+
+* https://github.com/k0ste/ansible-role-systemd_helper.git
