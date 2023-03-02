@@ -38,96 +38,14 @@
 #    owner: "{{ ansible_user }}"
 #    backup: yes
 
-- name: "Display bootstrap_pip_system_pip_interpreter"
-  debug:
-    var: bootstrap_pip_system_pip_interpreter
-
-- name: "Display bootstrap_pip_system_pip_version"
-  debug:
-    var: bootstrap_pip_system_pip_version
-
-## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip self-update to version {{ bootstrap_pip_system_pip_version }}"
-  when: bootstrap_pip_system_pip_version!='latest'
-  pip:
-    name: "pip=={{ bootstrap_pip_system_pip_version }}"
-    state: present
-    executable: "{{ bootstrap_pip_system_pip_interpreter }}"
-
-## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "self-update {{ bootstrap_pip_system_pip_interpreter }} to latest version"
-  when: bootstrap_pip_system_pip_version=='latest'
-  pip:
-    name: "pip"
-    state: latest
-    executable: "{{ bootstrap_pip_system_pip_interpreter }}"
-
-- name: "Get installed system pip version"
-  command: "{{ bootstrap_pip_system_pip_interpreter }} --version"
-  register: __system_pip_version_output
-  ignore_errors: yes
-  changed_when: false
-
-- name: "Display __system_pip_version_output"
-  debug:
-    var: __system_pip_version_output
-
-## ref: https://github.com/azavea/ansible-pip/blob/develop/tasks/main.yml#L23
-- name: "Verify pip version is {{ bootstrap_pip_system_pip_version }}"
-  when: bootstrap_pip_system_pip_version!='latest'
-  assert:
-    that: (__system_pip_version_output is not failed) and __system_pip_version_output.stdout is search('pip ' + bootstrap_pip_system_pip_version)
-    fail_msg: |
-      Pip version found {{ __system_pip_version_output.stdout }} does not match expected version {{ bootstrap_pip_system_pip_version }}.
-
-
-## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip self-update {{ bootstrap_pip_interpreter }} to version {{ bootstrap_pip_version }}"
-  when: bootstrap_pip_version!='latest'
-  pip:
-    name: "pip=={{ bootstrap_pip_version }}"
-    state: present
-    executable: "{{ bootstrap_pip_interpreter }}"
-
-## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip self-update {{ bootstrap_pip_interpreter }} to latest version"
-  when: bootstrap_pip_version=='latest'
-  pip:
-    name: "pip"
-    state: latest
-    executable: "{{ bootstrap_pip_interpreter }}"
-
-- name: "Get installed pip version for {{ bootstrap_pip_interpreter }}"
-  command: "{{ bootstrap_pip_interpreter }} --version"
-  register: __pip_version_output
-  ignore_errors: yes
-  changed_when: false
-
-- name: "Display __pip_version_output"
-  debug:
-    var: __pip_version_output
-
-## ref: https://github.com/azavea/ansible-pip/blob/develop/tasks/main.yml#L23
-- name: "Verify pip version is {{ bootstrap_pip_version }}"
-  when: bootstrap_pip_version!='latest'
-  assert:
-    that: (__pip_version_output is not failed) and __pip_version_output.stdout is search('pip ' + bootstrap_pip_version)
-    fail_msg: |
-      Pip version found {{ __pip_version_output.stdout }} does not match expected version {{ bootstrap_pip_version }}.
-
-- name: "Install Virtualenv"
-  pip:
-    name: "virtualenv"
-    state: present
-    executable: "{{ bootstrap_pip_interpreter }}"
 
 - name: "Display bootstrap_pip_libs"
   debug:
     var: bootstrap_pip_libs
 
-- name: "Set __bootstrap_pip_list_by_priority"
+- name: "Set __bootstrap_pip_library_list_by_priority"
   set_fact:
-    __bootstrap_pip_list_by_priority: "{{ __bootstrap_pip_list_by_priority | d({})
+    __bootstrap_pip_library_list_by_priority: "{{ __bootstrap_pip_library_list_by_priority | d({})
       | combine({ (item.priority | default(bootstrap_pip_lib_priority_default)|int): {
                     item.state | default(bootstrap_pip_lib_state): {
                         ((item is mapping) | ternary( item.name, item)): {}
@@ -136,43 +54,12 @@
                   }, recursive=True) }}"
   loop: "{{ bootstrap_pip_libs }}"
 
-- name: "Ensure pip packages are installed for {{ bootstrap_pip_system_pip_interpreter }}"
-  when:
-    - __bootstrap_pip_list_by_priority[item].present is defined
-    - __bootstrap_pip_list_by_priority[item].present.keys()|d([])|length>0
-  pip:
-    name: "{{ __bootstrap_pip_list_by_priority[item].present.keys() }}"
-    state: present
-    executable: "{{ bootstrap_pip_system_pip_interpreter }}"
-  loop: "{{ __bootstrap_pip_list_by_priority.keys()|sort }}"
-  loop_control:
-    label: "package state=present priority={{ item }}"
+- name: "Install | Init-vars | Display __bootstrap_pip_library_list_by_priority"
+  debug:
+    var: __bootstrap_pip_library_list_by_priority
 
-- name: "Ensure pip packages are installed for {{ bootstrap_pip_interpreter }}"
-  when:
-    - __bootstrap_pip_list_by_priority[item].present is defined
-    - __bootstrap_pip_list_by_priority[item].present.keys()|d([])|length>0
-  pip:
-    name: "{{ __bootstrap_pip_list_by_priority[item].present.keys() }}"
-    state: present
-    executable: "{{ bootstrap_pip_interpreter }}"
-  loop: "{{ __bootstrap_pip_list_by_priority.keys()|sort }}"
+- name: "Install | Install pip libs"
+  include_tasks: install-pip-libs.yml
+  loop: "{{ bootstrap_pip_envs }}"
   loop_control:
-    label: "package state=present priority={{ item }}"
-
-#- name: "Install pip libs"
-#  when: bootstrap_pip_libs|d([])|length>0
-#  pip:
-#    name: "{{ bootstrap_pip_libs }}"
-#    state: present
-#    executable: "{{ bootstrap_pip_interpreter }}"
-#
-##- name: "Ensure bootstrap_pip_packages are installed."
-##  pip:
-##    name: "{{ item.name | default(item) }}"
-##    version: "{{ item.version | default(omit) }}"
-##    virtualenv: "{{ item.virtualenv | default(omit) }}"
-##    virtualenv_site_packages: yes
-##    state: "{{ item.state | default(omit) }}"
-##    executable: "{{ bootstrap_pip_interpreter }}"
-##  loop: "{{ bootstrap_pip_packages }}"
+    loop_var: pip_env

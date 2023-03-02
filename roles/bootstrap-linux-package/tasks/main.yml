@@ -18,11 +18,30 @@
     - bootstrap_linux_package_install_npm_libs|d(True)
   import_tasks: install-npm-packages.yml
 
-- name: "Install | Install pip libs"
+- name: "Install | Set pip env"
   when:
     - __bootstrap_linux_package_pip_list|d([])|length>0
     - bootstrap_linux_package_install_pip_libs|d(True)
-  import_tasks: install-pip-libs.yml
+  block:
+    - name: "Install | Ensure pip env OS packages are installed"
+      package:
+        state: present
+        name: "{{ bootstrap_linux_package_pip_packages }}"
+
+    ## ref: https://pip.pypa.io/en/stable/topics/configuration/
+    - name: "Install | Pip Libs | Ensure /etc/pip.conf"
+      copy:
+        src: pip.conf
+        dest: "/etc/pip.conf"
+        mode: "0644"
+        owner: "{{ ansible_user }}"
+        backup: yes
+
+    - name: "Install | Install pip libs"
+      include_tasks: install-pip-libs.yml
+      loop: "{{ bootstrap_linux_package_pip_envs }}"
+      loop_control:
+        loop_var: pip_env
 
 #- name: "Install | Install pip libs"
 #  when:
