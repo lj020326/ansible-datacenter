@@ -1,12 +1,15 @@
 ---
 
-- name: "Verify firewalld_action action is defined and supported"
+- set_fact:
+    __log_prefix: "Firewalld |"
+
+- name: "{{ __log_prefix }} Verify firewalld_action action is defined and supported"
   assert:
     that:
       - firewalld_action is defined
       - firewalld_action in firewalld_supported_actions
 
-- name: "Include OS specific vars"
+- name: "{{ __log_prefix }} Include OS specific vars"
   include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
@@ -14,25 +17,17 @@
     - "{{ ansible_os_family }}.yml"
     - "default.yml"
 
-- name: "Init {{ role_name }} vars"
+- name: "{{ __log_prefix }} Init {{ role_name }} vars"
   include_tasks: init-vars.yml
 
-- name: Disable firewalld
-  when: not firewalld_enabled | bool
-  ignore_errors: yes
-  service:
-    name: firewalld
-    state: stopped
-    enabled: no
-
-- name: Bootstrap firewalld
+- name: "{{ __log_prefix }} Bootstrap firewalld"
   when: firewalld_action == 'uninstall'
   include_tasks: uninstall.yml
 
-- name: Install firewalld
+- name: "{{ __log_prefix }} Install firewalld"
   when: firewalld_action == 'install'
   include_tasks: setup.yml
 
-- name: Configure firewalld
+- name: "{{ __log_prefix }} Configure firewalld"
   when: firewalld_action in ['install','configure']
   include_tasks: configure.yml
