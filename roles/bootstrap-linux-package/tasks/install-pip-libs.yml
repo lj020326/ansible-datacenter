@@ -1,51 +1,59 @@
 ---
 
-- name: "Install | Pip Libs | Display pip_env"
-  debug:
+- debug:
     var: pip_env
 
-- name: "Install | Pip Libs | Set __pip_version"
-  set_fact:
+- set_fact:
     __pip_interpreter: "{{ pip_env.interpreter | d('/usr/bin/pip3') }}"
     __pip_version: "{{ pip_env.version | d() }}"
 
+- set_fact:
+    __log_prefix_local: "Install Pip Libs | {{ __pip_interpreter }} |"
+
 ## ref: https://stackoverflow.com/questions/54179375/how-to-correctly-upgrade-pip-using-ansible
-- name: "Pip self-update {{ __pip_interpreter }} to version {{ __pip_version }}"
-  when: __pip_version|length>0
+- name: "{{ __log_prefix_local }} Pip self-update {{ __pip_interpreter }} to version {{ __pip_version }}"
+  when: __pip_version|d('')=='latest'
+  pip:
+    name: "pip"
+    state: latest
+    executable: "{{ __pip_interpreter }}"
+
+- name: "{{ __log_prefix_local }} Pip self-update to version {{ __pip_version }}"
+  when: __pip_version|d('')!='latest'
   pip:
     name: "pip=={{ __pip_version }}"
     state: present
     executable: "{{ __pip_interpreter }}"
 
-- name: "Install | Pip Libs | Get installed pip version for {{ __pip_interpreter }}"
+- name: "{{ __log_prefix_local }} Get installed pip version"
   command: "{{ __pip_interpreter }} --version"
   register: __pip_version_output
   ignore_errors: yes
   changed_when: false
 
-- name: "Install | Pip Libs | Display __pip_version_output"
+- name: "{{ __log_prefix_local }} Display __pip_version_output"
   debug:
     var: __pip_version_output
 
 ## ref: https://github.com/azavea/ansible-pip/blob/develop/tasks/main.yml#L23
-- name: "Install | Pip Libs | Verify pip version is {{ __pip_version }}"
+- name: "{{ __log_prefix_local }} Verify pip version is {{ __pip_version }}"
   when: __pip_version!='latest'
   assert:
     that: (__pip_version_output is not failed) and __pip_version_output.stdout is search('pip ' + __pip_version)
     fail_msg: |
       Pip version found {{ __pip_version_output.stdout }} does not match expected version {{ __pip_version }}.
 
-- name: "Install | Pip Libs | Install Virtualenv"
+- name: "{{ __log_prefix_local }} Install Virtualenv"
   pip:
     name: "virtualenv"
     state: present
     executable: "{{ __pip_interpreter }}"
 
-- name: "Install | Pip Libs | Display __bootstrap_pip_library_list_by_priority"
+- name: "{{ __log_prefix_local }} Display __bootstrap_pip_library_list_by_priority"
   debug:
     var: __bootstrap_pip_library_list_by_priority
 
-- name: "Install | Pip Libs | Ensure pip libraries are installed for {{ __pip_interpreter }}"
+- name: "{{ __log_prefix_local }} Ensure pip libraries are installed"
   when:
     - __bootstrap_pip_library_list_by_priority[item].present is defined
     - __bootstrap_pip_library_list_by_priority[item].present.keys()|d([])|length>0
