@@ -1,80 +1,83 @@
 ---
 
-- name: "Docker | Docker Compose | Install docker-compose package from package manager {{ ansible_pkg_mgr }}"
+- set_fact:
+    __log_prefix_local: "Docker | Docker Compose |"
+
+- name: "{{ __log_prefix_local }} Install docker-compose package from package manager {{ ansible_pkg_mgr }}"
   when: bootstrap_docker__compose_package is defined
   package:
     state: present
     name: "{{ bootstrap_docker__compose_package }}"
 
-- name: Docker | Docker Compose | Check current docker-compose version.
+- name: "{{ __log_prefix_local }} Check current docker-compose version."
   command: "{{ bootstrap_docker__compose_path }} --version"
   register: __bootstrap_docker__compose_version
   check_mode: false
   changed_when: false
   failed_when: false
 
-- name: Docker | Docker Compose | Set __bootstrap_docker__compose_current_version
+- name: "{{ __log_prefix_local }} Set __bootstrap_docker__compose_current_version"
   set_fact:
     __bootstrap_docker__compose_current_version: "{{ __bootstrap_docker__compose_version.stdout | regex_search('(\\d+(\\.\\d+)+)') }}"
   when: >
     __bootstrap_docker__compose_version.stdout is defined
     and (__bootstrap_docker__compose_version.stdout | length > 0)
 
-- name: Docker | Docker Compose | Init __bootstrap_docker__compose_version
+- name: "{{ __log_prefix_local }} Init __bootstrap_docker__compose_version"
   set_fact:
     __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d('') }}"
 
-- name: Docker | Docker Compose | Get __bootstrap_docker__compose_version
+- name: "{{ __log_prefix_local }} Get __bootstrap_docker__compose_version"
   when: bootstrap_docker__compose_version is not defined
   run_once: yes
   block:
 
-    - name: Docker | Docker Compose | Set __compose_latest_version_result
+    - name: "{{ __log_prefix_local }} Set __compose_latest_version_result"
       uri:
         url: "{{ bootstrap_docker__compose_url_latest }}"
       register: __compose_latest_version_result
 
-    - name: Docker | Docker Compose | Display __compose_latest_version_result
+    - name: "{{ __log_prefix_local }} Display __compose_latest_version_result"
       debug:
         var: __compose_latest_version_result
         verbosity: 2
 
-    - name: Docker | Docker Compose | Set __docker_compose_latest_version_url
+    - name: "{{ __log_prefix_local }} Set __docker_compose_latest_version_url"
       set_fact:
         __docker_compose_latest_version_url: "{{ __compose_latest_version_result.url }}"
 
-    - name: Docker | Docker Compose | Display __docker_compose_latest_version_url
+    - name: "{{ __log_prefix_local }} Display __docker_compose_latest_version_url"
       debug:
         var: __docker_compose_latest_version_url
 
-    - name: Docker | Docker Compose | Set __docker_compose_latest_version
+    - name: "{{ __log_prefix_local }} Set __docker_compose_latest_version"
       set_fact:
         __docker_compose_latest_version: "{{ __docker_compose_latest_version_url | regex_replace('.*tag\\/(.*)', '\\1') }}"
 
-    - name: Docker | Docker Compose | Display __docker_compose_latest_version
+    - name: "{{ __log_prefix_local }} Display __docker_compose_latest_version"
       debug:
         var: __docker_compose_latest_version
 
-    - name: Docker | Docker Compose | Display __docker_compose_latest_version
+    - name: "{{ __log_prefix_local }} Display __docker_compose_latest_version"
       debug:
         var: __docker_compose_latest_version
 
-    - name: Docker | Docker Compose | Set __bootstrap_docker__compose_version
+    - name: "{{ __log_prefix_local }} Set __bootstrap_docker__compose_version"
       set_fact:
         __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d(__docker_compose_latest_version) }}"
 
-- name: Docker | Docker Compose | Init __replace_docker_compose
+- name: "{{ __log_prefix_local }} Init __replace_docker_compose"
   set_fact:
     __replace_docker_compose: no
 
-- name: Docker | Docker Compose | Set __replace_docker_compose
+- name: "{{ __log_prefix_local }} Set __replace_docker_compose"
   when: >
     __bootstrap_docker__compose_current_version is not defined
     or (__bootstrap_docker__compose_current_version | length == 0)
   set_fact:
     __replace_docker_compose: yes
 
-- name: Docker | Docker Compose | Set __replace_docker_compose
+- name: "{{ __log_prefix_local }} Set __replace_docker_compose"
   when:
     - bootstrap_docker__compose_version is defined
     - bootstrap_docker__update_exist_compose_version|d(False)|bool
@@ -82,16 +85,16 @@
   set_fact:
     __replace_docker_compose: yes
 
-- name: Docker | Docker Compose | Replace existing docker-compose
+- name: "{{ __log_prefix_local }} Replace existing docker-compose"
   when: __replace_docker_compose|bool
   block:
 
-    - name: Docker | Docker Compose | Delete existing docker-compose version if it's different.
+    - name: "{{ __log_prefix_local }} Delete existing docker-compose version if it's different."
       file:
         path: "{{ bootstrap_docker__compose_path }}"
         state: absent
 
-    - name: Docker | Docker Compose | Install Docker Compose
+    - name: "{{ __log_prefix_local }} Install Docker Compose"
       get_url:
         url: "{{ bootstrap_docker__compose_url }}"
         dest: "{{ bootstrap_docker__compose_path }}"
@@ -100,7 +103,13 @@
 #########
 ## Docker virtualenv for ansible docker-compose automation
 #########
-- name: Docker | Docker Compose | Install Python docker packages
+- name: "{{ __log_prefix_local }} pip self-update {{ bootstrap_docker__pip_executable }}"
+  pip:
+    name: pip
+    state: latest
+    executable: "{{ bootstrap_docker__pip_executable }}"
+
+- name: "{{ __log_prefix_local }} Install Python docker packages"
   pip:
     name: >
       {{ item.name }}{% if item.version|d() %}=={{ item.version }}{% endif %}
@@ -110,7 +119,7 @@
   loop: "{{ __bootstrap_docker__pip_packages }}"
   when: item.name | d()
 
-- name: Docker | Docker Compose | pip self-update
+- name: "{{ __log_prefix_local }} pip self-update"
   pip:
     name: pip
     state: latest
@@ -119,7 +128,7 @@
 
 ## Unable to find pip in the virtualenv (python 3.10)
 ## https://github.com/ansible/ansible/issues/77604
-- name: Docker | Docker Compose | Install Python docker packages into docker-python virtualenv
+- name: "{{ __log_prefix_local }} Install Python docker packages into docker-python virtualenv"
   pip:
     name: >
       {{ item.name }}{% if item.version|d('')|length>0 %}=={{ item.version }}{% endif %}
@@ -131,7 +140,7 @@
   environment:
     SETUPTOOLS_USE_DISTUTILS: stdlib
 
-- name: Docker | Docker Compose | Symlink Docker Python binary to {{ bootstrap_docker_python_docker_interpreter }}
+- name: "{{ __log_prefix_local }} Symlink Docker Python binary to {{ bootstrap_docker_python_docker_interpreter }}"
   file:
     path: "{{ bootstrap_docker_python_docker_interpreter }}"
     src: "{{ bootstrap_docker__pip_virtualenv }}/bin/python"
