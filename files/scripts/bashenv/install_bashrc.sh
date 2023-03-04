@@ -66,8 +66,11 @@ echo "rsync ${RSYNC_OPTIONS_HOME[@]} ${FROM} ${HOME_DIR}/"
 rsync ${RSYNC_OPTIONS_HOME[@]} ${FROM} ${HOME_DIR}/
 
 chmod +x ${SECRETS_DIR}/scripts/*.sh
+chmod +x ${SECRETS_DIR}/git/*.sh
+
 echo "rsync env scripts"
 rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/scripts/*.sh ${HOME_DIR}/bin/
+rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/git/*.sh ${HOME_DIR}/bin/
 
 if [ "${SECRETS_DIR}/.bash_secrets" -nt "${HOME_DIR}/.bash_secrets" ]; then
   echo "deploying secrets ${SECRETS_DIR}/.bash_secrets"
