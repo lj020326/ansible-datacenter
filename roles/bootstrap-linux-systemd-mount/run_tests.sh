@@ -1,31 +1,10 @@
 #!/usr/bin/env bash
-# Copyright 2015, Rackspace US, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 # PURPOSE:
 # This script clones the openstack-ansible-tests repository to the
 # tests/common folder in order to be able to re-use test components
 # for role testing. This is intended to be the thinnest possible
 # shim for test execution outside of OpenStack CI.
-
-# WARNING:
-# This file is maintained in the openstack-ansible-tests repository.
-# https://opendev.org/openstack/openstack-ansible-tests/src/run_tests.sh
-# If you need to modify this file, update the one in the openstack-ansible-tests
-# repository and then update this file as well. The purpose of this file is to
-# prepare the host and then execute all the tox tests.
-#
 
 ## Shell Opts ----------------------------------------------------------------
 set -xeu
