@@ -379,6 +379,27 @@ Lists available completions for a given pyenv command.
 
     Usage: pyenv completions <command> [arg1 arg2...]
 
+## More
+
+* https://opensource.com/article/19/5/python-3-default-mac
+* https://opensource.com/article/20/4/pyenv
+
+```shell
+brew install pyenv
+pyenv install 3.10.2
+pyenv global 3.10.2
+pyenv version
+```
+
+Append to .bash_profile or .bashrc:
+
+```shell
+if command -v pyenv 1>/dev/null 2>&1; then
+  eval "$(pyenv init -)"
+  PATH=$(pyenv root)/shims:$PATH
+fi
+```
+
 ## Reference
 
 * https://github.com/pyenv/pyenv/blob/master/COMMANDS.md

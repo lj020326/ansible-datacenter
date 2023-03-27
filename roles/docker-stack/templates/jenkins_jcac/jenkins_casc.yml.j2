@@ -1,0 +1,48 @@
+jenkins:
+  systemMessage: "Jenkins configured automatically by Jenkins Configuration as Code plugin\n\n"
+  numExecutors: 1
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+  remotingSecurity:
+    enabled: false
+unclassified:
+  location:
+    url: "${JENKINS_HOST}"
+security:
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-token"
+              username: "${GITHUB_USERNAME}"
+              password: "${GITHUB_PASSWORD}"
+              description: "GitHub Token"
+          - string:
+              scope: GLOBAL
+              id: "slack-token"
+              secret: "${SLACK_TOKEN}"
+jobs:
+  - script: >
+      freeStyleJob('seedjob') {
+          displayName('Seedjob')
+          description('Create Jobs from this seedjob')
+          scm {
+              git {
+                  remote {
+                      github('${GITHUB_REPO_JOB_DSL}')
+                      credentials('github-token')
+                  }
+              }
+          }
+          steps {
+              dsl {
+                  removeAction('DISABLE')
+                  external('seed_jobdsl.groovy')
+              }
+          }
+      }

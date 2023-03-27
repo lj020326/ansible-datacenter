@@ -4,8 +4,6 @@
 # This is a windows documentation stub.  Actual code lives in the .ps1
 # file of the same name.
 
-# Copyright: (c) 2019, Informatique CDC.
-# Copyright: (c) 2012, Brad Olson <brado@movedbylight.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function

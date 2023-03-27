@@ -312,41 +312,6 @@ function getbranchhist(){
   git log $(git rev-parse --abbrev-ref HEAD)..
 }
 
-unalias gitcommitpush 1>/dev/null 2>&1
-unset -f gitcommitpush || true
-function gitcommitpush() {
-  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
-  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
-  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
-  echo "Staging changes:" && \
-  git add . || true && \
-  COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2) && \
-  COMMENT_BODY="$(LANG=C git -c color.status=false status \
-      | sed -n -r -e '1,/Changes to be committed:/ d' \
-            -e '1,1 d' \
-            -e '/^Untracked files:/,$ d' \
-            -e 's/^\s*//' \
-            -e '/./p' \
-            | sed -e '/git restore/ d')" && \
-  echo "Committing changes:" && \
-  git commit -am "${COMMENT_PREFIX} - ${COMMENT_BODY}" || true && \
-  echo "Pushing local branch ${LOCAL_BRANCH} to remote ${REMOTE} branch ${REMOTE_BRANCH}:" && \
-  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
-}
-
-unalias gitremovecached 1>/dev/null 2>&1
-unset -f gitremovecached || true
-function gitremovecached() {
-  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
-  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
-  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
-  git rm -r --cached . && \
-  git add . && \
-  echo "Committing changes:" && \
-  git commit -am "${COMMENT_PREFIX} - Remove ignored files" || true && \
-  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
-}
-
 unalias getgitrequestid 1>/dev/null 2>&1
 unset -f getgitrequestid || true
 function getgitrequestid() {
@@ -380,6 +345,35 @@ function getgitcomment() {
             | sed -e '/git restore/ d')"
   GIT_COMMENT="${COMMENT_PREFIX} - ${COMMENT_BODY}"
   echo "${GIT_COMMENT}"
+}
+
+unalias gitcommitpush 1>/dev/null 2>&1
+unset -f gitcommitpush || true
+function gitcommitpush() {
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  echo "Staging changes:" && \
+  git add . || true && \
+  GIT_COMMENT=$(getgitcomment) && \
+  echo "Committing changes:" && \
+  git commit -am "${GIT_COMMENT}" || true && \
+  echo "Pushing local branch ${LOCAL_BRANCH} to remote ${REMOTE} branch ${REMOTE_BRANCH}:" && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
+}
+
+unalias gitremovecached 1>/dev/null 2>&1
+unset -f gitremovecached || true
+function gitremovecached() {
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git rm -r --cached . && \
+  git add . && \
+  GIT_COMMENT=$(getgitcomment) && \
+  echo "Committing changes:" && \
+  git commit -am "${GIT_COMMENT}" || true && \
+  git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
 unalias blastit 1>/dev/null 2>&1
