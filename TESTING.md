@@ -22,7 +22,7 @@ In `requirements_collections`, setup symbolic link to any internal shared collec
 $ cd ~/repos/ansible/
 $ mkdir -p requirements_collections/ansible_collections
 $ cd requirements_collections/ansible_collections
-$ ln -s ../../dcc_common/collections/ansible_collections/infra-collections
+$ ln -s ../../infra-collections/collections/ansible_collections/infra-collections
 $ ls -Fla
 total 0
 drwxr-xr-x 3 username staff 96 Nov 16 08:42 ./
