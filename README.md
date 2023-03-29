@@ -253,8 +253,14 @@ $ ansible-playbook site.yml --tags samba-client
 $ ansible-playbook site.yml --tags bootstrap-user --vault-password-file ~/.vault_pass
 ```
 
+### Using run-playbook.sh launch script
 
-### Using run-ansible.sh launch script
+```shell
+$ run-playbook.sh site.yml -t bootstrap-docker-stack -l admin01
+$ run-playbook.sh bootstrap-ntp.yml -l testgroup_lnx
+```
+
+### Using run-ansible.sh launch script for jump hosts
 
 Using the run-ansible.sh script to automatically first install all dependencies then run the command
 
