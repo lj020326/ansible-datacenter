@@ -156,8 +156,6 @@ ansible-inventory -i inventory/ --graph --yaml testgroup_lnx
 ```shell
 ansible-inventory -i inventory/ --graph --yaml testgroup_wnd
 @testgroup_wnd:
-  |--@dcc_cyberark_platform_wnd_nondomain_dmz:
-  |  |--vmwintestd1s1
   |--@testgroup_wnd_site1:
   |  |--vmwintestd1s1
   |  |--vmwintestd2s1
