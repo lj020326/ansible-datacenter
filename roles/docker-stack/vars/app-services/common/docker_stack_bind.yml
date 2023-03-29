@@ -1,0 +1,38 @@
+---
+
+root_alias_email: "{{ docker_stack_email_from }}"
+#mailman_transport: lists.johnson.int
+
+bind_admin_password: "{{ vault__bind_admin_password | d('') }}"
+
+docker_stack_appspec_config_dirs:
+  - { path: "{{ docker_stack_dir }}/bind" }
+
+docker_stack_appspec_services__bind:
+  ## ref: https://github.com/sameersbn/docker-bind/blob/master/docker-compose.yml
+  ## ref: https://github.com/sameersbn/docker-bind/issues/74
+  ## ref: https://github.com/sameersbn/docker-bind/issues/65
+  ## ref: https://github.com/sameersbn/docker-bind/issues/3
+  bind:
+    container_name: "bind"
+#      image: sameersbn/bind:9.11.3-20190706
+    image: "sameersbn/bind:9.11.3-20190706"
+    restart: "unless-stopped"
+    networks:
+      - net
+    environment:
+      ROOT_PASSWORD: "{{ bind_admin_password }}"
+    ports:
+    - "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:53:53/udp"
+    - "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:53:53/tcp"
+    - "10010:10000/tcp"
+    volumes:
+      - "{{ docker_stack_dir }}/bind:/data"
+
+docker_stack_appspec__bind:
+  dirs: "{{ docker_stack_appspec_config_dirs__bind | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__bind | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__bind | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__bind | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__bind | d([]) }}"
+  docker_services: "{{ docker_stack_appspec_services__bind | d({}) }}"

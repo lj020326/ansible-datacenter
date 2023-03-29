@@ -1,0 +1,59 @@
+---
+
+__docker_stack_appspecs__redis_stack_dir: "{{ docker_stack_dir | d('/home/user/docker-dirs') }}"
+
+__docker_stack_appspecs__redis_password: "{{ docker_stack_redis_password | d('passwword') }}"
+
+__docker_stack_appspecs__redis_max_memory: "512mb"
+
+docker_stack_appspec_config_dirs__redis:
+  - { path: "{{ __docker_stack_appspecs__redis_stack_dir }}" }
+  - { path: "{{ __docker_stack_appspecs__redis_stack_dir }}/redis" }
+#  - { path: "{{ __docker_stack_appspecs__redis_stack_dir }}/redis/data" }
+
+
+docker_stack_appspec__redis:
+  dirs: "{{ docker_stack_appspec_config_dirs__redis | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__redis | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__redis | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__redis | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__redis | d([]) }}"
+  networks: "{{ docker_stack_appspec_networks__redis | d({}) }}"
+  volumes: "{{ docker_stack_appspec_volumes__redis | d({}) }}"
+  docker_services: "{{ docker_stack_appspec_services__redis | d({}) }}"
+
+
+__docker_stack_appspecs__traefik_labels_redis: "{{ docker_stack_appspecs__traefik_labels_redis
+  | d(__docker_stack_appspecs__traefik_labels_redis_default) }}"
+
+docker_stack_appspec_services__redis:
+  # Redis - Key-value Store
+  redis:
+    container_name: redis
+    image: redis:6.0.6
+    restart: unless-stopped
+    entrypoint: "redis-server --appendonly yes --requirepass {{ __docker_stack_appspecs__redis_password }} --maxmemory {{ __docker_stack_appspecs__redis_max_memory }} --maxmemory-policy allkeys-lru"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: "{{ docker_stack_timezone }}"
+      PUID: "{{ docker_stack_user_uid }}"
+      PGID: "{{ docker_stack_user_gid }}"
+    volumes:
+      - "{{ __docker_stack_appspecs__redis_stack_dir }}/redis:/data"
+
+  # Redis Commander - Redis Management Tool
+  rediscommander:
+    container_name: rediscommander
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      REDIS_HOST: redis
+      REDIS_PASSWORD: "{{ __docker_stack_appspecs__redis_password }}"
+    labels: "{{ __docker_stack_appspecs__traefik_labels_redis }}"

@@ -1,0 +1,43 @@
+---
+
+docker_stack_appspec_services__postfix:
+
+  ## ref: https://github.com/alterrebe/docker-mail-relay
+  postfix:
+    container_name: "postfix"
+    image: "{{ docker_stack_postfix_image }}"
+    restart: "unless-stopped"
+    networks:
+#      - internal
+      - net
+    healthcheck:
+#      test: [ "CMD", "sh", "-c", "netstat -an | fgrep 587 | fgrep -q LISTEN" ]
+      test: [ "CMD", "sh", "-c", "netstat -an | fgrep 25 | fgrep -q LISTEN" ]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 2
+    ports:
+      - "1025:25"
+      - "1587:587"
+    environment:
+      TZ: "{{ docker_stack_timezone }}"
+      RELAY_HOST_NAME: "{{ inventory_hostname }}"
+      EXT_RELAY_HOST: "{{ smtp_relay_host }}"
+      EXT_RELAY_PORT: "{{ smtp_relay_port }}"
+      SMTP_LOGIN: "{{ smtp_relay_username }}"
+      SMTP_PASSWORD: "{{ smtp_relay_password }}"
+      ACCEPTED_NETWORKS: "{{ smtp_relay_accepted_networks }}"
+      ROOT_ALIAS_ADDRESS: "{{ root_alias_email }}"
+#        MAILMAN_TRANSPORT: "{{ mailman_transport }}"
+      RELAY_EXCLUDES: "{{ smtp_relay_excludes }}"
+
+
+
+docker_stack_appspec__postfix:
+  dirs: "{{ docker_stack_appspec_config_dirs__postfix | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__postfix | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__postfix | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__postfix | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__postfix | d([]) }}"
+  docker_services: "{{ docker_stack_appspec_services__postfix | d({}) }}"

@@ -1,0 +1,125 @@
+---
+
+__docker_stack_appspecs__atlassian_stack_dir: "{{ docker_stack_dir | d('/home/user/docker-dirs') }}"
+
+__docker_stack_appspecs__atlassian_agent_http_port: 4080
+
+docker_stack_appspec_config_dirs__atlassian:
+  - path: "{{ __docker_stack_appspecs__atlassian_stack_dir }}/atlassian"
+  - path: "{{ __docker_stack_appspecs__atlassian_stack_dir }}/atlassian/atlassian_home"
+
+#docker_stack_appspec_config_tpls__atlassian:
+#  - src: 'atlassian/config-group.conf.j2'
+#    dest: "{{ __docker_stack_appspecs__atlassian_stack_dir }}/atlassian/group"
+#  - src: 'atlassian/config-passwd.conf.j2'
+#    dest: "{{ __docker_stack_appspecs__atlassian_stack_dir }}/atlassian/passwd"
+
+docker_stack_firewalld_appspec_ports__atlassian:
+  - "{{ __docker_stack_appspecs__atlassian_agent_http_port }}/tcp"
+
+docker_stack_appspec_volumes__atlassian:
+  atlassian_postgres:
+  confluence_data:
+  crowd_data:
+  jira_software_data:
+
+docker_stack_appspec__atlassian:
+  dirs: "{{ docker_stack_appspec_config_dirs__atlassian | d([]) }}"
+  files: "{{ docker_stack_appspec_config_files__atlassian | d([]) }}"
+  templates: "{{ docker_stack_appspec_config_tpls__atlassian | d([]) }}"
+  firewalld_services: "{{ docker_stack_firewalld_appspec_services__atlassian | d([]) }}"
+  firewalld_ports: "{{ docker_stack_firewalld_appspec_ports__atlassian | d([]) }}"
+  networks: "{{ docker_stack_appspec_networks__atlassian | d({}) }}"
+  volumes: "{{ docker_stack_appspec_volumes__atlassian | d({}) }}"
+  docker_services: "{{ docker_stack_appspec_services__atlassian | d({}) }}"
+
+
+__docker_stack_appspecs__traefik_labels_atlassian_dbadmin: "{{ docker_stack_appspecs__traefik_labels_atlassian_dbadmin
+  | d(__docker_stack_appspecs__traefik_labels_atlassian_dbadmin_default) }}"
+
+__docker_stack_appspecs__environment_atlassian_crowd: "{{ docker_stack_appspecs__environment_atlassian_crowd
+  | d(__docker_stack_appspecs__environment_atlassian_crowd_default) }}"
+
+__docker_stack_appspecs__traefik_labels_atlassian_crowd: "{{ docker_stack_appspecs__traefik_labels_atlassian_crowd
+  | d(__docker_stack_appspecs__traefik_labels_atlassian_crowd_default) }}"
+
+__docker_stack_appspecs__environment_atlassian_jira: "{{ docker_stack_appspecs__environment_atlassian_jira
+  | d(__docker_stack_appspecs__environment_atlassian_jira_default) }}"
+
+__docker_stack_appspecs__traefik_labels_atlassian_jira: "{{ docker_stack_appspecs__traefik_labels_atlassian_jira
+  | d(__docker_stack_appspecs__traefik_labels_atlassian_jira_default) }}"
+
+__docker_stack_appspecs__environment_atlassian_confluence: "{{ docker_stack_appspecs__environment_atlassian_confluence
+  | d(__docker_stack_appspecs__environment_atlassian_confluence_default) }}"
+
+__docker_stack_appspecs__traefik_labels_atlassian_confluence: "{{ docker_stack_appspecs__traefik_labels_atlassian_confluence
+  | d(__docker_stack_appspecs__traefik_labels_atlassian_confluence_default) }}"
+
+## ref: https://github.com/realtarget/traefik2-docker-stack/blob/master/atlassian/docker-compose.yml
+docker_stack_appspec_services__atlassian:
+  db-devweb:
+    container_name: db-devweb
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: PG_PASSWORD
+    command: ["-c", "shared_buffers=256MB", "-c", "max_connections=200"]
+    volumes:
+      - atlassian_postgres:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    container_name: db_adminer
+    restart: always
+    expose:
+      - "8080"
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    labels: "{{ __docker_stack_appspecs__traefik_labels_atlassian_dbadmin }}"
+
+  crowd:
+    image: teamatldocker/crowd
+    container_name: crowd
+    restart: always
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    volumes:
+      - crowd_data:/var/atlassian/crowd
+    links:
+      - db-devweb
+    expose:
+      - "8095"
+    environment: "{{ __docker_stack_appspecs__environment_atlassian_crowd }}"
+    labels: "{{ __docker_stack_appspecs__traefik_labels_atlassian_crowd }}"
+
+  jira-software:
+    restart: always
+    image: atlassian/jira-software
+    container_name: jira-software
+    environment: "{{ __docker_stack_appspecs__environment_atlassian_jira }}"
+    expose:
+      - "8080"
+    links:
+      - db-devweb
+    volumes:
+      - jira_software_data:/var/atlassian/application-data/jira
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    labels: "{{ __docker_stack_appspecs__traefik_labels_atlassian_jira }}"
+
+  confluence:
+    restart: always
+    image: atlassian/confluence-server:latest
+    container_name: confluence
+    environment: "{{ __docker_stack_appspecs__environment_atlassian_confluence }}"
+    expose:
+       - "8090"
+    links:
+      - db-devweb
+    volumes:
+      - confluence_data:/var/atlassian/application-data/confluence
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - "{{ docker_stack_traefik_proxy_network }}"
+    labels: "{{ __docker_stack_appspecs__traefik_labels_atlassian_confluence }}"
