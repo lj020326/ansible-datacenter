@@ -7,11 +7,11 @@
 
 In the developer environment, the 'tower-inventory' repo should be located in the same base directory as the 'ansible-datacenter' project repo.
 
-In the project tests directory, create a symbolic link to the test 'tower-inventory'.
+In the project tests directory, create a symbolic link to the 'tower-inventory' `develop` test inventory directory.
 
 ```shell
 $ cd ~/repos/ansible/ansible-datacenter/tests
-$ ln -s ../../tower-inventory/Sandbox inventory
+$ ln -s ../../tower-inventory/develop inventory
 ```
 
 ### Create symbolic links to the internal develop branch collections
