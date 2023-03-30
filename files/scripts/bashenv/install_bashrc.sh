@@ -10,6 +10,7 @@ HOME_DIR="${HOME}"
 
 #INITIAL_WD=`pwd`
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+SCRIPT_BASE_DIR="$( cd "$( dirname "$0" )/.." && pwd )"
 
 ## expect to be run at the project root
 #PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
@@ -71,6 +72,8 @@ chmod +x ${SECRETS_DIR}/git/*.sh
 echo "rsync env scripts"
 rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/scripts/*.sh ${HOME_DIR}/bin/
 rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/git/*.sh ${HOME_DIR}/bin/
+rsync ${RSYNC_OPTIONS_HOME[@]} ${SCRIPT_BASE_DIR}/certs/*.sh ${HOME_DIR}/bin/
+chmod +x ${HOME_DIR}/bin/*.sh
 
 if [ "${SECRETS_DIR}/.bash_secrets" -nt "${HOME_DIR}/.bash_secrets" ]; then
   echo "deploying secrets ${SECRETS_DIR}/.bash_secrets"

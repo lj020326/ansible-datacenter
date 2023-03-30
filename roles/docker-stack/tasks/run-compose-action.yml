@@ -39,7 +39,8 @@
     registry: "{{ docker_stack_registry_endpoint }}"
     username: "{{ docker_stack_registry_username }}"
     password: "{{ docker_stack_registry_password }}"
-    ca_cert: ""
+    tls_hostname: "{{ docker_stack_registry_endpoint | split(':') | first }}"
+#    ca_cert: ""
     debug: yes
     tls: yes
 
@@ -52,20 +53,65 @@
       - "__docker_stack_service_groups: {{ __docker_stack_service_groups|d('') }}"
       - "__docker_stack_app_services: {{ __docker_stack_app_services }}"
 
-## run docker compose
-## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
-- name: "{{ log_prefix_local }} Run the services defined in docker-compose.yml"
-  community.docker.docker_compose:
-    project_src: "{{ docker_stack_dir }}"
-    remove_orphans: "{{ docker_stack_remove_orphans }}"
-    state: "{{ __docker_stack_compose_state }}"
-    restarted: "{{ __docker_stack_compose_restarted | d(omit) }}"
-    stopped: "{{ __docker_stack_compose_stopped | d(omit) }}"
-#    services: "{{ __docker_stack_app_services | d(omit) }}"
-  register: __compose_result
-  retries: 3
-  delay: 20
-  until: __compose_result is not failed
+- name: "{{ log_prefix_local }} Run docker-compose"
+  block:
+    ## run docker compose
+    ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
+    - name: "{{ log_prefix_local }} Run the services defined in docker-compose.yml"
+      community.docker.docker_compose:
+        project_src: "{{ docker_stack_dir }}"
+        remove_orphans: "{{ docker_stack_remove_orphans }}"
+        state: "{{ __docker_stack_compose_state }}"
+        restarted: "{{ __docker_stack_compose_restarted | d(omit) }}"
+        stopped: "{{ __docker_stack_compose_stopped | d(omit) }}"
+    #    services: "{{ __docker_stack_app_services | d(omit) }}"
+      register: __compose_result
+      retries: 3
+      delay: 20
+      until: __compose_result is not failed
+
+  rescue:
+    - name: "{{ log_prefix_local }} Display __compose_result"
+      debug:
+        var: __compose_result
+
+    - name: "{{ log_prefix_local }} Set __restart_docker"
+      set_fact:
+#        __restart_docker: "{{ (__compose_result.msg | regex_search("INVALID_ZONE .* docker")) }}"
+        __restart_docker: "{{ (__compose_result.msg | regex_search('Failed to program NAT chain')) }}"
+
+    - name: "{{ log_prefix_local }} Display __restart_docker"
+      debug:
+        var: __restart_docker
+
+    - name: "{{ log_prefix_local }} Re-emit failure"
+      when: not __restart_docker
+      vars:
+        failed_task:
+          result: '{{ ansible_failed_result }}'
+      fail:
+        msg: '{{ failed_task }}'
+
+    - name: "{{ log_prefix_local }} Handle docker service exception"
+      when: __restart_docker
+      block:
+      - name: "{{ __log_prefix_local }} Restart docker service"
+        include_tasks: restart-docker-service.yml
+
+      ## run docker compose
+      ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
+      - name: "{{ log_prefix_local }} Retry to Run the services defined in docker-compose.yml"
+        community.docker.docker_compose:
+          project_src: "{{ docker_stack_dir }}"
+          remove_orphans: "{{ docker_stack_remove_orphans }}"
+          state: "{{ __docker_stack_compose_state }}"
+          restarted: "{{ __docker_stack_compose_restarted | d(omit) }}"
+          stopped: "{{ __docker_stack_compose_stopped | d(omit) }}"
+      #    services: "{{ __docker_stack_app_services | d(omit) }}"
+        register: __compose_result
+        retries: 3
+        delay: 20
+        until: __compose_result is not failed
 
 - name: "{{ log_prefix_local }} Display __compose_result"
   debug:

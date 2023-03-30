@@ -64,6 +64,7 @@
   ignore_unreachable: yes
   ignore_errors: yes
   tags:
+    - bootstrap-cacerts
     - bootstrap-keyring
     - deploy-cacerts
   tasks:
@@ -546,7 +547,6 @@
     - bootstrap-stepca
     - bootstrap-stepca-cli
 #    - bootstrap-caroot
-#    - bootstrap-cacert
   roles:
     - role: ansible-role-stepca
 
@@ -555,15 +555,16 @@
 ## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
 ## ref: https://github.com/shelleg/ansible-role-ca/
 - name: "Setup ca_root and cacerts"
-  hosts: ca_keyring,!node_offline
+  hosts: ca_keystore,!node_offline
   gather_facts: false
 #  collections:
 #    - lvrfrc87.git_acp
 #  vars_files:
 #    - vars/vault.yml
   tags:
-    - bootstrap-keyring
-#    - bootstrap-cacert
+    - bootstrap-cacerts
+    - bootstrap-pki
+    - renew-expired-cacerts
     - caroot
     - caroot-create
     - ca-keyring
@@ -571,21 +572,16 @@
   become: yes
   roles:
     - role: bootstrap-cfssl
-#      vars:
-#        ansible_python_interpreter: "{{ os_python3_interpreter }}"
-    - role: bootstrap-keyring
+    - role: bootstrap-cacerts
       tags: [cacerts-create]
-#      vars:
-#        ansible_python_interpreter: "{{ os_python2_interpreter }}"
 
 - name: "Deploy CA certs to cert_node"
   hosts: dc_os_linux,!node_offline
   gather_facts: false
-  vars_files:
-    - vars/vault.yml
+#  vars_files:
+#    - vars/vault.yml
   tags:
     - bootstrap-node
-    - bootstrap-cacert
     - bootstrap-docker-stack
     - cacerts
     - cacerts-distribute
@@ -655,8 +651,8 @@
     - docker-stack
   become: True
 #  become_method: sudo
-  vars_files:
-    - vars/vault.yml
+#  vars_files:
+#    - vars/vault.yml
   roles:
     - role: docker-stack
 

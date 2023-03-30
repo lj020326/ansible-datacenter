@@ -167,10 +167,10 @@ load_aliases () {
 }
 
 load_aliases
-sshsetupkeyaliases
 
 if [[ "${platform}" == *"DARWIN"* ]]; then
     # default to Java 11
 #     java11
     java8
+    sshsetupkeyaliases
 fi

@@ -40,8 +40,8 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 
 rm -f ./ansible.log
 
-execCmd="ansible-playbook -i inventory/hosts.yml --vault-password-file ${VAULTPASS_FILEPATH} $@"
-#execCmd="ansible-playbook $@ -e @${VAULT_FILEPATH} --vault-password-file ${VAULTPASS_FILEPATH} ${PLAYBOOK}"
+#execCmd="ansible-playbook -i inventory/hosts.yml --vault-password-file ${VAULTPASS_FILEPATH} $@"
+execCmd="ansible-playbook -i inventory/hosts.yml -e @${VAULT_FILEPATH} --vault-password-file ${VAULTPASS_FILEPATH} $@"
 
 echo "execCmd=${execCmd}"
 ${execCmd}

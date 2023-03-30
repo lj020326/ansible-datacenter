@@ -35,7 +35,7 @@
     state: present
   with_dict: "{{ __docker_stack_secrets }}"
 
-- name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
+- name: "{{ log_prefix_local }} Create external docker networks"
   block:
 
   - name: "{{ log_prefix_local }} Display __docker_stack_networks"
@@ -48,16 +48,39 @@
     community.docker.docker_network:
       name: "{{ item.key }}"
     with_dict: "{{ __docker_stack_networks }}"
-    register: __configure_docker_service
+    register: __configure_docker_networks
 
   rescue:
+    - name: "{{ log_prefix_local }} Display __configure_docker_networks"
+      debug:
+        var: __configure_docker_networks
+
+    - name: "{{ log_prefix_local }} Set __restart_docker"
+      set_fact:
+#        __restart_docker: "{{ (__configure_docker_networks.msg | regex_search("INVALID_ZONE .* docker")) }}"
+        __restart_docker: "{{ (__configure_docker_networks.msg | regex_search('Failed to program NAT chain')) }}"
+
+    - name: "{{ log_prefix_local }} Display __restart_docker"
+      debug:
+        var: __restart_docker
+
+    - name: "{{ log_prefix_local }} Re-emit failure"
+      when: not __restart_docker
+      vars:
+        failed_task:
+          result: '{{ ansible_failed_result }}'
+      fail:
+        msg: '{{ failed_task }}'
 
     - name: "{{ log_prefix_local }} Handle docker service exception"
-      include_tasks: handle-docker-service-exception.yml
+      when: __restart_docker
+      block:
+      - name: "{{ __log_prefix_local }} Restart docker service"
+        include_tasks: restart-docker-service.yml
 
-    - name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
-      when: item.value.external|d(False)|bool
-      community.docker.docker_network:
-        name: "{{ item.key }}"
-      with_dict: "{{ __docker_stack_networks }}"
-      register: __configure_docker_service
+      - name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
+        when: item.value.external|d(False)|bool
+        community.docker.docker_network:
+          name: "{{ item.key }}"
+        with_dict: "{{ __docker_stack_networks }}"
+        register: __configure_docker_networks
