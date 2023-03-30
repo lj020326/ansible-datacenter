@@ -110,13 +110,13 @@ ca_node:
 ```yaml
 --- # tasks file for role cert-auth
 include: ca-init.yml
-when: bootstrap_keyring_ca_init is defined and ca_force_create == yes
+when: bootstrap_cacerts__ca_init is defined and ca_force_create == yes
 
 include: certify_nodes.yml
-when: bootstrap_keyring_ca_certify_nodes is defined and ca_force_certify_nodes
+when: bootstrap_cacerts__ca_certify_nodes is defined and ca_force_certify_nodes
 
 include: fetch_keys.yml
-when: bootstrap_keyring_ca_fetch_certs is defined
+when: bootstrap_cacerts__ca_fetch_certs is defined
 
 ```
 
@@ -163,8 +163,8 @@ when: bootstrap_keyring_ca_fetch_certs is defined
   args:
     chdir: "{{ ca_certs_dir }}"
   with_items:
-  - "openssl genrsa -out {{ bootstrap_keyring_pki_caroot_key }} 2048"
-  - "openssl req -config /usr/lib/ssl/openssl.cnf -new -key {{ bootstrap_keyring_pki_caroot_key }} -x509 -days 1825 -out {{ bootstrap_keyring_pki_caroot_cert }} -passin pass:{{ ca_rootca_password }} -subj \"{{ ca_subject }}\""
+  - "openssl genrsa -out {{ bootstrap_cacerts__caroot_key }} 2048"
+  - "openssl req -config /usr/lib/ssl/openssl.cnf -new -key {{ bootstrap_cacerts__caroot_key }} -x509 -days 1825 -out {{ bootstrap_cacerts__caroot_cert }} -passin pass:{{ ca_rootca_password }} -subj \"{{ ca_subject }}\""
 ```
 
 * Generating the node certificates:
@@ -202,14 +202,14 @@ when: bootstrap_keyring_ca_fetch_certs is defined
 
 ```yaml
 - name: "copy keys from ca_root_node to ansible machine for distribution"
-  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_keyring_ca_keyring_keys_dir }}/{{ item.ssl_key }}" flat=yes
+  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item.ssl_key }}" flat=yes
   with_items:
   - "{{ ca_node.ca_root_node }}"
   - "{{ ca_node.swarm.swarm-workers }}"
   - "{{ ca_node.swarm.swarm-managers }}"
 
 - name: "copy certs from ca_root_node to ansible machine for distribution"
-  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_keyring_ca_keyring_certs_dir }}/{{ item.ssl_cert }}" flat=yes
+  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item.ssl_cert }}" flat=yes
   with_items:
   - "{{ ca_node.ca_root_node }}"
   - "{{ ca_node.swarm.swarm-workers }}"
@@ -218,32 +218,32 @@ when: bootstrap_keyring_ca_fetch_certs is defined
 - name: "copy ca.pem ca-priv-key.pem"
   fetch: src="{{ item.src }}" dest="{{ item.dest }}" flat=yes
   with_items:
-  - "{{ bootstrap_keyring_pki_caroot_cert }}"
-  - "{{ bootstrap_keyring_pki_caroot_key }}"
-  - { src: "{{ ca_certs_dir }}/{{ bootstrap_keyring_pki_caroot_cert }}", dest: "{{ bootstrap_keyring_ca_keyring_certs_dir }}/{{ item }}" }
-  - { src: "{{ ca_certs_dir }}/{{ bootstrap_keyring_pki_caroot_key }}", dest: "{{ bootstrap_keyring_ca_keyring_keys_dir }}/{{ item }}" }
+  - "{{ bootstrap_cacerts__caroot_cert }}"
+  - "{{ bootstrap_cacerts__caroot_key }}"
+  - { src: "{{ ca_certs_dir }}/{{ bootstrap_cacerts__caroot_cert }}", dest: "{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item }}" }
+  - { src: "{{ ca_certs_dir }}/{{ bootstrap_cacerts__pki_caroot_key }}", dest: "{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item }}" }
 ```
 
 * Distribute the Certs & keys to the various nodes:
 
 ```yaml
-- name: "Ensures {{ bootstrap_keyring_ca_local_cert_dir }} and {{ bootstrap_keyring_ca_local_key_dir }} dirs exist"
+- name: "Ensures {{ bootstrap_cacerts__ca_local_cert_dir }} and {{ bootstrap_cacerts__ca_local_key_dir }} dirs exist"
   file: path="{{ item }}" state=directory owner=root group=root mode=0750 recurse=yes
   with_items:
-  - "{{ bootstrap_keyring_ca_local_cert_dir }}"
-  - "{{ bootstrap_keyring_ca_local_key_dir }}"
+  - "{{ bootstrap_cacerts__ca_local_cert_dir }}"
+  - "{{ bootstrap_cacerts__ca_local_key_dir }}"
 
 - block:
 
    - name: "copy keys from ca_root_node to ansible machine for distribution"
-     copy: src="{{ bootstrap_keyring_ca_keyring_keys_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_keyring_ca_local_key_dir }}/{{ item.ssl_key }}"
+     copy: src="{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.ssl_key }}"
      with_items:
      - "{{ ca_node.ca_root_node }}"
      - "{{ ca_node.swarm.swarm-workers }}"
      - "{{ ca_node.swarm.swarm-managers }}"
 
    - name: "copy certs from ca_root_node to ansible machine for distribution"
-     copy: src="{{ bootstrap_keyring_ca_keyring_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_keyring_ca_local_cert_dir }}/{{ item.ssl_cert }}"
+     copy: src="{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.ssl_cert }}"
      with_items:
      - "{{ ca_node.ca_root_node }}"
      - "{{ ca_node.swarm.swarm-workers }}"
@@ -253,19 +253,19 @@ when: bootstrap_keyring_ca_fetch_certs is defined
 
 # Root CA key/cert
 
-- name: "copy {{ bootstrap_keyring_pki_caroot_key }} to {{ bootstrap_keyring_ca_local_key_dir }}"
+- name: "copy {{ bootstrap_cacerts__pki_caroot_key }} to {{ bootstrap_cacerts__ca_local_key_dir }}"
   copy:
-   src: "{{ bootstrap_keyring_ca_keyring_keys_dir }}/{{ item }}"
-   dest: "{{ bootstrap_keyring_ca_local_key_dir }}/{{ item }}"
+   src: "{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item }}"
+   dest: "{{ bootstrap_cacerts__ca_local_key_dir }}/{{ item }}"
   with_items:
-  - "{{ bootstrap_keyring_pki_caroot_key }}"
+  - "{{ bootstrap_cacerts__pki_caroot_key }}"
 
-- name: "copy {{ bootstrap_keyring_pki_caroot_cert }} to {{ bootstrap_keyring_ca_local_cert_dir }}"
+- name: "copy {{ bootstrap_cacerts__pki_caroot_cert }} to {{ bootstrap_cacerts__ca_local_cert_dir }}"
   copy:
-   src: "{{ bootstrap_keyring_ca_keyring_certs_dir }}/{{ item }}"
-   dest: "{{ bootstrap_keyring_ca_local_cert_dir }}/{{ item }}"
+   src: "{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item }}"
+   dest: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item }}"
   with_items:
-  - "{{ bootstrap_keyring_pki_caroot_cert }}"
+  - "{{ bootstrap_cacerts__pki_caroot_cert }}"
 ```
 
 # Gotchas
@@ -281,7 +281,7 @@ The supporting vars.yml are:
 # install and configure the root CA (from scratch)
 ca_init: yes
 # generate certs for nodes
-bootstrap_keyring_ca_certify_nodes: yes
+bootstrap_cacerts__ca_certify_nodes: yes
 # copy key to ansible control machine
 ca_fetch_certs: yes
 # force creating even if files exist on the node
@@ -298,11 +298,11 @@ An example playbook setup-ca-server.yml utilizing the CA role to setup the CA se
 - hosts: caserver01
   become: yes
   vars:
-   bootstrap_keyring_ca_init: yes
-   bootstrap_keyring_ca_certify_nodes: yes
-   bootstrap_keyring_ca_fetch_certs: yes
-   bootstrap_keyring_ca_force_create: yes
-   bootstrap_keyring_ca_force_certify_nodes: yes
+   bootstrap_cacerts__ca_init: yes
+   bootstrap_cacerts__ca_certify_nodes: yes
+   bootstrap_cacerts__ca_fetch_certs: yes
+   bootstrap_cacerts__ca_force_create: yes
+   bootstrap_cacerts__ca_force_certify_nodes: yes
   roles:
    - role: bootstrap-keyring
      tags: ca
