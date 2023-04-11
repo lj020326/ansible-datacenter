@@ -12,6 +12,9 @@ __docker_stack_supported_actions:
 
 docker_stack_action: 'setup'
 
+__docker_stack_ca_cert_bundle: "{{ docker_stack_ca_cert_bundle | d(__docker_stack_ca_cert_bundle_default) }}"
+__docker_stack_ca_java_keystore: "{{ docker_stack_ca_java_keystore | d(__docker_stack_ca_java_keystore_default) }}"
+
 #############
 ### This is the key role input dictionary used
 #############
@@ -46,12 +49,118 @@ docker_stack_setup_admin_scripts: yes
 
 docker_stack_compose_http_timeout: 120
 
-#########
-## common vars for multiple stacks (e.g., LDAP config/etc
+#############
+## LDAP domain config - ldap vars used in multiple stacks
+#############
+docker_stack_ldap_domain: "example.int"
 docker_stack_ldap_admin_password: "password"
 docker_stack_ldap_config_password: "passsword"
-docker_stack_ldap_server: "ldap.example.int"
+#docker_stack_ldap_server: "ldap.example.int"
+docker_stack_ldap_base_dn: "dc=example,dc=int"
 
+docker_stack_ldap_group_users_gid: 502
+
+docker_stack_ldap_group_ou: "groups"
+docker_stack_ldap_group_base_dn: "ou={{ docker_stack_ldap_group_ou }},{{ docker_stack_ldap_base_dn }}"
+docker_stack_ldap_user_ou: "users"
+docker_stack_ldap_user_base_dn: "ou={{ docker_stack_ldap_user_ou }},{{ docker_stack_ldap_base_dn }}"
+docker_stack_ldap_idmap_ou: "Idmap"
+docker_stack_ldap_idmap_base_dn: "ou={{ docker_stack_ldap_idmap_ou }},{{ docker_stack_ldap_base_dn }}"
+
+docker_stack_ldap_computer_base_ou: "computers"
+docker_stack_ldap_computer_base_dn: "ou={{ docker_stack_ldap_computer_base_ou }},{{ docker_stack_ldap_base_dn }}"
+docker_stack_ldap_host_base_ou: "hosts"
+docker_stack_ldap_host_base_dn: "ou={{ docker_stack_ldap_host_base_ou }},{{ docker_stack_ldap_base_dn }}"
+
+#docker_stack_ldap_search_user_cn: "search"
+#docker_stack_ldap_search_user_dn: "cn={{ docker_stack_ldap_search_user_cn }},{{ docker_stack_ldap_base_dn }}"
+#docker_stack_ldap_search_user_password: "DaBc$3412"
+
+#docker_stack_ldap_samba_primary_group_sid: "S-1-5-21-1234567890-0987654321-0123456789-1234"
+#docker_stack_ldap_samba_admin_sid: "S-1-5-21-2488225321-1182615644-1602239022-500"
+#docker_stack_ldap_samba_domain_hosts_samba_sid: "S-1-5-21-2488225321-1182615644-1602239022-515"
+
+docker_stack_ldap_user_smb_base_dir: '\\samba.{{ docker_stack_ldap_domain }}'
+docker_stack_ldap_user_smb_profile_base: '{{ docker_stack_ldap_user_smb_base_dir }}\profiles'
+
+#docker_stack_ldap_user_root_samba_nt_password: "ertRgh%yr54t34Trf"
+#docker_stack_ldap_user_root_password: "4werPoidfk!jhy8"
+
+##############
+### LDAP domain admin info
+##############
+#docker_stack_ldap_user_domain_admin_uid: "netadmin"
+#docker_stack_ldap_user_domain_admin_dn: "uid={{ docker_stack_ldap_user_domain_admin_uid }},{{ docker_stack_ldap_user_base_dn }}"
+#docker_stack_ldap_user_domain_admin_samba_nt_password: "ertRgh%yr54t34Trf"
+#docker_stack_ldap_user_domain_admin_samba_hosts: "vm10,vm11,ljlaptop,oradb1,plex,samba,vcenter"
+#docker_stack_ldap_user_domain_admin_password: "4werPoidfk!jhy8"
+#docker_stack_ldap_user_domain_admin_ssh_public_key: "publickeyhere"
+
+#############
+## openLDAP domain config
+#############
+
+## ref: https://serverfault.com/questions/885324/background-on-sambasid-calculation
+docker_stack_ldap_domain_sid_root: "S-1-5-21-1234567890-5678912345-987654321"
+
+docker_stack_ldap_domain_user_object_class_list_default:
+  - inetOrgPerson
+  - organizationalPerson
+  - person
+  - posixAccount
+  - sambaSamAccount
+  - shadowAccount
+
+docker_stack_ldap_domain_group_object_class_list_default:
+  - top
+  - posixGroup
+
+docker_stack_ldap_domain_host_object_class_list_default:
+  - account
+  - posixAccount
+  - sambaSamAccount
+
+docker_stack_ldap_samba_domain_map: {}
+docker_stack_ldap_domain_ou_map:
+  groups: {}
+  users: {}
+  Idmap: {}
+  hosts: {}
+  computers: {}
+
+docker_stack_ldap_base_user_map:
+  search:
+    username: search
+    ssha_password: "{ssha}GSmbWLYqiCMjPSJobxU4rfd/4fRX8okq3Zb4g=="
+    description: LDAP read only user
+    object_class_list:
+      - organizationalRole
+      - simpleSecurityObject
+
+docker_stack_ldap_domain_user_map: {}
+#docker_stack_ldap_domain_user_map:
+#  ljohnson:
+#    username: ljohnson
+#    uid_number: 10100
+#    display_name: Lee Johnson
+#    initials: LJ
+#    mail: ljohnson@example.org
+#    groups:
+#      - smbuser
+#    samba:
+#      sid: "S-1-5-21-2488225321-1182615644-1602239022-10100"
+#      nt_password: "A9658B834645YT9E2AA7BBB4D0286DDA4"
+#      workstations: "ljlaptop,oradb1,vcenter"
+#    ssha_password: "{SSHA}BMUL5QS4Oas2xvFQ+J6sdDZHaAWNtWQ=="
+#    ssh_public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMX0dPcvoiLIR3qdv+FXLE/yia
+#      3pC3w+tJCGs36b5OmKZDkElfR8+LtuYyX6Rb lee.james.johnson@gmail.com
+
+docker_stack_ldap_domain_group_map: {}
+docker_stack_ldap_domain_host_map: {}
+
+
+######################
+######################
 docker_stack_run_services: yes
 #docker_stack_run_services: no
 docker_stack_restart_service: no
@@ -83,7 +192,7 @@ docker_stack_configs: {}
 #  task_rules:
 #    file: ./prometheus/rules/swarm_task.rules.yml
 
-##
+#####################
 ## container user
 docker_stack_user_username: container-user
 docker_stack_user_password: container-user
@@ -112,9 +221,6 @@ docker_stack_compose_file: "{{ docker_stack_dir }}/docker-compose.yml"
 docker_stack_remove_orphans: yes
 
 docker_stack_ca_root_cn: "ca-root"
-docker_stack_ca_cert_bundle: "/etc/pki/tls/certs/ca-bundle.crt"
-#docker_stack_ca_cert_bundle: "/etc/ssl/certs/ca-certificates.crt"
-docker_stack_ca_java_keystore: /etc/pki/ca-trust/extracted/java/cacerts
 
 docker_stack_acme_email: "admin@example.int"
 
@@ -171,8 +277,6 @@ awx_orig_web_volumes:
 #      - "{{ awx_docker_compose_dir }}/settings.py:/etc/tower/conf.d/settings.py"
   - "{{ awx_docker_compose_dir }}/nginx.conf:/etc/nginx/nginx.conf:ro"
   - "{{ awx_docker_compose_dir }}/redis_socket:/var/run/redis/:rw"
-
-
 
 docker_stack_awx_backend: "http://{{ docker_stack_internal_domain }}:{{ awx_host_port }}"
 docker_stack_awx_orig_backend: "http://{{ docker_stack_internal_domain }}:{{ awx_orig_host_port }}"

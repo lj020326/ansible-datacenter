@@ -139,6 +139,14 @@ dns_nameservers:
   - "{{ gateway_ipv4 }}"
 
 ############
+## LDAP host vars
+############
+ldap_host_uid_number: "{{ (range(1000, 9999) | random(seed=inventory_hostname))|int + 50000 }}"
+ldap_host_config:
+  uid_number: "{{ ldap_host_uid_number }}"
+  gid_number: 515
+
+############
 ## LDAP vars
 ############
 ldap_root_password: "{{ vault__ldap_root_password }}"
@@ -147,11 +155,23 @@ ldap_admin_password: "{{ vault__ldap_admin_password }}"
 ldap_readonly_user_password: "{{ vault__ldap_readonly_user_password }}"
 
 #ldap_internal_domain: "johnson.int"
-#ldap_internal_base_dn: "dc=johnson,dc=int"
 ldap_internal_domain: "{{ internal_domain }}"
-ldap_internal_base_dn: "dc={{ ldap_internal_domain.split('.')[-2] }},dc={{ ldap_internal_domain.split('.')[-1] }}"
 
-ldap_internal_search_base_dn: "ou=users,{{ ldap_internal_base_dn }}"
+ldap_domain_parts: |
+  [
+    {% for domain in ldap_internal_domain.split('.') %}
+    "dc={{ domain }}",
+    {% endfor %}
+  ]
+
+#ldap_internal_base_dn: "dc=johnson,dc=int"
+#ldap_internal_base_dn: "dc={{ ldap_internal_domain.split('.')[-2] }},dc={{ ldap_internal_domain.split('.')[-1] }}"
+ldap_internal_base_dn: "{{ ldap_domain_parts | join(',') }}"
+
+ldap_internal_user_search_base_dn: "ou=users,{{ ldap_internal_base_dn }}"
+ldap_internal_search_user_dn: "cn=search,{{ docker_stack_ldap_base_dn }}"
+ldap_search_user_password: "{{ vault__ldap_base_users['search'].ssha_password }}"
+
 ldap_internal_host: "ldap.{{ ldap_internal_domain }}:389"
 ldap_internal_uri: "ldap://{{ ldap_internal_host }}"
 

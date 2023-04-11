@@ -1,7 +1,14 @@
 ---
 
+- name: "fetch_certs | Display cert and key dir info"
+  debug:
+    msg:
+    - "bootstrap_cacerts__ca_local_cert_dir={{ bootstrap_cacerts__ca_local_cert_dir }}"
+    - "bootstrap_cacerts__ca_local_key_dir={{ bootstrap_cacerts__ca_local_key_dir }}"
+    - "bootstrap_cacerts__ca_key_dir={{ bootstrap_cacerts__ca_key_dir }}"
+
 - name: "fetch_certs | Remove all existing old CA certs and keys"
-  when: bootstrap_cacerts__ca_reset_local_certs
+  when: bootstrap_cacerts__ca_reset_local_certs|bool
 #  shell: "/bin/rm -rf {{ bootstrap_cacerts__ca_local_cert_dir }}/*"
 #  shell: "/bin/rm -rf {{ bootstrap_cacerts__ca_local_key_dir }}/*"
   file:
@@ -10,7 +17,7 @@
   loop:
     - "{{ bootstrap_cacerts__ca_local_cert_dir }}"
     - "{{ bootstrap_cacerts__ca_local_key_dir }}"
-    - "{{ bootstrap_cacerts__key_dir }}"
+    - "{{ bootstrap_cacerts__ca_key_dir }}"
 
 - name: "fetch_certs | Ensure local cert dirs exist"
   file:
@@ -19,11 +26,11 @@
   loop:
     - "{{ bootstrap_cacerts__ca_local_cert_dir }}"
     - "{{ bootstrap_cacerts__ca_local_key_dir }}"
-    - "{{ bootstrap_cacerts__key_dir }}"
+    - "{{ bootstrap_cacerts__ca_key_dir }}"
 
-- name: "fetch_certs | Check if {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__pki_caroot_cert }} exists"
+- name: "fetch_certs | Check if root cert exists in {{ bootstrap_cacerts__ca_local_cert_dir }}"
   stat:
-    path: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__pki_caroot_cert }}"
+    path: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__caroot_cert }}"
   register: cacert_root_result
 
 - name: "fetch_certs | Check if {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ hostname_name_full }}.pem exists"
@@ -41,82 +48,148 @@
     path: "{{ bootstrap_cacerts__ca_local_key_dir }}/{{ hostname_name_full }}-key.pem"
   register: cacert_key_result
 
-- name: "trust_cert | Copy root cert to {{ bootstrap_cacerts__trust_ca_update_trust_cmd }} for importing"
+- name: "trust_cert | Copy root cert to {{ bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
   copy_remotely:
-    src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__pki_caroot_cert }}"
-    dest: "{{ bootstrap_cacerts__trust_ca_update_trust_cmd }}/{{ bootstrap_cacerts__ca_root_cn }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
+    src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__caroot_cert }}"
+    dest: "{{ bootstrap_cacerts__trust_ca_cacert_dir }}/{{ bootstrap_cacerts__ca_root_cn }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
 
-- name: "fetch_certs | Synchronize ca intermediate certs to {{ bootstrap_cacerts__ca_local_cert_dir }}"
+#- name: "fetch_certs | Synchronize ca intermediate certs to {{ bootstrap_cacerts__ca_local_cert_dir }}"
+##  when: item.domainName in bootstrap_cacerts__ca_domains_hosted
+#  when: item.domainName in __bootstrap_cacerts__ca_fetch_domains_list
+#  shell: >
+#    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#    --rsync-path 'sudo -u root rsync'
+#    --backup
+#    --backup-dir={{ bootstrap_cacerts__ca_local_cert_dir }}/save
+#    {{ ansible_ssh_user }}@{{ bootstrap_cacerts__keystore_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}.pem
+#    {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.commonName }}.pem
+#  loop: "{{ __bootstrap_cacerts__ca_intermediate_cert_list }}"
+
+- name: "fetch_certs | Copy ca intermediate certs to {{ bootstrap_cacerts__ca_local_cert_dir }}"
 #  when: item.domainName in bootstrap_cacerts__ca_domains_hosted
   when: item.domainName in __bootstrap_cacerts__ca_fetch_domains_list
-  shell: >
-    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-    --rsync-path 'sudo -u root rsync'
-    --update
-    --backup
-    --backup-dir={{ bootstrap_cacerts__ca_local_cert_dir }}/save
-    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}.pem
-    {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.commonName }}.pem
+#  copy_remotely:
+  copy:
+    src: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}.pem"
+    dest: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.commonName }}.pem"
+    backup: yes
+    remote_src: yes
   loop: "{{ __bootstrap_cacerts__ca_intermediate_cert_list }}"
 
-- name: "fetch_certs | Synchronize ca intermediate cert keys to {{ bootstrap_cacerts__ca_local_key_dir }}"
+- name: "fetch_certs | Copy ca intermediate cert chains to {{ bootstrap_cacerts__ca_local_cert_dir }}"
 #  when: item.domainName in bootstrap_cacerts__ca_domains_hosted
   when: item.domainName in __bootstrap_cacerts__ca_fetch_domains_list
-  shell: >
-    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-    --rsync-path 'sudo -u root rsync'
-    --update
-    --backup
-    --backup-dir={{ bootstrap_cacerts__ca_local_key_dir }}/save
-    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}-key.pem
-    {{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.commonName }}-key.pem
+#  copy_remotely:
+  copy:
+    src: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}.chain.pem"
+    dest: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.commonName }}.chain.pem"
+    backup: yes
+    remote_src: yes
   loop: "{{ __bootstrap_cacerts__ca_intermediate_cert_list }}"
 
-## ref: https://unix.stackexchange.com/posts/175673/timeline
-- name: "fetch_certs | Synchronize service route certs to {{ bootstrap_cacerts__ca_local_cert_dir }}"
-  shell: >
-    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-    --rsync-path 'sudo -u root rsync'
-    --update
-    --backup
-    --backup-dir={{ bootstrap_cacerts__ca_local_cert_dir }}/save
-    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.pem
-    {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem
+#- name: "fetch_certs | Synchronize ca intermediate cert keys to {{ bootstrap_cacerts__ca_local_key_dir }}"
+##  when: item.domainName in bootstrap_cacerts__ca_domains_hosted
+#  when: item.domainName in __bootstrap_cacerts__ca_fetch_domains_list
+#  shell: >
+#    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#    --rsync-path 'sudo -u root rsync'
+#    --backup
+#    --backup-dir={{ bootstrap_cacerts__ca_local_key_dir }}/save
+#    {{ ansible_ssh_user }}@{{ bootstrap_cacerts__keystore_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}-key.pem
+#    {{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.commonName }}-key.pem
+#  loop: "{{ __bootstrap_cacerts__ca_intermediate_cert_list }}"
+
+- name: "fetch_certs | Copy ca intermediate cert keys to {{ bootstrap_cacerts__ca_local_key_dir }}"
+#  when: item.domainName in bootstrap_cacerts__ca_domains_hosted
+  when: item.domainName in __bootstrap_cacerts__ca_fetch_domains_list
+#  copy_remotely:
+  copy:
+    src: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}-key.pem"
+    dest: "{{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.commonName }}-key.pem"
+    mode: "0600"
+    backup: yes
+    remote_src: yes
+  loop: "{{ __bootstrap_cacerts__ca_intermediate_cert_list }}"
+
+### ref: https://unix.stackexchange.com/posts/175673/timeline
+#- name: "fetch_certs | Synchronize service route certs to {{ bootstrap_cacerts__ca_local_cert_dir }}"
+#  shell: >
+#    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#    --rsync-path 'sudo -u root rsync'
+#    --backup
+#    --backup-dir={{ bootstrap_cacerts__ca_local_cert_dir }}/save
+#    {{ ansible_ssh_user }}@{{ bootstrap_cacerts__keystore_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.pem
+#    {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem
+#  loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
+
+- name: "fetch_certs | Copy service route certs to {{ bootstrap_cacerts__ca_local_cert_dir }}"
+#  copy_remotely:
+  copy:
+    src: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.pem"
+    dest: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem"
+    backup: yes
+    remote_src: yes
   loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
 
-- name: "fetch_certs | Synchronize service route cert chains to {{ bootstrap_cacerts__ca_local_cert_dir }}"
-  shell: >
-    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-    --rsync-path 'sudo -u root rsync'
-    --update
-    --backup
-    --backup-dir={{ bootstrap_cacerts__ca_local_cert_dir }}/save
-    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.chain.pem
-    {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.chain.pem
+#- name: "fetch_certs | Synchronize service route cert chains to {{ bootstrap_cacerts__ca_local_cert_dir }}"
+#  shell: >
+#    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#    --rsync-path 'sudo -u root rsync'
+#    --backup
+#    --backup-dir={{ bootstrap_cacerts__ca_local_cert_dir }}/save
+#    {{ ansible_ssh_user }}@{{ bootstrap_cacerts__keystore_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.chain.pem
+#    {{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.chain.pem
+#  loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
+
+- name: "fetch_certs | Copy service route cert chains to {{ bootstrap_cacerts__ca_local_cert_dir }}"
+#  copy_remotely:
+  copy:
+    src: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.chain.pem"
+    dest: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.chain.pem"
+    backup: yes
+    remote_src: yes
   loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
 
-## ref: debops.hashicorps/tasks
-## ref: https://unix.stackexchange.com/questions/240814/rsync-with-different-user
-- name: "fetch_certs | Synchronize service route keys to {{ bootstrap_cacerts__ca_local_key_dir }}"
-  when: item.route in bootstrap_cacerts__ca_domains_hosted
-  shell: >
-    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-    --rsync-path 'sudo -u root rsync'
-    --update
-    --backup
-    --backup-dir={{ bootstrap_cacerts__ca_local_key_dir }}/save
-    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
-    {{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.route }}-key.pem
+### ref: debops.hashicorps/tasks
+### ref: https://unix.stackexchange.com/questions/240814/rsync-with-different-user
+#- name: "fetch_certs | Synchronize service route keys to {{ bootstrap_cacerts__ca_local_key_dir }}"
+#  when: item.route in bootstrap_cacerts__ca_domains_hosted
+#  shell: >
+#    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#    --rsync-path 'sudo -u root rsync'
+#    --backup
+#    --backup-dir={{ bootstrap_cacerts__ca_local_key_dir }}/save
+#    {{ ansible_ssh_user }}@{{ bootstrap_cacerts__keystore_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
+#    {{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.route }}-key.pem
+#  loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
+
+- name: "fetch_certs | Copy service route keys to {{ bootstrap_cacerts__ca_local_key_dir }}"
+#  copy_remotely:
+  copy:
+    src: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem"
+    dest: "{{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.route }}-key.pem"
+    mode: "0600"
+    backup: yes
+    remote_src: yes
   loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
 
-- name: "fetch_certs | Synchronize service route keys to trust dir at {{ bootstrap_cacerts__key_dir }}"
-  when: item.route in bootstrap_cacerts__ca_domains_hosted
-  shell: >
-    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-    --rsync-path 'sudo -u root rsync'
-    --update
-    --backup
-    --backup-dir={{ bootstrap_cacerts__key_dir }}/save
-    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
-    {{ bootstrap_cacerts__key_dir }}/{{ item.route }}-key.pem
+#- name: "fetch_certs | Synchronize service route keys to trust dir at {{ bootstrap_cacerts__ca_key_dir }}"
+#  when: item.route in bootstrap_cacerts__ca_domains_hosted
+#  shell: >
+#    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#    --rsync-path 'sudo -u root rsync'
+#    --backup
+#    --backup-dir={{ bootstrap_cacerts__ca_key_dir }}/save
+#    {{ ansible_ssh_user }}@{{ bootstrap_cacerts__keystore_host }}:{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem
+#    {{ bootstrap_cacerts__ca_key_dir }}/{{ item.route }}-key.pem
+#  loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
+
+- name: "fetch_certs | Copy service route keys to trust dir at {{ bootstrap_cacerts__ca_key_dir }}"
+#  copy_remotely:
+  copy:
+    src: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem"
+    dest: "{{ bootstrap_cacerts__ca_key_dir }}/{{ item.route }}-key.pem"
+    mode: "0600"
+    backup: yes
+    remote_src: yes
   loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"

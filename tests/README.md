@@ -70,7 +70,7 @@ $ create_test_symlinks.sh
 ansible-inventory -i inventory/ --host vmlnxtestd1s1
 ansible-inventory -i inventory/ --yaml --host vmlnxtestd1s1
 ansible-inventory -i inventory/ --yaml --host ntpq1s1
-ansible-inventory -i inventory/ --graph testgroup_lnx
+ansible-inventory -i inventory/ --graph docker_stack
 ansible-inventory -i inventory/ --graph testgroup_ntp
 ansible-inventory -i inventory/ --graph dmz
 ```
@@ -80,7 +80,7 @@ ansible-inventory -i inventory/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
-$ ansible -i inventory/ -m debug -a var=group_names testgroup_lnx
+$ ansible -i inventory/ -m debug -a var=group_names docker_stack
 $ ansible -i inventory/ -m debug -a var=group_names testgroup_ntp
 $ ansible -i inventory/ -m debug -a var=group_names testgroup_ntp_server
 $ ansible -i inventory/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
@@ -97,14 +97,14 @@ $ ansible -i inventory/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_s
 Query intersecting groups:
 ```shell
 $ ansible -i inventory/ -m debug -a var=group_names dmz:\&dc_os_linux
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&testgroup_lnx
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&testgroup_lnx:\&ntp_network
+$ ansible -i inventory/ -m debug -a var=group_names dmz:\&docker_stack
+$ ansible -i inventory/ -m debug -a var=group_names dmz:\&docker_stack:\&ntp_network
 ```
 
 ### Run playbook
 
 ```shell
-$ runme.sh bootstrap-ntp.yml -l testgroup_lnx
+$ runme.sh bootstrap-ntp.yml -l docker_stack
 ```
 
 ### Run playbook on hosts
@@ -127,8 +127,8 @@ $
 ### Test site.yml with tags and limit
 
 ```shell
-$ runme.sh site.yml -t display-ansible-env -l testgroup_lnx
-$ runme.sh site.yml -t bootstrap-ntp -l testgroup_lnx
+$ runme.sh site.yml -t display-ansible-env -l docker_stack
+$ runme.sh site.yml -t bootstrap-ntp -l docker_stack
 ```
 
 ## Test Inventory Checks 
@@ -137,20 +137,23 @@ Whenever making updates/additions to the inventory
 
 ### 1) Check that the correct hosts appear for the test group
 
-Test machine group defined in 'inventory/TEST/testgroup.yml':
+Test host group defined in 'inventory/prod/hosts.yml':
 ```shell
-ansible-inventory -i inventory/ --graph --yaml testgroup_lnx
-@testgroup_lnx:
-  |--@testgroup_lnx_site1:
-  |  |--ntpq1s1
-  |  |--vmlnxtestd1s1
-  |  |--vmlnxtestd2s1
-  |  |--vmlnxtestd3s1
-  |--@testgroup_lnx_site4:
-  |  |--ntpq1s4
-  |  |--vmlnxtestd1s4
-  |  |--vmlnxtestd2s4
-  |  |--vmlnxtestd3s4
+$ ansible-inventory -i inventory/prod/hosts.yml --graph --yaml docker_stack
+@docker_stack:
+  |--@docker_stack_admin:
+  |  |--admin02
+  |  |--admin03
+  |--@docker_stack_control:
+  |  |--@control_node:
+  |  |  |--control01
+  |  |  |--vcontrol01
+  |--@docker_stack_jenkins_jcac:
+  |  |--admin01
+  |--@docker_stack_media:
+  |  |--media01
+  |--@docker_stack_ml:
+  |--@docker_stack_samba:
 ```
 
 ```shell
@@ -172,7 +175,7 @@ ansible-inventory -i inventory/ --graph --yaml testgroup_wnd
 
 Var value query based on group:
 ```shell
-ansible -i inventory/ -m debug -a var=group_names testgroup_lnx
+ansible -i inventory/ -m debug -a var=group_names docker_stack
 vmlnxtestd1s1 | SUCCESS => {
     "group_names": ["nondomain_dmz"]
 }

@@ -2,7 +2,7 @@
 
 - name: "caroot | Set caroot facts"
   set_fact:
-    __bootstrap_cacerts__keyring_cacerts_dir: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ bootstrap_cacerts__ca_root.domainName }}"
+    __bootstrap_cacerts__keystore_cacerts_dir: "{{ bootstrap_cacerts__cacerts_base_dir }}/{{ bootstrap_cacerts__ca_root.domainName }}"
     __bootstrap_cacerts__ca_cert: "{{ bootstrap_cacerts__ca_root.domainName }}.pem"
     __bootstrap_cacerts__ca_key: "{{ bootstrap_cacerts__ca_root.domainName }}-key.pem"
 
@@ -11,7 +11,7 @@
     msg:
       - "bootstrap_cacerts__ca_root={{ bootstrap_cacerts__ca_root | to_nice_json }}"
       - "bootstrap_cacerts__ca_root_names={{ bootstrap_cacerts__ca_root_names | to_nice_json }}"
-      - "__bootstrap_cacerts__keyring_cacerts_dir={{ __bootstrap_cacerts__keyring_cacerts_dir }}"
+      - "__bootstrap_cacerts__keystore_cacerts_dir={{ __bootstrap_cacerts__keystore_cacerts_dir }}"
       - "__bootstrap_cacerts__ca_cert={{ __bootstrap_cacerts__ca_cert }}"
       - "__bootstrap_cacerts__ca_key={{ __bootstrap_cacerts__ca_key }}"
 
@@ -24,7 +24,7 @@
 
   - name: "caroot | Create domain configuration directories"
     file:
-      path: "{{ __bootstrap_cacerts__keyring_cacerts_dir }}"
+      path: "{{ __bootstrap_cacerts__keystore_cacerts_dir }}"
       state: directory
       owner: root
       group: root
@@ -33,7 +33,7 @@
   - name: "caroot | Create CA CSR json"
     template:
       src: "ca/ca-root-csr.json.j2"
-      dest: "{{ __bootstrap_cacerts__keyring_cacerts_dir }}/{{ bootstrap_cacerts__ca_root.commonName }}.json"
+      dest: "{{ __bootstrap_cacerts__keystore_cacerts_dir }}/{{ bootstrap_cacerts__ca_root.commonName }}.json"
       mode: "0600"
 
   ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
@@ -43,17 +43,17 @@
       cfssl genkey -initca {{ bootstrap_cacerts__ca_root.commonName }}.json \
         | cfssljson -bare {{ bootstrap_cacerts__ca_root.commonName }}
     args:
-      chdir: "{{ __bootstrap_cacerts__keyring_cacerts_dir }}"
-  #    creates: "{{ __bootstrap_cacerts__keyring_cacerts_dir }}/{{ bootstrap_cacerts__pki_caroot_key }}"
+      chdir: "{{ __bootstrap_cacerts__keystore_cacerts_dir }}"
+  #    creates: "{{ __bootstrap_cacerts__keystore_cacerts_dir }}/{{ bootstrap_cacerts__pki_caroot_key }}"
 
-  - name: "Changing perm to 644 for {{ __bootstrap_cacerts__keyring_cacerts_dir }}/{{ __bootstrap_cacerts__ca_cert }}"
+  - name: "Changing perm to 644 for {{ __bootstrap_cacerts__keystore_cacerts_dir }}/{{ __bootstrap_cacerts__ca_cert }}"
     file:
       dest: "{{ item.dest }}"
       mode: "{{ item.mode }}"
     loop:
-      - dest: "{{ __bootstrap_cacerts__keyring_cacerts_dir }}/{{ bootstrap_cacerts__pki_caroot_key }}"
+      - dest: "{{ __bootstrap_cacerts__keystore_cacerts_dir }}/{{ bootstrap_cacerts__pki_caroot_key }}"
         mode: "600"
-      - dest: "{{ __bootstrap_cacerts__keyring_cacerts_dir }}/{{ __bootstrap_cacerts__ca_cert }}"
+      - dest: "{{ __bootstrap_cacerts__keystore_cacerts_dir }}/{{ __bootstrap_cacerts__ca_cert }}"
         mode: "644"
 
 
@@ -61,7 +61,7 @@
 - name: "caroot | Get ca root certificate info"
   openssl_certificate_info:
 #    path: /etc/ssl/crt/ansible.com.crt
-    path: "{{ __bootstrap_cacerts__keyring_cacerts_dir }}/{{ __bootstrap_cacerts__ca_cert }}"
+    path: "{{ __bootstrap_cacerts__keystore_cacerts_dir }}/{{ __bootstrap_cacerts__ca_cert }}"
   register: cacert_result
 
 - name: "caroot | Display ca root cert info"

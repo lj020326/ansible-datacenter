@@ -17,6 +17,25 @@
       - docker_stack_enable_selfsigned_certs or docker_stack_enable_cacerts
       - not (docker_stack_enable_selfsigned_certs and docker_stack_enable_cacerts)
 
+- name: "{{ log_prefix_local }} Load OS distribution vars"
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "os_distribution/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+    - "os_distribution/{{ ansible_distribution }}.yml"
+    - "os_distribution/{{ ansible_os_family }}.yml"
+    - "os_distribution/default.yml"
+
+- name: "{{ log_prefix_local }} Set __docker_stack_ca_cert_bundle"
+  set_fact:
+    __docker_stack_ca_cert_bundle: "{{ docker_stack_ca_cert_bundle | d(__docker_stack_ca_cert_bundle_default) }}"
+    __docker_stack_ca_java_keystore: "{{ docker_stack_ca_java_keystore | d(__docker_stack_ca_java_keystore_default) }}"
+
+- name: "{{ log_prefix_local }} Display __docker_stack_* os vars"
+  debug:
+    msg:
+      - "__docker_stack_ca_cert_bundle={{ __docker_stack_ca_cert_bundle }}"
+      - "__docker_stack_ca_java_keystore={{ __docker_stack_ca_java_keystore }}"
+
 - name: "{{ log_prefix_local }} Get docker group / user id"
   block:
 
@@ -120,7 +139,8 @@
 
 - name: "{{ log_prefix_local }} Init __docker_stack_proxy_configs"
   set_fact:
-    __docker_stack_proxy_services: "{{ docker_stack_proxy_services | d([]) }}"
+    __docker_stack_proxy_services: []
+#    __docker_stack_proxy_services: "{{ docker_stack_proxy_services | d([]) }}"
 
 - name: "{{ log_prefix_local }} Display docker_stack_proxy_services"
   debug:
@@ -128,7 +148,7 @@
 
 - name: "{{ log_prefix_local }} Set __docker_stack_proxy_services"
   set_fact:
-    __docker_stack_proxy_services: "{{ __docker_stack_proxy_services
+    __docker_stack_proxy_services: "{{ __docker_stack_proxy_services|d([])
       + [ { 'source': item.source | d('role'),
             'name': ((item is mapping) | ternary( item.name, item))
           } ] }}"
@@ -148,11 +168,11 @@
        verbosity: 2
 
   - name: "{{ log_prefix_local }} Set the app proxy services vars"
-    include_vars:  "app-services/common/docker_stack_proxy_{{ item }}.yml"
+    include_vars:  "app-services/common/docker_stack_proxy_{{ item.name }}.yml"
     with_items: "{{ __docker_stack_proxy_services }}"
 
   - name: "{{ log_prefix_local }} Set the app proxy services vars specific to traefik version"
-    include_vars:  "app-services/traefik/{{ docker_stack_traefik_version }}/{{ docker_stack_traefik_routing_method }}/docker_stack_proxy_{{ item }}.yml"
+    include_vars:  "app-services/traefik/{{ docker_stack_traefik_version }}/{{ docker_stack_traefik_routing_method }}/docker_stack_proxy_{{ item.name }}.yml"
     with_items: "{{ __docker_stack_proxy_services }}"
 
 - name: "{{ log_prefix_local }} Set the common app services vars"
@@ -190,15 +210,23 @@
      var: __docker_stack_app_configs
 #     verbosity: 3
 
+- name: "{{ log_prefix_local }} Display __docker_stack_proxy_services"
+  debug:
+    var: __docker_stack_proxy_services
+
 - name: "{{ log_prefix_local }} Init __docker_stack_proxy_configs"
   set_fact:
     __docker_stack_proxy_configs: "{{ docker_stack_proxy_configs|d({}) }}"
 
+- name: "{{ log_prefix_local }} Show variables with 'docker_stack_proxyspec__' prefix"
+  debug:
+    msg: "{{ lookup('varnames', '^docker_stack_proxyspec__', wantlist=True) }}"
+
 - name: "{{ log_prefix_local }} Combine proxy varname configs into __docker_stack_proxy_configs"
   set_fact:
     __docker_stack_proxy_configs: "{{ __docker_stack_proxy_configs|d({})
-      | combine({ item: lookup('vars', q('varnames','^docker_stack_proxyspec__'+item.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
-  loop: "{{ __docker_stack_proxy_services }}"
+      | combine({ item.name: lookup('vars', q('varnames','^docker_stack_proxyspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
+  loop: "{{ __docker_stack_proxy_services|d([]) }}"
 
 - name: "{{ log_prefix_local }} Display __docker_stack_proxy_configs"
   debug:
@@ -206,10 +234,10 @@
 #     verbosity: 2
 
 - name: "{{ log_prefix_local }} Set __docker_stack_proxy_service_configs"
-  when: __docker_stack_proxy_configs[item].proxy_config | d([]) | length > 0
+  when: __docker_stack_proxy_configs[item.name].proxy_config | d([]) | length > 0
   set_fact:
     __docker_stack_proxy_service_configs: "{{ __docker_stack_proxy_service_configs|d({})
-      | combine(__docker_stack_proxy_configs[item].proxy_config, recursive=True) }}"
+      | combine(__docker_stack_proxy_configs[item.name].proxy_config, recursive=True) }}"
   loop: "{{ __docker_stack_proxy_services }}"
 
 - name: "{{ log_prefix_local }} Display __docker_stack_proxy_service_configs"
