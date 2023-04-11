@@ -18,6 +18,10 @@
         sshd_sysconfig_use_strong_rng: 32
 
     - name: Verify the options are correctly set
+      when:
+        - ansible_facts['os_family'] == "RedHat"
+        - ansible_facts['distribution'] != 'Fedora'
+        - ansible_facts['distribution_major_version']|int < 9
       block:
         - name: Flush handlers
           ansible.builtin.meta: flush_handlers
@@ -75,10 +79,6 @@
               - "'# SSH_USE_STRONG_RNG=1' not in config.content | b64decode"
               - "'RNG=|32|' in evaluation.stdout"
       tags: tests::verify
-      when:
-        - ansible_facts['os_family'] == "RedHat"
-        - ansible_facts['distribution'] != 'Fedora'
-        - ansible_facts['distribution_major_version']|int < 9
 
     - name: "Restore configuration files"
       ansible.builtin.include_tasks: tasks/restore.yml

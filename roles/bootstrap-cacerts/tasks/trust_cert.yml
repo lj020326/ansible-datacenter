@@ -1,63 +1,69 @@
 ---
 
-- name: "trust_cert | ensure trust dir exists for {{ bootstrap_cacerts__trust_ca_cacert_dir }}"
+- name: "trust_cert | ensure trust dir exists for {{ __bootstrap_cacerts__trust_ca_cacert_dir }}"
   file:
     state: directory
-    path: "{{ bootstrap_cacerts__trust_ca_cacert_dir }}"
+    path: "{{ __bootstrap_cacerts__trust_ca_cacert_dir }}"
 
-- name: "trust_cert | Remove all existing old CA certs from {{ bootstrap_cacerts__trust_ca_cacert_dir }}"
+- name: "trust_cert | Remove all existing old CA certs from {{ __bootstrap_cacerts__trust_ca_cacert_dir }}"
   when: bootstrap_cacerts__ca_force_distribute_nodes|bool or bootstrap_cacerts__ca_force_create|bool
-  shell: "/bin/rm -rf {{ bootstrap_cacerts__trust_ca_cacert_dir }}/*"
+  shell: "/bin/rm -rf {{ __bootstrap_cacerts__trust_ca_cacert_dir }}/*"
 
 ### ref: https://stackoverflow.com/questions/37043442/how-to-add-certificate-authority-file-in-centos-7
 ### ref: https://www.techrepublic.com/article/how-to-install-ca-certificates-in-ubuntu-server/
 ### ref: https://gist.github.com/aseigneurin/4902819f17218340d11f
-- name: "trust_cert | Copy root cert to {{ bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
+- name: "trust_cert | Copy root cert to {{ __bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
   copy_remotely:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
   with_items:
-    - src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__pki_caroot_cert }}"
-      dest: "{{ bootstrap_cacerts__trust_ca_cacert_dir }}/{{ bootstrap_cacerts__ca_root_cn }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
+    - src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__caroot_cert }}"
+      dest: "{{ __bootstrap_cacerts__trust_ca_cacert_dir }}/{{ bootstrap_cacerts__ca_root_cn }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
   register: trust_ca_cacertinstalled
 
 - name: "trust_cert | trust client and intermediate certs"
   when: bootstrap_cacerts__trust_certs|d(True)|bool
   block:
 
-    - name: "trust_cert | Copy client to {{ bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
+    - name: "trust_cert | Copy host cert chain to {{ __bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
       with_items:
         - src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem"
-          dest: "{{ bootstrap_cacerts__trust_ca_cacert_dir }}/{{ hostname_name_full }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
+          dest: "{{ __bootstrap_cacerts__trust_ca_cacert_dir }}/{{ hostname_name_full }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
 
-    - name: "trust_cert | Copy intermediate certs to {{ bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
+    - name: "trust_cert | Copy intermediate cert chains to {{ __bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
-        src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item }}.pem"
-        dest: "{{ bootstrap_cacerts__trust_ca_cacert_dir }}/{{ item }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
+#        src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item }}.pem"
+        src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item }}.chain.pem"
+        dest: "{{ __bootstrap_cacerts__trust_ca_cacert_dir }}/{{ item }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
       loop: "{{ __bootstrap_cacerts__ca_intermediate_certs | list }}"
 
-    - name: "trust_cert | Copy service route certs to {{ bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
+    - name: "trust_cert | Copy service route cert chains to {{ __bootstrap_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
-        src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem"
-        dest: "{{ bootstrap_cacerts__trust_ca_cacert_dir }}/{{ item.route }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
+#        src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem"
+        src: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.route }}.chain.pem"
+        dest: "{{ __bootstrap_cacerts__trust_ca_cacert_dir }}/{{ item.route }}.{{ bootstrap_cacerts__trust_ca_cert_extension }}"
       loop: "{{ bootstrap_cacerts__ca_service_routes_list }}"
 
 #- name: "trust_cert | Get list of certs"
-#  shell: "ls -lR {{ bootstrap_cacerts__trust_ca_cacert_dir }}/"
+#  shell: "ls -lR {{ __bootstrap_cacerts__trust_ca_cacert_dir }}/"
 #  register: ls
 #  changed_when: false
 #
 #- debug: var=ls.stdout_lines
 #  when: debug is defined
 
+- name: "trust_cert | Display __bootstrap_cacerts__trust_ca_update_trust_cmd"
+  debug:
+    var: __bootstrap_cacerts__trust_ca_update_trust_cmd
+
 ## need to research for centos how to add multiple CAs - if even possible
 ## ref: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/security_hardening/using-shared-system-certificates_security-hardening
 ## ref: https://techjourney.net/update-add-ca-certificates-bundle-in-redhat-centos/
-- name: "trust_cert | update CA trust: {{ bootstrap_cacerts__trust_ca_update_trust_cmd }}"
-  command: '{{ bootstrap_cacerts__trust_ca_update_trust_cmd }}'
+- name: "trust_cert | update CA trust: {{ __bootstrap_cacerts__trust_ca_update_trust_cmd }}"
+  command: "{{ __bootstrap_cacerts__trust_ca_update_trust_cmd }}"
 #  when: trust_ca_cacertinstalled|bool is changed or bootstrap_cacerts__ca_force_distribute_nodes|bool
 
 #- name: convert to pkcs12
@@ -95,7 +101,7 @@
 #  register: shell_cmd
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 #  loop:
-#    - { cn: "{{ bootstrap_cacerts__ca_root_cn }}", path: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__pki_caroot_cert }}" }
+#    - { cn: "{{ bootstrap_cacerts__ca_root_cn }}", path: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ bootstrap_cacerts__caroot_cert }}" }
 ##    - { cn: "{{ inventory_hostname }}", path: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
 
 - name: "trust_cert | Update java keystore"

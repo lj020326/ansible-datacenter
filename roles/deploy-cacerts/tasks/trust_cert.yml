@@ -6,7 +6,7 @@
     path: "{{ __deploy_cacerts__trust_ca_cacert_dir }}"
 
 - name: "trust_cert | Remove all existing old CA certs from {{ __deploy_cacerts__trust_ca_cacert_dir }}"
-  when: deploy_cacerts_ca_force_distribute_nodes|bool or deploy_cacerts_ca_force_create|bool
+  when: deploy_cacerts__ca_force_distribute_nodes|bool or deploy_cacerts__ca_force_create|bool
   shell: "/bin/rm -rf {{ __deploy_cacerts__trust_ca_cacert_dir }}/*"
 
 ### ref: https://stackoverflow.com/questions/37043442/how-to-add-certificate-authority-file-in-centos-7
@@ -17,12 +17,12 @@
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
   with_items:
-    - src: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ deploy_cacerts_pki_caroot_cert }}"
-      dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts_ca_root_cn }}.{{ deploy_cacerts_trust_ca_cert_extension }}"
+    - src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+      dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
   register: trust_ca_cacertinstalled
 
 - name: "trust_cert | trust client and intermediate certs"
-  when: deploy_cacerts_deploy_intermediate_certs|d(True)|bool
+  when: deploy_cacerts__deploy_intermediate_certs|d(True)|bool
   block:
 
     - name: "trust_cert | Copy host cert chain to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
@@ -30,22 +30,22 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
       with_items:
-        - src: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ deploy_cacerts_hostname_full }}.chain.pem"
-          dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts_hostname_full }}.{{ deploy_cacerts_trust_ca_cert_extension }}"
+        - src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.chain.pem"
+          dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__hostname_full }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
 
     - name: "trust_cert | Copy intermediate cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
-#        src: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ item }}.pem"
-        src: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ item }}.chain.pem"
-        dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item }}.{{ deploy_cacerts_trust_ca_cert_extension }}"
-      loop: "{{ __deploy_cacerts_ca_intermediate_certs | list }}"
+#        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item }}.pem"
+        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item }}.chain.pem"
+        dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
+      loop: "{{ __deploy_cacerts__ca_intermediate_certs | list }}"
 
     - name: "trust_cert | Copy service route cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
-#        src: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ item.route }}.pem"
-        src: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ item.route }}.chain.pem"
-        dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item.route }}.{{ deploy_cacerts_trust_ca_cert_extension }}"
-      loop: "{{ deploy_cacerts_ca_service_routes_list }}"
+#        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem"
+        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.chain.pem"
+        dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item.route }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
+      loop: "{{ deploy_cacerts__ca_service_routes_list }}"
 
 #- name: "trust_cert | Get list of certs"
 #  shell: "ls -lR {{ __deploy_cacerts__trust_ca_cacert_dir }}/"
@@ -63,33 +63,37 @@
 ## ref: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/security_hardening/using-shared-system-certificates_security-hardening
 ## ref: https://techjourney.net/update-add-ca-certificates-bundle-in-redhat-centos/
 - name: "trust_cert | update CA trust: {{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
-  command: "{{ trust_ca_update_trust_cmd }}"
-#  when: trust_ca_cacertinstalled is changed or deploy_cacerts_ca_force_distribute_nodes|bool
+  command: "{{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
+#  when: trust_ca_cacertinstalled is changed or deploy_cacerts__ca_force_distribute_nodes|bool
 
 #- name: convert to pkcs12
-#  command: openssl pkcs12 -export -in {{ ca_path }}/{{ cert_node.domainName }}/{{ cert_node.commonName }}.crt -inkey {{ ca_path }}/{{ cert_node.domainName}}/{{ cert_node.commonName }}.key -out {{ ca_path }}/{{ cert_node.domainName }}/{{ cert_node.commonName }}.p12 -name "{{ cert_node.commonName }}" -passout pass:{{ keystore_password }}
+#  command: openssl pkcs12 -export \
+#    -in {{ ca_path }}/{{ cert_node.domainName }}/{{ cert_node.commonName }}.crt \
+#    -inkey {{ ca_path }}/{{ cert_node.domainName}}/{{ cert_node.commonName }}.key \
+#    -out {{ ca_path }}/{{ cert_node.domainName }}/{{ cert_node.commonName }}.p12 \
+#    -name "{{ cert_node.commonName }}" -passout pass:{{ keystore_password }}
 
 ## WORKS on ubuntu20 with openjdk-11
 ##keytool -importcert -v -storepass changeit   -noprompt   -alias ca-root   -cacerts -file /usr/local/ssl/certs/ca-root.pem
 
 #- name: "trust_cert | Add service cert to keystore"
-#  when: deploy_cacerts_ca_java_keystore_enabled|bool
+#  when: deploy_cacerts__ca_java_keystore_enabled|bool
 #  command: |
 #    keytool -importcert \
-#      -storepass {{ deploy_cacerts_ca_java_keystore_pass }} \
+#      -storepass {{ deploy_cacerts__ca_java_keystore_pass }} \
 #      -keystore {{ __deploy_cacerts__ca_java_keystore }} \
 #      -noprompt \
 #      -alias {{ item.route }} \
-#      -file {{ deploy_cacerts_ca_local_cert_dir }}/{{ item.route }}.pem
+#      -file {{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem
 #  register: shell_cmd
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
-#  loop: "{{ deploy_cacerts_ca_service_routes_list }}"
+#  loop: "{{ deploy_cacerts__ca_service_routes_list }}"
 
 #- name: "trust_cert | Add root ca root and host certs to keystore"
-#  when: deploy_cacerts_ca_java_keystore_enabled|bool
+#  when: deploy_cacerts__ca_java_keystore_enabled|bool
 #  command: |
 #    keytool -importcert -v \
-#      -storepass {{ deploy_cacerts_ca_java_keystore_pass }} \
+#      -storepass {{ deploy_cacerts__ca_java_keystore_pass }} \
 #      -noprompt \
 #      -cacerts \
 #      -alias {{ item.cn }} \
@@ -97,11 +101,11 @@
 #  register: shell_cmd
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 #  loop:
-#    - { cn: "{{ deploy_cacerts_ca_root_cn }}", path: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ deploy_cacerts_pki_caroot_cert }}" }
-##    - { cn: "{{ inventory_hostname }}", path: "{{ deploy_cacerts_ca_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
+#    - { cn: "{{ deploy_cacerts__ca_root_cn }}", path: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}" }
+##    - { cn: "{{ inventory_hostname }}", path: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
 
 - name: "trust_cert | Update java keystore"
-  when: deploy_cacerts_ca_java_keystore_enabled|bool
+  when: deploy_cacerts__ca_java_keystore_enabled|bool
   block:
 
     ## ref: https://superuser.com/questions/881665/keytool-commands-to-replace-existing-ssl-certificate
@@ -109,26 +113,27 @@
     - name: "trust_cert | Remove old service cert from keystore"
       command: |
         keytool -delete -v \
-          -storepass {{ deploy_cacerts_ca_java_keystore_pass }} \
+          -storepass {{ deploy_cacerts__ca_java_keystore_pass }} \
           -noprompt \
           -cacerts \
           -alias {{ item.route }}
       register: keystore_remove_cert
       ignore_errors: yes
 #      failed_when: keystore_remove_cert.rc > 0 and not ( keystore_remove_cert.stdout | regex_search("Certificate not imported, alias .* already exists") )
-      loop: "{{ deploy_cacerts_ca_service_routes_list }}"
+      loop: "{{ deploy_cacerts__ca_service_routes_list }}"
 
     - debug:
         var: keystore_remove_cert
+        verbosity: 1
 
     - name: "trust_cert | Add current service cert to keystore"
       command: |
         keytool -importcert -v \
-          -storepass {{ deploy_cacerts_ca_java_keystore_pass }} \
+          -storepass {{ deploy_cacerts__ca_java_keystore_pass }} \
           -noprompt \
           -cacerts \
           -alias {{ item.route }} \
-          -file {{ deploy_cacerts_ca_local_cert_dir }}/{{ item.route }}.pem
+          -file {{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem
       register: keystore_add_cert
       failed_when: keystore_add_cert.rc > 0 and not ( keystore_add_cert.stderr | regex_search("Certificate not imported, alias .* already exists") )
-      loop: "{{ deploy_cacerts_ca_service_routes_list }}"
+      loop: "{{ deploy_cacerts__ca_service_routes_list }}"

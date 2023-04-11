@@ -49,21 +49,24 @@ stepca_root_ca_fingerprint: "{{ vault__stepca_root_ca_fingerprint | d('') }}"
 
 stepca_acme_http_challenge_proxy_port: 80
 
-cacert_keyring_inventory_hostname: "{{ groups['ca_keyring'][0] | d(cacert_keyring_host_default) }}"
+cacert_keystore_inventory_hostname: "{{ groups['ca_keystore'][0] | d(cacert_keystore_host_default) }}"
+#cacert_keystore_host_default: control01
+cacert_keystore_host_default: vcontrol01
 
-ca_keyring_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
-#cacert_keyring_host: "{{ cacert_keyring_inventory_hostname }}"
-#cacert_keyring_host: "{{ hostvars[groups['ca_keyring'][0]]['ansible_host'] | d(cacert_keyring_host_default) }}"
-cacert_keyring_host: "{{ hostvars[cacert_keyring_inventory_hostname]['ansible_host'] }}"
-#cacert_keyring_host: "{{ hostvars[cacert_keyring_inventory_hostname]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) }}"
+#cacert_keystore_host: "{{ cacert_keystore_inventory_hostname }}"
+#cacert_keystore_host: "{{ hostvars[groups['ca_keystore'][0]]['ansible_host'] | d(cacert_keystore_host_default) }}"
+cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_hostname]['ansible_host'] }}"
+#cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_hostname]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) }}"
+cacerts_keystore_dir: /etc/ssl/private
 
-#cacert_keyring_host_default: control01
-cacert_keyring_host_default: vcontrol01
+bootstrap_cacerts__keystore_host: "{{ cacert_keystore_host }}"
+bootstrap_cacerts__ca_key_dir: "{{ cacerts_keystore_dir }}"
 
+ca_keystore_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
 # where to deploy the finalized cert files to on the ansible control node
-ca_keyring_base_dir: "{{ '~/pki' | expanduser }}"
-ca_keyring_certs_dir: "{{ ca_keyring_base_dir }}/certs"
-ca_keyring_keys_dir: "{{ ca_keyring_base_dir }}/keys"
+ca_keystore_base_dir: "{{ '~/pki' | expanduser }}"
+ca_keystore_certs_dir: "{{ ca_keystore_base_dir }}/certs"
+ca_keystore_keys_dir: "{{ ca_keystore_base_dir }}/keys"
 
 ca_intermediate_certs_config:
   dettonville.int:
@@ -125,9 +128,8 @@ ca_service_routes_list: |
   ]
 
 
-pki_key_dir: /etc/ssl/private
 hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
-keyring_cacerts_base_dir: /usr/share/ca-certs
+keystore_cacerts_base_dir: /usr/share/ca-certs
 pki_caroot_cert: "{{ ca_root_cn }}.pem"
 ca_java_keystore_enabled: yes
 ca_java_keystore_pass: changeit
@@ -136,40 +138,40 @@ ca_key_spec:
   size: 2048
 
 ## COALESCE global cert-auth (ca) vars to role specific deploy_cacerts vars
-deploy_cacerts_pki_key_dir: "{{ pki_key_dir }}"
-deploy_cacerts_hostname_full: "{{ hostname_name_full }}"
-deploy_cacerts_keyring_host: "{{ cacert_keyring_host }}"
+deploy_cacerts__ca_key_dir: "{{ cacerts_keystore_dir }}"
+deploy_cacerts__hostname_full: "{{ hostname_name_full }}"
+deploy_cacerts__keystore_host: "{{ cacert_keystore_host }}"
 
-deploy_cacerts_ca_force_create: "{{ ca_force_create|d(False) }}"
-deploy_cacerts_ca_force_distribute_nodes: "{{ ca_force_distribute_nodes|d(False) }}"
-deploy_cacerts_ca_reset_local_certs: "{{ ca_reset_local_certs|d(False) }}"
+deploy_cacerts__ca_force_create: "{{ ca_force_create|d(False) }}"
+deploy_cacerts__ca_force_distribute_nodes: "{{ ca_force_distribute_nodes|d(False) }}"
+deploy_cacerts__ca_reset_local_certs: "{{ ca_reset_local_certs|d(False) }}"
 
-deploy_cacerts_keyring_cacerts_base_dir: "{{ keyring_cacerts_base_dir | d('/usr/share/ca-certs') }}"
-deploy_cacerts_stepca_host_url: "{{ stepca_host_url }}"
-deploy_cacerts_stepca_root_ca_fingerprint: "{{ stepca_root_ca_fingerprint }}"
+deploy_cacerts__keystore_cacerts_base_dir: "{{ keystore_cacerts_base_dir | d('/usr/share/ca-certs') }}"
+deploy_cacerts__stepca_host_url: "{{ stepca_host_url }}"
+deploy_cacerts__stepca_root_ca_fingerprint: "{{ stepca_root_ca_fingerprint }}"
 
-deploy_cacerts_ca_root_cn: "{{ ca_root_cn }}"
+deploy_cacerts__ca_root_cn: "{{ ca_root_cn }}"
 
-deploy_cacerts_pki_caroot_cert: "{{ pki_caroot_cert }}"
+deploy_cacerts__pki_caroot_cert: "{{ pki_caroot_cert }}"
 
-deploy_cacerts_ca_local_cert_dir: "{{ ca_local_cert_dir }}"
-deploy_cacerts_ca_local_key_dir: "{{ ca_local_key_dir }}"
+deploy_cacerts__ca_local_cert_dir: "{{ ca_local_cert_dir }}"
+deploy_cacerts__ca_local_key_dir: "{{ ca_local_key_dir }}"
 
-deploy_cacerts_ca_java_keystore_enabled: "{{ ca_java_keystore_enabled }}"
-deploy_cacerts_ca_java_keystore_pass: "{{ ca_java_keystore_pass }}"
+deploy_cacerts__ca_java_keystore_enabled: "{{ ca_java_keystore_enabled }}"
+deploy_cacerts__ca_java_keystore_pass: "{{ ca_java_keystore_pass }}"
 
-deploy_cacerts_trust_ca_cert_extension: "{{ trust_ca_cert_extension }}"
+deploy_cacerts__trust_ca_cert_extension: "{{ trust_ca_cert_extension }}"
 
-deploy_cacerts_keyring_admin_user: "{{ keyring_admin_user }}"
+deploy_cacerts__keystore_admin_user: "{{ keystore_admin_user }}"
 
-deploy_cacerts_ca_keyring_base_dir: "{{ ca_keyring_base_dir }}"
+deploy_cacerts__ca_keystore_base_dir: "{{ ca_keystore_base_dir }}"
 
-deploy_cacerts_ca_domain: "{{ ca_domain }}"
+deploy_cacerts__ca_domain: "{{ ca_domain }}"
 
-deploy_cacerts_ca_provisioner: "acme"
+deploy_cacerts__ca_provisioner: "acme"
 
-deploy_cacerts_ca_domains_hosted: "{{ ca_domains_hosted }}"
+deploy_cacerts__ca_domains_hosted: "{{ ca_domains_hosted }}"
 
-deploy_cacerts_ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
+deploy_cacerts__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
 
-deploy_cacerts_ca_service_routes_list: "{{ ca_service_routes_list }}"
+deploy_cacerts__ca_service_routes_list: "{{ ca_service_routes_list }}"

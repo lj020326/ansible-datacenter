@@ -202,14 +202,14 @@ when: bootstrap_cacerts__ca_fetch_certs is defined
 
 ```yaml
 - name: "copy keys from ca_root_node to ansible machine for distribution"
-  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item.ssl_key }}" flat=yes
+  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_cacerts__ca_keystore_keys_dir }}/{{ item.ssl_key }}" flat=yes
   with_items:
   - "{{ ca_node.ca_root_node }}"
   - "{{ ca_node.swarm.swarm-workers }}"
   - "{{ ca_node.swarm.swarm-managers }}"
 
 - name: "copy certs from ca_root_node to ansible machine for distribution"
-  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item.ssl_cert }}" flat=yes
+  fetch: src="{{ ca_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_cacerts__ca_keystore_certs_dir }}/{{ item.ssl_cert }}" flat=yes
   with_items:
   - "{{ ca_node.ca_root_node }}"
   - "{{ ca_node.swarm.swarm-workers }}"
@@ -220,8 +220,8 @@ when: bootstrap_cacerts__ca_fetch_certs is defined
   with_items:
   - "{{ bootstrap_cacerts__caroot_cert }}"
   - "{{ bootstrap_cacerts__caroot_key }}"
-  - { src: "{{ ca_certs_dir }}/{{ bootstrap_cacerts__caroot_cert }}", dest: "{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item }}" }
-  - { src: "{{ ca_certs_dir }}/{{ bootstrap_cacerts__pki_caroot_key }}", dest: "{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item }}" }
+  - { src: "{{ ca_certs_dir }}/{{ bootstrap_cacerts__caroot_cert }}", dest: "{{ bootstrap_cacerts__ca_keystore_certs_dir }}/{{ item }}" }
+  - { src: "{{ ca_certs_dir }}/{{ bootstrap_cacerts__pki_caroot_key }}", dest: "{{ bootstrap_cacerts__ca_keystore_keys_dir }}/{{ item }}" }
 ```
 
 * Distribute the Certs & keys to the various nodes:
@@ -236,14 +236,14 @@ when: bootstrap_cacerts__ca_fetch_certs is defined
 - block:
 
    - name: "copy keys from ca_root_node to ansible machine for distribution"
-     copy: src="{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.ssl_key }}"
+     copy: src="{{ bootstrap_cacerts__ca_keystore_keys_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_cacerts__ca_local_key_dir }}/{{ item.ssl_key }}"
      with_items:
      - "{{ ca_node.ca_root_node }}"
      - "{{ ca_node.swarm.swarm-workers }}"
      - "{{ ca_node.swarm.swarm-managers }}"
 
    - name: "copy certs from ca_root_node to ansible machine for distribution"
-     copy: src="{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.ssl_cert }}"
+     copy: src="{{ bootstrap_cacerts__ca_keystore_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item.ssl_cert }}"
      with_items:
      - "{{ ca_node.ca_root_node }}"
      - "{{ ca_node.swarm.swarm-workers }}"
@@ -255,17 +255,17 @@ when: bootstrap_cacerts__ca_fetch_certs is defined
 
 - name: "copy {{ bootstrap_cacerts__pki_caroot_key }} to {{ bootstrap_cacerts__ca_local_key_dir }}"
   copy:
-   src: "{{ bootstrap_cacerts__ca_keyring_keys_dir }}/{{ item }}"
+   src: "{{ bootstrap_cacerts__ca_keystore_keys_dir }}/{{ item }}"
    dest: "{{ bootstrap_cacerts__ca_local_key_dir }}/{{ item }}"
   with_items:
   - "{{ bootstrap_cacerts__pki_caroot_key }}"
 
-- name: "copy {{ bootstrap_cacerts__pki_caroot_cert }} to {{ bootstrap_cacerts__ca_local_cert_dir }}"
+- name: "copy {{ bootstrap_cacerts__caroot_cert }} to {{ bootstrap_cacerts__ca_local_cert_dir }}"
   copy:
-   src: "{{ bootstrap_cacerts__ca_keyring_certs_dir }}/{{ item }}"
+   src: "{{ bootstrap_cacerts__ca_keystore_certs_dir }}/{{ item }}"
    dest: "{{ bootstrap_cacerts__ca_local_cert_dir }}/{{ item }}"
   with_items:
-  - "{{ bootstrap_cacerts__pki_caroot_cert }}"
+  - "{{ bootstrap_cacerts__caroot_cert }}"
 ```
 
 # Gotchas
@@ -304,7 +304,7 @@ An example playbook setup-ca-server.yml utilizing the CA role to setup the CA se
    bootstrap_cacerts__ca_force_create: yes
    bootstrap_cacerts__ca_force_certify_nodes: yes
   roles:
-   - role: bootstrap-keyring
+   - role: bootstrap-cacerts
      tags: ca
 ```
 
