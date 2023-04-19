@@ -149,10 +149,11 @@ ldap_host_config:
 ############
 ## LDAP vars
 ############
+
 ldap_root_password: "{{ vault__ldap_root_password }}"
 ldap_config_password: "{{ vault__ldap_config_password }}"
 ldap_admin_password: "{{ vault__ldap_admin_password }}"
-ldap_readonly_user_password: "{{ vault__ldap_readonly_user_password }}"
+ldap_readonly_password: "{{ vault__ldap_readonly_password }}"
 
 #ldap_internal_domain: "johnson.int"
 ldap_internal_domain: "{{ internal_domain }}"
@@ -175,30 +176,42 @@ ldap_search_user_password: "{{ vault__ldap_base_users['search'].ssha_password }}
 ldap_internal_host: "ldap.{{ ldap_internal_domain }}:389"
 ldap_internal_uri: "ldap://{{ ldap_internal_host }}"
 
-# if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
-ldap_admindn: "cn=admin,{{ ldap_internal_base_dn }}"
-ldap_adminpw: "{{ ldap_admin_password }}"
+ldap_admin_dn: "cn=admin,{{ ldap_internal_base_dn }}"
+ldap_admin_pw: "{{ ldap_admin_password }}"
+
+ldap_readonly_username: "readonly"
+
+ldap_internal_organisation: "Johnsonville LLC"
+
+ldap_external_organisation: "Dettonville LLC"
+ldap_external_domain: "{{ external_domain }}"
+ldap_external_base_dn: "dc=dettonville,dc=org"
 
 ldap_internal:
-  ldap_organisation: "Johnsonville LLC"
+  ldap_organisation: "{{ ldap_internal_organisation }}"
   ldap_domain: "{{ ldap_internal_domain }}"
   ldap_base_dn: "{{ ldap_internal_base_dn }}"
   ldap_admin_password: "{{ ldap_admin_password }}"
   ldap_readonly_user: "true"
-  ldap_readonly_user_username: "readonly"
-  ldap_readonly_user_password: "{{ ldap_readonly_user_password }}"
+  ldap_readonly_username: "readonly"
+  ldap_readonly_password: "{{ ldap_readonly_password }}"
   ldap_config_password: "{{ ldap_config_password }}"
 
 ldap_external:
-  ldap_organisation: "Dettonville LLC"
-  ldap_domain: "{{ external_domain }}"
-  ldap_base_dn: "dc=dettonville,dc=org"
+  ldap_organisation: "{{ ldap_external_organisation }}"
+  ldap_domain: "{{ ldap_external_domain }}"
+  ldap_base_dn: "{{ ldap_external_base_dn }}"
   ldap_admin_password: "{{ ldap_admin_password }}"
   ldap_readonly_user: "true"
-  ldap_readonly_user_username: "readonly"
-  ldap_readonly_user_password: "{{ ldap_readonly_user_password }}"
+  ldap_readonly_username: "{{ ldap_readonly_username }}"
+  ldap_readonly_password: "{{ ldap_readonly_password }}"
   ldap_config_password: "{{ ldap_config_password }}"
 
+ldap_domain: "{{ ldap_internal_domain }}"
+ldap_host: "ldap.{{ ldap_domain }}"
+ldap_port: "389"
+ldap_endpoint: "{{ ldap_host }}:{{ldap_port}}"
+ldap_uri: "ldap://{{ ldap_endpoint }}"
 
 ############
 ## Samba (SMB) vars
@@ -212,50 +225,50 @@ samba_mail_domain: dettonville.org
 samba_join_user: admin
 samba_join_passwd: "{{ ldap_admin_password }}"
 
-## if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
-#smb_ldap_admindn: "cn=admin,{{ ldap_internal.ldap_base_dn }}"
-smb_ldap_admindn: "{{ ldap_admindn }}"
-smb_ldap_adminpw: "{{ ldap_admin_password }}"
-
-smb_ldap_uri: "ldap://ldap.{{ smb_domain }}"
-#smb_ldap_uri: "ldap://{{ hostvars[groups['ldap_server'][0]]['inventory_hostname'].{{ smb_domain }}"
-#smb_ldap_suffix: "dc=johnson,dc=int"
-smb_ldap_suffix: "dc={{ internal_domain.split('.')[-2] }},dc={{ internal_domain.split('.')[-1] }}"
-smb_ldap_group_suffix: 'ou=groups'
-smb_ldap_user_suffix: 'ou=users'
-smb_ldap_machine_suffix: 'ou=computers'
-smb_ldap_idmap_suffix: "ou=Idmap"
-smb_ldap_replication_sleep: 2000
-smb_ldap_ssl: 'off'
-smb_ldap_passwd_sync: 'Yes'
-
+### if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
+##smb_ldap_admin_dn: "cn=admin,{{ ldap_internal.ldap_base_dn }}"
+#smb_ldap_admin_dn: "{{ ldap_admin_dn }}"
+#smb_ldap_admin_pw: "{{ ldap_admin_password }}"
+#
+#smb_ldap_uri: "ldap://ldap.{{ smb_domain }}"
+##smb_ldap_uri: "ldap://{{ hostvars[groups['ldap_server'][0]]['inventory_hostname'].{{ smb_domain }}"
+##smb_ldap_suffix: "dc=johnson,dc=int"
+#smb_ldap_suffix: "dc={{ internal_domain.split('.')[-2] }},dc={{ internal_domain.split('.')[-1] }}"
+#smb_ldap_group_suffix: 'ou=groups'
+#smb_ldap_user_suffix: 'ou=users'
+#smb_ldap_machine_suffix: 'ou=computers'
+#smb_ldap_idmap_suffix: "ou=Idmap"
+#smb_ldap_replication_sleep: 2000
+#smb_ldap_ssl: 'off'
+#smb_ldap_passwd_sync: 'Yes'
+#
+##smb_group_shares:
+##  - name: "netlogon"
+###    path: "/shares/netlogon"
+##    path: "/srv/storage/netlogon"
+##    cifs: True
+##    smbparms:
+##      guest ok: yes
+##      read only: yes
+##      valid users: "@smbadmin, @smbuser"
+##      comment: "Netlogon service"
+###      root preexec: "/my/script/mknetlogon %U %G %I"
+#
 #smb_group_shares:
-#  - name: "netlogon"
-##    path: "/shares/netlogon"
-#    path: "/srv/storage/netlogon"
+#  - name: "data"
+#    path: "/data"
 #    cifs: True
 #    smbparms:
-#      guest ok: yes
-#      read only: yes
-#      valid users: "@smbadmin, @smbuser"
-#      comment: "Netlogon service"
-##      root preexec: "/my/script/mknetlogon %U %G %I"
-
-smb_group_shares:
-  - name: "data"
-    path: "/data"
-    cifs: True
-    smbparms:
-      valid users: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
-      public: "yes"
-      guest ok: "yes"
-      force group: "smbguest"
-      force directory mode: "775"
-      force create mode: "775"
-      write list: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
-      writeable: "yes"
-      create mode: "0777"
-      directory mode: "0777"
+#      valid users: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
+#      public: "yes"
+#      guest ok: "yes"
+#      force group: "smbguest"
+#      force directory mode: "775"
+#      force create mode: "775"
+#      write list: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
+#      writeable: "yes"
+#      create mode: "0777"
+#      directory mode: "0777"
 
 ############
 ## Certificate Authority (CA) vars

@@ -2,7 +2,10 @@
 
 #DOCKER_CONFIG_DIR=/home/adminuser/docker
 CONTAINER_NAME=openldap
-CLEANUP_DIRS="openldap/slapd/database openldap/slapd/config"
+CLEANUP_DIRS="
+openldap/slapd/database
+openldap/slapd/config
+"
 
 usage() {
     echo "" 1>&2
@@ -36,6 +39,7 @@ reset_container() {
 
 #    rm openldap/slapd/database/*
 #    rm -fr openldap/slapd/config/*
+    IFS=$'\n'
     for dir in $CLEANUP_DIRS
     do
         rm -fr $dir/*
@@ -45,7 +49,8 @@ reset_container() {
 #    if [[ ${ACTION} =~ "restart" ]]; then
     if [ "${ACTION,,}" = "restart" ]; then
         echo "starting ${CONTAINER_NAME} container..." >&2
-        docker-compose up ${CONTAINER_NAME}
+        docker-compose up -d ${CONTAINER_NAME}
+        docker-compose logs -f ${CONTAINER_NAME}
     fi
 }
 

@@ -1,0 +1,48 @@
+---
+
+## firewall config for internal zone
+firewalld_enabled: yes
+firewalld_default_zone: internal
+
+firewalld_configs:
+  DefaultZone: "{{ firewalld_default_zone }}"
+  ## ref: https://github.com/firewalld/firewalld/issues/440
+  IndividualCalls: "yes"
+
+firewalld_services__linux:
+  - name: ssh
+  - name: ntp
+  - name: webmin
+    short: "webmin"
+    custom: yes
+    description: "webmin services"
+    port:
+      - port: 10000
+        protocol: tcp
+
+firewall_configs:
+  - zone: "{{ firewalld_default_zone }}"
+    immediate: 'yes'
+    masquerade: 'yes'
+    permanent: 'yes'
+    state: enabled
+
+firewalld_zones__internal:
+  - name: "{{ firewalld_default_zone }}"
+    short: "MGT"
+    description: "internal infrastructure hosts"
+    target: "ACCEPT"
+    source:
+      ## localhost
+      - address: 127.0.0.0/8
+      ## docker
+      - address: 172.0.0.0/8
+      ## internal networks
+      - address: "{{ gateway_ipv4_network_cidr }}"
+    service:
+      - name: "webmin"
+      - name: ssh
+
+firewalld_ports__webmin:
+  - 10000/tcp
+
