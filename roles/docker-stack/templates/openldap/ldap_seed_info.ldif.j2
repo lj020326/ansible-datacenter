@@ -1,6 +1,11 @@
 #jinja2: trim_blocks: True, lstrip_blocks: True
 {{ ansible_managed | comment }}
 
+######################
+## ldap content template inspired by
+##  https://github.com/mrlesmithjr/ansible-openldap/blob/master/templates/etc/ldap/slapd.d/populate_content.ldif.j2
+##
+
 ## LDAP System Users
 {% for uid,user_config in docker_stack_ldap_base_user_map.items() %}
 
@@ -43,7 +48,7 @@ ou: {{ ou }}
 {% endif %}
 
 ## LDAP samba domains
-{% for domain_name,domain_config in docker_stack_ldap_samba_domain_map.items() %}
+{% for domain_name,domain_config in __docker_stack_ldap_samba_domain_map.items() %}
 
 dn: sambaDomainName={{ domain_name }},{{ docker_stack_ldap_base_dn }}
 changetype: add
@@ -174,6 +179,9 @@ sudoOption: {{ sudo_option }}
 {{ sudo_key }}: {{ sudo_value }}
             {% endif %}
         {% endfor %}
+    {% endif %}
+    {% if group_config.memberURL is defined %}
+memberURL: {{ group_config.memberURL }}
     {% endif %}
     {% if group_config.memberDnList|d([])|length > 0 %}
         {% for uid in group_config.memberDnList %}

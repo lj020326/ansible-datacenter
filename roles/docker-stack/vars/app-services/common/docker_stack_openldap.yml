@@ -1,24 +1,16 @@
 ---
 
 #__docker_stack_appspecs__openldap_image: "{{ docker_stack_registry_endpoint }}/openldap:latest"
-__docker_stack_appspecs__openldap_image: "osixia/openldap:1.4.0"
+#__docker_stack_appspecs__openldap_image: "osixia/openldap:1.4.0"
+__docker_stack_appspecs__openldap_image: "osixia/openldap:1.5.0"
 
 __docker_stack_appspecs__openldap_root_password: "{{ docker_stack_ldap_root_password | d('password') }}"
 __docker_stack_appspecs__openldap_admin_password: "{{ docker_stack_ldap_admin_password | d('password') }}"
 __docker_stack_appspecs__openldap_config_password: "{{ docker_stack_ldap_config_password | d('passsword') }}"
-#__docker_stack_appspecs__openldap_server: "{{ docker_stack_ldap_server | d('ldap.example.int') }}"
-
-__docker_stack_appspecs__openldap_config_default:
-  ldap_organisation: "Example LLC"
-  ldap_domain: "example.com"
-  ldap_base_dn: "dc=example,dc=int"
-  ldap_admin_password: "{{ __docker_stack_appspecs__openldap_admin_password }}"
-  ldap_config_password: "{{ __docker_stack_appspecs__openldap_config_password }}"
-  ldap_readonly_user: "true"
-  ldap_readonly_user_username: "readonly"
-  ldap_readonly_user_password: "password"
-
-__docker_stack_appspecs__openldap_config: "{{ docker_stack_openldap_config | d(__docker_stack_appspecs__openldap_config_default) }}"
+#__docker_stack_appspecs__openldap_host: "{{ docker_stack_ldap_host | d('ldap.example.int') }}"
+__docker_stack_appspecs__openldap_readonly_user: "true"
+__docker_stack_appspecs__openldap_readonly_username: "readonly"
+__docker_stack_appspecs__openldap_readonly_password: "{{ docker_stack_ldap_readonly_password }}"
 
 __docker_stack_appspecs__openldap_port: 389
 
@@ -34,26 +26,29 @@ docker_stack_appspec_config_dirs__openldap:
   - { path: "{{ docker_stack_dir }}/openldap/slapd/config" }
 
 docker_stack_appspec_config_files__openldap:
-#  - { src: 'openldap/bootstrap/05-index.ldif', dest: "{{ docker_stack_dir }}/openldap/other/05-index.ldif"}
+  - src: 'scripts/reset-openldap.sh'
+    dest: "{{ docker_stack_dir }}"
+    mode: "0770"
 #  - { src: 'openldap/environment/default.startup.yaml', dest: "{{ docker_stack_dir }}/openldap/environment/default.startup.yaml"}
   - { src: 'openldap/schema/samba.schema', dest: "{{ docker_stack_dir }}/openldap/schema/samba.schema"}
   - { src: 'openldap/schema/sudo.schema', dest: "{{ docker_stack_dir }}/openldap/schema/sudo.schema"}
   - { src: 'openldap/schema/rfc2307bis.schema', dest: "{{ docker_stack_dir }}/openldap/schema/rfc2307bis.schema"}
   - { src: 'openldap/schema/openssh-ldap.schema', dest: "{{ docker_stack_dir }}/openldap/schema/openssh-ldap.schema"}
+  - { src: 'openldap/schema/dyngroup.schema', dest: "{{ docker_stack_dir }}/openldap/schema/dyngroup.schema"}
   - { src: 'openldap/ldif/02-security.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/02-security.ldif"}
   - { src: 'openldap/ldif/03-memberOf.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/03-memberOf.ldif"}
-#  - { src: 'openldap/ldif/04-refint.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/04-refint.ldif"}
-  - { src: 'openldap/ldif/05-index.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/05-index.ldif"}
-#  - { src: 'openldap/ldif/06-cache.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/06-cache.ldif"}
-#  - { src: 'private/openldap/ldif/johnson.int.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/09-bootstrap.ldif"}
-#  - { src: 'private/openldap/ldif/{{ docker_stack_internal_root_domain }}.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/09-bootstrap.ldif"}
-#  - { src: 'private/openldap/dettonville.org.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/bootstrap.ldif"}
+  - { src: 'openldap/ldif/04-refint.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/04-refint.ldif"}
+  - { src: 'openldap/ldif/05-dyngroup.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/05-dyngroup.ldif"}
+  - { src: 'openldap/ldif/06-autogroup.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/06-autogroup.ldif"}
+  - { src: 'openldap/ldif/08-index.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/08-index.ldif"}
+#  ## olcDbCacheSize is a bdb/hdb attribute
+#  ## ref: https://bmaupin.github.io/wiki/archive/applications/ldap/optimizing-openldap.html
+#  ## ref: https://lists.openldap.org/hyperkitty/list/openldap-bugs@openldap.org/thread/YBS5VWI2MMX5GAXGUZ4UKVXPCPOXZYLU/
+#  - { src: 'openldap/ldif/09-cache.ldif', dest: "{{ docker_stack_dir }}/openldap/ldif/09-cache.ldif"}
 
 docker_stack_appspec_config_tpls__openldap:
   - src: 'openldap/ldap_seed_info.ldif.j2'
-    dest: "{{ docker_stack_dir }}/openldap/ldif/09-bootstrap.ldif"
-#  - src: 'files/private/openldap/ldif/ldap_seed_info.ldif.j2'
-#    dest: "{{ docker_stack_dir }}/openldap/ldif/09-bootstrap.ldif"
+    dest: "{{ docker_stack_dir }}/openldap/ldif/10-bootstrap.ldif"
 
 docker_stack_firewalld_appspec_services__openldap:
   - name: "ldap"
@@ -79,7 +74,7 @@ docker_stack_appspec_services__openldap:
     container_name: "openldap"
 #    image: {{ docker_stack_registry_endpoint }}/openldap:latest
     image: "{{ __docker_stack_appspecs__openldap_image }}"
-#    hostname: "{{ ldap_server }}"
+#    hostname: "{{ docker_stack_ldap_host }}"
     command: --copy-service --loglevel debug
     ports:
       - 389:389
@@ -98,21 +93,33 @@ docker_stack_appspec_services__openldap:
       ## ref: https://github.com/osixia/docker-openldap/issues/177
       - "{{ docker_stack_dir }}/openldap/schema:/container/service/slapd/assets/config/bootstrap/schema"
     environment:
-#      HOSTNAME: "{{ __docker_stack_appspecs__openldap_server }}"
+#      HOSTNAME: "{{ __docker_stack_appspecs__openldap_host }}"
 #      LDAP_TLS: 0
       LDAP_OPENLDAP_UID: "{{ docker_stack_user_uid }}"
       LDAP_OPENLDAP_GID: "{{ docker_stack_user_gid }}"
-      LDAP_ORGANISATION: "{{ __docker_stack_appspecs__openldap_config.ldap_organisation }}"
-      LDAP_DOMAIN: "{{ __docker_stack_appspecs__openldap_config.ldap_domain }}"
-      LDAP_BASE_DN: "{{ __docker_stack_appspecs__openldap_config.ldap_base_dn }}"
-      SLAPD_ADDITIONAL_MODULES: "memberof"
-      LDAP_ADMIN_PASSWORD: "{{ __docker_stack_appspecs__openldap_config.ldap_admin_password }}"
-      LDAP_READONLY_USER: "{{ ldap_internal.ldap_readonly_user }}"
-      LDAP_READONLY_USER_USERNAME: "{{ ldap_internal.ldap_readonly_user_username }}"
-      LDAP_READONLY_USER_PASSWORD: "{{ ldap_internal.ldap_readonly_user_password }}"
+      LDAP_ORGANISATION: "{{ docker_stack_ldap_organisation }}"
+      LDAP_DOMAIN: "{{ docker_stack_ldap_domain }}"
+      LDAP_BASE_DN: "{{ docker_stack_ldap_base_dn }}"
+      LDAP_ADMIN_PASSWORD: "{{ __docker_stack_appspecs__openldap_admin_password }}"
+      LDAP_READONLY_USER: "{{ __docker_stack_appspecs__openldap_readonly_user }}"
+      LDAP_READONLY_USER_USERNAME: "{{ __docker_stack_appspecs__openldap_readonly_username }}"
+      LDAP_READONLY_USER_PASSWORD: "{{ __docker_stack_appspecs__openldap_readonly_password }}"
       LDAP_REPLICATION: "false"
-      LDAP_CONFIG_PASSWORD: "{{ ldap_internal.ldap_config_password }}"
+      LDAP_CONFIG_PASSWORD: "{{ __docker_stack_appspecs__openldap_config_password }}"
       LDAP_RFC2307BIS_SCHEMA: "false"
+      ## ref: https://github.com/osixia/docker-openldap/issues/199#issuecomment-513565530
+      LDAP_TLS_VERIFY_CLIENT: "try"
+#      SLAPD_ADDITIONAL_MODULES: "memberof"
+
+
+
+__docker_stack_ldap_samba_domain_map_yaml: |-
+  {
+  {{ docker_stack_ldap_domain }}: { 'sid': {{ docker_stack_ldap_domain_sid_root }} }
+  }
+
+__docker_stack_ldap_samba_domain_map: "{{ __docker_stack_ldap_samba_domain_map_yaml | from_yaml }}"
+
 
 ## ref: https://serverfault.com/questions/885324/background-on-sambasid-calculation
 __docker_stack_ldap_domain_user_map_yaml: |-

@@ -28,12 +28,54 @@ docker_stack_enable_cacerts: yes
 docker_registry_username: "{{ registry_username }}"
 docker_registry_password: "{{ registry_password }}"
 
-stepca_root_ca_fingerprint: "{{ vault__stepca_root_ca_fingerprint | d('') }}"
-docker_stepca_enc_key: "{{ vault__docker_stepca_enc_key | d('') }}"
-
 docker_stack_mysql_root_password: "{{ vault__docker_stack_mysql_root_password | d('') }}"
 docker_stack_grafana_admin_password: "{{ vault__docker_stack_grafana_admin_password | d('') }}"
 
+############
+## LDAP
+############
+docker_stack_ldap_domain: "{{ docker_stack_internal_root_domain }}"
+#docker_stack_ldap_domain: "{{ control_plane_domain }}"
+
+docker_stack_ldap_host: "ldap.{{ docker_stack_ldap_domain }}"
+docker_stack_ldap_port: "389"
+docker_stack_ldap_endpoint: "{{ docker_stack_ldap_host }}:{{ docker_stack_ldap_port }}"
+docker_stack_ldap_uri: "ldap://{{ docker_stack_ldap_endpoint }}"
+
+docker_stack_ldap_domain_parts: |
+  [
+    {% for domain in docker_stack_ldap_domain | split('.') %}
+    "dc={{ domain }}",
+    {% endfor %}
+  ]
+
+docker_stack_ldap_base_dn: "{{ docker_stack_ldap_domain_parts | join(',') }}"
+#docker_stack_ldap_base_dn: "{{ ldap_internal_base_dn }}"
+docker_stack_ldap_user_base_dn: "ou=users,{{ docker_stack_ldap_base_dn }}"
+docker_stack_ldap_group_base_dn: "ou=groups,{{ docker_stack_ldap_base_dn }}"
+#docker_stack_ldap_user_base_dn: "{{ ldap_internal_user_search_base_dn }}"
+#docker_stack_ldap_search_user_dn: "{{ ldap_internal_search_user_dn }}"
+
+docker_stack_ldap_root_password: "{{ ldap_root_password | d('password') }}"
+docker_stack_ldap_admin_password: "{{ ldap_admin_password | d('password') }}"
+docker_stack_ldap_config_password: "{{ ldap_config_password | d('passsword') }}"
+docker_stack_ldap_readonly_user: "true"
+docker_stack_ldap_readonly_username: "readonly"
+docker_stack_ldap_readonly_password: "{{ ldap_readonly_password }}"
+#docker_stack_ldap_search_user_password: "{{ ldap_search_user_password }}"
+
+#docker_stack_ldap_user_root_samba_nt_password: "{{ vault__ldap_domain_users['root'].sambaNTPassword }}"
+#docker_stack_ldap_user_root_password: "{{ vault__ldap_domain_users['root'].ssha_password }}"
+
+############
+## STEPCA
+############
+stepca_root_ca_fingerprint: "{{ vault__stepca_root_ca_fingerprint | d('') }}"
+docker_stepca_enc_key: "{{ vault__docker_stepca_enc_key | d('') }}"
+
+############
+## AUTH
+############
 docker_stack_auth_google_client_id: "{{ vault__docker_stack_auth_google_client_id | d('') }}"
 docker_stack_auth_google_client_secret: "{{ vault__docker_stack_auth_google_client_secret | d('') }}"
 
@@ -72,20 +114,12 @@ docker_stack_gitea_postgres_password: "{{ vault__docker_stack_gitea_postgres_pas
 
 docker_stack_vnc_passwd: "{{ vault__docker_stack_vnc_passwd }}"
 
-
 docker_stack_vmware_data_dir: /data/datacenter/vmware
 
 docker_stack_service_route_name: "{{ inventory_hostname_short }}"
 
-docker_stack_internal_root_domain: "{{ internal_root_domain }}"
-docker_stack_external_root_domain: "{{ external_root_domain }}"
-
 docker_stack_internal_ssl_cert_dir: "{{ ca_local_cert_dir }}"
 docker_stack_internal_ssl_certkey_dir: "{{ ca_local_key_dir }}"
-
-docker_stack_internal_domain: "{{ docker_stack_service_route_name }}.{{ docker_stack_internal_root_domain }}"
-docker_stack_external_domain: "{{ docker_stack_service_route_name }}.{{ docker_stack_external_root_domain }}"
-#docker_stack_external_domain: "{{ external_domain }}"
 
 registry_domain: "{{ control_plane_domain }}"
 
@@ -141,588 +175,26 @@ docker_stack_acme_http_challenge_proxy_port: "{{ stepca_acme_http_challenge_prox
 #docker_stack_compose_http_timeout: 120
 docker_stack_compose_http_timeout: 240
 
+docker_source_images: []
+
 ###########
-## openldap config
+## JENKINS
 ###########
-docker_stack_ldap_domain: "{{ docker_stack_internal_root_domain }}"
-docker_stack_ldap_root_password: "{{ ldap_root_password | d('password') }}"
-docker_stack_ldap_admin_password: "{{ ldap_admin_password | d('password') }}"
-docker_stack_ldap_config_password: "{{ ldap_config_password | d('passsword') }}"
-
-docker_stack_ldap_domain_parts: |
-  [
-    {% for domain in docker_stack_ldap_domain | split('.') %}
-    "dc={{ domain }}",
-    {% endfor %}
-  ]
-
-docker_stack_ldap_base_dn: "{{ docker_stack_ldap_domain_parts | join(',') }}"
-#docker_stack_ldap_base_dn: "{{ ldap_internal_base_dn }}"
-docker_stack_ldap_user_base_dn: "{{ ldap_internal_user_search_base_dn }}"
-#docker_stack_ldap_search_user_dn: "{{ ldap_internal_search_user_dn }}"
-#docker_stack_ldap_search_user_password: "{{ ldap_search_user_password }}"
-
-#docker_stack_ldap_user_root_samba_nt_password: "{{ vault__ldap_domain_users['root'].sambaNTPassword }}"
-#docker_stack_ldap_user_root_password: "{{ vault__ldap_domain_users['root'].ssha_password }}"
-
-docker_stack_ldap_internal_config:
-  ldap_organisation: "Johnsonville LLC"
-  ldap_domain: "{{ docker_stack_ldap_domain }}"
-  ldap_base_dn: "{{ docker_stack_ldap_base_dn }}"
-  ldap_admin_password: "{{ docker_stack_ldap_admin_password }}"
-  ldap_readonly_user: "true"
-  ldap_readonly_user_username: "readonly"
-  ldap_readonly_user_password: "{{ ldap_readonly_user_password }}"
-  ldap_config_password: "{{ ldap_config_password }}"
-
-docker_stack_openldap_config: "{{ docker_stack_ldap_internal_config }}"
+docker_stack_jenkins_ldap_host: "{{ ldap_internal_host }}"
+docker_stack_jenkins_ldap_base_dn: "{{ ldap_internal_base_dn }}"
+docker_stack_jenkins_jcac_mgr_pwd_secret: "{{ ldap_readonly_password }}"
 
 ##########
-## ldap domain users
+## stepca
 ##########
-docker_stack_ldap_domain_sid_root: "{{ vault__ldap_domain_sid_root }}"
-docker_stack_ldap_domain_group_sid_root: "S-1-5-32"
-docker_stack_ldap_admins_gid_number: 500
-docker_stack_ldap_users_gid_number: 502
-
-docker_stack_ldap_user_media_uid: "media"
-docker_stack_ldap_user_media_uid_number: 10003
-docker_stack_ldap_user_media_gid_number: 995
-
-docker_stack_ldap_domain_guests_gid_number: 511
-docker_stack_ldap_domain_users_gid_number: 513
-docker_stack_ldap_domain_admins_gid_number: 512
-#docker_stack_ldap_domain_admins_gid_number: 544
-docker_stack_ldap_domain_computers_gid_number: 515
-
-docker_stack_ldap_domain_account_operators_gid_number: 548
-docker_stack_ldap_domain_print_operators_gid_number: 550
-docker_stack_ldap_domain_backup_operators_gid_number: 551
-docker_stack_ldap_domain_replicators_gid_number: 552
-
-docker_stack_ldap_domain_guests_group_sid: "{{ docker_stack_ldap_domain_sid_root }}-{{ docker_stack_ldap_domain_guests_gid_number }}"
-docker_stack_ldap_domain_users_group_sid: "{{ docker_stack_ldap_domain_sid_root }}-{{ docker_stack_ldap_domain_users_gid_number }}"
-#docker_stack_ldap_domain_admins_group_sid: "{{ docker_stack_ldap_domain_group_sid_root }}-{{ docker_stack_ldap_domain_admins_gid_number }}"
-docker_stack_ldap_domain_admins_group_sid: "{{ docker_stack_ldap_domain_sid_root }}-{{ docker_stack_ldap_domain_admins_gid_number }}"
-docker_stack_ldap_domain_computers_group_sid: "{{ docker_stack_ldap_domain_sid_root }}-{{ docker_stack_ldap_domain_computers_gid_number }}"
-docker_stack_ldap_domain_print_operators_group_sid: "{{ docker_stack_ldap_domain_group_sid_root }}-{{ docker_stack_ldap_domain_print_operators_gid_number }}"
-docker_stack_ldap_domain_backup_operators_group_sid: "{{ docker_stack_ldap_domain_group_sid_root }}-{{ docker_stack_ldap_domain_backup_operators_gid_number }}"
-docker_stack_ldap_domain_account_operators_group_sid: "{{ docker_stack_ldap_domain_group_sid_root }}-{{ docker_stack_ldap_domain_account_operators_gid_number }}"
-docker_stack_ldap_domain_replicators_group_sid: "{{ docker_stack_ldap_domain_group_sid_root }}-{{ docker_stack_ldap_domain_replicators_gid_number }}"
-
-#docker_stack_ldap_samba_user_primary_group_sid: "{{ docker_stack_ldap_domain_sid_root }}-2005"
-docker_stack_ldap_samba_guest_user_primary_group_sid: "{{ docker_stack_ldap_domain_sid_root }}-2014"
-#docker_stack_ldap_samba_admin_sid: "{{ docker_stack_ldap_domain_sid_root }}-500"
-
-docker_stack_ldap_samba_domain_map:
-  johnson.int:
-    sid: "{{ docker_stack_ldap_domain_sid_root }}"
-
-docker_stack_ldap_domain_ou_map:
-  groups: {}
-  users: {}
-  hosts: {}
-  computers: {}
-  Idmap: {}
-  SUDOers: {}
-  django:
-    parent_ou: "ou=groups"
-  cloudusers:
-    parent_ou: "ou=groups"
-
-docker_stack_ldap_base_user_map:
-  search:
-    description: LDAP read only user
-    ssha_password: "{{ vault__ldap_base_user_search_password_ssha }}"
-#  admin:
-#    description: LDAP administrator
-#    ssha_password: "{{ vault__ldap_base_user_admin_password_ssha }}"
-#  readonly:
-#    description: LDAP read only user
-#    ssha_password: "{{ vault__ldap_base_user_readonly_password_ssha }}"
-
-docker_stack_ldap_domain_user_map_public:
-  netadmin:
-    uid_number: 10000
-    object_class_list:
-      - top
-      - inetOrgPerson
-      - posixAccount
-      - sambaSamAccount
-      - shadowAccount
-      - ldapPublicKey
-    gecos: netadmin
-    given_name: netadmin
-    samba:
-      primary_group_sid: "{{ docker_stack_ldap_domain_admins_group_sid }}"
-#      sid: "{{ docker_stack_ldap_samba_admin_sid }}"
-  admin:
-    uid_number: 10004
-    gid_number: "{{ docker_stack_ldap_domain_admins_gid_number }}"
-    object_class_list:
-      - top
-      - sambaSamAccount
-      - posixAccount
-      - inetOrgPerson
-      - organizationalPerson
-      - person
-    mail: admin@epgtec.com
-    samba:
-      primary_group_sid: "{{ docker_stack_ldap_domain_admins_group_sid }}"
-  smbguest:
-    username: smbguest
-    uid_number: 10002
-    object_class_list:
-      - top
-      - sambaSamAccount
-      - posixAccount
-      - inetOrgPerson
-      - organizationalPerson
-      - person
-      - shadowAccount
-    homedir: /nonexistent
-    samba:
-      primary_group_sid: "{{ docker_stack_ldap_domain_users_group_sid }}"
-      sid: "{{ docker_stack_ldap_samba_guest_user_primary_group_sid }}"
-  nobody:
-    username: nobody
-    uid_number: 65534
-    gid_number: 514
-    object_class_list:
-      - top
-      - inetOrgPerson
-      - organizationalPerson
-      - person
-      - posixAccount
-      - sambaSamAccount
-      - shadowAccount
-    homedir: /nonexistent
-    login_shell: /bin/false
-    samba:
-      primary_group_sid: "{{ docker_stack_ldap_samba_guest_user_primary_group_sid }}"
-      account_flags: "[NUD        ]"
-  media:
-    username: media
-    uid_number: "{{ docker_stack_ldap_user_media_uid_number }}"
-    gid_number: "{{ docker_stack_ldap_user_media_gid_number }}"
-    object_class_list:
-      - top
-      - inetOrgPerson
-      - posixAccount
-      - shadowAccount
-  ljohnson:
-    username: ljohnson
-    uid_number: 10100
-    gid_number: "{{ docker_stack_ldap_users_gid_number }}"
-    object_class_list:
-      - top
-      - inetOrgPerson
-      - posixAccount
-      - sambaSamAccount
-      - shadowAccount
-      - ldapPublicKey
-      - organizationalPerson
-      - person
-    cn: Lee Johnson
-    given_name: Lee
-    sn: Johnson
-    display_name: Lee Johnson
-    initials: LJ
-    mail: lee.james.johnson@gmail.com
-    samba:
-      primary_group_sid: "{{ docker_stack_ldap_domain_users_group_sid }}"
-
-docker_stack_ldap_domain_user_map: "{{ docker_stack_ldap_domain_user_map_public | combine(vault__ldap_domain_user_map|d({}), recursive=True) }}"
-
-docker_stack_ldap_domain_group_map_public:
-  admin:
-    gid_number: "{{ docker_stack_ldap_admins_gid_number }}"
-#    object_class_list:
-#      - top
-#      - posixGroup
-    memberUidList:
-      - netadmin
-      - admin
-#      - administrator
-#      - ansible
-  users:
-    gid_number: "{{ docker_stack_ldap_users_gid_number }}"
-#    object_class_list:
-#      - top
-#      - posixGroup
-  wheel:
-    gid_number: 504
-    memberUidList:
-      - netadmin
-      - admin
-#      - administrator
-  irc:
-    gid_number: 505
-
-#  Administrators:
-#    gid_number: "{{ docker_stack_ldap_domain_admins_gid_number }}"
-#    description: Domain Members can fully administer the computer/sambaDomainName
-#    display_name: Administrators
-#    object_class_list:
-#      - top
-#      - posixGroup
-#      - sambaGroupMapping
-#    memberUidList:
-#      - administrator
-#    samba:
-#      sid: "{{ docker_stack_ldap_domain_admins_group_sid }}"
-#      group_type: 4
-
-  Domain Computers:
-    gid_number: "{{ docker_stack_ldap_domain_computers_gid_number }}"
-    description: Domain Computers accounts
-    display_name: Domain Computers
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    samba:
-      sid: "{{ docker_stack_ldap_domain_computers_group_sid }}"
-
-  Domain Guests:
-    gid_number: "{{ docker_stack_ldap_domain_guests_gid_number }}"
-    display_name: Domain Guests
-    description: Domain Guests Users
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    samba:
-      sid: "{{ docker_stack_ldap_domain_guests_group_sid }}"
-
-  Domain Admins:
-    gid_number: "{{ docker_stack_ldap_domain_admins_gid_number }}"
-    display_name: Domain Admins
-    description: Domain Administrators
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    memberUidList:
-      - netadmin
-      - admin
-#      - administrator
-#      - ansible
-#    samba: {}
-    samba:
-      sid: "{{ docker_stack_ldap_domain_admins_group_sid }}"
-#      group_type: 4
-
-  Domain Users:
-    gid_number: "{{ docker_stack_ldap_domain_users_gid_number }}"
-    display_name: Domain Users
-    description: Domain Users
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    memberUidList:
-      - ljohnson
-    samba:
-      sid: "{{ docker_stack_ldap_domain_users_group_sid }}"
-      users:
-        - ljohnson
-
-  Print Operators:
-    gid_number: "{{ docker_stack_ldap_domain_print_operators_gid_number }}"
-    description: Domain Print Operators
-    display_name: Print Operators
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    samba:
-      group_type: 4
-      sid: "{{ docker_stack_ldap_domain_print_operators_group_sid }}"
-
-  Backup Operators:
-    gid_number: "{{ docker_stack_ldap_domain_backup_operators_gid_number }}"
-    description: Domain Members can bypass file security to back up files
-    display_name: Backup Operators
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    samba:
-      group_type: 4
-      sid: "{{ docker_stack_ldap_domain_backup_operators_group_sid }}"
-
-  Account Operators:
-    gid_number: "{{ docker_stack_ldap_domain_account_operators_gid_number }}"
-    description: Domain Users to manipulate users accounts
-    display_name: Account Operators
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    samba:
-      group_type: 4
-      sid: "{{ docker_stack_ldap_domain_account_operators_group_sid }}"
-
-  Replicators:
-    gid_number: "{{ docker_stack_ldap_domain_replicators_gid_number }}"
-    description: Domain Group Supports file replication in a sambaDomainName
-    display_name: Replicators
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    memberUidList:
-      - netadmin
-      - admin
-      - media
-#      - administrator
-    samba:
-      group_type: 4
-      sid: "{{ docker_stack_ldap_domain_replicators_group_sid }}"
-
-  sudo.defaults:
-    cn: "defaults"
-    parent_ou: "ou=SUDOers"
-    description: "Default sudoOption's go here"
-    object_class_list:
-      - top
-      - sudoRole
-    sudo:
-      sudoOptions:
-        - env_reset
-        - mail_badpass
-        - secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-      sudoOrder: 1
-
-  sudo.root:
-    cn: "root"
-    parent_ou: "ou=SUDOers"
-    object_class_list:
-      - top
-      - sudoRole
-    sudo:
-      sudoCommand: ALL
-      sudoHost: ALL
-      sudoOrder: 2
-      sudoRunAsGroup: ALL
-      sudoRunAsUser: ALL
-      sudoUser: root
-
-  sudo:
-    cn: "%sudo"
-    parent_ou: "ou=SUDOers"
-    object_class_list:
-      - top
-      - sudoRole
-    sudo:
-      sudoCommand: ALL
-      sudoHost: ALL
-      sudoOrder: 4
-      sudoRunAsGroup: ALL
-      sudoRunAsUser: ALL
-      sudoUser: "%sudo"
-
-  sudo.admin:
-    cn: "%admin"
-    parent_ou: "ou=SUDOers"
-    object_class_list:
-      - top
-      - sudoRole
-    sudo:
-      sudoCommand: ALL
-      sudoHost: ALL
-      sudoOrder: 3
-      sudoRunAsUser: ALL
-      sudoUser: "%admin"
-
-  sudo.wheel:
-    cn: "%wheel"
-    parent_ou: "ou=SUDOers"
-    object_class_list:
-      - top
-      - sudoRole
-    sudo:
-      sudoCommand: ALL
-      sudoHost: ALL
-      sudoOrder: 3
-      sudoRunAsUser: ALL
-      sudoUser: "%wheel"
-
-  sudo.www-data:
-    cn: "www-data"
-    parent_ou: "ou=SUDOers"
-    object_class_list:
-      - top
-      - sudoRole
-    sudo:
-      sudoOptions:
-        - "!authenticate"
-      sudoCommand: ALL
-      sudoHost: ALL
-      sudoOrder: 6
-      sudoRunAsUser: ALL
-      sudoUser: www-data
-
-  smbguest:
-    gid_number: 10002
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    samba: {}
-  smbuser:
-    gid_number: 10001
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    memberUidList:
-      - media
-      - ljohnson
-      - jjohnson
-      - rjohnson
-      - ajohnson
-    samba:
-      groups:
-        - Domain Users
-  smbadmin:
-    gid_number: 10003
-    object_class_list:
-      - top
-      - posixGroup
-      - sambaGroupMapping
-    memberUidList:
-      - netadmin
-      - admin
-#      - administrator
-#      - root
-    samba:
-      users:
-        - admin
-      groups:
-        - Domain Admins
-#        - Administrators
-
-  media:
-    gid_number: "{{ docker_stack_ldap_user_media_gid_number }}"
-    object_class_list:
-      - top
-      - posixGroup
-    memberUidList:
-      - netadmin
-      - admin
-#      - administrator
-      - media
-  test:
-#    gid_number: 10000
-    display_name: test
-    object_class_list:
-      - posixGroup
-      - sambaGroupMapping
-    samba:
-      users:
-        - ljohnson
-      groups:
-        - Domain Users
-  staff.django:
-    cn: staff
-    parent_ou: "ou=django,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - ljohnson
-      - jjohnson
-  epgblog.django:
-    cn: epgblog
-    parent_ou: "ou=django,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - ljohnson
-      - jjohnson
-  superuser.django:
-    cn: superuser
-    parent_ou: "ou=django,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - netadmin
-      - admin
-      - ljohnson
-      - jjohnson
-  admin.cloudusers:
-    cn: admin
-    parent_ou: "ou=cloudusers,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - netadmin
-      - admin
-#      - administrator
-      - ljohnson
-  family.cloudusers:
-    cn: family
-    parent_ou: "ou=cloudusers,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - ljohnson
-      - jjohnson
-      - rjohnson
-      - ajohnson
-  epgblog.cloudusers:
-    cn: epgblog
-    parent_ou: "ou=cloudusers,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - admin
-#      - administrator
-      - ljohnson
-      - jjohnson
-  nextcloud.cloudusers:
-    cn: nextcloud
-    parent_ou: "ou=cloudusers,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - ljohnson
-      - jjohnson
-      - rjohnson
-      - ajohnson
-  superuser.cloudusers:
-    cn: superuser
-    parent_ou: "ou=cloudusers,ou=groups"
-    object_class_list:
-      - top
-      - groupOfNames
-    memberDnList:
-      - netadmin
-      - admin
-      - ljohnson
-      - jjohnson
-
-docker_stack_ldap_domain_group_map: "{{ docker_stack_ldap_domain_group_map_public
-  | combine(vault__ldap_domain_group_map|d({}), recursive=True) }}"
-
-##########
-## ldap domain hosts
-##########
-#docker_stack_ldap_domain_host_list: "{{ groups['ldap_managed_host'] | d([]) }}"
-#docker_stack_ldap_domain_host_list: "{{ groups['ca_domain_int_dettonville'] | d([]) }}"
-docker_stack_ldap_domain_host_list: "{{ groups['ca_domain_int_johnson'] | d([]) }}"
 
 #docker_stack_stepca_image: "media.johnson.int:5000/docker-stepca:latest"
 
 ## ref: https://www.authelia.com/docs/configuration/one-time-password.html
+
+##########
+## authelia
+##########
 
 docker_stack_authelia_domain: "{{ docker_stack_internal_domain }}"
 
@@ -875,8 +347,6 @@ docker_stack_authelia_authentication_backend:
     # display_name_attribute: displayname
 
     # The username and password of the admin user.
-    user: "{{ ldap_admindn }}"
+    user: "{{ ldap_admin_dn }}"
     # Password can also be set using a secret: https://docs.authelia.com/configuration/secrets.html
-    password: "{{ ldap_adminpw }}"
-
-
+    password: "{{ ldap_admin_pw }}"

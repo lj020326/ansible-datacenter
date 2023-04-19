@@ -67,12 +67,16 @@ $ create_test_symlinks.sh
 ### Check correct hosts appear in the test hosts/groups 
 
 ```shell
-ansible-inventory -i inventory/ --host vmlnxtestd1s1
-ansible-inventory -i inventory/ --yaml --host vmlnxtestd1s1
-ansible-inventory -i inventory/ --yaml --host ntpq1s1
-ansible-inventory -i inventory/ --graph docker_stack
-ansible-inventory -i inventory/ --graph testgroup_ntp
-ansible-inventory -i inventory/ --graph dmz
+ansible-inventory -i inventory/hosts.yml --host vmlnxtestd1s1
+ansible-inventory -i inventory/prod/hosts.yml --yaml --host vmlnxtestd1s1
+ansible-inventory -i inventory/prod/hosts.yml --yaml --host ntpq1s1
+ansible-inventory -i inventory/prod/hosts.yml --graph docker_stack
+ansible-inventory -i inventory/prod/hosts.yml --graph docker_stack_control
+ansible-inventory -i inventory/prod/hosts.yml --graph docker_stack_openldap
+ansible-inventory -i inventory/prod/hosts.yml --graph docker_stack_jenkins_jcac
+ansible-inventory -i inventory/prod/hosts.yml --graph docker_stack_media
+ansible-inventory -i inventory/prod/hosts.yml --graph testgroup_ntp
+ansible-inventory -i inventory/prod/hosts.yml --graph dmz
 ```
 
 ### Check the host variable values are correctly set  
@@ -80,25 +84,49 @@ ansible-inventory -i inventory/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
-$ ansible -i inventory/ -m debug -a var=group_names docker_stack
-$ ansible -i inventory/ -m debug -a var=group_names testgroup_ntp
-$ ansible -i inventory/ -m debug -a var=group_names testgroup_ntp_server
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
+$ ansible -i inventory/hosts.yml -m debug -a var=group_names control01
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=docker_stack_internal_root_domain docker_stack
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=docker_stack_service_groups__openldap docker_stack_openldap
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names docker_stack
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names testgroup_docker
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names testgroup_ntp
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names testgroup_ntp_server
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=bootstrap_ntp_servers testgroup_ntp
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
+```
+
+Check vaulted variable
+
+```shell
+$ ansible -e @vars/vault.yml --vault-password-file ~/.vault_pass -i inventory/prod/hosts.yml -m debug -a var=vault__ldap_readonly_password docker_stack_openldap
 ```
 
 Query multiple variables based on group:
 
 ```shell
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
 ```
 
 Query intersecting groups:
 ```shell
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&dc_os_linux
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&docker_stack
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&docker_stack:\&ntp_network
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&dc_os_linux
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_stack
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_stack:\&ntp_network
+```
+
+
+### Run `tag-based` `site.yml` plays on hosts
+
+```shell
+$ runme.sh site.yml -t deploy-cacerts -l admin01
+$ runme.sh site.yml -t bootstrap-linux -l admin01
+$ runme.sh site.yml -t bootstrap-webmin -l admin01
+$ runme.sh site.yml -t bootstrap-docker -l admin01
+$ runme.sh site.yml -t bootstrap-docker-stack -l admin01
+$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_control
+$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_openldap
+$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_jenkins_jcac
+$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_media
 ```
 
 ### Run playbook
@@ -107,17 +135,32 @@ $ ansible -i inventory/ -m debug -a var=group_names dmz:\&docker_stack:\&ntp_net
 $ runme.sh bootstrap-ntp.yml -l docker_stack
 ```
 
-### Run playbook on hosts
+### Run playbooks on hosts
 
 ```shell
-$ runme.sh site.yml -t bootstrap-docker-stack -l admin01
-$ runme.sh bootstrap-docker.yml -l admin02
+
+$ runme.sh deploy-cacerts.yml
+$ runme.sh deploy-cacerts.yml -l admin*
+$ runme.sh bootstrap-linux.yml
+$ runme.sh bootstrap-linux.yml -l control01
+$ runme.sh bootstrap-linux.yml -l admin*
+$ runme.sh bootstrap-webmin.yml
+$ runme.sh bootstrap-webmin.yml -l control01
+$ runme.sh bootstrap-webmin.yml -l admin*
+$ runme.sh bootstrap-docker.yml
 $ runme.sh bootstrap-docker.yml -v -l testgroup_docker
-$ runme.sh bootstrap-docker.yml -v -l admin03
-$ runme.sh bootstrap-docker-stack.yml -l testgroup_dockerstack
-$ runme.sh bootstrap-docker-stack.yml -v -l infracicdd1s1
-$ runme.sh bootstrap-docker-stack.yml -v -l testgroup_docker
-$ runme.sh bootstrap-docker-stack.yml -v -l admin03
+$ runme.sh bootstrap-docker.yml -l control01
+$ runme.sh bootstrap-docker.yml -l vcontrol01
+$ runme.sh bootstrap-docker.yml -l admin01
+$ runme.sh bootstrap-docker.yml -l admin*
+$ runme.sh bootstrap-docker-stack.yml -l testgroup_docker
+$ runme.sh bootstrap-docker-stack.yml -l control01
+$ runme.sh bootstrap-docker-stack.yml -l admin*
+$ runme.sh bootstrap-docker-stack.yml -l docker_stack_control
+$ runme.sh bootstrap-docker-stack.yml -l docker_stack_openldap
+$ runme.sh bootstrap-docker-stack.yml -l docker_stack_jenkins
+$ runme.sh bootstrap-docker-stack.yml -l docker_stack_jenkins_jcac
+$ runme.sh bootstrap-docker-stack.yml -l docker_stack_media
 $ runme.sh get-latest-compose-version.yml 
 $ 
 ```
@@ -157,7 +200,7 @@ $ ansible-inventory -i inventory/prod/hosts.yml --graph --yaml docker_stack
 ```
 
 ```shell
-ansible-inventory -i inventory/ --graph --yaml testgroup_wnd
+ansible-inventory -i inventory/prod/hosts.yml --graph --yaml testgroup_wnd
 @testgroup_wnd:
   |--@testgroup_wnd_site1:
   |  |--vmwintestd1s1
@@ -175,7 +218,7 @@ ansible-inventory -i inventory/ --graph --yaml testgroup_wnd
 
 Var value query based on group:
 ```shell
-ansible -i inventory/ -m debug -a var=group_names docker_stack
+ansible -i inventory/prod/hosts.yml -m debug -a var=group_names docker_stack
 vmlnxtestd1s1 | SUCCESS => {
     "group_names": ["nondomain_dmz"]
 }

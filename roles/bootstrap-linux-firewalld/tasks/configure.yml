@@ -52,9 +52,9 @@
 #    name: firewalld
 #    state: restarted
 
-- name: "{{ __log_prefix_local }} Display firewalld_zones"
+- name: "{{ __log_prefix_local }} Display __firewalld_zones"
   debug:
-    var: firewalld_zones
+    var: __firewalld_zones
 
 - name: "{{ __log_prefix_local }} Get zones in /etc/firewalld/zones"
   shell: ls -1 /etc/firewalld/zones/ | grep -E .xml$
@@ -68,14 +68,14 @@
     state: absent
   with_items: "{{ get_firewalld_zones.stdout_lines }}"
   notify: reload firewalld
-  when: item|replace('.xml','') not in firewalld_zones|map(attribute='name')|list
+  when: item|replace('.xml','') not in __firewalld_zones|map(attribute='name')|list
 
 - name: "{{ __log_prefix_local }} Configure firewalld zones"
   template:
     src: zone_template.xml.j2
     dest: /etc/firewalld/zones/{{ item.name }}.xml
     backup: yes
-  with_items: "{{ firewalld_zones }}"
+  with_items: "{{ __firewalld_zones }}"
   notify: reload firewalld
   loop_control:
     label: "{{ item.name }}"
@@ -138,7 +138,7 @@
 - name: "{{ __log_prefix_local }} Configure firewalld services"
   when:
     - firewalld_enabled | bool
-    - firewalld_zones|flatten|d([])|count>0
+    - __firewalld_zones|flatten|d([])|count>0
     - __firewalld_services|flatten|d([])|count>0
     - item.0.custom|d(false)|bool
   ansible.posix.firewalld:
@@ -150,30 +150,46 @@
   register: firewalld_result
   failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
   with_nested:
-    - "{{ firewalld_zones|flatten }}"
+    - "{{ __firewalld_zones|flatten }}"
     - "{{ __firewalld_services|flatten }}"
   loop_control:
     label: "{{ item.0.name }} - {{ item.1.name }}"
   notify: reload firewalld
 
+#- name: "{{ __log_prefix_local }} Configure firewalld ports"
+#  when:
+#    - firewalld_enabled | bool
+#    - __firewalld_zones|d([])|flatten|count>0
+#    - __firewalld_ports|d([])|flatten|count>0
+#  ansible.posix.firewalld:
+#    zone: "{{ item.0.name }}"
+#    port: "{{ item.1 }}"
+#    permanent: true
+#    state: enabled
+#    immediate: yes
+#  register: firewalld_result
+#  failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
+#  with_nested:
+#    - "{{ __firewalld_zones|flatten }}"
+#    - "{{ __firewalld_ports|flatten }}"
+#  loop_control:
+#    label: "{{ item.0.name }} - {{ item.1 }}"
+#  notify: "reload firewalld"
+
 - name: "{{ __log_prefix_local }} Configure firewalld ports"
   when:
     - firewalld_enabled | bool
-    - firewalld_zones|d([])|flatten|count>0
+    - __firewalld_zones|d([])|flatten|count>0
     - __firewalld_ports|d([])|flatten|count>0
   ansible.posix.firewalld:
-    zone: "{{ item.0.name }}"
-    port: "{{ item.1 }}"
+    zone: "{{ firewalld_default_zone }}"
+    port: "{{ item }}"
     permanent: true
     state: enabled
     immediate: yes
   register: firewalld_result
   failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
-  with_nested:
-    - "{{ firewalld_zones|flatten }}"
-    - "{{ __firewalld_ports|flatten }}"
-  loop_control:
-    label: "{{ item.0.name }} - {{ item.1 }}"
+  loop: "{{ __firewalld_ports|flatten }}"
   notify: "reload firewalld"
 
 - name: "{{ __log_prefix_local }} Get services in /etc/firewalld/services"

@@ -1,6 +1,9 @@
 ---
 
-- name: "Docker | Deploy Config | Create Docker configuration directories"
+- set_fact:
+    log_prefix_local: "Docker | Deploy Config |"
+
+- name: "{{ log_prefix_local }} Create Docker configuration directories"
   file:
     path: "{{ item }}"
     state: directory
@@ -11,22 +14,22 @@
     - "/etc/docker"
     - "/etc/systemd/system/docker.service.d"
 
-- name: "Docker | Deploy Config | Display bootstrap_docker__options"
+- name: "{{ log_prefix_local }} Display bootstrap_docker__options"
   set_fact:
     var: bootstrap_docker__options
 #    verbosity: 1
 
-- name: "Docker | Deploy Config | Set the Docker configuration"
+- name: "{{ log_prefix_local }} Set the Docker configuration"
   when: item.value | string | length > 0
   set_fact:
     bootstrap_docker__config: "{{ bootstrap_docker__config|d({}) | combine({ item.key: item.value }) }}"
   with_dict: "{{ bootstrap_docker__options }}"
 
-- name: "Docker | Deploy Config | Display bootstrap_docker__config"
+- name: "{{ log_prefix_local }} Display bootstrap_docker__config"
   debug:
     var: bootstrap_docker__config
 
-- name: "Docker | Deploy Config | Deploy /etc/docker/daemon.json"
+- name: "{{ log_prefix_local }} Deploy /etc/docker/daemon.json"
   when: bootstrap_docker__config|d({}) != {}
   copy:
     content: "{{ bootstrap_docker__config | to_nice_json }}\n"
@@ -34,7 +37,7 @@
     backup: yes
   notify: Docker | Restart Docker
 
-#- name: "Docker | Deploy Config | Deploy /etc/docker/daemon.json"
+#- name: "{{ log_prefix_local }} Deploy /etc/docker/daemon.json"
 #  template:
 #    src: docker_config.j2
 #    dest: /etc/docker/daemon.json
@@ -45,11 +48,11 @@
 ## ADDITIONAL CONFIG OPTIONS
 #########
 
-- name: "Docker | Deploy Config | Display bootstrap_docker__daemon_flags"
+- name: "{{ log_prefix_local }} Display bootstrap_docker__daemon_flags"
   debug:
     var: bootstrap_docker__daemon_flags
 
-- name: "Docker | Deploy Config | Configure Docker daemon options (flags)"
+- name: "{{ log_prefix_local }} Configure Docker daemon options (flags)"
   when: bootstrap_docker__daemon_flags|d([]) | count > 0
   template:
     src: "etc/systemd/system/docker.service.d/options.conf.j2"
@@ -61,7 +64,7 @@
   register: bootstrap_docker__register_daemon_flags
   notify: Docker | Restart Docker
 
-- name: "Docker | Deploy Config | Configure Docker daemon environment variables"
+- name: "{{ log_prefix_local }} Configure Docker daemon environment variables"
   when: bootstrap_docker__daemon_environment is defined and bootstrap_docker__daemon_environment | count > 0
   template:
     src: "etc/systemd/system/docker.service.d/environment.conf.j2"
@@ -73,7 +76,7 @@
   register: bootstrap_docker__register_daemon_environment
   notify: Docker | Restart Docker
 
-- name: "Docker | Deploy Config | Configure custom systemd unit file override"
+- name: "{{ log_prefix_local }} Configure custom systemd unit file override"
   when: bootstrap_docker__systemd_override | d()
   template:
     src: "etc/systemd/system/docker.service.d/custom.conf.j2"
@@ -85,11 +88,11 @@
   register: bootstrap_docker__register_custom_override
   notify: Docker | Restart Docker
 
-#- name: Docker | Deploy Config | Override docker service for zfs dependencies
+#- name: {{ log_prefix_local }} Override docker service for zfs dependencies
 #  include_tasks: docker-zfs-override.yml
 #  when: bootstrap_docker__zfs_override
 
-- name: Docker | Deploy Config | Reload systemd daemon
+- name: "{{ log_prefix_local }} Reload systemd daemon"
   systemd:
     daemon_reload: true
   when: (bootstrap_docker__register_daemon_flags | d() and
@@ -100,10 +103,10 @@
          bootstrap_docker__register_custom_override is changed)
   notify: Docker | Restart Docker
 
-#- name: Docker | Deploy Config | Restart Docker now to make sure `docker login` works
+#- name: {{ log_prefix_local }} Restart Docker now to make sure `docker login` works
 #  meta: "flush_handlers"
 #
-#- name: Docker | Deploy Config | Manage Docker registry login credentials
+#- name: {{ log_prefix_local }} Manage Docker registry login credentials
 #  community.docker.docker_login:
 #    registry_url: "{{ item.registry_url | d(omit) }}"
 #    username: "{{ item.username }}"
@@ -117,10 +120,36 @@
 #  vars:
 #    ansible_python_interpreter: "{{ '/usr/bin/env python-docker' if bootstrap_docker__pip_virtualenv | d() else ansible_python.executable }}"
 
-- name: "Docker | Deploy Config | Setup Docker related cron jobs"
+- name: "{{ log_prefix_local }} Ensure script dirs exist"
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    mode: "{{ item.mode | default(omit) }}"
+    recurse: "{{ item.recurse | default( omit ) }}"
+  with_items: "{{ bootstrap_docker__script_dirs }}"
+
+- name: "{{ log_prefix_local }} Install docker admin/utility scripts"
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest |  d(bootstrap_docker__script_dir) }}"
+    force: "{{ item.force | default('true') }}"
+    backup: yes
+    mode: "{{ item.mode | default('0770') }}"
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+  with_items: "{{ bootstrap_docker__scripts }}"
+
+- name: "{{ log_prefix_local }} Setup Docker related cron jobs"
   when: bootstrap_docker__enable_cron_jobs|bool
   block:
-    - name: "Docker | Deploy Config | Remove Docker related cron jobs"
+
+    - name: "{{ log_prefix_local }} Display bootstrap_docker__cron_jobs"
+      debug:
+        var: bootstrap_docker__cron_jobs
+
+    - name: "{{ log_prefix_local }} Remove Docker related cron jobs"
       when:
         - item.state | d("present") == "absent"
         - item.name | d() and item.job | d()
@@ -130,7 +159,7 @@
         state: absent
       loop: "{{ bootstrap_docker__cron_jobs }}"
 
-    - name: "Docker | Deploy Config | Create Docker related cron jobs"
+    - name: "{{ log_prefix_local }} Create Docker related cron jobs"
       when:
         - item.state | d("present") != "absent"
         - item.name | d() and item.job | d()

@@ -1,20 +1,993 @@
 ---
-- name: "Bootstrap nodes"
-  hosts: all
-  become: True
-  vars:
-    - username: administrator
-    - hashed_password: somesalt
-  roles:
-    - {role: ../roles/update, tags: [ 'role::bootstrap' ]}
-    - {role: ../roles/install-minimal-packages, tags: [ 'role::bootstrap' ]}
-    - {role: ../roles/create-new-user, tags: [ 'role::bootstrap' ]}
-#    - {role: ../roles/basic-server-hardening, tags: [ 'role::bootstrap' ]}
-    - {role: ../roles/vimrc-server-flavor, tags: [ 'role::bootstrap' ]}
-    - {role: ../roles/pip, tags: [ 'role::bootstrap' ]}
 
-#- name: "Install Apache Cloudstack masters"
-#  hosts: csmasters
-#  remote_user: root
-#  roles:
-#    - cloudstack-master
+- name: "Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'"
+  hosts: all,!local,!node_offline
+  tags: always
+  ## https://issues.jenkins-ci.org/browse/JENKINS-54557
+  ignore_unreachable: yes
+  gather_facts: no
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: ansible-ping-test
+      when:
+        - not ping_exclude|d(False)|bool
+        - inventory_hostname in ansible_play_hosts
+
+## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
+## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
+## ref: https://github.com/ansible/ansible/issues/20360
+- name: "Apply common groups and vars"
+  tags: always
+  hosts: all,!local,!node_offline
+#  hosts: all,!node_offline
+#  ignore_unreachable: yes
+#  gather_facts: yes
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: apply-common-groups
+      gather_facts: yes
+      when:
+        - not apply_common_groups_exclude|d(False)|bool
+        - inventory_hostname in ansible_play_hosts
+
+## Debugging purposes: print all environment variables
+## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
+- name: "Debug: Print environment variables"
+  hosts: all,!node_offline
+  tags:
+    - display-envvars
+    - debug-envvars
+    - debug-env-vars
+  tasks:
+    - name: Print env var debug information
+      when: inventory_hostname in ansible_play_hosts
+      debug:
+        var: environment
+      tags: debug_info
+
+- name: "Display hostvars"
+  hosts: all,!node_offline
+  gather_facts: true
+  tags:
+    - debug-hostvars
+    - display-hostvars
+  tasks:
+    - name: Print host variable information
+      debug:
+        var: hostvars[inventory_hostname]
+      tags: debug_info
+
+- name: "Display cert info"
+  hosts: control_node,!local,!node_offline
+  ignore_unreachable: yes
+  ignore_errors: yes
+  tags:
+    - bootstrap-cacerts
+    - bootstrap-keyring
+    - deploy-cacerts
+  tasks:
+    - name: Print cert chain information
+      debug:
+        msg:
+          - "ca_domains_dynamic={{ ca_domains_dynamic | to_nice_json }}"
+          - "ca_service_routes_list={{ ca_service_routes_list | to_nice_json }}"
+          - "ca_intermediate_certs_config={{ ca_intermediate_certs_config | to_nice_json }}"
+          - "ca_intermediate_certs_list_dynamic={{ ca_intermediate_certs_list_dynamic | to_nice_json }}"
+          - "ca_intermediate_certs_list={{ ca_intermediate_certs_list | to_nice_json }}"
+          - "ca_internal_domains_dynamic={{ ca_internal_domains_dynamic | to_nice_json }}"
+          - "ca_routes_dynamic={{ ca_routes_dynamic | to_nice_json }}"
+
+- name: "Display bind info"
+  hosts: bind_master,!node_offline
+  tags:
+    - bootstrap-bind
+    - deploy-vm
+  ignore_unreachable: yes
+  ignore_errors: yes
+  tasks:
+
+    - name: "Print domain vars"
+      when: inventory_hostname in groups['bind_master'] or inventory_hostname in groups['bind_slave']
+      debug:
+        msg:
+          - "bind_zone_hosts_dynamic={{ bind_zone_hosts_dynamic | to_nice_json }}"
+
+
+##
+## Deploy VMs
+##
+- name: "Deploy Virtual Machines"
+  hosts: vmware_control_node
+  tags:
+    - deploy-vm
+  gather_facts: false
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: ansible-role-govc
+    - role: deploy-vm
+
+##
+## Reporting plays
+##
+- name: Get linux os configs
+  hosts: dc_os_linux,!node_offline,!local
+  tags:
+    - fetch-linux-os-configs
+  gather_facts: false
+  roles:
+    - role: fetch-linux-os-configs
+
+- name: "Report inventory facts"
+#  hosts: dc_os_windows,!node_offline
+  hosts: dc_os_windows,dc_os_linux,!node_offline
+  gather_facts: false
+  collections:
+    - lvrfrc87.git_acp
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - report-inventory-facts
+  roles:
+    - role: report-inventory-facts
+
+##
+## Bootstrap linux component plays
+##
+
+## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
+- name: "Bootstrap linux firewall"
+  hosts: dc_os_linux,!node_offline
+  become: yes
+  tags:
+    - bootstrap-firewall
+    - bootstrap-linux-firewall
+    - bootstrap-linux-firewalld
+  roles:
+    - name: bootstrap-linux-firewalld
+      firewalld_action: install
+
+## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
+- name: "Configure linux firewall"
+  hosts: dc_os_linux,!node_offline
+  become: true
+  tags:
+    - configure-firewall
+    - configure-linux-firewall
+  roles:
+    - name: bootstrap-linux-firewalld
+      firewalld_action: configure
+
+- name: "Bootstrap linux packages"
+  hosts: dc_os_linux,!node_offline
+  become: yes
+  tags:
+    - bootstrap-packages
+    - bootstrap-linux-package
+  roles:
+    - name: bootstrap-linux-package
+
+##
+## bootstrap logrotate
+##
+- name: "Bootstrap logrotate"
+  hosts: dc_os_linux,!node_offline
+  tags:
+    - bootstrap-logrotate
+    - bootstrap-linux-logrotate
+  become: yes
+#  become_method: sudo
+  roles:
+    - name: ansible-logrotate
+
+##
+## bootstrap mounts
+##
+- name: "Bootstrap mounts"
+  hosts: dc_os_linux,!node_offline
+  tags:
+    - bootstrap-mounts
+    - bootstrap-linux-mounts
+  become: yes
+  roles:
+    - name: bootstrap-linux-mount
+
+- name: "Bootstrap linux ntp"
+  hosts: dc_os_linux,!node_offline
+  become: yes
+  tags:
+    - bootstrap-ntp
+    - bootstrap-linux-ntp
+  roles:
+    - name: bootstrap-ntp
+
+- name: "Bootstrap nfs services"
+  hosts: dc_os_linux,!node_offline
+  become: yes
+  tags:
+    - bootstrap-nfs
+    - bootstrap-linux-nfs
+  roles:
+    - name: bootstrap-nfs-service
+    - name: bootstrap-linux-firewalld
+      firewalld_action: configure
+
+- name: "Bootstrap webmin"
+  hosts: dc_os_linux,!node_offline
+  become: yes
+  tags:
+    - bootstrap-webmin
+    - bootstrap-linux-webmin
+  roles:
+    - name: bootstrap-webmin
+
+## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
+## ref: https://github.com/nathancurry/homelab.ansible/tree/master
+- name: "Configure nameservers"
+  hosts: nameserver,!node_offline
+  become: true
+  tags:
+    - bootstrap-nameserver
+    - bootstrap-bind
+    - bind-node
+    - deploy-vm
+  vars_files:
+    - vars/vault.yml
+  roles:
+#    - role: chronyclient
+    - role: ansible-role-bind
+#    - role: ansible-role-dhcp
+    - name: bootstrap-linux-firewalld
+      firewalld_action: configure
+      tags: [ 'firewall-config-nameserver' ]
+
+
+- name: "Bootstrap kvm hosts"
+  hosts: kvm_host,!node_offline
+  gather_facts: false
+  become: yes
+  tags:
+    - bootstrap-kvm
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: bootstrap-kvm
+
+
+##
+## make sure this is running as bootstrap user
+## get pwd for this user using the --ask-pass directive,
+## and not the --ask-become-pass which is used for the sudo once logged in
+##
+## ref: https://stackoverflow.com/questions/41771725/ansible-2-1-2-playbook-pass-ssh-password-and-sudo-password-as-command-line-args
+## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
+##
+- name: "Bootstrap linux VM ansible user"
+  hosts: dc_os_linux,!node_offline
+  gather_facts: yes
+  become: yes
+  remote_user: "{{ bootstrap_user }}"
+  vars_files:
+    - vars/vault.yml
+  vars:
+#    ansible_ssh_user: "{{ bootstrap_user }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tags:
+    - bootstrap-ansible-user
+    - bootstrap-ansible
+  roles:
+    - role: bootstrap-linux-user
+      bootstrap_linux_user_list: "[ {{ bootstrap_ansible_user }} ]"
+
+- name: "Bootstrap linux users"
+  hosts: dc_os_linux,!node_offline
+  gather_facts: yes
+  become: yes
+  remote_user: "{{ bootstrap_user }}"
+  vars_files:
+    - vars/vault.yml
+  vars:
+#    ansible_ssh_user: "{{ bootstrap_user }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tags:
+    - bootstrap-linux
+    - bootstrap-linux-user
+    - bootstrap-user
+  roles:
+    - role: bootstrap-linux-user
+
+##
+## Bootstrap linux plays
+##
+- name: "Bootstrap linux to new deployed vm instance"
+  hosts: vmware_new_vm_linux
+#  gather_facts: no
+  tags: deploy-vm
+  become: yes
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: apply-common-groups
+    - role: bootstrap-linux
+
+- name: "Bootstrap linux"
+  hosts: dc_os_linux,!node_offline
+  gather_facts: no
+  tags:
+    - bootstrap-linux
+    - bootstrap-node-core
+    - bootstrap-node
+  become: yes
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: bootstrap-linux
+
+- name: "Bootstrap linux core"
+  hosts: dc_os_linux,!node_offline
+  tags:
+    - bootstrap-linux-core
+  become: yes
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: bootstrap-linux-core
+
+
+##
+## Bootstrap windows plays
+##
+- name: "Bootstrap windows to new deployed vm instance"
+  hosts: vmware_new_vm_windows
+  tags: deploy-vm
+  become: yes
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: bootstrap-windows
+
+- name: "Bootstrap windows"
+  hosts: dc_os_windows,!node_offline
+#  hosts: windows,!node_offline
+  tags:
+    - bootstrap-windows
+    - bootstrap-windows-user
+    - bootstrap-node
+#  become: yes
+#  become_method: runas
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: bootstrap-windows
+
+
+## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
+- name: "Bootstrap CI/CD node"
+  hosts: cicd_node,!node_offline,!local
+  tags:
+    - bootstrap
+    - bootstrap-cicd
+    - bootstrap-cicd-node
+    - cicd-node
+  become: True
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: bootstrap-linux-firewalld
+      firewalld_action: configure
+    - role: bootstrap-linux-package
+    - role: bootstrap-linux-mount
+    - role: bootstrap-maven
+    - role: geerlingguy.git
+    - role: geerlingguy.ansible
+    - role: bootstrap-packer
+    - role: bootstrap-nodejs
+    - role: jenkins-swarm-agent
+    - role: ansible-role-inspec
+    - role: ansible-role-govc
+    - role: ansible-role-ovftool
+
+- name: "Bootstrap Jenkins Agents"
+  hosts: jenkins_agent,!node_offline
+  tags:
+    - bootstrap-jenkins-agent
+    - deploy-jenkins-agent
+  become: True
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: jenkins-swarm-agent
+    - role: ansible-role-inspec
+
+- name: "Bootstrap iscsi clients"
+  hosts: iscsi_client,!node_offline
+  tags:
+    - bootstrap
+    - bootstrap-iscsi
+    - bootstrap-iscsi-client
+    - iscsi-client
+  become: yes
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: iscsi-client
+
+- name: "Bootstrap ntp servers"
+  hosts: ntp_server,!node_offline
+  tags:
+    - bootstrap-ntp
+    - bootstrap-ntp-server
+  become: yes
+  roles:
+    - role: bootstrap-ntp
+
+- name: "Bootstrap ntp clients"
+  hosts: ntp_client,!ntp_server,!node_offline
+  tags:
+    - bootstrap-ntp
+    - bootstrap-ntp-client
+  become: yes
+  roles:
+    - role: bootstrap-ntp
+
+
+## ref: https://blog.ktz.me/combining-zfs-with-other-filesystems-using-mergerfs/
+## ref: https://selfhostedhome.com/combining-different-sized-drives-with-mergerfs-and-snapraid/
+- name: "Setup mergerfs nodes"
+  hosts: mergerfs,!node_offline
+  tags:
+    - mergerfs
+    - bootstrap-mergerfs
+  vars_files:
+    - vars/vault.yml
+  become: True
+#  become_method: sudo
+  roles:
+    - role: ansible-role-snapraid
+    - role: ansible-role-hddtemp
+#    - role: bootstrap-telegraf
+      ignore_errors: true
+#    - role: sanoid
+#    - role: syncoid
+    - role: mergerfs
+
+- name: "Install veeam-agent"
+  hosts: veeam_agent,!node_offline
+  become: true
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - bootstrap-veeam
+    - bootstrap-veeam-agent
+    - setup-veeam-agent
+    - install-veeam-agent
+  roles:
+    - bootstrap-veeam-agent
+    - name: bootstrap-linux-firewalld
+      firewalld_action: configure
+      tags: [ 'firewall-config-veeamagent' ]
+
+- name: "Configure veeam-agent jobs"
+  hosts: veeam_agent,!node_offline
+  become: true
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - config-veeam-agent
+#    - bootstrap-veeam
+#    - bootstrap-veeam-agent
+  roles:
+    - bootstrap-veeam-agent-config
+
+- name: "Bootstrap postfix"
+  hosts: postfix_server,postfix_client,!node_offline
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - bootstrap-postfix
+  become: True
+  become_method: sudo
+  roles:
+    - role: bootstrap-postfix
+
+- name: "Bootstrap sshd"
+  hosts: dc_os_linux,!node_offline
+  gather_facts: false
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - bootstrap-linux-sshd
+    - bootstrap-sshd
+  become: yes
+  roles:
+    - role: bootstrap-sshd
+
+- name: "Bootstrap ldap client"
+  hosts: ldap_client,!node_offline
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - bootstrap-ldap-client
+  become: True
+  become_method: sudo
+  roles:
+    - role: ldap-client
+
+- name: "Bootstrap ansible node"
+  hosts: ansible_controller,!node_offline
+  tags:
+    - bootstrap
+    - bootstrap-admin
+    - bootstrap-ansible
+  become: True
+#  become_method: sudo
+#  vars_files:
+#    - vars/vault.yml
+  roles:
+    - role: geerlingguy.ansible
+    - role: geerlingguy.git
+    - role: ansible-init-locale
+    - role: bootstrap-ansible
+
+
+## setup step-ca pki, create CA certs and install CA certs
+- name: "Configure Step-ca cli for step clients"
+  hosts: step_ca_cli,!node_offline
+  tags:
+    - bootstrap-stepca
+    - bootstrap-stepca-cli
+#    - bootstrap-caroot
+  roles:
+    - role: ansible-role-stepca
+
+## setup pki, create CA certs and install CA certs
+##
+## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
+## ref: https://github.com/shelleg/ansible-role-ca/
+- name: "Setup ca_root and cacerts"
+  hosts: ca_keystore,!node_offline
+  gather_facts: false
+#  collections:
+#    - lvrfrc87.git_acp
+#  vars_files:
+#    - vars/vault.yml
+  tags:
+    - bootstrap-cacerts
+    - bootstrap-pki
+    - renew-expired-cacerts
+    - caroot
+    - caroot-create
+    - ca-keyring
+    - casigners-create
+  become: yes
+  roles:
+    - role: bootstrap-cfssl
+    - role: bootstrap-cacerts
+      tags: [cacerts-create]
+
+- name: "Deploy CA certs to cert_node"
+  hosts: dc_os_linux,!node_offline
+  gather_facts: false
+#  vars_files:
+#    - vars/vault.yml
+  tags:
+    - bootstrap-node
+    - bootstrap-cacerts
+    - bootstrap-docker-stack
+    - cacerts
+    - cacerts-distribute
+    - cacerts-deploy
+    - cacerts-update
+    - deploy-cacerts
+  become: yes
+#  become_method: sudo
+  roles:
+    - role: deploy-cacerts
+
+
+## possibly need to install docker_service dependencies first
+## ref: https://github.com/avinetworks/ansible-role-docker
+## ref: https://github.com/suzuki-shunsuke/ansible-docker_service-dep/blob/master/tasks/main.yml
+## ref: https://github.com/ansible/ansible/issues/29510
+## ref: https://github.com/nickjj/ansible-docker
+- name: "Bootstrap docker nodes"
+  hosts: docker,!node_offline
+  vars_files:
+    - vars/vault.yml
+  tags:
+    - bootstrap
+    - docker
+    - bootstrap-linux
+    - bootstrap-linux-docker
+    - bootstrap-docker
+    - bootstrap-registry
+  become: True
+#  become_method: sudo
+  roles:
+    - role: bootstrap-docker
+    - role: docker-deploy-registry-certs
+      tags:
+        - deploy-docker-registry-certs
+        - deploy-registry-certs
+        - cacerts-update
+
+###########################
+# docker_registry install #
+###########################
+
+- name: "Create, tag and push docker images (ldap, jenkins, etc) to registry"
+  hosts: docker_image_builder,!node_offline
+  tags:
+    - bootstrap
+    - bootstrap-registry
+    - bootstrap-docker-images
+    - bootstrap-admin-node
+    - docker-build-images
+    - build-docker-images
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: geerlingguy.git
+    - role: docker-image-builder
+
+##############
+## bootstrap docker stack nodes
+##############
+- name: "Bootstrap docker stack node"
+  hosts: docker_stack,!node_offline
+  tags:
+    - bootstrap-docker-stack
+    - docker-stack
+  become: True
+#  become_method: sudo
+#  vars_files:
+#    - vars/vault.yml
+  roles:
+    - role: docker-stack
+
+- name: "Bootstrap docker control plane node"
+  hosts: docker_stack_control,!node_offline
+  tags:
+    - bootstrap-control-node
+    - docker-control-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: docker-stack
+
+- name: "Bootstrap docker admin node : mail, nfs, docker (traefik, portainer, watchdog, ldap, etc)"
+  hosts: docker_stack_admin,!node_offline
+  tags:
+    - bootstrap-admin-node
+    - docker-admin-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: docker-stack
+
+- name: "Bootstrap docker media node"
+  hosts: docker_stack_media,!node_offline
+  tags:
+    - bootstrap-media-node
+    - docker-media-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: docker-stack
+
+- name: "Bootstrap docker ml node"
+  hosts: docker_stack_ml,!node_offline
+  tags:
+    - bootstrap-ml-node
+    - docker-ml-node
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: docker-stack
+
+## ref: https://github.com/lae/ansible-role-proxmox
+- name: "Deploy ProxMox Cluster"
+  hosts: proxmox,!node_offline
+  tags:
+    - bootstrap-proxmox
+  become: True
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: ansible-role-proxmox
+      pve_group: proxmox
+#      pve_reboot_on_kernel_update: true
+
+- name: "Fetch OS images"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - fetch-os-images
+  roles:
+    - role: fetch-os-images
+
+- name: "Bootstrap VMware ESXi servers"
+  hosts: vmware_physical_esx_host,!node_offline
+  tags:
+    - bootstrap-vmware-esxi
+    - deploy-vsphere-dc
+    - vsphere-deploy-dc
+    - ping-exclude
+  gather_facts: false
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: bootstrap-vmware-esxi
+    - role: vmware-esxi-hostconf
+
+
+- name: "Deploy VSphere Datacenter"
+  hosts: vsphere_control_node
+  tags:
+    - deploy-vsphere-dc
+    - vsphere-deploy-dc
+    - ping-exclude
+  become: yes
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: vsphere-deploy-dc
+
+- name: "VMware Upgrade ESXi servers"
+  hosts: vmware_physical_esx_host,!node_offline
+  tags:
+    - vmware-upgrade-esxi
+  gather_facts: false
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: vmware-upgrade-esxi
+
+- name: "VMware Remount VM Datastores"
+  hosts: vmware_control_node
+  become: True
+  tags:
+    - vmware-remount-datastores
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: vmware-mount-datastores
+      vars:
+        vmware_unmount_datastores_first: yes
+
+- name: "VMware Mount VM Datastores"
+  hosts: vmware_control_node
+  become: True
+  tags:
+    - vmware-mount-datastores
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: vmware-mount-datastores
+
+
+- name: "Bootstrap Openstack"
+  hosts: openstack_kolla_node,!node_offline
+  tags:
+    - bootstrap
+    - bootstrap-openstack
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - name: Configure openstack deploy node
+      role: bootstrap-openstack
+
+- name: "Bootstrap k8s cluster"
+  hosts: k8s_cluster,!node_offline
+  tags:
+    - bootstrap
+    - bootstrap-k8s
+  become: yes
+  roles:
+    - name: bootstrap-linux-firewalld
+      firewalld_action: configure
+      tags: [ firewall-config-k8s ]
+
+## must first run the kolla-ansible (bootstrap-servers|prechecks|deploy)
+- name: "Bootstrap Openstack Cloud"
+  hosts: openstack_kolla_node,!node_offline
+  tags:
+    - bootstrap-openstack-cloud
+    - openstack-cloud
+  become: True
+#  become_method: sudo
+  vars_files:
+    - vars/vault.yml
+  vars:
+    ansible_python_interpreter: "{{ ansible_openstack_python_interpreter }}"
+  roles:
+
+    - name: Configure openstack client
+      tags:
+        - bootstrap-openstack-osclient
+        - openstack-osclient
+      role: openstack-osclient
+      vars:
+        openstack_cloud_name: "{{ openstack_admin_cloud_name | default(omit) }}"
+
+    - name: Configure openstack environment
+      role: openstack-config-cloud
+      tags:
+        - openstack-cloud-config
+
+
+## bootstrap-fog
+## ref: https://github.com/ceph/ceph-cm-ansible/tree/master/roles/bootstrap-fog
+- name: Bootstrap FOG server
+  hosts: fog_server,!node_offline
+  become: true
+  tags:
+    - bootstrap-fog
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - bootstrap-fog
+#  vars_prompt:
+#    - name: "fog_force"
+#      prompt: "\nWARNING: It is not safe to run this role on a running FOG server that\nhas or may have scheduled tasks.\nDo you want to forcefully install/update/restart FOG? (yes|no)"
+#      default: "no"
+#      private: no
+
+- name: "Setup nginx"
+  hosts: nginx_service,!node_offline
+  tags:
+    - nginx-service
+  become: True
+#  become_method: sudo
+  roles:
+    - role: nginx-service
+
+
+- name: Bootstrap iDRAC Automation
+  hosts: dell_idrac_hosts,!node_offline
+#  connection: local
+  tags:
+    - bootstrap-dell-idrac-hosts
+    - bootstrap-idrac-hosts
+    - bootstrap-idrac
+    - dell-idrac-hosts
+  strategy: free
+  user: root
+  become: yes
+  gather_facts: false
+  vars_files:
+    - vars/vault.yml
+  roles:
+    - role: dell-racadm-host
+
+# ref: https://dell.github.io/dellemc-openmanage-ansible-modules/GUID-EA8B2754-D62E-4D2C-8951-636D49B0CAA5.html
+- name: Get iDRAC LC Ready Status
+  hosts: dell_idrac_hosts,!node_offline
+  tags:
+    - dell-idrac-get-host-info
+  connection: local
+  gather_facts: False
+  collections:
+    - dellemc.openmanage
+  vars_files:
+    - vars/vault.yml
+  tasks:
+    - name: Get hardware inventory
+#      dellemc_get_system_inventory:
+      idrac_system_info:
+        idrac_ip:  "{{ idrac_ip }}"
+        idrac_port: '443'
+        idrac_user:  "{{ idrac_user }}"
+        idrac_password:  "{{ idrac_password }}"
+
+    ## ref: https://github.com/dell/dellemc-openmanage-ansible-modules/blob/collections/playbooks/idrac/idrac_lifecycle_controller_status_info.yml
+    - name: Check LC Ready Status
+#      dellemc_get_lcstatus:
+      idrac_lifecycle_controller_status_info:
+        idrac_ip:   "{{ idrac_ip }}"
+        idrac_port: '443'
+        idrac_user: "{{ idrac_user }}"
+        idrac_password:  "{{ idrac_password }}"
+
+## ref: https://github.com/jonas-werner/ansible-playbooks/blob/master/set_ntp_values.yml
+- name: Change iDRAC NTP Attributes
+  hosts: dell_idrac_hosts,!node_offline
+  tags:
+    - dell-idrac-config-ntp
+  connection: local
+  gather_facts: False
+  vars:
+#    ntpserver1: "1.jp.pool.ntp.org"
+#    ntpserver1: "192.168.0.1"
+    ntpserver1: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
+
+  vars_files:
+    - vars/vault.yml
+  tasks:
+
+    - name: Enable NTP and set NTP server and Time zone attributes in iDRAC
+      idrac_redfish_config:
+        category: Manager
+        command: SetManagerAttributes
+        resource_id: iDRAC.Embedded.1
+        manager_attributes:
+          NTPConfigGroup.1.NTPEnable: "Enabled"
+          NTPConfigGroup.1.NTP1: "{{ ntpserver1 }}"
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ idrac_user }}"
+        password: "{{ idrac_password }}"
+
+##
+## Tower config
+##
+
+## ref: https://www.ansible.com/blog/introducing-the-awx-collection
+- name: Bootstrap Tower Resource configs
+  hosts: tower_control_node
+  tags:
+    - bootstrap-tower
+    - bootstrap-tower-resources
+  gather_facts: false
+  collections:
+    - awx.awx
+  vars_files:
+    - vars/vault.yml
+  environment:
+    CONTROLLER_VERIFY_SSL: no
+  roles:
+    - role: ansible-tower-resources
+
+
+## ref: https://www.ansible.com/blog/introducing-the-awx-collection
+- name: Remove Tower Modules
+  hosts: tower_control_node
+  tags:
+    - remove-tower-resources
+  gather_facts: false
+  collections:
+    - awx.awx
+  vars_files:
+    - vars/vault.yml
+  environment:
+    CONTROLLER_VERIFY_SSL: no
+  roles:
+    - role: ansible-tower-resources
+      vars:
+        tower_resource_state: absent
+
+- name: Export Tower Objects
+  hosts: tower_control_node
+  tags:
+    - export-tower-resources
+  gather_facts: false
+  collections:
+    - awx.awx
+  tasks:
+    - name: Export all resources
+      tower_export:
+        all: yes
+#        teams: "TEST - Test Team 1"
+

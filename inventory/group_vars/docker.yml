@@ -23,8 +23,6 @@ bootstrap_linux_user_list__docker:
     gid: "{{ container_user_gid }}"
     shell: /bin/bash
 
-ldap_server: "ldap.{{ ldap_internal.ldap_domain }}"
-
 ## bootstrap-docker
 bootstrap_docker__dns:
 #  - "192.168.0.1"
@@ -35,7 +33,12 @@ bootstrap_docker__storage_driver: overlay2
 #bootstrap_docker__storage_driver: devicemapper
 
 bootstrap_docker__config:
-  "experimental": true
+  experimental: true
+  ## ref: https://stackoverflow.com/questions/60919979/limit-logfile-size-for-existing-containers-in-docker
+  log-driver: "json-file"
+  log-opts:
+    max-size: "5m"
+    max-file: "500"
 
 #bootstrap_docker__daemon_flags: []
 bootstrap_docker__daemon_flags:
@@ -72,20 +75,6 @@ bootstrap_docker__daemon_flags:
 
 ### https://github.com/nickjj/ansible-docker
 #ansible_python_interpreter: "/usr/bin/env python-docker"
-
-# `a` removes unused images (useful in production).
-# `f` forces it to happen without prompting you to agree.
-bootstrap_docker__cron_jobs_prune_flags: "af"
-
-bootstrap_docker__cron_jobs:
-  - name: "Docker disk clean up"
-    job: "docker system prune -{{ bootstrap_docker__cron_jobs_prune_flags }} > /dev/null 2>&1"
-    schedule: ["0", "0", "*", "*", "0"]
-    cron_file: "docker-disk-clean-up"
-    #user: "{{ (bootstrap_docker__users | first) | d('root') }}"
-    #state: "present"
-
-
 
 ##
 ## docker_registries
