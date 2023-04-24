@@ -10,6 +10,8 @@ echo "DOWNLOAD_DIR=${DOWNLOAD_DIR}"
 IMAGE_FILES=$(grep ".png" "${MARKDOWN_FILE}" | sed 's/!\[\(.*\)\](\(.*\))/\2/')
 
 #echo "IMAGE_FILES=${IMAGE_FILES}"
+
+mkdir -p "${DOWNLOAD_DIR}"
 cd "${DOWNLOAD_DIR}"
 
 DOWNLOAD_COUNT=0

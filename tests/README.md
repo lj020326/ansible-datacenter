@@ -99,6 +99,7 @@ Check vaulted variable
 
 ```shell
 $ ansible -e @vars/vault.yml --vault-password-file ~/.vault_pass -i inventory/prod/hosts.yml -m debug -a var=vault__ldap_readonly_password docker_stack_openldap
+$ ansible -e @vars/vault.yml --vault-password-file ~/.vault_pass -i inventory/prod/hosts.yml -m debug -a var=docker_stack_jenkins_jcac_ldap_base_dn docker_stack_jenkins_jcac
 ```
 
 Query multiple variables based on group:
