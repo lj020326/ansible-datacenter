@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-GIT_DEFAULT_BRANCH=master
+GIT_DEFAULT_BRANCH=main
 
 ## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
 # exit when any command fails
