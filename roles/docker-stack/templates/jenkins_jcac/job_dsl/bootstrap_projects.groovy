@@ -42,7 +42,8 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
         steps {
             jobDsl {
                 targets "jobs/jobdsl/templates/**/*.groovy"
-                additionalClasspath ['src/','vars/']
+                // ref: https://marcesher.com/2016/06/21/jenkins-as-code-registering-jobs-for-automatic-seed-job-creation/
+                additionalClasspath "vars/" + "\r\n" + "src/"
             }
         }
     }
@@ -54,5 +55,3 @@ def buildSeedJobs(String seedJobName, String jobsRepoUrl) {
 }
 
 buildSeedJobs(seedJobName, jobsRepoUrl)
-
-

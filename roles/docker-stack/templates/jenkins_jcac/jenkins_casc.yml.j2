@@ -30,7 +30,7 @@ credentials:
           username: "ansible"
           usernameSecret: true
       - usernamePassword:
-          id: "dcapi-vsphere-cred"
+          id: "dcapi-govc-cred"
           password: "{{ __docker_stack_jenkins_cred_vsphere_password }}"
           scope: GLOBAL
           username: "administrator@vsphere.local"
@@ -146,6 +146,7 @@ jenkins:
   - name: "built-in"
   - name: "controller"
   - name: "docker"
+  - name: "packer"
   - name: "jenkins-agent-{{ inventory_hostname_short }}"
   labelString: "controller"
   markupFormatter: "plainText"
@@ -154,7 +155,7 @@ jenkins:
   ## ref: https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code.yml
   nodes:
   - permanent:
-      labelString: "docker ansible"
+      labelString: "docker ansible packer"
       launcher:
         inbound:
           tunnel: "{{ __docker_stack_jenkins_endpoint }}:9000"
@@ -168,8 +169,8 @@ jenkins:
       - authorizationMatrix:
           inheritanceStrategy: "inheritingGlobal"
           permissions:
-          - "GROUP:Agent/Disconnect:authenticated"
           - "GROUP:Agent/Build:authenticated"
+          - "GROUP:Agent/Disconnect:authenticated"
           - "USER:Agent/Build:anonymous"
       remoteFS: "/home/jenkins/agent"
       retentionStrategy: "always"
@@ -212,7 +213,7 @@ jenkins:
       userIdStrategy: "caseInsensitive"
   slaveAgentPort: 9000
   systemMessage: |+
-    Jenkins configured automatically by Jenkins Configuration as Code plugin
+    Welcome to our CI\CD server.  This Jenkins is configured and managed 'as code'.
 
   updateCenter:
     sites:
@@ -323,6 +324,7 @@ unclassified:
       whiteB: "#D3D7CF"
       yellow: "#C4A000"
       yellowB: "#C4A000"
+    globalColorMapName: "css"
   buildDiscarders:
     configuredBuildDiscarders:
     - "jobBuildDiscarder"
@@ -364,6 +366,16 @@ unclassified:
     apiRateLimitChecker: ThrottleForNormalize
   gitHubPluginConfig:
     hookUrl: "https://{{ __docker_stack_jenkins_endpoint }}/github-webhook/"
+  gitSCM:
+    addGitTagAction: false
+    allowSecondFetch: false
+    createAccountBasedOnEmail: false
+    disableGitToolChooser: false
+    globalConfigEmail: "admin+jenkins@dettonville.com"
+    globalConfigName: "jenkins"
+    hideCredentials: false
+    showEntireCommitSummaryInChanges: false
+    useExistingAccountWithSameEmail: false
   giteaServers:
     servers:
     - credentialsId: "dcapi-jenkins-git-user"
@@ -384,7 +396,7 @@ unclassified:
               remote: "https://gitea.admin.dettonville.int/infra/pipeline-automation-lib.git"
               traits:
               - "gitBranchDiscovery"
-              - cleanBeforeCheckout:
+              - cleanBeforeCheckoutTrait:
                   extension:
                     deleteUntrackedNestedRepositories: true
   globalTimeOutConfiguration:
@@ -472,14 +484,18 @@ unclassified:
     allPipelines: false
     elapsedTimeFormat: "'<b>'HH:mm:ss.S'</b> '"
     systemTimeFormat: "'<b>'HH:mm:ss'</b> '"
-customTool:
-  installations:
-  - home: "/usr/local/bin"
-    name: "packer"
+  warningsParsers:
+    consoleLogScanningPermitted: false
+  whitelist:
+    enabled: false
 tool:
   ansible:
     installations:
     - name: "ansible-local"
+  customTool:
+    installations:
+    - home: "/usr/local/bin"
+      name: "packer"
   git:
     installations:
     - home: "git"
