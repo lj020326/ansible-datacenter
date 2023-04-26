@@ -28,6 +28,10 @@ $ MOLECULE_DISTRO=centos8 \
   molecule --debug test -s bootstrap-linux --destroy never
 ```
 
+```shell
+$ MOLECULE_DISTRO=centos8 molecule --debug test -s bootstrap-linux --destroy never
+```
+
 ## Run molecule test
 
 ```shell

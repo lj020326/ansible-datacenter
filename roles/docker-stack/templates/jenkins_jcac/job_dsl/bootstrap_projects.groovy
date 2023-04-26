@@ -16,10 +16,15 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
                     nonInheriting()
                 }
                 permissions([
-                    'GROUP:Job/Build:authenticated',
-                    'GROUP:Job/Configure:authenticated',
-                    'GROUP:Job/Delete:authenticated',
-                    'GROUP:Job/Read:authenticated',
+                    "GROUP:Job/Build:admin",
+                    "GROUP:Job/Cancel:admin",
+                    "GROUP:Job/Configure:admin",
+                    "GROUP:Job/Create:admin",
+                    "GROUP:Job/Delete:admin",
+                    "GROUP:Job/Discover:admin",
+                    "GROUP:Job/Move:admin",
+                    "GROUP:Job/Read:admin",
+                    "GROUP:Job/Workspace:admin",
                 ])
             }
         }
@@ -36,7 +41,7 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
                     url(jobsRepoUrl)
                     credentials(gitCredentialsId)
                 }
-                branch("*/master")
+                branch("*/main")
             }
         }
         steps {
