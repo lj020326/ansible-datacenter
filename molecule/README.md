@@ -44,6 +44,9 @@ $ export MOLECULE_DISTRO=redhat8
 $ molecule create
 $ molecule login
 $ molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8 molecule test -s bootstrap-linux --destroy never
+## after several iterations - then finally remove it
+$ MOLECULE_DISTRO=redhat8 molecule destroy -s bootstrap-linux
 ```
 
 ### converge/test on role 'bootstrap-linux'

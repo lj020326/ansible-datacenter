@@ -70,16 +70,27 @@
   notify: reload firewalld
   when: item|replace('.xml','') not in __firewalld_zones|map(attribute='name')|list
 
+#- name: "{{ __log_prefix_local }} Configure firewalld zones"
+#  template:
+#    src: zone_template.xml.j2
+#    dest: /etc/firewalld/zones/{{ item.name }}.xml
+#    backup: yes
+#  with_items: "{{ __firewalld_zones }}"
+#  notify: reload firewalld
+#  loop_control:
+#    label: "{{ item.name }}"
+#  register: firewalld_zone_backup
+
 - name: "{{ __log_prefix_local }} Configure firewalld zones"
-  template:
-    src: zone_template.xml.j2
-    dest: /etc/firewalld/zones/{{ item.name }}.xml
-    backup: yes
-  with_items: "{{ __firewalld_zones }}"
-  notify: reload firewalld
+  ansible.posix.firewalld:
+    zone: "{{ item.name }}"
+    state: present
+    permanent: true
+    target: ACCEPT
+  loop: "{{ __firewalld_zones }}"
   loop_control:
     label: "{{ item.name }}"
-  register: firewalld_zone_backup
+  register: __firewalld_zone_config_results
 
 #- name: "{{ __log_prefix_local }} Display firewalld_zone_backup"
 #  debug:
@@ -133,6 +144,11 @@
   service:
     name: firewalld
     state: restarted
+  register: __firewalld_restart_result
+
+- name: "{{ __log_prefix_local }} Display __firewalld_restart_result"
+  debug:
+    var: __firewalld_restart_result
 
 ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/posix/firewalld_module.html
 - name: "{{ __log_prefix_local }} Configure firewalld services"
@@ -206,7 +222,7 @@
   with_items: "{{ get_firewalld_services.stdout_lines }}"
   notify: reload firewalld
 
-- name: "{{ __log_prefix_local }} Configure defined firewalld_rules"
+- name: "{{ __log_prefix_local }} Configure defined __firewalld_rules"
   when:
     - firewalld_enabled | bool
     - firewalld_rules|d([])|length>0
