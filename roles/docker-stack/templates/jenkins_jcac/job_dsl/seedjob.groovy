@@ -9,7 +9,9 @@ String seedJobName = "ADMIN/bootstrap-projects"
 def createSeedJob(String seedJobName, String jobsRepoUrl) {
     String gitCredentialsId = 'dcapi-jenkins-git-user'
 
-    folder("ADMIN") {
+    String seedJobFolder = seedJobName.split("/")[0]
+    println "seedJobFolder=${seedJobFolder}"
+    folder(seedJobFolder) {
         properties {
             authorizationMatrix {
                 inheritanceStrategy {
@@ -32,6 +34,7 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
 
     job(seedJobName) {
         description()
+        label("controller")
         keepDependencies(false)
         disabled(false)
         concurrentBuild(false)
@@ -54,9 +57,10 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
     }
 }
 
+// ref: https://stackoverflow.com/questions/51212832/start-jenkins-job-immediately-after-creation-by-seed-job-with-parameters
 // ref: https://blog.ippon.tech/setting-up-a-shared-library-and-seed-job-in-jenkins-part-2/
-def buildSeedJobs(String seedJobName, String jobsRepoUrl) {
-    createSeedJob(seedJobName, jobsRepoUrl)
-}
+createSeedJob(seedJobName, jobsRepoUrl)
 
-buildSeedJobs(seedJobName, jobsRepoUrl)
+// ref: https://github.com/jenkinsci/job-dsl-plugin/wiki/Job-DSL-Commands#queue
+println "Add ${seedJobName} to the job queue"
+// queue(seedJobName)

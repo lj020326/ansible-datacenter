@@ -87,6 +87,8 @@ apply_os_groups_exclude: "{{ ping_exclude }}"
 ############
 
 external_root_domain: "dettonville.org"
+internal_root_domain: "johnson.int"
+service_route_external_root_domain: "dettonville.org"
 external_domain: "{{ external_root_domain }}"
 
 control_planes:
@@ -95,7 +97,6 @@ control_planes:
 
 control_plane_domain: "{{ control_planes.baremetal }}"
 control_plane_domain_vm: "{{ control_planes.vmware }}"
-internal_root_domain: "{{ control_planes.baremetal }}"
 
 internal_subdomain: "{{ dc_environment|d('') | upper }}"
 internal_domain: "{{ internal_root_domain if internal_subdomain|d('')=='' else internal_subdomain + '.' + internal_root_domain }}"
@@ -159,7 +160,7 @@ ldap_readonly_password: "{{ vault__ldap_readonly_password }}"
 #ldap_internal_domain: "johnson.int"
 ldap_internal_domain: "{{ internal_domain }}"
 
-ldap_domain_parts: |
+ldap_internal_domain_parts: |
   [
     {% for domain in ldap_internal_domain.split('.') %}
     "dc={{ domain }}",
@@ -168,10 +169,10 @@ ldap_domain_parts: |
 
 #ldap_internal_base_dn: "dc=johnson,dc=int"
 #ldap_internal_base_dn: "dc={{ ldap_internal_domain.split('.')[-2] }},dc={{ ldap_internal_domain.split('.')[-1] }}"
-ldap_internal_base_dn: "{{ ldap_domain_parts | join(',') }}"
+ldap_internal_base_dn: "{{ ldap_internal_domain_parts | join(',') }}"
 
 ldap_internal_user_search_base_dn: "ou=users,{{ ldap_internal_base_dn }}"
-ldap_internal_search_user_dn: "cn=search,{{ docker_stack_ldap_base_dn }}"
+ldap_internal_search_user_dn: "cn=search,{{ ldap_internal_base_dn }}"
 ldap_search_user_password: "{{ vault__ldap_base_users['search'].ssha_password }}"
 
 ldap_internal_host: "ldap.{{ ldap_internal_domain }}:389"
@@ -306,6 +307,7 @@ email_to: "{{ email }}"
 
 timezone: "America/New_York"
 
+report_inventory_facts_git_ssh_private_key: "{{ vault__report_inventory_facts_git_ssh_private_key }}"
 report_inventory_facts_git_repo_endpoint: "gitea.admin.dettonville.int:2222/infra/report-inventory-facts.git"
 #report_inventory_facts_git_repo_endpoint: "gitea.admin.dettonville.int/infra/report-inventory-facts.git"
 report_inventory_facts_git_repo_branch: "main"

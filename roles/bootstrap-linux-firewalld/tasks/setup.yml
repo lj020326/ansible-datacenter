@@ -59,23 +59,34 @@
   debug:
     var: __firewalld_zones
 
+#- name: "{{ __log_prefix_local }} Configure firewalld zones"
+#  template:
+#    src: zone_template.xml.j2
+#    dest: /etc/firewalld/zones/{{ item.name }}.xml
+#    backup: yes
+#  with_items: "{{ __firewalld_zones }}"
+#  notify: reload firewalld
+#  loop_control:
+#    label: "{{ item.name }}"
+#  register: __firewalld_zone_config_results
+
 - name: "{{ __log_prefix_local }} Configure firewalld zones"
-  template:
-    src: zone_template.xml.j2
-    dest: /etc/firewalld/zones/{{ item.name }}.xml
-    backup: yes
-  with_items: "{{ __firewalld_zones }}"
-  notify: reload firewalld
+  ansible.posix.firewalld:
+    zone: "{{ item.name }}"
+    state: present
+    permanent: true
+    target: ACCEPT
+  loop: "{{ __firewalld_zones }}"
   loop_control:
     label: "{{ item.name }}"
-  register: firewalld_zone_config
+  register: __firewalld_zone_config_results
 
-##- name: "{{ __log_prefix_local }} Display firewalld_zone_config"
-##  debug:
-##    var: firewalld_zone_config
-##
+- name: "{{ __log_prefix_local }} Display __firewalld_zone_config_results"
+  debug:
+    var: __firewalld_zone_config_results
+
 #### ref: https://github.com/ansible/ansible/issues/16305#issuecomment-475220643
-##- name: "{{ __log_prefix_local }} "Move original {{ firewalld_zone_config.backup }} zone file backup to backup directory {{ firewalld_backup_dir }}/zones""
+##- name: "{{ __log_prefix_local }} "Move original {{ __firewalld_zone_config_results.backup }} zone file backup to backup directory {{ firewalld_backup_dir }}/zones""
 ##  shell: >
 ##    mkdir --parents {{ firewalld_backup_dir }}/zones &&
 ##    mv {{ firewalld_zone_backup.backup }} {{ firewalld_backup_dir }}/zones/{{ firewalld_zone_backup.backup }}
