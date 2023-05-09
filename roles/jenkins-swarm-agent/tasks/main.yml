@@ -1,9 +1,30 @@
 ---
 
+- name: "Load OS distribution vars"
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution|lower() }}-{{ ansible_distribution_major_version|lower() }}.yml"
+    - "{{ ansible_distribution|lower() }}.yml"
+    - "{{ ansible_os_family|lower() }}.yml"
+    - "default.yml"
+
 - name: "Display jenkins_swarm_agent_master"
   debug:
     var: jenkins_swarm_agent_master
 
-- name: "Running Jenkins Agent role for {{ ansible_os_family|lower() }}"
-  when: ansible_os_family is defined
-  include_tasks: "{{ ansible_os_family|lower() }}.yml"
+- name: "Display jenkins_swarm_agent_labels"
+  debug:
+    var: jenkins_swarm_agent_labels|flatten
+
+- name: "Display jenkins_swarm_jenkins_user_groups"
+  debug:
+    var: jenkins_swarm_jenkins_user_groups
+
+- name: "Running Jenkins Agent install tasks for {{ ansible_os_family|lower() }}"
+  include_tasks: "{{ task_file }}"
+  with_first_found:
+    - "{{ ansible_distribution|lower() }}-{{ ansible_distribution_major_version|lower() }}.yml"
+    - "{{ ansible_distribution|lower() }}.yml"
+    - "{{ ansible_os_family|lower() }}.yml"
+  loop_control:
+    loop_var: task_file

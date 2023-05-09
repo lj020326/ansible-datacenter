@@ -237,8 +237,10 @@ echo "GIT_REPO_DIR=${GIT_REPO_DIR}"
 RUN_COMMAND_WITH_ARGS="run_command_wrapper_fn ${RUN_CMD} ${GIT_REPO_DIR} ${GIT_REMOTE_URL} ${GIT_BRANCH_NAME} ${DEBUG_LEVEL} ${@}"
 
 if [[ "${RUN_CMD}" == *"ansible"* ]]; then
-  VAULT_FILEPATH='~/.vault_pass'
-  RUN_COMMAND_WITH_ARGS+=" --vault-password-file ${VAULT_FILEPATH}"
+  VAULTPASS_FILEPATH="~/.vault_pass"
+  VAULT_FILEPATH="./vars/vault.yml"
+  RUN_COMMAND_WITH_ARGS+=" --vault-password-file ${VAULTPASS_FILEPATH}"
+  RUN_COMMAND_WITH_ARGS+=" -e @${VAULT_FILEPATH}"
 fi
 
 if [[ ${RUN_LOCAL} -eq 1 ]]; then

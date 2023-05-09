@@ -1,63 +1,86 @@
 ---
-- name: Add a jenkins user and add it to the docker group
+
+- name: "Add a jenkins group"
+  group:
+    name: jenkins
+    state: present
+
+- name: "Add a jenkins user"
   user:
     name: jenkins
-    groups: docker
+    state: present
+
+- name: "Add jenkins user to jenkins user groups"
+  when: jenkins_swarm_jenkins_user_groups|d([])|length>0
+  user:
+    name: jenkins
+    groups: "{{ jenkins_swarm_jenkins_user_groups }}"
     append: yes
     state: present
-  become: true
 
-- name: Copy the Swarm startup script into init.d
-  copy:
-    src: swarmclient
-    dest: "/etc/init.d/{{ jenkins_swarm_service_name }}"
-    mode: "0755"
-  notify:
-    - Reload Systemd
-    - Restart Swarm Client service
-  become: true
-
-- name: Create Swarm directory
+- name: "Create Swarm directory"
   file:
     path: "{{ jenkins_swarm_path }}"
     state: directory
     mode: "0755"
-  become: true
 
-- name: Download the Jenkins Swarm Client
+- name: "Download the Jenkins Swarm Client"
   get_url:
     url: "{{ jenkins_swarm_download_url }}"
     dest: "{{ jenkins_swarm_path }}"
     owner: jenkins
     group: jenkins
-  become: true
   notify:
     - Restart Swarm Client service
   register: swarm_jar
 
-- name: Create the Jenkins Swarm Client config directory
+- name: "Ensure Jenkins Swarm Client config directories exist"
   file:
-    path: "{{ jenkins_swarm_config_path }}"
+    path: "{{ item }}"
     state: directory
     mode: "0755"
-  tags:
-    - configuration
-  become: true
+  with_items:
+    - "{{ jenkins_swarm_systemd_path }}"
+    - "{{ jenkins_swarm_path }}"
 
-#- name: Install jre 8 from repository
-#  yum:
-#    name: java-1.8.0-openjdk
-#    state: present
+- name: "Ensure {{ jenkins_swarm_agent_labels_file }} file exists"
+  when: jenkins_swarm_agent_labels_file is defined
+  file:
+    path: "{{ jenkins_swarm_agent_labels_file }}"
+    state: touch
+    mode: "0755"
+  notify: Restart Swarm Client service
 
-- name: Create the Jenkins Swarm Client config file
+- name: "Ensure {{ jenkins_swarm_agent_labels_file }} contains defined labels"
+  when:
+    - jenkins_swarm_agent_labels_file is defined
+    - jenkins_swarm_agent_labels is defined
+  lineinfile:
+    path: "{{ jenkins_swarm_agent_labels_file }}"
+    line: "{{ jenkins_swarm_agent_labels }}"
+  notify: Restart Swarm Client service
+
+- name: "Ensure {{ jenkins_swarm_agent_password_file }} file exists"
+  when:
+    - jenkins_swarm_agent_password_file is defined
+    - jenkins_swarm_agent_password is defined
   template:
-    src: swarm-client-linux.j2
-    dest: "{{ jenkins_swarm_config_path }}/swarm-client"
-    owner: jenkins
-    group: jenkins
+    src: "swarm-password.conf.j2"
+    dest: "{{ jenkins_swarm_agent_password_file }}"
+    mode: '0400'
+  notify: Restart Swarm Client service
+
+#- name: Install default-jre from repository
+#  apt:
+#    name: default-jre
+#    state: present
+#  become: true
+
+- name: "Create the Swarm Client service definition"
+  template:
+    src: swarm-client.service.j2
+    dest: "/lib/systemd/system/{{ jenkins_swarm_service_name }}.service"
     mode: "0644"
-  tags:
-    - configuration
   notify:
+    - Reload Systemd
     - Restart Swarm Client service
-  become: true
