@@ -1,0 +1,63 @@
+---
+
+- name: "Add a jenkins group"
+  group:
+    name: jenkins
+    state: present
+  become: true
+
+- name: "Add a jenkins user and add it to the docker group"
+  user:
+    name: jenkins
+    groups: docker
+    append: yes
+    state: present
+  become: true
+
+- name: "Copy the Swarm startup script into init.d"
+  copy:
+    src: swarmclient.sh
+    dest: "/etc/init.d/{{ jenkins_swarm_service_name }}"
+    mode: "0755"
+  notify:
+    - Reload Systemd
+    - Restart Swarm Client service
+  become: true
+
+- name: "Create Swarm directory"
+  file:
+    path: "{{ jenkins_swarm_path }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: "Download the Jenkins Swarm Client"
+  get_url:
+    url: "{{ jenkins_swarm_download_url }}"
+    dest: "{{ jenkins_swarm_path }}"
+    owner: jenkins
+    group: jenkins
+  become: true
+  notify:
+    - Restart Swarm Client service
+  register: swarm_jar
+
+- name: "Ensure Jenkins Swarm Client config directories exist"
+  file:
+    path: "{{ jenkins_swarm_config_path }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Create the Jenkins Swarm Client config file
+  template:
+    src: swarm-client-linux.j2
+    dest: "{{ jenkins_swarm_config_path }}/swarm-client"
+    owner: jenkins
+    group: jenkins
+    mode: "0644"
+  tags:
+    - configuration
+  notify:
+    - Restart Swarm Client service
+  become: true
