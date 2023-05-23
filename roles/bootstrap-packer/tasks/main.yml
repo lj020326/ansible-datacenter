@@ -1,11 +1,56 @@
 ---
-- name: Ensure unzip is installed.
-  package: name=unzip state=present
 
-- name: Download and unarchive Packer.
+- name: "Display key role inputs"
+  debug:
+    msg:
+      - "packer_arch={{ packer_arch }}"
+      - "packer_version={{ packer_version }}"
+      - "packer_bin_path={{ packer_bin_path }}"
+
+- name: "Ensure unzip is installed."
+  package:
+    name: unzip
+    state: present
+
+- name: "Get installed packer version."
+  command: packer --version
+  ignore_errors: yes
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  register: packer_installed_version
+
+- name: "Display packer_installed_version"
+  debug:
+    var: packer_installed_version
+
+- name: "Display packer_installed_version.stdout is version"
+  debug:
+    var: (packer_installed_version.stdout is version(packer_version, operator="!="))
+
+- name: "Force packer install if the version numbers do not match."
+  set_fact:
+    packer_reinstall_from_source: true
+  when:
+    - (packer_install_from_source_force_update | bool) or
+      (packer_installed_version.rc != 0) or
+      (packer_installed_version.stdout is version(packer_version, operator="!="))
+
+- name: "Display packer_reinstall_from_source"
+  debug:
+    var: packer_reinstall_from_source
+
+- name: "Download and unarchive Packer."
+  when: packer_reinstall_from_source | bool
   unarchive:
     src: https://releases.hashicorp.com/packer/{{ packer_version }}/packer_{{ packer_version }}_linux_{{ packer_arch }}.zip
     dest: "{{ packer_bin_path }}"
     remote_src: true
-    creates: "{{ packer_bin_path }}/packer"
+#    creates: "{{ packer_bin_path }}/packer"
     mode: "0755"
+  register: packer_install_result
+
+- name: "Display packer_install_result"
+  when: packer_reinstall_from_source | bool
+  debug:
+    var: packer_install_result

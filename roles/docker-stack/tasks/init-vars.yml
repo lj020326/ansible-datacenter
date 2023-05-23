@@ -402,3 +402,46 @@
 - name: "{{ log_prefix_local }} Display __docker_stack_container_config_list"
   debug:
      var: __docker_stack_container_config_list
+
+- name: "{{ log_prefix_local }} Find app tasks in {{ role_path }}/tasks/apps/*.yml"
+  delegate_to: localhost
+  run_once: yes
+  block:
+  - name: "{{ log_prefix_local }} Find app tasks in {{ role_path }}/tasks/apps/*.yml"
+    ansible.builtin.find:
+      paths: "{{ role_path }}/tasks/apps"
+      recurse: yes
+      file_type: "file"
+      patterns: "(.*).yml"
+      use_regex: "true"
+    register: __app_config_task_results
+    
+  - name: "{{ log_prefix_local }} Display __app_config_task_results"
+    debug:
+      var: __app_config_task_results
+      verbosity: 1
+
+  - name: "{{ log_prefix_local }} Set __app_config_task_file_list"
+    set_fact:
+      __app_config_task_file_list: "{{ __app_config_task_file_list|d([])
+        + [(item.path | replace(role_path + '/tasks/apps/', '')) ] }}"
+    loop: "{{ __app_config_task_results['files'] }}"
+
+  - name: "{{ log_prefix_local }} Display __app_config_task_file_list"
+    debug:
+      var: __app_config_task_file_list
+  #    verbosity: 1
+
+- name: "{{ log_prefix_local }} Set __app_config_task_map"
+  set_fact:
+    __app_config_task_map: "{{ __app_config_task_map| d({})
+      | combine( {
+              item: {
+                'pre_start': ([item + '/pre-start.yml'] | intersect(__app_config_task_file_list) | length == 1 ),
+                'post_start': ([item + '/post-start.yml'] | intersect(__app_config_task_file_list) | length == 1 )
+                } }, recursive=True) }}"
+  loop: "{{ __docker_stack_app_services }}"
+
+- name: "{{ log_prefix_local }} Display __app_config_task_map"
+  debug:
+    var: __app_config_task_map

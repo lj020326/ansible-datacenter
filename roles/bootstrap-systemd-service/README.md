@@ -80,7 +80,7 @@ Example Playbook
 
     - hosts: servers
       roles:
-        - role: systemd-service
+        - role: bootstrap-systemd-service
           systemd_service_name: "swarm-manager"
           systemd_service_envs:
               - "DOCKER_HOST=tcp://127.0.0.1:2375"
