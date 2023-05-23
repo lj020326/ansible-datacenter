@@ -1,0 +1,129 @@
+## ref: https://github.com/mom1/apiclient-pydantic-generator
+openapi: '3.0.0'
+info:
+  version: 1.0.0
+  title: Swagger pfsense firewall API
+  license:
+    name: MIT
+servers:
+  - url: http://pfsense.johnson.int/api/v1
+paths:
+  /services/unbound/host_override:
+    get:
+      summary: List all host_overrides
+      operationId: listHost_overrides
+      tags:
+        - host_overrides
+      parameters:
+        - name: limit
+          in: query
+          description: How many items to return at one time (max 100)
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: A paged array of host_overrides
+          headers:
+            x-next:
+              description: A link to the next page of responses
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host_overrides'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                x-amazon-apihost_override-integration:
+                  uri:
+                    Fn::Sub: arn:aws:apihost_override:${AWS::Region}:lambda:path/2015-03-31/functions/${PythonVersionFunction.Arn}/invocations
+                  passthroughBehavior: when_no_templates
+                  httpMethod: POST
+                  type: aws_proxy
+    post:
+      summary: Create a host_override
+      operationId: createHost_overrides
+      tags:
+        - host_overrides
+      responses:
+        '201':
+          description: Null response
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                x-amazon-apihost_override-integration:
+                  uri:
+                    Fn::Sub: arn:aws:apihost_override:${AWS::Region}:lambda:path/2015-03-31/functions/${PythonVersionFunction.Arn}/invocations
+                  passthroughBehavior: when_no_templates
+                  httpMethod: POST
+                  type: aws_proxy
+  /host_overrides/{host_overrideId}:
+    get:
+      summary: Info for a specific host_override
+      operationId: showHost_overrideById
+      tags:
+        - host_overrides
+      parameters:
+        - name: host_overrideId
+          in: path
+          required: true
+          description: The id of the host_override to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host_overrides'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    x-amazon-apihost_override-integration:
+      uri:
+        Fn::Sub: arn:aws:apihost_override:${AWS::Region}:lambda:path/2015-03-31/functions/${PythonVersionFunction.Arn}/invocations
+      passthroughBehavior: when_no_templates
+      httpMethod: POST
+      type: aws_proxy
+components:
+  schemas:
+    Host_override:
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        tag:
+          type: string
+    Host_overrides:
+      type: array
+      description: list of host_override
+      items:
+        $ref: '#/components/schemas/Host_override'
+    Error:
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string

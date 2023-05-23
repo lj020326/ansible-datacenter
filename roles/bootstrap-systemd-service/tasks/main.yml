@@ -1,6 +1,11 @@
 ---
+
+- name: "Assert systemd_service_name is defined"
+  assert:
+    that: systemd_service_name is defined
+
 # tasks file for roles/systemd/service
-- name: create service directories
+- name: "Create service directories"
   file:
     state: directory
     path: "{{ item }}"
@@ -9,19 +14,20 @@
     - "{{ ansible_unit_test_prefix_dir }}{{ systemd_service_default_dir }}"
     - "{{ ansible_unit_test_prefix_dir }}{{ systemd_service_systemd_dir }}"
 
-- name: write default configuration for service
+- name: "Write default configuration for service"
   template:
     src: default.j2
     dest: "{{ ansible_unit_test_prefix_dir }}/{{ systemd_service_default_dir }}/{{ systemd_service_name }}"
   notify: reload systemd
 
-- name: adds systemd entry for service
+- name: "Ensure systemd service entry for service"
   template:
     src: service.j2
     dest: "{{ ansible_unit_test_prefix_dir }}/{{ systemd_service_systemd_dir }}/{{ systemd_service_name }}.service"
+    force: "{{ systemd_service_force_update | d(False) }}"
   register: service_file
   notify: reload systemd
 
-- name: reload systemctl manager configuration
+- name: "Reload systemctl manager configuration"
   shell: systemctl daemon-reload
   when: service_file.changed and not ansible_unit_test

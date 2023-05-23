@@ -9,34 +9,56 @@
   changed_when: no
   shell: step ca bootstrap --force --ca-url {{ deploy_cacerts__stepca_host_url }} --fingerprint {{ deploy_cacerts__stepca_root_ca_fingerprint }}
 
-#- name: Stepca | Create step group
-#  group:
-#    name: step
-#    state: present
+##- name: Stepca | Create step group
+##  group:
+##    name: step
+##    state: present
+##
+##- name: Stepca | Create Step-ca service account
+##  user:
+##    name: '{{ stepca_svc_user }}'
+##    groups: step
+##    password: '*'
+##    shell: /sbin/nologin
+##    append: yes
+##    state: present
+##    create_home: no
+##    system: yes
 #
-#- name: Stepca | Create Step-ca service account
-#  user:
-#    name: '{{ stepca_svc_user }}'
-#    groups: step
-#    password: '*'
-#    shell: /sbin/nologin
-#    append: yes
-#    state: present
-#    create_home: no
-#    system: yes
+#- name: "Stepca | Setup systemd service file to server"
+#  template:
+#    src: stepca-renew.service.j2
+#    dest: /etc/systemd/system/stepca-renew.service
+#    owner: root
+#    group: root
+#  notify:
+#    - reload systemctl
+#
+#- name: Stepca | Start stepca renewal service
+##  when: deploy_cacerts__stepca_start_service|d(True)|bool
+#  service:
+#    name: stepca-renew.service
+#    state: started
+#    enabled: yes
 
-- name: "Stepca | Setup systemd service file to server"
-  template:
-    src: stepca-renew.service.j2
-    dest: /etc/systemd/system/stepca-renew.service
-    owner: root
-    group: root
-  notify:
-    - reload systemctl
-
-- name: Stepca | Start stepca renewal service
+## ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
+- name: "Setup stepca-renew.service systemd service"
 #  when: deploy_cacerts__stepca_start_service|d(True)|bool
-  service:
-    name: stepca-renew.service
-    state: started
-    enabled: yes
+  include_role:
+    name: bootstrap-systemd-service
+  vars:
+    systemd_service_force_update: yes
+    systemd_service_name: stepca-renew
+    systemd_service_envs:
+        - "PATH=$PATH:/usr/local/bin"
+    systemd_service_Unit_Description: "Step TLS Renewer service"
+    systemd_service_Unit_Wants: network.target
+    systemd_service_Unit_After: network.target
+    systemd_service_Service_Restart: "always"
+    systemd_service_Service_RestartSec: 120
+    systemd_service_Service_User: root
+    systemd_service_Service_ExecStart: >-
+      step ca renew --daemon {{ deploy_cacerts__ca_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.pem \
+        {{ deploy_cacerts__ca_local_key_dir }}/{{ deploy_cacerts__hostname_full }}-key.pem
+    systemd_service_Service_WorkingDirectory: "{{ docker_stack_dir }}"
+    systemd_service_Install_WantedBy: multi-user.target

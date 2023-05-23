@@ -12,9 +12,9 @@ The [bootstrap_vm_template.yml](./bootstrap_vm_template.yml) playbook is used by
 
 The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
 
-## Linux OS Platform Testing using molecule and github actions
+## Linux OS Platform Molecule Tests
 
-Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](molecule/default/converge.yml) set on the [bootstrap_docker_ci.yml](./bootstrap_docker_ci.yml) playbook.
+Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](molecule/default/converge.yml).  Molecule scenarios have been set up to include the overall platform provisioning/orchestration role converge playbook for [bootstrap-linux](./molecule/bootstrap-linux/converge.yml) as well as multiple key roles invoked within the `bootstrap-linux` orchestration role to allow/enable isolated/granular testing when and as needed.
 
 The molecule test pipeline is set up in the github actions [ci.yml](.github/workflows/ci.yml) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
 

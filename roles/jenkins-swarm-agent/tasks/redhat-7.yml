@@ -4,15 +4,19 @@
   group:
     name: jenkins
     state: present
-  become: true
 
-- name: "Add a jenkins user and add it to the docker group"
+- name: "Add a jenkins user"
   user:
     name: jenkins
-    groups: docker
+    state: present
+
+- name: "Add jenkins user to jenkins user groups"
+  when: jenkins_swarm_jenkins_user_groups|d([])|length>0
+  user:
+    name: jenkins
+    groups: "{{ jenkins_swarm_jenkins_user_groups }}"
     append: yes
     state: present
-  become: true
 
 - name: "Copy the Swarm startup script into init.d"
   copy:
@@ -29,7 +33,6 @@
     path: "{{ jenkins_swarm_path }}"
     state: directory
     mode: "0755"
-  become: true
 
 - name: "Download the Jenkins Swarm Client"
   get_url:
@@ -37,7 +40,6 @@
     dest: "{{ jenkins_swarm_path }}"
     owner: jenkins
     group: jenkins
-  become: true
   notify:
     - Restart Swarm Client service
   register: swarm_jar
@@ -47,7 +49,6 @@
     path: "{{ jenkins_swarm_config_path }}"
     state: directory
     mode: "0755"
-  become: true
 
 - name: Create the Jenkins Swarm Client config file
   template:
@@ -56,8 +57,6 @@
     owner: jenkins
     group: jenkins
     mode: "0644"
-  tags:
-    - configuration
   notify:
     - Restart Swarm Client service
   become: true
