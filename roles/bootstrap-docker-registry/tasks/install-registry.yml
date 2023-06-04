@@ -1,0 +1,65 @@
+---
+
+- set_fact:
+    log_prefix_local: "Docker Registry | Install |"
+
+- name: "{{ log_prefix_local }} install htpasswd deps with pip"
+  pip:
+    name: passlib[bcrypt]
+
+- name: "{{ log_prefix_local }} Remove registry, if it exists"
+  docker_container:
+    name: "{{ bootstrap_docker_registry__container_name }}"
+    state: absent
+    container_default_behavior: compatibility
+#    container_default_behavior: no_defaults
+
+- name: "{{ log_prefix_local }} Ensure directories exists for CA signed TLS certs."
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ bootstrap_docker_registry__config_path }}"
+    - "{{ bootstrap_docker_registry__auth_path }}"
+    - "{{ bootstrap_docker_registry__cert_path }}"
+
+## ref: https://codeblog.dotsandbrackets.com/private-registry-swarm/
+- name: "{{ log_prefix_local }} Copy ca cert and node cert to registry cert path ({{ bootstrap_docker_registry__cert_path }})"
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+#    force: "{{ overwrite_configs }}"
+    remote_src: yes
+  with_items:
+    - { src: "{{ pki_cert_dir }}/ca.pem", dest: "{{ bootstrap_docker_registry__cert_path }}/ca.pem" }
+    - { src: "{{ pki_cert_dir }}/{{ bootstrap_docker_registry__cert_file }}", dest: "{{ bootstrap_docker_registry__cert_path }}/{{ bootstrap_docker_registry__cert_file }}" }
+    - { src: "{{ pki_key_dir }}/{{ bootstrap_docker_registry__key_file }}", dest: "{{ bootstrap_docker_registry__cert_path }}/{{ bootstrap_docker_registry__key_file }}" }
+    - { src: "{{ pki_cert_dir }}/ca-certificates.crt", dest: "{{ bootstrap_docker_registry__cert_path }}/ca-certificates.crt" }
+
+- name: "{{ log_prefix_local }} Configure {{ bootstrap_docker_registry__auth_file }} users file"
+  when: bootstrap_docker_registry__enable_auth|bool
+  no_log: yes
+  community.general.htpasswd: 
+    path: "{{ bootstrap_docker_registry__auth_path }}/{{ bootstrap_docker_registry__auth_file }}"
+    name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    owner: "root" 
+    group: "root"
+    mode: "0600"
+    crypt_scheme: bcrypt
+  with_items: "{{ bootstrap_docker_registry__users }}"
+
+- name: "{{ log_prefix_local }} Install registry config settings"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+#    force: "{{ overwrite_configs }}"
+    mode: "0664"
+  with_items:
+    - {src: 'config-registry.yml.j2', dest: "{{ bootstrap_docker_registry__config_path }}/config.yml"}
+
+- name: "{{ log_prefix_local }} Setup docker registry services"
+  when: bootstrap_docker_registry__enable_service | bool
+  include_tasks: setup-services.yml
+  vars:
+    ansible_python_interpreter: "{{ ansible_python_docker_interpreter }}"

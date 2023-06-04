@@ -1,0 +1,31 @@
+- name: Test role-local-registry 
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  roles:
+    - role: role-local-registry
+
+- name: Test the registry
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Wait for registry to start
+      wait_for:
+        host: 127.0.0.1
+        port: "{{ bootstrap_docker_registry__port }}"
+
+    - command: "{% raw %}docker inspect --format='{{ .State.Running }}' registry{% endraw %}"
+      register: container_state
+
+    - name: Should be running
+      assert:
+        that:
+          - container_state.stdout == 'true' 
+
+    - name: Authenticate each user 
+      community.docker.docker_login:
+        registry_url: "https://localhost:5000"
+        username: "{{ item.username }}"
+        password: "{{ item.password }}"
+      with_items: "{{ bootstrap_docker_registry__users }}"

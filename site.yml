@@ -56,24 +56,26 @@
       tags: debug_info
 
 - name: "Display cert info"
-  hosts: control_node,!local,!node_offline
+  hosts: all,!local,!node_offline
   ignore_unreachable: yes
   ignore_errors: yes
   tags:
     - bootstrap-cacerts
+    - bootstrap-signing-certs
     - bootstrap-keyring
     - deploy-cacerts
   tasks:
     - name: Print cert chain information
       debug:
-        msg:
-          - "ca_domains_dynamic={{ ca_domains_dynamic | to_nice_json }}"
-          - "ca_service_routes_list={{ ca_service_routes_list | to_nice_json }}"
-          - "ca_intermediate_certs_config={{ ca_intermediate_certs_config | to_nice_json }}"
-          - "ca_intermediate_certs_list_dynamic={{ ca_intermediate_certs_list_dynamic | to_nice_json }}"
-          - "ca_intermediate_certs_list={{ ca_intermediate_certs_list | to_nice_json }}"
-          - "ca_internal_domains_dynamic={{ ca_internal_domains_dynamic | to_nice_json }}"
-          - "ca_routes_dynamic={{ ca_routes_dynamic | to_nice_json }}"
+        var: "{{ item }}"
+      loop:
+        - ca_domains_dynamic
+        - ca_service_routes_list
+        - ca_intermediate_certs_config
+        - ca_intermediate_certs_list_dynamic
+        - ca_intermediate_certs_list
+        - ca_internal_domains_dynamic
+        - ca_routes_dynamic
 
 - name: "Display bind info"
   hosts: bind_master,!node_offline
@@ -87,8 +89,9 @@
     - name: "Print domain vars"
       when: inventory_hostname in groups['bind_master'] or inventory_hostname in groups['bind_slave']
       debug:
-        msg:
-          - "bind_zone_hosts_dynamic={{ bind_zone_hosts_dynamic | to_nice_json }}"
+        var: "{{ item }}"
+      loop:
+          - bind_zone_hosts_dynamic
 
 
 ##
@@ -99,8 +102,7 @@
   tags:
     - deploy-vm
   gather_facts: false
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: ansible-role-govc
     - role: deploy-vm
@@ -146,7 +148,7 @@
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Configure linux firewall"
   hosts: dc_os_linux,!node_offline
-  become: true
+  become: yes
   tags:
     - configure-firewall
     - configure-linux-firewall
@@ -172,7 +174,6 @@
     - bootstrap-logrotate
     - bootstrap-linux-logrotate
   become: yes
-#  become_method: sudo
   roles:
     - name: ansible-logrotate
 
@@ -221,7 +222,7 @@
 ## ref: https://github.com/nathancurry/homelab.ansible/tree/master
 - name: "Configure nameservers"
   hosts: nameserver,!node_offline
-  become: true
+  become: yes
   tags:
     - bootstrap-nameserver
     - bootstrap-bind
@@ -308,7 +309,6 @@
     - bootstrap-node-core
     - bootstrap-node
   become: yes
-#  become_method: sudo
   roles:
     - role: bootstrap-linux
 
@@ -317,7 +317,6 @@
   tags:
     - bootstrap-linux-core
   become: yes
-#  become_method: sudo
   roles:
     - role: bootstrap-linux-core
 
@@ -353,7 +352,7 @@
     - bootstrap-cicd
     - bootstrap-cicd-node
     - cicd-node
-  become: True
+  become: yes
   roles:
     - role: bootstrap-linux-firewalld
       firewalld_action: configure
@@ -374,7 +373,7 @@
   tags:
     - bootstrap-jenkins-agent
     - deploy-jenkins-agent
-  become: True
+  become: yes
   roles:
     - role: jenkins-swarm-agent
     - role: geerlingguy.git
@@ -420,8 +419,7 @@
   tags:
     - mergerfs
     - bootstrap-mergerfs
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: ansible-role-snapraid
     - role: ansible-role-hddtemp
@@ -433,7 +431,7 @@
 
 - name: "Install veeam-agent"
   hosts: veeam_agent,!node_offline
-  become: true
+  become: yes
   tags:
     - bootstrap-veeam
     - bootstrap-veeam-agent
@@ -447,7 +445,7 @@
 
 - name: "Configure veeam-agent jobs"
   hosts: veeam_agent,!node_offline
-  become: true
+  become: yes
   tags:
     - config-veeam-agent
 #    - bootstrap-veeam
@@ -459,8 +457,7 @@
   hosts: postfix_server,postfix_client,!node_offline
   tags:
     - bootstrap-postfix
-  become: True
-  become_method: sudo
+  become: yes
   roles:
     - role: bootstrap-postfix
 
@@ -478,8 +475,7 @@
   hosts: ldap_client,!node_offline
   tags:
     - bootstrap-ldap-client
-  become: True
-  become_method: sudo
+  become: yes
   roles:
     - role: ldap-client
 
@@ -489,8 +485,7 @@
     - bootstrap
     - bootstrap-admin
     - bootstrap-ansible
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: geerlingguy.ansible
     - role: geerlingguy.git
@@ -519,6 +514,8 @@
 #    - lvrfrc87.git_acp
   tags:
     - bootstrap-cacerts
+    - bootstrap-signing-certs
+    - bootstrap-keyring
     - bootstrap-pki
     - renew-expired-cacerts
     - caroot
@@ -528,7 +525,7 @@
   become: yes
   roles:
     - role: bootstrap-cfssl
-    - role: bootstrap-cacerts
+    - role: bootstrap-signing-certs
       tags: [cacerts-create]
 
 - name: "Deploy CA certs to cert_node"
@@ -544,7 +541,6 @@
     - cacerts-update
     - deploy-cacerts
   become: yes
-#  become_method: sudo
   roles:
     - role: deploy-cacerts
 
@@ -563,15 +559,31 @@
     - bootstrap-linux-docker
     - bootstrap-docker
     - bootstrap-registry
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: bootstrap-docker
-    - role: docker-deploy-registry-certs
-      tags:
-        - deploy-docker-registry-certs
-        - deploy-registry-certs
-        - cacerts-update
+
+- name: "Bootstrap docker nodes"
+  hosts: docker,!node_offline
+  tags:
+    - bootstrap-docker-swarm
+    - docker-swarm
+  become: yes
+  roles:
+    - role: bootstrap-docker
+      bootstrap_docker__actions: ['setup-swarm']
+
+- name: "Deploy docker registry certs"
+  hosts: docker,!node_offline
+  tags:
+    - deploy-docker-registry-certs
+    - deploy-registry-certs
+    - deploy-cacerts
+    - cacerts-update
+  become: yes
+  roles:
+    - role: bootstrap-docker-registry
+      bootstrap_docker_registry__actions: ['deploy-certs']
 
 ###########################
 # docker_registry install #
@@ -586,8 +598,7 @@
     - bootstrap-admin-node
     - docker-build-images
     - build-docker-images
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: geerlingguy.git
     - role: docker-image-builder
@@ -600,8 +611,7 @@
   tags:
     - bootstrap-docker-stack
     - docker-stack
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: docker-stack
 
@@ -610,8 +620,7 @@
   tags:
     - bootstrap-control-node
     - docker-control-node
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: docker-stack
 
@@ -620,8 +629,7 @@
   tags:
     - bootstrap-admin-node
     - docker-admin-node
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: docker-stack
 
@@ -630,8 +638,7 @@
   tags:
     - bootstrap-media-node
     - docker-media-node
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: docker-stack
 
@@ -640,8 +647,7 @@
   tags:
     - bootstrap-ml-node
     - docker-ml-node
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: docker-stack
 
@@ -650,7 +656,7 @@
   hosts: proxmox,!node_offline
   tags:
     - bootstrap-proxmox
-  become: True
+  become: yes
   roles:
     - role: ansible-role-proxmox
       pve_group: proxmox
@@ -698,7 +704,7 @@
 
 - name: "VMware Remount VM Datastores"
   hosts: vmware_control_node
-  become: True
+  become: yes
   tags:
     - vmware-remount-datastores
   roles:
@@ -708,7 +714,7 @@
 
 - name: "VMware Mount VM Datastores"
   hosts: vmware_control_node
-  become: True
+  become: yes
   tags:
     - vmware-mount-datastores
   roles:
@@ -720,8 +726,7 @@
   tags:
     - bootstrap
     - bootstrap-openstack
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - name: Configure openstack deploy node
       role: bootstrap-openstack
@@ -743,8 +748,7 @@
   tags:
     - bootstrap-openstack-cloud
     - openstack-cloud
-  become: True
-#  become_method: sudo
+  become: yes
   vars:
     ansible_python_interpreter: "{{ ansible_openstack_python_interpreter }}"
   roles:
@@ -767,7 +771,7 @@
 ## ref: https://github.com/ceph/ceph-cm-ansible/tree/master/roles/bootstrap-fog
 - name: Bootstrap FOG server
   hosts: fog_server,!node_offline
-  become: true
+  become: yes
   tags:
     - bootstrap-fog
   roles:
@@ -782,8 +786,7 @@
   hosts: nginx_service,!node_offline
   tags:
     - nginx-service
-  become: True
-#  become_method: sudo
+  become: yes
   roles:
     - role: nginx-service
 

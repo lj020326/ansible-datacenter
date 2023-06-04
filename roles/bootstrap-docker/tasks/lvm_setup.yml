@@ -1,0 +1,49 @@
+---
+
+- set_fact:
+    log_prefix_local: "Docker | Setup LVM |"
+
+- name: "{{ log_prefix_local }} Assert bootstrap_docker__pvname is defined"
+  assert:
+    that: bootstrap_docker__pvname is defined
+
+- name: "{{ log_prefix_local }} Add physical device {{ bootstrap_docker__pvname }}"
+  shell: "pvcreate -y {{ bootstrap_docker__pvname }}"
+
+- name: "{{ log_prefix_local }} Add volume grop {{ bootstrap_docker__vgname }}"
+  shell: "vgcreate -y {{ bootstrap_docker__vgname }} {{ bootstrap_docker__pvname }}"
+
+- name: "{{ log_prefix_local }} Create logical volume {{ bootstrap_docker__lvname }}"
+  shell: "lvcreate --wipesignatures y -n {{ bootstrap_docker__lvname }} {{ bootstrap_docker__vgname }} -l 95%VG"
+
+- name: "{{ log_prefix_local }} Create logical volume meta {{ bootstrap_docker__lvname_meta }}"
+  shell: "lvcreate --wipesignatures y -n {{ bootstrap_docker__lvname_meta }} {{ bootstrap_docker__vgname }} -l 1%VG"
+
+- name: "{{ log_prefix_local }} Converting logical volume in thin pool"
+  shell: >
+    lvconvert -y --zero n -c 512K --thinpool {{ bootstrap_docker__vgname }}/{{ bootstrap_docker__lvname }}
+      --poolmetadata {{ bootstrap_docker__vgname }}/{{ bootstrap_docker__lvname_meta }}
+
+- name: "{{ log_prefix_local }} Create lvm profile for autoextend"
+  blockinfile: 
+    create: yes 
+    dest: "/etc/lvm/profile/{{ bootstrap_docker__vgname }}-{{ bootstrap_docker__lvname }}.profile"
+    marker: ""
+    block: |
+         activation {
+         thin_pool_autoextend_threshold=80
+         thin_pool_autoextend_percent=20
+         }
+
+- name: "{{ log_prefix_local }} Load lvm profile"
+  shell: >
+    lvchange --metadataprofile {{ bootstrap_docker__vgname }}-{{ bootstrap_docker__lvname }}
+      {{ bootstrap_docker__vgname }}/{{ bootstrap_docker__lvname }}
+
+- name: "{{ log_prefix_local }} Check current config"
+  shell: "lvs"
+  register: __lvs_result
+
+- name: "{{ log_prefix_local }} Display __lvs_result"
+  debug:
+    var: __lvs_result

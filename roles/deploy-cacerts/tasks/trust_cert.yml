@@ -17,7 +17,7 @@
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
   with_items:
-    - src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+    - src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
       dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
   register: trust_ca_cacertinstalled
 
@@ -30,20 +30,20 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
       with_items:
-        - src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.chain.pem"
+        - src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.chain.pem"
           dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__hostname_full }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
 
     - name: "trust_cert | Copy intermediate cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
-#        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item }}.pem"
-        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item }}.chain.pem"
+#        src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item }}.pem"
+        src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item }}.chain.pem"
         dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
       loop: "{{ __deploy_cacerts__ca_intermediate_certs | list }}"
 
     - name: "trust_cert | Copy service route cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
-#        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem"
-        src: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.chain.pem"
+#        src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.pem"
+        src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.chain.pem"
         dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item.route }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
       loop: "{{ deploy_cacerts__ca_service_routes_list }}"
 
@@ -84,7 +84,7 @@
 #      -keystore {{ __deploy_cacerts__ca_java_keystore }} \
 #      -noprompt \
 #      -alias {{ item.route }} \
-#      -file {{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem
+#      -file {{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.pem
 #  register: shell_cmd
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 #  loop: "{{ deploy_cacerts__ca_service_routes_list }}"
@@ -101,8 +101,8 @@
 #  register: shell_cmd
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 #  loop:
-#    - { cn: "{{ deploy_cacerts__ca_root_cn }}", path: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}" }
-##    - { cn: "{{ inventory_hostname }}", path: "{{ deploy_cacerts__ca_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
+#    - { cn: "{{ deploy_cacerts__ca_root_cn }}", path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}" }
+##    - { cn: "{{ inventory_hostname }}", path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
 
 - name: "trust_cert | Update java keystore"
   when: deploy_cacerts__ca_java_keystore_enabled|bool
@@ -133,7 +133,7 @@
           -noprompt \
           -cacerts \
           -alias {{ item.route }} \
-          -file {{ deploy_cacerts__ca_local_cert_dir }}/{{ item.route }}.pem
+          -file {{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.pem
       register: keystore_add_cert
       failed_when: keystore_add_cert.rc > 0 and not ( keystore_add_cert.stderr | regex_search("Certificate not imported, alias .* already exists") )
       loop: "{{ deploy_cacerts__ca_service_routes_list }}"

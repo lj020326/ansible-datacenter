@@ -1,0 +1,56 @@
+---
+
+- set_fact:
+    log_prefix_leader: "Docker | Configure swarm | LEADER |"
+
+- name: "{{ log_prefix_leader }} Update swarm"
+#  when: bootstrap_docker__swarm_state != 'join'
+  block:
+
+    - name: "{{ log_prefix_leader }} Update swarm"
+      community.docker.docker_swarm:
+        state: present
+        advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+      register: __update_swarm
+      ignore_errors: yes
+#      failed_when:
+#        - __update_swarm.rc > 0
+#        - not ( __update_swarm.msg | regex_search("This node is already part of a swarm") )
+
+    - name: "{{ __log_prefix_local }} Display __update_swarm"
+      debug:
+        var: __update_swarm
+
+    - name: "{{ __log_prefix_local }} Force block rescue"
+      when:
+        - __update_swarm.failed|d(False)
+        - __update_swarm.msg | regex_search("This node is already part of a swarm")
+      debug:
+        msg: Force block rescue
+      failed_when: true
+
+  rescue:
+
+    - name: "{{ log_prefix_leader }} Force Update swarm"
+#      when:
+#        - __update_swarm.failed|d(False)
+#        - __update_swarm.msg | regex_search("This node is already part of a swarm")
+      community.docker.docker_swarm:
+        state: present
+        advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+        force: yes
+      register: __update_swarm
+
+- name: "{{ log_prefix_leader }} Declare Swarm join tokens fact"
+  set_fact:
+    __swarm_join_token_manager: "{{ __update_swarm.swarm_facts.JoinTokens.Manager }}"
+    __swarm_join_token_worker: "{{ __update_swarm.swarm_facts.JoinTokens.Worker }}"
+    cacheable: false
+#  when: "'skipped' not in __update_swarm"
+
+- name: "{{ log_prefix_leader }} Display tokens"
+  debug:
+    msg:
+      - "__swarm_join_token_manager={{ __swarm_join_token_manager }}"
+      - "__swarm_join_token_worker={{ __swarm_join_token_worker }}"
+#    verbosity: 2

@@ -1,0 +1,58 @@
+---
+
+- set_fact:
+    log_prefix_mgr: "Docker | Configure swarm | MANAGER |"
+
+- name: "{{ log_prefix_mgr }} Display bootstrap_docker__swarm_remote_addrs"
+  debug:
+    var: bootstrap_docker__swarm_remote_addrs
+
+- name: "{{ log_prefix_mgr }} Retrieve swarm_join_token_manager token"
+  when: __swarm_join_token_manager is not defined
+  block:
+
+  - name: "{{ log_prefix_mgr }} Retrieve swarm_join_token_manager token"
+    shell: "docker swarm join-token manager"
+    changed_when: false
+    delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+    register: __swarm_token_result
+
+  - name: "{{ log_prefix_mgr }} Set __swarm_join_token_manager"
+    set_fact:
+      __swarm_join_token_manager: "{{ __swarm_token_result.stdout_lines | select('match', '^.*token .*')
+        | map('regex_replace', '^.*token (.*) .*$', '\\1') | list | first }}"
+
+- name: "{{ log_prefix_mgr }} Display __swarm_join_token_manager"
+  debug:
+    var: __swarm_join_token_manager
+
+- name: "{{ log_prefix_mgr }} Register host to swarm"
+  community.docker.docker_swarm:
+    state: join
+    advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+    join_token: "{{ __swarm_join_token_manager }}"
+    remote_addrs: "{{ bootstrap_docker__swarm_remote_addrs }}"
+  register: __swarm_join_result
+
+- name: "{{ log_prefix_mgr }} Display __swarm_join_result"
+  debug:
+    var: __swarm_join_result
+
+- name: "{{ log_prefix_mgr }} Set node role"
+  community.docker.docker_node:
+    hostname: "{{ ansible_hostname }}"
+    role: "manager"
+
+- name: "{{ log_prefix_mgr }} Set node labels"
+  when: bootstrap_docker__swarm_node_labels|d([])|length>0
+  community.docker.docker_node:
+    hostname: "{{ ansible_hostname }}"
+    labels: "{{ bootstrap_docker__swarm_node_labels }}"
+    labels_state: replace
+
+- name: "{{ log_prefix_mgr }} Create Docker Swarm Secrets"
+  community.docker.docker_secret:
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    state: "{{ item.state }}"
+  with_items: "{{ bootstrap_docker__swarm_secrets }}"

@@ -25,43 +25,75 @@
   retries: 10
   delay: 2
 
-- name: "Docker | CE | APT | Add repository key"
-  block:
+- name: "Ensure key absent from system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
+  file:
+    name: "{{ bootstrap_docker__apt_system_keyring_dir }}/docker.gpg"
+    state: absent
+
+- name: "Ensure key absent from system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
+  ansible.builtin.get_url:
+    url: "{{ bootstrap_docker__ce_gpg_key }}"
+    dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+    mode: '0644'
+    force: true
+
+#- name: "Docker | CE | APT | Add repository key"
+#  block:
+#
+#    - name: "Ensure key absent from system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
+#      file:
+#        name: "{{ bootstrap_docker__apt_system_keyring_dir }}/docker.gpg"
+#        state: absent
+#
 #    - name: "Docker | CE | APT | Add Docker GPG Key"
-#      apt_key:
+#      ansible.builtin.apt_key:
 #        id: "{{ bootstrap_docker__ce_gpg_key_id }}"
 #        url: "{{ bootstrap_docker__ce_gpg_key }}"
+#        dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
 #        validate_certs: "{{ bootstrap_docker__ce_gpg_key_validate_certs }}"
+#
+##    ## ref: https://github.com/ansible/ansible/issues/78063
+##    ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/linux-package/ansible-how-to-fix-aptkey-deprecated-debianubuntu.md
+##    - name: "Docker | CE | APT | Add Docker GPG Key"
+##      ansible.builtin.get_url:
+##        url: "{{ bootstrap_docker__ce_gpg_key }}"
+##        dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+##        mode: '0644'
+##        force: true
+#  rescue:
+#    - name: "Docker | CE | APT | Ensure curl is present (systems without SNI)."
+#      package: name=curl
+#
+#    ## ref: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-22-04
+#    - name: "Docker | CE | APT | Download GPG key (systems without SNI)."
+#      shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o {{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+##      shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo gpg --dearmor -o {{ bootstrap_docker__apt_keyring_dir }}/docker.gpg"
+##      shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo apt-key add -"
 
-    ## ref: https://github.com/ansible/ansible/issues/78063
-    ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/linux-package/ansible-how-to-fix-aptkey-deprecated-debianubuntu.md
-    - name: "Docker | CE | APT | Add Docker GPG Key"
-      ansible.builtin.get_url:
-        url: "{{ bootstrap_docker__ce_gpg_key }}"
-        dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
-        mode: '0644'
-        force: true
-  rescue:
-    - name: "Docker | CE | APT | Ensure curl is present (systems without SNI)."
-      package: name=curl
-    ## ref: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-22-04
-    - name: "Docker | CE | APT | Download GPG key (systems without SNI)."
-      shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o {{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
-#      shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo gpg --dearmor -o {{ bootstrap_docker__apt_keyring_dir }}/docker.gpg"
-#      shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo apt-key add -"
+- name: "Docker | CE | APT | Remove existing Docker repository"
+  apt_repository:
+    repo: "{{ item.url }}"
+    filename: "{{ item.filename | d(omit) }}"
+    state: absent
+  loop:
+#    - url: "{{ bootstrap_docker__apt_repo_url }}"
+    - url: "{{ bootstrap_docker__apt_repo_url }}"
+      filename: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}"
 
 - name: "Docker | CE | APT | Configure Docker repository"
   apt_repository:
     repo: "{{ bootstrap_docker__apt_repo_url }}"
+    filename: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}"
+    state: present
   register: task_result
   until: task_result is success
   retries: 5
   delay: 5
 
 - name: "Docker | CE | APT | Enable Edge repository"
+  when: bootstrap_docker__channel == "edge"
   apt_repository:
     repo: "{{ bootstrap_docker__apt_repo_url_edge }}"
-  when: bootstrap_docker__channel == "edge"
 
 - name: "Docker | CE | APT | Perform specific os tasks"
   include_tasks: "{{ item }}"

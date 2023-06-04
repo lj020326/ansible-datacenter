@@ -4,21 +4,31 @@
     log_prefix_local: "Docker Stack | Setup Firewall |"
 
 - name: "{{ log_prefix_local }} Set the firewall services"
-  when: __docker_stack_app_configs[item.name].firewalld_services | d([]) | length > 0
+  when: __docker_stack__app_configs[item.name].firewalld_services | d([]) | length > 0
   set_fact:
-    __docker_stack_firewalld_services: "{{ __docker_stack_app_configs[item.name].firewalld_services | flatten | unique }}"
-  with_items: "{{ __docker_stack_service_groups }}"
+    __docker_stack__firewalld_services: "{{ (__docker_stack__firewalld_services|d([])
+      + __docker_stack__app_configs[item.name].firewalld_services) | flatten | unique }}"
+  with_items: "{{ __docker_stack__service_groups }}"
 
 - name: "{{ log_prefix_local }} Set the firewall ports"
-  when: __docker_stack_app_configs[item.name].firewalld_ports | d([]) | length > 0
+  when: __docker_stack__app_configs[item.name].firewalld_ports | d([]) | length > 0
   set_fact:
-    __docker_stack_firewalld_ports: "{{ __docker_stack_app_configs[item.name].firewalld_ports | flatten | unique }}"
-  with_items: "{{ __docker_stack_service_groups }}"
+    __docker_stack__firewalld_ports: "{{ (__docker_stack__firewalld_ports|d([])
+      + __docker_stack__app_configs[item.name].firewalld_ports) | flatten | unique }}"
+  with_items: "{{ __docker_stack__service_groups }}"
+
+- name: "{{ log_prefix_local }} Display __docker_stack__firewalld_services"
+  debug:
+     var: __docker_stack__firewalld_services
+
+- name: "{{ log_prefix_local }} Display __docker_stack__firewalld_ports"
+  debug:
+     var: __docker_stack__firewalld_ports
 
 - name: "{{ log_prefix_local }} Configure firewall for docker stack apps"
   include_role:
     name: bootstrap-linux-firewalld
   vars:
     firewalld_action: configure
-    firewalld_services: "{{ __docker_stack_firewalld_services | d([]) }}"
-    firewalld_ports: "{{ __docker_stack_firewalld_ports | d([]) }}"
+    firewalld_services: "{{ __docker_stack__firewalld_services | d([]) }}"
+    firewalld_ports: "{{ __docker_stack__firewalld_ports | d([]) }}"

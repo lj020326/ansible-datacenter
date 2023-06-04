@@ -1,8 +1,10 @@
 ---
 
-- name: "Assert systemd_service_name is defined"
+- name: "Assert primary role input vars are defined"
   assert:
-    that: systemd_service_name is defined
+    that:
+      - bootstrap_systemd_service_name is defined
+      - bootstrap_systemd_service_Service_ExecStart is defined
 
 # tasks file for roles/systemd/service
 - name: "Create service directories"
@@ -11,23 +13,25 @@
     path: "{{ item }}"
     recurse: yes
   with_items:
-    - "{{ ansible_unit_test_prefix_dir }}{{ systemd_service_default_dir }}"
-    - "{{ ansible_unit_test_prefix_dir }}{{ systemd_service_systemd_dir }}"
+    - "{{ ansible_unit_test_prefix_dir }}{{ bootstrap_systemd_service_default_dir }}"
+    - "{{ ansible_unit_test_prefix_dir }}{{ bootstrap_systemd_service_systemd_dir }}"
 
 - name: "Write default configuration for service"
   template:
     src: default.j2
-    dest: "{{ ansible_unit_test_prefix_dir }}/{{ systemd_service_default_dir }}/{{ systemd_service_name }}"
+    dest: "{{ ansible_unit_test_prefix_dir }}/{{ bootstrap_systemd_service_default_dir }}/{{ bootstrap_systemd_service_name }}"
   notify: reload systemd
 
 - name: "Ensure systemd service entry for service"
   template:
     src: service.j2
-    dest: "{{ ansible_unit_test_prefix_dir }}/{{ systemd_service_systemd_dir }}/{{ systemd_service_name }}.service"
-    force: "{{ systemd_service_force_update | d(False) }}"
+    dest: "{{ ansible_unit_test_prefix_dir }}/{{ bootstrap_systemd_service_systemd_dir }}/{{ bootstrap_systemd_service_name }}.service"
+    force: "{{ bootstrap_systemd_service_force_update | d(False) }}"
   register: service_file
   notify: reload systemd
 
 - name: "Reload systemctl manager configuration"
   shell: systemctl daemon-reload
-  when: service_file.changed and not ansible_unit_test
+  when:
+    - service_file.changed
+    - not ansible_unit_test

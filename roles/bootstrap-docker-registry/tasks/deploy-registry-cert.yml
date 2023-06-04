@@ -1,0 +1,66 @@
+---
+
+- set_fact:
+    log_prefix_local: "Docker Registry | Deploy certs |"
+
+- name: "{{ log_prefix_local }} Display bootstrap_docker_registry__keystore_cert_host"
+  debug:
+    var: bootstrap_docker_registry__keystore_cert_host
+
+- name: "{{ log_prefix_local }} Ensure {{ bootstrap_docker_registry__cacert_certs_dir }} exists"
+  file:
+    path: "{{ bootstrap_docker_registry__cacert_certs_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: "{{ log_prefix_local }} Display bootstrap_docker_registry__keystore_cert_host"
+  debug:
+    var: bootstrap_docker_registry__keystore_cert_host
+
+- name: "{{ log_prefix_local }} Set certpath vars"
+  set_fact:
+    __docker_registry_remote_certpath: "{{ bootstrap_docker_registry__keystore_cert_base_dir }}/{{ __docker_registry_info.host }}/{{ __docker_registry_info.host }}.chain.pem"
+    __docker_registry_local_certpath: "{{ bootstrap_docker_registry__cacert_certs_dir }}/{{ __docker_registry_info.host }}.pem"
+    __docker_registry_certpath: "/etc/docker/certs.d/{{ __docker_registry_info.endpoint }}/ca.crt"
+
+- name: "{{ log_prefix_local }} Display __docker_registry_remote_certpath"
+  debug:
+    var: __docker_registry_remote_certpath
+
+- name: "{{ log_prefix_local }} Display __docker_registry_local_certpath"
+  debug:
+    var: __docker_registry_local_certpath
+
+#- name: "{{ log_prefix_local }} Copy registry cert {{ __docker_registry_info.host }}.chain.pem"
+#  delegate_to: localhost
+#  shell: >
+#    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
+#    {{ ansible_ssh_user }}@{{ bootstrap_docker_registry__keystore_cert_host }}:{{ __docker_registry_remote_certpath }}
+#    {{ __docker_registry_local_certpath }}
+#
+#- name: "{{ log_prefix_local }} Ensure directory exists for CA signed TLS certs."
+#  file:
+#    path: "/etc/docker/certs.d/{{ __docker_registry_info.endpoint }}"
+#    state: directory
+#
+### ref: https://codeblog.dotsandbrackets.com/private-registry-swarm/
+#- name: "{{ log_prefix_local }} Copy {{ __docker_registry_info.certname }} cert to docker node"
+#  copy:
+#    src: "{{ bootstrap_docker_registry__cacert_local_cert_dir }}/{{ __docker_registry_info.certname }}"
+#    dest: "/etc/docker/certs.d/{{ __docker_registry_info.endpoint }}/ca.crt"
+
+- name: "{{ log_prefix_local }} Slurp up {{ __docker_registry_remote_certpath }}"
+  delegate_to: "{{ bootstrap_docker_registry__keystore_cert_host }}"
+  slurp:
+    src: "{{ __docker_registry_remote_certpath }}"
+  register: __slurped_cert
+
+## ref: https://codeblog.dotsandbrackets.com/private-registry-swarm/
+- name: "{{ log_prefix_local }} Copy slurped registry cert content to {{ __docker_registry_certpath }}"
+  copy:
+    content: "{{ __slurped_cert.content | b64decode }}"
+    dest: "{{ __docker_registry_certpath }}"
+    backup: yes
+#    owner: 'root'
+#    group: 'root'
+#    mode: '0600'

@@ -3,9 +3,12 @@
 PROJECT_DIR=$( git rev-parse --show-toplevel )
 echo "PROJECT_DIR=${PROJECT_DIR}"
 
+cd "${PROJECT_DIR}/tests"
+
 find . -maxdepth 1 -type l -print -exec rm {} \;
 
-cd "${PROJECT_DIR}/tests"
+echo "Set up site.yml symlink"
+ln -sf ../site.yml
 
 echo "Set up inventory symlink"
 #ln -sf ../inventory/dev inventory

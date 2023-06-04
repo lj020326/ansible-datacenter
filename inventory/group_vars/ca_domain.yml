@@ -61,14 +61,14 @@ cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_host]['ansible_host
 #cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_host]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) }}"
 cacerts_keystore_dir: /etc/ssl/private
 
-bootstrap_cacerts__keystore_host: "{{ cacert_keystore_host }}"
-bootstrap_cacerts__ca_key_dir: "{{ cacerts_keystore_dir }}"
+bootstrap_signing_certs__keystore_host: "{{ cacert_keystore_host }}"
+bootstrap_signing_certs__ca_key_dir: "{{ cacerts_keystore_dir }}"
 
-ca_keystore_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
+cacert_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
 # where to deploy the finalized cert files to on the ansible control node
-ca_keystore_base_dir: "{{ '~/pki' | expanduser }}"
-ca_keystore_certs_dir: "{{ ca_keystore_base_dir }}/certs"
-ca_keystore_keys_dir: "{{ ca_keystore_base_dir }}/keys"
+cacert_base_dir: "{{ '~/pki' | expanduser }}"
+cacert_certs_dir: "{{ cacert_base_dir }}/certs"
+cacert_keys_dir: "{{ cacert_base_dir }}/keys"
 
 ca_intermediate_certs_config:
   dettonville.int:
@@ -87,8 +87,8 @@ ca_intermediate_certs_config:
     domainName: "johnson.int"
     signerName: "{{ ca_root_cn }}"
     country: US
-    state: "New York"
-    locality: "CSH"
+    state: "North Carolina"
+    locality: "Raleigh"
     organization: "Johnsonville Internal"
     organizationalUnit: "Mostly Impractical"
     email: "admin@johnson.int"
@@ -96,7 +96,7 @@ ca_intermediate_certs_config:
 #    ca_csr_profile: "intermediate_ca"
 
 ca_internal_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain']) | select('defined') | unique }}"
-#ca_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain', 'docker_stack_internal_domain']) | select('defined') | unique }}"
+#ca_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain', 'docker_stack__internal_domain']) | select('defined') | unique }}"
 ca_routes_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['ca_service_route']) | select('defined') | unique | d([]) }}"
 
 ca_domains_dynamic: "{{ ca_internal_domains_dynamic|d([]) + ca_routes_dynamic|d([]) }}"
@@ -131,7 +131,7 @@ ca_service_routes_list: |
 
 
 hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
-keystore_cacerts_base_dir: /usr/share/ca-certs
+cacert_keystore_base_dir: /usr/share/ca-certs
 pki_caroot_cert: "{{ ca_root_cn }}.pem"
 ca_java_keystore_enabled: yes
 ca_java_keystore_pass: changeit
@@ -148,7 +148,7 @@ deploy_cacerts__ca_force_create: "{{ ca_force_create|d(False) }}"
 deploy_cacerts__ca_force_distribute_nodes: "{{ ca_force_distribute_nodes|d(False) }}"
 deploy_cacerts__ca_reset_local_certs: "{{ ca_reset_local_certs|d(False) }}"
 
-deploy_cacerts__keystore_cacerts_base_dir: "{{ keystore_cacerts_base_dir | d('/usr/share/ca-certs') }}"
+deploy_cacerts__keystore_cert_base_dir: "{{ cacert_keystore_base_dir | d('/usr/share/ca-certs') }}"
 deploy_cacerts__stepca_host_url: "{{ stepca_host_url }}"
 deploy_cacerts__stepca_root_ca_fingerprint: "{{ stepca_root_ca_fingerprint }}"
 
@@ -156,8 +156,8 @@ deploy_cacerts__ca_root_cn: "{{ ca_root_cn }}"
 
 deploy_cacerts__pki_caroot_cert: "{{ pki_caroot_cert }}"
 
-deploy_cacerts__ca_local_cert_dir: "{{ ca_local_cert_dir }}"
-deploy_cacerts__ca_local_key_dir: "{{ ca_local_key_dir }}"
+deploy_cacerts__cacert_local_cert_dir: "{{ cacert_local_cert_dir }}"
+deploy_cacerts__cacert_local_key_dir: "{{ cacert_local_key_dir }}"
 
 deploy_cacerts__ca_java_keystore_enabled: "{{ ca_java_keystore_enabled }}"
 deploy_cacerts__ca_java_keystore_pass: "{{ ca_java_keystore_pass }}"
@@ -166,14 +166,27 @@ deploy_cacerts__trust_ca_cert_extension: "{{ trust_ca_cert_extension }}"
 
 deploy_cacerts__keystore_admin_user: "{{ keystore_admin_user }}"
 
-deploy_cacerts__ca_keystore_base_dir: "{{ ca_keystore_base_dir }}"
-
 deploy_cacerts__ca_domain: "{{ ca_domain }}"
 
 deploy_cacerts__ca_provisioner: "acme"
 
-deploy_cacerts__ca_domains_hosted: "{{ ca_domains_hosted }}"
+#deploy_cacerts__ca_service_routes_list: "{{ ca_service_routes_list }}"
+deploy_cacerts__ca_service_routes_list: |
+  {% set _hosted_ca_service_route_list = [] %}
+  {% for _ca_service_route in ca_service_routes_list %}
+  {% if _ca_service_route.route in ca_domains_hosted %}
+  {%   set _ = _hosted_ca_service_route_list.append(_ca_service_route) %}
+  {% endif %}
+  {% endfor %}
+  {{ _hosted_ca_service_route_list }}
 
-deploy_cacerts__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
+#deploy_cacerts__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
+deploy_cacerts__ca_intermediate_certs_list: |
+  {% set _hosted_ca_intermediate_certs_list = [] %}
+  {% for _ca_certinfo in ca_intermediate_certs_list %}
+  {% if _ca_certinfo.domainName in ca_domains_hosted %}
+  {%   set _ = _hosted_ca_intermediate_certs_list.append(_ca_certinfo) %}
+  {% endif %}
+  {% endfor %}
+  {{ _hosted_ca_intermediate_certs_list }}
 
-deploy_cacerts__ca_service_routes_list: "{{ ca_service_routes_list }}"

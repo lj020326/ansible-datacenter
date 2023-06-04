@@ -54,6 +54,7 @@ For more information about the variables many can be found https://docs.docker.c
 
 | Variable | Required | Default | Comments |
 |----------|----------|---------|----------|
+| `bootstrap_docker__actions` | No | `['install']` | Actions for role to perform.  Allowed/Supported choices are ['install', 'setup-swarm'] |
 | `bootstrap_docker__edition` | No | `ce` | Specifies either ce, or ee version of Docker. |
 | `bootstrap_docker__ee_url` | No | `Undefined` | Docker EE URL from the Docker Store |
 | `bootstrap_docker__repo` | No | `docker` | Defines how Ansible manages the repository. Options are "other" and "docker" |
@@ -120,12 +121,23 @@ For more information about the variables many can be found https://docs.docker.c
 | `bootstrap_docker__http_proxy` | No | `Undefined` | Set the Docker service to use HTTP_PROXY |
 | `bootstrap_docker__https_proxy` | No | `Undefined` | Set the Docker service to use HTTPS_PROXY |
 | `bootstrap_docker__no_proxy_params` | No | `Undefined` | Do not proxy for Docker service params |
+| `bootstrap_docker__setup_lvm` | No | `false` | Setup LVM for docker devicemapper to use. |
+| `bootstrap_docker__pvname` | No* | `Undefined` | If setup_lvm is true, the PV name to use for lvm configuration is required. |
+| `bootstrap_docker__vgname` | No | `docker` | The VG name used in LVM setup. |
+| `bootstrap_docker__lvname` | No | `thinpool` | The LV name used in LVM setup. |
+| `bootstrap_docker__lvname_meta` | No | `{{docker_vgname}}meta` | The LV meta used in LVM setup. |
+| `bootstrap_docker__swarm_manager` | No | `false` | Setup as swarm manager. |
+| `bootstrap_docker__swarm_leader` | No | `false` | Setup as swarm leader. |
+| `bootstrap_docker__swarm_worker` | No | `false` | Setup as swarm worker. |
+| `bootstrap_docker__swarm_leave` | No | `false` | Leave swarm. |
+| `bootstrap_docker__swarm_adv_addr` | No | `ansible_hostname` | The listening address for the swarm node.  In the case where there are multiple network addresses this should be overridden. |
+| `bootstrap_docker__swarm_remote_addrs` | No | `{{ leader_host }}:2377` | List of cluster addresses for swarm leader/manager node(s) used to join to the cluster. |
 
 ## Example Playbooks
 
 Install docker to the hosts with basic defaults. This does not install devicemapper, or configure the server for production. This just simply installs docker and gets it running. Compare this to `apt install docker-ce` or `yum install docker-ce`.
 
-```
+```yaml
 - hosts: servers
   roles:
   - role: bootstrap-docker
@@ -133,7 +145,7 @@ Install docker to the hosts with basic defaults. This does not install devicemap
 
 Install docker with devicemapper. Please note, this will create a new LVM on /dev/sda3, please do not use a block device already in use. This is the recommended production deployment on RHEL/CentOS/Fedora systems.
 
-```
+```yaml
 - hosts: servers
   roles:
   - role: bootstrap-docker
@@ -143,7 +155,7 @@ Install docker with devicemapper. Please note, this will create a new LVM on /de
 
 Install docker with AUFS. This is recommended for production deployment on Ubuntu systems.
 
-```
+```yaml
 - hosts: servers
   roles:
   - role: bootstrap-docker
@@ -174,9 +186,113 @@ Install with configured options.
 
 ```
 
+Configure devicemapper on lvm as storage backend using /dev/sdb as physical volume.
+
+```yaml
+- hosts: servers
+  roles:
+  - role: bootstrap-docker
+    bootstrap_docker__setup_lvm: yes
+    bootstrap_docker__docker_pvname: /dev/sdb
+
+```
+
+In order to configure docker engines in swarm mode, use the `bootstrap_docker_actions:['setup-swarm']` of the role.
+
+```yaml
+- hosts: servers
+  roles:
+  - role: bootstrap-docker
+    bootstrap_docker__actions: ['setup-swarm']
+
+```
+
+To join new swarm worker nodes to a cluster already up & running, add new entries to the hosts.yml file:
+
+hosts.yml:
+```yaml
+swarm:
+  vars:
+    bootstrap_docker__swarm_managers: "{{ groups['swarm_manager'] }}"
+  children:
+    swarm_leader: {}
+    swarm_manager: {}
+    swarm_worker: {}
+
+# There can only be 1 `swarm_leader` per cluster
+swarm_leader:
+  vars:
+    bootstrap_docker__swarm_leader: true
+  hosts:
+    vmlinux10: {}
+
+swarm_manager:
+  vars:
+    bootstrap_docker__swarm_manager: true
+  hosts:
+    vmlinux20: {}
+    vmlinux30: {}
+
+swarm_worker:
+  vars:
+    bootstrap_docker__swarm_worker: true
+  hosts:
+    vmlinux[11:19]: {}
+    vmlinux[21:29]: {}
+    vmlinux[31:39]: {}
+
+```
+
+And invoke the role to perform the swarm configuration:
+
+```yaml
+- hosts: swarm
+  roles:
+  - role: bootstrap-docker
+    bootstrap_docker__actions: ['setup-swarm']
+    bootstrap_docker__swarm_managers:
+      - group['swarm_manager']
+```
+
+Set Node Labels
+
+```yaml
+- hosts: swarm
+  roles:
+  - role: bootstrap-docker
+    bootstrap_docker__actions: ['setup-swarm']
+    bootstrap_docker__swarm_node_labels:
+      label0: value0
+      label1: value1
+      label2: value2
+```
+
+Create secrets
+
+```yaml
+- hosts: swarm
+  roles:
+  - role: bootstrap-docker
+    bootstrap_docker__actions: ['setup-swarm']
+    bootstrap_docker__swarm_secrets:    
+      - name: secret-name-0
+        value: secret-value-0
+        state: present
+      - name: secret-name-1
+        value: secret-value-1
+        state: absent
+```
+
 
 Please see [examples/](examples/) folder for more examples.
 
 ## Reference
 
 - [ansible-role-docker](https://github.com/avinetworks/ansible-role-docker)
+- https://github.com/rremizov/ansible-docker-swarm
+- [one-click-deploy-docker-swarm-with-ansible](https://medium.com/@mbovo/one-click-deploy-docker-swarm-with-ansible-9a1f7e7d0e75)
+- https://github.com/mbovo/ansible_stuffs
+- https://github.com/nmarus/docker-swarm-ansible
+- [deploying-docker-swarm-with-ansible](https://medium.com/@cantrobot/deploying-docker-swarm-with-ansible-a991c1028427)
+- https://github.com/nextrevision/ansible-swarm-playbook
+- 

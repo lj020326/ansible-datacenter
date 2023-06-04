@@ -1,0 +1,61 @@
+---
+- include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Display bootstrap_signing_certs__admin_user
+  debug:
+    var: bootstrap_signing_certs__admin_user
+
+- name: Get CA common facts
+  include_tasks: get_ca_common_facts.yml
+
+- name: "Ensure python libs are installed for {{ ansible_pip_executable }}"
+  when: bootstrap_signing_certs__required_pip_libs | d([]) | length > 0
+  pip:
+    name: "{{ bootstrap_signing_certs__required_pip_libs }}"
+    state: present
+    extra_args: "--user"
+#    executable: "{{ ansible_pip_executable }}"
+    executable: pip3
+
+- name: "Ensure openssl is installed"
+  package:
+    name: openssl
+    state: present
+
+- name: Create and validate ca root certificate
+  when: bootstrap_signing_certs__ca_init|bool # defaults to false ...
+  vars:
+    bootstrap_signing_certs__ca_cert_type: "root-ca"
+  include_tasks: create_caroot.yml
+
+- name: Create and validate intermediate certificates
+  when: bootstrap_signing_certs__ca_init|bool # defaults to false ...
+  vars:
+    bootstrap_signing_certs__ca_cert_type: "intermediate-ca"
+  include_tasks: create_cert.yml
+  loop: "{{ bootstrap_signing_certs__ca_intermediate_certs_list | map(attribute='commonName') | list }}"
+  loop_control:
+    loop_var: __bootstrap_signing_certs__cert_node
+
+- name: Create and validate certificates for service routes
+  when: bootstrap_signing_certs__ca_certify_routes|bool # defaults to false ...
+  vars:
+    bootstrap_signing_certs__ca_cert_type: "service-route"
+  include_tasks: create_cert.yml
+  loop: "{{ ca_service_routes | list }}"
+  loop_control:
+    loop_var: __bootstrap_signing_certs__cert_node
+
+- name: Create and validate certificates for nodes
+  when: bootstrap_signing_certs__ca_certify_nodes|bool # defaults to false ...
+  include_tasks: create_cert.yml
+  loop: "{{ groups['cert_node'] }}"
+  loop_control:
+    loop_var: __bootstrap_signing_certs__cert_node
+
+- name: "Fetch certs from keystore"
+  include_tasks: fetch_certs.yml
+
+- name: "Trust certs on node"
+  include_tasks: trust_cert.yml
+

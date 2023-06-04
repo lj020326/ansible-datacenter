@@ -5,14 +5,27 @@
 
 - name: "{{ __log_prefix_local }} Shut down services defined in docker-compose.yml"
   ignore_errors: yes
+  when: not docker_stack__swarm_mode|d(False)|bool
   community.docker.docker_compose:
-    project_src: "{{ docker_stack_dir }}"
-    remove_orphans: "{{ docker_stack_remove_orphans }}"
+    project_src: "{{ docker_stack__dir }}"
+    remove_orphans: "{{ docker_stack__remove_orphans }}"
     state: absent
   register: __compose_result
   retries: 5
   delay: 20
   until: __compose_result is not failed
+
+- name: "{{ __log_prefix_local }} Shut down stack services defined in docker-compose.yml"
+  when: docker_stack__swarm_mode|d(False)|bool
+  community.docker.docker_stack:
+    name: "{{ docker_stack__compose_stack_name }}"
+    compose: "{{ docker_stack__compose_stack_compose_file }}"
+    prune: "{{ docker_stack__remove_orphans }}"
+    state: absent
+  register: __stack_result
+  retries: 3
+  delay: 20
+  until: __stack_result is not failed
 
 - name: "{{ __log_prefix_local }} Restart docker service"
   service:

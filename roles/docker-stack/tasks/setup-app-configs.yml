@@ -5,73 +5,73 @@
 
 - name: "{{ log_prefix_local }} Configure htpasswd users file"
   when:
-    - docker_stack_http_username|d('')|length>0
-    - docker_stack_http_password|d('')|length>0
+    - docker_stack__http_username|d('')|length>0
+    - docker_stack__http_password|d('')|length>0
   block:
     - name: "{{ log_prefix_local }} Configure htpasswd users file"
     #  no_log: yes
       community.general.htpasswd:
-        path: "{{ docker_stack_dir }}/shared/.htpasswd"
-        name: "{{ docker_stack_http_username }}"
-        password: "{{ docker_stack_http_password }}"
-        owner: "{{ docker_stack_user_username }}"
-        group: "{{ docker_stack_user_group }}"
+        path: "{{ docker_stack__dir }}/shared/.htpasswd"
+        name: "{{ docker_stack__http_username }}"
+        password: "{{ docker_stack__http_password }}"
+        owner: "{{ docker_stack__user_username }}"
+        group: "{{ docker_stack__user_group }}"
         mode: "0600"
         crypt_scheme: "bcrypt"
 
     ## ref: https://stackoverflow.com/questions/24003880/ansible-set-variable-to-file-content/24014549
     - name: "{{ log_prefix_local }} Load htpasswd data"
       slurp:
-        src: "{{ docker_stack_dir }}/shared/.htpasswd"
+        src: "{{ docker_stack__dir }}/shared/.htpasswd"
       register: htpasswd
 
 - name: "{{ log_prefix_local }} Ensure docker dirs exist"
   file:
     state: directory
     path: "{{ item.path }}"
-    owner: "{{ item.owner | d(docker_stack_user_username) }}"
-    group: "{{ item.group | d(docker_stack_user_group) }}"
+    owner: "{{ item.owner | d(docker_stack__user_username) }}"
+    group: "{{ item.group | d(docker_stack__user_group) }}"
     mode: "{{ item.mode | d(omit) }}"
     recurse: "{{ item.recurse | d( omit ) }}"
-  with_items: "{{ __docker_stack_app_config_dirs }}"
+  with_items: "{{ __docker_stack__app_config_dirs }}"
 
 - name: "{{ log_prefix_local }} Install docker stack proxy service templates"
-  when: __docker_stack_proxy_services | length > 0
+  when: __docker_stack__proxy_services | length > 0
   template:
     backup: yes
     src: "traefik/rules/proxy-services.yml.j2"
-    dest: "{{ __docker_stack_appspecs__base_traefik_dir }}/rules/proxy-services.yml"
+    dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/rules/proxy-services.yml"
     mode: "0664"
-    owner: "{{ docker_stack_user_username }}"
-    group: "{{ docker_stack_user_group }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack_app_config_tpls"
+- name: "{{ log_prefix_local }} Display __docker_stack__app_config_tpls"
   debug:
-    var: __docker_stack_app_config_tpls
+    var: __docker_stack__app_config_tpls
 
 - name: "{{ log_prefix_local }} Install docker stack app config template"
   template:
     backup: "{{ item.backup | default(True) }}"
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-#    force: "{{ docker_stack_overwrite_configs }}"
+#    force: "{{ docker_stack__overwrite_configs }}"
     mode: "{{ item.mode | default('0664') }}"
-    owner: "{{ docker_stack_user_username }}"
-    group: "{{ docker_stack_user_group }}"
-  with_items: "{{ __docker_stack_app_config_tpls }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+  with_items: "{{ __docker_stack__app_config_tpls }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack_app_config_files"
+- name: "{{ log_prefix_local }} Display __docker_stack__app_config_files"
   debug:
-    var: __docker_stack_app_config_files
+    var: __docker_stack__app_config_files
 
 - name: "{{ log_prefix_local }} Copy docker stack app config files"
   copy:
     backup: "{{ item.backup | default(true) }}"
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    owner: "{{ docker_stack_user_username }}"
-    group: "{{ docker_stack_user_group }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
     force: "{{ item.force | default(omit) }}"
     remote_src: "{{ item.remote_src | default(omit) }}"
     mode: "{{ item.mode | default('0664') }}"
-  with_items: "{{ __docker_stack_app_config_files }}"
+  with_items: "{{ __docker_stack__app_config_files }}"

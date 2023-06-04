@@ -11,8 +11,8 @@ serversTransport:
   insecureSkipVerify: true
 #  insecureSkipVerify: false
 #  rootCAs:
-#    - "/certs/{{ docker_stack_ssl_internal_root_cacert_file }}"
-#    - "/certs/{{ docker_stack_ssl_internal_cacert_file }}"
+#    - "/certs/{{ docker_stack__ssl_internal_root_cacert_file }}"
+#    - "/certs/{{ docker_stack__ssl_internal_cacert_file }}"
 
 log:
   level: DEBUG
@@ -42,18 +42,16 @@ entryPoints:
 #    address: ":8080"
 
   ssh:
-    address: ":{{ docker_stack_traefik_ssh }}"
+    address: ":{{ docker_stack__traefik_ssh }}"
 
   ping:
     address: ":8082"
 
   http:
-#    address: ":{{ docker_stack_traefik_http }}"
-    address: ":80"
+    address: ":{{ docker_stack__traefik_http }}"
 
   https:
-#    address: ":{{ docker_stack_traefik_https }}"
-    address: ":443"
+    address: ":{{ docker_stack__traefik_https }}"
     forwardedHeaders:
       trustedIPs:
         - 192.168.0.0/16
@@ -62,13 +60,13 @@ entryPoints:
 
     http:
       tls:
-        options: "tls-opts@file"
+        options: "mintls12@file"
         ## Add dns-cloudflare as default certresolver for all services.
         ## Also enables TLS and no need to specify on individual services
-        certresolver: {{ __docker_stack_appspecs__base_traefik_certresolver }}
+        certresolver: {{ __docker_stack__appspecs__base_traefik_certresolver }}
         domains:
-          - main: "{{ docker_stack_external_domain }}"
-            sans: "*.{{ docker_stack_external_domain }}"
+          - main: "{{ docker_stack__external_domain }}"
+            sans: "*.{{ docker_stack__external_domain }}"
 
 ## ref: https://docs.traefik.io/v2.0/providers/docker
 ## ref: https://docs.traefik.io/v2.0/reference/static-configuration/file/
@@ -76,22 +74,31 @@ entryPoints:
 providers:
   docker:
     ## Use Docker Socket Proxy instead for improved security
-#    endpoint: "unix:///var/run/docker.sock"
-    endpoint: "tcp://socket-proxy:2375"
-#    domain: "{{ docker_stack_internal_domain }}"
-    defaultRule: "Host(`{{ docker_stack_internal_domain }}`)"
+    endpoint: "unix:///var/run/docker.sock"
+#    endpoint: "tcp://socket-proxy:2375"
+#    domain: "{{ docker_stack__internal_domain }}"
+    defaultRule: "Host(`{{ docker_stack__internal_domain }}`)"
     watch: true
 
+    ## Swarm Mode:
+    ##   In swarm mode this option must be enabled to allow traefik routing to containers
+    ##   in v3.0+ use `labels: ["traefik.docker.lbswarm=true"]`
+    ## ref: https://stackoverflow.com/questions/66536125/traefik-load-balance-across-three-node-docker-swarm
+    ## ref: https://doc.traefik.io/traefik/v3.0/routing/providers/swarm/#traefikdockerlbswarm
 #    useBindPortIP: true
 
     # This will hide all docker containers that don't have explicitly
     # set label to "enable"
 #    exposedByDefault: true
     exposedByDefault: false
+{% if docker_stack__swarm_mode|bool %}
+    swarmMode: true
+{% else %}
     swarmMode: false
+{% endif %}
 
     ## ref: https://docs.traefik.io/v2.0/providers/docker/
-    network: {{ docker_stack_traefik_proxy_network }}
+    network: {{ docker_stack__traefik_proxy_network }}
 
   file:
     ## use a rules.toml if there are non-docker backend services
@@ -106,7 +113,7 @@ certificatesResolvers:
   letsencrypt:
     acme:
       email: "admin@dettonville.org"
-      storage: "/etc/traefik/acme/{{ __docker_stack_appspecs__base_traefik_certresolver_acme_file_prod }}"
+      storage: "/etc/traefik/acme/{{ __docker_stack__appspecs__base_traefik_certresolver_acme_file_prod }}"
 #      entryPoint: "https"
 #      acmeLogging: true
       #create certificate when container is created
@@ -124,7 +131,7 @@ certificatesResolvers:
   letsencrypt-qa:
     acme:
       email: "admin@dettonville.org"
-      storage: "/etc/traefik/acme/{{ __docker_stack_appspecs__base_traefik_certresolver_acme_file_qa }}"
+      storage: "/etc/traefik/acme/{{ __docker_stack__appspecs__base_traefik_certresolver_acme_file_qa }}"
 #      acmeLogging: true
 
       ## staging mode: https://github.com/containous/traefik/issues/3468

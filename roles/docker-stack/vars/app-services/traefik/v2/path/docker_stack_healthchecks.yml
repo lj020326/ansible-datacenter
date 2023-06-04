@@ -1,47 +1,15 @@
 ---
 
-## ref: https://hub.docker.com/r/linuxserver/healthchecks
-docker_stack_appspec_services__healthchecks:
 
-  ## healthchecks - Healthchecks is a watchdog for your cron jobs.
-  ## It's a web server that listens for pings from your cron jobs, plus a web interface.
-  ## ref: https://hub.docker.com/r/linuxserver/healthchecks
-  healthchecks:
-    image: ghcr.io/linuxserver/healthchecks
-    container_name: healthchecks
-#    user: "{{ docker_stack_user_uid }}:{{ docker_stack_user_gid }}"
-    environment:
-      - PUID={{ docker_stack_user_uid }}
-      - PGID={{ docker_stack_user_gid }}
-      - TZ={{ docker_stack_timezone }}
-      - SITE_ROOT={{ __docker_stack_appspecs__healthchecks_site_url }}
-      - SITE_NAME={{ __docker_stack_appspecs__healthchecks_site_name }}
-      - DEFAULT_FROM_EMAIL={{ __docker_stack_appspecs__healthchecks_default_from_email }}
-      - EMAIL_HOST={{ __docker_stack_appspecs__healthchecks_email_host }}
-      - EMAIL_PORT={{ __docker_stack_appspecs__healthchecks_email_port }}
-      - EMAIL_HOST_USER={{ __docker_stack_appspecs__healthchecks_email_user }}
-      - EMAIL_HOST_PASSWORD={{ __docker_stack_appspecs__healthchecks_email_password }}
-      - EMAIL_USE_TLS={{ 'True' if __docker_stack_appspecs__healthchecks_email_use_tls else 'False' }}
-      - ALLOWED_HOSTS={{ __docker_stack_appspecs__healthchecks_allowed_hosts }}
-      - SUPERUSER_EMAIL={{ __docker_stack_appspecs__healthchecks_email_su_email }}
-      - SUPERUSER_PASSWORD={{ __docker_stack_appspecs__healthchecks_email_su_password }}
-      - REGENERATE_SETTINGS={{ 'True' if __docker_stack_appspecs__healthchecks_regenerate_settings else 'False' }}
-    networks:
-      - "{{ docker_stack_traefik_proxy_network }}"
-    volumes:
-      - "{{ __docker_stack_appspecs__base_stack_dir }}/healthchecks:/config"
-    ports:
-      - "{{ __docker_stack_appspecs__healthchecks_port }}:8000"
-    restart: unless-stopped
-    labels:
-      traefik.enable: true
-      traefik.http.routers.healthchecks.entrypoints: https
-      traefik.http.routers.healthchecks.rule: Host(`{{ docker_stack_internal_domain }}`) && PathPrefix(`/healthchecks`)
-#      traefik.http.routers.healthchecks.service: healthchecks-svc
+__docker_stack__appspecs__traefik_labels_healthchecks_default:
+  - "traefik.enable=true"
+  - "traefik.http.routers.healthchecks.entrypoints=https"
+  - "traefik.http.routers.healthchecks.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/healthchecks`)"
+#  - "traefik.http.routers.healthchecks.service=healthchecks-svc"
 
-      ## ref: https://community.traefik.io/t/pathprefix-and-strip/2122/2
-      traefik.http.middlewares.hcpathstrip.stripprefix.prefixes: /healthchecks
-      traefik.http.middlewares.hcpathstrip.stripprefix.forceSlash: false
-      traefik.http.routers.healthchecks.middlewares: hxpathstrip@docker
-      traefik.http.services.healthchecks.loadbalancer.server.port: 8000
+  ## ref: https://community.traefik.io/t/pathprefix-and-strip/2122/2
+  - "traefik.http.middlewares.hcpathstrip.stripprefix.prefixes=/healthchecks"
+  - "traefik.http.middlewares.hcpathstrip.stripprefix.forceSlash=false"
+  - "traefik.http.routers.healthchecks.middlewares=hxpathstrip@docker"
+  - "traefik.http.services.healthchecks.loadbalancer.server.port=8000"
 

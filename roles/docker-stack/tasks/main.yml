@@ -3,47 +3,47 @@
 - name: "Setup role facts"
   include_tasks: init-vars.yml
 
-- name: "Display docker_stack_firewalld_enabled"
+- name: "Display docker_stack__firewalld_enabled"
   debug:
-    var: docker_stack_firewalld_enabled
+    var: docker_stack__firewalld_enabled
 
 - name: "Setup firewalld config"
-  when: docker_stack_firewalld_enabled | default(True) | bool
+  when: docker_stack__firewalld_enabled | default(True) | bool
   include_tasks: setup-firewalld.yml
 
-- name: "Display docker_stack_action"
+- name: "Display docker_stack__action"
   debug:
-    var: docker_stack_action
+    var: docker_stack__action
 
 - name: "Setup docker app dirs and configs"
-  when: docker_stack_action == 'setup'
+  when: docker_stack__action == 'setup'
   include_tasks: setup-app-configs.yml
 
 - name: "Setup self-signed certs"
   when:
-    - docker_stack_action == 'setup'
-    - docker_stack_enable_selfsigned_certs
+    - docker_stack__action == 'setup'
+    - docker_stack__enable_selfsigned_certs
   include_tasks: setup-selfsigned-cert.yml
 
 - name: "Setup ca certs"
   when:
-    - docker_stack_action == 'setup'
-    - docker_stack_enable_cacerts
+    - docker_stack__action == 'setup'
+    - docker_stack__enable_cacerts
   include_tasks: setup-cacerts.yml
 
 - name: "Setup admin scripts"
   when:
-    - docker_stack_action == 'setup'
-    - docker_stack_setup_admin_scripts
+    - docker_stack__action == 'setup'
+    - docker_stack__setup_admin_scripts
   include_tasks: setup-admin-scripts.yml
 
 - name: "Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml"
   when:
-    - docker_stack_action == 'setup'
+    - docker_stack__action == 'setup'
     - (role_path + '/tasks/apps/' + __container_service_name + '/pre-start.yml') is file
 #    - __app_config_task_map[__container_service_name].pre_start|d(False)
   include_tasks: "{{ role_path }}/tasks/apps/{{ __container_service_name }}/pre-start.yml"
-  loop: "{{ __docker_stack_app_services }}"
+  loop: "{{ __docker_stack__app_services }}"
   loop_control:
     loop_var: __container_service_name
 
@@ -52,54 +52,57 @@
 ## the `community.docker` modules require the target host python interpreter environment to be configured
 ## with the docker python library.
 ##
-## the docker python interpreter used in the following plays is specified by role variable 'docker_stack_python_docker_interpreter'
+## the docker python interpreter used in the following plays is specified by role variable 'docker_stack__python_docker_interpreter'
 ##
 ## the python interpreter environment and docker lib dependency is expected to be already prepared in a prior task
 ## by the 'bootstrap_pip' role
 #######################
 - name: "Setup docker stack services"
-  when: docker_stack_action == 'setup'
+  when: docker_stack__action == 'setup'
   vars:
-    ansible_python_interpreter: "{{ docker_stack_python_docker_interpreter }}"
+    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   include_tasks: setup-service-configs.yml
 
 - name: "Run compose action"
   vars:
-    ansible_python_interpreter: "{{ docker_stack_python_docker_interpreter }}"
+    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   include_tasks: run-compose-action.yml
 
 - name: "Setup container configs"
   when:
-    - docker_stack_action == 'setup'
-    - __docker_stack_container_config_list|d([])|length > 0
+    - docker_stack__action == 'setup'
+    - __docker_stack__container_config_list|d([])|length > 0
   vars:
-    ansible_python_interpreter: "{{ docker_stack_python_docker_interpreter }}"
+    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   include_tasks: setup-container-configs.yml
-  loop: "{{ __docker_stack_container_config_list }}"
+  loop: "{{ __docker_stack__container_config_list }}"
   loop_control:
     loop_var: container_setup_info
 
 ## ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
 - name: "Setup systemd service for docker-compose"
   when:
-    - docker_stack_action == 'setup'
-    - docker_stack_setup_systemd_service|bool
+    - docker_stack__action == 'setup'
+    - docker_stack__setup_systemd_service|bool
   include_role:
     name: bootstrap-systemd-service
   vars:
-    systemd_service_name: "docker-compose-{{ docker_stack_dir | replace('/','-') }}"
-    systemd_service_envs:
+    bootstrap_systemd_service_name: "docker-compose-{{ docker_stack__dir | replace('/','-') }}"
+    bootstrap_systemd_service_force_update: yes
+    bootstrap_systemd_service_envs:
         - "PATH=$PATH:/usr/local/bin"
-    systemd_service_Unit_Description: "Docker Compose Service for {{ docker_stack_dir }}"
-    systemd_service_Unit_Requires: docker.service
-    systemd_service_Unit_Wants: network.target
-    systemd_service_Unit_After: docker.service
-    systemd_service_Service_Restart: "always"
-    systemd_service_Service_User: "{{ docker_stack_user_username }}"
-    systemd_service_Service_Group: docker
-    systemd_service_Service_ExecStartPre:
+    bootstrap_systemd_service_Unit_Description: "Docker Compose Service for {{ docker_stack__dir }}"
+    bootstrap_systemd_service_Unit_Requires: docker.service
+    bootstrap_systemd_service_Unit_Wants: network.target
+    bootstrap_systemd_service_Unit_After: docker.service
+#    bootstrap_systemd_service_Service_Restart: always
+#    bootstrap_systemd_service_Service_Restart: on-success
+    bootstrap_systemd_service_Service_Restart: on-abort
+    bootstrap_systemd_service_Service_User: "{{ docker_stack__user_username }}"
+    bootstrap_systemd_service_Service_Group: docker
+    bootstrap_systemd_service_Service_ExecStartPre:
         - docker-compose -f down
-    systemd_service_Service_ExecStart: docker-compose up
-    systemd_service_Service_ExecStop: docker-compose down
-    systemd_service_Service_WorkingDirectory: "{{ docker_stack_dir }}"
-    systemd_service_Install_WantedBy: multi-user.target
+    bootstrap_systemd_service_Service_ExecStart: docker-compose up
+    bootstrap_systemd_service_Service_ExecStop: docker-compose down
+    bootstrap_systemd_service_Service_WorkingDirectory: "{{ docker_stack__dir }}"
+    bootstrap_systemd_service_Install_WantedBy: multi-user.target
