@@ -3,5 +3,26 @@
 - name: "Init {{ role_name }} vars"
   include_tasks: init-vars.yml
 
-- name: Setup mounts
-  import_tasks: install-mounts.yml
+##
+## For tmpfs make sure to mount the tmpdir upon play handler since ansible is uses tmpdir
+##
+## ref: https://stackoverflow.com/questions/25977410/adding-an-fstab-option-using-ansible
+## ref: https://medium.com/@rohansadale/mounting-and-un-mounting-a-volume-in-ansible-37ebf64e3334
+##
+- name: Add node mounts to fstab
+  when:
+    - __bootstrap_linux_mount_list|d([])|length > 0
+  mount:
+    name: "{{ item.name }}"
+    src: "{{ item.src }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.options | d(omit) }}"
+    dump: "{{ item.dump | default(omit) }}"
+    passno: "{{ item.passno | default(omit) }}"
+    fstab: "{{ item.fstab | default(bootstrap_linux_mount_fstab) }}"
+    state: "{{ item.state | d('present' if item.fstype in ['tmpfs'] else bootstrap_linux_mount_state) }}"
+  with_items: "{{ __bootstrap_linux_mount_list }}"
+  register: mount_results
+  failed_when:
+    - mount_results.failed
+    - not ( mount_results.msg | regex_search("umount.* target is busy") )

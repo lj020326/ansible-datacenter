@@ -304,6 +304,21 @@ function gitpullpublic(){
   GIT_SSH_COMMAND="ssh -i ~/.ssh/${SSH_KEY_GITHUB}" git pull github $(git rev-parse --abbrev-ref HEAD)
 }
 
+unalias gitbranchdelete 1>/dev/null 2>&1
+unset -f gitbranchdelete || true
+function gitbranchdelete(){
+  REPO_ORIGIN_URL="$(git config --get remote.origin.url)" && \
+  REPO_DEFAULT_BRANCH="$(git ls-remote --symref "${REPO_ORIGIN_URL}" HEAD | gsed -nE 's|^ref: refs/heads/(\S+)\s+HEAD|\1|p')" && \
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git checkout "${REPO_DEFAULT_BRANCH}" && \
+  echo "==> Deleting local branch ${LOCAL_BRANCH}" && \
+  git branch -D "${LOCAL_BRANCH}" && \
+  echo "==> Deleting remote ${REMOTE} branch ${REMOTE_BRANCH}" && \
+  git push -d "${REMOTE}" "${REMOTE_BRANCH}"
+}
+
 unalias getbranchhist 1>/dev/null 2>&1
 unset -f getbranchhist || true
 function getbranchhist(){
@@ -495,6 +510,36 @@ function dockerbash() {
   CONTAINER_IMAGE_ID="${1}"
   #docker run -p 8443:8443 -v `pwd`/stepca/home:/home/step -it --entrypoint /bin/bash media.johnson.int:5000/docker-stepca:latest
   docker run -it --entrypoint /bin/bash "${CONTAINER_IMAGE_ID}"
+}
+
+
+## source: https://fabianlee.org/2021/04/08/docker-determining-container-responsible-for-largest-overlay-directories/
+##
+unalias get-largest-docker-image-sizes 1>/dev/null 2>&1
+unset -f get-largest-docker-image-sizes || true
+function get-largest-docker-image-sizes() {
+
+  SCRIPT_NAME=docker-largest-image-sizes.sh
+
+  RESULTS_FILE_OVERLAY=${SCRIPT_NAME}-overlay.txt
+  RESULTS_FILE_MAPPINGS=${SCRIPT_NAME}-mappings.txt
+  RESULTS_FILE_FINAL=${SCRIPT_NAME}.txt
+
+  # grab the size and path to the largest overlay dir
+  #du /var/lib/docker/overlay2 -h | sort -h | tail -n 100 | grep -vE "overlay2$" > large-overlay.txt
+  du -h --max-depth=1 /var/lib/docker/overlay2 | sort -hr | head -100 | grep -vE "overlay2$" > ${RESULTS_FILE_OVERLAY}
+
+  # construct mappings of name to hash
+  docker inspect $(docker ps -qa) | jq -r 'map([.Name, .GraphDriver.Data.MergedDir]) | .[] | "\(.[0])\t\(.[1])"' | sed 's/\/merged//' > ${RESULTS_FILE_MAPPINGS}
+
+  # for each hashed path, find matching container name
+  #cat large-overlay.txt | xargs -l bash -c 'if grep $1 docker-mappings.txt; then echo -n "$0 "; fi' > large-overlay-results.txt
+
+  ## https://unix.stackexchange.com/questions/113898/how-to-merge-two-files-based-on-the-matching-of-two-columns
+  join -j 2 -o 1.1,2.1,1.2 <(sort -k2 ${RESULTS_FILE_OVERLAY} ) <(sort -k2 ${RESULTS_FILE_MAPPINGS} ) | sort -h -k1 -r > ${RESULTS_FILE_FINAL}
+
+  cat ${RESULTS_FILE_FINAL}
+
 }
 
 unalias explodeansibletest 1>/dev/null 2>&1

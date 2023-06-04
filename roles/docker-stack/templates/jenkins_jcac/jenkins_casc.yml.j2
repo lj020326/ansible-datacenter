@@ -9,20 +9,20 @@ credentials:
           scope: GLOBAL
           username: "admin"
           usernameSecret: true
-      - usernamePassword:
-          id: "docker-registry-admin"
-          password: "${DOCKER_REGISTRY_PASSWORD}"
-          scope: GLOBAL
-          username: "admin"
-          usernameSecret: true
       - basicSSHUserPrivateKey:
-          description: "bitbucket-ssh-lj020326"
-          id: "bitbucket-ssh-lj020326"
+          description: "bitbucket-ssh-jenkins"
+          id: "bitbucket-ssh-jenkins"
           privateKeySource:
             directEntry:
               privateKey: "${BITBUCKET_SSH_PRIVATE_KEY}"
           scope: GLOBAL
           username: "${BITBUCKET_SSH_USERNAME}"
+          usernameSecret: true
+      - usernamePassword:
+          id: "docker-registry-admin"
+          password: "${DOCKER_REGISTRY_PASSWORD}"
+          scope: GLOBAL
+          username: "admin"
           usernameSecret: true
       - usernamePassword:
           id: "github-lj020326"
@@ -42,7 +42,7 @@ credentials:
             usernameSecret: true
         - usernamePassword:
             id: "dcapi-jenkins-git-user"
-            password: "${JENKINS_GITEA_PASSWORD}"
+            password: "${JENKINS_GIT_PASSWORD}"
             scope: GLOBAL
             username: "jenkins"
             usernameSecret: true
@@ -77,11 +77,6 @@ credentials:
             scope: GLOBAL
             secret: "${PACKER_SSH_PASSWORD}"
             description: "packer-ssh-password"
-#        - string:
-#            id: "vm-root-password"
-#            scope: GLOBAL
-#            secret: "${VM_ROOT_PASSWORD}"
-#            description: "vm-root-password"
         - string:
             scope: GLOBAL
             id: "ansible-vault-password"
@@ -114,73 +109,9 @@ jenkins:
     ## ref: https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code.yml
     projectMatrix:
       permissions:
-      - "GROUP:Agent/Build:admin"
-      - "GROUP:Agent/Configure:admin"
-      - "GROUP:Agent/Connect:admin"
-      - "GROUP:Agent/Create:admin"
-      - "GROUP:Agent/Delete:admin"
-      - "GROUP:Agent/Disconnect:admin"
-      - "GROUP:Credentials/Create:admin"
-      - "GROUP:Credentials/Delete:admin"
-      - "GROUP:Credentials/ManageDomains:admin"
-      - "GROUP:Credentials/Update:admin"
-      - "GROUP:Credentials/View:admin"
-      - "GROUP:Job/Build:admin"
-      - "GROUP:Job/Cancel:admin"
-      - "GROUP:Job/Configure:admin"
-      - "GROUP:Job/Create:admin"
-      - "GROUP:Job/Delete:admin"
-      - "GROUP:Job/Discover:admin"
-      - "GROUP:Job/Move:admin"
-      - "GROUP:Job/Read:admin"
-      - "GROUP:Job/Workspace:admin"
-      - "GROUP:Metrics/HealthCheck:admin"
-      - "GROUP:Metrics/ThreadDump:admin"
-      - "GROUP:Metrics/View:admin"
       - "GROUP:Overall/Administer:admin"
-      - "GROUP:Overall/Read:admin"
       - "GROUP:Overall/Read:authenticated"
-      - "GROUP:Run/Delete:admin"
-      - "GROUP:Run/Replay:admin"
-      - "GROUP:Run/Update:admin"
-      - "GROUP:SCM/Tag:admin"
-      - "GROUP:View/Configure:admin"
-      - "GROUP:View/Create:admin"
-      - "GROUP:View/Delete:admin"
-      - "GROUP:View/Read:admin"
-      - "USER:Agent/Build:admin"
-      - "USER:Agent/Configure:admin"
-      - "USER:Agent/Connect:admin"
-      - "USER:Agent/Create:admin"
-      - "USER:Agent/Delete:admin"
-      - "USER:Agent/Disconnect:admin"
-      - "USER:Credentials/Create:admin"
-      - "USER:Credentials/Delete:admin"
-      - "USER:Credentials/ManageDomains:admin"
-      - "USER:Credentials/Update:admin"
-      - "USER:Credentials/View:admin"
-      - "USER:Job/Build:admin"
-      - "USER:Job/Cancel:admin"
-      - "USER:Job/Configure:admin"
-      - "USER:Job/Create:admin"
-      - "USER:Job/Delete:admin"
-      - "USER:Job/Discover:admin"
-      - "USER:Job/Move:admin"
-      - "USER:Job/Read:admin"
-      - "USER:Job/Workspace:admin"
-      - "USER:Metrics/HealthCheck:admin"
-      - "USER:Metrics/ThreadDump:admin"
-      - "USER:Metrics/View:admin"
       - "USER:Overall/Administer:admin"
-      - "USER:Overall/Read:admin"
-      - "USER:Run/Delete:admin"
-      - "USER:Run/Replay:admin"
-      - "USER:Run/Update:admin"
-      - "USER:SCM/Tag:admin"
-      - "USER:View/Configure:admin"
-      - "USER:View/Create:admin"
-      - "USER:View/Delete:admin"
-      - "USER:View/Read:admin"
   clouds:
   - docker:
       dockerApi:
@@ -198,7 +129,7 @@ jenkins:
 #      - connector:
 #          jnlp:
 #            jnlpLauncher:
-#              tunnel: "{{ __docker_stack_jenkins_endpoint }}:9000"
+#              tunnel: "{{ __docker_stack__jenkins_endpoint }}:9000"
 #              workDirSettings:
 #                disabled: false
 #                failIfWorkDirIsMissing: false
@@ -208,18 +139,18 @@ jenkins:
           cpuPeriod: 0
           cpuQuota: 0
           environment:
-          - "gid={{ docker_stack_user_gid }}"
-          - "uid={{ docker_stack_user_uid }}"
+          - "gid={{ docker_stack__user_gid }}"
+          - "uid={{ docker_stack__user_uid }}"
           - "JAVA_OPTS=-Djavax.net.ssl.trustStore=/var/lib/jenkins/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
-          image: "{{ __docker_stack_jenkins_jcac_agent_image }}"
+          image: "{{ __docker_stack__jenkins_jcac_agent_image }}"
           mounts:
           - "type=tmpfs,destination=/run"
           - "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock"
-          - "type=bind,source={{ __docker_stack_ca_java_keystore }},destination=/var/lib/jenkins/cacerts,readonly"
-          - "type=bind,source={{ __docker_stack_ca_cert_bundle }},destination=/etc/ssl/certs/ca-certificates.crt,readonly"
-          - "type=bind,source={{ __docker_stack_jenkins_jcac_stack_dir }}/jenkins_agent,destination=/home/jenkins"
-          - "type=bind,source={{ __docker_stack_jenkins_jcac_data_dir }},destination=/data"
-          - "type=bind,source={{ __docker_stack_jenkins_jcac_vmware_data_dir }},destination=/vmware"
+          - "type=bind,source={{ __docker_stack__ca_java_keystore }},destination=/var/lib/jenkins/cacerts,readonly"
+          - "type=bind,source={{ __docker_stack__ca_cert_bundle }},destination=/etc/ssl/certs/ca-certificates.crt,readonly"
+          - "type=bind,source={{ __docker_stack__jenkins_jcac_stack_dir }}/jenkins_agent,destination=/home/jenkins"
+          - "type=bind,source={{ __docker_stack__jenkins_jcac_data_dir }},destination=/data"
+          - "type=bind,source={{ __docker_stack__jenkins_jcac_vmware_data_dir }},destination=/vmware"
           pullCredentialsId: "docker-registry-admin"
         instanceCapStr: "1"
         labelString: "docker dockercloud dockercloud-agent ansible"
@@ -263,7 +194,7 @@ jenkins:
       labelString: "docker ansible"
       launcher:
         inbound:
-          tunnel: "{{ __docker_stack_jenkins_endpoint }}:9000"
+          tunnel: "{{ __docker_stack__jenkins_endpoint }}:9000"
           workDirSettings:
             disabled: false
             failIfWorkDirIsMissing: false
@@ -308,8 +239,8 @@ jenkins:
         inhibitInferRootDN: false
         managerDN: "${LDAP_USERNAME}"
         managerPasswordSecret: "${LDAP_PASSWORD}"
-        rootDN: "{{ __docker_stack_jenkins_jcac_ldap_base_dn }}"
-        server: "{{ __docker_stack_jenkins_jcac_ldap_host }}"
+        rootDN: "{{ __docker_stack__jenkins_jcac_ldap_base_dn }}"
+        server: "{{ __docker_stack__jenkins_jcac_ldap_host }}"
         userSearch: "uid={0}"
         userSearchBase: "ou=users"
       disableMailAddressResolver: false
@@ -355,10 +286,10 @@ security:
     port: -1
   updateSiteWarningsConfiguration:
     ignoredWarnings:
-    - "SECURITY-2617-extended-choice-parameter"
-    - "SECURITY-2232"
-    - "SECURITY-1351"
     - "SECURITY-1350"
+    - "SECURITY-1351"
+    - "SECURITY-2232"
+    - "SECURITY-2617-extended-choice-parameter"
 unclassified:
   ansiColorBuildWrapper:
     colorMaps:
@@ -475,7 +406,7 @@ unclassified:
   gitHubConfiguration:
     apiRateLimitChecker: ThrottleForNormalize
   gitHubPluginConfig:
-    hookUrl: "https://{{ __docker_stack_jenkins_endpoint }}/github-webhook/"
+    hookUrl: "https://{{ __docker_stack__jenkins_endpoint }}/github-webhook/"
   giteaServers:
     servers:
     - credentialsId: "dcapi-jenkins-git-user"
@@ -495,7 +426,7 @@ unclassified:
             git:
               credentialsId: "dcapi-jenkins-git-user"
 #              id: "0f7f6074-dd56-42c9-8db4-9d6ec8a0b566"
-              remote: "https://gitea.admin.dettonville.int/infra/pipeline-automation-lib.git"
+              remote: "{{ __docker_stack__jenkins_jcac_pipeline_lib_repo }}"
               traits:
               - "gitBranchDiscovery"
               - cleanBeforeCheckout:
@@ -508,6 +439,7 @@ unclassified:
   injectionConfig:
     allowUntrusted: false
     enabled: false
+    enforceUrl: false
     injectCcudExtension: false
     injectMavenExtension: false
 #  jiraCloudPluginConfig:

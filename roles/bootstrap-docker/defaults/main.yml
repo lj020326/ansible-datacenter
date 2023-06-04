@@ -1,6 +1,13 @@
 ---
 
-# defaults file for bootstrap_docker
+bootstrap_docker__actions_allowed:
+  - install
+  - setup-swarm
+
+bootstrap_docker__actions:
+  - install
+  - setup-swarm
+
 bootstrap_docker__config: {}
 bootstrap_docker__edition: ce
 bootstrap_docker__repo: docker
@@ -10,6 +17,8 @@ bootstrap_docker__ee_version: 17.03
 
 bootstrap_docker__rhsm_channel: "Example_Docker_Community_Edition_CE_Docker_CE_Stable_RHEL{{ ansible_distribution_major_version }}"
 
+bootstrap_docker__deploy_registry_certs: yes
+
 # Service options.
 bootstrap_docker__service_manage: true
 bootstrap_docker__service_state: started
@@ -18,6 +27,49 @@ bootstrap_docker__restart_handler_state: restarted
 
 bootstrap_docker__daemon_flags:
   - "-H unix://"
+
+################## swarm options #######################
+#bootstrap_docker__swarm_leader_host: test123
+bootstrap_docker__swarm_manager: false
+bootstrap_docker__swarm_leader: false
+bootstrap_docker__swarm_worker: false
+bootstrap_docker__swarm_node: "{{
+  (bootstrap_docker__swarm_manager
+  or bootstrap_docker__swarm_leader
+  or bootstrap_docker__swarm_worker) | bool
+  }}"
+
+bootstrap_docker__swarm_leave: false
+#bootstrap_docker__swarm_adv_addr: "0.0.0.0:2377"
+bootstrap_docker__swarm_adv_addr: "{{ ansible_default_ipv4.address }}"
+bootstrap_docker__swarm_managers: []
+#bootstrap_docker__swarm_remote_addrs: []
+
+bootstrap_docker__swarm_remote_addrs: []
+
+#bootstrap_docker__swarm_remote_addrs: |-
+#  {% set remote_addresses = [] %}
+#  {% for swarm_host in bootstrap_docker__swarm_managers %}
+#  {%   set _ = remote_addresses.append(hostvars[swarm_host]['ansible_default_ipv4']['address']) %}
+#  {% endfor %}
+#  {{ remote_addresses }}
+
+bootstrap_docker__swarm_state: present
+bootstrap_docker__swarm_node_labels: []
+#bootstrap_docker__swarm_node_labels:
+#  label0: value0
+#  label1: value1
+#  label2: value2
+
+bootstrap_docker__swarm_secrets: []
+#bootstrap_docker__swarm_secrets:
+#  - name: secret-name-0
+#    value: secret-value-0
+#    state: present
+#  - name: secret-name-1
+#    value: secret-value-1
+#    state: absent
+
 
 bootstrap_docker__options:
   api-cors-header: "{{ bootstrap_docker__api_cors_header | default(None) }}"
@@ -75,6 +127,24 @@ bootstrap_docker__options:
   tlsverify: "{{ bootstrap_docker__tlsverify | default(None) }}"
   userland-proxy: "{{ bootstrap_docker__userland_proxy | default(None) }}"
   userns-remap: "{{ bootstrap_docker__userns_remap | default(None) }}"
+
+################## LVM #######################
+bootstrap_docker__setup_lvm: no
+# THINPOOL
+#   Default physical volume is left commented in order to fail if not given by the caller
+#   avoiding disk disruption.
+#   docker_pvname: "/dev/sdb"
+bootstrap_docker__vgname: "docker"
+bootstrap_docker__lvname: "thinpool"
+bootstrap_docker__lvname_meta: "{{docker_vgname}}meta"
+
+# Docker LVM options.
+bootstrap_docker__lvm_options:
+  storage-driver: devicemapper
+  storage-opts:
+  - "dm.thinpooldev=/dev/mapper/{{docker_vgname}}-{{docker_lvname}}"
+  - "dm.use_deferred_removal=true"
+  - "dm.use_deferred_deletion=true"
 
 
 # Docker Compose options.

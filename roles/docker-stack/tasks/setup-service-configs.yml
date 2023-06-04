@@ -8,46 +8,56 @@
     backup: "{{ item.backup | default(True) }}"
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-#    force: "{{ docker_stack_overwrite_configs }}"
+#    force: "{{ docker_stack__overwrite_configs }}"
     mode: "{{ item.mode | default('0664') }}"
-    owner: "{{ docker_stack_user_username }}"
-    group: "{{ docker_stack_user_group }}"
-  with_items: "{{ docker_stack_service_templates }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+  with_items: "{{ docker_stack__service_templates }}"
 
 - name: "{{ log_prefix_local }} Install docker stack proxy service templates"
-  when: __docker_stack_proxy_services | length > 0
+  when: __docker_stack__proxy_services | length > 0
   template:
     backup: "{{ item.backup | default(True) }}"
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-#    force: "{{ docker_stack_overwrite_configs }}"
+#    force: "{{ docker_stack__overwrite_configs }}"
     mode: "{{ item.mode | default('0664') }}"
-    owner: "{{ docker_stack_user_username }}"
-    group: "{{ docker_stack_user_group }}"
-  with_items: "{{ docker_stack_proxy_service_templates }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+  loop: "{{ docker_stack__proxy_service_templates }}"
+
+#- name: "{{ log_prefix_local }} Display __docker_stack__secrets"
+#  debug:
+#     var: __docker_stack__secrets
+##     verbosity: 2
 
 - name: "{{ log_prefix_local }} Create docker secrets for stack if necessary"
-  when: item.value.external|d(False)|bool
   community.docker.docker_secret:
-    name: "{{ item.key }}"
-    value: "{{ item.value }}"
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
     labels: "{{ item.labels | d(omit) }}"
     state: present
-  with_dict: "{{ __docker_stack_secrets }}"
+  loop: "{{ __docker_stack__secrets }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 
 - name: "{{ log_prefix_local }} Create external docker networks"
   block:
 
-  - name: "{{ log_prefix_local }} Display __docker_stack_networks"
+  - name: "{{ log_prefix_local }} Display __docker_stack__networks"
     debug:
-      var: __docker_stack_networks
-      verbosity: 1
+      var: __docker_stack__networks
+#      verbosity: 1
 
   - name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
     when: item.value.external|d(False)|bool
     community.docker.docker_network:
       name: "{{ item.key }}"
-    with_dict: "{{ __docker_stack_networks }}"
+      driver: "{{ item.driver | d(omit) }}"
+      scope: "{{ item.scope | d('global' if item.attachable|d(False)|bool else omit) }}"
+      attachable: "{{ item.attachable | d(omit) }}"
+    with_dict: "{{ __docker_stack__networks }}"
     register: __configure_docker_networks
 
   rescue:
@@ -56,16 +66,21 @@
         var: __configure_docker_networks
 
     - name: "{{ log_prefix_local }} Set __restart_docker"
+      when:
+        - item.failed|d(False)
+        - (item.msg | regex_search('Failed to program NAT chain'))
+          or (item.msg | regex_search('No such container'))
+#          or (item.msg | regex_search("INVALID_ZONE .* docker"))
+      loop: "{{ __configure_docker_networks.results | d([]) }}"
       set_fact:
-#        __restart_docker: "{{ (__configure_docker_networks.msg | regex_search("INVALID_ZONE .* docker")) }}"
-        __restart_docker: "{{ (__configure_docker_networks.msg | regex_search('Failed to program NAT chain')) }}"
+        __restart_docker: yes
 
     - name: "{{ log_prefix_local }} Display __restart_docker"
       debug:
         var: __restart_docker
 
     - name: "{{ log_prefix_local }} Re-emit failure"
-      when: not __restart_docker
+      when: not __restart_docker|d(False)
       vars:
         failed_task:
           result: '{{ ansible_failed_result }}'
@@ -82,5 +97,5 @@
         when: item.value.external|d(False)|bool
         community.docker.docker_network:
           name: "{{ item.key }}"
-        with_dict: "{{ __docker_stack_networks }}"
+        with_dict: "{{ __docker_stack__networks }}"
         register: __configure_docker_networks

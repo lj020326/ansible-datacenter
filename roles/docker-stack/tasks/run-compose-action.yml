@@ -3,43 +3,44 @@
 - set_fact:
     log_prefix_local: "Docker Stack | Run Compose |"
 
-- name: "{{ log_prefix_local }} Init __docker_stack_compose_state to present"
+- name: "{{ log_prefix_local }} Init __docker_stack__compose_state to present"
   set_fact:
-    __docker_stack_compose_state: present
+    __docker_stack__compose_state: present
 
-- name: "{{ log_prefix_local }} Set __docker_stack_compose_state to absent"
-  when: docker_stack_action == 'down'
+- name: "{{ log_prefix_local }} Set __docker_stack__compose_state to absent"
+  when: docker_stack__action == 'down'
   set_fact:
-    __docker_stack_compose_state: absent
+    __docker_stack__compose_state: absent
 
-- name: "{{ log_prefix_local }} Set __docker_stack_compose_restarted"
-  when: docker_stack_action == 'restart'
+- name: "{{ log_prefix_local }} Set __docker_stack__compose_restarted"
+  when: docker_stack__action == 'restart'
   set_fact:
-    __docker_stack_compose_restarted: yes
+    __docker_stack__compose_restarted: yes
 
-- name: "{{ log_prefix_local }} Set __docker_stack_compose_stopped"
-  when: docker_stack_action == 'stop'
+- name: "{{ log_prefix_local }} Set __docker_stack__compose_stopped"
+  when: docker_stack__action == 'stop'
   set_fact:
-    __docker_stack_compose_stopped: yes
+    __docker_stack__compose_stopped: yes
 
 - name: "{{ log_prefix_local }} Login to docker docker-registry"
+  when: docker_stack__registry_login | d(False)
   debug:
     msg:
-    - "docker_stack_registry_login={{ docker_stack_registry_login }}"
-    - "docker_stack_action={{ docker_stack_action }}"
-    - "docker_stack_registry_endpoint={{ docker_stack_registry_endpoint }}"
-    - "docker_stack_registry_username={{ docker_stack_registry_username }}"
+    - "docker_stack__registry_login={{ docker_stack__registry_login }}"
+    - "docker_stack__action={{ docker_stack__action }}"
+    - "docker_stack__registry_endpoint={{ docker_stack__registry_endpoint }}"
+    - "docker_stack__registry_username={{ docker_stack__registry_username }}"
 
 - name: "{{ log_prefix_local }} Login to docker docker-registry"
   ignore_errors: yes
   when:
-    - docker_stack_registry_login | bool
-    - docker_stack_action in ['setup','start','restart','up']
+    - docker_stack__registry_login | bool
+    - docker_stack__action in ['setup','start','restart','up']
   community.docker.docker_login:
-    registry: "{{ docker_stack_registry_endpoint }}"
-    username: "{{ docker_stack_registry_username }}"
-    password: "{{ docker_stack_registry_password }}"
-    tls_hostname: "{{ docker_stack_registry_endpoint | split(':') | first }}"
+    registry: "{{ docker_stack__registry_endpoint }}"
+    username: "{{ docker_stack__registry_username }}"
+    password: "{{ docker_stack__registry_password }}"
+    tls_hostname: "{{ docker_stack__registry_endpoint | split(':') | first }}"
 #    ca_cert: ""
     debug: yes
     tls: yes
@@ -47,27 +48,42 @@
 - name: "{{ log_prefix_local }} Display compose args"
   debug:
     msg:
-      - "__docker_stack_compose_state: {{ __docker_stack_compose_state }}"
-      - "__docker_stack_compose_restarted: {{ __docker_stack_compose_restarted|d('') }}"
-      - "__docker_stack_compose_stopped: {{ __docker_stack_compose_stopped|d('') }}"
-      - "__docker_stack_service_groups: {{ __docker_stack_service_groups|d('') }}"
-      - "__docker_stack_app_services: {{ __docker_stack_app_services }}"
+      - "__docker_stack__compose_state: {{ __docker_stack__compose_state }}"
+      - "__docker_stack__compose_restarted: {{ __docker_stack__compose_restarted|d('') }}"
+      - "__docker_stack__compose_stopped: {{ __docker_stack__compose_stopped|d('') }}"
+      - "__docker_stack__service_groups: {{ __docker_stack__service_groups|d('') }}"
+      - "__docker_stack__app_services: {{ __docker_stack__app_services }}"
 
-- name: "{{ log_prefix_local }} Run docker-compose"
+- name: "{{ log_prefix_local }} Start the docker stack"
   block:
     ## run docker compose
     ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
-    - name: "{{ log_prefix_local }} Run the services defined in docker-compose.yml"
+    - name: "{{ log_prefix_local }} Run docker-compose in {{ docker_stack__dir }}"
+      when: not docker_stack__swarm_mode|d(False)|bool
       community.docker.docker_compose:
-        project_src: "{{ docker_stack_dir }}"
-        remove_orphans: "{{ docker_stack_remove_orphans }}"
-        state: "{{ __docker_stack_compose_state }}"
-        restarted: "{{ __docker_stack_compose_restarted | d(omit) }}"
-        stopped: "{{ __docker_stack_compose_stopped | d(omit) }}"
-    #    services: "{{ __docker_stack_app_services | d(omit) }}"
+        project_src: "{{ docker_stack__dir }}"
+        remove_orphans: "{{ docker_stack__remove_orphans }}"
+        state: "{{ __docker_stack__compose_state }}"
+        restarted: "{{ __docker_stack__compose_restarted | d(omit) }}"
+        stopped: "{{ __docker_stack__compose_stopped | d(omit) }}"
+    #    services: "{{ __docker_stack__app_services | d(omit) }}"
       register: __compose_result
-      retries: 3
-      delay: 20
+      retries: 4
+      delay: 30
+      until: __compose_result is not failed
+
+    - name: "{{ log_prefix_local }} Deploy docker stack in {{ docker_stack__dir }}"
+      when: docker_stack__swarm_mode|d(False)|bool
+      community.docker.docker_stack:
+        name: "{{ docker_stack__compose_stack_name }}"
+        compose: "{{ docker_stack__compose_stack_compose_file }}"
+        prune: "{{ docker_stack__compose_stack_prune }}"
+        state: "{{ __docker_stack__compose_state }}"
+        resolve_image: "{{ docker_stack__compose_stack_resolve_image }}"
+        with_registry_auth: yes
+      register: __compose_result
+      retries: 4
+      delay: 30
       until: __compose_result is not failed
 
   rescue:
@@ -102,12 +118,12 @@
       ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
       - name: "{{ log_prefix_local }} Retry to Run the services defined in docker-compose.yml"
         community.docker.docker_compose:
-          project_src: "{{ docker_stack_dir }}"
-          remove_orphans: "{{ docker_stack_remove_orphans }}"
-          state: "{{ __docker_stack_compose_state }}"
-          restarted: "{{ __docker_stack_compose_restarted | d(omit) }}"
-          stopped: "{{ __docker_stack_compose_stopped | d(omit) }}"
-      #    services: "{{ __docker_stack_app_services | d(omit) }}"
+          project_src: "{{ docker_stack__dir }}"
+          remove_orphans: "{{ docker_stack__remove_orphans }}"
+          state: "{{ __docker_stack__compose_state }}"
+          restarted: "{{ __docker_stack__compose_restarted | d(omit) }}"
+          stopped: "{{ __docker_stack__compose_stopped | d(omit) }}"
+      #    services: "{{ __docker_stack__app_services | d(omit) }}"
         register: __compose_result
         retries: 3
         delay: 20

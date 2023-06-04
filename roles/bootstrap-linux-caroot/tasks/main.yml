@@ -1,7 +1,7 @@
 ---
 - include_vars: "{{ ansible_os_family }}.yml"
 
-#- name: "fetch_certs | Ensure keyring dirs exist in {{ ca_keyring_base_dir }}"
+#- name: "fetch_certs | Ensure keyring dirs exist in {{ cacert_base_dir }}"
 #  become: no
 #  delegate_to: "localhost"
 #  file:
@@ -9,64 +9,64 @@
 #    state: directory
 #    mode: "{{ item.mode | d('0755') }}"
 #  with_items:
-#    - { path: "{{ ca_keyring_certs_dir }}" }
-#    - { path: "{{ ca_keyring_keys_dir }}", mode: '0700' }
+#    - { path: "{{ cacert_certs_dir }}" }
+#    - { path: "{{ cacert_keys_dir }}", mode: '0700' }
 
-- name: "fetch_certs | Ensure cert dir exist in {{ ca_local_cert_dir }}"
+- name: "fetch_certs | Ensure cert dir exist in {{ cacert_local_cert_dir }}"
   delegate_to: "localhost"
   file:
     path: "{{ item.path }}"
     state: directory
     mode: "{{ item.mode | d('0755') }}"
   with_items:
-    - { path: "{{ ca_local_cert_dir }}" }
+    - { path: "{{ cacert_local_cert_dir }}" }
 
 - name: "Display ca_cert fetch info"
   debug:
     msg:
-      - "keyring_cacerts_base_dir={{ keyring_cacerts_base_dir }}"
+      - "cacert_keystore_base_dir={{ cacert_keystore_base_dir }}"
       - "ca_domain={{ ca_domain }}"
       - "ca_domains_hosted={{ ca_domains_hosted }}"
 
 ## ref: https://unix.stackexchange.com/questions/240814/rsync-with-different-user
-#- name: "fetch_certs | Fetch certs to {{ ca_keyring_certs_dir }}"
+#- name: "fetch_certs | Fetch certs to {{ cacert_certs_dir }}"
 #  become: no
 ##  become: yes
 ##  become_user: "{{ ansible_local_user }}"
 #  delegate_to: "localhost"
 #  shell: >
 #    rsync -arP -e'ssh -o StrictHostKeyChecking=no'
-#    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ item.src }}
+#    {{ ansible_ssh_user }}@{{ cacert_keystore_host }}:{{ item.src }}
 #    {{ item.dest }}
 ##  shell: >
 ##    rsync -arP -e'ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no'
-##    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ item.src }}
+##    {{ ansible_ssh_user }}@{{ cacert_keystore_host }}:{{ item.src }}
 ##    {{ item.dest }}
 ##  args:
 ##    warn: False
 #  with_items:
-#    - src: "{{ keyring_cacerts_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
-#      dest: "{{ ca_keyring_certs_dir }}/{{ pki_caroot_cert }}"
+#    - src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
+#      dest: "{{ cacert_certs_dir }}/{{ pki_caroot_cert }}"
 #
-#- name: "Copy root cert [{{ pki_caroot_cert }}] to {{ ca_local_cert_dir }}"
+#- name: "Copy root cert [{{ pki_caroot_cert }}] to {{ cacert_local_cert_dir }}"
 #  copy:
 #    backup: yes
 #    src: "{{ item.src }}"
 #    dest: "{{ item.dest }}"
 #    mode: "0644"
 #  loop:
-#    - src: "{{ ca_keyring_certs_dir }}/{{ pki_caroot_cert }}"
-#      dest: "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}"
+#    - src: "{{ cacert_certs_dir }}/{{ pki_caroot_cert }}"
+#      dest: "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
 
-- name: "fetch_certs | Fetch root ca-cert to {{ ca_local_cert_dir }}"
+- name: "fetch_certs | Fetch root ca-cert to {{ cacert_local_cert_dir }}"
   shell: >
     rsync -arP -e 'ssh -o StrictHostKeyChecking=no'
     --rsync-path 'sudo -u root rsync'
-    {{ ansible_ssh_user }}@{{ cacert_keyring_host }}:{{ item.src }}
+    {{ ansible_ssh_user }}@{{ cacert_keystore_host }}:{{ item.src }}
     {{ item.dest }}
   with_items:
-    - src: "{{ keyring_cacerts_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
-      dest: "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}"
+    - src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
+      dest: "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
 
 - name: "trust_cert | ensure trust dir exists"
   file:
@@ -90,7 +90,7 @@
     dest: "{{ item.dest }}"
     remote_src: yes
   with_items:
-    - src: "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}"
+    - src: "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
       dest: "{{ ca_trust_info[ansible_os_family].ca_trust_cert_dir }}/{{ ca_root_cn }}.{{ ca_trust_info[ansible_os_family].ca_trust_cert_extension }}"
   register: trust_ca_cacertinstalled
 
@@ -132,7 +132,7 @@
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 #  loop: "{{ ca_service_routes_list }}"
   loop:
-    - "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}"
+    - "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
 
 #- name: "trust_cert | Add ca root cert to keystore - Debian method"
 #  when:
@@ -150,7 +150,7 @@
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 ##  loop: "{{ ca_service_routes_list }}"
 #  loop:
-#    - "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}"
+#    - "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
 
 - name: "trust_cert | Add ca root cert to keystore - Debian method"
   when:
@@ -167,7 +167,7 @@
   failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 #  loop: "{{ ca_service_routes_list }}"
   loop:
-    - "{{ ca_local_cert_dir }}/{{ pki_caroot_cert }}"
+    - "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
 
 - debug:
     var: shell_cmd

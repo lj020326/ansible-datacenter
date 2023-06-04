@@ -1,0 +1,23 @@
+---
+
+bootstrap_docker__swarm_leader_host: "{{ groups['docker_swarm_leader'][0] }}"
+bootstrap_docker__swarm_managers: "{{ groups['docker_swarm_leader'] + groups['docker_swarm_manager'] }}"
+bootstrap_docker__swarm_remote_addrs: |-
+  {% set remote_addresses = [] %}
+  {% for swarm_host in bootstrap_docker__swarm_managers %}
+  {%   set _ = remote_addresses.append(hostvars[swarm_host].ansible_fqdn) %}
+  {% endfor %}
+  {{ remote_addresses }}
+
+docker_stack__swarm_mode: yes
+
+################################
+## NOTE: You need the following ports open to traffic to and from each Docker host participating on an overlay network:
+## Reference:
+##   https://www.digitalocean.com/community/tutorials/how-to-configure-the-linux-firewall-for-docker-swarm-on-centos-7
+##   https://stackoverflow.com/questions/52665442/docker-swarm-host-cannot-resolve-hosts-on-other-nodes
+firewalld_ports__docker:
+  - "2376/tcp"
+  - "2377/tcp"
+  - "4789/udp"
+  - "7946/tcp"

@@ -22,7 +22,7 @@ usage() {
   echo "  Examples:" 1>&2
   echo "     ${SCRIPT_NAME} gitlab.example.int" 1>&2
   echo "     ${SCRIPT_NAME} host01.example.int 443" 1>&2
-  echo "     ${SCRIPT_NAME} -c username:password master.example.int" 1>&2
+  echo "     ${SCRIPT_NAME} -c username:password leader.example.int" 1>&2
   echo "     ${SCRIPT_NAME} -c foo:bar -p v2/catalog registry.example.int" 1>&2
   echo "" 1>&2
   exit ${retcode}

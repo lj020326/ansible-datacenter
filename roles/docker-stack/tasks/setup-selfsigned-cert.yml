@@ -9,31 +9,31 @@
     path: "{{ item.path }}"
     mode: "{{ item.mode | default(omit) }}"
   loop:
-    - path: "{{ docker_stack_internal_ssl_cert_dir }}"
-    - path: "{{ docker_stack_internal_ssl_certkey_dir }}"
+    - path: "{{ docker_stack__internal_ssl_cert_dir }}"
+    - path: "{{ docker_stack__internal_ssl_certkey_dir }}"
       mode: '0600'
 
-- name: "{{ log_prefix_local }} Generate ssl privatekey to {{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+- name: "{{ log_prefix_local }} Generate ssl privatekey to {{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
   community.crypto.openssl_privatekey:
-    path: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+    path: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
 
-- name: "{{ log_prefix_local }} Create ssl CSR to {{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_csr_file }}"
+- name: "{{ log_prefix_local }} Create ssl CSR to {{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_csr_file }}"
   community.crypto.openssl_csr:
-    path: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_csr_file }}"
-    privatekey_path: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+    path: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_csr_file }}"
+    privatekey_path: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
     subject:
-      commonName: "*.{{ docker_stack_internal_domain }}"
+      commonName: "*.{{ docker_stack__internal_domain }}"
     subject_alt_name: "{{ item.value | map('regex_replace', '^', 'DNS:') | list }}"
   with_dict:
     dns_server:
-    - "dev.{{ docker_stack_internal_domain }}"
-    - "{{ docker_stack_internal_domain }}"
+    - "dev.{{ docker_stack__internal_domain }}"
+    - "{{ docker_stack__internal_domain }}"
 
-- name: "{{ log_prefix_local }} Create self-signed ssl certificate to {{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_cert_file }}"
+- name: "{{ log_prefix_local }} Create self-signed ssl certificate to {{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
   community.crypto.x509_certificate:
-    path: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_cert_file }}"
-    csr_path: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_csr_file }}"
-    privatekey_path: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
+    path: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
+    csr_path: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_csr_file }}"
+    privatekey_path: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
     provider: selfsigned
     selfsigned_digest: sha256
   register: selfsigned_certificate
@@ -46,11 +46,11 @@
     force: "{{ item.force | d(omit) }}"
     backup: yes
     mode: "{{ item.mode | d('0666') }}"
-    owner: "{{ docker_stack_user_username }}"
-    group: "{{ docker_stack_user_group }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
   with_items:
-    - src: "{{ docker_stack_internal_ssl_cert_dir }}/{{ docker_stack_ssl_internal_cert_file }}"
-      dest: "{{ __docker_stack_appspecs__base_traefik_dir }}/certs/{{ docker_stack_ssl_internal_cert_file }}"
-    - src: "{{ docker_stack_internal_ssl_certkey_dir }}/{{ docker_stack_ssl_internal_privatekey_file }}"
-      dest: "{{ __docker_stack_appspecs__base_traefik_dir }}/certs/{{ docker_stack_ssl_internal_privatekey_file }}"
+    - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
+      dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}"
+    - src: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
+      dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}"
       mode: "0600"
