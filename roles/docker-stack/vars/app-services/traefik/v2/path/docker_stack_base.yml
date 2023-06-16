@@ -1,35 +1,35 @@
 ---
 
-__docker_stack__appspecs__traefik_labels_traefik_default:
-  #autoheal: true
+__docker_stack__traefik__labels_traefik_default:
   - "traefik.enable=true"
   # HTTP-to-HTTPS Redirect
-  - "traefik.http.routers.http-catchall.entrypoints=http"
-  - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
-  - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
   - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+  - "traefik.http.routers.http-catchall.entrypoints=http"
+  - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+  - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
+  ## Healthcheck/ping
+  - "traefik.http.routers.ping.entrypoints=https"
+  - "traefik.http.routers.ping.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/ping`)"
+  - "traefik.http.routers.ping.service=ping@internal"
   ## Services - API
   - "traefik.http.routers.traefik-rtr.service=api@internal"
   - "traefik.http.routers.traefik-rtr.entrypoints=https"
-  - "traefik.http.routers.traefik-rtr.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/traefik`)"
+  - "traefik.http.routers.traefik-rtr.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/api`,`/dashboard`,`/traefik`)"
 #  - "traefik.http.routers.traefik-rtr.middlewares=chain-oauth@file"
-  ## Healthcheck/ping
-  - "traefik.http.routers.ping.entrypoints=https"
-  - "traefik.http.routers.ping.service=ping@internal"
-  - "traefik.http.routers.ping.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/ping`)"
+  - "traefik.http.services.api.loadbalancer.server.port=8080"
 
-__docker_stack__appspecs__traefik_labels_whoami_default:
+__docker_stack__traefik__labels_whoami_default:
   - "traefik.enable=true"
   ## HTTP Routers
   - "traefik.http.routers.whoami-rtr-int.entrypoints=https"
-  - "traefik.http.routers.whoami-rtr-int.rule=Host(`{{ docker_stack__internal_domain }}`) && Path(`/whoami`)"
+  - "traefik.http.routers.whoami-rtr-int.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/whoami`)"
+  - "traefik.http.services.whoami.loadbalancer.server.port=80"
 
-__docker_stack__appspecs__traefik_labels_portainer_default:
+__docker_stack__traefik__labels_portainer_default:
   - "traefik.enable=true"
   ## HTTP Routers
   - "traefik.http.routers.portainer-rtr.entrypoints=https"
   - "traefik.http.routers.portainer-rtr.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/portainer`)"
-
   ## ref: https://community.traefik.io/t/pathprefix-and-strip/2122/2
   - "traefik.http.middlewares.portainerpathstrip.stripprefix.prefixes=/portainer"
   - "traefik.http.middlewares.portainerpathstrip.stripprefix.forceSlash=false"
@@ -37,7 +37,15 @@ __docker_stack__appspecs__traefik_labels_portainer_default:
   - "traefik.http.routers.portainer-rtr.service=portainer-svc"
   - "traefik.http.services.portainer-svc.loadbalancer.server.port=9000"
 
-__docker_stack__appspecs__traefik_labels_dozzle_default:
+__docker_stack__appspecs__environment_dozzle_default:
+  DOCKER_HOST: tcp://socket-proxy:2375
+  DOZZLE_FILTER: "status=running"
+  # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
+  DOZZLE_LEVEL: info
+  DOZZLE_TAILSIZE: 300
+  DOZZLE_BASE: /dozzle
+
+__docker_stack__traefik__labels_dozzle_default:
   - "traefik.enable=true"
   ## HTTP Routers
   - "traefik.http.routers.dozzle-rtr.entrypoints=https"

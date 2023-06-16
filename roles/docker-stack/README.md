@@ -93,10 +93,9 @@ ansible-playbook -i inventory/Dev -v bootstrap-docker-stack.yml -l testgroup_doc
 ```shell
 docker service logs -f docker_stack__traefik
 docker rmi $(docker images | grep jenkins-jcac | tr -s ' ' | cut -d' ' -f3)
-docker stack deploy --compose-file docker-compose.yml docker-stack
 docker stack deploy --compose-file docker-compose.yml docker_stack
-docker stack destroy --compose-file docker-compose.yml docker-stack
-docker stack rm --compose-file docker-compose.yml docker-stack
+docker stack destroy --compose-file docker-compose.yml docker_stack
+docker stack rm --compose-file docker-compose.yml docker_stack
 docker stack rm docker_stack
 
 docker login -u username -p password registry.example.int:5000

@@ -6,21 +6,26 @@
 
 - name: "Display cert info"
   debug:
-    msg:
-      - "deploy_cacerts__keystore_cert_base_dir={{ deploy_cacerts__keystore_cert_base_dir }}"
-      - "deploy_cacerts__ca_domain={{ deploy_cacerts__ca_domain }}"
-      - "deploy_cacerts__ca_service_routes_list={{ deploy_cacerts__ca_service_routes_list | to_nice_json }}"
-      - "__deploy_cacerts__ca_intermediate_cert_list={{ __deploy_cacerts__ca_intermediate_cert_list | to_nice_json }}"
-      - "__deploy_cacerts__ca_fetch_domains_list={{ __deploy_cacerts__ca_fetch_domains_list | to_nice_json }}"
-      - "deploy_cacerts__stepca_start_service={{ deploy_cacerts__stepca_start_service }}"
-      - "deploy_cacerts__deploy_intermediate_certs={{ deploy_cacerts__deploy_intermediate_certs }}"
-      - "deploy_cacerts__validate_certs={{ deploy_cacerts__validate_certs }}"
-      - "deploy_cacerts__deploy_host_certs={{ deploy_cacerts__deploy_host_certs }}"
-      - "deploy_cacerts__create_cert_bundle={{ deploy_cacerts__create_cert_bundle }}"
-      - "deploy_cacerts__ca_java_keystore_enabled={{ deploy_cacerts__ca_java_keystore_enabled }}"
+    var: "{{ item }}"
+  loop:
+    - deploy_cacerts__keystore_cert_base_dir
+    - deploy_cacerts__ca_domain
+    - deploy_cacerts__ca_service_routes_list
+    - __deploy_cacerts__ca_intermediate_cert_list
+    - __deploy_cacerts__ca_fetch_domains_list
+    - deploy_cacerts__stepca_start_service
+    - deploy_cacerts__deploy_intermediate_certs
+    - deploy_cacerts__validate_certs
+    - deploy_cacerts__deploy_host_certs
+    - deploy_cacerts__create_cert_bundle
+    - deploy_cacerts__ca_java_keystore_enabled
 
 - name: "Fetch certs from keystore"
   include_tasks: fetch_certs.yml
 
 - name: "Trust certs on node"
   include_tasks: trust_cert.yml
+
+- name: "Trust external certs if defined"
+  when: deploy_cacerts__external_cacerts|d([])|length>0
+  include_tasks: trust_external_certs.yml

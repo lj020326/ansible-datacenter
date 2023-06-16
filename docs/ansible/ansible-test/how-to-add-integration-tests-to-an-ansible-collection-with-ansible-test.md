@@ -40,7 +40,7 @@ As with any Ansible role, the minimum requirement is a `tasks/main.yml` file, wh
 
 To verify your tests are working, add a task in `tasks/main.yml` like:
 
-`- name: Debug test.     debug: msg="Testing 1, 2, 3."`
+`- name: Debug test.     debug: msg="Testing 1, 2, 3."`
 
 Then when you run ansible-test you should get something like:
 
@@ -50,13 +50,13 @@ Then when you run ansible-test you should get something like:
 
 `TASK [Gathering Facts] *********************************************************   ok: [testhost]`
 
-`TASK [php_role_test : Debug test.] *********************************************   ok: [testhost] => {       "msg": "Testing 1, 2, 3."   }`
+`TASK [php_role_test : Debug test.] *********************************************   ok: [testhost] => {       "msg": "Testing 1, 2, 3."   }`
 
-`PLAY RECAP *********************************************************************   testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0`
+`PLAY RECAP *********************************************************************   testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0`
 
 If you want the integration test to run a role in your collection, be sure to use the entire role path with namespace:
 
-`- include_role:       name: geerlingguy.php_roles.php`
+`- include_role:       name: geerlingguy.php_roles.php`
 
 > **Note**: Currently, the only way to use collection or role dependencies inside the docker test container is by installing them manually, directly inside your collection's directories, before running `ansible-test`. There is an open issue to get this resolved so collection dependencies can work correctly with `ansible-test --docker`: [Support testing collections with deps using --docker](https://github.com/ansible/ansible/issues/59563).
 > 

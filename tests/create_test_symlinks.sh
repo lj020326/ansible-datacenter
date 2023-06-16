@@ -7,22 +7,22 @@ cd "${PROJECT_DIR}/tests"
 
 find . -maxdepth 1 -type l -print -exec rm {} \;
 
-echo "Set up site.yml symlink"
+echo "==> Set up site.yml symlink"
 ln -sf ../site.yml
 
-echo "Set up inventory symlink"
-#ln -sf ../inventory/dev inventory
-ln -sf ../inventory
-
-echo "Set up collections symlink"
+echo "==> Set up collections symlink"
 ln -sf ../collections
 
-echo "Set up functionality symlinks (library/roles/vars)"
+echo "==> Set up functionality symlinks (library/roles/vars)"
 ln -sf ../library
 ln -sf ../roles
 ln -sf ../vars
 
-echo "Set up resource/other symlinks (files/etc)"
+echo "==> Set up resource/other symlinks (files/etc)"
 ln -sf ../files
 
-echo "finished"
+echo "==> Set up inventory symlink"
+#ln -sf ../inventory/dev inventory
+ln -sf ../inventory
+
+echo "==> Finished"

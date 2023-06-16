@@ -12,7 +12,7 @@ For us, the Ansible Content Collections authors, having a semi-decent Collection
 1.  We know that the tested code paths function as expected and produce desired results.
 2.  We can catch the breaking changes in the upstream product that we are trying to automate.
 
-The second point is especially crucial in the Ansible world, where  one team of developers is usually responsible for the upstream product, and a separate group maintains Ansible content.
+The second point is especially crucial in the Ansible world, where  one team of developers is usually responsible for the upstream product, and a separate group maintains Ansible content.
 
 With the _"why integration tests"_ behind us, we can focus our attention on how to write them.
 

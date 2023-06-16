@@ -17,7 +17,7 @@ DDNS can be used for many home-lab services as it simply tracks the external IP 
 
 ![how to set up ddns on pfsense using cloudflare](./img/pfSenseCloudflareDDNS2.jpg)
 
-3\. We now need our **Global** **API** **Key** to use as our password in pfSense, which can be accessed in the **API Tokens** section of Cloudflare (My Profile > API Tokens). 
+3\. We now need our **Global** **API** **Key** to use as our password in pfSense, which can be accessed in the **API Tokens** section of Cloudflare (My Profile > API Tokens). 
 
 **NOTE**: As of the creation of this tutorial, custom API tokens are not working properly, however, they’re a significantly better solution. Using a custom API token will allow you to grant DNS permissions ONLY, while the global API key gives permission to EVERYTHING. I am hoping that at some point, this is fixed.
 

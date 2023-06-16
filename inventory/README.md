@@ -24,7 +24,7 @@ Perform the following CLI based sanity checks whenever making updates/additions 
 
 Using a group with name 'testgroup'
 ```shell
-ansible-inventory -i ./Dev/ --graph testgroup_lnx
+ansible-inventory -i ./inventory/dev/ --graph testgroup_lnx
 @testgroup_lnx:
   |--@testgroup_lnx_site1:
   |  |--ntp1s1.qa.example.int
@@ -185,9 +185,9 @@ E.g.,
 In the following example, we are updating the ntp client configuration for hosts and want to see that those machines have the expected value for variable 'ntp_servers'.
 
 ```shell
-ansible -i ./Dev/site1/ -m debug -a var=ntp_servers ntp_client
+ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers ntp_client
 
-#ansible -i ./Dev/site1/ -m debug -a var=ntp_servers,some_other_var ntp_client
+#ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers,some_other_var ntp_client
 
 ```
 
@@ -265,25 +265,25 @@ ansible-inventory -i Dev/ --graph ntp
 
 
 ```shell
-ansible -i ./Dev/ -m debug -a var=ansible_winrm_transport windows_dev
-ansible -i ./Dev/ test* -m debug -a var=environment.name var=location_name
-ansible -i ./Dev/site1/ --list-hosts all
-ansible -i ./Dev/site1/ -m debug -a var=ntp_servers all
-ansible -i ./Dev/site1/ -m debug -a var=ntp_servers bootstrap_ntp_servers
-ansible -i ./Dev/site1/ -m debug -a var=bootstrap_ntp_servers all
-ansible -i ./Dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names all
-ansible -i ./Dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_server
-ansible -i ./Dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
-ansible -i ./Dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
-ansible -i ./Dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names all
-ansible -i ./Dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp
-ansible -i ./Dev/site1/ -m debug -a var="ansible_default_ipv4.address" ntp
-ansible -i ./Dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr(bool)" ntp
-ansible -i ./Dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr('bool')" ntp
-ansible -i ./Dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('172.21.40.0/24')|ansible.utils.ipaddr('bool')" ntp
-ansible -i ./Dev/site1/ -m debug -a var="ntp_servers|d('')" ntp
-ansible -i ./Dev/site1/ -m debug -a var="bootstrap_ntp_servers|d('')" ntp
-ansible -i ./Dev/site1/ -m debug -a var="bootstrap_ntp_servers|d(''),bootstrap_ntp_peers|d('')" ntp
+ansible -i ./inventory/dev/ -m debug -a var=ansible_winrm_transport windows_dev
+ansible -i ./inventory/dev/ test* -m debug -a var=environment.name var=location_name
+ansible -i ./inventory/dev/site1/ --list-hosts all
+ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers all
+ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers bootstrap_ntp_servers
+ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers all
+ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names all
+ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_server
+ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
+ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
+ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names all
+ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp
+ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address" ntp
+ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr(bool)" ntp
+ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr('bool')" ntp
+ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('172.21.40.0/24')|ansible.utils.ipaddr('bool')" ntp
+ansible -i ./inventory/dev/site1/ -m debug -a var="ntp_servers|d('')" ntp
+ansible -i ./inventory/dev/site1/ -m debug -a var="bootstrap_ntp_servers|d('')" ntp
+ansible -i ./inventory/dev/site1/ -m debug -a var="bootstrap_ntp_servers|d(''),bootstrap_ntp_peers|d('')" ntp
 
 ```
 
@@ -294,7 +294,7 @@ We will now run through several ansible CLI tests to verify that the correct mac
 ### Show list of all Dev/DMZ/MEM hosts
 
 ```shell
-$ ansible -i ./Dev/DMZ/MEM --list-hosts all
+$ ansible -i ./inventory/dev/DMZ/MEM --list-hosts all
   hosts (9):
     testhost1s1.dev.example.int
     testhost2s1.dev.example.int
@@ -339,7 +339,7 @@ testhost1s1.dev.example.int | SUCCESS => {
 ### Get info for all hosts in a specified inventory
 
 ```shell
-$ ansible -i ./Dev/DMZ/MEM -m debug -a var=group_names all
+$ ansible -i ./inventory/dev/DMZ/MEM -m debug -a var=group_names all
 testhost1s1.dev.example.int | SUCCESS => {
     "group_names": [
         "dmz",

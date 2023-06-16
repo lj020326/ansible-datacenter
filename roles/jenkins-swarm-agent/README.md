@@ -16,8 +16,10 @@ Role Variables
 
 | Variable Name                        | Default                                                                                                                                                 | Description                                                                                       |
 |--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| jenkins_swarm_agent_master            | jenkins.example.int                                                                                                                                          | Host that Jenkins main/controller UI is hosted                                                    |
 | jenkins_swarm_agent_master_port            | 8080                                                                                                                                                    | Port that Jenkins main UI is listening on                                                         |
 | jenkins_swarm_agent_master_protocol        | http                                                                                                                                                    | Protocol that Jenkins main UI is reachable by                                                     |
+| jenkins_swarm_agent_master_url        | "{{ jenkins_swarm_agent_master_protocol }}://{{ jenkins_swarm_agent_master }}:{{ jenkins_swarm_agent_master_port }}" | URL that Jenkins main UI is reachable by                                                     |
 | jenkins_swarm_agent_username               | sa_swarm_agent                                                                                                                                          | User account to use while authenticating to                                                       |
 | jenkins_swarm_agent_password               | {{ lookup('password', '../credentials/{{ inventory_hostname }}/jenkins-agent/agent-password.txt') }}                                                    | A password to authenticate against the Jenkins Master                                             |
 | jenkins_swarm_agent_password_file          | {{ jenkins_swarm_path }}/password.swarm                                                                                                                 | A file to hold the password with which to authenticate against the Jenkins Master                 |
@@ -28,17 +30,17 @@ Role Variables
 | jenkins_swarm_agent_log_file               | {{ jenkins_swarm_path }}/swarm.log                                                                                                                      | Where the swarm agent will log to                                                                 |
 | jenkins_swarm_agent_additional_args        | [deleteExistingClients, disableClientsUniqueId]                                                                                                         | Additional arguments to send to the Swarm client jar                                              |
 | jenkins_swarm_client_version         | 3.6                                                                                                                                                     | Version of the Swarm client to download                                                           |
-| jenkins_plugins_url                  | https://repo.jenkins-ci.org                                                                                                                             | Base URL to download the client                                                                   |
-| jenkins_plugins_repo_path            | releases/org/jenkins-ci/plugins/swarm-client/{{ jenkins_swarm_client_version }}                                                                         | URL between the base URL and the jar file name                                                    |
+| jenkins_swarm_plugins_url                  | https://repo.jenkins-ci.org                                                                                                                             | Base URL to download the client                                                                   |
+| jenkins_swarm_plugins_repo_path            | releases/org/jenkins-ci/plugins/swarm-client/{{ jenkins_swarm_client_version }}                                                                         | URL between the base URL and the jar file name                                                    |
 | jenkins_swarm_client_jar             | swarm-client-{{ jenkins_swarm_client_version }}.jar                                                                                                     | The file name for the swarm client jar                                                            |
-| jenkins_swarm_download_url           | {{ jenkins_plugins_url }}/{{ jenkins_plugins_repo_path }}/{{ jenkins_swarm_client_jar }}                                                                | Full URL to the Swarm client jar                                                                  |
+| jenkins_swarm_download_url           | {{ jenkins_swarm_plugins_url }}/{{ jenkins_swarm_plugins_repo_path }}/{{ jenkins_swarm_client_jar }}                                                                | Full URL to the Swarm client jar                                                                  |
 | jenkins_swarm_path                   | /var/lib/jenkins                                                                                                                                        | Path to the swarm client jar file                                                                 |
 | jenkins_swarm_config_path            | /etc/jenkins                                                                                                                                            | For CentOS while it is using the init.d setup, this is where the swarm-client settings are stored |
 | jenkins_swarm_task_name              | Jenkins Swarm Client                                                                                                                                    | Description for systemd                                                                           |
 | jenkins_swarm_systemd_path           | /lib/systemd/system                                                                                                                                     | Path to systemd folder                                                                            |
 | jenkins_swarm_service_name           | swarm-client                                                                                                                                            | Name of the systemd service                                                                       |
 | jenkins_swarm_client_wrapper_version | 2.0.3                                                                                                                                                   | Windows Service Wrapper version                                                                   |
-| jenkins_swarm_wrapper_download_url   | {{ jenkins_plugins_url}}/releases/com/sun/winsw/winsw/{{ jenkins_swarm_client_wrapper_version }}/winsw-{{jenkins_swarm_client_wrapper_version}}-bin.exe | Full URL to the Windows Service Wrapper exe                                                       |
+| jenkins_swarm_wrapper_download_url   | {{ jenkins_swarm_plugins_url}}/releases/com/sun/winsw/winsw/{{ jenkins_swarm_client_wrapper_version }}/winsw-{{jenkins_swarm_client_wrapper_version}}-bin.exe | Full URL to the Windows Service Wrapper exe                                                       |
 | win_base_jenkins_path                | C:\\jenkins                                                                                                                                             | Base path for the Jenkins agent                                                                   |
 | win_swarm_client_jar_path            | {{ win_base_jenkins_path }}\\{{ jenkins_swarm_client_jar }}                                                                                             | Path to the Swarm client jar file                                                                 |
 | win_swarm_client_wrapper_path        | {{ win_base_jenkins_path }}\\{{ jenkins_swarm_client_jar\|replace('.jar', '.exe') }}                                                                    | Path to the service wrapper exe                                                                   |
@@ -68,6 +70,19 @@ Example Playbook
     jenkins_swarm_agent_master: "{{ hostvars.example_master.ansible_host }}",
     jenkins_swarm_agent_num_executors: 8,
     jenkins_swarm_agent_labels: "Windows dotnet swarm msbuild"
+
+  roles:
+    - jenkins-swarm-agent
+```
+
+If jenkins service is hosted with a context path prefix (e.g., `/jenkins`), use the `jenkins_swarm_agent_master_url` variable to specify the endpoint URL:
+```yaml
+- hosts: jenkins_agents
+  vars:
+    jenkins_swarm_agent_master: "{{ hostvars.example_master.ansible_host }}",
+    jenkins_swarm_agent_num_executors: 8,
+    jenkins_swarm_agent_labels: "Windows dotnet swarm msbuild"
+    jenkins_swarm_agent_master_url: "https://{{ hostvars.example_master.ansible_host }}/jenkins",
 
   roles:
     - jenkins-swarm-agent

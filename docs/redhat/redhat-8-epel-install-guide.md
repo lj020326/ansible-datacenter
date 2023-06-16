@@ -21,7 +21,7 @@ Software Requirements and Linux Command Line Conventions
 
 ## Installing the configuration package
 
-Enabling the `EPEL8` repository on RHEL 8 / CentOS 8 is very simple: all we need to do is to download and install the configuration package which contains the repository files.  The file is available for download at the following [address](https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm). For the sake of this tutorial I will assume we are operating from the command line interface. We don’t need to download the [package to install](chrome-extension://pcmpcfapbekmbjjkdalcgopdkipoggdi/how-to-install-packages-on-redhat-8) it: we can perform the operation directly using `dnf` package manager:
+Enabling the `EPEL8` repository on RHEL 8 / CentOS 8 is very simple: all we need to do is to download and install the configuration package which contains the repository files.  The file is available for download at the following [address](https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm). For the sake of this tutorial I will assume we are operating from the command line interface. We don’t need to download the [package to install](chrome-extension://pcmpcfapbekmbjjkdalcgopdkipoggdi/how-to-install-packages-on-redhat-8) it: we can perform the operation directly using `dnf` package manager:
 
 ```
 $ sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm

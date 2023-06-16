@@ -15,6 +15,10 @@ FETCH_CERT_DIR=./
 #curl -sL https://${ENDPOINT}/ > ${CERT_IMPORT_DIR}/ca-certificates.${ENDPOINT_NAME}.crt
 #update-ca-trust
 
-echo | openssl s_client -showcerts -servername ${TARGET_HOST} -connect ${ENDPOINT} 2>/dev/null \
-  | awk '/-----BEGIN CERTIFICATE-----/, /-----END CERTIFICATE-----/' >> ${FETCH_CERT_DIR}/${ENDPOINT_NAME}.crt
+#echo | openssl s_client -showcerts -servername ${TARGET_HOST} -connect ${ENDPOINT} 2>/dev/null \
+#  | awk '/-----BEGIN CERTIFICATE-----/, /-----END CERTIFICATE-----/' >> ${FETCH_CERT_DIR}/${ENDPOINT_NAME}.crt
+
+## ref: https://stackoverflow.com/questions/9450120/openssl-hangs-and-does-not-exit
+echo QUIT | openssl s_client -showcerts -servername ${TARGET_HOST} -connect ${ENDPOINT} | \
+  openssl x509 -outform PEM > ${FETCH_CERT_DIR}/${ENDPOINT_NAME}.crt
 

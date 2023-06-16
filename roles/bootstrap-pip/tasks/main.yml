@@ -9,9 +9,23 @@
     - "default.yml"
 
 - name: "Install pip env OS packages"
+  set_fact:
+    __bootstrap_pip__packages: "{{ bootstrap_pip__packages }}"
+
+- name: "Add __bootstrap_pip__python_executable to __bootstrap_pip__packages if not python3"
+  when: __bootstrap_pip__python_executable != 'python3'
+  set_fact:
+    __bootstrap_pip__packages: "{{ (__bootstrap_pip__packages + [__bootstrap_pip__python_executable])
+      | flatten | sort | unique }}"
+
+- name: "Display __bootstrap_pip__packages"
+  debug:
+    var: __bootstrap_pip__packages
+
+- name: "Install __bootstrap_pip__packages"
   package:
     state: present
-    name: "{{ bootstrap_pip_packages }}"
+    name: "{{ __bootstrap_pip__packages }}"
 
 ## ref: https://pip.pypa.io/en/stable/topics/configuration/
 - name: "Ensure /etc/pip.conf"
@@ -24,41 +38,66 @@
 
 #- name: "Create pip user config directory"
 #  file:
-#    path: "{{ bootstrap_pip_config_dir }}"
+#    path: "{{ bootstrap_pip__config_dir }}"
 #    state: directory
 #    mode: "0755"
 #    owner: "{{ ansible_user }}"
 #    group: "{{ ansible_user }}"
 #
-#- name: "Ensure {{ bootstrap_pip_config_dir }}//pip.conf"
+#- name: "Ensure {{ bootstrap_pip__config_dir }}//pip.conf"
 #  copy:
 #    src: pip.conf
-#    dest: "{{ bootstrap_pip_config_dir }}/pip.conf"
+#    dest: "{{ bootstrap_pip__config_dir }}/pip.conf"
 #    mode: "0644"
 #    owner: "{{ ansible_user }}"
 #    backup: yes
 
-- name: "Display bootstrap_pip_libs"
+- name: "Display __bootstrap_pip__libs"
   debug:
-    var: bootstrap_pip_libs
+    var: __bootstrap_pip__libs
 
-- name: "Set __bootstrap_pip_library_list_by_priority"
+- name: "Set __bootstrap_pip__library_list_by_priority"
   set_fact:
-    __bootstrap_pip_library_list_by_priority: "{{ __bootstrap_pip_library_list_by_priority | d({})
-      | combine({ (item.priority | default(bootstrap_pip_lib_priority_default)|int): {
-                    item.state | default(bootstrap_pip_lib_state): {
+    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({})
+      | combine({ (item.priority | default(bootstrap_pip__lib_priority_default)|int): {
+                    item.state | default(bootstrap_pip__lib_state): {
                         ((item is mapping) | ternary( item.name, item)): {}
                       }
                     }
                   }, recursive=True) }}"
-  loop: "{{ bootstrap_pip_libs }}"
+  loop: "{{ __bootstrap_pip__libs }}"
 
-- name: "Install | Init-vars | Display __bootstrap_pip_library_list_by_priority"
+- name: "Display __bootstrap_pip__library_list_by_priority"
   debug:
-    var: __bootstrap_pip_library_list_by_priority
+    var: __bootstrap_pip__library_list_by_priority
+
+- name: "Set {{ role_name }} var prefix"
+  set_fact:
+    role_var_prefix: "{{ role_name | replace('-','_') }}"
+
+- name: "Set {{ role_name }} list var prefixes"
+  set_fact:
+    role_pip_env_list_var_prefix: "{{ role_var_prefix }}__env_list__"
+
+- name: "Set {{ role_name }} var regex's"
+  set_fact:
+    role_pip_env_list_var_regex: "^{{ role_pip_env_list_var_prefix }}"
+
+- name: "Show variables with '{{ role_pip_env_list_var_regex }}' regex"
+  debug:
+    msg: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
+
+- name: "Coalesce lists from {{ role_pip_env_list_var_prefix }}* vars into merged list"
+  set_fact:
+    __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', role_pip_env_list_var_prefix, wantlist=True) }}"
+
+- name: "Display __bootstrap_pip__env_list"
+  debug:
+    var: __bootstrap_pip__env_list
 
 - name: "Install | Install pip libs"
   include_tasks: install-pip-libs.yml
-  loop: "{{ bootstrap_pip_envs }}"
+  loop: "{{ __bootstrap_pip__env_list }}"
   loop_control:
-    loop_var: pip_env
+    loop_var: __bootstrap_pip_env

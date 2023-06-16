@@ -169,8 +169,8 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:59  + tree inventory/dev/group_vars
 11:46:59  inventory/dev/group_vars
 11:46:59  ├── all
-11:46:59  │   ├── 000_cross_env_vars.yml -> ../../../group_vars/all.yml
-11:46:59  │   └── env_specific.yml
+11:46:59  │   ├── 000_cross_env_vars.yml -> ../../../group_vars/all.yml
+11:46:59  │   └── env_specific.yml
 11:46:59  ├── ansible_controller.yml -> ../../group_vars/ansible_controller.yml
 11:46:59  ├── backup_server.yml -> ../../group_vars/backup_server.yml
 11:46:59  ├── baremetal.yml -> ../../group_vars/baremetal.yml

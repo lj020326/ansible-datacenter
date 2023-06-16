@@ -1,6 +1,6 @@
 ## Installing Docker via Ansible
 ### Default Docker Install
-```
+```yaml
 ---
 - hosts: all
   roles:
@@ -8,7 +8,7 @@
 ```
 
 ### Install Docker w/devicemapper
-```
+```yaml
 ---
 - hosts: all
   roles:
@@ -18,7 +18,7 @@
 ```
 
 ### Install Docker w/HTTP Proxy Support
-```
+```yaml
 ---
 - hosts: all
   roles:
@@ -28,7 +28,7 @@
 ```
 
 ### Install Docker w/HTTP Proxy Support & without proxy on internal sites
-```
+```yaml
 ---
 - hosts: all
   roles:
@@ -39,7 +39,7 @@
 ```
 
 ### Install Docker and customize the storage directory of images and containers
-```
+```yaml
 ---
 - hosts: all
   roles:
@@ -48,7 +48,7 @@
 ```
 
 ### Install/Upgrade Docker. Avoid container downtime during the upgrade of a Docker
-```
+```yaml
 ---
 - hosts: all
   roles:

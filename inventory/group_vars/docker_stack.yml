@@ -4,6 +4,41 @@ docker_stack__service_groups__base:
   - name: base
     source: role
 
+docker_stack__python_docker_interpreter: "{{ ansible_python_docker_interpreter }}"
+
+registry_domain: "{{ control_plane_domain }}"
+
+ca_service_route: "{{ docker_stack__internal_domain }}"
+
+bind_aliases:
+  - "{{ docker_stack__service_route_name if docker_stack__service_route_name != inventory_hostname_short else '' }}"
+
+ca_domains_hosted:
+  - "{{ docker_stack__internal_domain }}"
+
+#docker_stack__user_username: "adminuser"
+#docker_stack__user_group: "adminuser"
+
+docker_stack__dir: "{{ docker_stack__user_home }}/docker"
+
+#docker_stack__admin_jobs: []
+
+#nfs_exports:
+#  - "/srv      192.168.0.0/255.255.0.0(ro,fsid=0,async,nohide,no_subtree_check,crossmnt)"
+
+# docker_stack__service_groups: []
+
+################################
+## NOTE: You need the following ports open to traffic to and from each Docker host participating on an overlay network:
+## Reference:
+##   https://www.digitalocean.com/community/tutorials/how-to-configure-the-linux-firewall-for-docker-swarm-on-centos-7
+##   https://stackoverflow.com/questions/52665442/docker-swarm-host-cannot-resolve-hosts-on-other-nodes
+firewalld_ports__docker:
+  - "2376/tcp"
+  - "2377/tcp"
+  - "4789/udp"
+  - "7946/tcp"
+
 #time_server: 0.pool.ntp.org
 #time_server: 192.168.0.1
 time_server: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
@@ -24,9 +59,6 @@ docker_stack__enable_cacerts: yes
 
 #docker_stack__ca_cert_bundle: "{{ ca_cert_bundle }}"
 #docker_stack__ca_java_keystore: "{{ ca_java_keystore }}"
-
-docker_registry_username: "{{ registry_username }}"
-docker_registry_password: "{{ registry_password }}"
 
 docker_stack__mysql_root_password: "{{ vault__docker_stack__mysql_root_password | d('') }}"
 docker_stack__grafana_admin_password: "{{ vault__docker_stack__grafana_admin_password | d('') }}"
@@ -107,26 +139,7 @@ docker_stack__service_route_name: "{{ inventory_hostname_short }}"
 docker_stack__internal_ssl_cert_dir: "{{ cacert_local_cert_dir }}"
 docker_stack__internal_ssl_certkey_dir: "{{ cacert_local_key_dir }}"
 
-registry_domain: "{{ control_plane_domain }}"
-
-ca_service_route: "{{ docker_stack__internal_domain }}"
-
 docker_stack__stepca_ca_name: "stepca.{{ docker_stack__internal_domain }}"
-
-bind_aliases:
-  - "{{ docker_stack__service_route_name if docker_stack__service_route_name != inventory_hostname_short else '' }}"
-
-ca_domains_hosted:
-  - "{{ docker_stack__internal_domain }}"
-
-docker_stack__registry_name: "{{ docker_stack__internal_domain }}"
-docker_stack__registry_endpoint: "{{ docker_registry }}"
-
-docker_stack__registry_username: "{{ docker_registry_username }}"
-docker_stack__registry_password: "{{ docker_registry_password }}"
-
-docker_stack__registry_service_common_name: "{{ docker_stack__internal_domain }}"
-docker_stack__registry_users: "{{ registry_users }}"
 
 docker_stack__smtp_address: "mail.johnson.int"
 docker_stack__smtp_port: 25
@@ -138,6 +151,10 @@ docker_stack__gitlab_smtp_port: "{{ docker_stack__smtp_port }}"
 
 docker_stack__email_from: "admin@dettonville.org"
 docker_stack__email_to: "admin@dettonville.org"
+docker_stack__email_default_suffix: "@dettonville.org"
+
+docker_stack__email_admin_address: "admin+jenkins@dettonville.com"
+
 
 docker_stack__healthchecks_site_name: "Dettonville HealthChecks"
 docker_stack__healthchecks_default_from_email: "{{ docker_stack__email_from }}"
@@ -161,39 +178,32 @@ docker_stack__compose_http_timeout: 240
 
 docker_source_images: []
 
-###########
-## JENKINS
-###########
-docker_stack__jenkins_ldap_host: "{{ ldap_internal_host }}"
-docker_stack__jenkins_ldap_base_dn: "{{ ldap_internal_base_dn }}"
-docker_stack__jenkins_jcac_mgr_pwd_secret: "{{ ldap_readonly_password }}"
-
 ##########
 ## stepca
 ##########
 
 #docker_stack__stepca_image: "media.johnson.int:5000/docker-stepca:latest"
 
+##########
+## other
+##########
+docker_stack__vmware_data_dir: /data/datacenter/vmware
 
-#docker_stack__user_username: "adminuser"
-#docker_stack__user_group: "adminuser"
+##########
+## registry
+##########
+docker_registry_login: yes
 
-docker_stack__dir: "{{ docker_stack__user_home }}/docker"
+#docker_stack__registry_url: "https://{{ docker_stack__registry_endpoint }}/v2/"
 
-#docker_stack__admin_jobs: []
+docker_stack__registry_login: yes
 
-#nfs_exports:
-#  - "/srv      192.168.0.0/255.255.0.0(ro,fsid=0,async,nohide,no_subtree_check,crossmnt)"
+docker_stack__registry_name: "{{ docker_stack__internal_domain }}"
+docker_stack__registry_endpoint: "{{ docker_registry }}"
 
-# docker_stack__service_groups: []
+docker_stack__registry_username: "{{ docker_registry_username }}"
+docker_stack__registry_password: "{{ docker_registry_password }}"
 
-################################
-## NOTE: You need the following ports open to traffic to and from each Docker host participating on an overlay network:
-## Reference:
-##   https://www.digitalocean.com/community/tutorials/how-to-configure-the-linux-firewall-for-docker-swarm-on-centos-7
-##   https://stackoverflow.com/questions/52665442/docker-swarm-host-cannot-resolve-hosts-on-other-nodes
-firewalld_ports__docker:
-  - "2376/tcp"
-  - "2377/tcp"
-  - "4789/udp"
-  - "7946/tcp"
+docker_stack__registry_service_common_name: "{{ docker_stack__internal_domain }}"
+docker_stack__registry_users: "{{ registry_users }}"
+

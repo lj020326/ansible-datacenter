@@ -13,7 +13,7 @@ I wanted to use AWX to deploy a number of new VMs (they could be in the cloud, t
 -   [Reddit thread: Creating a workflow (and playbooks) that only act on the host created in step 1](https://www.reddit.com/r/ansible/comments/cev0ou/creating_a_workflow_and_playbooks_that_only_act/)
 -   [Stack Overflow: Ansible: how to call module \`add_host\` for all hosts of the play](https://stackoverflow.com/questions/42106527/ansible-how-to-call-module-add-host-for-all-hosts-of-the-play)
 -   [Stack Overflow: Limit hosts using Workflow template](https://stackoverflow.com/questions/52206280/limit-hosts-using-workflow-template)
--   [CI/CD with Ansible Tower and GitHub](https://keithtenzer.com/2019/06/24/ci-cd-with-ansible-tower-and-github/)
+-   [CI/CD with Ansible Tower and GitHub](https://keithtenzer.com/2019/06/24/ci-cd-with-ansible-tower-and-github/)
 
 The first post suggested using AWX Callbacks. I’ve used these before and there’s further details in this post about using them with Satellite. The idea is that a server comes up for the first time and ‘dials home’ so that a job template can be run against it. The host needs to exist in the inventory. Note, only a template can be called via callback, not a workflow. There’s an open RFE for this – [Issue 1845 RFE: Extend callback feature to workflows](https://github.com/ansible/awx/issues/1845).
 

@@ -28,7 +28,7 @@ To make management of the PowerDNS server easier, a tool known as **PowerDNS Adm
 
 This guide provides the required steps to run PowerDNS and PowerDNS Admin in Docker Containers. There are other ways to run PowerDNS and PowerDNS Admin such as:
 
--   [Install PowerDNS on CentOS 8 with MariaDB & PowerDNS-Admin](https://computingforgeeks.com/install-powerdns-on-centos-with-powerdns-admin/)
+-   [Install PowerDNS on CentOS 8 with MariaDB & PowerDNS-Admin](https://computingforgeeks.com/install-powerdns-on-centos-with-powerdns-admin/)
 -   [Install PowerDNS and PowerDNS-Admin on Ubuntu](https://computingforgeeks.com/install-powerdns-and-powerdns-admin-on-ubuntu/)
 
 These methods contain quite a number of steps. Using Docker is the easiest of them all.

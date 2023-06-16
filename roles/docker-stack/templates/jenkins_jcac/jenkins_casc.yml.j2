@@ -7,14 +7,16 @@ credentials:
           id: "jenkins-admin"
           password: "${JENKINS_ADMIN_PASSWORD}"
           scope: GLOBAL
-          username: "admin"
+          username: "${JENKINS_ADMIN_ID}"
           usernameSecret: true
       - basicSSHUserPrivateKey:
           description: "bitbucket-ssh-jenkins"
           id: "bitbucket-ssh-jenkins"
           privateKeySource:
             directEntry:
-              privateKey: "${BITBUCKET_SSH_PRIVATE_KEY}"
+              # privateKey: "${BITBUCKET_SSH_PRIVATE_KEY}"
+              ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/credentials#example
+              privateKey: "${readFile:${BITBUCKET_SSH_PRIVATE_KEY}}"
           scope: GLOBAL
           username: "${BITBUCKET_SSH_USERNAME}"
           usernameSecret: true
@@ -25,7 +27,7 @@ credentials:
           username: "admin"
           usernameSecret: true
       - usernamePassword:
-          id: "github-lj020326"
+          id: "github-jenkins"
           password: "${GITHUB_PASSWORD}"
           scope: GLOBAL
           username: "${GITHUB_USERNAME}"
@@ -35,30 +37,38 @@ credentials:
         description: "INFRA domain"
       credentials:
         - usernamePassword:
-            id: "dcapi-govc-cred"
+            id: "infra-govc-cred"
             password: "${VSPHERE_PASSWORD}"
             scope: GLOBAL
-            username: "administrator@vsphere.local"
+            username: "${VSPHERE_USERNAME}"
             usernameSecret: true
         - usernamePassword:
-            id: "dcapi-jenkins-git-user"
+            id: "infra-vcenter-cred"
+            password: "${VSPHERE_PASSWORD}"
+            scope: GLOBAL
+            username: "${VSPHERE_USERNAME}"
+            usernameSecret: true
+        - usernamePassword:
+            id: "infra-jenkins-git-user"
             password: "${JENKINS_GIT_PASSWORD}"
             scope: GLOBAL
             username: "jenkins"
             usernameSecret: true
         - usernamePassword:
             description: "ansible-ssh-password"
-            id: "dcapi-ansible-ssh-password"
+            id: "infra-ansible-ssh-password"
             password: "${ANSIBLE_SSH_PASSWORD}"
             scope: GLOBAL
-            username: "ansible"
+            username: "${ANSIBLE_SSH_USERNAME}"
             usernameSecret: true
         - basicSSHUserPrivateKey:
             description: "jenkins-ansible-ssh"
             id: "jenkins-ansible-ssh"
             privateKeySource:
               directEntry:
-                privateKey: "${ANSIBLE_SSH_PRIVATE_KEY}"
+                # privateKey: "${ANSIBLE_SSH_PRIVATE_KEY}"
+                ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/credentials#example
+                privateKey: "${readFile:${ANSIBLE_SSH_PRIVATE_KEY}}"
             scope: GLOBAL
             username: "ansible"
             usernameSecret: true
@@ -78,10 +88,17 @@ credentials:
             secret: "${PACKER_SSH_PASSWORD}"
             description: "packer-ssh-password"
         - string:
-            scope: GLOBAL
             id: "ansible-vault-password"
+            scope: GLOBAL
             secret: "${ANSIBLE_VAULT_PASSWORD}"
             description: "Ansible Vault Password"
+        - file:
+            scope: GLOBAL
+            id: "ansible-vault-password-file"
+            fileName: ".vault_pass"
+            secretBytes: "${base64:${readFile:${ANSIBLE_VAULT_PASSWORD_FILE}}}"
+#            secretBytes: "${readFile:${ANSIBLE_VAULT_PASSWORD_FILE}}"
+            description: "Ansible Vault Password File"
 jenkins:
   agentProtocols:
   - "JNLP4-connect"
@@ -109,10 +126,51 @@ jenkins:
     ## ref: https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code.yml
     projectMatrix:
       permissions:
+      - "GROUP:Overall/Administer:Domain Admins"
       - "GROUP:Overall/Administer:admin"
       - "GROUP:Overall/Read:authenticated"
       - "USER:Overall/Administer:admin"
   clouds:
+{% if docker_stack__swarm_mode|bool %}
+  - dockerSwarm:
+      agentTemplates:
+#      - command: |-
+#          sh
+#          -cx
+#          curl --connect-timeout 20 --max-time 60 -o agent.jar $DOCKER_SWARM_PLUGIN_JENKINS_AGENT_JAR_URL && java -jar agent.jar -jnlpUrl $DOCKER_SWARM_PLUGIN_JENKINS_AGENT_JNLP_URL -secret $DOCKER_SWARM_PLUGIN_JENKINS_AGENT_SECRET -noReconnect -workDir /tmp
+      - command: |-
+          sh
+          -cx
+          java -jar /home/jenkins/swarm-client.jar ${ENV_COMMAND_OPTIONS}
+        dnsIps: "10.0.0.1"
+        envVars: |-
+          ENV_COMMAND_OPTIONS="-master '${JENKINS_HOST}' \
+                      -tunnel '{{ __docker_stack__jenkins_jcac_agent_tunnel }}' \
+                      -username '@/run/secrets/jenkins_agent_username' \
+                      -password '@/run/secrets/jenkins_agent_password' \
+                      -name 'docker-swarm-{{ inventory_hostname_short }}' \
+                      -deleteExistingClients \
+                      -disableClientsUniqueId \
+                      -disableSslVerification"
+        image: "{{ __docker_stack__jenkins_jcac_swarm_agent_image }}"
+        label: "docker-agent docker dockercloud"
+        limitsMemoryBytes: 0
+        limitsNanoCPUs: 0
+        osWindows: false
+        reservationsMemoryBytes: 0
+        reservationsNanoCPUs: 0
+        secrets: |
+          jenkins_admin_username:/run/secrets/jenkins_admin_username
+          jenkins_admin_password:/run/secrets/jenkins_admin_password
+        workingDir: "/tmp"
+      dockerHost:
+        uri: "http://socket-proxy:2375"
+      dockerSwarmApiUrl: "http://socket-proxy:2375"
+      jenkinsUrl: "${JENKINS_HOST}"
+#      swarmNetwork: "socket_proxy"
+      timeoutMinutes: 5
+      tunnel: "{{ __docker_stack__jenkins_jcac_agent_tunnel }}"
+{% else %}
   - docker:
       dockerApi:
         connectTimeout: 60
@@ -123,17 +181,17 @@ jenkins:
       name: "dockercloud01"
       ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/docker
       templates:
-      - connector:
-          attach:
-            user: "jenkins"
 #      - connector:
-#          jnlp:
-#            jnlpLauncher:
-#              tunnel: "{{ __docker_stack__jenkins_endpoint }}:9000"
-#              workDirSettings:
-#                disabled: false
-#                failIfWorkDirIsMissing: false
-#                internalDir: "remoting"
+#          attach:
+#            user: "jenkins"
+      - connector:
+          jnlp:
+            jnlpLauncher:
+              tunnel: "{{ __docker_stack__jenkins_jcac_agent_tunnel }}"
+              workDirSettings:
+                disabled: false
+                failIfWorkDirIsMissing: false
+                internalDir: "remoting"
         dockerTemplateBase:
           bindAllPorts: true
           cpuPeriod: 0
@@ -156,7 +214,8 @@ jenkins:
         labelString: "docker dockercloud dockercloud-agent ansible"
         mode: EXCLUSIVE
         name: "dockercloud-agent"
-        pullStrategy: PULL_ALWAYS
+#        pullStrategy: PULL_ALWAYS
+        pullStrategy: PULL_LATEST
         pullTimeout: 300
 #        remoteFs: "/home/jenkins"
         remoteFs: "/home/jenkins/agent"
@@ -164,6 +223,7 @@ jenkins:
         retentionStrategy:
           idleMinutes: 30
         stopTimeout: 0
+{% endif %}
   crumbIssuer:
     standard:
       excludeClientIPFromCrumb: false
@@ -194,7 +254,7 @@ jenkins:
       labelString: "docker ansible"
       launcher:
         inbound:
-          tunnel: "{{ __docker_stack__jenkins_endpoint }}:9000"
+          tunnel: "{{ __docker_stack__jenkins_jcac_agent_tunnel }}"
           workDirSettings:
             disabled: false
             failIfWorkDirIsMissing: false
@@ -247,7 +307,7 @@ jenkins:
       disableRolePrefixing: true
       groupIdStrategy: "caseInsensitive"
       userIdStrategy: "caseInsensitive"
-  slaveAgentPort: 9000
+  slaveAgentPort: "{{ __docker_stack__jenkins_jcac_agent_tcp_port }}"
   systemMessage: |+
     Welcome to our CI\CD server.  This Jenkins is configured and managed 'as code'.
 
@@ -277,11 +337,11 @@ security:
     useScriptSecurity: false
   ## ref: https://github.com/jenkinsci/authorize-project-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/authorizeproject/ConfigurationAsCodeTest/global.config.TriggeringUsersAuthorizationStrategy.yml
   ## ref: https://bobcares.com/blog/jenkins-setup-docker/
-  queueItemAuthenticator:
-    authenticators:
-    - global:
-        strategy: "triggeringUsersAuthorizationStrategy"
-#        strategy: "systemAuthorizationStrategy"
+#  queueItemAuthenticator:
+#    authenticators:
+#    - global:
+#        strategy: "triggeringUsersAuthorizationStrategy"
+##        strategy: "systemAuthorizationStrategy"
   sSHD:
     port: -1
   updateSiteWarningsConfiguration:
@@ -386,11 +446,11 @@ unclassified:
       Check console output at $BUILD_URL to view the results.
     defaultContentType: "text/plain"
     defaultSubject: "$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!"
-    defaultSuffix: "@dettonville.org"
+    defaultSuffix: "{{ docker_stack__email_default_suffix }}"
     defaultTriggerIds:
     - "hudson.plugins.emailext.plugins.trigger.FailureTrigger"
     mailAccount:
-      smtpHost: "mail.johnson.int"
+      smtpHost: "{{ docker_stack__smtp }}"
     maxAttachmentSize: -1
     maxAttachmentSizeMb: -1
     precedenceBulk: false
@@ -409,7 +469,7 @@ unclassified:
     hookUrl: "https://{{ __docker_stack__jenkins_endpoint }}/github-webhook/"
   giteaServers:
     servers:
-    - credentialsId: "dcapi-jenkins-git-user"
+    - credentialsId: "infra-jenkins-git-user"
       displayName: "gitea-admin"
       manageHooks: true
       serverUrl: "https://gitea.admin.dettonville.int"
@@ -424,7 +484,7 @@ unclassified:
         modernSCM:
           scm:
             git:
-              credentialsId: "dcapi-jenkins-git-user"
+              credentialsId: "bitbucket-ssh-jenkins"
 #              id: "0f7f6074-dd56-42c9-8db4-9d6ec8a0b566"
               remote: "{{ __docker_stack__jenkins_jcac_pipeline_lib_repo }}"
               traits:
@@ -450,12 +510,12 @@ unclassified:
   junitTestResultStorage:
     storage: "file"
   location:
-    adminAddress: "admin+jenkins@dettonville.com"
+    adminAddress: "{{ docker_stack__email_admin_address }}"
     url: "${JENKINS_HOST}"
   mailer:
     charset: "UTF-8"
-    defaultSuffix: "@dettonville.org"
-    smtpHost: "mail.johnson.int"
+    defaultSuffix: "{{ docker_stack__email_default_suffix }}"
+    smtpHost: "{{ docker_stack__smtp }}"
     useSsl: false
     useTls: false
   pluginImpl:
@@ -486,7 +546,7 @@ unclassified:
     allowSecondFetch: false
     createAccountBasedOnEmail: false
     disableGitToolChooser: false
-    globalConfigEmail: "admin+jenkins@dettonville.com"
+    globalConfigEmail: "{{ docker_stack__email_admin_address }}"
     globalConfigName: "jenkins"
     hideCredentials: false
     showEntireCommitSummaryInChanges: false
@@ -528,7 +588,19 @@ tool:
   ansible:
     installations:
     - home: "/usr/local/bin"
-      name: "ansible-local"
+      name: "ansible-local-bin"
+    - home: ".venv/ansible/bin"
+      name: "ansible-venv"
+      properties:
+      - installSource:
+          installers:
+          - command:
+              command: |+
+                python3 -m venv .venv/ansible && \
+                .venv/ansible/bin/pip3 -q install --upgrade ansible
+              label: "ansible"
+              toolHome: ".venv/ansible"
+    - name: "ansible"
   customTool:
     installations:
     - home: "/usr/local/bin"

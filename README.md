@@ -569,7 +569,7 @@ ansible-playbook site.yml --tags docker-admin-node
 ansible-playbook site.yml --tags docker-media-node
 ```
 
-Useful commands to build/update/configure datacenter:
+Useful `site.yml` tag based plays to build/update/configure datacenter:
 
 ```shell
 ansible-playbook site.yml --tags bootstrap-bind
@@ -595,6 +595,54 @@ ansible-playbook site.yml --tags vmware-remount-datastores
 ansible-playbook site.yml --tags upgrade-vmware-esxi
 ```
 
+Example inventory checks
+```shell
+ansible -v all --list-hosts
+ansible -i ./inventory/prod/hosts.yml -m debug -a var=cacert_keystore_host admin03
+ansible -i ./inventory/prod/hosts.yml -m debug -a var=jenkins_swam_agent_master admin01
+ansible -i ./inventory/prod/hosts.yml -m debug -a var=jenkins_swarm_agent_labels admin01
+ansible -i ./inventory/prod/hosts.yml -m debug -a var=jenkins_swarm_agent_master admin01
+ansible -i inventory/ -m debug -a var=service_route_internal_root_domain vcontrol01
+ansible -i inventory/ -m debug -a var=ca_domain vcontrol01
+ansible -i inventory/ -m debug -a var=service_route_internal_root_domain vcontrol01
+ansible -i inventory/hosts.yml -m debug -a var=ca_domain vcontrol01
+ansible -i inventory/hosts.yml -m debug -a var=group_names admin01
+ansible -i inventory/hosts.yml -m debug -a var=internal_root_domain vcontrol01
+ansible -i inventory/hosts.yml -m debug -a var=jenkins_swam_agent_master admin01
+ansible -i inventory/hosts.yml -m debug -a var=service_route_internal_root_domain vcontrol01
+ansible -i inventory/prod/ -m debug -a var=ansible_host vcenter7
+ansible -i inventory/prod/ -m debug -a var=bootstrap_docker__script_dirs admin03
+ansible -i inventory/prod/ -m debug -a var=bootstrap_docker__swarm_managers admin03
+ansible -i inventory/prod/ -m debug -a var=bootstrap_docker__swarm_remote_addrs admin03
+ansible -i inventory/prod/ -m debug -a var=ca_domain admin01
+ansible -i inventory/prod/ -m debug -a var=ca_domain vcontrol01
+ansible -i inventory/prod/ -m debug -a var=docker_stack_internal_domain admin03
+ansible -i inventory/prod/ -m debug -a var=docker_stack_internal_root_domain admin03
+ansible -i inventory/prod/ -m debug -a var=group_names admin01
+ansible -i inventory/prod/ -m debug -a var=group_names vcenter7
+ansible -i inventory/prod/ -m debug -a var=group_names vcontrol01
+ansible -i inventory/prod/ -m debug -a var=internal_domain vcenter7
+ansible -i inventory/prod/ -m debug -a var=internal_domain vcontrol01
+ansible -i inventory/prod/ -m debug -a var=internal_root_domain vcenter7
+ansible -i inventory/prod/ -m debug -a var=internal_subdomain vcontrol01
+ansible -i inventory/prod/ -m debug -a var=service_route_internal_root_domain admin01
+ansible -i inventory/prod/hosts.yml -m debug -a var=jenkins_swam_agent_master admin01
+ansible-inventory --help
+ansible-inventory -h
+ansible-inventory -i ./inventory/prod/hosts.yml --graph 
+ansible-inventory -i inventory/Prod/ --graph vmware_vcenter
+```
+
+Example test playbook runs
+```shell
+runme.sh site.yml -t deploy-cacerts -l admin01
+runme.sh bootstrap-pip.yml -l admin01
+runme.sh -vvv bootstrap-docker.yml -l admin01
+runme.sh bootstrap-docker-stack.yml -l docker_stack_jenkins_jcac
+runme.sh bootstrap-jenkins-agent.yml -l admin01
+```
+
 ## Contact
 
 [![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
+
