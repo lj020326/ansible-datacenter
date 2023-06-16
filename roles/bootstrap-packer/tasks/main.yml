@@ -3,9 +3,20 @@
 - name: "Display key role inputs"
   debug:
     msg:
-      - "packer_arch={{ packer_arch }}"
-      - "packer_version={{ packer_version }}"
-      - "packer_bin_path={{ packer_bin_path }}"
+      - "bootstrap_packer__arch={{ bootstrap_packer__arch }}"
+      - "bootstrap_packer__version={{ bootstrap_packer__version }}"
+      - "bootstrap_packer__bin_path={{ bootstrap_packer__bin_path }}"
+
+#######################
+## older redhat versions have a symbolic link `/usr/sbin/packer` to a little-used `/usr/sbin/cracklib-packer` utility
+## it has been since removed from more modern RHEL versions
+## just in case it is found, the symlink can be safely removed
+## ref: https://bugzilla.redhat.com/show_bug.cgi?id=1994196
+##
+- name: "Remove `packer` symlink to `/usr/sbin/cracklib-packer`"
+  file:
+   path: "/usr/sbin/packer"
+   state: absent
 
 - name: "Ensure unzip is installed."
   package:
@@ -13,44 +24,47 @@
     state: present
 
 - name: "Get installed packer version."
-  command: packer --version
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+  command: "packer --version"
   ignore_errors: yes
   changed_when: false
-  failed_when: false
+#  failed_when: false
   check_mode: false
-  register: packer_installed_version
+  register: __bootstrap_packer__installed_version
 
-- name: "Display packer_installed_version"
+- name: "Display __bootstrap_packer__installed_version.stdout"
   debug:
-    var: packer_installed_version
+    var: __bootstrap_packer__installed_version.stdout
 
-- name: "Display packer_installed_version.stdout is version"
+- name: "Display __bootstrap_packer__installed_version.stdout is version"
+  when: not __bootstrap_packer__installed_version.failed
   debug:
-    var: (packer_installed_version.stdout is version(packer_version, operator="!="))
+    var: (__bootstrap_packer__installed_version.stdout is version(bootstrap_packer__version, operator="!="))
 
 - name: "Force packer install if the version numbers do not match."
   set_fact:
-    packer_reinstall_from_source: true
+    bootstrap_packer__reinstall_from_source: true
   when:
-    - (packer_install_from_source_force_update | bool) or
-      (packer_installed_version.rc != 0) or
-      (packer_installed_version.stdout is version(packer_version, operator="!="))
+    - (bootstrap_packer__install_from_source_force_update | bool) or
+      (__bootstrap_packer__installed_version.failed) or
+      (__bootstrap_packer__installed_version.stdout is version(bootstrap_packer__version, operator="!="))
 
-- name: "Display packer_reinstall_from_source"
+- name: "Display bootstrap_packer__reinstall_from_source"
   debug:
-    var: packer_reinstall_from_source
+    var: bootstrap_packer__reinstall_from_source
 
 - name: "Download and unarchive Packer."
-  when: packer_reinstall_from_source | bool
+  when: bootstrap_packer__reinstall_from_source | bool
   unarchive:
-    src: https://releases.hashicorp.com/packer/{{ packer_version }}/packer_{{ packer_version }}_linux_{{ packer_arch }}.zip
-    dest: "{{ packer_bin_path }}"
+    src: https://releases.hashicorp.com/packer/{{ bootstrap_packer__version }}/packer_{{ bootstrap_packer__version }}_linux_{{ bootstrap_packer__arch }}.zip
+    dest: "{{ bootstrap_packer__bin_path }}"
     remote_src: true
-#    creates: "{{ packer_bin_path }}/packer"
+#    creates: "{{ bootstrap_packer__bin_path }}/packer"
     mode: "0755"
-  register: packer_install_result
+  register: bootstrap_packer__install_result
 
-- name: "Display packer_install_result"
-  when: packer_reinstall_from_source | bool
+- name: "Display bootstrap_packer__install_result"
+  when: bootstrap_packer__reinstall_from_source | bool
   debug:
-    var: packer_install_result
+    var: bootstrap_packer__install_result

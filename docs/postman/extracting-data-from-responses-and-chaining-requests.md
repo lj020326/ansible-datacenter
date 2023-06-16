@@ -14,7 +14,7 @@ The flow while [working with variables](https://blog.postman.com/10-tips-for-wor
 4.  Set the variable value
 5.  Hit submit
 
-This works, but is a lot of work if you have more than a few variables. [Test scripts](https://blog.postman.com/writing-tests-in-postman/) dramatically simplify this flow. All you have to do is call **postman.setEnvironmentVariable(key, value)** or **postman.setGlobalVariable(key, value)** to set a variable with values you have extracted from the response. You can even add something dynamically generated through Javascript.
+This works, but is a lot of work if you have more than a few variables. [Test scripts](https://blog.postman.com/writing-tests-in-postman/) dramatically simplify this flow. All you have to do is call **postman.setEnvironmentVariable(key, value)** or **postman.setGlobalVariable(key, value)** to set a variable with values you have extracted from the response. You can even add something dynamically generated through Javascript.
 
 Lets go through an example which will illustrate this in more detail:
 

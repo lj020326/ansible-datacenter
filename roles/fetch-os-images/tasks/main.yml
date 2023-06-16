@@ -1,28 +1,42 @@
 ---
-- name: initialize fact fetch_images
-  set_fact:
-    fetch_images: "{{ fetch_images | d(default_os_images) }}"
+
+#- name: initialize fact __fetch_images
+#  set_fact:
+#    __fetch_images: "{{ fetch_images | d(fetch_os_images__default_os_images) }}"
+
+- name: "Display __fetch_images"
+  debug:
+    var: __fetch_images
+
+- name: "Display ansible_remote_tmp"
+  debug:
+    var: ansible_remote_tmp
 
 - name: "Install fetch related packages"
+  when: fetch_os_images__packages|d([])|length>0
   package:
     state: present
-    name: "{{ fetch_os_packages }}"
+    name: "{{ fetch_os_images__packages }}"
 
-- debug:
-    var: fetch_images
+- name: "Display role input vars"
+  debug:
+    var: "{{ item }}"
+  loop:
+    - fetch_os_images__osimage_dir
+    - fetch_os_images__vmware_images_dir
 
-- debug:
-    var: osimage_dir
-
-- name: Ensure OS images dir exists
+- name: "Ensure OS images dir exists"
   file:
-    path: "{{ osimage_dir }}"
+    path: "{{ fetch_os_images__osimage_dir }}"
     state: directory
 #    owner: "jenkins"
 #    group: "jenkins"
 ##    recurse: "{{ item.recurse | default( omit ) }}"
 
-- name: "fetching OS images"
+- name: "Fetching OS images"
   include_tasks: fetch-os-image.yml
-  when: item.iso_url is defined
-  with_items: "{{ fetch_images }}"
+  when: __fetch_iso_config.iso_url is defined
+  loop: "{{ __fetch_images }}"
+  loop_control:
+    loop_var: __fetch_iso_config
+

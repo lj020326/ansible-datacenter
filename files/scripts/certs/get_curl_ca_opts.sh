@@ -18,6 +18,7 @@ case "${UNAME}" in
           CACERT_TRUST_DIR=/etc/ssl/certs
           CACERT=${CACERT_TRUST_DIR}/ca-certificates.crt
           DISTRO=$(lsb_release -i | cut -d: -f2 | sed s/'^\t'//)
+          CACERT_TRUST_COMMAND="update-ca-certificates"
       # Otherwise, use release info file
       elif [ -f /etc/system-release ]; then
           #CACERT_TRUST_DIR=/etc/pki/tls/certs
@@ -26,11 +27,13 @@ case "${UNAME}" in
           CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted/pem
           CACERT=${CACERT_TRUST_DIR}/tls-ca-bundle.pem
           DISTRO=$(cat /etc/system-release)
+          CACERT_TRUST_COMMAND="update-ca-trust extract"
       # Otherwise, use release info file
       else
           CACERT_TRUST_DIR=/usr/ssl/certs
           CACERT=${CACERT_TRUST_DIR}/ca-bundle.crt
           DISTRO=$(ls -d /etc/[A-Za-z]*[_-][rv]e[lr]* | grep -v "lsb" | cut -d'/' -f3 | cut -d'-' -f1 | cut -d'_' -f1)
+          CACERT_TRUST_COMMAND="update-ca-certificates"
       fi
       ;;
     darwin*)
@@ -48,9 +51,11 @@ case "${UNAME}" in
       PLATFORM="UNKNOWN:${UNAME}"
 esac
 
-echo "UNAME=${UNAME}: PLATFORM=[${PLATFORM}] DISTRO=[${DISTRO}]"
-echo "CACERT_TRUST_DIR=${CACERT_TRUST_DIR}"
-echo "CACERT=${CACERT}"
+echo "==> UNAME=${UNAME}"
+echo "==> PLATFORM=[${PLATFORM}]"
+echo "==> DISTRO=[${DISTRO}]"
+echo "==> CACERT_TRUST_DIR=${CACERT_TRUST_DIR}"
+echo "==> CACERT=${CACERT}"
 
 CURL_CA_OPTS="--capath ${CACERT_TRUST_DIR} --cacert ${CACERT}"
-echo "CURL_CA_OPTS=${CURL_CA_OPTS}"
+echo "==> CURL_CA_OPTS=${CURL_CA_OPTS}"

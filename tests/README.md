@@ -291,3 +291,27 @@ $ molecule destroy
 $ tests/molecule_exec.sh ubuntu2204 --debug converge
 
 ```
+
+```shell
+runme.sh deploy-cacerts.yml -l admin01
+runme.sh bootstrap-ansible.yml -l admin01
+runme.sh bootstrap-docker-stack -l admin03
+runme.sh bootstrap-docker-stack.yml -l admin01
+runme.sh bootstrap-docker-stack.yml -l admin02
+runme.sh bootstrap-docker-stack.yml -l admin03
+runme.sh bootstrap-docker-stack.yml -vvv -l admin01
+runme.sh bootstrap-docker.yml -l admin*
+runme.sh bootstrap-docker.yml -l admin01
+runme.sh bootstrap-docker.yml -l admin03
+runme.sh bootstrap-gov.yml -l admin01
+runme.sh bootstrap-govc.yml -l admin01
+runme.sh bootstrap-java.yml -l admin01
+runme.sh bootstrap-jenkins-agent.yml -l admin01
+runme.sh bootstrap-pip.yml -l admin*
+runme.sh bootstrap-pip.yml -l admin01
+runme.sh bootstrap-pip.yml -l admin02
+runme.sh bootstrap-pip.yml -l admin03
+runme.sh bootstrap-pip.yml -vv -l admin02
+runme.sh site.yml -l media01 -t bootstrap-keyring
+runme.sh site.yml -t bootstrap-keyring -l media01
+```

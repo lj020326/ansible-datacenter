@@ -33,7 +33,7 @@ Ansible is an agentless open-source automation tool including configuration mana
 
 Ansible playbook to install and configure Apache
 
-Over time the complexity of playbooks can begin hard to read and complex to maintain. In addition, you can have some redundant blocks reused in multiple playbooks. This is where the role concept comes into action by providing an independent component that is reusable.  A role has its own structure and clearly defined objective :
+Over time the complexity of playbooks can begin hard to read and complex to maintain. In addition, you can have some redundant blocks reused in multiple playbooks. This is where the role concept comes into action by providing an independent component that is reusable.  A role has its own structure and clearly defined objective :
 
 ```
 $ ansible-galaxy init apache                                                 
@@ -81,7 +81,7 @@ The role is usable in playbooks in this way :
 
 Integration of Apache role inside a playbook
 
-Roles can be considered as classical software modules and should be separately tested. For testing purposes, Molecule provides a framework supporting multiple platforms like virtual machines or containers. In this article, we are going to install Molecule to work with Docker and develop a fully testable WordPress. It will also include unit tests with TestInfra to ensure what is done is well what is expected.  The final goal will be to create a Docker image but you can use Docker for testing to target another platform.
+Roles can be considered as classical software modules and should be separately tested. For testing purposes, Molecule provides a framework supporting multiple platforms like virtual machines or containers. In this article, we are going to install Molecule to work with Docker and develop a fully testable WordPress. It will also include unit tests with TestInfra to ensure what is done is well what is expected.  The final goal will be to create a Docker image but you can use Docker for testing to target another platform.
 
 ## Installing Molecule With Docker Support
 
@@ -438,7 +438,7 @@ TestInfra has a lot of modules to make extra verifications. You can check it out
 
 ## Test WordPress Role With Molecule
 
-The molecule test command executes all the test sequences defined before  in the configuration file :
+The molecule test command executes all the test sequences defined before  in the configuration file :
 
 ```
 $ molecule test

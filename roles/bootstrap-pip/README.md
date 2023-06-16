@@ -8,59 +8,55 @@ On RedHat/CentOS, you may need to have EPEL installed before running this role. 
 
 ## Role Variables
 
+| Variable | Required | Default | Comments |
+|----------|----------|---------|----------|
+| `bootstrap_pip__virtualenv_command` | No | `python3 -m venv` | pip virtualenv install command |
+| `bootstrap_pip__python_executable` | No | `python3.10` | python executable to use |
+| `bootstrap_pip__python_executable` | No | `python3.10` | python executable to use. This also determines the python executable to setup in the virtualenv. |
+| `bootstrap_pip__env_force_rebuild` | No | `False` | Force the rebuild of any specified virtual envs. |
+| `bootstrap_pip__env_list__*` | No | `[]` | Variables with prefix `bootstrap_pip__env_list__` are dereferenced and merged to a single list of pip environments to install.  Each list should contain a list of `dicts`.  Each `dict` defines/specifies the pip environment to setup.  `Dict` options include: `pip_executable`, `version`, `virtualenv`, `virtualenv_command`, `extra_args`, `libraries`.  Where `libraries` is a list of python libraries to setup in the respective pip env. |
+| `bootstrap_pip__packages` | No | `['python3', 'python3-pip', 'python3-virtualenv', 'python3-cryptography']` | List of default OS packages to setup. |
+| `bootstrap_pip__config_dir` | No | `{{ ansible_env.HOME }}/.config/pip` | Pip configuration directory. |
+| `bootstrap_pip__version` | No | `latest` | Pip version to install. |
+| `bootstrap_pip__lib_state` | No | `present` | Pip library install state (`present`, `absent`). |
+| `bootstrap_pip__lib_priority_default` | No | `100` | Pip library install priority. An integer value to determine the order of the library install.  One or more packages are installed at each priority order level. |
+| `bootstrap_pip__libs` | No | See `defaults/main.yml` for defaults. | Pip libraries to install.  Each item may either be a string specifying the library name or dict specifying library `name` and optionally the install `priority` order.  |
+| `bootstrap_pip__environment_vars` | No | None | Dict containing environment vars to use for pip install.  |
+
+bootstrap_pip__environment_vars
+
+
 Available variables are listed below, along with default values (see `defaults/main.yml`):
-
-    bootstrap_pip_package: python3-pip
-
-The name of the packge to install to get `pip` on the system. For older systems that don't have Python 3 available, you can set this to `python-pip`.
-
-    bootstrap_pip_interpreter: pip3
-
-The role will try to autodetect the pip executable based on the `bootstrap_pip_package` (e.g. `pip` for Python 2 and `pip3` for Python 3). You can also override this explicitly, e.g. `bootstrap_pip_interpreter: pip3.6`.
-
-    bootstrap_pip_install_packages: []
-
-A list of packages to install with pip. Examples below:
-
-    bootstrap_pip_install_packages:
-      # Specify names and versions.
-      - name: docker
-        version: "1.2.3"
-      - name: awscli
-        version: "1.11.91"
-    
-      # Or specify bare packages to get the latest release.
-      - docker
-      - awscli
-    
-      # Or uninstall a package.
-      - name: docker
-        state: absent
-    
-      # Or update a package to the latest version.
-      - name: docker
-        state: latest
-    
-      # Or force a reinstall.
-      - name: docker
-        state: forcereinstall
-    
-      # Or install a package in a particular virtualenv.
-      - name: docker
-        virtualenv: /my_app/venv
-
-## Dependencies
-
-None.
 
 ## Example Playbook
 
-    - hosts: all
-    
-      vars:
-        bootstrap_pip_install_packages:
-          - name: docker
-          - name: awscli
-    
-      roles:
-        - bootstrap-pip
+```yaml
+- hosts: all
+
+  vars:
+    bootstrap_pip__libs:
+      - name: docker
+      - name: awscli
+
+  roles:
+    - bootstrap-pip
+
+```
+
+## Example Playbook defining virtualenv
+
+```yaml
+- hosts: all
+
+  vars:
+    bootstrap_pip__env_list__docker:
+      - virtualenv: "{{ bootstrap_docker__pip_virtualenv }}"
+        libraries:
+          - jsondiff
+          - docker
+          - docker-compose
+
+  roles:
+    - bootstrap-pip
+
+```

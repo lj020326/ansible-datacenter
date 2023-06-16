@@ -68,8 +68,6 @@ docker_stack__appspec_config_tpls__base:
   - src: "traefik/config-traefik-v2.yml.j2"
     dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/traefik.yml"
     backup: yes
-#  - src: "traefik/rules/serviceTransport.yml.j2"
-#    dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/rules/serviceTransport.yml"
   - src: "traefik/rules/middlewares.yml.j2"
     dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/rules/middlewares.yml"
   - src: "traefik/rules/middlewares-chains.yml.j2"
@@ -78,10 +76,6 @@ docker_stack__appspec_config_tpls__base:
     dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/rules/certs-traefik.yml"
   - src: "traefik/rules/tls-opts.yml.j2"
     dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/rules/tls-opts.yml"
-#  - src: "traefik/rules/tls-opts-strict.yml.j2"
-#    dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/rules/tls-opts-strict.yml"
-#  - src: 'traefik/rules/rules.yml.j2'
-#    dest: "{{ __docker_stack__appspecs__base_traefik_dir }}/rules/rules.yml"
   - src: "docker-gc-exclude.conf.j2"
     dest: "{{ __docker_stack__appspecs__base_stack_dir }}/docker-gc/docker-gc-exclude"
 
@@ -109,9 +103,12 @@ docker_stack__firewalld_appspec_ports__base:
   - "{{ __docker_stack__appspecs__base_traefik_http }}/tcp"
   - "{{ __docker_stack__appspecs__base_traefik_https }}/tcp"
 
-docker_stack__traefik_proxy_network_info: |
-#  {{ { docker_stack__traefik_proxy_network: { 'attachable': true } } }}
-  {{ { docker_stack__traefik_proxy_network: { 'external': true } } }}
+docker_stack__traefik_proxy_network_config:
+  external: true
+  driver: overlay
+
+docker_stack__traefik_proxy_network_info: "{{ { docker_stack__traefik_proxy_network: docker_stack__traefik_proxy_network_config } }}"
+#docker_stack__traefik_proxy_network_info: "{{ { docker_stack__traefik_proxy_network: { 'attachable': true } } }}"
 
 #docker_stack__traefik_proxy_network_info: |
 #  {{ {
@@ -129,12 +126,12 @@ docker_stack__appspec_networks__base_default:
   ## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
   net:
     attachable: true
-#    driver: overlay
+    driver: overlay
 #    external: false
 
   socket_proxy:
 #    attachable: true
-#    driver: overlay
+    driver: overlay
     external: true
 
 #docker_stack__appspec_networks__base: "{{ docker_stack__appspec_networks__base_default | combine( { docker_stack__traefik_proxy_network: { 'external': true } } ) }}"
@@ -152,17 +149,29 @@ docker_stack__appspec__base:
   volumes: "{{ docker_stack__appspec_volumes__base | d({}) }}"
   docker_services: "{{ docker_stack__appspec_services__base | d({}) }}"
 
-__docker_stack__appspecs__traefik_labels_traefik: "{{ docker_stack__traefik__traefik_labels | d(__docker_stack__appspecs__traefik_labels_traefik_default) }}"
-__docker_stack__appspecs__traefik_labels_whoami: "{{ docker_stack__appspecs__traefik_labels_whoami | d(__docker_stack__appspecs__traefik_labels_whoami_default) }}"
-__docker_stack__appspecs__traefik_labels_portainer: "{{ docker_stack__appspecs__traefik_labels_portainer | d(__docker_stack__appspecs__traefik_labels_portainer_default) }}"
-__docker_stack__appspecs__traefik_labels_dozzle: "{{ docker_stack__appspecs__traefik_labels_dozzle | d(__docker_stack__appspecs__traefik_labels_dozzle_default) }}"
+__docker_stack__traefik__labels_traefik: "{{ docker_stack__traefik__traefik_labels | d(__docker_stack__traefik__labels_traefik_default) }}"
+__docker_stack__traefik__labels_whoami: "{{ docker_stack__traefik__labels_whoami | d(__docker_stack__traefik__labels_whoami_default) }}"
+__docker_stack__traefik__labels_portainer: "{{ docker_stack__traefik__labels_portainer | d(__docker_stack__traefik__labels_portainer_default) }}"
+__docker_stack__traefik__labels_dozzle: "{{ docker_stack__traefik__labels_dozzle | d(__docker_stack__traefik__labels_dozzle_default) }}"
+
+__docker_stack__appspecs__environment_dozzle_default:
+  DOCKER_HOST: tcp://socket-proxy:2375
+  DOZZLE_FILTER: "status=running"
+  # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
+  DOZZLE_LEVEL: info
+  DOZZLE_TAILSIZE: 300
+
+__docker_stack__appspecs__environment_dozzle: "{{ docker_stack__appspecs__environment_dozzle
+  | d(__docker_stack__appspecs__environment_dozzle_default) }}"
 
 ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
 docker_stack__appspec_services__base:
   ######### FRONTENDS ##########
   # Traefik Reverse Proxy
+  # ref: https://github.com/lj020326/docker_swarm-mode.traefik2-example/blob/master/docker-compose.app.v10.yml
   traefik:
     container_name: traefik
+    hostname: traefik
     image: "{{ __docker_stack__appspecs__base_traefik_image }}"
     restart: unless-stopped
     networks:
@@ -216,7 +225,7 @@ docker_stack__appspec_services__base:
 #      mode: global
       placement:
         constraints:
-          - node.hostname == {{ inventory_hostname }}
+          - "node.hostname == {{ docker_stack__traefik_host }}"
 #          - node.role == manager
 #          - node.labels.proxy == true
 #          - node.labels.traefik-public == true
@@ -231,11 +240,12 @@ docker_stack__appspec_services__base:
         delay: 10s
         # order: start-first
         order: stop-first
-    labels: "{{ __docker_stack__appspecs__traefik_labels_traefik }}"
+    labels: "{{ __docker_stack__traefik__labels_traefik }}"
 
   # Docker Socket Proxy - Security Enchanced Proxy for Docker Socket
   socket-proxy:
     container_name: socket-proxy
+    hostname: socket-proxy
     image: "{{ __docker_stack__appspecs__base_socket_image }}"
     restart: always
     networks:
@@ -290,7 +300,7 @@ docker_stack__appspec_services__base:
 #      mode: global
       placement:
         constraints:
-          - node.hostname == {{ inventory_hostname }}
+          - "node.hostname == {{ docker_stack__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -329,7 +339,7 @@ docker_stack__appspec_services__base:
         parallelism: 1
         delay: 10s
         order: start-first
-    labels: "{{ __docker_stack__appspecs__traefik_labels_whoami }}"
+    labels: "{{ __docker_stack__traefik__labels_whoami }}"
 
   ######### DOCKER RELATED ##########
   # Watchtower - Automatic Update of Containers/Apps
@@ -361,7 +371,7 @@ docker_stack__appspec_services__base:
       mode: global
       placement:
         constraints:
-          - node.hostname == {{ inventory_hostname }}
+          - "node.hostname == {{ docker_stack__traefik_host }}"
 #      replicas: 1
 #      restart_policy:
 #        condition: on-failure
@@ -420,7 +430,7 @@ docker_stack__appspec_services__base:
     deploy:
       placement:
         constraints:
-          - node.hostname == {{ inventory_hostname }}
+          - "node.hostname == {{ docker_stack__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -441,7 +451,8 @@ docker_stack__appspec_services__base:
     deploy:
       mode: global
       placement:
-        constraints: [node.platform.os == linux]
+        constraints:
+        - node.platform.os == linux
       labels:
         - traefik.enable=false
 
@@ -462,10 +473,10 @@ docker_stack__appspec_services__base:
 #      - socket-proxy
     ports:
      - target: 9000
-       published: 9090
+       published: 9010
        protocol: tcp
        mode: host
-#     - 9090:9000/tcp
+#     - 9010:9000/tcp
     security_opt:
       - no-new-privileges:true
     volumes:
@@ -475,7 +486,7 @@ docker_stack__appspec_services__base:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ inventory_hostname }}
+          - "node.hostname == {{ docker_stack__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -483,7 +494,7 @@ docker_stack__appspec_services__base:
         delay: 10s
         max_attempts: 3
         window: 120s
-    labels: "{{ __docker_stack__appspecs__traefik_labels_portainer }}"
+    labels: "{{ __docker_stack__traefik__labels_portainer }}"
 
   # Dozzle - Real-time Docker Log Viewer
   dozzle:
@@ -497,12 +508,7 @@ docker_stack__appspec_services__base:
 #      - socket-proxy
     security_opt:
       - no-new-privileges:true
-    environment:
-      DOCKER_HOST: tcp://socket-proxy:2375
-      DOZZLE_FILTER: "status=running"
-      # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
-      DOZZLE_LEVEL: info
-      DOZZLE_TAILSIZE: 300
+    environment: "{{ __docker_stack__appspecs__environment_dozzle }}"
     ports:
      - target: 8080
        published: 8080
@@ -514,7 +520,7 @@ docker_stack__appspec_services__base:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ inventory_hostname }}
+          - "node.hostname == {{ docker_stack__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -522,4 +528,4 @@ docker_stack__appspec_services__base:
         delay: 10s
         max_attempts: 3
         window: 120s
-    labels: "{{ __docker_stack__appspecs__traefik_labels_dozzle }}"
+    labels: "{{ __docker_stack__traefik__labels_dozzle }}"

@@ -1,15 +1,12 @@
 ---
 
-- debug:
-    var: item
-- debug:
-    var: osimage_dir
-- debug:
-    var: vmware_images_dir
+- name: "Display __fetch_iso_config"
+  debug:
+    var: __fetch_iso_config
 
-- name: "Stat OS distribution iso file for [{{ osimage_dir }}/{{ item.iso_file }}]"
+- name: "Stat OS distribution iso file for [{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}]"
   stat:
-    path: "{{ osimage_dir }}/{{ item.iso_file }}"
+    path: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
   register: osimage_iso_dist
 
 - name: Fetch OS distribution iso
@@ -17,17 +14,18 @@
   block:
 
     # Set a version for this new box.
-    - name: "Get image for {{ item.name }}"
-      when: not item.iso_url.endswith('.jigdo')
+    - name: "Fetch {{ __fetch_iso_config.iso_url }} to {{ fetch_os_images__osimage_dir }}"
+      when: not __fetch_iso_config.iso_url.endswith('.jigdo')
       get_url:
-        url: "{{ item.iso_url }}"
-        dest: "{{ osimage_dir }}/{{ item.iso_file }}"
-        checksum: "{{ item.iso_checksum | d(omit) }}"
+        url: "{{ __fetch_iso_config.iso_url }}"
+        dest: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
+        tmp_dest: "{{ fetch_os_images__osimage_dir }}/"
+        checksum: "{{ __fetch_iso_config.iso_checksum | d(omit) }}"
         validate_certs: false
     #  register: fetch_image_info
 
     - name: "Fetch JIGDO iso"
-      when: item.iso_url.endswith('.jigdo')
+      when: __fetch_iso_config.iso_url.endswith('.jigdo')
       block:
 
         - name: "Create jigdo-lite settings"
@@ -39,28 +37,36 @@
         ## ref: http://atterer.org/jigdo/jigdo-lite.html
         ## ref: https://tldp.org/HOWTO/Debian-Jigdo/faq.html#WGETOPTIONS
         ## ref: https://askubuntu.com/questions/1226707/how-to-throttle-jigdo-lites-download-rate
-        - name: "Get JIGDO image for {{ item.name }}"
-          command: "jigdo-lite --noask {{ item.iso_url }}"
+        - name: "Get JIGDO image for {{ __fetch_iso_config.name }}"
+          command: "jigdo-lite --noask {{ __fetch_iso_config.iso_url }}"
           args:
-            chdir: "{{ osimage_dir }}"
-            creates: "{{ osimage_dir }}/{{ item.iso_file }}"
+            chdir: "{{ fetch_os_images__osimage_dir }}"
+            creates: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
           register: jigdo_status
           failed_when: jigdo_status.rc not in [0,3]
 
-    - name: "Ensure path exists for {{ vmware_images_dir }}/{{ item.name }}"
-      file:
-        state: directory
-        path: "{{ vmware_images_dir }}/{{ item.name }}"
-    ##    mode: "0755"
+    ##############################
+    ## TODO: The following `copy` block requires that the vmware NFS iso share is locally mounted
+    ##      from a performance standpoint having the nfs share locally mounted in order to perform the iso copy
+    ##      saves considerable/valuable time not having to upload the image in a subsequent step/play
+    - name: "Clone image to vmware iso storage"
+      when: fetch_os_image__vmware_nfs_iso_locally_mounted|d(False)|bool
+      block:
 
-    - name: "Stat OS distribution iso file for {{ vmware_images_dir }}/{{ item.name }}/{{ item.iso_file }}"
-      stat:
-        path: "{{ vmware_images_dir }}/{{ item.name }}/{{ item.iso_file }}"
-      register: vmware_os_iso_dist
+      - name: "Ensure path exists for {{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}"
+        file:
+          state: directory
+          path: "{{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}"
+#          mode: "0755"
 
-    - name: Clone image to vmware iso storage
-      when: not vmware_os_iso_dist.stat.exists
-      copy:
-        src: "{{ osimage_dir }}/{{ item.iso_file }}"
-        dest: "{{ vmware_images_dir }}/{{ item.name }}/{{ item.iso_file }}"
-    ##    mode: "0755"
+      - name: "Stat OS distribution iso file for {{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}/{{ __fetch_iso_config.iso_file }}"
+        stat:
+          path: "{{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}/{{ __fetch_iso_config.iso_file }}"
+        register: __vmware_os_iso_dist
+
+      - name: "Clone image to vmware iso storage"
+        when: not __vmware_os_iso_dist.stat.exists
+        copy:
+          src: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
+          dest: "{{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}/{{ __fetch_iso_config.iso_file }}"
+#          mode: "0755"

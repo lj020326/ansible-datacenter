@@ -1,0 +1,276 @@
+# -*- mode: yaml -*-
+# vim:ts=2:sw=2:ai:si:syntax=yaml
+#
+# Travis CI configuration
+# https://docs.travis-ci.com/
+---
+# Run tests against pull requests and main branches only
+if: |
+  type = pull_request OR \
+  branch IN (master, develop)
+
+dist: focal
+os: linux
+language: shell
+
+before_install:
+  # Fix broken Travis Ubuntu 20.04 LTS images with GCC 9.2.1
+  # https://travis-ci.community/t/please-update-ubuntu-focal-20-04-lts-base-installation-due-to-a-compiling-error-with-gcc-9-2-1/8658
+  - >
+    if [[ "$UPGRADE_GCC" == "yes" ]]; then
+      sudo apt-get update
+      sudo apt-get install gcc --only-upgrade
+    fi
+
+  # Existing pyenv installation on Linux conflicts with ours
+  - >
+    if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then
+      rm -rf /opt/pyenv
+    fi
+
+install:
+  # Install Homebrew on Ubuntu
+  - >
+    if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then
+      if [[ "$WITH_HOMEBREW_ON_LINUX" == "yes" ]]; then
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+        echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> /home/travis/.bash_profile
+        eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+        brew --version
+      fi
+    fi
+
+  # Install Ansible with pip on Ubuntu
+  - >
+    if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then
+      ${PIP_BIN:-pip} install --user ansible${ANSIBLE_VERSION:-}
+    fi
+
+  # Check Ansible version
+  - ansible --version
+
+  # Create ansible.cfg with correct roles_path
+  - printf '[defaults]\nroles_path=../\n' > ansible.cfg
+
+  # Set Python interpreter path
+  - >
+    if [[ -n "${PYTHON_INTERPRETER}" ]]; then
+      echo "interpreter_python=${PYTHON_INTERPRETER}" >> ansible.cfg
+    fi
+
+before_script:
+  # https://github.com/travis-ci/travis-ci/issues/6307
+  - >
+    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      rvm get head || true
+    fi
+
+script:
+  # Basic role syntax check
+  - ansible-playbook tests/test.yml -i tests/inventory --syntax-check
+
+  # yamllint disable rule:line-length
+
+  # Test role run
+  - >
+    if [[ "$FROM_PACKAGE_MANAGER" == "yes" ]]; then
+      ansible-playbook tests/test.yml -i tests/inventory --connection=local \
+        -e "{'pyenv_install_from_package_manager':true}" \
+        || travis_terminate 1
+    elif [[ "$WITH_HOMEBREW_ON_LINUX" == "yes" ]]; then
+      ansible-playbook tests/test.yml -i tests/inventory --connection=local \
+        -e "{'pyenv_homebrew_on_linux':true}" \
+        || travis_terminate 1
+    else
+      ansible-playbook tests/test.yml -i tests/inventory --connection=local \
+        -e "{'pyenv_install_from_package_manager':false}" \
+        || travis_terminate 1
+    fi
+
+  # Test idempotence
+  - >
+    if [[ "$FROM_PACKAGE_MANAGER" == "yes" ]]; then
+      ansible-playbook tests/test.yml -i tests/inventory --connection=local \
+        -e "{'pyenv_install_from_package_manager':true}" \
+        | grep -q 'changed=0.*failed=0' \
+        && (echo 'Idempotence test: pass' && exit 0) \
+        || (echo 'Idempotence test: fail' && exit 1)
+    elif [[ "$WITH_HOMEBREW_ON_LINUX" == "yes" ]]; then
+      ansible-playbook tests/test.yml -i tests/inventory --connection=local \
+        -e "{'pyenv_homebrew_on_linux':true}" \
+        | grep -q 'changed=0.*failed=0' \
+        && (echo 'Idempotence test: pass' && exit 0) \
+        || (echo 'Idempotence test: fail' && exit 1)
+    else
+      ansible-playbook tests/test.yml -i tests/inventory --connection=local \
+        -e "{'pyenv_install_from_package_manager':false}" \
+        | grep -q 'changed=0.*failed=0' \
+        && (echo 'Idempotence test: pass' && exit 0) \
+        || (echo 'Idempotence test: fail' && exit 1)
+    fi
+
+  # yamllint enable rule:line-length
+
+  # Test global python version is defined
+  - . $HOME/.pyenv/.pyenvrc && pyenv version
+
+stages:
+  - validate
+  - test
+
+jobs:
+  include:
+    # Run validation stage in Linux with latest Ansible only
+    - stage: validate
+      name: Validate with pre-commit
+      os: linux
+      dist: focal
+      addons:
+        apt:
+          packages:
+            - python3-pip
+            - python3-dev
+          update: true
+      cache:
+        directories:
+          - $HOME/.cache/pre-commit/
+      before_cache:
+        - rm -f $HOME/.cache/pre-commit/pre-commit.log
+      install:
+        - pip3 install --user -r requirements.dev.txt
+        - python --version
+        - shfmt -version
+        - shellcheck --version
+        - pre-commit --version
+      script:
+        # shfmt version is too old
+        - export SKIP=shfmt,pip-compile
+        - pre-commit run -a
+
+    # Run tests
+
+    - stage: test
+      name: "Ubuntu 20.04 (Focal Fossa) with Ansible 2.9 via Git"
+      os: linux
+      dist: focal
+      env: >-
+        ANSIBLE_VERSION='<2.10'
+        PIP_BIN='pip3'
+        UPGRADE_GCC='yes'
+        PYTHON_INTERPRETER=auto
+      addons:
+        apt:
+          packages:
+            - python3-pip
+            - python3-dev
+          update: true
+
+    - stage: test
+      name: "Ubuntu 18.04 (Bionic) with Ansible 2.8 via Git"
+      os: linux
+      dist: bionic
+      env: >-
+        ANSIBLE_VERSION='<2.9.0,!=2.8.6'
+      addons:
+        apt:
+          packages:
+            - python-pip
+            - python-dev
+            - shellcheck
+          update: true
+
+    - stage: test
+      name: "macOS 10.15.5 (Catalina) with Xcode 12 via Homebrew"
+      os: osx
+      osx_image: xcode12
+      env: >-
+        FROM_PACKAGE_MANAGER='yes'
+      addons:
+        homebrew:
+          brewfile: Brewfile.travis
+
+    - stage: test
+      name: "macOS 10.15.5 (Catalina) with Xcode 11.6 via Homebrew"
+      os: osx
+      osx_image: xcode11.6
+      env: >-
+        FROM_PACKAGE_MANAGER='yes'
+      addons:
+        homebrew:
+          brewfile: Brewfile.travis
+
+    - stage: test
+      name: "macOS 10.14 (Mojave) with Xcode 11.2 via Homebrew"
+      os: osx
+      osx_image: xcode11.2
+      env: >-
+        FROM_PACKAGE_MANAGER='yes'
+      addons:
+        homebrew:
+          brewfile: Brewfile.travis
+          update: true
+
+    - stage: test
+      name: "Ubuntu 20.04 (Focal Fossa) with Ansible 2.9 via Homebrew"
+      os: linux
+      dist: focal
+      env: >-
+        ANSIBLE_VERSION='<2.10'
+        PIP_BIN='pip3'
+        UPGRADE_GCC='yes'
+        WITH_HOMEBREW_ON_LINUX='yes'
+        PYTHON_INTERPRETER=auto
+      addons:
+        apt:
+          packages:
+            - python3-pip
+            - python3-dev
+          update: true
+
+    - stage: test
+      name: "Ubuntu 18.04 (Bionic) with Ansible 2.8 via Homebrew"
+      os: linux
+      dist: bionic
+      env: >-
+        ANSIBLE_VERSION='<2.9.0,!=2.8.6'
+        WITH_HOMEBREW_ON_LINUX='yes'
+      addons:
+        apt:
+          packages:
+            - python-pip
+            - python-dev
+          update: true
+
+    - stage: test
+      name: "macOS 10.15.5 (Catalina) with Xcode 12 via Git"
+      os: osx
+      osx_image: xcode12
+      env: >-
+        FROM_PACKAGE_MANAGER='no'
+      addons:
+        homebrew:
+          brewfile: Brewfile.travis
+
+    - stage: test
+      name: "macOS 10.15.5 (Catalina) with Xcode 11.6 via Git"
+      os: osx
+      osx_image: xcode11.6
+      env: >-
+        FROM_PACKAGE_MANAGER='no'
+      addons:
+        homebrew:
+          brewfile: Brewfile.travis
+
+    - stage: test
+      name: "macOS 10.14 (Mojave) with Xcode 11.2 via Git"
+      os: osx
+      osx_image: xcode11.2
+      env: >-
+        FROM_PACKAGE_MANAGER='no'
+      addons:
+        homebrew:
+          brewfile: Brewfile.travis
+
+notifications:
+  webhooks:
+    - https://galaxy.ansible.com/api/v1/notifications/

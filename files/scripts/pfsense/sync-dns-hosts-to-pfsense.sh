@@ -15,4 +15,8 @@ do
   sync_dns_cmd="python ${HOME}/bin/pfsense_api_client.py sync-host-ip-list ${HOSTNAME} ${DNS_NAMESERVER} --apply"
   echo "${sync_dns_cmd}"
   eval "${sync_dns_cmd}"
+
+  reset_dns_cache="sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder"
+  eval "${reset_dns_cache}"
+  eval "${reset_dns_cache}"
 done

@@ -1,5 +1,34 @@
 ---
-- name: Ensure Java is installed.
+
+- name: RedHat | Ensure Java is installed.
   package:
-    name: "{{ java_packages }}"
+    name: "{{ bootstrap_java__packages }}"
     state: present
+
+- name: RedHat | Set default OpenJDK Java version
+  when: bootstrap_java__set_as_default
+  block:
+
+  # TODO:
+  # Create a 'get_package' module that takes the package name/path
+  # and returns the corresponding infos (name, version, ..)
+  - name: RedHat | Get OpenJDK jdk package version
+    shell: "rpm -qi {{ __bootstrap_java__default_java_package }} | grep 'Version' | awk '{print $NF}'"
+    register: __jdk_rpm_package_version
+
+  - name: RedHat | Get OpenJDK jdk package release
+    shell: "rpm -qi {{ __bootstrap_java__default_java_package }} | grep 'Release' | awk '{print $NF}'"
+    register: __jdk_rpm_package_release
+
+  - name: RedHat | Get OpenJDK jdk package architecture
+    shell: "rpm -qi {{ __bootstrap_java__default_java_package }} | grep 'Architecture' | awk '{print $NF}'"
+    register: __jdk_rpm_package_arch
+
+  - name: RedHat | Set default OpenJDK Java version
+    alternatives:
+      name: java
+      path: "/usr/lib/jvm/{{ __bootstrap_java__default_java_package }}-{{ __jdk_rpm_package_version.stdout }}-{{ __jdk_rpm_package_release.stdout }}.{{ __jdk_rpm_package_arch.stdout }}/bin/java"
+
+  - name: Set bootstrap_java__home
+    set_fact:
+      bootstrap_java__home: "{{ bootstrap_java__jvm_basedir }}/{{ __bootstrap_java__default_java_package }}-{{ __jdk_rpm_package_version.stdout }}-{{ __jdk_rpm_package_release.stdout }}.{{ __jdk_rpm_package_arch.stdout }}"

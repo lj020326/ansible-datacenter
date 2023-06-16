@@ -1,7 +1,7 @@
 ## ref: https://docs.traefik.io/v2.0/migration/v1-to-v2/
 ## ref: https://stackoverflow.com/questions/55414106/traefik-2-0-how-to-configure-traefik-frontend-rule-hostexample-com
 
-checkNewVersion: true
+checkNewVersion: false
 sendAnonymousUsage: false
 
 ## ref: https://github.com/traefik/traefik/issues/3906
@@ -15,13 +15,14 @@ serversTransport:
 #    - "/certs/{{ docker_stack__ssl_internal_cacert_file }}"
 
 log:
-  level: DEBUG
+  level: DEBUG # DEBUG, INFO, WARN, ERROR, FATAL, PANIC
 #  filePath: /var/log/traefik.log
-#  format: json
+#  format: json # json, common
 
 accessLog:
 #  filePath: /var/log/traefik-access.log
   filePath: /traefik.log
+#  format: json # json, common
   bufferingSize: 100 # Configuring a buffer of 100 lines
   filters:
     statusCodes: 400-499
@@ -61,12 +62,18 @@ entryPoints:
     http:
       tls:
         options: "mintls12@file"
+{% if docker_stack__enable_cert_resolver|d(False) %}
         ## Add dns-cloudflare as default certresolver for all services.
         ## Also enables TLS and no need to specify on individual services
         certresolver: {{ __docker_stack__appspecs__base_traefik_certresolver }}
+{% endif %}
         domains:
+          - main: "{{ docker_stack__internal_domain }}"
+            sans: "*.{{ docker_stack__internal_domain }}"
+{% if docker_stack__setup_external_site|d(False) %}
           - main: "{{ docker_stack__external_domain }}"
             sans: "*.{{ docker_stack__external_domain }}"
+{% endif %}
 
 ## ref: https://docs.traefik.io/v2.0/providers/docker
 ## ref: https://docs.traefik.io/v2.0/reference/static-configuration/file/
@@ -95,6 +102,7 @@ providers:
     swarmMode: true
 {% else %}
     swarmMode: false
+    swarmModeRefreshSeconds: "15s"
 {% endif %}
 
     ## ref: https://docs.traefik.io/v2.0/providers/docker/
@@ -106,6 +114,8 @@ providers:
     ## ref: https://www.smarthomebeginner.com/traefik-reverse-proxy-tutorial-for-docker/#Proxying_Non-Docker_Host_System_Apps
     directory: "/etc/traefik/rules/"
     watch: true
+  rest:
+    insecure: true
 
 
 ## ref: https://github.com/EugenMayer/docker-image-traefik/blob/feature/2.0/tiller/templates/traefik.toml.erb

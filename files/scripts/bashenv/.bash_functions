@@ -334,7 +334,8 @@ function getgitrequestid() {
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)"
   COMMENT_PREFIX=$(echo "${LOCAL_BRANCH}" | cut -d- -f1-2)
 
-  if [[ $COMMENT_PREFIX = *develop* ]]; then
+#  if [[ $COMMENT_PREFIX = *develop* ]]; then
+  if [[ $COMMENT_PREFIX = *develop* || $COMMENT_PREFIX = *main* || $COMMENT_PREFIX = *master* ]]; then
     if [ -f ${PROJECT_DIR}/.git.request.refid ]; then
       COMMENT_PREFIX=$(cat ${PROJECT_DIR}/.git.request.refid)
     elif [ -f ${PROJECT_DIR}/save/.git.request.refid ]; then

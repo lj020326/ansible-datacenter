@@ -1,0 +1,26 @@
+---
+- name: Check environment variables
+  ansible.builtin.assert:
+    that:
+      - "pyenv_bin_path is defined"
+    msg: "pyenv binary path not defined"
+
+- name: Check that pyenv binary exists
+  ansible.builtin.stat:
+    path: "{{ pyenv_bin_path }}"
+  register: pyenv_bin_st
+  failed_when: not pyenv_bin_st.stat.exists
+  changed_when: false
+
+- name: Install python versions with Git install
+  include_tasks: python_versions_with_git.yml
+  when: (ansible_system == 'Linux' and not pyenv_homebrew_on_linux) or
+    (ansible_os_family == 'Darwin' and not pyenv_install_from_package_manager)
+
+- name: Install python versions with Homebrew install
+  include_tasks: python_versions_with_homebrew.yml
+  when: (ansible_system == 'Linux' and pyenv_homebrew_on_linux) or
+    (ansible_os_family == 'Darwin' and pyenv_install_from_package_manager)
+
+- name: Set global version
+  include_tasks: global_version.yml

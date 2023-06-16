@@ -11,12 +11,12 @@ None.
 Available variables are listed below, along with default values:
 
     # The defaults provided by this role are specific to each distribution.
-    java_packages:
+    bootstrap_java__packages:
       - java-1.8.0-openjdk
 
 Set the version/development kit of Java to install, along with any other necessary Java packages. Some other options include are included in the distribution-specific files in this role's 'defaults' folder.
 
-    java_home: ""
+    bootstrap_java__home: ""
 
 If set, the role will set the global environment variable `JAVA_HOME` to this value.
 
@@ -39,7 +39,7 @@ For RHEL / CentOS:
       roles:
         - role: bootstrap-java
           when: "ansible_os_family == 'RedHat'"
-          java_packages:
+          bootstrap_java__packages:
             - java-1.8.0-openjdk
 
 For Ubuntu < 16.04:
@@ -53,13 +53,13 @@ For Ubuntu < 16.04:
       roles:
         - role: bootstrap-java
           when: "ansible_os_family == 'Debian'"
-          java_packages:
+          bootstrap_java__packages:
             - openjdk-8-jdk
 
-## License
+## Reference
 
-MIT / BSD
-
-## Author Information
-
-This role was created in 2014 by [Jeff Geerling](https://www.jeffgeerling.com/), author of [Ansible for DevOps](https://www.ansiblefordevops.com/).
+- https://github.com/buluma/ansible-role-openjdk
+- https://github.com/geerlingguy/ansible-role-java
+- https://github.com/abessifi/ansible-java
+- https://github.com/traveloka/ansible-java-openjdk
+- https://github.com/idealista/java_role

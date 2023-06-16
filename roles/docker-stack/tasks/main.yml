@@ -1,5 +1,13 @@
 ---
 
+- name: "Display role input vars"
+  debug:
+    var: "{{ item }}"
+  loop:
+    - docker_stack__firewalld_enabled
+    - docker_stack__python_docker_interpreter
+    - ansible_python_interpreter
+
 - name: "Setup role facts"
   include_tasks: init-vars.yml
 
@@ -38,6 +46,8 @@
   include_tasks: setup-admin-scripts.yml
 
 - name: "Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml"
+#  vars:
+#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   when:
     - docker_stack__action == 'setup'
     - (role_path + '/tasks/apps/' + __container_service_name + '/pre-start.yml') is file
@@ -59,21 +69,75 @@
 #######################
 - name: "Setup docker stack services"
   when: docker_stack__action == 'setup'
-  vars:
-    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
-  include_tasks: setup-service-configs.yml
+#  vars:
+#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
+  block:
+
+    - name: "Setup docker stack services"
+      include_tasks: setup-service-configs.yml
+
+  rescue:
+    - name: "{{ log_prefix_local }} Display docker stack config results"
+      when:
+        - item is defined
+        - item.failed|d(False)
+      debug:
+        var: "{{ item }}"
+      loop:
+        - __configure_docker_secrets
+        - __configure_docker_networks
+
+    - name: "{{ log_prefix_local }} Set __restart_docker_service if secrets config failed"
+      when:
+        - item.failed|d(False)
+        - item.msg | regex_search('secret .* is in use by the following service')
+      loop: "{{ __configure_docker_secrets.results | d([]) }}"
+      set_fact:
+        __restart_docker_service: yes
+
+    - name: "{{ log_prefix_local }} Set __restart_docker_service if network config failed"
+      when:
+        - item.failed|d(False)
+        - (item.msg | regex_search('Failed to program NAT chain'))
+          or (item.msg | regex_search('No such container'))
+          or (item.msg | regex_search("INVALID_ZONE .* docker"))
+      loop: "{{ __configure_docker_networks.results | d([]) }}"
+      set_fact:
+        __restart_docker_service: yes
+
+    - name: "{{ log_prefix_local }} Display __restart_docker_service"
+      debug:
+        var: __restart_docker_service
+
+    - name: "{{ log_prefix_local }} Re-emit failure"
+      when: not __restart_docker_service|d(False)
+      vars:
+        failed_task:
+          result: '{{ ansible_failed_result }}'
+      fail:
+        msg: '{{ failed_task }}'
+
+    - name: "{{ log_prefix_local }} Handle docker service exception by stopping services"
+      when: __restart_docker_service
+      block:
+      - name: "{{ __log_prefix_local }} Stop docker services"
+        include_tasks: restart-docker-service.yml
+
+      - name: "Setup docker stack services"
+        include_tasks: setup-service-configs.yml
 
 - name: "Run compose action"
-  vars:
-    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
+  when: not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool
+#  vars:
+#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   include_tasks: run-compose-action.yml
 
 - name: "Setup container configs"
   when:
     - docker_stack__action == 'setup'
     - __docker_stack__container_config_list|d([])|length > 0
-  vars:
-    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
+#  vars:
+#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   include_tasks: setup-container-configs.yml
   loop: "{{ __docker_stack__container_config_list }}"
   loop_control:
@@ -84,6 +148,7 @@
   when:
     - docker_stack__action == 'setup'
     - docker_stack__setup_systemd_service|bool
+    - docker_stack__swarm_mode|d(False)==False
   include_role:
     name: bootstrap-systemd-service
   vars:

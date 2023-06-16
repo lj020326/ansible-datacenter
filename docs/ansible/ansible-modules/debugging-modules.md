@@ -53,20 +53,20 @@ The following steps use `localhost` as the target host, but you can use the same
     > ├── AnsiballZ_ping.py
     > └── debug_dir
     >     ├── ansible
-    >     │   ├── __init__.py
-    >     │   ├── module_utils
-    >     │   │   ├── __init__.py
-    >     │   │   ├── _text.py
-    >     │   │   ├── basic.py
-    >     │   │   ├── common
-    >     │   │   ├── compat
-    >     │   │   ├── distro
-    >     │   │   ├── parsing
-    >     │   │   ├── pycompat24.py
-    >     │   │   └── six
-    >     │   └── modules
-    >     │       ├── __init__.py
-    >     │       └── ping.py
+    >     │   ├── __init__.py
+    >     │   ├── module_utils
+    >     │   │   ├── __init__.py
+    >     │   │   ├── _text.py
+    >     │   │   ├── basic.py
+    >     │   │   ├── common
+    >     │   │   ├── compat
+    >     │   │   ├── distro
+    >     │   │   ├── parsing
+    >     │   │   ├── pycompat24.py
+    >     │   │   └── six
+    >     │   └── modules
+    >     │       ├── __init__.py
+    >     │       └── ping.py
     >     └── args
     > 
     > ```

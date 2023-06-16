@@ -176,6 +176,8 @@ alias blasthugo="hugo && blastit. && pushd . && cd public && blastit. && popd"
 ## ref: https://stackoverflow.com/questions/6052005/how-can-you-git-pull-only-the-current-branch
 alias gitpullsub="git submodule update --recursive --remote"
 alias gitresetsub="git submodule deinit -f . && git submodule update --init --recursive --remote"
+alias gitgetcomment="getgitcomment"
+alias gitgetrequestid="getgitrequestid"
 
 ## resolve issue "Fatal: Not possible to fast-forward, aborting"
 #alias gitpullrebase="git pull origin <branch> --rebase"
@@ -251,6 +253,10 @@ alias venvinit="pip install -r requirements.txt"
 ## ref: https://emacs.stackexchange.com/questions/19936/running-spacemacs-alongside-regular-emacs-how-to-keep-a-separate-emacs-d
 alias demacs='emacs -q --load "$HOME/.demacs.d/init.el"'
 alias spacemacs='emacs -q --load "$HOME/.spacemacs.d/init.el"'
+
+alias fetchimagesfrommarkdown="~/bin/fetch_images_from_markdown.sh"
+alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
+alias fetch-and-import-site-certs="~/bin/fetch_and_import_site_cert_pem.sh"
 
 if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
   logDebug "setting aliases specific to MSYS/MINGW platform"
@@ -336,6 +342,7 @@ alias gitaddworkkey="git config core.sshCommand 'ssh -i ~/.ssh/${SSH_KEY_WORK}'"
 alias gitaddworkkey2="git config core.sshCommand 'ssh -i ~/.ssh/${SSH_KEY_WORK2}'"
 alias gitclonework="GIT_SSH_COMMAND=\"ssh -i ~/.ssh/${SSH_KEY_WORK2}\" git clone"
 #alias gitclonework2="GIT_SSH_COMMAND=\"ssh -i ~/.ssh/${SSH_KEY_WORK2}\" git clone"
+alias gitwork="GIT_SSH_COMMAND=\"ssh -i ~/.ssh/${SSH_KEY_WORK2}\""
 
 #alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@studentvm.${RH_VM_GUID}.example.opentlc.com"
 alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@${RH_VM_HOST}"

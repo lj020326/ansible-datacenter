@@ -219,7 +219,7 @@ We need to create a user to run the plex server or log in to an existing user ac
 
 ![word image 10933 9](./img/word-image-10933-9.png "How to Install Plex Media Server on Ubuntu 22.04 24")
 
-This page gives you a detailed explanation of how plex works. You will also see an option to **enable DRM** on your browser. Click _Enable DRM_ to allow plex Web UI to work correctly on your system. When done, scroll to the bottom of the page and click _GOT IT!_ to get started with Plex Media Server.
+This page gives you a detailed explanation of how plex works. You will also see an option to **enable DRM** on your browser. Click _Enable DRM_ to allow plex Web UI to work correctly on your system. When done, scroll to the bottom of the page and click _GOT IT!_ to get started with Plex Media Server.
 
 ![word image 10933 10](./img/word-image-10933-10.png "How to Install Plex Media Server on Ubuntu 22.04 25")
 
@@ -227,7 +227,7 @@ On the new page that appears, you will see the **Plex Pass** pop-up window that 
 
 1.  Enter the name that you want to use for your Plex media server. For this post, we will set it as Ubuntu Plex media server.  
     ![word image 10933 11](./img/word-image-10933-11.png "How to Install Plex Media Server on Ubuntu 22.04 26")  
-    Click _Next_ to continue.
+    Click _Next_ to continue.
 2.  On the next screen, you will need to add the media library. Click the **Add Library** button and select a folder on your system containing your media files. For this post, we used the Music and the Videos directories. You can add as many libraries as you wish.  
     ![word image 10933 12 1](./img/word-image-10933-12-1.png "How to Install Plex Media Server on Ubuntu 22.04 27")
 3.  Click _Next_ to continue. On the next screen, click _Done_ to save and apply your new configurations. You will see a window similar to the image below. That’s it! You have successfully configured the Plex media server on your Ubuntu system.  
