@@ -124,6 +124,7 @@ alias sshesx01='ssh root@esx01.dettonville.int'
 alias sshesx02='ssh root@esx02.dettonville.int'
 alias sshesx10='ssh root@esx10.dettonville.int'
 alias sshesx11='ssh root@esx11.dettonville.int'
+alias sshpacker="ssh -i ~/.ssh/${SSH_KEY}"
 
 alias sshmedia='ssh administrator@media.johnson.int'
 alias sshplex='ssh administrator@plex.johnson.int'
@@ -382,3 +383,6 @@ alias unmountalsac="unmount-sshfs-alsac.sh"
 alias syncalsac="sync-sshfs-alsac.sh"
 
 alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
+
+alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
+alias sshansiblework="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"

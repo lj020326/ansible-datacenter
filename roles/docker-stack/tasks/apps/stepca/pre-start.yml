@@ -9,7 +9,7 @@
 #    ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
 #    - name: "{{ log_prefix_local }} validate_cert | Get ca certificate info"
 #      openssl_certificate_info:
-#        path: "{{ __docker_stack__appspecs__stepca_home_dir}}/certs/intermediate_ca.crt"
+#        path: "{{ __docker_stack__stepca__home_dir}}/certs/intermediate_ca.crt"
 #      register: cacert_result
 #
 #    - name: "{{ log_prefix_local }} validate_cert | Display cacert_result"
@@ -31,8 +31,8 @@
       changed_when: no
 #      when: cert_file and cert_file.stat.exists
 #      shell: "openssl verify -CAfile {{ ca_signer_cacerts_dir }}/{{ ca_signer_cert }} {{ cacert_keystore_dir }}/{{ ca_cert }}"
-#      shell: "openssl verify -CAfile {{ cacert_local_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem {{ __docker_stack__appspecs__stepca_home_dir }}/certs/intermediate_ca.crt"
-      shell: "openssl verify -CAfile {{ cacert_local_cert_dir }}/ca.{{ docker_stack__internal_domain }}.pem {{ __docker_stack__appspecs__stepca_home_dir }}/certs/intermediate_ca.crt"
+#      shell: "openssl verify -CAfile {{ cacert_local_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem {{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt"
+      shell: "openssl verify -CAfile {{ cacert_local_cert_dir }}/ca.{{ docker_stack__internal_domain }}.pem {{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt"
       register: cert_validity_signer
 
     - name: "{{ log_prefix_local }} validate_cert | Display cert_validity_signer"
@@ -41,14 +41,14 @@
 
     - name: "{{ log_prefix_local }} validate_cert | Display cert_validity message"
       debug:
-        msg: "{{ __docker_stack__appspecs__stepca_home_dir }}/certs/intermediate_ca.crt is still valid no need to generate"
+        msg: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt is still valid no need to generate"
       when: cert_validity_signer and cert_validity_signer.rc | default(0) == 0
 
     - set_fact:
         __docker_stack__stepca_missing_or_invalid_ca_cert: no
 
   rescue:
-    - debug: msg="{{ __docker_stack__appspecs__stepca_home_dir }}/certs/intermediate_ca.crt is not valid - __docker_stack__stepca_missing_or_invalid_ca_cert will be set"
+    - debug: msg="{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt is not valid - __docker_stack__stepca_missing_or_invalid_ca_cert will be set"
     - set_fact:
         __docker_stack__stepca_missing_or_invalid_ca_cert: yes
 
@@ -69,18 +69,18 @@
         - name: "{{ log_prefix_local }} Initialize step-ca"
           docker_container:
             name: "step-ca-csr"
-            image: "{{ __docker_stack__appspecs__stepca_image }}"
+            image: "{{ __docker_stack__stepca__image }}"
             env:
               STEPCA_GID: "{{ docker_stack__user_gid }}"
               STEPCA_UID: "{{ docker_stack__user_uid }}"
-              DNS_NAMES: "{{ __docker_stack__appspecs__stepca_dns_names }}"
-              DEFAULT_CERT_VALIDITY: "{{ __docker_stack__appspecs__stepca_default_cert_validity }}"
-              MAX_CERT_VALIDITY: "{{ __docker_stack__appspecs__stepca_max_cert_validity }}"
-              PASSWORD: "{{ __docker_stack__appspecs__stepca_password }}"
-              INTERMEDIATE_CA_NAME: "{{ __docker_stack__appspecs__stepca_ca_name }}"
+              DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
+              DEFAULT_CERT_VALIDITY: "{{ __docker_stack__stepca__default_cert_validity }}"
+              MAX_CERT_VALIDITY: "{{ __docker_stack__stepca__max_cert_validity }}"
+              PASSWORD: "{{ __docker_stack__stepca__password }}"
+              INTERMEDIATE_CA_NAME: "{{ __docker_stack__stepca__ca_name }}"
               INIT_CONFIG: "1"
             volumes:
-              - "{{ __docker_stack__appspecs__stepca_home_dir }}:/home/step"
+              - "{{ __docker_stack__stepca__home_dir }}:/home/step"
             detach: false
             container_default_behavior: compatibility
           register: stepca_init_docker_output
@@ -90,12 +90,12 @@
 #            var: stepca_csr_docker_output
             var: stepca_init_docker_output.container.Output|d('')
 
-        - name: "{{ log_prefix_local }} Remove {{ __docker_stack__appspecs__stepca_home_dir}}/secrets/root_ca_key"
+        - name: "{{ log_prefix_local }} Remove {{ __docker_stack__stepca__home_dir}}/secrets/root_ca_key"
           file:
-            path: "{{ __docker_stack__appspecs__stepca_home_dir}}/secrets/root_ca_key"
+            path: "{{ __docker_stack__stepca__home_dir}}/secrets/root_ca_key"
             state: absent
           loop:
-            - "{{ __docker_stack__appspecs__stepca_home_dir}}/secrets/root_ca_key"
+            - "{{ __docker_stack__stepca__home_dir}}/secrets/root_ca_key"
 
         - name: "{{ log_prefix_local }} Copy step-ca's root, intermediate CA cert and key"
           when: docker_stack__stepca_use_host_cacerts
@@ -107,12 +107,12 @@
             owner: "{{ docker_stack__user_username }}"
             group: "{{ docker_stack__user_group }}"
           loop:
-            - src: "{{ __docker_stack__appspecs__stepca_root_cacert }}"
-              dest: "{{ __docker_stack__appspecs__stepca_home_dir}}/certs/root_ca.crt"
-            - src: "{{ __docker_stack__appspecs__stepca_cacert }}"
-              dest: "{{ __docker_stack__appspecs__stepca_home_dir}}/certs/intermediate_ca.crt"
-            - src: "{{ __docker_stack__appspecs__stepca_cacert_key }}"
-              dest: "{{ __docker_stack__appspecs__stepca_home_dir}}/secrets/intermediate_ca_key"
+            - src: "{{ __docker_stack__stepca__root_cacert }}"
+              dest: "{{ __docker_stack__stepca__home_dir}}/certs/root_ca.crt"
+            - src: "{{ __docker_stack__stepca__cacert }}"
+              dest: "{{ __docker_stack__stepca__home_dir}}/certs/intermediate_ca.crt"
+            - src: "{{ __docker_stack__stepca__cacert_key }}"
+              dest: "{{ __docker_stack__stepca__home_dir}}/secrets/intermediate_ca_key"
 
     - name: "{{ log_prefix_local }} Create signed intermediate cert"
       when: docker_stack__stepca_enable_signed
@@ -129,12 +129,12 @@
             group: "{{ docker_stack__user_group }}"
           loop:
             - src: "stepca/intermediate_ca.tpl"
-              dest: "{{ __docker_stack__appspecs__stepca_home_dir }}/templates/intermediate_ca.tpl"
+              dest: "{{ __docker_stack__stepca__home_dir }}/templates/intermediate_ca.tpl"
               remote_src: no
-            - src: "{{ __docker_stack__appspecs__stepca_root_cacert }}"
-              dest: "{{ __docker_stack__appspecs__stepca_home_dir}}/certs/root_ca.crt"
+            - src: "{{ __docker_stack__stepca__root_cacert }}"
+              dest: "{{ __docker_stack__stepca__home_dir}}/certs/root_ca.crt"
 #            - src: "{{ cacert_local_key_dir }}/ca.{{ docker_stack__internal_domain }}-key.pem"
-#              dest: "{{ __docker_stack__appspecs__stepca_home_dir}}/secrets/root_ca_key"
+#              dest: "{{ __docker_stack__stepca__home_dir}}/secrets/root_ca_key"
 
         - name: login to docker docker-registry
           docker_login:
@@ -146,18 +146,18 @@
         - name: "{{ log_prefix_local }} Generate step-ca CSR"
           docker_container:
             name: "step-ca-csr"
-            image: "{{ __docker_stack__appspecs__stepca_image }}"
+            image: "{{ __docker_stack__stepca__image }}"
             env:
               STEPCA_GID: "{{ docker_stack__user_gid }}"
               STEPCA_UID: "{{ docker_stack__user_uid }}"
-              DNS_NAMES: "{{ __docker_stack__appspecs__stepca_dns_names }}"
-              DEFAULT_CERT_VALIDITY: "{{ __docker_stack__appspecs__stepca_default_cert_validity }}"
-              MAX_CERT_VALIDITY: "{{ __docker_stack__appspecs__stepca_max_cert_validity }}"
-              PASSWORD: "{{ __docker_stack__appspecs__stepca_password }}"
-              INTERMEDIATE_CA_NAME: "{{ __docker_stack__appspecs__stepca_ca_name }}"
+              DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
+              DEFAULT_CERT_VALIDITY: "{{ __docker_stack__stepca__default_cert_validity }}"
+              MAX_CERT_VALIDITY: "{{ __docker_stack__stepca__max_cert_validity }}"
+              PASSWORD: "{{ __docker_stack__stepca__password }}"
+              INTERMEDIATE_CA_NAME: "{{ __docker_stack__stepca__ca_name }}"
               CREATE_CSR: "1"
             volumes:
-              - "{{ __docker_stack__appspecs__stepca_home_dir }}:/home/step"
+              - "{{ __docker_stack__stepca__home_dir }}:/home/step"
             detach: false
             container_default_behavior: compatibility
           register: stepca_csr_docker_output
@@ -173,17 +173,17 @@
             dest: "{{ item.dest }}"
           loop:
             - src: "stepca/ca-config.json.j2"
-              dest: "{{ __docker_stack__appspecs__stepca_home_dir }}/ca-config.json"
+              dest: "{{ __docker_stack__stepca__home_dir }}/ca-config.json"
 
         ## ref: https://github.com/smallstep/certificates/blob/master/docs/questions.md#i-already-have-pki-in-place-can-i-use-this-with-my-own-root-certificate
-        - name: "{{ log_prefix_local }} Remove old certs/keys from {{ __docker_stack__appspecs__stepca_home_dir}}"
+        - name: "{{ log_prefix_local }} Remove old certs/keys from {{ __docker_stack__stepca__home_dir}}"
           file:
             path: "{{ item }}"
             state: absent
           loop:
-            - "{{ __docker_stack__appspecs__stepca_home_dir}}/secrets/root_ca_key"
-            - "{{ __docker_stack__appspecs__stepca_home_dir }}/{{ docker_stack__internal_domain }}.csr"
-            - "{{ __docker_stack__appspecs__stepca_home_dir }}/{{ docker_stack__internal_domain }}.pem"
+            - "{{ __docker_stack__stepca__home_dir}}/secrets/root_ca_key"
+            - "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.csr"
+            - "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
 
         ## ref: https://smallstep.com/docs/tutorials/intermediate-ca-new-ca
         ## step certificate sign --profile intermediate-ca admin.johnson.int.csr /usr/local/ssl/certs/ca.admin.johnson.int.pem /usr/local/ssl/private/ca.admin.johnson.int-key.pem > admin.johnson.int.2.pem
@@ -192,13 +192,13 @@
 #          shell: >-
 #            step sign \
 #              -profile intermediate-ca \
-#              {{ __docker_stack__appspecs__stepca_home_dir }}/certs/intermediate.csr \
-#              {{ __docker_stack__appspecs__stepca_root_cacert }} \
-#              {{ __docker_stack__appspecs__stepca_root_cacert_key }} \
+#              {{ __docker_stack__stepca__home_dir }}/certs/intermediate.csr \
+#              {{ __docker_stack__stepca__root_cacert }} \
+#              {{ __docker_stack__stepca__root_cacert_key }} \
 #              > {{ docker_stack__internal_domain }}.pem
 #          args:
-#            chdir: "{{ __docker_stack__appspecs__stepca_home_dir }}"
-#            creates: "{{ __docker_stack__appspecs__stepca_home_dir }}/{{ docker_stack__internal_domain }}.pem"
+#            chdir: "{{ __docker_stack__stepca__home_dir }}"
+#            creates: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
 
         - name: "{{ log_prefix_local }} Install cfssl"
           include_role:
@@ -208,15 +208,15 @@
           changed_when: no
           shell: >-
             cfssl sign \
-              -config={{ __docker_stack__appspecs__stepca_home_dir }}/ca-config.json \
+              -config={{ __docker_stack__stepca__home_dir }}/ca-config.json \
               -profile=step-ca \
-              -ca={{ __docker_stack__appspecs__stepca_root_cacert }} \
-              -ca-key={{ __docker_stack__appspecs__stepca_root_cacert_key }} \
-              -csr {{ __docker_stack__appspecs__stepca_home_dir }}/certs/intermediate.csr \
+              -ca={{ __docker_stack__stepca__root_cacert }} \
+              -ca-key={{ __docker_stack__stepca__root_cacert_key }} \
+              -csr {{ __docker_stack__stepca__home_dir }}/certs/intermediate.csr \
               | cfssljson -bare {{ docker_stack__internal_domain }}
           args:
-            chdir: "{{ __docker_stack__appspecs__stepca_home_dir }}"
-            creates: "{{ __docker_stack__appspecs__stepca_home_dir }}/{{ docker_stack__internal_domain }}.pem"
+            chdir: "{{ __docker_stack__stepca__home_dir }}"
+            creates: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
 
         - name: "{{ log_prefix_local }} Deploy step-ca's signed intermediate CA cert and key"
           copy:
@@ -227,6 +227,6 @@
             owner: "{{ docker_stack__user_username }}"
             group: "{{ docker_stack__user_group }}"
           loop:
-            - src: "{{ __docker_stack__appspecs__stepca_home_dir }}/{{ docker_stack__internal_domain }}.pem"
-              dest: "{{ __docker_stack__appspecs__stepca_home_dir}}/certs/intermediate_ca.crt"
+            - src: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
+              dest: "{{ __docker_stack__stepca__home_dir}}/certs/intermediate_ca.crt"
 
