@@ -12,7 +12,8 @@ CACERT=${CACERT_TRUST_DIR}/openssl/ca-bundle.trust.crt
 case "${UNAME}" in
     linux*)
       PLATFORM=Linux
-      if [ -f /etc/lsb-release -o -d /etc/lsb-release.d ]; then
+#      if [ -f /etc/lsb-release -o -d /etc/lsb-release.d ]; then
+      if [ -f /etc/lsb-release ]; then
           #CACERT_TRUST_DIR=/usr/ssl/certs
           #CACERT=${CACERT_TRUST_DIR}/ca-bundle.crt
           CACERT_TRUST_DIR=/etc/ssl/certs

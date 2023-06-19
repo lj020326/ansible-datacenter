@@ -1,35 +1,35 @@
 ---
 
-__docker_stack__appspecs__postgres_pgadmin_username: "{{ pgadmin_username | d('pgadmin4@pgadmin.org') }}"
-__docker_stack__appspecs__postgres_pgadmin_password: "{{ pgadmin_password | d('admin') }}"
-__docker_stack__appspecs__postgres_pgadmin_port: "5050"
+__docker_stack__postgres__pgadmin_username: "{{ pgadmin_username | d('pgadmin4@pgadmin.org') }}"
+__docker_stack__postgres__pgadmin_password: "{{ pgadmin_password | d('admin') }}"
+__docker_stack__postgres__pgadmin_port: "5050"
 
-__docker_stack__appspecs__postgres_port: 5432
-__docker_stack__appspecs__postgres_user: "{{ postgres_user | d('postgres') }}"
-__docker_stack__appspecs__postgres_password: "{{ postgres_password | d('password') }}"
-__docker_stack__appspecs__postgres_databases: "{{ docker_stack__postgres_databases | d([]) }}"
+__docker_stack__postgres__port: 5432
+__docker_stack__postgres__user: "{{ postgres_user | d('postgres') }}"
+__docker_stack__postgres__password: "{{ postgres_password | d('password') }}"
+__docker_stack__postgres__databases: "{{ docker_stack__postgres_databases | d([]) }}"
 
-__docker_stack__appspecs__pgadmin_use_ldap: "{{ docker_stack__pgadmin_config_use_ldap | d(False) }}"
+__docker_stack__pgadmin__use_ldap: "{{ docker_stack__pgadmin_config_use_ldap | d(False) }}"
 
-__docker_stack__appspecs__pgadmin_config_default:
-  PGADMIN_DEFAULT_EMAIL: "{{ __docker_stack__appspecs__postgres_pgadmin_username }}"
-  PGADMIN_DEFAULT_PASSWORD: "{{ __docker_stack__appspecs__postgres_pgadmin_password }}"
+__docker_stack__pgadmin__config_default:
+  PGADMIN_DEFAULT_EMAIL: "{{ __docker_stack__postgres__pgadmin_username }}"
+  PGADMIN_DEFAULT_PASSWORD: "{{ __docker_stack__postgres__pgadmin_password }}"
 
 ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/config_py.html#config-py
 ## reF: https://www.pgadmin.org/docs/pgadmin4/5.0/enabling_ldap_authentication.html
-__docker_stack__appspecs__pgadmin_ldap_config_default:
+__docker_stack__pgadmin__ldap_config_default:
   PGADMIN_CONFIG_LDAP_SERVER_URI: "{{ docker_stack__pgadmin_config_ldap_server_uri | d('') }}"
   PGADMIN_CONFIG_LDAP_USERNAME_ATTRIBUTE: "uid"
   PGADMIN_CONFIG_LDAP_BASE_DN: "{{ docker_stack__pgadmin_config_ldap_base_dn | d('') }}"
   PGADMIN_CONFIG_LDAP_SEARCH_BASE_DN: "{{ docker_stack__pgadmin_config_ldap_search_base_dn | d('') }}"
   PGADMIN_CONFIG_LDAP_SEARCH_FILTER: "{{ docker_stack__pgadmin_config_ldap_search_filter | d('(cn=*)') }}"
 
-__docker_stack__appspecs__pgadmin_ldap_config: "{{ __docker_stack__appspecs__pgadmin_ldap_config_default if __docker_stack__appspecs__pgadmin_use_ldap else {} }}"
+__docker_stack__pgadmin__ldap_config: "{{ __docker_stack__pgadmin__ldap_config_default if __docker_stack__pgadmin__use_ldap else {} }}"
 
-__docker_stack__appspecs__pgadmin_config: "{{ __docker_stack__appspecs__pgadmin_config_default | combine(__docker_stack__appspecs__pgadmin_ldap_config) }}"
+__docker_stack__pgadmin__config: "{{ __docker_stack__pgadmin__config_default | combine(__docker_stack__pgadmin__ldap_config) }}"
 
-#.__docker_stack__appspecs__pgadmin_ldap_config: &tpl__docker_stack__appspecs__pgadmin_ldap_config
-#  "{{ __docker_stack__appspecs__pgadmin_ldap_config }}"
+#.__docker_stack__pgadmin__ldap_config: &tpl__docker_stack__pgadmin__ldap_config
+#  "{{ __docker_stack__pgadmin__ldap_config }}"
 
 docker_stack__appspec_config_dirs__postgres:
   - { path: "{{ docker_stack__dir }}/postgres" }
@@ -49,7 +49,7 @@ docker_stack__appspec_config_tpls__postgres:
   - { src: 'pgadmin/config-group.conf.j2', dest: "{{ docker_stack__dir }}/pgadmin/group" }
 
 docker_stack__firewalld_appspec_ports__postgres:
-  - "{{ __docker_stack__appspecs__postgres_port }}/tcp"
+  - "{{ __docker_stack__postgres__port }}/tcp"
 
 docker_stack__appspec__postgres:
   dirs: "{{ docker_stack__appspec_config_dirs__postgres | d([]) }}"
@@ -72,7 +72,7 @@ docker_stack__appspec_services__postgres:
 #      image: postgres
     image: "postgres:11"
     ports:
-      - "{{ __docker_stack__appspecs__postgres_port }}:5432"
+      - "{{ __docker_stack__postgres__port }}:5432"
     restart: "unless-stopped"
     networks:
       - net
@@ -84,14 +84,14 @@ docker_stack__appspec_services__postgres:
       - "{{ docker_stack__dir }}/postgres/data:/var/lib/postgresql/data"
 #        - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__appspecs__postgres_databases | join(':') }}"
-      POSTGRES_USER: "{{ __docker_stack__appspecs__postgres_user }}"
-      POSTGRES_PASSWORD: "{{ __docker_stack__appspecs__postgres_password }}"
+      POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__postgres__databases | join(':') }}"
+      POSTGRES_USER: "{{ __docker_stack__postgres__user }}"
+      POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
 #      healthcheck:
 #        test: "exit 0"
     ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
     healthcheck:
-      test: 'PGPASSWORD="{{ __docker_stack__appspecs__postgres_password }}" psql --host 127.0.0.1 --username {{ __docker_stack__appspecs__postgres_user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?'
+      test: 'PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?'
       interval: 30s
       timeout: 10s
       retries: 3
@@ -110,7 +110,7 @@ docker_stack__appspec_services__postgres:
     depends_on:
       - postgres
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
-    environment: "{{ __docker_stack__appspecs__pgadmin_config }}"
+    environment: "{{ __docker_stack__pgadmin__config }}"
     volumes:
 #         - pgadmin:/root/.pgadmin
 #      - "{{ docker_stack__dir }}/pgadmin:/root/.pgadmin"
@@ -120,7 +120,7 @@ docker_stack__appspec_services__postgres:
       - "{{ docker_stack__dir }}/pgadmin/data:/var/lib/pgadmin"
       - "{{ docker_stack__dir }}/pgadmin/log/pgadmin:/var/log/pgadmin"
     ports:
-      - "{{ __docker_stack__appspecs__postgres_pgadmin_port }}:80"
+      - "{{ __docker_stack__postgres__pgadmin_port }}:80"
     restart: "unless-stopped"
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
