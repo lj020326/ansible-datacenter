@@ -88,14 +88,17 @@ None.
 
 ```yaml
 ---
-- hosts: servers
+- hosts: linux_servers
   roles:
-  - { role: GROG.package,
-      become: yes,
-        bootstrap_linux_package_list: [
-          { name: htop,
-            brew: htop-osx },
-          { name: tree }
-        ]
-    }
+  - role: bootstrap-linux-package
+    become: yes
+    bootstrap_linux_package_list: 
+      - name: htop
+        brew: htop-osx
+      - name: tree
 ```
+
+## Reference
+
+- https://github.com/GROG/ansible-role-package
+- 
