@@ -256,8 +256,15 @@ $ MOLECULE_DISTRO=ubuntu2204-systemd-python --debug converge
 
 ```
 
+Testing with scenarios:
 ```shell
 $ tests/molecule_exec.sh centos7 converge
+$ molecule destroy
+$ tests/molecule_exec.sh centos7 converge -s bootstrap-linux
+$ molecule destroy
+$ tests/molecule_exec.sh centos7 converge -s bootstrap-linux-package
+$ molecule destroy
+$ tests/molecule_exec.sh centos7 converge -s bootstrap-pip
 $ molecule destroy
 $ tests/molecule_exec.sh centos8 --debug converge
 $ molecule destroy
