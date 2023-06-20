@@ -16,11 +16,24 @@ logFile="${SCRIPT_NAME}.log"
 
 INSTALL_JDK_CACERT=0
 
-SITE_LIST="
-pypi.python.org:443
-files.pythonhosted.org:443
+SITE_LIST_DEFAULT="
+media.johnson.int:5000
+media.johnson.int
+admin.dettonville.int
+pypi.python.org
+files.pythonhosted.org
+bootstrap.pypa.io
+galaxy.ansible.com
 "
 
+#SITE_LIST_DEFAULT="
+#pypi.python.org:443
+#files.pythonhosted.org:443
+#bootstrap.pypa.io:443
+#galaxy.ansible.com:443
+#"
+
+__SITE_LIST="${CA_SITE_LIST:-${SITE_LIST_DEFAULT}}"
 
 ### functions followed by main
 
@@ -37,61 +50,74 @@ if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
   fi
 fi
 
+## https://stackoverflow.com/questions/26988262/best-way-to-find-the-os-name-and-version-on-a-unix-linux-platform#26988390
 UNAME=$(uname -s | tr "[:upper:]" "[:lower:]")
 PLATFORM=""
 DISTRO=""
 
 CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted
-CACERT=${CACERT_TRUST_DIR}/openssl/ca-bundle.trust.crt
+CACERT_BUNDLE=${CACERT_TRUST_DIR}/openssl/ca-bundle.trust.crt
+CACERT_TRUST_FORMAT="pem"
 
 ## ref: https://askubuntu.com/questions/459402/how-to-know-if-the-running-platform-is-ubuntu-or-centos-with-help-of-a-bash-scri
 case "${UNAME}" in
     linux*)
+      LINUX_OS_DIST=$(lsb_release -a | tr "[:upper:]" "[:lower:]")
       PLATFORM=Linux
-      if [ -f /etc/lsb-release ]; then
+      case "${LINUX_OS_DIST}" in
+        *ubuntu* | *debian*)
+          # Debian Family
           #CACERT_TRUST_DIR=/usr/ssl/certs
-          #CACERT=${CACERT_TRUST_DIR}/ca-bundle.crt
-          CACERT_TRUST_DIR=/etc/ssl/certs
-          CACERT=${CACERT_TRUST_DIR}/ca-certificates.crt
+          #CACERT_BUNDLE=${CACERT_TRUST_DIR}/ca-bundle.crt
+#          CACERT_TRUST_DIR=/etc/ssl/certs
+          CACERT_TRUST_DIR=/usr/local/share/ca-certificates/
+          CACERT_BUNDLE=${CACERT_TRUST_DIR}/ca-certificates.crt
           DISTRO=$(lsb_release -i | cut -d: -f2 | sed s/'^\t'//)
           CACERT_TRUST_COMMAND="update-ca-certificates"
-      # Otherwise, use release info file
-      elif [ -f /etc/system-release ]; then
+          CACERT_TRUST_FORMAT="crt"
+          ;;
+        *redhat* | *centos* | *fedora* )
+          # RedHat Family
           #CACERT_TRUST_DIR=/etc/pki/tls/certs
           #CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted/openssl
-          #CACERT=${CACERT_TRUST_DIR}/ca-bundle.trust.crt
-          CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted/pem
-          CACERT=${CACERT_TRUST_DIR}/tls-ca-bundle.pem
+          #CACERT_BUNDLE=${CACERT_TRUST_DIR}/ca-bundle.trust.crt
+          #CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted/pem
+          CACERT_TRUST_DIR=/etc/pki/ca-trust/source/anchors/
+          CACERT_BUNDLE=${CACERT_TRUST_DIR}/tls-ca-bundle.pem
           DISTRO=$(cat /etc/system-release)
           CACERT_TRUST_COMMAND="update-ca-trust extract"
-      # Otherwise, use release info file
-      else
+          CACERT_TRUST_FORMAT="pem"
+          ;;
+        *)
+          # Otherwise, use release info file
           CACERT_TRUST_DIR=/usr/ssl/certs
-          CACERT=${CACERT_TRUST_DIR}/ca-bundle.crt
+          CACERT_BUNDLE=${CACERT_TRUST_DIR}/ca-bundle.crt
           DISTRO=$(ls -d /etc/[A-Za-z]*[_-][rv]e[lr]* | grep -v "lsb" | cut -d'/' -f3 | cut -d'-' -f1 | cut -d'_' -f1)
           CACERT_TRUST_COMMAND="update-ca-certificates"
-      fi
+          CACERT_TRUST_FORMAT="pem"
+      esac
       ;;
     darwin*)
       PLATFORM=DARWIN
       CACERT_TRUST_DIR=/etc/ssl
-      CACERT=${CACERT_TRUST_DIR}/cert.pem
+      CACERT_BUNDLE=${CACERT_TRUST_DIR}/cert.pem
       ;;
     cygwin* | mingw64* | mingw32* | msys*)
       PLATFORM=MSYS
       ## https://packages.msys2.org/package/ca-certificates?repo=msys&variant=x86_64
       CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted
-      CACERT=${CACERT_TRUST_DIR}/openssl/ca-bundle.trust.crt
+      CACERT_BUNDLE=${CACERT_TRUST_DIR}/openssl/ca-bundle.trust.crt
       ;;
     *)
       PLATFORM="UNKNOWN:${UNAME}"
 esac
 
 writeToLog "UNAME=${UNAME}"
+writeToLog "LINUX_OS_DIST=${OS_DIST}"
 writeToLog "PLATFORM=[${PLATFORM}]"
 writeToLog "DISTRO=[${DISTRO}]"
 writeToLog "CACERT_TRUST_DIR=${CACERT_TRUST_DIR}"
-writeToLog "CACERT=${CACERT}"
+writeToLog "CACERT_BUNDLE=${CACERT_BUNDLE}"
 writeToLog "CACERT_TRUST_COMMAND=${CACERT_TRUST_COMMAND}"
 
 function get_java_keystore() {
@@ -120,6 +146,7 @@ function get_java_keystore() {
 function get_host_cert() {
   local HOST=$1
   local PORT=$2
+  local CACERTS_SRC=$3
 
   writeToLog "Fetching certs from host:port ${HOST}:${PORT}"
 
@@ -155,7 +182,7 @@ function get_host_cert() {
   for cert in ${CACERTS_SRC}/cert*.crt; do
     #    nameprefix=$(echo "${cert%.*}")
     nameprefix="${cert%.*}"
-    newname=${nameprefix}.$(openssl x509 -noout -subject -in $cert | sed -n 's/\s//g; s/^.*CN=\(.*\)$/\1/; s/[ ,.*]/_/g; s/__/_/g; s/^_//g;p').pem
+    newname="${nameprefix}".$(openssl x509 -noout -subject -in $cert | sed -n 's/\s//g; s/^.*CN=\(.*\)$/\1/; s/[ ,.*]/_/g; s/__/_/g; s/^_//g;p')."${CACERT_TRUST_FORMAT}"
     #    mv $cert $CACERTS_SRC/$newname
     mv "${cert}" "${newname}"
   done
@@ -164,6 +191,7 @@ function get_host_cert() {
 
 function import_jdk_cert() {
   KEYSTORE=$1
+  local CACERTS_SRC=$2
 
   writeToLog "Adding certs to keystore at [${KEYSTORE}]"
 
@@ -226,6 +254,14 @@ install_site_cert() {
   #DATE=`date +&%%m%d%H%M%S`
   DATE=$(date +%Y%m%d)
 
+  writeToLog "SITE=${SITE}"
+
+  IFS=':' read -r -a array <<< "${SITE}"
+  HOST=${array[0]}
+  PORT=${array[1]:-443}
+
+  writeToLog "Running for HOST=[$HOST] PORT=[$PORT] KEYSTORE_PASS=[$KEYSTORE_PASS]..."
+
   ENDPOINT="${HOST}:${PORT}"
   ALIAS="${HOST}:${PORT}"
 
@@ -249,17 +285,8 @@ install_site_cert() {
 
   TMP_OUT=/tmp/${SCRIPT_NAME}.output
 
-
-  writeToLog "SITE=${SITE}"
-
-  IFS=':' read -r -a array <<< "${SITE}"
-  HOST=${array[0]}
-  PORT=${array[1]}
-
-  writeToLog "Running for HOST=[$HOST] PORT=[$PORT] KEYSTORE_PASS=[$KEYSTORE_PASS]..."
-
   writeToLog "Get host cert"
-  get_host_cert "${HOST}" "${PORT}"
+  get_host_cert "${HOST}" "${PORT}" "${CACERTS_SRC}"
 
   if [ "$INSTALL_JDK_CACERT" -ne 0 ]; then
     writeToLog "Get default java JDK cacert location"
@@ -275,7 +302,7 @@ install_site_cert() {
 
     ### Now build list of cacert targets to update
     writeToLog "updating JDK certs at [$JDK_KEYSTORE]..."
-    import_jdk_cert "$JDK_KEYSTORE"
+    import_jdk_cert "$JDK_KEYSTORE" "${CACERTS_SRC}"
 
     # FYI: the default keystore is located in ~/.keystore
     DEFAULT_KEYSTORE="~/.keystore"
@@ -322,7 +349,8 @@ install_site_cert() {
 
   elif [[ "$UNAME" == "cygwin" || "$UNAME" == "msys" ]]; then
     ## ref: https://docs.microsoft.com/en-us/troubleshoot/windows-server/identity/valid-root-ca-certificates-untrusted
-    ROOT_CERT=$(ls -1 ${CACERTS_SRC}/cert*.pem | sort -nr | head -1)
+#    ROOT_CERT=$(ls -1 ${CACERTS_SRC}/cert*.pem | sort -nr | head -1)
+    ROOT_CERT=$(find ${CACERTS_SRC}/ -name cert*.pem | sort -nr | head -1)
 
     WIN_CACERT_TRUST_COMMAND="certutil -addstore root ${ROOT_CERT}"
     writeToLog "WIN_CACERT_TRUST_COMMAND=${WIN_CACERT_TRUST_COMMAND}"
@@ -335,6 +363,10 @@ install_site_cert() {
     #certutil –addstore -enterprise –f "Root" "${ROOT_CERT}"
 
   elif [[ "$UNAME" == "linux"* ]]; then
+    ROOT_CERT=$(find ${CACERTS_SRC}/ -name cert*.${CACERT_TRUST_FORMAT} | sort -nr | head -1)
+    writeToLog "copy ROOT_CERT ${ROOT_CERT} to CACERT_TRUST_DIR=${CACERT_TRUST_DIR}"
+#    cp -p "${ROOT_CERT}" "${CACERT_TRUST_DIR}/"
+    cp -p "${CACERTS_SRC}"/*."${CACERT_TRUST_FORMAT}" "${CACERT_TRUST_DIR}/"
     writeToLog "CACERT_TRUST_COMMAND=${CACERT_TRUST_COMMAND}"
     eval "${CACERT_TRUST_COMMAND}"
   fi
@@ -345,7 +377,7 @@ install_site_cert() {
 
 echo '==> Add site certs to cacerts'
 IFS=$'\n'
-for SITE in ${SITE_LIST}
+for SITE in ${__SITE_LIST}
 do
 
   install_site_cert "${SITE}" "${INSTALL_JDK_CACERT}"

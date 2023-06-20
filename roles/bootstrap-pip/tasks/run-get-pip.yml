@@ -1,0 +1,57 @@
+---
+
+- name: "{{ __log_prefix_local }} Display __pip_version"
+  debug:
+    var: __pip_version
+
+- name: "{{ __log_prefix_local }} Display __python_executable"
+  debug:
+    var: __python_executable
+
+## ref: https://stackoverflow.com/questions/73293401/ansible-install-python-module-only-if-it-not-exist
+- name: "{{ __log_prefix_local }} Gather installed {{ __python_executable }} version"
+  shell:
+    cmd: "{{ __python_executable }} --version | cut -d ' ' -f 2"
+  register: __python_version_result
+  failed_when: __python_version_result.rc != 0 and __python_version_result.rc != 127
+  # Since this is a reporting task, it should never change
+  # as well run and register a result in any case
+  changed_when: false
+  check_mode: false
+
+- name: "{{ __log_prefix_local }} Set __python_version"
+  set_fact:
+    __python_version_current: "{{ __python_version_result.stdout | d('00.0.0') }}"
+
+- name: "{{ __log_prefix_local }} Display __python_version_current"
+  debug:
+    var: __python_version_current
+
+- name: "{{ __log_prefix_local }} Override __bootstrap_pip__get_pip_url if __python_version_current == 3.6"
+  when:
+    - __python_version_current is version('3.6', '>=')
+    - __python_version_current is version('3.7', '<')
+  set_fact:
+    __bootstrap_pip__get_pip_url: "https://bootstrap.pypa.io/pip/3.6/get-pip.py"
+
+- name: "{{ __log_prefix_local }} Get get-pip.py install script"
+  get_url:
+    url: "https://bootstrap.pypa.io/pip/3.6/get-pip.py"
+    dest: "{{ __bootstrap_pip__tmp }}/"
+    validate_certs: false
+
+- name: "{{ __log_prefix_local }} Install 'pip' only if it not exist"
+  when: __pip_version == "present"
+  shell:
+    cmd: "{{ __pip_executable }} --version
+      || {{ __python_executable }} {{ __bootstrap_pip__tmp }}/get-pip.py"
+
+- name: "{{ __log_prefix_local }} Install latest 'pip'"
+  when: __pip_version == "latest"
+  shell:
+    cmd: "{{ __python_executable }} {{ __bootstrap_pip__tmp }}/get-pip.py"
+
+- name: "{{ __log_prefix_local }} Delete /tmp/get-pip.py"
+  file:
+    path: "{{ __bootstrap_pip__tmp }}//get-pip.py"
+    state: absent
