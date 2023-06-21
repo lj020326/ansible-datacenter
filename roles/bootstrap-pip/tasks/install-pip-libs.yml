@@ -3,26 +3,8 @@
 - debug:
     var: __bootstrap_pip_env
 
-- name: "Set __pip_version"
-  set_fact:
-    __pip_version: "{{ __bootstrap_pip_env.version | d(bootstrap_pip__version) }}"
-    __env_name: "{{ __bootstrap_pip_env.virtualenv | d(__bootstrap_pip_env.pip_executable)
-      | d(__bootstrap_pip__pip_executable) }}"
-    __python_executable: "{{ __bootstrap_pip_env.python_executable | d(__bootstrap_pip__python_executable) }}"
-    __pip_executable: "{{ __bootstrap_pip_env.pip_executable | d(__bootstrap_pip__pip_executable) }}"
-
 - set_fact:
-    __log_prefix_local: "Install Pip Libs | Pip ENV=>[{{ __env_name }}] |"
-
-- name: "{{ __log_prefix_local }} Override __python_executable if virtualenv"
-  when: __bootstrap_pip_env.virtualenv is defined
-  set_fact:
-    __python_executable: "{{ __bootstrap_pip_env.python_executable | d(__bootstrap_pip_env.virtualenv + '/bin/python3') }}"
-    __pip_executable: "{{ __bootstrap_pip_env.pip_executable | d(__bootstrap_pip_env.virtualenv + '/bin/pip3') }}"
-
-- name: "{{ __log_prefix_local }} Display __python_executable"
-  debug:
-    var: __python_executable
+    __log_prefix_local: "Install Pip Libs | Pip ENV=>[{{ __bootstrap_pip_env.name }}] |"
 
 - name: "{{ __log_prefix_local }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
   when: __bootstrap_pip_env.virtualenv is not defined
@@ -56,7 +38,7 @@
     register: __pip_update_result
 
   - name: "{{ __log_prefix_local }} Set up latest pip"
-    when: __pip_version|d('')=='latest'
+    when: __bootstrap_pip_env.pip_version|d('')=='latest'
     pip:
       name: pip
       state: latest
@@ -66,10 +48,10 @@
     environment: "{{ __bootstrap_pip__environment_ignore_root_user_action | d(omit) }}"
     register: __pip_update_result
 
-  - name: "{{ __log_prefix_local }} Ensure pip version is at [{{ __pip_version }}]"
-    when: __pip_version|d('')!='latest'
+  - name: "{{ __log_prefix_local }} Ensure pip version is at [{{ __bootstrap_pip_env.pip_version }}]"
+    when: __bootstrap_pip_env.pip_version|d('')!='latest'
     pip:
-      name: "pip=={{ __pip_version }}"
+      name: "pip=={{ __bootstrap_pip_env.pip_version }}"
       state: present
       executable: "{{ __bootstrap_pip_env.pip_executable | d(__bootstrap_pip__pip_executable) }}"
       virtualenv: "{{ __bootstrap_pip_env.virtualenv | d(omit) }}"
