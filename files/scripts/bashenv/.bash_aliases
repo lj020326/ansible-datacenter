@@ -176,6 +176,7 @@ alias blasthugo="hugo && blastit. && pushd . && cd public && blastit. && popd"
 
 ## ref: https://stackoverflow.com/questions/6052005/how-can-you-git-pull-only-the-current-branch
 alias gitpullsub="git submodule update --recursive --remote"
+alias gitmergesub="git submodule update --remote --merge && blastit"
 alias gitresetsub="git submodule deinit -f . && git submodule update --init --recursive --remote"
 alias gitgetcomment="getgitcomment"
 alias gitgetrequestid="getgitrequestid"
