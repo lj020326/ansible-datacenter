@@ -26,7 +26,6 @@ manager!
 | `bootstrap_linux_package_update_cache` | Update the cache? | `yes` |
 | `bootstrap_linux_package_cache_valid_time` | How long is the package cache valid? (seconds) | 3600 |
 | `bootstrap_linux_package_snap_list` | List of Debian/Ubuntu snap packages **(see details!)** | `[]` |
-| `bootstrap_linux_package_pip_list` | List of python pip lib packages **(see details!)** | `[]` |
 
 #### `bootstrap_linux_package_list` details
 
