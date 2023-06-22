@@ -1,0 +1,48 @@
+---
+# tasks file for inspec
+
+#- name: Import install_debian.yml if OS distribution is Debian
+#  import_tasks: install_debian.yml
+#  when: ansible_facts.distribution == "Debian"
+#
+#- name: Import install_ubuntu.yml if OS distribution is Ubuntu
+#  import_tasks: install_ubuntu.yml
+#  when: ansible_facts.distribution == "Ubuntu"
+#
+#- name: Import install_el.yml if OS distribution is CentOS
+#  import_tasks: install_el.yml
+#  when: ansible_facts.os_family == 'RedHat'
+
+- name: "Get installed inspec version."
+  command: inspec version
+  ignore_errors: yes
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  register: bootstrap_inspec__installed_version
+
+- name: "Display bootstrap_inspec__installed_version"
+  debug:
+    var: bootstrap_inspec__installed_version
+
+- name: Force inspec install if the version numbers do not match.
+  set_fact:
+    bootstrap_inspec__reinstall_from_source: true
+  when:
+    - (bootstrap_inspec__install_from_source_force_update | bool) or
+      (bootstrap_inspec__installed_version.rc != 0) or
+      (bootstrap_inspec__installed_version.stdout is version(bootstrap_inspec__version, operator="!="))
+
+- name: "Display bootstrap_inspec__reinstall_from_source"
+  debug:
+    var: bootstrap_inspec__reinstall_from_source
+
+- name: "Downloading and installing inspec"
+  when: bootstrap_inspec__reinstall_from_source | bool
+  shell: curl https://omnitruck.chef.io/install.sh | bash -s -- -P inspec
+  register: bootstrap_inspec__install_result
+
+- name: "Display bootstrap_inspec__install_result"
+  when: bootstrap_inspec__reinstall_from_source | bool
+  debug:
+    var: bootstrap_inspec__install_result
