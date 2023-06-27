@@ -1,6 +1,6 @@
 
-logPrefix=".bash_aliases"
-logDebug "configuring shell aliases..."
+log_prefix=".bash_aliases"
+echo "${log_prefix} configuring shell aliases..."
 
 #
 # Some example alias instructions
@@ -186,7 +186,7 @@ alias gitgetrequestid="getgitrequestid"
 alias gitpullrebase="git pull origin --rebase"
 
 ## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
-git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
+#git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
 alias gitmerge="git merge-no-edit"
 alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout master && git merge-no-edit -X theirs main"
 
@@ -261,7 +261,7 @@ alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
 alias fetch-and-import-site-certs="~/bin/fetch_and_import_site_cert_pem.sh"
 
 if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
-  logDebug "setting aliases specific to MSYS/MINGW platform"
+  echo "${log_prefix} setting aliases specific to MSYS/MINGW platform"
 
   alias flushdns="ipconfig //flushdns"
 
@@ -292,7 +292,7 @@ if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
   alias open='start'
 
 elif [[ "${platform}" == *"DARWIN"* ]]; then
-  logInfo "setting aliases for DARWIN env"
+  echo "${log_prefix} setting aliases for DARWIN env"
   # alias emacs='emacs -q --load "${HOME}/.emacs.d/init.el"'
 
   ## ref: https://opensource.com/article/19/5/python-3-default-mac

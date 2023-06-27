@@ -5,7 +5,6 @@
     var: "{{ item }}"
   loop:
     - docker_stack__firewalld_enabled
-    - docker_stack__python_docker_interpreter
     - ansible_python_interpreter
 
 - name: "Setup role facts"
@@ -46,8 +45,6 @@
   include_tasks: setup-admin-scripts.yml
 
 - name: "Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml"
-#  vars:
-#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   when:
     - docker_stack__action == 'setup'
     - (role_path + '/tasks/apps/' + __container_service_name + '/pre-start.yml') is file
@@ -62,15 +59,11 @@
 ## the `community.docker` modules require the target host python interpreter environment to be configured
 ## with the docker python library.
 ##
-## the docker python interpreter used in the following plays is specified by role variable 'docker_stack__python_docker_interpreter'
-##
 ## the python interpreter environment and docker lib dependency is expected to be already prepared in a prior task
-## by the 'bootstrap_pip' role
+## by the 'bootstrap_pip' role and the `ansible_python_interpreter` var should be set by playbook var for the play
 #######################
 - name: "Setup docker stack services"
   when: docker_stack__action == 'setup'
-#  vars:
-#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   block:
 
     - name: "Setup docker stack services"
@@ -128,16 +121,12 @@
 
 - name: "Run compose action"
   when: not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool
-#  vars:
-#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   include_tasks: run-compose-action.yml
 
 - name: "Setup container configs"
   when:
     - docker_stack__action == 'setup'
     - __docker_stack__container_config_list|d([])|length > 0
-#  vars:
-#    ansible_python_interpreter: "{{ docker_stack__python_docker_interpreter }}"
   include_tasks: setup-container-configs.yml
   loop: "{{ __docker_stack__container_config_list }}"
   loop_control:
