@@ -31,7 +31,7 @@
 
 - name: "When chronyd is used, assert that the ntpd service is not installed/running"
   when:
-    - bootstrap_ntp_daemon == 'chronyd'
+    - bootstrap_ntp__daemon == 'chronyd'
     - services | d([]) | intersect(['ntpd', 'ntpd.service']) | list | length>0
   block:
 
@@ -52,18 +52,18 @@
 
 - name: "Ensure ntp packages are installed."
   package:
-    name: "{{ bootstrap_ntp_packages }}"
+    name: "{{ bootstrap_ntp__packages }}"
     state: present
 
-- name: "Ensure {{ bootstrap_ntp_tzdata_package }} package is installed (Linux)."
+- name: "Ensure {{ bootstrap_ntp__tzdata_package }} package is installed (Linux)."
   when: ansible_system == "Linux"
   package:
-    name: "{{ bootstrap_ntp_tzdata_package }}"
+    name: "{{ bootstrap_ntp__tzdata_package }}"
     state: present
 
-- name: "Set timezone to {{ bootstrap_ntp_timezone }}."
+- name: "Set timezone to {{ bootstrap_ntp__timezone }}."
   timezone:
-    name: "{{ bootstrap_ntp_timezone }}"
+    name: "{{ bootstrap_ntp__timezone }}"
   notify: restart cron
 
 - name: "Populate post-install service facts."
@@ -71,7 +71,7 @@
 
 - name: "Disable systemd-timesyncd if it's running but ntp is enabled."
   when:
-    - bootstrap_ntp_enabled | bool
+    - bootstrap_ntp__enabled | bool
     - services | d([]) | intersect(['systemd-timesyncd', 'systemd-timesyncd.service']) | list | length>0
 #    - '"systemd-timesyncd.service" in services'
     - services["systemd-timesyncd.service"]["status"] != "not-found"
@@ -80,54 +80,54 @@
     enabled: false
     state: stopped
 
-- name: "Ensure {{ bootstrap_ntp_daemon }} is stopped and disabled as configured."
-  when: not (bootstrap_ntp_enabled | bool)
+- name: "Ensure {{ bootstrap_ntp__daemon }} is stopped and disabled as configured."
+  when: not (bootstrap_ntp__enabled | bool)
   ignore_errors: yes
   service:
-    name: "{{ bootstrap_ntp_daemon }}"
+    name: "{{ bootstrap_ntp__daemon }}"
     state: stopped
     enabled: false
 
 - name: Generate ntp configuration file.
-  when: bootstrap_ntp_manage_config | bool
+  when: bootstrap_ntp__manage_config | bool
   template:
-    src: "{{ bootstrap_ntp_config_file | basename }}.j2"
-    dest: "{{ bootstrap_ntp_config_file }}"
+    src: "{{ bootstrap_ntp__config_file | basename }}.j2"
+    dest: "{{ bootstrap_ntp__config_file }}"
     mode: "0644"
     backup: yes
   notify: restart ntp
 
-- name: "Ensure {{ bootstrap_ntp_daemon }} is running and enabled as configured."
-  when: bootstrap_ntp_enabled | bool
+- name: "Ensure {{ bootstrap_ntp__daemon }} is running and enabled as configured."
+  when: bootstrap_ntp__enabled | bool
   service:
-    name: "{{ bootstrap_ntp_daemon }}"
+    name: "{{ bootstrap_ntp__daemon }}"
     state: restarted
     enabled: true
 
 - name: "Sync chronyc"
   when:
-    - bootstrap_ntp_enabled | bool
-    - bootstrap_ntp_daemon == 'chronyd'
-    - bootstrap_ntp_role_action in ['all', 'sync']
+    - bootstrap_ntp__enabled | bool
+    - bootstrap_ntp__daemon == 'chronyd'
+    - bootstrap_ntp__role_action in ['all', 'sync']
   include_tasks: sync-chrony.yml
 
 - name: "Sync ntp"
   when:
-    - bootstrap_ntp_enabled | bool
-    - bootstrap_ntp_daemon in ['ntp','ntpd']
-    - bootstrap_ntp_role_action in ['all', 'sync']
+    - bootstrap_ntp__enabled | bool
+    - bootstrap_ntp__daemon in ['ntp','ntpd']
+    - bootstrap_ntp__role_action in ['all', 'sync']
   include_tasks: sync-ntp.yml
 
 - name: "Test chronyc"
   when:
-    - bootstrap_ntp_enabled | bool
-    - bootstrap_ntp_daemon == 'chronyd'
-    - bootstrap_ntp_role_action in ['all', 'test']
+    - bootstrap_ntp__enabled | bool
+    - bootstrap_ntp__daemon == 'chronyd'
+    - bootstrap_ntp__role_action in ['all', 'test']
   include_tasks: test-chrony.yml
 
 - name: "Test ntp"
   when:
-    - bootstrap_ntp_enabled | bool
-    - bootstrap_ntp_daemon in ['ntp','ntpd']
-    - bootstrap_ntp_role_action in ['all', 'test']
+    - bootstrap_ntp__enabled | bool
+    - bootstrap_ntp__daemon in ['ntp','ntpd']
+    - bootstrap_ntp__role_action in ['all', 'test']
   include_tasks: test-ntp.yml

@@ -21,24 +21,20 @@ The docker runtime environment is expected to be already prepared in a prior pla
 
 bootstrap-docker-stack.yml:
 ```yaml
-
 - name: "Bootstrap docker stack"
   hosts: docker-stack
   become: True
-  vars:
-    ansible_python_docker_interpreter: "/usr/local/bin/python-docker"
-
   roles:
     - role: bootstrap-pip
-
+      bootstrap_pip__env_list__docker:
+        - pip_executable: pip3
+          version: latest
+          libraries:
+            - jsondiff
+            - docker
+            - docker-compose
     - role: bootstrap-docker
-      ## coerce the 'ansible_python_docker_interpreter' global variable into role input/scope variables
-      ## the `bootstrap-docker` sets up the docker python virtualenv along with docker library dependency and symlinks the venv python to the specified value 
-      bootstrap_docker_python_docker_interpreter: "{{ ansible_python_docker_interpreter }}"
-
     - role: docker-stack
-      ## the `docker-stack` role uses the specified docker python virtualenv interpreter to run the `community.docker` tasks 
-      docker_stack__python_docker_interpreter: "{{ ansible_python_docker_interpreter }}"
 
 ```
 
@@ -56,26 +52,35 @@ bootstrap_docker_python_docker_interpreter: "{{ ansible_python_docker_interprete
 
 ```
 
-inventory/group_vars/docker_stack.yml:
-```yaml
----
-
-## used to run the virtualenv python for all plays using the 'community.docker' modules
-docker_stack__python_docker_interpreter: "{{ ansible_python_docker_interpreter }}"
-
-```
-
 Then the first play could be refactored as follows:
 
 bootstrap-docker-stack.yml:
 ```yaml
 
-- name: "Bootstrap docker stack"
-  hosts: docker_stack
+- name: "Bootstrap docker"
+  hosts: docker_stack,!node_offline
   become: True
+  vars:
+    bootstrap_pip__env_list__docker:
+      - pip_executable: pip3
+        version: latest
+        libraries:
+          - jsondiff
+          - docker
+          - docker-compose
   roles:
     - role: bootstrap-pip
     - role: bootstrap-docker
+
+- name: "Bootstrap docker stack node"
+  hosts: docker_stack,!node_offline
+  tags:
+    - bootstrap-docker-stack
+    - docker-stack
+  become: True
+  vars:
+    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  roles:
     - role: docker-stack
 
 ```

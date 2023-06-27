@@ -100,7 +100,13 @@ $ molecule login
 ```shell
 $ molecule destroy
 $ tests/molecule_exec.sh redhat7 converge
-$ molecule destroy
+$ tests/molecule_exec.sh redhat7 destroy
+## OR 
+$ MOLECULE_DISTRO=centos8 redhat7 destroy
+$ 
+$ tests/molecule_exec.sh ubuntu2204 converge -s bootstrap-linux
+$ tests/molecule_exec.sh ubuntu2204 converge -s bootstrap-pip
+$ tests/molecule_exec.sh ubuntu2204 converge -s bootstrap-docker
 $ tests/molecule_exec.sh debian8 converge
 $ molecule destroy
 $ tests/molecule_exec.sh centos7 converge
