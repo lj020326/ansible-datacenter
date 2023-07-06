@@ -1,61 +1,77 @@
 ---
 
+- set_fact:
+    __log_prefix_packages: "Install | Repo Packages |"
+
 #######################
 ## the CentOS 8 image/template should already be switched to stream
 ## ref: https://www.techrepublic.com/article/how-to-convert-centos-8-to-centos-8-stream/
 ##
 ## ONLY needed for CentOS version < 8
-- name: "Install | Repo Packages | Update yum package repos"
+- name: "{{ __log_prefix_packages }} Update yum package repos"
   when:
     - ansible_pkg_mgr == 'yum'
-    - bootstrap_linux_package_yum_repo_list|d([])|length>0
+    - bootstrap_linux_package__yum_repo_list|d([])|length>0
     - ansible_distribution_major_version<8
   include_tasks: update-repo-yum.yml
 
-- name: "Install | Repo Packages | Update yum package repos"
+- name: "{{ __log_prefix_packages }} Update yum package repos"
   when:
     - ansible_pkg_mgr == 'dnf'
-    - bootstrap_linux_package_yum_repo_list|d([])|length>0
+    - bootstrap_linux_package__yum_repo_list|d([])|length>0
   include_tasks: update-repo-dnf.yml
 
-- name: "Install | Repo Packages | Update apt package repos"
+- name: "{{ __log_prefix_packages }} Update yum package repos"
+  when:
+    - ansible_pkg_mgr == 'yum'
+    - bootstrap_linux_package__yum_repo_list|d([])|length>0
+    - ansible_distribution_major_version<8
+  include_tasks: update-repo-yum.yml
+
+- name: "{{ __log_prefix_packages }} RedHat - Install centos yum package repos"
+  when:
+    - ansible_distribution|lower == 'redhat'
+    - bootstrap_linux_package__redhat_install_centos_repos|bool
+  include_tasks: update-repo-yum-rhel-centos.yml
+
+- name: "{{ __log_prefix_packages }} Update apt package repos"
   when:
     - ansible_pkg_mgr == 'apt'
-    - bootstrap_linux_package_apt_repo_list|d([])|length>0
+    - bootstrap_linux_package__apt_repo_list|d([])|length>0
   include_tasks: update-repo-apt.yml
 
-- name: "Install | Repo Packages | Install present packages"
+- name: "{{ __log_prefix_packages }} Install present packages"
   when:
-    - __bootstrap_linux_package_list_by_priority[item].present is defined
-    - __bootstrap_linux_package_list_by_priority[item].present.keys()|d([])|length>0
+    - __bootstrap_linux_package__package_list_by_priority[item].present is defined
+    - __bootstrap_linux_package__package_list_by_priority[item].present.keys()|d([])|length>0
   package:
-    name: "{{ __bootstrap_linux_package_list_by_priority[item].present.keys() }}"
+    name: "{{ __bootstrap_linux_package__package_list_by_priority[item].present.keys() }}"
     state: "present"
-    update_cache: "{{ bootstrap_linux_package_update_cache }}"
-  loop: "{{ __bootstrap_linux_package_list_by_priority.keys()|sort }}"
+    update_cache: "{{ bootstrap_linux_package__update_cache }}"
+  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys()|sort }}"
   loop_control:
     label: "package state=present priority={{ item }}"
 
-- name: "Install | Repo Packages | Install latest packages"
+- name: "{{ __log_prefix_packages }} Install latest packages"
   when:
-    - __bootstrap_linux_package_list_by_priority[item].latest is defined
-    - __bootstrap_linux_package_list_by_priority[item].latest.keys()|d([])|length>0
+    - __bootstrap_linux_package__package_list_by_priority[item].latest is defined
+    - __bootstrap_linux_package__package_list_by_priority[item].latest.keys()|d([])|length>0
   package:
-    name: "{{ __bootstrap_linux_package_list_by_priority[item].latest.keys() }}"
+    name: "{{ __bootstrap_linux_package__package_list_by_priority[item].latest.keys() }}"
     state: "latest"
-    update_cache: "{{ bootstrap_linux_package_update_cache }}"
-  loop: "{{ __bootstrap_linux_package_list_by_priority.keys()|sort }}"
+    update_cache: "{{ bootstrap_linux_package__update_cache }}"
+  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys()|sort }}"
   loop_control:
     label: "package state=latest priority={{ item }}"
 
-- name: "Install | Repo Packages | Remove packages"
+- name: "{{ __log_prefix_packages }} Remove packages"
   when:
-    - __bootstrap_linux_package_list_by_priority[item].absent is defined
-    - __bootstrap_linux_package_list_by_priority[item].absent.keys()|d([])|length>0
+    - __bootstrap_linux_package__package_list_by_priority[item].absent is defined
+    - __bootstrap_linux_package__package_list_by_priority[item].absent.keys()|d([])|length>0
   package:
-    name: "{{ __bootstrap_linux_package_list_by_priority[item].absent.keys() }}"
+    name: "{{ __bootstrap_linux_package__package_list_by_priority[item].absent.keys() }}"
     state: "absent"
-    update_cache: "{{ bootstrap_linux_package_update_cache }}"
-  loop: "{{ __bootstrap_linux_package_list_by_priority.keys()|sort }}"
+    update_cache: "{{ bootstrap_linux_package__update_cache }}"
+  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys()|sort }}"
   loop_control:
     label: "package state=absent priority={{ item }}"

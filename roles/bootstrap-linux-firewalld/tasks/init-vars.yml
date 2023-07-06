@@ -43,9 +43,16 @@
     role_port_list_var_regex: "^{{ role_ports_var_prefix }}"
     role_rule_list_var_regex: "^{{ role_rule_list_var_prefix }}"
 
+- name: "{{ __log_prefix_local }} Initialize __firewalld_zones"
+  set_fact:
+#    __firewalld_zones: "{{ firewalld_zones|d({}) }}"
+    __firewalld_zones: "{{ __firewalld_zones|d({}) | combine({ item.name: item}, recursive=True) }}"
+  loop: "{{ firewalld_zones | d([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: "{{ __log_prefix_local }} Initialize {{ role_name }} lists"
   set_fact:
-    __firewalld_zones: "{{ firewalld_zones|d([]) }}"
     __firewalld_services: "{{ firewalld_services|d([]) }}"
     __firewalld_ports: "{{ firewalld_ports|d([]) }}"
     __firewalld_rules: "{{ firewalld_rules|d([]) }}"
@@ -66,10 +73,19 @@
   debug:
     msg: "{{ lookup('varnames', role_rule_list_var_regex, wantlist=True) }}"
 
-- name: "{{ __log_prefix_local }} Coalesce lists from {{ role_zone_list_var_prefix }}* vars into merged list"
+- name: "{{ __log_prefix_local }} Merge lists from {{ role_zone_list_var_prefix }}* vars into merged list"
   set_fact:
-    __firewalld_zones: "{{ __firewalld_zones|d([]) + lookup('vars', item)|d([]) }}"
+    __firewalld_zones_list: "{{ __firewalld_zones_list|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames', role_zone_list_var_regex, wantlist=True) }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: "{{ __log_prefix_local }} Coalesce lists from __firewalld_zones_list into merged dict __firewalld_zones"
+  set_fact:
+    __firewalld_zones: "{{ __firewalld_zones|d({}) | combine({ item.name: item}, recursive=True) }}"
+  loop: "{{ __firewalld_zones_list | d([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: "{{ __log_prefix_local }} Coalesce lists from {{ role_service_list_var_prefix }}* vars into merged list"
   set_fact:

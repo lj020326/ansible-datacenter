@@ -7,15 +7,42 @@
   roles:
     - role: apply-common-groups
 
+- name: "Apply host to vm_template group(s)"
+  tags: always
+  hosts: localhost
+  connection: local
+  tasks:
+
+  - name: "Set vm_template_group"
+    set_fact:
+      vm_template_group: "vm_template_{{ dc_os_family_shortname }}"
+
+  - name: "Display vm_template_group"
+    debug:
+      var: vm_template_group
+
+  - name: "Apply group {{ vm_template_group }} to hosts"
+    changed_when: no
+    group_by:
+      key: "{{ vm_template_group }}"
+
+  - name: "Display group_names"
+    debug:
+      var: group_names | d([])
+
 - name: "Bootstrap linux OS on vm template"
-  hosts: dc_os_linux
+#  hosts: dc_os_linux
+  hosts: vm_template_linux
+  tags: vm-template
   connection: local
   become: yes
   roles:
     - role: bootstrap-linux
 
 - name: "Bootstrap windows OS on vm template"
-  hosts: dc_os_windows
+#  hosts: dc_os_windows
+  hosts: vm_template_windows
+  tags: vm-template
   connection: local
   become: yes
   roles:

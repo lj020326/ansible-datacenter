@@ -1,0 +1,40 @@
+---
+
+- set_fact:
+    __log_prefix_yum_rhel: "Install | Configure RedHat Yum Repos | Stat yum repo config files"
+
+- name: "{{ __log_prefix_yum_rhel }} Disable subscription manager updates"
+  ansible.builtin.shell: "dnf --disableplugin subscription-manager update -y"
+  register: __shell_result_disable_subscription_mgr
+
+- name: "{{ __log_prefix_yum_rhel }} Disable subscription-manager.conf pluginconf"
+  ansible.builtin.lineinfile:
+    dest: "/etc/yum/pluginconf.d/subscription-manager.conf"
+    backrefs: no
+    regexp: '^enabled=1'
+    line: 'enabled=0'
+    backup: yes
+
+- name: "{{ __log_prefix_yum_rhel }} Setup yum repos"
+  when: bootstrap_linux_package__setup_yum_repos
+  block:
+  - name: "{{ __log_prefix_yum_rhel }} Setup yum repos"
+    ansible.builtin.copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      backup: yes
+    loop: "{{ bootstrap_linux_package__yum_repo_list }}"
+
+  - name: "{{ __log_prefix_yum_rhel }} Fetch RPM-GPG-KEY-CentOS-Official"
+    ansible.builtin.get_url:
+      url: "{{ bootstrap_linux_package__centos_gpg_key_url }}"
+      dest: "{{ bootstrap_linux_package__centos_gpg_rpm_key }}"
+      mode: '0644'
+      force: true
+
+- name: "{{ __log_prefix_dnf }} Update yum repo and cache"
+  dnf:
+    name: '*'
+    state: latest
+    update_cache: yes
+    allowerasing: yes

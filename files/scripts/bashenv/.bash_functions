@@ -580,3 +580,24 @@ function cagetaccountpwd() {
   echo "CA_ACCOUNT_PWD=${CA_ACCOUNT_PWD}"
 
 }
+
+unalias sshpacker 1>/dev/null 2>&1
+unset -f sshpacker || true
+function sshpacker() {
+  SSH_TARGET=${1} && \
+  echo "SSH_TARGET=${SSH_TARGET}" && \
+  IFS=@ read SSH_TARGET_CRED SSH_TARGET_HOST <<< ${SSH_TARGET} && \
+  ssh-keygen -R "${SSH_TARGET_HOST}" && \
+  ssh -i "~/.ssh/${SSH_KEY}" -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "${SSH_TARGET}"
+}
+
+unalias sshpackerwork 1>/dev/null 2>&1
+unset -f sshpackerwork || true
+function sshpackerwork() {
+  SSH_TARGET=${1} && \
+  echo "SSH_TARGET=${SSH_TARGET}" && \
+  IFS=@ read SSH_TARGET_CRED SSH_TARGET_HOST <<< ${SSH_TARGET} && \
+  echo "SSH_TARGET_HOST=${SSH_TARGET_HOST}" && \
+  ssh-keygen -R "${SSH_TARGET_HOST}" && \
+  ssh -i "~/.ssh/${SSH_ANSIBLE_KEY_WORK}" -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "${SSH_TARGET}"
+}

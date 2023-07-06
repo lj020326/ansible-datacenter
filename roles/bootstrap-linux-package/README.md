@@ -21,15 +21,15 @@ manager!
 
 | Variable | Description | Default value |
 |----------|-------------|---------------|
-| `bootstrap_linux_package_list` | List of packages **(see details!)** | `[]` |
-| `bootstrap_linux_package_state` | Default package state | 'present' |
-| `bootstrap_linux_package_update_cache` | Update the cache? | `yes` |
-| `bootstrap_linux_package_cache_valid_time` | How long is the package cache valid? (seconds) | 3600 |
-| `bootstrap_linux_package_snap_list` | List of Debian/Ubuntu snap packages **(see details!)** | `[]` |
+| `bootstrap_linux_package__package_list` | List of packages **(see details!)** | `[]` |
+| `bootstrap_linux_package__state` | Default package state | 'present' |
+| `bootstrap_linux_package__update_cache` | Update the cache? | `yes` |
+| `bootstrap_linux_package__cache_valid_time` | How long is the package cache valid? (seconds) | 3600 |
+| `bootstrap_linux_package__snap_list` | List of Debian/Ubuntu snap packages **(see details!)** | `[]` |
 
-#### `bootstrap_linux_package_list` details
+#### `bootstrap_linux_package__package_list` details
 
-`bootstrap_linux_package_list__*` vars are merged when running the role. 
+`bootstrap_linux_package__package_list__*` vars are merged when running the role. 
 
 The package list allows you to define which packages must be managed. Each item in the list can have the following attributes:
 
@@ -58,15 +58,15 @@ The package also allows for specifying the following OS-specific package manager
 | `portage` | Package name for portage | no |
 | `portage_ignore` | Ignore package for portage | no |
 
-By default `bootstrap_linux_package_state` and `item.name` are used when managing the packages.
+By default `bootstrap_linux_package__state` and `item.name` are used when managing the packages.
 If however `item.state` is defined or a more specific package name (eg
 `item.apt`) these will be used instead. If you want a package to be ignored for
 some package managers you can add `***_ignore`: yes.
 
-##### `bootstrap_linux_package_list` example
+##### `bootstrap_linux_package__package_list` example
 
 ```yaml
-bootstrap_linux_package_list:
+bootstrap_linux_package__package_list:
   - name: package
   - name: package1
     state: absent
@@ -91,7 +91,7 @@ None.
   roles:
   - role: bootstrap-linux-package
     become: yes
-    bootstrap_linux_package_list: 
+    bootstrap_linux_package__package_list: 
       - name: htop
         brew: htop-osx
       - name: tree
