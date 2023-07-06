@@ -1,130 +1,148 @@
 ---
 
-- name: "Install | Init-vars | Include {{ ansible_distribution }} specific variables"
+- set_fact:
+    __log_prefix_initvars: "Install | Init-vars |"
+
+- name: "{{ __log_prefix_initvars }} Set __os_dist"
+  set_fact:
+    __os_dist: "{{ ansible_distribution | lower }}"
+
+- name: "{{ __log_prefix_initvars }} Include {{ __os_dist }} specific variables"
   include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
-    - "{{ ansible_distribution | lower }}.yml"
+    - "{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ __os_dist }}.yml"
     - "{{ ansible_os_family | lower }}.yml"
     - "default.yml"
 
-- name: "Install | Init-vars | Set {{ role_name }} var prefix"
+- name: "{{ __log_prefix_initvars }} Include rhsm/{{ __os_dist }} specific variables if defined"
+  when: bootstrap_linux_package__redhat_use_rhsm | bool
+  include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+      - "rhsm/{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml"
+      - "rhsm/{{ __os_dist }}.yml"
+      - "rhsm/{{ ansible_os_family | lower }}.yml"
+      - "rhsm/default.yml"
+      skip: true
+
+- name: "{{ __log_prefix_initvars }} Set {{ role_name }} var prefix"
   set_fact:
     role_var_prefix: "{{ role_name | replace('-','_') }}"
 
-- name: "Install | Init-vars | Set {{ role_name }} list var prefixes"
+- name: "{{ __log_prefix_initvars }} Set {{ role_name }} list var prefixes"
   set_fact:
     role_package_list_var_prefix: "{{ role_var_prefix }}_list__"
     role_npm_list_var_prefix: "{{ role_var_prefix }}_npm_list__"
     role_snap_list_var_prefix: "{{ role_var_prefix }}_snap_list__"
 
-- name: "Install | Init-vars | Set {{ role_name }} var regex's"
+- name: "{{ __log_prefix_initvars }} Set {{ role_name }} var regex's"
   set_fact:
     role_package_list_var_regex: "^{{ role_package_list_var_prefix }}"
     role_npm_list_var_regex: "^{{ role_npm_list_var_prefix }}"
     role_snap_list_var_regex: "^{{ role_snap_list_var_prefix }}"
 
-- name: "Install | Init-vars | Initialize bootstrap_linux_package_list"
-  when: bootstrap_linux_package_exclude_list|d([])|length>0
+- name: "{{ __log_prefix_initvars }} Initialize bootstrap_linux_package__package_list"
+  when: bootstrap_linux_package__exclude_list|d([])|length>0
   set_fact:
-    __bootstrap_linux_package_exclude_pattern: "{{ '(' + bootstrap_linux_package_exclude_list | join('|') + ')' }}"
-#    __bootstrap_linux_package_exclude_pattern: "{{ '^(?!(%s)).*' | format(bootstrap_linux_package_exclude_list | join('|')) }}"
+    __bootstrap_linux_package__exclude_pattern: "{{ '(' + bootstrap_linux_package__exclude_list | join('|') + ')' }}"
+#    __bootstrap_linux_package__exclude_pattern: "{{ '^(?!(%s)).*' | format(bootstrap_linux_package__exclude_list | join('|')) }}"
 
-- name: "Install | Init-vars | Display key parameters for {{ role_name }}"
+- name: "{{ __log_prefix_initvars }} Display key parameters for {{ role_name }}"
   block:
     - debug:
-        var: bootstrap_linux_package_list
+        var: bootstrap_linux_package__package_list
     - debug:
-        var: bootstrap_linux_package_state
+        var: bootstrap_linux_package__state
     - debug:
-        var: bootstrap_linux_package_update_cache
+        var: bootstrap_linux_package__update_cache
     - debug:
-        var: bootstrap_linux_package_exclude_list
+        var: bootstrap_linux_package__exclude_list
     - debug:
-        var: __bootstrap_linux_package_exclude_pattern
+        var: __bootstrap_linux_package__exclude_pattern
 
-- name: "Install | Init-vars | Show variables with '{{ role_package_list_var_prefix }}' prefix"
+- name: "{{ __log_prefix_initvars }} Show variables with '{{ role_package_list_var_prefix }}' prefix"
   debug:
     msg: "{{ lookup('varnames', role_package_list_var_regex, wantlist=True) }}"
 
-- name: "Install | Init-vars | Coalesce lists from {{ role_package_list_var_prefix }}* vars into merged list"
+- name: "{{ __log_prefix_initvars }} Coalesce lists from {{ role_package_list_var_prefix }}* vars into merged list"
   set_fact:
-    __bootstrap_linux_package_list: "{{ __bootstrap_linux_package_list|d([]) + lookup('vars', item)|d([]) }}"
+    __bootstrap_linux_package__package_list: "{{ __bootstrap_linux_package__package_list|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames', role_package_list_var_regex, wantlist=True) }}"
 
-- name: "Install | Init-vars | Display __bootstrap_linux_package_list (pre-Exclusion)"
+- name: "{{ __log_prefix_initvars }} Display __bootstrap_linux_package__package_list (pre-Exclusion)"
   debug:
-    var: __bootstrap_linux_package_list
+    var: __bootstrap_linux_package__package_list
 
-#- name: "Install | Init-vars | Exclude packages from __bootstrap_linux_package_list if exclusions defined"
-#  when: __bootstrap_linux_package_exclude_pattern is defined
+#- name: "{{ __log_prefix_initvars }} Exclude packages from __bootstrap_linux_package__package_list if exclusions defined"
+#  when: __bootstrap_linux_package__exclude_pattern is defined
 #  set_fact:
-#    __bootstrap_linux_package_list: "{{ __bootstrap_linux_package_list|d([])
+#    __bootstrap_linux_package__package_list: "{{ __bootstrap_linux_package__package_list|d([])
 #      + [(item is mapping) | ternary( item.apt|d(item.name), item)]
-#      | reject('match', __bootstrap_linux_package_exclude_pattern) }}"
+#      | reject('match', __bootstrap_linux_package__exclude_pattern) }}"
 #
-#- name: "Install | Init-vars | Display __bootstrap_linux_package_list"
+#- name: "{{ __log_prefix_initvars }} Display __bootstrap_linux_package__package_list"
 #  debug:
-#    var: __bootstrap_linux_package_list
+#    var: __bootstrap_linux_package__package_list
 #
-#- name: "Install | Init-vars | Init __bootstrap_linux_package_state_map"
+#- name: "{{ __log_prefix_initvars }} Init __bootstrap_linux_package__state_map"
 #  set_fact:
-#    __bootstrap_linux_package_list_present: []
-#    __bootstrap_linux_package_list_latest: []
-#    __bootstrap_linux_package_list_absent: []
+#    __bootstrap_linux_package__package_list_present: []
+#    __bootstrap_linux_package__package_list_latest: []
+#    __bootstrap_linux_package__package_list_absent: []
 
-- name: "Install | Init-vars | Set __bootstrap_linux_package_list_by_priority"
-  when: item not in bootstrap_linux_package_exclude_list|d([])
+- name: "{{ __log_prefix_initvars }} Set __bootstrap_linux_package__package_list_by_priority"
+  when: item not in bootstrap_linux_package__exclude_list|d([])
   set_fact:
-    __bootstrap_linux_package_list_by_priority: "{{ __bootstrap_linux_package_list_by_priority | d({})
-      | combine({ (item.priority | default(bootstrap_linux_package_priority_default)|int): {
-                    item.state | default(bootstrap_linux_package_state): {
+    __bootstrap_linux_package__package_list_by_priority: "{{ __bootstrap_linux_package__package_list_by_priority | d({})
+      | combine({ (item.priority | default(bootstrap_linux_package__priority_default)|int): {
+                    item.state | default(bootstrap_linux_package__state): {
                         ((item is mapping) | ternary( item.apt|d(item.name), item)): {}
                       }
                     }
                   }, recursive=True) }}"
-  loop: "{{ __bootstrap_linux_package_list }}"
+  loop: "{{ __bootstrap_linux_package__package_list }}"
 
-- name: "Install | Init-vars | Display __bootstrap_linux_package_list_by_priority"
+- name: "{{ __log_prefix_initvars }} Display __bootstrap_linux_package__package_list_by_priority"
   debug:
-    var: __bootstrap_linux_package_list_by_priority
+    var: __bootstrap_linux_package__package_list_by_priority
 
-#- name: "Install | Init-vars | Set __bootstrap_linux_package_list_present"
-#  when: item not in bootstrap_linux_package_exclude_list|d([])
+#- name: "{{ __log_prefix_initvars }} Set __bootstrap_linux_package__package_list_present"
+#  when: item not in bootstrap_linux_package__exclude_list|d([])
 #  set_fact:
-#    __bootstrap_linux_package_list_present: "{{ __bootstrap_linux_package_list_present | d([]) }}"
-#  loop: "{{ __bootstrap_linux_package_list_by_priority.present.keys() | d([]) }}"
+#    __bootstrap_linux_package__package_list_present: "{{ __bootstrap_linux_package__package_list_present | d([]) }}"
+#  loop: "{{ __bootstrap_linux_package__package_list_by_priority.present.keys() | d([]) }}"
 
-- name: "Install | Init-vars | Display bootstrap_linux_package_npm_list"
+- name: "{{ __log_prefix_initvars }} Display bootstrap_linux_package__npm_list"
   debug:
-    var: bootstrap_linux_package_npm_list
+    var: bootstrap_linux_package__npm_list
 
-- name: "Install | Init-vars | Show variables with '{{ role_npm_list_var_prefix }}' prefix"
+- name: "{{ __log_prefix_initvars }} Show variables with '{{ role_npm_list_var_prefix }}' prefix"
   debug:
     msg: "{{ lookup('varnames', role_npm_list_var_regex, wantlist=True) }}"
 
-- name: "Install | Init-vars | Coalesce lists from {{ role_npm_list_var_prefix }}* vars into merged list"
+- name: "{{ __log_prefix_initvars }} Coalesce lists from {{ role_npm_list_var_prefix }}* vars into merged list"
   set_fact:
-    __bootstrap_linux_package_npm_list: "{{ __bootstrap_linux_package_npm_list|d([]) + lookup('vars', item)|d([]) }}"
+    __bootstrap_linux_package__npm_list: "{{ __bootstrap_linux_package__npm_list|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames', role_npm_list_var_regex, wantlist=True) }}"
 
-- name: "Install | Init-vars | Display __bootstrap_linux_package_npm_list"
+- name: "{{ __log_prefix_initvars }} Display __bootstrap_linux_package__npm_list"
   debug:
-    var: __bootstrap_linux_package_npm_list
+    var: __bootstrap_linux_package__npm_list
 
-- name: "Install | Init-vars | Display bootstrap_linux_package_snap_list"
+- name: "{{ __log_prefix_initvars }} Display bootstrap_linux_package__snap_list"
   debug:
-    var: bootstrap_linux_package_snap_list
+    var: bootstrap_linux_package__snap_list
 
-- name: "Install | Init-vars | Show variables with '{{ role_snap_list_var_prefix }}' prefix"
+- name: "{{ __log_prefix_initvars }} Show variables with '{{ role_snap_list_var_prefix }}' prefix"
   debug:
     msg: "{{ lookup('varnames', role_snap_list_var_regex, wantlist=True) }}"
 
-- name: "Install | Init-vars | Coalesce lists from {{ role_snap_list_var_prefix }}* vars into merged list"
+- name: "{{ __log_prefix_initvars }} Coalesce lists from {{ role_snap_list_var_prefix }}* vars into merged list"
   set_fact:
-    __bootstrap_linux_package_snap_list: "{{ __bootstrap_linux_package_snap_list|d([]) + lookup('vars', item)|d([]) | sort | unique }}"
+    __bootstrap_linux_package__snap_list: "{{ __bootstrap_linux_package__snap_list|d([]) + lookup('vars', item)|d([]) | sort | unique }}"
   loop: "{{ lookup('varnames', role_snap_list_var_regex, wantlist=True) }}"
 
-- name: "Install | Init-vars | Display __bootstrap_linux_package_snap_list"
+- name: "{{ __log_prefix_initvars }} Display __bootstrap_linux_package__snap_list"
   debug:
-    var: __bootstrap_linux_package_snap_list
+    var: __bootstrap_linux_package__snap_list

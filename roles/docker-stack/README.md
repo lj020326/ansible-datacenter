@@ -70,7 +70,6 @@ bootstrap-docker-stack.yml:
           - docker-compose
   roles:
     - role: bootstrap-pip
-    - role: bootstrap-docker
 
 - name: "Bootstrap docker stack node"
   hosts: docker_stack,!node_offline
@@ -81,6 +80,7 @@ bootstrap-docker-stack.yml:
   vars:
     ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
   roles:
+    - role: bootstrap-docker
     - role: docker-stack
 
 ```

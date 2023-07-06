@@ -186,6 +186,7 @@ alias gitgetrequestid="getgitrequestid"
 alias gitpullrebase="git pull origin --rebase"
 
 ## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
+#git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
 alias gitmerge="git merge-no-edit"
 alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout master && git merge-no-edit -X theirs main"
 
@@ -378,9 +379,10 @@ alias sshawxp1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S4}"
 alias sshawxp2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S1}"
 alias sshawxp2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S4}"
 
-alias mountalsac="mount-sshfs-alsac.sh"
-alias unmountalsac="unmount-sshfs-alsac.sh"
-alias syncalsac="sync-sshfs-alsac.sh"
+alias mountwork="mount-sshfs-work.sh"
+alias unmountwork="unmount-sshfs-work.sh"
+alias syncwork="sync-sshfs-work.sh"
+alias syncworkdns="sync-dns-hosts-to-pfsense.sh"
 
 alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
 

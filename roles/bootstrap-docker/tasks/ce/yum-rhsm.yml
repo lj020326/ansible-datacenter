@@ -1,6 +1,9 @@
 ---
 
-- name: "Docker | CE | YUM | Remove older Docker installations"
+- set_fact:
+    __log_prefix_rhel: "Docker | CE | YUM-RHSM |"
+
+- name: "{{ __log_prefix_rhel }} Remove older Docker installations"
   ansible.builtin.package:
     name:
       - docker
@@ -9,7 +12,7 @@
     state: absent
 
 # ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
-- name: "Docker | CE | YUM | Remove conflicting runc/podman/buildah installations"
+- name: "{{ __log_prefix_rhel }} Remove conflicting runc/podman/buildah installations"
   ansible.builtin.package:
     name:
       - runc
@@ -17,15 +20,15 @@
       - buildah
     state: absent
 
-- name: "Docker | CE | YUM | Check if external docker repo config exists at /etc/yum.repos.d/docker-ce.repo"
+- name: "{{ __log_prefix_rhel }} Check if external docker repo config exists at /etc/yum.repos.d/docker-ce.repo"
   stat:
     path: /etc/yum.repos.d/docker-ce.repo
   register: __repo_result
 
-- name: "Docker | CE | YUM | Remove external docker repo if exists."
+- name: "{{ __log_prefix_rhel }} Remove external docker repo if exists."
   when: __repo_result.stat.exists
   block:
-    - name: "Docker | CE | YUM | Remove packages from prior repos if already exists"
+    - name: "{{ __log_prefix_rhel }} Remove packages from prior repos if already exists"
       ansible.builtin.package:
         name: "{{ item }}"
         state: absent
@@ -35,17 +38,17 @@
         - containerd.io
         - docker-ce
 
-    - name: "Docker | CE | YUM | Remove external docker repo."
+    - name: "{{ __log_prefix_rhel }} Remove external docker repo."
       file:
         name: /etc/yum.repos.d/docker-ce.repo
         state: absent
 
-- name: "Docker | CE | YUM | Install the RedHat RHSM Docker repository"
+- name: "{{ __log_prefix_rhel }} Install the RedHat RHSM Docker repository"
   community.general.rhsm_repository:
     name: "{{ bootstrap_docker__rhsm_channel }}"
     state: enabled
 
-- name: "Docker | CE | YUM | Install docker-ce"
+- name: "{{ __log_prefix_rhel }} Install docker-ce"
   ansible.builtin.package:
     name: docker-ce
     state: present

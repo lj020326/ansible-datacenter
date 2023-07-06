@@ -36,7 +36,7 @@ If you're using Docker / Kubernetes+Docker you'll need to override the ipv4 ip f
 ```yaml
 - hosts: localhost
   roles:
-    - dev-sec.os-hardening
+    - ansible-harden-linux
   vars:
     harden_linux__sysctl_overwrite:
       # Enable IPv4 traffic forwarding.
@@ -112,7 +112,7 @@ To prevent some of the filesystems from being disabled, add them to the `harden_
 Install the role with ansible-galaxy:
 
 ```
-ansible-galaxy install dev-sec.os-hardening
+ansible-galaxy install ansible-harden-linux
 ```
 
 ## Example Playbook
@@ -120,7 +120,7 @@ ansible-galaxy install dev-sec.os-hardening
 ```yaml
 - hosts: localhost
   roles:
-    - dev-sec.os-hardening
+    - ansible-harden-linux
 ```
 
 ## Changing sysctl variables
@@ -131,7 +131,7 @@ So for example if you want to change the IPv4 traffic forwarding variable to `1`
 ```yaml
 - hosts: localhost
   roles:
-    - dev-sec.os-hardening
+    - ansible-harden-linux
   vars:
     harden_linux__sysctl_overwrite:
       # Enable IPv4 traffic forwarding.

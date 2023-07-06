@@ -1,6 +1,9 @@
 ---
 
-- name: "Docker | CE | DNF | Remove older Docker installations"
+- set_fact:
+    __log_prefix_rhel: "Docker | CE | DNF-RHSM |"
+
+- name: "{{ __log_prefix_rhel }} Remove older Docker installations"
   ansible.builtin.package:
     name:
       - docker
@@ -9,7 +12,7 @@
     state: absent
 
 # ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
-- name: "Docker | CE | DNF | Remove conflicting runc/podman/buildah installations"
+- name: "{{ __log_prefix_rhel }} Remove conflicting runc/podman/buildah installations"
   ansible.builtin.package:
     name:
       - runc
@@ -17,15 +20,15 @@
       - buildah
     state: absent
 
-- name: "Docker | CE | DNF | Check if external docker repo config exists at /etc/yum.repos.d/docker-ce.repo"
+- name: "{{ __log_prefix_rhel }} Check if external docker repo config exists at /etc/yum.repos.d/docker-ce.repo"
   stat:
     path: /etc/yum.repos.d/docker-ce.repo
   register: __repo_result
 
-- name: "Docker | CE | DNF | Remove packages from prior repo if exists"
+- name: "{{ __log_prefix_rhel }} Remove packages from prior repo if exists"
   when: __repo_result.stat.exists
   block:
-    - name: "Docker | CE | DNF | Remove packages from prior repos if already exists"
+    - name: "{{ __log_prefix_rhel }} Remove packages from prior repos if already exists"
       ansible.builtin.package:
         name: "{{ item }}"
         state: absent
@@ -35,7 +38,7 @@
         - containerd.io
         - docker-ce
 
-    - name: "Docker | CE | DNF | Remove external docker repo."
+    - name: "{{ __log_prefix_rhel }} Remove external docker repo."
       file:
         name: /etc/yum.repos.d/docker-ce.repo
         state: absent
@@ -43,7 +46,7 @@
     ## ref: https://github.com/ansible/ansible/issues/64852
     ## ref: https://access.redhat.com/discussions/5895421 (See comment from Paul Roesler)
     ## ref: https://github.com/ansible/ansible/issues/64852
-    - name: "Docker | CE | DNF | Enable module container-tools that may have been disabled with prior setup"
+    - name: "{{ __log_prefix_rhel }} Enable module container-tools that may have been disabled with prior setup"
       ini_file:
         path: /etc/dnf/modules.d/container-tools.module
         backup: true
@@ -56,15 +59,19 @@
         stream: rhel8
         state: enabled
 
-- name: "Docker | CE | DNF | Install the RedHat RHSM Docker repository"
+- name: "{{ __log_prefix_rhel }} Display bootstrap_docker__rhsm_channel"
+  debug:
+    var: bootstrap_docker__rhsm_channel
+
+- name: "{{ __log_prefix_rhel }} Install the RedHat RHSM Docker repository"
   community.general.rhsm_repository:
     name: "{{ bootstrap_docker__rhsm_channel }}"
     state: enabled
 
-- name: "Docker | CE | DNF | Configure containerd on RHEL 8."
+- name: "{{ __log_prefix_rhel }} Configure containerd on RHEL 8."
   when: ansible_distribution_major_version | int == 8
   block:
-    - name: "Docker | CE | DNF | Ensure containerd packages"
+    - name: "{{ __log_prefix_rhel }} Ensure containerd packages"
       ansible.builtin.package:
         name: "{{ item }}"
         state: present
@@ -72,7 +79,7 @@
         - container-selinux
         - containerd.io
   rescue:
-    - name: "Docker | CE | DNF | Remove packages from prior repos if already exists"
+    - name: "{{ __log_prefix_rhel }} Remove packages from prior repos if already exists"
       ansible.builtin.package:
         name: "{{ item }}"
         state: absent
@@ -82,7 +89,7 @@
         - containerd.io
         - docker-ce
 
-    - name: "Docker | CE | DNF | Enable module container-tools that may have been disabled with prior setup"
+    - name: "{{ __log_prefix_rhel }} Enable module container-tools that may have been disabled with prior setup"
       ini_file:
         path: /etc/dnf/modules.d/container-tools.module
         backup: true
@@ -95,7 +102,7 @@
         stream: rhel8
         state: enabled
 
-    - name: "Docker | CE | DNF | Ensure containerd packages are installed."
+    - name: "{{ __log_prefix_rhel }} Ensure containerd packages are installed."
       ansible.builtin.package:
         name: "{{ item }}"
         state: present
@@ -103,7 +110,7 @@
         - container-selinux
         - containerd.io
 
-- name: "Docker | CE | DNF | Install docker-ce"
+- name: "{{ __log_prefix_rhel }} Install docker-ce"
   ansible.builtin.package:
     name: docker-ce
     state: present

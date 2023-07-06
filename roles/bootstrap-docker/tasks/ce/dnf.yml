@@ -1,6 +1,9 @@
 ---
 
-- name: "Docker | CE | DNF | Remove older Docker installations"
+- set_fact:
+    __log_prefix_dnf: "Docker | CE | DNF |"
+
+- name: "{{ __log_prefix_dnf }} Remove older Docker installations"
   ansible.builtin.package:
     name:
       - docker
@@ -9,7 +12,7 @@
     state: absent
 
 # ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
-- name: "Docker | CE | DNF | Remove conflicting runc/podman/buildah installations"
+- name: "{{ __log_prefix_dnf }} Remove conflicting runc/podman/buildah installations"
   ansible.builtin.package:
     name:
       - runc
@@ -18,19 +21,22 @@
     state: absent
 
 ## ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
-- name: "Docker | CE | DNF | Remove conflicting container-tools installation"
+- name: "{{ __log_prefix_dnf }} Remove conflicting container-tools installation"
   ansible.builtin.dnf:
     name: '@container-tools'
     state: absent
     autoremove: yes
+  register: __dnf_remove_result
+  failed_when: __dnf_remove_result is failed and not ( __dnf_remove_result.msg | regex_search("No group container-tools available") )
+#  ignore_errors: yes
 
 ## ref: https://github.com/ansible/ansible/issues/64852
 ## ref: https://access.redhat.com/discussions/5895421 (See comment from Paul Roesler)
-#- name: "Docker | CE | DNF | Disable conflicting module container-tools"
+#- name: "{{ __log_prefix_dnf }} Disable conflicting module container-tools"
 #  ansible.builtin.shell:
 #    cmd: dnf -y module disable container-tools
 ## ref: https://github.com/ansible/ansible/issues/64852
-- name: "Docker | CE | DNF | Disable conflicting module container-tools"
+- name: "{{ __log_prefix_dnf }} Disable conflicting module container-tools"
   ini_file:
     path: /etc/dnf/modules.d/container-tools.module
     section: container-tools
@@ -38,33 +44,33 @@
     value: disabled
     no_extra_spaces: yes
 
-- name: "Docker | CE | DNF | Add repository key"
+- name: "{{ __log_prefix_dnf }} Add repository key"
   block:
-    - name: "Docker | CE | DNF | Add repository key"
+    - name: "{{ __log_prefix_dnf }} Add repository key"
       ansible.builtin.rpm_key:
         key: "{{ bootstrap_docker__ce_gpg_key }}"
         state: present
 
   rescue:
-    - name: "Docker | CE | DNF | Ensure curl is present (systems without SNI)."
+    - name: "{{ __log_prefix_dnf }} Ensure curl is present (systems without SNI)."
       ansible.builtin.package:
         name: curl
       register: task_result
       until: task_result is success
       retries: 10
       delay: 2
-    - name: "Docker | CE | DNF | Download GPG key (systems without SNI)."
+    - name: "{{ __log_prefix_dnf }} Download GPG key (systems without SNI)."
       shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o /tmp/docker-gpg"
-    - name: "Docker | CE | DNF | Add Docker GPG key (systems without SNI)."
+    - name: "{{ __log_prefix_dnf }} Add Docker GPG key (systems without SNI)."
       shell: rpm --import /tmp/docker-gpg
-    - name: "Docker | CE | DNF | Remove docker-gpg from tmp folder"
+    - name: "{{ __log_prefix_dnf }} Remove docker-gpg from tmp folder"
       file:
         path: /tmp/docker-gpg
         state: absent
 
-- name: "Docker | CE | DNF | Deploy repository"
+- name: "{{ __log_prefix_dnf }} Deploy repository"
   block:
-    - name: "Docker | CE | DNF | Deploy repository"
+    - name: "{{ __log_prefix_dnf }} Deploy repository"
       ansible.builtin.get_url:
         url: "{{ bootstrap_docker__ce_repo_file_url }}"
         dest: /etc/yum.repos.d/docker-ce.repo
@@ -72,19 +78,19 @@
         group: root
         mode: "0644"
   rescue:
-    - name: "Docker | CE | DNF | Install dnf-utils (systems without SNI)"
+    - name: "{{ __log_prefix_dnf }} Install dnf-utils (systems without SNI)"
       ansible.builtin.dnf:
         name: dnf-plugins-core
       register: task_result
       until: task_result is success
       retries: 10
       delay: 2
-    - name: "Docker | CE | DNF | Deploy repository (systems without SNI)"
+    - name: "{{ __log_prefix_dnf }} Deploy repository (systems without SNI)"
       shell: "dnf config-manager --add-repo {{ bootstrap_docker__ce_repo_file_url }}"
       args:
         creates: /etc/yum.repos.d/docker-ce.repo
 
-- name: "Docker | CE | DNF | Enable edge repository"
+- name: "{{ __log_prefix_dnf }} Enable edge repository"
   ansible.builtin.yum_repository:
     name: docker-ce-edge
     description: "Docker CE Edge - $basearch"
@@ -95,26 +101,26 @@
     file: docker-ce
   when: bootstrap_docker__channel == "edge"
 
-- name: "Docker | CE | DNF | Perform specific os tasks"
+- name: "{{ __log_prefix_dnf }} Perform specific os tasks"
   include_tasks: "{{ item }}"
   with_first_found:
     - os/{{ ansible_distribution.split(' ', 1)[0]|lower }}.yml
     - os/default.yml
 
-- name: "Docker | CE | DNF | Configure containerd on RHEL 8."
+- name: "{{ __log_prefix_dnf }} Configure containerd on RHEL 8."
   when: ansible_distribution_major_version | int == 8
   block:
-    - name: "Docker | CE | DNF | Ensure container-selinux is installed."
+    - name: "{{ __log_prefix_dnf }} Ensure container-selinux is installed."
       ansible.builtin.package:
         name: container-selinux
         state: present
 
-    - name: "Docker | CE | DNF | Ensure containerd.io is installed."
+    - name: "{{ __log_prefix_dnf }} Ensure containerd.io is installed."
       ansible.builtin.package:
         name: containerd.io
         state: present
 
-- name: "Docker | CE | DNF | Install docker-ce"
+- name: "{{ __log_prefix_dnf }} Install docker-ce"
   ansible.builtin.package:
     name: docker-ce
     state: present

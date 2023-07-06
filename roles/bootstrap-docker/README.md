@@ -46,7 +46,7 @@ will happen once a week and Docker container logs will be sent to `journald`.
     - bootstrap-docker
   become: True
   roles:
-  - role: bootstrap-linux-docker
+  - role: bootstrap-docker
 ```
 
 ## Role Variables

@@ -12,14 +12,12 @@
   debug:
     var: "{{ item }}"
   loop:
-    - bootstrap_pip__virtualenv_command
+    - __bootstrap_pip__virtualenv_command
     - __bootstrap_pip__python_executable
-    - __bootstrap_pip__pip_executable_default
     - __bootstrap_pip__pip_executable
     - __bootstrap_pip__pip_version
     - bootstrap_pip__packages
     - bootstrap_pip__config_dir
-    - bootstrap_pip__version
     - bootstrap_pip__env_force_rebuild
 
 - name: "Install pip env OS packages"
@@ -65,6 +63,14 @@
 #    owner: "{{ ansible_user }}"
 #    backup: yes
 
+- name: "Install system level virtualenv"
+  environment:
+    PATH: "$PATH:/usr/bin:/usr/local/bin"
+    PIP_ROOT_USER_ACTION: ignore
+  pip:
+    name: "virtualenv"
+    state: present
+
 - name: "Display __bootstrap_pip__libs"
   debug:
     var: __bootstrap_pip__libs
@@ -96,70 +102,55 @@
   set_fact:
     role_pip_env_list_var_regex: "^{{ role_pip_env_list_var_prefix }}"
 
-#- name: "Show variable names with '{{ role_pip_env_list_var_regex }}' regex"
-#  debug:
-#    msg: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
+- name: "Init __bootstrap_pip__env_list"
+  set_fact:
+    __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list__default }}"
 
-- name: "Show variable values with '{{ role_pip_env_list_var_regex }}' regex"
+- name: "Show variable names with '{{ role_pip_env_list_var_regex }}' regex"
   debug:
-    var: "{{ lookup('vars', item) }}"
-  loop: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
+    msg: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
+
+#- name: "Show variable values with '{{ role_pip_env_list_var_regex }}' regex"
+#  debug:
+#    var: "{{ lookup('vars', item) }}"
+#  loop: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
 
 - name: "Coalesce lists from {{ role_pip_env_list_var_prefix }}* vars into merged list"
   set_fact:
     __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
 
-- name: "Set default env list if none defined"
-  set_fact:
-    __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list|d(__bootstrap_pip__env_list__default) }}"
-
 - name: "Display __bootstrap_pip__env_list"
   debug:
     var: __bootstrap_pip__env_list
 
-- name: "Set __bootstrap_pip__env_list_by_name for system pip"
-  when: item.virtualenv is not defined
+- name: "Set __bootstrap_pip__env_by_name"
   set_fact:
-    __bootstrap_pip__env_list_by_name: "{{ __bootstrap_pip__env_list_by_name | d({})
-      | combine({ (item.virtualenv | d(item.pip_executable) | d(__bootstrap_pip__pip_executable) ):
-        {
-          'name': (item.virtualenv | d(item.pip_executable) | d(__bootstrap_pip__pip_executable)),
-          'pip_version': item.version | d(bootstrap_pip__version),
-          'pip_executable': item.pip_executable | d(__bootstrap_pip__pip_executable),
-          'python_executable': item.python_executable | d(__bootstrap_pip__python_executable),
-        } }, recursive=True ) }}"
-  loop: "{{ __bootstrap_pip__env_list }}"
-
-- name: "Set __bootstrap_pip__env_list_by_name_yaml"
-  set_fact:
-    __bootstrap_pip__env_list_by_name_yaml: |-
-      {
+    __bootstrap_pip__env_by_name: "{{ _bootstrap_pip__env_by_name_yaml | from_yaml }}"
+  vars:
+    _bootstrap_pip__env_by_name_yaml: |-
+      {% set _bootstrap_pip_env_by_name = {} %}
       {% for item in __bootstrap_pip__env_list %}
-        {% set _bootstrap_pip_env = {} %}
+        {% set _bootstrap_pip_env = item %}
         {% set _env_name = item.virtualenv | d(item.pip_executable) | d(__bootstrap_pip__pip_executable) %}
         {% set __ = _bootstrap_pip_env.update({'name': _env_name }) %}
-        {% set __ = _bootstrap_pip_env.update({'pip_version': item.version | d(bootstrap_pip__version) }) %}
-        {% if 'virtualenv' in item %}
+        {% if item.virtualenv is defined %}
           {% set __ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(item.virtualenv + '/bin/python3') }) %}
         {% else %}
-          {% set __ = _bootstrap_pip_env.update({'pip_executable': item.pip_executable | d(__bootstrap_pip__pip_executable) }) %}
           {% set __ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(__bootstrap_pip__python_executable) }) %}
         {% endif %}
-        {{ _env_name }}: {{ item | combine(_bootstrap_pip_env, recursive=True) }},
+        {% set __ = _bootstrap_pip_env.update({'pip_executable': item.pip_executable | d(__bootstrap_pip__pip_executable) }) %}
+        {% set __ = _bootstrap_pip_env.update({'pip_version': item.version | d(__bootstrap_pip__pip_version) }) %}
+        {% set __ = _bootstrap_pip_env_by_name.update({ _env_name: _bootstrap_pip_env }) %}
       {% endfor %}
-      }
+      {{ _bootstrap_pip_env_by_name }}
 
-- name: "Set __bootstrap_pip__env_list_by_name"
-  set_fact:
-    __bootstrap_pip__env_list_by_name: "{{ __bootstrap_pip__env_list_by_name_yaml | from_yaml }}"
-
-- name: "Display __bootstrap_pip__env_list_by_name"
+- name: "Display __bootstrap_pip__env_by_name"
   debug:
-    var: __bootstrap_pip__env_list_by_name
+    var: __bootstrap_pip__env_by_name
 
 - name: "Install | Install pip libs"
   include_tasks: install-pip-libs.yml
-  loop: "{{ __bootstrap_pip__env_list_by_name.values() | list }}"
+  loop: "{{ __bootstrap_pip__env_by_name.values() | list }}"
   loop_control:
     loop_var: __bootstrap_pip_env
