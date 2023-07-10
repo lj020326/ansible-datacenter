@@ -258,7 +258,12 @@ alias spacemacs='emacs -q --load "$HOME/.spacemacs.d/init.el"'
 
 alias fetchimagesfrommarkdown="~/bin/fetch_images_from_markdown.sh"
 alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
-alias fetch-and-import-site-certs="~/bin/fetch_and_import_site_cert_pem.sh"
+## use with host:port
+#alias fetch-and-import-site-cert="sudo ~/bin/fetch_and_import_site_cert_pem.sh"
+## use with host:port
+alias importsitecert="sudo ~/bin/import_site_cert.sh"
+## use with host:port
+alias importsslcert="sudo ~/bin/import_site_cert.sh"
 
 if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
   echo "${log_prefix} setting aliases specific to MSYS/MINGW platform"
