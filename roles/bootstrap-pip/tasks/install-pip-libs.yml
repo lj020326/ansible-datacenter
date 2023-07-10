@@ -7,8 +7,18 @@
   debug:
     var: __bootstrap_pip_env
 
+- name: "{{ __log_prefix_local }} Update system pip via package manager"
+  when:
+    - not __bootstrap_pip__system_pip_upgrade_allowed|bool
+    - __bootstrap_pip_env.virtualenv is not defined
+    - __bootstrap_pip_env.pip_version|d('')=='latest'
+  package:
+    name: '{{ bootstrap_pip__packages }}'
+    state: 'latest'
+
 - name: "{{ __log_prefix_local }} Update system pip"
   when:
+    - __bootstrap_pip__system_pip_upgrade_allowed|bool
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env.pip_version|d('')=='latest'
   include_tasks: run-get-pip.yml
@@ -121,14 +131,14 @@
   loop_control:
     label: "installing pip packages with priority={{ item }}"
 
-- name: "{{ __log_prefix_pipenv }} Ensure pip libraries are installed"
+- name: "{{ __log_prefix_pipenv }} Ensure system pip libraries are installed"
   when:
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present.keys()|d([])|length>0
 #  environment: "{{ bootstrap_pip__environment_vars | d({}) }}"
   environment:
-    PATH: "$PATH:/usr/local/bin"
+    PATH: "$PATH:/usr/bin:/usr/local/bin"
     PIP_ROOT_USER_ACTION: ignore
   pip:
     name: "{{ __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | list }}"
