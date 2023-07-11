@@ -16,8 +16,8 @@ Available variables are listed below, along with default values (see `defaults/m
 
 A list of exports which will be placed in the `/etc/exports` file. See Ubuntu's simple [Network File System (NFS)](https://ubuntu.com/server/docs/service-nfs) guide for more info and examples. (Simple example: `bootstrap_nfs__exports: [ "/home/public    *(rw,sync,no_root_squash)" ]`).
 
-    nfs_rpcbind_state: started
-    nfs_rpcbind_enabled: true
+    bootstrap_nfs__rpcbind_state: started
+    bootstrap_nfs__rpcbind_enabled: true
 
 (RedHat/CentOS/Fedora only) The state of the `rpcbind` service, and whether it should be enabled at system boot.
 
