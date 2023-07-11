@@ -1,6 +1,7 @@
 ---
-# Include variables and define needed variables.
+
 - name: "Include OS-specific variables."
+  include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
     - "{{ ansible_distribution | lower }}.yml"
@@ -20,7 +21,9 @@
     state: present
 
 - name: Ensure rpcbind is running as configured.
-  when: ansible_os_family == 'RedHat'
+  when:
+    - ansible_os_family == 'RedHat'
+    - bootstrap_nfs__rpcbind_enabled|bool
   service:
     name: rpcbind
     state: "{{ bootstrap_nfs__rpcbind_state }}"
@@ -43,7 +46,7 @@
 
 - name: Ensure nfs is running.
   service:
-    name: "{{ nfs_server_daemon }}"
+    name: "{{ bootstrap_nfs__server_daemon }}"
     state: started
     enabled: yes
   when: bootstrap_nfs__exports|length
