@@ -12,9 +12,9 @@ None.
 
 Available variables are listed below, along with default values (see `defaults/main.yml`):
 
-    nfs_exports: []
+    bootstrap_nfs__exports: []
 
-A list of exports which will be placed in the `/etc/exports` file. See Ubuntu's simple [Network File System (NFS)](https://ubuntu.com/server/docs/service-nfs) guide for more info and examples. (Simple example: `nfs_exports: [ "/home/public    *(rw,sync,no_root_squash)" ]`).
+A list of exports which will be placed in the `/etc/exports` file. See Ubuntu's simple [Network File System (NFS)](https://ubuntu.com/server/docs/service-nfs) guide for more info and examples. (Simple example: `bootstrap_nfs__exports: [ "/home/public    *(rw,sync,no_root_squash)" ]`).
 
     nfs_rpcbind_state: started
     nfs_rpcbind_enabled: true
