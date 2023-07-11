@@ -9,18 +9,23 @@
     - ansible_os_family == 'RedHat'
     - ansible_distribution == "Fedora"
 
-# Setup/install tasks.
-- include_tasks: setup-RedHat.yml
-  when: ansible_os_family == 'RedHat'
+- name: Ensure NFS utilities are installed.
+  package:
+    name: "{{ bootstrap_nfs__packages }}"
+    state: present
 
-- include_tasks: setup-Debian.yml
-  when: ansible_os_family == 'Debian'
+- name: Ensure rpcbind is running as configured.
+  when: ansible_os_family == 'RedHat'
+  service:
+    name: rpcbind
+    state: "{{ nfs_rpcbind_state }}"
+    enabled: "{{ nfs_rpcbind_enabled }}"
 
 - name: Ensure directories to export exist
   file:  # noqa 208
     path: "{{ item.strip().split()[0] }}"
     state: directory
-  with_items: "{{ nfs_exports }}"
+  with_items: "{{ bootstrap_nfs__exports }}"
 
 - name: Copy exports file.
   template:
@@ -36,4 +41,4 @@
     name: "{{ nfs_server_daemon }}"
     state: started
     enabled: yes
-  when: nfs_exports|length
+  when: bootstrap_nfs__exports|length
