@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+## ref: https://stackoverflow.com/questions/3685548/java-keytool-easy-way-to-add-server-cert-from-url-port
+## ref: https://superuser.com/questions/97201/how-to-save-a-remote-server-ssl-certificate-locally-as-a-file
+## ref: https://serverfault.com/questions/661978/displaying-a-remote-ssl-certificate-details-using-cli-tools
+
+#set -x
+
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
@@ -8,14 +15,11 @@ source "${SCRIPT_DIR}/get_curl_ca_opts.sh"
 ##UNAME=$(/bin/uname -s | tr "[:upper:]" "[:lower:]")
 #UNAME=$(uname -s | tr "[:upper:]" "[:lower:]")
 
-#set -x
-
-## ref: https://stackoverflow.com/questions/3685548/java-keytool-easy-way-to-add-server-cert-from-url-port
-##
-
 SCRIPT_NAME=$(basename $0)
 SCRIPT_NAME="${SCRIPT_NAME%.*}"
 logFile="${SCRIPT_NAME}.log"
+
+INSTALL_JDK_CACERT=0
 
 if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
   if [ "$EUID" -ne 0 ]; then
@@ -23,49 +27,6 @@ if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
     exit
   fi
 fi
-
-## ref: https://superuser.com/questions/97201/how-to-save-a-remote-server-ssl-certificate-locally-as-a-file
-## ref: https://serverfault.com/questions/661978/displaying-a-remote-ssl-certificate-details-using-cli-tools
-SITE=${1:-host01.johnson.int:443}
-
-echo "SITE=${SITE}"
-
-IFS=':' read -r -a array <<< "${SITE}"
-HOST=${array[0]}
-PORT=${array[1]}
-
-CERT_DIR=${HOME}/.certs
-
-mkdir -p ${CERT_DIR}
-
-KEYSTORE_PASS=${3:-"changeit"}
-KEYTOOL=keytool
-
-#DATE=`date +&%%m%d%H%M%S`
-DATE=$(date +%Y%m%d)
-
-ENDPOINT="${HOST}:${PORT}"
-ALIAS="${HOST}:${PORT}"
-
-if [[ "$UNAME" == "cygwin" || "$UNAME" == "msys" ]]; then
-  ALIAS="${HOST}_${PORT}"
-fi
-
-## ref: https://knowledgebase.garapost.com/index.php/2020/06/05/how-to-get-ssl-certificate-fingerprint-and-serial-number-using-openssl-command/
-## ref: https://stackoverflow.com/questions/13823706/capture-multiline-output-as-array-in-bash
-CERT_INFO=($(echo QUIT | openssl s_client -connect $HOST:$PORT </dev/null 2>/dev/null | openssl x509 -serial -fingerprint -sha256 -noout | cut -d"=" -f2 | sed s/://g))
-CERT_SERIAL=${CERT_INFO[0]}
-CERT_FINGERPRINT=${CERT_INFO[1]}
-
-#CACERTS_SRC=${HOME}/.cacerts/$ALIAS/$DATE
-#CACERTS_SRC=${HOME}/.cacerts/$ALIAS/$CERT_SERIAL/$CERT_FINGERPRINT
-CACERTS_SRC=/tmp/.cacerts/$ALIAS/$CERT_SERIAL/$CERT_FINGERPRINT
-
-if [ ! -d $CACERTS_SRC ]; then
-  mkdir -p $CACERTS_SRC
-fi
-
-TMP_OUT=/tmp/${SCRIPT_NAME}.output
 
 ### functions followed by main
 
@@ -86,13 +47,13 @@ function get_java_keystore() {
       #                # Unknown.
     fi
   fi
-  CERT_DIR=${JAVA_HOME}/lib/security
-  if [ ! -d $CERT_DIR ]; then
-    CERT_DIR=${JAVA_HOME}/jre/lib/security
+  JDK_CERT_DIR=${JAVA_HOME}/lib/security
+  if [ ! -d $JDK_CERT_DIR ]; then
+    JDK_CERT_DIR=${JAVA_HOME}/jre/lib/security
   fi
 
-  #echo "CERT_DIR=[$CERT_DIR]"
-  JAVA_CACERTS="$CERT_DIR/cacerts"
+  #echo "JDK_CERT_DIR=[$JDK_CERT_DIR]"
+  JAVA_CACERTS="$JDK_CERT_DIR/cacerts"
 
   echo "${JAVA_CACERTS}"
 }
@@ -100,6 +61,7 @@ function get_java_keystore() {
 function get_host_cert() {
   local HOST=$1
   local PORT=$2
+  local CACERTS_SRC=$3
 
   writeToLog "Fetching certs from host:port ${HOST}:${PORT}"
 
@@ -110,33 +72,49 @@ function get_host_cert() {
 
   set -e
 
-  if [ -e "$CACERTS_SRC/$ALIAS.pem" ]; then
-    rm -f $CACERTS_SRC/$ALIAS.pem
-  fi
+  writeToLog "**** get_host_cert() START : find ${CACERTS_SRC}/ -name cert*.crt"
+  eval "find ${CACERTS_SRC}/ -name cert*.crt"
 
+#  if [ -e "$CACERTS_SRC/$ALIAS.crt" ]; then
+#    rm -f "$CACERTS_SRC/$ALIAS.crt"
+#  fi
+#  if [ -e "$CACERTS_SRC/$ALIAS.pem" ]; then
+#    rm -f "$CACERTS_SRC/$ALIAS.pem"
+#  fi
+
+  ############
+  ## To avoid "ssl alert number 40"
+  ## It is usually related to a server with several virtual hosts to serve,
+  ## where you need to/should tell which host you want to connect to in order for the TLS handshake to succeed.
+  ##
+  ## Specify the exact host name you want with -servername parameter.
+  ##
   ## ref: https://stackoverflow.com/questions/9450120/openssl-hangs-and-does-not-exit
+  ## ref: https://stackoverflow.com/questions/53965049/handshake-failure-ssl-alert-number-40
   writeToLog "Fetching *.crt format certs from host:port ${HOST}:${PORT}"
-  FETCH_CRT_CERT_COMMAND="echo QUIT | openssl s_client -connect ${HOST}:${PORT} 1>${CACERTS_SRC}/${ALIAS}.crt"
+  FETCH_CRT_CERT_COMMAND="echo QUIT | openssl s_client -connect ${HOST}:${PORT} -servername ${HOST} 1>${CACERTS_SRC}/${ALIAS}.crt"
   writeToLog "FETCH_CRT_CERT_COMMAND=${FETCH_CRT_CERT_COMMAND}"
   eval "${FETCH_CRT_CERT_COMMAND}"
 
   writeToLog "Fetching *.pem format certs from host:port ${HOST}:${PORT}"
-#  echo QUIT | openssl s_client -showcerts -servername ${HOST} -connect ${HOST}:${PORT} </dev/null 2>/dev/null \
-#  	| openssl x509 -outform PEM > $CACERTS_SRC/$ALIAS.pem
-
   FETCH_PEM_CERT_COMMAND="echo QUIT | openssl s_client -showcerts -servername ${HOST} -connect ${HOST}:${PORT} </dev/null 2>/dev/null \
-  	| openssl x509 -outform PEM > $CACERTS_SRC/$ALIAS.pem"
+  	| openssl x509 -outform PEM > ${CACERTS_SRC}/${ALIAS}.pem"
   writeToLog "FETCH_PEM_CERT_COMMAND=${FETCH_PEM_CERT_COMMAND}"
   eval "${FETCH_PEM_CERT_COMMAND}"
 
-  writeToLog "Extracting certs from cert chain for ${HOST}:${PORT}"
+  writeToLog "find ${CACERTS_SRC}/ -name cert*.crt"
+  eval "find ${CACERTS_SRC}/ -name cert*.crt"
+
+  writeToLog "Extracting certs from cert chain for ${HOST}:${PORT} "
   ## ref: https://unix.stackexchange.com/questions/368123/how-to-extract-the-root-ca-and-subordinate-ca-from-a-certificate-chain-in-linux
-  openssl s_client -showcerts -verify 5 -connect $HOST:$PORT </dev/null | awk -v certdir=$CACERTS_SRC '/BEGIN/,/END/{ if(/BEGIN/){a++}; out="cert"a".crt"; print >(certdir "/" out)}' && \
+  openssl s_client -showcerts -verify 5 -connect "${HOST}:${PORT}" -servername "${HOST}" </dev/null \
+    | awk -v certdir="${CACERTS_SRC}" '/BEGIN/,/END/{ if(/BEGIN/){a++}; out="cert"a".crt"; print >(certdir "/" out)}' && \
   for cert in ${CACERTS_SRC}/cert*.crt; do
     #    nameprefix=$(echo "${cert%.*}")
     nameprefix="${cert%.*}"
-    newname=${nameprefix}.$(openssl x509 -noout -subject -in $cert | sed -n 's/\s//g; s/^.*CN=\(.*\)$/\1/; s/[ ,.*]/_/g; s/__/_/g; s/^_//g;p').pem
-    #    mv $cert $CACERTS_SRC/$newname
+#    writeToLog "nameprefixfor for cert ${cert} ==> ${nameprefix}"
+    newname="${nameprefix}".$(openssl x509 -noout -subject -in $cert | sed -n 's/\s//g; s/^.*CN=\(.*\)$/\1/; s/[ ,.*]/_/g; s/__/_/g; s/^_//g;p')."${CACERT_TRUST_FORMAT}"
+#    writeToLog "newname for cert ${cert} ==> ${newname}"
     mv "${cert}" "${newname}"
   done
 
@@ -144,6 +122,7 @@ function get_host_cert() {
 
 function import_jdk_cert() {
   KEYSTORE=$1
+  local CACERTS_SRC=$2
 
   writeToLog "Adding certs to keystore at [${KEYSTORE}]"
 
@@ -196,33 +175,75 @@ function import_jdk_cert() {
 
 }
 
-main() {
+install_site_cert() {
+  SITE=$1
+  INSTALL_JDK_CACERT=${2-0}
+
+  KEYSTORE_PASS=${3:-"changeit"}
+  KEYTOOL=keytool
+
+  #DATE=`date +&%%m%d%H%M%S`
+  DATE=$(date +%Y%m%d)
+
+  writeToLog "SITE=${SITE}"
+
+  IFS=':' read -r -a array <<< "${SITE}"
+  HOST=${array[0]}
+  PORT=${array[1]:-443}
 
   writeToLog "Running for HOST=[$HOST] PORT=[$PORT] KEYSTORE_PASS=[$KEYSTORE_PASS]..."
 
-  writeToLog "Get default java JDK cacert location"
-  #JDK_KEYSTORE=$CERT_DIR/cacerts
-  JDK_KEYSTORE=$(get_java_keystore)
+  ENDPOINT="${HOST}:${PORT}"
+  ALIAS="${HOST}:${PORT}"
 
-  if [ ! -e "${JDK_KEYSTORE}" ]; then
-    writeToLog "JDK_KEYSTORE [$JDK_KEYSTORE] not found!"
-    exit 1
-  else
-    writeToLog "JDK_KEYSTORE found at [$JDK_KEYSTORE]"
+  if [[ "$UNAME" == "cygwin" || "$UNAME" == "msys" ]]; then
+    ALIAS="${HOST}_${PORT}"
   fi
 
-  writeToLog "Get host cert"
-  get_host_cert "${HOST}" "${PORT}"
+  ## ref: https://knowledgebase.garapost.com/index.php/2020/06/05/how-to-get-ssl-certificate-fingerprint-and-serial-number-using-openssl-command/
+  ## ref: https://stackoverflow.com/questions/13823706/capture-multiline-output-as-array-in-bash
+#  CERT_INFO=($(echo QUIT | openssl s_client -connect $HOST:$PORT </dev/null 2>/dev/null | openssl x509 -serial -fingerprint -sha256 -noout | cut -d"=" -f2 | sed s/://g))
+  CERT_INFO=($(echo QUIT | openssl s_client -connect "${HOST}:${PORT}" -servername "${HOST}" </dev/null 2>/dev/null | openssl x509 -serial -fingerprint -sha256 -noout | cut -d"=" -f2 | sed s/://g))
+  CERT_SERIAL=${CERT_INFO[0]}
+  CERT_FINGERPRINT=${CERT_INFO[1]}
 
-  ### Now build list of cacert targets to update
-  writeToLog "updating JDK certs at [$JDK_KEYSTORE]..."
-  import_jdk_cert "$JDK_KEYSTORE"
+  #CACERTS_SRC=${HOME}/.cacerts/$ALIAS/$DATE
+  #CACERTS_SRC=${HOME}/.cacerts/$ALIAS/$CERT_SERIAL/$CERT_FINGERPRINT
+  CACERTS_SRC=/tmp/.cacerts/$ALIAS/$CERT_SERIAL/$CERT_FINGERPRINT
 
-  # FYI: the default keystore is located in ~/.keystore
-  DEFAULT_KEYSTORE="~/.keystore"
-  if [ -f $DEFAULT_KEYSTORE ]; then
-    writeToLog "updating default certs at [$DEFAULT_KEYSTORE]..."
-    import_jdk_cert $DEFAULT_KEYSTORE
+  writeToLog "Recreate tmp cert dir ${CACERTS_SRC}"
+  rm -fr "${CACERTS_SRC}"
+  mkdir -p "${CACERTS_SRC}"
+  writeToLog "**** install_site_cert INIT : find ${CACERTS_SRC}/ -name cert*.crt"
+  eval "find ${CACERTS_SRC}/ -name cert*.crt"
+
+  TMP_OUT=/tmp/${SCRIPT_NAME}.output
+
+  writeToLog "Get host cert for ${HOST}:${PORT}"
+  get_host_cert "${HOST}" "${PORT}" "${CACERTS_SRC}"
+
+  if [ "$INSTALL_JDK_CACERT" -ne 0 ]; then
+    writeToLog "Get default java JDK cacert location"
+    #JDK_KEYSTORE=$JDK_CERT_DIR/cacerts
+    JDK_KEYSTORE=$(get_java_keystore)
+
+    if [ ! -e "${JDK_KEYSTORE}" ]; then
+      writeToLog "JDK_KEYSTORE [$JDK_KEYSTORE] not found!"
+      exit 1
+    else
+      writeToLog "JDK_KEYSTORE found at [$JDK_KEYSTORE]"
+    fi
+
+    ### Now build list of cacert targets to update
+    writeToLog "updating JDK certs at [$JDK_KEYSTORE]..."
+    import_jdk_cert "$JDK_KEYSTORE" "${CACERTS_SRC}"
+
+    # FYI: the default keystore is located in ~/.keystore
+    DEFAULT_KEYSTORE="~/.keystore"
+    if [ -f $DEFAULT_KEYSTORE ]; then
+      writeToLog "updating default certs at [$DEFAULT_KEYSTORE]..."
+      import_jdk_cert $DEFAULT_KEYSTORE
+    fi
   fi
 
   writeToLog "Adding cert to the system keychain.."
@@ -241,10 +262,9 @@ main() {
 
     MACOS_CACERT_TRUST_COMMAND="security add-trusted-cert -d -r trustRoot -k ${HOME}/Library/Keychains/login.keychain ${ca_root_cert}"
     writeToLog "MACOS_CACERT_TRUST_COMMAND=${MACOS_CACERT_TRUST_COMMAND}"
-    ${MACOS_CACERT_TRUST_COMMAND}
+    eval "${MACOS_CACERT_TRUST_COMMAND}"
 
 ##    for cert in ${CACERTS_SRC}/cert*.pem; do
-##    files=(/var/logs/foo*.log)
 ##    for ((i=${#files[@]}-1; i>=0; i--)); do
 #    certs=(${CACERTS_SRC}/cert*.pem)
 #    for ((cert=${#certs[@]}-1; i>=0; i--)); do
@@ -262,11 +282,12 @@ main() {
 
   elif [[ "$UNAME" == "cygwin" || "$UNAME" == "msys" ]]; then
     ## ref: https://docs.microsoft.com/en-us/troubleshoot/windows-server/identity/valid-root-ca-certificates-untrusted
-    ROOT_CERT=$(ls -1 ${CACERTS_SRC}/cert*.pem | sort -nr | head -1)
+#    ROOT_CERT=$(ls -1 ${CACERTS_SRC}/cert*.pem | sort -nr | head -1)
+    ROOT_CERT=$(find ${CACERTS_SRC}/ -name cert*.pem | sort -nr | head -1)
 
     WIN_CACERT_TRUST_COMMAND="certutil -addstore root ${ROOT_CERT}"
     writeToLog "WIN_CACERT_TRUST_COMMAND=${WIN_CACERT_TRUST_COMMAND}"
-    ${WIN_CACERT_TRUST_COMMAND}
+    eval "${WIN_CACERT_TRUST_COMMAND}"
 
     ## ref: https://serverfault.com/questions/722563/how-to-make-firefox-trust-system-ca-certificates?newreg=9c67967e3aa248f489c8c9b2cc4ac776
     #certutil -addstore Root ${CERT_DIR}/${HOST}.pem
@@ -275,11 +296,26 @@ main() {
     #certutil –addstore -enterprise –f "Root" "${ROOT_CERT}"
 
   elif [[ "$UNAME" == "linux"* ]]; then
+    ROOT_CERT=$(find ${CACERTS_SRC}/ -name cert*.${CACERT_TRUST_FORMAT} | sort -nr | head -1)
+    writeToLog "copy ROOT_CERT ${ROOT_CERT} to CACERT_TRUST_IMPORT_DIR=${CACERT_TRUST_IMPORT_DIR}"
+#    cp -p "${ROOT_CERT}" "${CACERT_TRUST_IMPORT_DIR}/"
+    cp -p "${CACERTS_SRC}"/*."${CACERT_TRUST_FORMAT}" "${CACERT_TRUST_IMPORT_DIR}/"
     writeToLog "CACERT_TRUST_COMMAND=${CACERT_TRUST_COMMAND}"
-    ${CACERT_TRUST_COMMAND}
+    eval "${CACERT_TRUST_COMMAND}"
   fi
 
   writeToLog "**** Finished ****"
 }
 
-main
+if [ -d "${CACERT_TRUST_DIR}" ]; then
+  writeToLog "Remove any broken/invalid sym links from ${CACERT_TRUST_DIR}/"
+  find "${CACERT_TRUST_DIR}/" -xtype l -delete
+fi
+
+## ref: https://superuser.com/questions/97201/how-to-save-a-remote-server-ssl-certificate-locally-as-a-file
+## ref: https://serverfault.com/questions/661978/displaying-a-remote-ssl-certificate-details-using-cli-tools
+SITE=${1:-host01.johnson.int:443}
+
+echo "SITE=${SITE}"
+
+install_site_cert "${SITE}" "${INSTALL_JDK_CACERT}"
