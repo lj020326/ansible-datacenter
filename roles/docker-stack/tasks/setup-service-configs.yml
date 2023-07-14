@@ -36,8 +36,11 @@
 ##     verbosity: 2
 
 - name: "{{ log_prefix_local }} Create docker secrets for stack if necessary"
-  no_log: yes
-  when: not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool
+#  no_log: yes
+#  when: not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool
+  when:
+    - docker_stack__swarm_mode|d(False)|bool
+    - docker_stack__swarm_manager|d(False)|bool
   community.docker.docker_secret:
     name: "{{ item.name }}"
     data: "{{ item.value }}"
@@ -55,7 +58,20 @@
 
 - name: "{{ log_prefix_local }} Create external docker networks for stack if necessary"
   when:
-    - not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool
+    - not docker_stack__swarm_mode|d(False)|bool
+    - item.value.external|d(False)|bool
+  community.docker.docker_network:
+    name: "{{ item.key }}"
+#    driver: "{{ item.value.driver | d(omit) }}"
+#    attachable: "{{ item.value.attachable | d(omit) }}"
+#      internal: "{{ (not item.value.external) | d(omit) }}"
+  with_dict: "{{ __docker_stack__networks }}"
+  register: __configure_docker_networks
+
+- name: "{{ log_prefix_local }} Create external swarm docker networks for stack if necessary"
+  when:
+    - docker_stack__swarm_mode|d(False)|bool
+    - docker_stack__swarm_manager|d(False)|bool
     - item.value.external|d(False)|bool
   community.docker.docker_network:
     name: "{{ item.key }}"
