@@ -1,10 +1,15 @@
 ---
 
+__docker_stack__jenkins_jcac_ansible_tool_python_interpreter_default: "python3"
+__docker_stack__jenkins_jcac_ansible_tool_python_interpreter: "{{
+  docker_stack__jenkins_jcac_ansible_tool_python_interpreter
+  | d(__docker_stack__jenkins_jcac_ansible_tool_python_interpreter_default) }}"
+
 __docker_stack__jenkins_jcac_stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
 __docker_stack__jenkins_jcac_base_dir_default: "{{ __docker_stack__jenkins_jcac_stack_dir }}/jenkins_jcac"
 __docker_stack__jenkins_jcac_base_dir: "{{ docker_stack__jenkins_jcac_dir | d(__docker_stack__jenkins_jcac_base_dir_default) }}"
 
-__docker_stack__jenkins_jcac_traefik_host_default: "leader.example.int"
+__docker_stack__jenkins_jcac_traefik_host_default: "jenkins.example.int"
 __docker_stack__jenkins_jcac_host: "{{ docker_stack__jenkins_jcac_host
   | d(docker_stack__jenkins_host)
   | d(docker_stack__traefik_host)
@@ -55,8 +60,8 @@ __docker_stack__jenkins_jcac_ldap_bind_user_dn: "{{ docker_stack__jenkins_jcac_l
 __docker_stack__jenkins_jcac_ldap_bind_user_password: "{{ docker_stack__jenkins_jcac_ldap_bind_user_password
   | d(docker_stack__ldap_bind_user_password) }}"
 
-__docker_stack__jenkins_ssh_private_key: "{{ docker_stack__jenkins_ssh_private_key | d('') }}"
-__docker_stack__jenkins_ssh_public_key: "{{ docker_stack__jenkins_ssh_public_key | d('') }}"
+#__docker_stack__jenkins_ssh_private_key: "{{ docker_stack__jenkins_ssh_private_key | d('') }}"
+#__docker_stack__jenkins_ssh_public_key: "{{ docker_stack__jenkins_ssh_public_key | d('') }}"
 
 #__docker_stack__jenkins_jcac_data_dir_default: /export/data/jenkins/osimages
 #__docker_stack__jenkins_jcac_data_dir_default: /export/data/jenkins
@@ -70,7 +75,7 @@ __docker_stack__jenkins_jcac_pipeline_lib_repo: "{{ docker_stack__jenkins_jcac_p
 __docker_stack__jenkins_jcac_vmware_data_dir_default: /data/datacenter/vmware
 __docker_stack__jenkins_jcac_vmware_data_dir: "{{ docker_stack__jenkins_jcac_vmware_data_dir | d(__docker_stack__jenkins_jcac_vmware_data_dir_default) }}"
 
-docker_stack__appspec_config_dirs__jenkins_jcac:
+__docker_stack__jenkins__config_dirs_jcac:
   - path: "{{ __docker_stack__jenkins_jcac_base_dir }}"
   - path: "{{ __docker_stack__jenkins_jcac_base_dir }}/jenkins_home"
   - path: "{{ __docker_stack__jenkins_jcac_base_dir }}/jenkins_home/casc_configs"
@@ -78,7 +83,7 @@ docker_stack__appspec_config_dirs__jenkins_jcac:
   - path: "{{ __docker_stack__jenkins_jcac_data_dir }}/osimages"
   - path: "{{ __docker_stack__jenkins_jcac_vmware_data_dir }}"
 
-docker_stack__appspec_config_tpls__jenkins_jcac:
+__docker_stack__jenkins__config_tpls_jcac:
   - src: 'jenkins_jcac/jenkins.env.j2'
     dest: "{{ __docker_stack__jenkins_jcac_base_dir }}/jenkins.env"
   - src: 'jenkins_jcac/jenkins_casc.yml.j2'
@@ -89,6 +94,10 @@ docker_stack__appspec_config_tpls__jenkins_jcac:
     dest: "{{ __docker_stack__jenkins_jcac_base_dir }}/group"
   - src: 'jenkins_jcac/config-passwd.conf.j2'
     dest: "{{ __docker_stack__jenkins_jcac_base_dir }}/passwd"
+
+__docker_stack__jenkins__firewalld_ports_jcac:
+  - "{{ __docker_stack__jenkins_jcac_agent_tcp_port }}/tcp"
+  - "{{ __docker_stack__jenkins_jcac_agent_ssh_port }}/tcp"
 
 
 #########
@@ -121,7 +130,7 @@ __docker_stack__jenkins_github_repo_seedjob_dsl: "{{ docker_stack__jenkins_githu
   | d(__docker_stack__jenkins_github_repo_seedjob_dsl_default) }}"
 
 
-docker_stack__appspec_secrets__jenkins_jcac:
+__docker_stack__jenkins__secrets_jcac:
   - name: ldap_username
     value: "{{ __docker_stack__jenkins_jcac_ldap_bind_user_dn }}"
   - name: ldap_password
@@ -164,30 +173,27 @@ docker_stack__appspec_secrets__jenkins_jcac:
     value: "{{ __docker_stack__jenkins_jcac__agent_password }}"
 
 
-docker_stack__firewalld_appspec_ports__jenkins_jcac:
-  - "{{ __docker_stack__jenkins_jcac_agent_tcp_port }}/tcp"
-  - "{{ __docker_stack__jenkins_jcac_agent_ssh_port }}/tcp"
-
 #####################
 ## merge all de-referenced app configs into single composite service config dict for tasks setup to use
 ## TODO: instead of having this done in each app config, have a single merge/dereference
 ## done by init-vars.yml using varname lookups
 #####################
-docker_stack__appspec__jenkins_jcac:
-  dirs: "{{ docker_stack__appspec_config_dirs__jenkins_jcac | d([]) }}"
-  files: "{{ docker_stack__appspec_config_files__jenkins_jcac | d([]) }}"
-  templates: "{{ docker_stack__appspec_config_tpls__jenkins_jcac | d([]) }}"
-  secrets: "{{ docker_stack__appspec_secrets__jenkins_jcac | d({}) }}"
-  firewalld_services: "{{ docker_stack__firewalld_appspec_services__jenkins_jcac | d([]) }}"
-  firewalld_ports: "{{ docker_stack__firewalld_appspec_ports__jenkins_jcac | d([]) }}"
-  networks: "{{ docker_stack__appspec_networks__jenkins_jcac | d({}) }}"
-  volumes: "{{ docker_stack__appspec_volumes__jenkins_jcac | d({}) }}"
-  docker_services: "{{ docker_stack__appspec_services__jenkins_jcac | d({}) }}"
+__docker_stack__appspec__jenkins_jcac:
+  dirs: "{{ __docker_stack__jenkins__config_dirs_jcac | d([]) }}"
+  files: "{{ __docker_stack__jenkins__config_files_jcac | d([]) }}"
+  templates: "{{ __docker_stack__jenkins__config_tpls_jcac | d([]) }}"
+  secrets: "{{ __docker_stack__jenkins__secrets_jcac | d({}) }}"
+  firewalld_services: "{{ __docker_stack__jenkins__firewalld_services_jcac | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__jenkins__firewalld_ports_jcac | d([]) }}"
+  networks: "{{ __docker_stack__jenkins__networks_jcac | d({}) }}"
+  volumes: "{{ __docker_stack__jenkins__volumes_jcac | d({}) }}"
+  docker_services: "{{ __docker_stack__jenkins__services_jcac | d({}) }}"
 
+__docker_stack__traefik__labels_jenkins_jcac_default: "jenkins_jcac"
 __docker_stack__traefik__labels_jenkins_jcac: "{{ docker_stack__traefik__labels_jenkins_jcac
   | d(__docker_stack__traefik__labels_jenkins_jcac_default) }}"
 
-docker_stack__appspec_services__jenkins_jcac:
+__docker_stack__jenkins__services_jcac:
 
   ## ref: https://github.com/jenkinsci/docker
   ## ref: https://medium.com/swlh/quickstart-ci-with-jenkins-and-docker-in-docker-c3f7174ee9ff

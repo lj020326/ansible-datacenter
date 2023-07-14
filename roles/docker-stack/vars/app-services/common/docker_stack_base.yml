@@ -68,7 +68,7 @@ __docker_stack__base__traefik_auth_labels:
     ## Middlewares
     traefik.http.routers.traefik-rtr.middlewares: chain-oauth@file
 
-docker_stack__appspec_config_tpls__base:
+__docker_stack__base__config_tpls:
   - src: "traefik/config-traefik-v2.yml.j2"
     dest: "{{ __docker_stack__base__traefik_dir }}/traefik.yml"
     backup: yes
@@ -83,7 +83,7 @@ docker_stack__appspec_config_tpls__base:
   - src: "docker-gc-exclude.conf.j2"
     dest: "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude"
 
-docker_stack__appspec_config_dirs__base:
+__docker_stack__base__config_dirs:
   - path: "{{ __docker_stack__base__stack_dir }}"
   - path: "{{ __docker_stack__base__traefik_dir }}"
   - path: "{{ __docker_stack__base__traefik_dir }}/rules"
@@ -99,7 +99,7 @@ docker_stack__appspec_config_dirs__base:
 ## Reference:
 ##   https://www.digitalocean.com/community/tutorials/how-to-configure-the-linux-firewall-for-docker-swarm-on-centos-7
 ##   https://stackoverflow.com/questions/52665442/docker-swarm-host-cannot-resolve-hosts-on-other-nodes
-docker_stack__firewalld_appspec_ports__base:
+__docker_stack__base__firewalld_ports:
   - "2376/tcp"
   - "2377/tcp"
   - "4789/udp"
@@ -122,7 +122,7 @@ docker_stack__traefik_proxy_network_info: "{{ { docker_stack__traefik_proxy_netw
 #      }
 #  }}
 
-docker_stack__appspec_networks__base_default:
+__docker_stack__base__networks_default:
 
 #  default:
 #    attachable: true
@@ -138,20 +138,21 @@ docker_stack__appspec_networks__base_default:
     driver: overlay
     external: true
 
-#docker_stack__appspec_networks__base: "{{ docker_stack__appspec_networks__base_default | combine( { docker_stack__traefik_proxy_network: { 'external': true } } ) }}"
-docker_stack__appspec_networks__base: "{{ docker_stack__appspec_networks__base_default | combine( docker_stack__traefik_proxy_network_info ) }}"
+#__docker_stack__traefik__networks: "{{ __docker_stack__base__networks_default | combine( { docker_stack_proxy_network: { 'external': true } } ) }}"
+__docker_stack__base__networks: "{{ (docker_stack__base_networks | d(__docker_stack__base__networks_default))
+  | combine( docker_stack__traefik_proxy_network_info ) }}"
 
-docker_stack__appspec_volumes__base: {}
+__docker_stack__base__volumes: {}
 
-docker_stack__appspec__base:
-  dirs: "{{ docker_stack__appspec_config_dirs__base | d([]) }}"
-  files: "{{ docker_stack__appspec_config_files__base | d([]) }}"
-  templates: "{{ docker_stack__appspec_config_tpls__base | d([]) }}"
-  firewalld_services: "{{ docker_stack__firewalld_appspec_services__base | d([]) }}"
-  firewalld_ports: "{{ docker_stack__firewalld_appspec_ports__base | d([]) }}"
-  networks: "{{ docker_stack__appspec_networks__base | d({}) }}"
-  volumes: "{{ docker_stack__appspec_volumes__base | d({}) }}"
-  docker_services: "{{ docker_stack__appspec_services__base | d({}) }}"
+__docker_stack__appspec__base:
+  dirs: "{{ __docker_stack__base__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__base__config_files | d([]) }}"
+  templates: "{{ __docker_stack__base__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__base__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__base__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__base__networks | d({}) }}"
+  volumes: "{{ __docker_stack__base__volumes | d({}) }}"
+  docker_services: "{{ __docker_stack__base__services | d({}) }}"
 
 __docker_stack__traefik__labels_traefik: "{{ docker_stack__traefik__traefik_labels | d(__docker_stack__traefik__labels_traefik_default) }}"
 __docker_stack__traefik__labels_whoami: "{{ docker_stack__traefik__labels_whoami | d(__docker_stack__traefik__labels_whoami_default) }}"
@@ -169,7 +170,7 @@ __docker_stack__environment__dozzle: "{{ docker_stack__environment__dozzle
   | d(__docker_stack__environment__dozzle_default) }}"
 
 ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
-docker_stack__appspec_services__base:
+__docker_stack__base__services:
   ######### FRONTENDS ##########
   # Traefik Reverse Proxy
   # ref: https://github.com/lj020326/docker_swarm-mode.traefik2-example/blob/master/docker-compose.app.v10.yml
@@ -229,7 +230,7 @@ docker_stack__appspec_services__base:
 #      mode: global
       placement:
         constraints:
-          - "node.hostname == {{ docker_stack__traefik_host }}"
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
 #          - node.role == manager
 #          - node.labels.proxy == true
 #          - node.labels.traefik-public == true
@@ -304,7 +305,7 @@ docker_stack__appspec_services__base:
 #      mode: global
       placement:
         constraints:
-          - "node.hostname == {{ docker_stack__traefik_host }}"
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -375,7 +376,7 @@ docker_stack__appspec_services__base:
       mode: global
       placement:
         constraints:
-          - "node.hostname == {{ docker_stack__traefik_host }}"
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
 #      replicas: 1
 #      restart_policy:
 #        condition: on-failure
@@ -418,7 +419,7 @@ docker_stack__appspec_services__base:
   certdumper:
     container_name: traefik_certdumper
     image: humenius/traefik-certs-dumper:latest
-    network_mode: none
+#    network_mode: none
     networks:
       - net
     security_opt:
@@ -434,7 +435,7 @@ docker_stack__appspec_services__base:
     deploy:
       placement:
         constraints:
-          - "node.hostname == {{ docker_stack__traefik_host }}"
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -490,7 +491,7 @@ docker_stack__appspec_services__base:
       mode: replicated
       placement:
         constraints:
-          - "node.hostname == {{ docker_stack__traefik_host }}"
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -524,7 +525,7 @@ docker_stack__appspec_services__base:
       mode: replicated
       placement:
         constraints:
-          - "node.hostname == {{ docker_stack__traefik_host }}"
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
 #          - node.role == manager
       replicas: 1
       restart_policy:

@@ -171,25 +171,28 @@
        var: __docker_stack__proxy_services
        verbosity: 2
 
-  - name: "{{ log_prefix_local }} Set the app proxy services vars"
-    include_vars:  "app-services/common/docker_stack__proxy_{{ item.name }}.yml"
+  - name: "{{ log_prefix_local }} Set the app proxy services vars specific to traefik version"
+    when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik_version + '/' + docker_stack__traefik_routing_method + '/docker_stack_proxy_' + item.name + '.yml') is file
+    include_vars:  "app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_proxy_{{ item.name }}.yml"
     with_items: "{{ __docker_stack__proxy_services }}"
 
-  - name: "{{ log_prefix_local }} Set the app proxy services vars specific to traefik version"
-    include_vars:  "app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack__proxy_{{ item.name }}.yml"
+  - name: "{{ log_prefix_local }} Set the app proxy services vars"
+    when: (role_path + '/vars/app-services/common/docker_stack_proxy_' + item.name + '.yml') is file
+    include_vars:  "app-services/common/docker_stack_proxy_{{ item.name }}.yml"
     with_items: "{{ __docker_stack__proxy_services }}"
+
+- name: "{{ log_prefix_local }} Set the traefik app services vars"
+#  when: item.source|d('role') == 'role'
+  when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik_version + '/' + docker_stack__traefik_routing_method + '/docker_stack_' + item.name + '.yml') is file
+  include_vars:  "app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_{{ item.name }}.yml"
+  loop: "{{ __docker_stack__service_groups }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: "{{ log_prefix_local }} Set the common app services vars"
 #  when: item.source|d('role') == 'role'
   when: (role_path + '/vars/app-services/common/docker_stack_' + item.name + '.yml') is file
   include_vars: "app-services/common/docker_stack_{{ item.name }}.yml"
-  loop: "{{ __docker_stack__service_groups }}"
-  loop_control:
-    label: "{{ item.name }}"
-
-- name: "{{ log_prefix_local }} Set the app services vars specific to traefik version"
-  when: item.source|d('role') == 'role'
-  include_vars:  "app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_{{ item.name }}.yml"
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
     label: "{{ item.name }}"
@@ -211,13 +214,13 @@
 - name: "{{ log_prefix_local }} Combine app varname configs into __docker_stack__app_configs"
   set_fact:
     __docker_stack__app_configs: "{{ __docker_stack__app_configs|d({})
-      | combine({ item.name: lookup('vars', q('varnames','^docker_stack__appspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
+      | combine({ item.name: lookup('vars', q('varnames','^__docker_stack__appspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__service_groups }}"
 
 ## NOTE: sensitive info - this var contains the secrets
-#- name: "{{ log_prefix_local }} Display __docker_stack__app_configs"
-#  debug:
-#     var: __docker_stack__app_configs
+- name: "{{ log_prefix_local }} Display __docker_stack__app_configs"
+  debug:
+     var: __docker_stack__app_configs
 ##     verbosity: 3
 
 - name: "{{ log_prefix_local }} Display __docker_stack__proxy_services"
@@ -230,12 +233,12 @@
 
 - name: "{{ log_prefix_local }} Show variables with 'docker_stack__proxyspec__' prefix"
   debug:
-    msg: "{{ lookup('varnames', '^docker_stack__proxyspec__', wantlist=True) }}"
+    msg: "{{ lookup('varnames', '^__docker_stack__proxyspec__', wantlist=True) }}"
 
 - name: "{{ log_prefix_local }} Combine proxy varname configs into __docker_stack__proxy_configs"
   set_fact:
     __docker_stack__proxy_configs: "{{ __docker_stack__proxy_configs|d({})
-      | combine({ item.name: lookup('vars', q('varnames','^docker_stack__proxyspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
+      | combine({ item.name: lookup('vars', q('varnames','^__docker_stack__proxyspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__proxy_services|d([]) }}"
 
 - name: "{{ log_prefix_local }} Display __docker_stack__proxy_configs"
@@ -253,7 +256,7 @@
 - name: "{{ log_prefix_local }} Display __docker_stack__proxy_service_configs"
   debug:
      var: __docker_stack__proxy_service_configs
-     verbosity: 2
+#     verbosity: 2
 
 - name: "{{ log_prefix_local }} Init __docker_stack__secrets"
   set_fact:
