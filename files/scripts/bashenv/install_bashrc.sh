@@ -73,7 +73,9 @@ echo "rsync env scripts"
 rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/scripts/*.sh ${HOME_DIR}/bin/
 rsync ${RSYNC_OPTIONS_HOME[@]} ${SECRETS_DIR}/git/*.sh ${HOME_DIR}/bin/
 rsync ${RSYNC_OPTIONS_HOME[@]} ${SCRIPT_BASE_DIR}/certs/*.sh ${HOME_DIR}/bin/
+rsync ${RSYNC_OPTIONS_HOME[@]} ${SCRIPT_BASE_DIR}/pfsense/*.py ${HOME_DIR}/bin/
 chmod +x ${HOME_DIR}/bin/*.sh
+chmod +x ${HOME_DIR}/bin/*.py
 
 if [ "${SECRETS_DIR}/.bash_secrets" -nt "${HOME_DIR}/.bash_secrets" ]; then
   echo "deploying secrets ${SECRETS_DIR}/.bash_secrets"

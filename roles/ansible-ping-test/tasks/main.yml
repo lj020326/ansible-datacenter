@@ -1,4 +1,5 @@
 ---
+
 ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
 - name: "Ping test via module"
   when: inventory_hostname in ansible_play_hosts_all
@@ -14,6 +15,7 @@
 #      when: group_names | intersect(['linux','dc_os_linux','vmware_vsphere']) | list | length>0
       action: ping
       register: ping_test
+      failed_when: false
       changed_when: no
 
     - name: "Ping test via module win_ping"
@@ -21,6 +23,7 @@
 #      when: group_names | intersect(['windows','dc_os_windows']) | list | length>0
       action: win_ping
       register: winping_test
+      failed_when: false
       changed_when: no
 
     ## https://docs.ansible.com/ansible/latest/network/user_guide/platform_index.html#settings-by-platform
@@ -33,6 +36,7 @@
       net_ping:
         dest: "{{ ansible_host }}"
       register: netping_test
+      failed_when: false
       changed_when: no
 
     - name: display ping test results
@@ -56,19 +60,16 @@
 
   rescue:
 
-    - name: "Additional tests via CLI"
-      block:
+    - name: ping test via CLI
+      delegate_to: localhost
+      become: yes
+      command: "ping -c 1 -w 2 {{ ansible_host }}"
+      register: ping_cli_test
+      changed_when: no
 
-        - name: ping test via CLI
-          delegate_to: localhost
-          become: yes
-          command: "ping -c 1 -w 2 {{ ansible_host }}"
-          register: ping_cli_test
-          changed_when: no
-
-        - name: "Setting ping_failed"
-          set_fact:
-            ping_failed: "{{ ping_cli_test.failed }}"
+    - name: "Setting ping_failed"
+      set_fact:
+        ping_failed: "{{ ping_cli_test.failed }}"
 
 - name: Set ping_failed
   set_fact:

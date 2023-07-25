@@ -260,7 +260,10 @@ install_site_cert() {
     ca_root_cert=${certs[-1]}
     writeToLog "Add the site root cert to the current user's trust cert chain ==> [${ca_root_cert}]"
 
-    MACOS_CACERT_TRUST_COMMAND="security add-trusted-cert -d -r trustRoot -k ${HOME}/Library/Keychains/login.keychain ${ca_root_cert}"
+    ## ref: https://apple.stackexchange.com/questions/80623/import-certificates-into-the-system-keychain-via-the-command-line
+#    MACOS_CACERT_TRUST_COMMAND="sudo security add-trusted-cert -d -r trustRoot -k ${HOME}/Library/Keychains/login.keychain ${ca_root_cert}"
+    MACOS_CACERT_TRUST_COMMAND="sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ${ca_root_cert}"
+
     writeToLog "MACOS_CACERT_TRUST_COMMAND=${MACOS_CACERT_TRUST_COMMAND}"
     eval "${MACOS_CACERT_TRUST_COMMAND}"
 
@@ -319,3 +322,16 @@ SITE=${1:-host01.johnson.int:443}
 echo "SITE=${SITE}"
 
 install_site_cert "${SITE}" "${INSTALL_JDK_CACERT}"
+
+if [[ "$UNAME" == "darwin"* ]]; then
+  writeToLog "SSL_CERT_DIR=${SSL_CERT_DIR}"
+  if [[ -n "${SSL_CERT_DIR}" && -n "${SSL_CERT_FILE}" ]]; then
+    ## ref: https://stackoverflow.com/questions/40684543/how-to-make-python-use-ca-certificates-from-mac-os-truststore
+    MACOS_CACERT_EXPORT_COMMAND="sudo security export -t certs -f pemseq -k /Library/Keychains/System.keychain -o ${SSL_CERT_DIR}/systemBundleCA.pem"
+    writeToLog "MACOS_CACERT_EXPORT_COMMAND=${MACOS_CACERT_EXPORT_COMMAND}"
+    eval "${MACOS_CACERT_EXPORT_COMMAND}"
+    mv "${SSL_CERT_FILE}" "${SSL_CERT_FILE}.bak"
+    cat "${SSL_CERT_FILE}.bak" "${SSL_CERT_DIR}/systemBundleCA.pem" > "${SSL_CERT_FILE}"
+  fi
+fi
+

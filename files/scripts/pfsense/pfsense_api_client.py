@@ -1,9 +1,12 @@
 #!/usr/bin/env python
+##!/usr/bin/env python
+
 import subprocess
 import dns.resolver, dns.exception
 
 import ipaddress
 import socket
+import ssl
 
 import sys
 import datetime
@@ -15,7 +18,7 @@ from pathlib import Path
 from loguru import logger
 import questionary
 
-# import requests
+#import requests
 from requests import Response, Session
 import click
 
@@ -33,7 +36,9 @@ LOGGER_FORMAT = '<level>{message}</level>'
 # https://github.com/MikeWooster/api-client
 # ref: https://github.com/MikeWooster/api-client/blob/master/README.md#extended-example
 
-# from apiclient import APIClient
+from copy import deepcopy
+from typing import TYPE_CHECKING, Callable
+
 from apiclient import (
     APIClient,
     HeaderAuthentication,
@@ -45,6 +50,10 @@ from apiclient import (
 # from apiclient.response_handlers import BaseResponseHandler, RequestsResponseHandler
 # from apiclient.utils.typing import OptionalJsonType, OptionalStr
 
+# from apiclient.exceptions import UnexpectedError
+# from apiclient.response import RequestsResponse, Response
+# from apiclient.utils.typing import OptionalDict
+# from apiclient.request_strategies import RequestStrategy
 
 class PFSenseConfig(BaseModel):
     """This defines the expected config file
@@ -68,7 +77,8 @@ class PFSenseConfig(BaseModel):
     jwt: Optional[str]
     client_id: Optional[str]
     client_token: Optional[str]
-    verify: bool = True
+    # verify: bool = True
+    verify: bool = False
     # verify: Optional[bool]
 
 
@@ -208,19 +218,24 @@ class PFSenseAPIClient:
 
     def __init__(
         self,
-        config_filename: Optional[str] = None,
-        requests_session: Session = Session(),
+        config_filename: Optional[str] = None
     ):
 
         if config_filename:
             self.config_filename = Path(os.path.expanduser(config_filename))
             self.config = self.load_config()
 
+        logger.info("self.config=%s" % self.config)
+        self.requests_session = Session()
+        self.requests_session.verify = self.config.verify
+        # self.requests_session.verify = False
+
         self.api_client_json = APIClient(
             authentication_method=HeaderAuthentication(token=f"{self.config.client_id} {self.config.client_token}",
                                                        parameter="Authorization",
                                                        scheme=None),
             response_handler=JsonResponseHandler,
+            # request_strategy=request_strategy,
             request_formatter=JsonRequestFormatter,
             # request_formatter=JsonRequestFormatter2,
         )
@@ -228,14 +243,12 @@ class PFSenseAPIClient:
             authentication_method=HeaderAuthentication(token=f"{self.config.client_id} {self.config.client_token}",
                                                        parameter="Authorization",
                                                        scheme=None),
+            # request_strategy=request_strategy,
             response_handler=JsonResponseHandler
         )
 
-        # print("self.config=[%s]" % self.config)
-        requests_session.verify = self.config.verify
-
-        self.api_client_json.set_session(requests_session)
-        self.api_client.set_session(requests_session)
+        self.api_client_json.set_session(self.requests_session)
+        self.api_client.set_session(self.requests_session)
 
     @property
     def baseurl(self) -> str:
@@ -289,6 +302,8 @@ class PFSenseAPIClient:
         # self.hostname = pfsense_config.hostname
         # self.port = pfsense_config.port
         # self.mode = pfsense_config.mode or "local"
+        # logger.info("config=%s" % config)
+        print("self.config=%s" % self.config)
 
         return pfsense_config
 
@@ -304,11 +319,11 @@ class PFSenseAPIClient:
         if url.startswith("/"):
             url = f"{self.baseurl}{url}"
 
-        print("url[final]=[%s]" % url)
-        print("method=[%s]" % method)
-        print("payload=[%s]" % payload)
-        print("params=[%s]" % params)
-        print("kwargs[0]=[%s]" % kwargs)
+        logger.info("url[final]=%s" % url)
+        logger.info("method=%s" % method)
+        logger.info("payload=%s" % payload)
+        logger.info("params=%s" % params)
+        # logger.info("kwargs[0]=%s" % kwargs)
 
         # if payload is not None and method == "GET":
         if payload is not None and payload != {}:
@@ -325,6 +340,9 @@ class PFSenseAPIClient:
         if "headers" not in kwargs:
             kwargs["headers"] = {}
 
+        # ref: https://stackoverflow.com/questions/22758031/how-to-disable-hostname-checking-in-requests-python#22794281
+        kwargs["verify"] = self.requests_session.verify
+
         # if payload is not None and payload != {}:
         #     kwargs = payload
         #     # if method in ["GET", "DELETE"]:
@@ -336,20 +354,14 @@ class PFSenseAPIClient:
         # if params is not None and params != {}:
         #     kwargs["params"] = params
 
-        print("kwargs[client]=[%s]" % kwargs)
+        logger.info("kwargs=%s" % kwargs)
 
         if method == 'GET':
-            return self.api_client_json.get(url)
+            return self.api_client_json.get(url, **kwargs)
         elif method == 'POST':
-            return self.api_client_json.post(
-                url,
-                **kwargs,  # type: ignore
-            )
+            return self.api_client_json.post(url, **kwargs)
         elif method == 'DELETE':
-            return self.api_client.delete(
-                url,
-                **kwargs,  # type: ignore
-            )
+            return self.api_client.delete(url, **kwargs)
 
         # return self.session.request(
         #     url=url,
@@ -366,7 +378,7 @@ class PFSenseAPIClient:
     ) -> APIResponse:
         """makes a call, returns the JSON blob as a dict"""
         response = self.call(url, method, payload)
-        # print("response=[%s]" % response)
+        # print("response=%s" % response)
         return APIResponse.parse_obj(response)
 
     def call_json(
@@ -377,7 +389,7 @@ class PFSenseAPIClient:
     ) -> Dict[str, Any]:
         """makes a call, returns the JSON blob as a dict"""
         response = self.call(url, method, payload)
-        # print("response=[%s]" % response)
+        # print("response=%s" % response)
         result: Dict[str, Any] = response
         return result
 
@@ -494,7 +506,7 @@ class PFSenseAPIClient:
     ) -> List[str]:
         dig_command = "dig +short %s @%s | grep '^[.0-9]*$'" % (hostname, dns_nameserver)
         if debug:
-            logger.debug("dig_command=[%s]" % dig_command)
+            logger.debug("dig_command=%s" % dig_command)
         a = subprocess.run(dig_command,
                            capture_output=True,
                            text=True,
@@ -505,7 +517,7 @@ class PFSenseAPIClient:
         else:
             sortie = a.stdout
             response = str(sortie).split(':')
-            # print("response=[%s]" % response)
+            # print("response=%s" % response)
             host_list = response[0].strip().split('\n')
             logger.info("host_list=%s" % host_list)
             return host_list
@@ -519,7 +531,7 @@ class PFSenseAPIClient:
         # ref: https://stackoverflow.com/questions/50168439/resolve-an-ip-from-a-specific-dns-server-in-python#50177214
 
         if debug:
-            logger.debug("hostname=[%s]" % hostname)
+            logger.debug("hostname=%s" % hostname)
             logger.debug("dns_nameservers=%s" % dns_nameservers)
 
         dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
@@ -541,7 +553,7 @@ class PFSenseAPIClient:
                 print("soa_record.answer=%s" % soa_record.answer)
 
                 if debug:
-                    logger.debug("__dns_nameserver_ip_list=[%s]" % __dns_nameserver_ip_list)
+                    logger.debug("__dns_nameserver_ip_list=%s" % __dns_nameserver_ip_list)
                 dns_nameserver_ip_list.extend(__dns_nameserver_ip_list)
 
         if debug:
@@ -608,7 +620,7 @@ class PFSenseAPIClient:
         kwargs: Dict[str, Any] = {"params": host_override_delete}
 
         if debug:
-            logger.debug("kwargs=[%s]" % kwargs)
+            logger.debug("kwargs=%s" % kwargs)
 
         host_override_result = self.delete_service_unbound_host_override(**kwargs)
         host_override_result_data: List[Dict[str, str]] = host_override_result.data
@@ -628,7 +640,7 @@ class PFSenseAPIClient:
 
         for host_override in host_override_list:
             if debug:
-                logger.debug("host_override=[%s]" % host_override)
+                logger.debug("host_override=%s" % host_override)
 
             host_override_id = host_override['id']
             self.delete_service_unbound_host_override_by_id(
@@ -664,7 +676,7 @@ def list_leases(
     client = get_client()
     lease_info = client.get_dhcpd_leases()
 
-    # print("lease_info=[%s]" % lease_info)
+    # print("lease_info=%s" % lease_info)
     lease_data: List[Dict[str, str]] = lease_info.data
 
     for lease in lease_data:
@@ -694,7 +706,7 @@ def get_system_api_version(
     api_version_info = client.get_system_api_version()
 
     if debug:
-        logger.debug("api_version_info=[%s]" % api_version_info)
+        logger.debug("api_version_info=%s" % api_version_info)
     api_version_data: Dict[str, str] = api_version_info.data
 
     logger.info(api_version_data)
@@ -710,7 +722,7 @@ def get_system_status(
     system_status_info = client.get_system_status()
 
     if debug:
-        logger.debug("system_status_info=[%s]" % system_status_info)
+        logger.debug("system_status_info=%s" % system_status_info)
     system_status_data: Dict[str, str] = system_status_info.data
 
     logger.info(system_status_data)
@@ -726,7 +738,7 @@ def get_gateway_status(
     gateway_status_info = client.get_gateway_status()
 
     if debug:
-        logger.debug("gateway_status_info=[%s]" % gateway_status_info)
+        logger.debug("gateway_status_info=%s" % gateway_status_info)
     gateway_status_data: List[Dict[str, str]] = gateway_status_info.data
 
     logger.info(gateway_status_data)
@@ -741,8 +753,7 @@ def get_interface_status(
     client = get_client()
     interface_status_info = client.get_interface_status()
 
-    if debug:
-        logger.debug("interface_status_info=[%s]" % interface_status_info)
+    logger.debug("interface_status_info=%s" % interface_status_info)
     interface_status_data: List[Dict[str, str]] = interface_status_info.data
 
     logger.info(interface_status_data)
@@ -758,7 +769,7 @@ def get_service_unbound_access_list(
     service_unbound_access_list_info = client.get_service_unbound_access_list()
 
     if debug:
-        logger.debug("service_unbound_access_list_info=[%s]" % service_unbound_access_list_info)
+        logger.debug("service_unbound_access_list_info=%s" % service_unbound_access_list_info)
     service_unbound_access_list_data: List[Dict[str, str]] = service_unbound_access_list_info.data
 
     logger.info(service_unbound_access_list_data)
@@ -775,13 +786,13 @@ def get_service_unbound_host_overrides(
     client = get_client()
     service_unbound_host_override_info = client.get_service_unbound_host_overrides()
 
-    # if debug:
-    #     logger.debug("service_unbound_host_override_info=[%s]" % service_unbound_host_override_info)
-    host_override_data: List[Dict[str, str]] = service_unbound_host_override_info.data
+    logger.debug("service_unbound_host_override_info=%s" % service_unbound_host_override_info)
+    # host_override_data: List[Dict[str, str]] = service_unbound_host_override_info.data
+    host_override_data: List[Dict[str, str]] = service_unbound_host_override_info
 
     for host_override in host_override_data:
         if debug:
-            logger.debug("host_override=[%s]" % host_override)
+            logger.debug("host_override=%s" % host_override)
         if find is not None:
             if find not in str(host_override.values()):
                 continue
@@ -824,7 +835,7 @@ def get_service_unbound_host_overrides_by_hostname(
 
     for host_override in host_override_data:
         if debug:
-            logger.debug("host_override=[%s]" % host_override)
+            logger.debug("host_override=%s" % host_override)
 
         linebreak = '='*100
         host_override_message = f"{linebreak}"
@@ -862,12 +873,12 @@ def get_configuration_history_status_log(
     configuration_history_status_info = client.get_configuration_history_status_log()
 
     if debug:
-        logger.debug("configuration_history_status_info=[%s]" % configuration_history_status_info)
+        logger.debug("configuration_history_status_info=%s" % configuration_history_status_info)
     log_status_data: List[Dict[str, str]] = configuration_history_status_info.data
 
     for log_item in log_status_data:
         if debug:
-            logger.debug("log_item=[%s]" % log_item)
+            logger.debug("log_item=%s" % log_item)
         if find is not None:
             if find not in str(log_item.values()):
                 continue
@@ -1003,7 +1014,7 @@ def add_service_unbound_host_override(
     kwargs: Dict[str, Any] = {"data": host_override}
 
     if debug:
-        logger.debug("kwargs=[%s]" % kwargs)
+        logger.debug("kwargs=%s" % kwargs)
 
     host_override_result = client.add_service_unbound_host_override(**kwargs)
     host_override_result_data: List[Dict[str, str]] = host_override_result.data
@@ -1035,7 +1046,7 @@ def delete_service_unbound_host_override(
     host_override_data: List[Dict[str, str]] = client.get_service_unbound_host_overrides()
     for host_override in host_override_data:
         if debug:
-            logger.debug("host_override=[%s]" % host_override)
+            logger.debug("host_override=%s" % host_override)
 
         if host.lower() != host_override["host"].lower():
             if debug:
@@ -1069,7 +1080,7 @@ def delete_service_unbound_host_override(
             # kwargs: Dict[str, Any] = {"params": host_override_delete}
             #
             # if debug:
-            #     logger.debug("kwargs=[%s]" % kwargs)
+            #     logger.debug("kwargs=%s" % kwargs)
             #
             # host_override_result = client.delete_service_unbound_host_override(**kwargs)
             # host_override_result_data: List[Dict[str, str]] = host_override_result.data
@@ -1098,7 +1109,7 @@ def delete_service_unbound_host_overrides_by_hostname(
 
     for host_override in host_override_list:
         if debug:
-            logger.debug("host_override=[%s]" % host_override)
+            logger.debug("host_override=%s" % host_override)
         host_override_id = host_override['id']
         logger.warning("Target:")
         logger.info("{:10} {}", host_override_id, host_override)
@@ -1197,11 +1208,11 @@ def sync_host_ip_list(
         debug=debug)
 
     if debug:
-        logger.debug("host_override_list=[%s]" % host_override_list)
+        logger.debug("host_override_list=%s" % host_override_list)
 
     for host_override in host_override_list:
         if debug:
-            logger.debug("host_override=[%s]" % host_override)
+            logger.debug("host_override=%s" % host_override)
         host_override_ip_list = host_override['ip']
         if host_override_ip_list != ip_list_string:
             host_override_id = host_override['id']
@@ -1222,7 +1233,7 @@ def sync_host_ip_list(
     kwargs: Dict[str, Any] = {"data": host_override}
 
     if debug:
-        logger.debug("kwargs=[%s]" % kwargs)
+        logger.debug("kwargs=%s" % kwargs)
 
     host_override_result = client.add_service_unbound_host_override(**kwargs)
     host_override_result_data: List[Dict[str, str]] = host_override_result.data
