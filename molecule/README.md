@@ -49,6 +49,23 @@ $ MOLECULE_DISTRO=redhat8 molecule test -s bootstrap-linux --destroy never
 $ MOLECULE_DISTRO=redhat8 molecule destroy -s bootstrap-linux
 ```
 
+## Typical role development cycle using molecule
+
+```shell
+## make sure no container exists first using `destroy` action
+$ tests/molecule_exec.sh centos8 destroy -s bootstrap-webmin
+## develop role and apply/test on new container using `test` assuming tests have already been defined; otherwise, use `converge` action
+$ tests/molecule_exec.sh centos8 converge -s bootstrap-webmin
+## if issue occurs with role such that in-container/manual testing needs to be performed/done, log/bash into the container using `login` action
+$ tests/molecule_exec.sh centos8 login -s bootstrap-webmin
+## assuming in-container/manual testing resolved the issue and the role has been updated with the necessary changes, 
+## now re-apply the `converge` using the role on the existing container to validate that the changes work as expected (assume idempotent role)
+$ tests/molecule_exec.sh centos8 converge -s bootstrap-webmin
+## if successful, destroy and test again using clean container to verify that the role works from image start 
+$ tests/molecule_exec.sh centos8 destroy -s bootstrap-webmin
+$ tests/molecule_exec.sh centos8 converge -s bootstrap-webmin
+```
+
 ### converge/test on role 'bootstrap-linux'
 
 ```shell
@@ -90,11 +107,13 @@ $ MOLECULE_DISTRO=ubuntu2204 --debug converge
 
 ```
 
-To log into container
+To log/bash into container
 
 ```shell
 $ molecule create
 $ molecule login
+$ MOLECULE_DISTRO=redhat8 molecule login
+$ tests/molecule_exec.sh centos8 login -s bootstrap-webmin
 ```
 
 ```shell
@@ -120,66 +139,66 @@ $ tests/molecule_exec.sh ubuntu2204 --debug converge
 ```
 
 ```shell
-MOLECULE_DISTRO=centos7 molecule --debug converge -s bootstrap-linux
-MOLECULE_DISTRO=centos7 molecule --debug create -s bootstrap-linux
-MOLECULE_DISTRO=centos7 molecule --debug destroy -s bootstrap-linux
-MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux
-MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux --destroy never
-MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux-package --destroy never
-MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-docker --destroy never
-MOLECULE_DISTRO=centos7 molecule --debug verify -s bootstrap-linux
-MOLECULE_DISTRO=centos7 molecule --debug verify -s bootstrap-linux --destroy never
-MOLECULE_DISTRO=centos8 molecule --debug converge -s bootstrap-docker
-MOLECULE_DISTRO=centos8 molecule --debug destroy -s bootstrap-linux
-MOLECULE_DISTRO=centos8 molecule --debug test -s bootstrap-linux --destroy never
-MOLECULE_DISTRO=centos8 molecule destroy --all
-MOLECULE_DISTRO=debian9 MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap-linux
-MOLECULE_DISTRO=debian9 MOLECULE_DOCKER_COMMAND=/usr/sbin/init molecule --debug converge -s bootstrap-linux
-MOLECULE_DISTRO=debian9 molecule --debug -s bootstrap-linux destroy --all
-MOLECULE_DISTRO=debian9 molecule --debug converge -s bootstrap-linux
-MOLECULE_DISTRO=debian9 molecule --debug destroy --all -s bootstrap-linux
-MOLECULE_DISTRO=debian9 molecule --debug destroy -s bootstrap-linux
-MOLECULE_DISTRO=debian9 molecule --debug destroy -s bootstrap-linux destroy
-MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap-linux
-MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap-linux --destroy never
-MOLECULE_IMAGE=media.johnson.int:5000/centos8-systemd-python molecule --debug create -s bootstrap-linux --destroy never
-MOLECULE_IMAGE_NAMESPACE=media.johnson.int:5000 MOLECULE_DISTRO=centos8 molecule --debug create -s bootstrap-linux --destroy never
-MOLECULE_DISTRO=redhat8 MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap-linux
-MOLECULE_DISTRO=redhat8 molecule --debug -s bootstrap-linux converge
-MOLECULE_DISTRO=redhat8 molecule --debug converge --all -s bootstrap-linux
-MOLECULE_DISTRO=redhat8 molecule --debug converge -s bootstrap-linux
-MOLECULE_DISTRO=redhat8 molecule --debug converge -s bootstrap-docker
-MOLECULE_DISTRO=redhat8 molecule --debug converge -s bootstrap-docker --destroy never
-MOLECULE_DISTRO=redhat8 molecule --debug create -s bootstrap-linux
-MOLECULE_DISTRO=redhat8 molecule --debug destroy --all
-MOLECULE_DISTRO=redhat8 molecule --debug destroy --all -s bootstrap-linux
-MOLECULE_DISTRO=redhat8 molecule --debug destroy --all -s bootstrap-docker
-MOLECULE_DISTRO=redhat8 molecule --debug destroy -s bootstrap-linux
-MOLECULE_DISTRO=redhat8 molecule --debug destroy -s bootstrap-docker
-MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-linux --destroy never
-MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-docker --destroy never
-MOLECULE_DISTRO=redhat8 molecule create
-MOLECULE_DISTRO=redhat8 molecule destroy
-MOLECULE_DISTRO=redhat8 molecule destroy --all
-MOLECULE_DISTRO=redhat8 molecule login
-MOLECULE_DISTRO=ubuntu2204 molecule --debug converge -s bootstrap-docker
-MOLECULE_DISTRO=ubuntu2204 molecule destroy
-MOLECULE_DISTRO=ubuntu2204 molecule destroy --all
-MOLECULE_DISTRO=centos8 molecule --debug destroy -s bootstrap-linux
-MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_DISTRO=centos8 molecule --debug create -s bootstrap-linux
-MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_DISTRO=centos8 molecule --debug test -s bootstrap-linux --destroy never
-ansible-galaxy collection install -vvv -fr collections/requirements.molecule.yml 
-cat requirements.molecule.txt 
-echo $MOLECULE_DISTRO
-echo $MOLECULE_IMAGE_NAMESPACE
-molecule --version
-molecule destroy
-molecule destroy --all
-molecule/docker-image-sync.sh centos7-systemd-python
-molecule/docker-image-sync.sh centos8-systemd-python
-molecule/docker-image-sync.sh media.johnson.int:5000/centos8-systemd-python
-molecule/docker-image-sync.sh centos8-systemd-python hub.docker.com
-molecule/docker-image-sync.sh centos8-systemd-python registry.hub.docker.com
-molecule/docker-image-sync.sh lj020326/centos8-systemd-python registry.hub.docker.com
-molecule/docker-image-sync.sh redhat8-systemd-python
+$ MOLECULE_DISTRO=centos7 molecule --debug converge -s bootstrap-linux
+$ MOLECULE_DISTRO=centos7 molecule --debug create -s bootstrap-linux
+$ MOLECULE_DISTRO=centos7 molecule --debug destroy -s bootstrap-linux
+$ MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux
+$ MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux --destroy never
+$ MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-linux-package --destroy never
+$ MOLECULE_DISTRO=centos7 molecule --debug test -s bootstrap-docker --destroy never
+$ MOLECULE_DISTRO=centos7 molecule --debug verify -s bootstrap-linux
+$ MOLECULE_DISTRO=centos7 molecule --debug verify -s bootstrap-linux --destroy never
+$ MOLECULE_DISTRO=centos8 molecule --debug converge -s bootstrap-docker
+$ MOLECULE_DISTRO=centos8 molecule --debug destroy -s bootstrap-linux
+$ MOLECULE_DISTRO=centos8 molecule --debug test -s bootstrap-linux --destroy never
+$ MOLECULE_DISTRO=centos8 molecule destroy --all
+$ MOLECULE_DISTRO=debian9 MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap-linux
+$ MOLECULE_DISTRO=debian9 MOLECULE_DOCKER_COMMAND=/usr/sbin/init molecule --debug converge -s bootstrap-linux
+$ MOLECULE_DISTRO=debian9 molecule --debug -s bootstrap-linux destroy --all
+$ MOLECULE_DISTRO=debian9 molecule --debug converge -s bootstrap-linux
+$ MOLECULE_DISTRO=debian9 molecule --debug destroy --all -s bootstrap-linux
+$ MOLECULE_DISTRO=debian9 molecule --debug destroy -s bootstrap-linux
+$ MOLECULE_DISTRO=debian9 molecule --debug destroy -s bootstrap-linux destroy
+$ MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap-linux
+$ MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap-linux --destroy never
+$ MOLECULE_IMAGE=media.johnson.int:5000/centos8-systemd-python molecule --debug create -s bootstrap-linux --destroy never
+$ MOLECULE_IMAGE_NAMESPACE=media.johnson.int:5000 MOLECULE_DISTRO=centos8 molecule --debug create -s bootstrap-linux --destroy never
+$ MOLECULE_DISTRO=redhat8 MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8 molecule --debug -s bootstrap-linux converge
+$ MOLECULE_DISTRO=redhat8 molecule --debug converge --all -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8 molecule --debug converge -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8 molecule --debug converge -s bootstrap-docker
+$ MOLECULE_DISTRO=redhat8 molecule --debug converge -s bootstrap-docker --destroy never
+$ MOLECULE_DISTRO=redhat8 molecule --debug create -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8 molecule --debug destroy --all
+$ MOLECULE_DISTRO=redhat8 molecule --debug destroy --all -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8 molecule --debug destroy --all -s bootstrap-docker
+$ MOLECULE_DISTRO=redhat8 molecule --debug destroy -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8 molecule --debug destroy -s bootstrap-docker
+$ MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-linux --destroy never
+$ MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-docker --destroy never
+$ MOLECULE_DISTRO=redhat8 molecule create
+$ MOLECULE_DISTRO=redhat8 molecule destroy
+$ MOLECULE_DISTRO=redhat8 molecule destroy --all
+$ MOLECULE_DISTRO=redhat8 molecule login
+$ MOLECULE_DISTRO=ubuntu2204 molecule --debug converge -s bootstrap-docker
+$ MOLECULE_DISTRO=ubuntu2204 molecule destroy
+$ MOLECULE_DISTRO=ubuntu2204 molecule destroy --all
+$ MOLECULE_DISTRO=centos8 molecule --debug destroy -s bootstrap-linux
+$ MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_DISTRO=centos8 molecule --debug create -s bootstrap-linux
+$ MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_DISTRO=centos8 molecule --debug test -s bootstrap-linux --destroy never
+$ ansible-galaxy collection install -vvv -fr collections/requirements.molecule.yml 
+$ cat requirements.molecule.txt 
+$ echo $MOLECULE_DISTRO
+$ echo $MOLECULE_IMAGE_NAMESPACE
+$ molecule --version
+$ molecule destroy
+$ molecule destroy --all
+$ molecule/docker-image-sync.sh centos7-systemd-python
+$ molecule/docker-image-sync.sh centos8-systemd-python
+$ molecule/docker-image-sync.sh media.johnson.int:5000/centos8-systemd-python
+$ molecule/docker-image-sync.sh centos8-systemd-python hub.docker.com
+$ molecule/docker-image-sync.sh centos8-systemd-python registry.hub.docker.com
+$ molecule/docker-image-sync.sh lj020326/centos8-systemd-python registry.hub.docker.com
+$ molecule/docker-image-sync.sh redhat8-systemd-python
 ```

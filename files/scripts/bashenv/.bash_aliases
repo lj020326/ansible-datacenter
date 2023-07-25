@@ -261,9 +261,11 @@ alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
 ## use with host:port
 #alias fetch-and-import-site-cert="sudo ~/bin/fetch_and_import_site_cert_pem.sh"
 ## use with host:port
-alias importsitecert="sudo ~/bin/import_site_cert.sh"
+alias importsitecerts="sudo ~/bin/install_site_cacerts.sh"
 ## use with host:port
 alias importsslcert="sudo ~/bin/import_site_cert.sh"
+
+alias syncpythoncerts="sudo ~/bin/sync-python-certs-with-system-cabundle.sh"
 
 if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
   echo "${log_prefix} setting aliases specific to MSYS/MINGW platform"
@@ -325,6 +327,10 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
   ## ref: https://www.servernoobs.com/how-to-find-and-kill-all-zombie-processes/
   alias getpidparents="pstree -paul"
   alias getparentpids="pstree -paul"
+
+  alias find="gfind"
+  alias sed="gsed"
+  alias grep="ggrep"
 
 else  ## linux
   # alias venv2="virtualenv --python=/usr/bin/python2.7 venv"
