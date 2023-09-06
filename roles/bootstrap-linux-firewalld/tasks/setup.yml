@@ -1,36 +1,33 @@
 ---
 
-- set_fact:
-    __log_prefix_local: "Firewalld | Setup |"
-
-- name: "{{ __log_prefix_local }} Display firewalld_packages"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Display firewalld_packages"
   debug:
     var: firewalld_packages
 
-- name: "{{ __log_prefix_local }} Install firewalld and firewalld-python packages"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Install firewalld and firewalld-python packages"
   package:
     name: "{{ firewalld_packages }}"
     state: present
 
-- name: "{{ __log_prefix_local }} Install firewalld"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Install firewalld"
   package:
     name: firewalld
     state: present
 
-- name: "{{ __log_prefix_local }} Enable firewalld"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Enable firewalld"
   service:
     name: firewalld
     state: started
     enabled: yes
 
-- name: "{{ __log_prefix_local }} Initialize firewalld config"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Initialize firewalld config"
   template:
     src: firewalld.conf.j2
     dest: "{{ firewalld_conf_file }}"
     backup: yes
   notify: reload firewalld
 
-- name: "{{ __log_prefix_local }} Customize firewalld.conf according to any firewalld_configs settings"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Customize firewalld.conf according to any firewalld_configs settings"
   ini_file:
     path: "{{ firewalld_conf_file }}"
     no_extra_spaces: yes
@@ -40,7 +37,7 @@
   with_dict: "{{ firewalld_configs }}"
   notify: reload firewalld
 
-#- name: "{{ __log_prefix_local }} Configure firewalld custom services"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld custom services"
 #  when: item.custom|d(false)
 #  template:
 #    src: service_template.xml.j2
@@ -51,15 +48,15 @@
 #  loop_control:
 #    label: "{{ item.name }}"
 #
-#- name: "{{ __log_prefix_local }} reload firewalld"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} reload firewalld"
 #  command: firewall-cmd --reload
 #
 
-- name: "{{ __log_prefix_local }} Display __firewalld_zones"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Display __firewalld_zones"
   debug:
     var: __firewalld_zones
 
-#- name: "{{ __log_prefix_local }} Configure firewalld zones"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld zones"
 #  template:
 #    src: zone_template.xml.j2
 #    dest: /etc/firewalld/zones/{{ item.name }}.xml
@@ -70,7 +67,7 @@
 #    label: "{{ item.name }}"
 #  register: __firewalld_zone_config_results
 
-- name: "{{ __log_prefix_local }} Configure firewalld zones"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld zones"
   ansible.posix.firewalld:
     zone: "{{ item.name }}"
     state: present
@@ -81,24 +78,24 @@
     label: "{{ item.name }}"
   register: __firewalld_zone_config_results
 
-- name: "{{ __log_prefix_local }} Display __firewalld_zone_config_results"
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Display __firewalld_zone_config_results"
   debug:
     var: __firewalld_zone_config_results
 
 #### ref: https://github.com/ansible/ansible/issues/16305#issuecomment-475220643
-##- name: "{{ __log_prefix_local }} "Move original {{ __firewalld_zone_config_results.backup }} zone file backup to backup directory {{ firewalld_backup_dir }}/zones""
+##- name: "{{ __bootstrap_firewalld__log_prefix_setup }} "Move original {{ __firewalld_zone_config_results.backup }} zone file backup to backup directory {{ firewalld_backup_dir }}/zones""
 ##  shell: >
 ##    mkdir --parents {{ firewalld_backup_dir }}/zones &&
 ##    mv {{ firewalld_zone_backup.backup }} {{ firewalld_backup_dir }}/zones/{{ firewalld_zone_backup.backup }}
 ##  when: firewalld_zone_backup.backup
 #
-#- name: "{{ __log_prefix_local }} Get zones in /etc/firewalld/zones"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Get zones in /etc/firewalld/zones"
 #  shell: ls -1 /etc/firewalld/zones/ | grep -E .xml$
 #  register: get_firewalld_zones
 #  changed_when: false
 #  failed_when: false
 #
-#- name: "{{ __log_prefix_local }} Remove unmanaged zones in /etc/firewalld/zones"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Remove unmanaged zones in /etc/firewalld/zones"
 #  file:
 #    path: "/etc/firewalld/zones/{{ item }}"
 #    state: absent
@@ -106,11 +103,11 @@
 #  notify: reload firewalld
 #  when: item|replace('.xml','') not in __firewalld_zones.values() | list |map(attribute='name')|list
 #
-#- name: "{{ __log_prefix_local }} "Display firewalld_ipsets""
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} "Display firewalld_ipsets""
 #  debug:
 #    var: firewalld_ipsets
 #
-#- name: "{{ __log_prefix_local }} Configure firewalld ipsets"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld ipsets"
 #  template:
 #    src: ipset_template.xml.j2
 #    dest: /etc/firewalld/ipsets/{{ item.name }}.xml
@@ -120,13 +117,13 @@
 #  loop_control:
 #    label: "{{ item.name }}"
 #
-#- name: "{{ __log_prefix_local }} Get ipsets in /etc/firewalld/ipsets"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Get ipsets in /etc/firewalld/ipsets"
 #  shell: ls -1 /etc/firewalld/ipsets/ | grep -E .xml$
 #  register: get_firewalld_ipsets
 #  changed_when: false
 #  failed_when: false
 #
-#- name: "{{ __log_prefix_local }} Remove unmanaged ipsets in /etc/firewalld/ipsets"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Remove unmanaged ipsets in /etc/firewalld/ipsets"
 #  file:
 #    path: "/etc/firewalld/ipsets/{{ item }}"
 #    state: absent
@@ -134,7 +131,7 @@
 #  notify: reload firewalld
 #  when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
 
-#- name: "{{ __log_prefix_local }} Restart firewalld"
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Restart firewalld"
 #  service:
 #    name: firewalld
 #    state: restarted
