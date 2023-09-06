@@ -396,6 +396,7 @@ alias syncwork="sync-sshfs-work.sh"
 alias syncworkdns="sync-dns-hosts-to-pfsense.sh"
 
 alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
+alias getcapwd="cagetpwd"
 
 #alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
 alias sshansiblework="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
