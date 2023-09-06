@@ -540,7 +540,7 @@ unset -f explodeansibletest || true
 function explodeansibletest() {
 
   recent=$(find . -name \*.py | head -n1) && \
-  ${recent} explode && \
+  python3 ${recent} explode && \
   cat debug_dir/args | jq > debug_dir/args.json && \
   cp debug_dir/args.json debug_dir/args && \
   cp debug_dir/args.json debug_dir/args.orig.json

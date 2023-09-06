@@ -3,7 +3,6 @@
 
 ## Install dependency
 
-
 ### Debugging api
 
 ### Basic Auth
@@ -23,3 +22,8 @@ Then run the curl test:
 ```shell
 curl -k --proxy localhost:9090 -H "Authorization: CLIENT_ID_HERE CLIENT_TOKEN_HERE" -X GET https://pfsense.johnson.int/api/v1/system/arp 
 ```
+
+
+## Reference
+
+- https://github.com/jaredhendrickson13/pfsense-api
