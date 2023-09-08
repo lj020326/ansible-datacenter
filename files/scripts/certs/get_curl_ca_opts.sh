@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 
-#UNAME=$(/bin/uname -s | tr "[:upper:]" "[:lower:]")
+## https://stackoverflow.com/questions/26988262/best-way-to-find-the-os-name-and-version-on-a-unix-linux-platform#26988390
 UNAME=$(uname -s | tr "[:upper:]" "[:lower:]")
 PLATFORM=""
 DISTRO=""
+
+if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
+  if [ "$EUID" -ne 0 ]; then
+    echo "Must run this script as root. run 'sudo $SCRIPT_NAME'"
+    exit
+  fi
+fi
 
 CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted
 CACERT_TRUST_IMPORT_DIR=/etc/pki/ca-trust/source/anchors
@@ -13,7 +20,7 @@ CACERT_TRUST_FORMAT="pem"
 ## ref: https://askubuntu.com/questions/459402/how-to-know-if-the-running-platform-is-ubuntu-or-centos-with-help-of-a-bash-scri
 case "${UNAME}" in
     linux*)
-      if type "lsb_release" > /dev/null; then
+      if type "lsb_release" > /dev/null 2>&1; then
         LINUX_OS_DIST=$(lsb_release -a | tr "[:upper:]" "[:lower:]")
       else
         LINUX_OS_DIST=$(awk -F= '/^NAME/{print $2}' /etc/os-release | tr "[:upper:]" "[:lower:]")
@@ -30,14 +37,15 @@ case "${UNAME}" in
           CACERT_TRUST_COMMAND="update-ca-certificates"
           CACERT_TRUST_FORMAT="crt"
           ;;
-        *redhat* | *centos* | *fedora* )
+        *redhat* | *"red hat"* | *centos* | *fedora* )
           # RedHat Family
           CACERT_TRUST_DIR=/etc/pki/tls/certs
           #CACERT_TRUST_IMPORT_DIR=/etc/pki/ca-trust/extracted/openssl
           #CACERT_BUNDLE=${CACERT_TRUST_DIR}/ca-bundle.trust.crt
           #CACERT_TRUST_DIR=/etc/pki/ca-trust/extracted/pem
           CACERT_TRUST_IMPORT_DIR=/etc/pki/ca-trust/source/anchors
-          CACERT_BUNDLE=${CACERT_TRUST_DIR}/tls-ca-bundle.pem
+          #CACERT_BUNDLE=${CACERT_TRUST_DIR}/tls-ca-bundle.pem
+          CACERT_BUNDLE=${CACERT_TRUST_DIR}/ca-bundle.trust.crt
           DISTRO=$(cat /etc/system-release)
           CACERT_TRUST_COMMAND="update-ca-trust extract"
           CACERT_TRUST_FORMAT="pem"
@@ -69,14 +77,14 @@ case "${UNAME}" in
       PLATFORM="UNKNOWN:${UNAME}"
 esac
 
-writeToLog "UNAME=${UNAME}"
-writeToLog "LINUX_OS_DIST=${OS_DIST}"
-writeToLog "PLATFORM=[${PLATFORM}]"
-writeToLog "DISTRO=[${DISTRO}]"
-writeToLog "CACERT_TRUST_DIR=${CACERT_TRUST_DIR}"
-writeToLog "CACERT_TRUST_IMPORT_DIR=${CACERT_TRUST_IMPORT_DIR}"
-writeToLog "CACERT_BUNDLE=${CACERT_BUNDLE}"
-writeToLog "CACERT_TRUST_COMMAND=${CACERT_TRUST_COMMAND}"
+echo "==> UNAME=${UNAME}"
+echo "==> LINUX_OS_DIST=${OS_DIST}"
+echo "==> PLATFORM=[${PLATFORM}]"
+echo "==> DISTRO=[${DISTRO}]"
+echo "==> CACERT_TRUST_DIR=${CACERT_TRUST_DIR}"
+echo "==> CACERT_TRUST_IMPORT_DIR=${CACERT_TRUST_IMPORT_DIR}"
+echo "==> CACERT_BUNDLE=${CACERT_BUNDLE}"
+echo "==> CACERT_TRUST_COMMAND=${CACERT_TRUST_COMMAND}"
 
 CURL_CA_OPTS="--capath ${CACERT_TRUST_DIR} --cacert ${CACERT_BUNDLE}"
 echo "==> CURL_CA_OPTS=${CURL_CA_OPTS}"

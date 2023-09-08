@@ -3,12 +3,14 @@
 ## ref: https://stackoverflow.com/questions/26423515/how-to-automatically-update-your-docker-containers-if-base-images-are-updated
 
 set -e
-BASE_IMAGE=${1:-registry}
+
+BASE_IMAGE=${1:-alpine:latest}
 REGISTRY=${2:-media.johnson.int:5000}
 #REGISTRY="registry.hub.docker.com"
 IMAGE="${REGISTRY}/${BASE_IMAGE}"
 CID=$(docker ps | grep "${IMAGE}" | awk '{print $1}')
 docker pull "${IMAGE}"
+## `docker --log-level debug pull alpine:latest`
 
 for im in $CID
 do
