@@ -43,7 +43,7 @@ CACERT_TRUST_FORMAT="pem"
 ## ref: https://askubuntu.com/questions/459402/how-to-know-if-the-running-platform-is-ubuntu-or-centos-with-help-of-a-bash-scri
 case "${UNAME}" in
     linux*)
-      if type "lsb_release" > /dev/null; then
+      if type "lsb_release" > /dev/null 2>&1; then
         LINUX_OS_DIST=$(lsb_release -a | tr "[:upper:]" "[:lower:]")
       else
         LINUX_OS_DIST=$(awk -F= '/^NAME/{print $2}' /etc/os-release | tr "[:upper:]" "[:lower:]")

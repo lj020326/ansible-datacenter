@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
 
-TARGET_HOST=${1:-media.johnson.int}
-TARGET_PORT=${2:-5000}
+################
+## ref: https://github.com/lj020326/ansible-datacenter/blob/main/files/scripts/docker-registry/validate-registry-endpoint.sh
+## ref: https://github.com/lj020326/ansible-datacenter/tree/main/docs/docker/how-the-docker-pull-command-works-under-the-covers-with-http-headers-to-illustrate-the-process.md
+################
+
+#TARGET_HOST=${1:-media.example.int}
+#TARGET_PORT=${2:-5000}
+TARGET_HOST=${1:-registry-1.docker.io}
+TARGET_PORT=${2:-443}
+DOCKER_REGISTRY_USERNAME=${3:-""}
+DOCKER_REGISTRY_PASSWORD=${4:-""}
+
 #CONTEXT_PATH=${3:-"v2/"}
 CONTEXT_PATH=${3:-"v2/_catalog"}
 
 ENDPOINT=${TARGET_HOST}:${TARGET_PORT}
 
-DOCKER_REGISTRY_USERNAME=${DOCKER_REGISTRY_USERNAME:-"testuser"}
-DOCKER_REGISTRY_PASSWORD=${DOCKER_REGISTRY_PASSWORD:-"testpassword"}
-
-CREDS=${DOCKER_REGISTRY_USERNAME}:${DOCKER_REGISTRY_PASSWORD}
-CURL_CRED_ARGS="-u ${CREDS}"
+if [ "${DOCKER_REGISTRY_USERNAME}" != "" ];then
+  CURL_CREDS=${DOCKER_REGISTRY_USERNAME}:${DOCKER_REGISTRY_PASSWORD}
+fi
 
 SCRIPT_DIR="$(dirname "$0")"
 source ${SCRIPT_DIR}/get-curl-ca-opts.sh
@@ -27,20 +35,30 @@ openssl s_client -servername ${TARGET_HOST} -connect ${ENDPOINT} < /dev/null 2>/
 ## ref: https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server
 #openssl s_client -connect ${ENDPOINT} -key our_private_key.pem -showcerts -cert our_server-signed_cert.pem
 
+curlCmdNoSslVerify="curl"
+if [[ -n ${CURL_CREDS} ]]; then
+  curlCmdNoSslVerify+=" -u ${CURL_CREDS}"
+fi
+curlCmdNoSslVerify+=" -vkIsS https://${ENDPOINT}/${CONTEXT_PATH}"
+
 echo "*******************"
 echo "*******************"
 echo "*******************"
 echo "performing curl without cert validation on endpoint ${ENDPOINT}"
-echo "curl -u ${CREDS} -vkIsS https://${ENDPOINT}/${CONTEXT_PATH}"
-curl -u ${CREDS} -vkIsS https://${ENDPOINT}/${CONTEXT_PATH}
+echo "curlCmdNoSslVerify=${curlCmdNoSslVerify}"
+eval "${curlCmdNoSslVerify}"
+
+curlCmd="curl"
+if [[ -n ${CURL_CREDS} ]]; then
+  curlCmd+=" -u ${CURL_CREDS}"
+fi
+curlCmd+=" ${CURL_CA_OPTS}"
+curlCmd+=" -vs https://${ENDPOINT}/${CONTEXT_PATH} | jq"
 
 echo "*******************"
 echo "*******************"
 echo "*******************"
 echo "performing curl with cert validation on endpoint ${ENDPOINT}"
 ## ref: https://stackoverflow.com/questions/11548336/openssl-verify-return-code-20-unable-to-get-local-issuer-certificate/39536777
-#echo "curl -u ${CREDS} ${CURL_CA_OPTS} -vIsS https://${ENDPOINT}/${CONTEXT_PATH}"
-#curl -u ${CREDS} ${CURL_CA_OPTS} -vIsS https://${ENDPOINT}/${CONTEXT_PATH}
-
-echo "curl -u ${CREDS} ${CURL_CA_OPTS} -vs https://${ENDPOINT}/${CONTEXT_PATH} | jq"
-curl -u ${CREDS} ${CURL_CA_OPTS} -vs https://${ENDPOINT}/${CONTEXT_PATH} | jq
+echo "curlCmd=${curlCmd}"
+eval "${curlCmd}"
