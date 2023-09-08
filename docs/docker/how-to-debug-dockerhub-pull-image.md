@@ -78,7 +78,8 @@ sha256:5ef84fd2...
 If you have Docker credentials (`${USERNAME}`), you may push your image to Docker’s registry (`hub.docker.com`):
 
 ```shell
-docker tag ${IMAGE}:${TAG} ${USERNAME}/${IMAGE}:${TAG}docker push ${USERNAME}/${IMAGE}:${TAG}
+$ docker tag ${IMAGE}:${TAG} ${USERNAME}/${IMAGE}:${TAG}
+$ docker push ${USERNAME}/${IMAGE}:${TAG}
 ```
 
 Here’s how this looks for me:
@@ -89,7 +90,7 @@ dockerhub
 
 The UI looks good but it appears to lack functionality for drilling into manifests and layers. Fortunately, there’s a Registry API and this doc is helpful in using it:
 
-`[https://success.docker.com/article/how-do-i-authenticate-with-the-v2-api](https://success.docker.com/article/how-do-i-authenticate-with-the-v2-api)`
+[https://success.docker.com/article/how-do-i-authenticate-with-the-v2-api](https://success.docker.com/article/how-do-i-authenticate-with-the-v2-api)
 
 For continuity, I’ll repro some of those examples here:
 
@@ -132,7 +133,7 @@ $ curl \
 
 Let’s see what the nice folks on Stackoverflow have to say:
 
-`[https://stackoverflow.com/questions/55269256/how-to-get-manifests-using-http-api-v2](https://stackoverflow.com/questions/55269256/how-to-get-manifests-using-http-api-v2)`
+[https://stackoverflow.com/questions/55269256/how-to-get-manifests-using-http-api-v2](https://stackoverflow.com/questions/55269256/how-to-get-manifests-using-http-api-v2)
 
 Because I’m unable to pull the manifest, I can’t explore further corroborating the manifest on dockerhub.
 
@@ -178,14 +179,16 @@ $ curl \
 If you have access to a Google Cloud Platform project, you can use Google Container Registry too:
 
 ```shell
-$ docker tag ${IMAGE}:${TAG} gcr.io/${PROJECT}/${IMAGE}:${TAG}docker push gcr.io/${PROJECT}/${IMAGE}:${TAG}v1: digest: sha256:2f93667f... size: 949
+$ docker tag ${IMAGE}:${TAG} gcr.io/${PROJECT}/${IMAGE}:${TAG}
+$ docker push gcr.io/${PROJECT}/${IMAGE}:${TAG}
+v1: digest: sha256:2f93667f... size: 949
 ```
 
 **NB** The digest (`sha256:2f9e667f…`) that’s provided to us upon completion of the push.
 
 Here’s how this looks for me using the Cloud Console:
 
-`[https://console.cloud.google.com/gcr/images/${PROJECT}](https://console.cloud.google.com/gcr/images/$%7BPROJECT%7D)`
+[https://console.cloud.google.com/gcr/images/${PROJECT}](https://console.cloud.google.com/gcr/images/$%7BPROJECT%7D)
 
 ![](./img/1*D6nioooF_DCiuQyeH5r8-w.png)
 
