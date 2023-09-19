@@ -102,9 +102,12 @@ alias prettyjson='python3 -m json.tool'
 
 ## ref: https://stackoverflow.com/questions/19551908/finding-duplicate-files-according-to-md5-with-bash
 ## ref: https://superuser.com/questions/259148/bash-find-duplicate-files-mac-linux-compatible
-alias finddupes="find . -not -empty -type f -printf '%s\n' | sort -rn | uniq -d |\
-xargs -I{} -n1 find . -type f -size {}c -print0 | xargs -0 md5sum |\
-sort | uniq -w32 --all-repeated=separate"
+alias find_dupe_files="find . -not -empty -type f -printf '%s\n' | sort -rn | uniq -d |\
+  xargs -I{} -n1 find . -type f -size {}c -print0 | xargs -0 md5sum |\
+  sort | uniq -w32 --all-repeated=separate"
+
+alias find_old_dirs="find . -mtime +14 -type d"
+alias delete_old_dirs="find . -mtime +14 -type d | xargs rm -f -r;"
 
 alias systemctl-list='systemctl list-unit-files | sort | grep enabled'
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
