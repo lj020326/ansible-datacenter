@@ -63,7 +63,9 @@ If however `item.state` is defined or a more specific package name (eg
 `item.apt`) these will be used instead. If you want a package to be ignored for
 some package managers you can add `***_ignore`: yes.
 
-##### `bootstrap_linux_package__package_list` example
+#### Examples
+
+##### `bootstrap_linux_package__package_list`
 
 ```yaml
 bootstrap_linux_package__package_list:
@@ -78,6 +80,23 @@ bootstrap_linux_package__package_list:
     pacman: package3_pacman_name
     portage: package3_portage_name
 ```
+
+#####
+
+
+##### `bootstrap_linux_package__custom_repo_list`
+
+```yaml
+bootstrap_linux_package__custom_repo_list:
+  apt:
+    - name: HAProxy
+      repo_url: "deb https://haproxy.debian.net bullseye-backports-2.6 main"
+      key_url: "https://haproxy.debian.net/bernat.debian.org.gpg"
+      state: present
+      filename: haproxy
+  yum: []
+```
+
 
 ## Dependencies
 

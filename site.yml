@@ -1,9 +1,37 @@
 ---
 
+#####################
+## IMPORTANT NOTES:
+##
+## The `untagged` tag is used to run the `common` plays.
+## It is implicitly defined by ansible for any plays that do not have tags assigned in the playbook.
+##
+## The `untagged` plays are mostly meant for target host plays where the ansible machine credential
+## has already been set up.
+##
+## exception use cases include plays that are:
+## - run on the ansible controller/localhost and do not include non-controller/localhost target hosts
+## - API related: (1) cloud API, (2) vcenter/vmware API, etc,
+## - initial ansible user and/or ssh-key setup plays for ansible to connect to newly created hosts
+##
+## E.g., specific play tags in site.yml that meet these criteria include
+## (1) bootstrap-vcenter
+## (2) bootstrap-vm
+## (3) bootstrap-ansible-user
+## and others
+##
+## All such plays do not require the common plays to run.
+##
+## The job template/pipeline responsible for launching each play tag should specify
+## whether to include the `untagged` tag based on the use-case.
+##
+## Using this `untagged` tag convention allows for all the aforementioned use cases to be included
+## in a single site.yml
+##
+
 - name: "Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'"
   hosts: all,!local,!node_offline
-  tags: always
-  ## https://issues.jenkins-ci.org/browse/JENKINS-54557
+#  tags: always
   ignore_unreachable: yes
   gather_facts: no
   roles:
@@ -16,11 +44,9 @@
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
 - name: "Apply common groups and vars"
-  tags: always
+#  tags: always
   hosts: all,!local,!node_offline
-#  hosts: all,!node_offline
-#  ignore_unreachable: yes
-#  gather_facts: yes
+#  gather_facts: no
   roles:
     - role: apply-common-groups
       gather_facts: yes
@@ -28,31 +54,66 @@
         - not apply_common_groups_exclude|d(False)|bool
         - inventory_hostname in ansible_play_hosts
 
-## Debugging purposes: print all environment variables
-## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
-- name: "Debug: Print environment variables"
-  hosts: all,!node_offline
+- name: "Display controller vars"
+  hosts: localhost
   tags:
+    - display-controller-vars
+  tasks:
+    - name: "Display controller vars - excluding sensitive and/or global scope keys 
+             (e.g., '.*token.*', '.*password.*', '.*private_key.*', etc)"
+      debug:
+        var: vars | dict2items 
+              | rejectattr('key', 'match', '.*vault.*') 
+              | rejectattr('key', 'match', '.*token.*') 
+              | rejectattr('key', 'match', '.*password.*') 
+              | rejectattr('key', 'match', '.*private_key.*') 
+              | list | items2dict
+
+- name: "Display controller environment variables"
+  hosts: localhost
+  tags:
+    - display-ansible-env
     - display-envvars
     - debug-envvars
     - debug-env-vars
   tasks:
-    - name: Print env var debug information
-      when: inventory_hostname in ansible_play_hosts
+    - name: "Display ansible_env - excluding sensitive and/or global scope keys 
+             (e.g., '.*TOKEN.*', '.*PASSWORD.*', '.*PRIVATE_KEY.*', etc)"
       debug:
-        var: environment
+        var: ansible_env | dict2items 
+              | rejectattr('key', 'match', '.*TOKEN.*') 
+              | rejectattr('key', 'match', '.*PASSWORD.*') 
+              | rejectattr('key', 'match', '.*PRIVATE_KEY.*') 
+              | list | items2dict
+
+#    ## Debugging purposes: print all environment variables
+#    ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
+#    - name: "Display controller environment variables"
+#      tasks:
+#        - name: Print env var debug information
+#          debug:
+#            var: environment
 
 - name: "Display hostvars"
   hosts: all,!node_offline
+  become: false
   gather_facts: true
   tags:
+    - display-hostvars
     - debug-hostvars
     - display-hostvars
   tasks:
-    - name: Print host variable information
+    ## ref: https://stackoverflow.com/questions/53264221/in-ansible-how-to-filter-a-dictionary-based-on-regex-pattern-on-the-keys
+    - name: "Display host variables - excluding sensitive and/or global scope keys 
+             (e.g., `.*vault.*`, '.*private_key.*', 'groups', '.*password.*', etc)"
       debug:
-        var: hostvars[inventory_hostname]
-      tags: debug_info
+        var: hostvars[inventory_hostname] | dict2items 
+              | rejectattr('key', 'match', '.*vault.*') 
+              | rejectattr('key', 'match', '.*password.*') 
+              | rejectattr('key', 'match', '.*private_key.*') 
+              | rejectattr('key', 'match', 'groups') 
+              | rejectattr('key', 'match', 'dcc_network_global_config') 
+              | list | items2dict
 
 - name: "Display cert info"
   hosts: all,!local,!node_offline
@@ -99,6 +160,7 @@
 - name: "Deploy Virtual Machines"
   hosts: vmware_control_node
   tags:
+    - bootstrap-vm
     - deploy-vm
   gather_facts: false
   become: yes
@@ -254,6 +316,25 @@
 ## ref: https://stackoverflow.com/questions/41771725/ansible-2-1-2-playbook-pass-ssh-password-and-sudo-password-as-command-line-args
 ## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
 ##
+- name: "Display bootstrap user info"
+#  hosts: localhost
+  hosts: dc_os_linux,!node_offline
+  become: false
+  gather_facts: false
+  tags:
+    - bootstrap-ansible-user
+    - bootstrap-ansible
+  tasks:
+    - name: "Display bootstrap_user"
+      debug:
+        var: bootstrap_user
+    - name: "Display bootstrap_user_password"
+      debug:
+        var: bootstrap_user_password
+    - name: "Display ansible_user"
+      debug:
+        var: ansible_user
+
 - name: "Bootstrap linux VM ansible user"
   hosts: dc_os_linux,!node_offline
   gather_facts: yes
@@ -263,7 +344,12 @@
 #    ansible_ssh_user: "{{ bootstrap_user }}"
     ansible_user: "{{ bootstrap_user }}"
     ansible_password: "{{ bootstrap_user_password }}"
-    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    ansible_ssh_common_args: |
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null \
+      -o PreferredAuthentications=password \
+      -o PubkeyAuthentication=no
+#    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
   tags:
     - bootstrap-ansible-user
     - bootstrap-ansible
@@ -692,7 +778,9 @@
   hosts: vmware_physical_esx_host,!node_offline
   tags:
     - bootstrap-vmware-esxi
+    - bootstrap-vcenter
     - deploy-vsphere-dc
+    - deploy-vcenter
     - vsphere-deploy-dc
     - ping-exclude
   gather_facts: false

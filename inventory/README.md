@@ -24,14 +24,14 @@ Perform the following CLI based sanity checks whenever making updates/additions 
 
 Using a group with name 'testgroup'
 ```shell
-ansible-inventory -i ./inventory/dev/ --graph testgroup_lnx
-@testgroup_lnx:
-  |--@testgroup_lnx_site1:
+ansible-inventory -i ./inventory/dev/ --graph testgroup_linux
+@testgroup_linux:
+  |--@testgroup_linux_site1:
   |  |--ntp1s1.qa.example.int
   |  |--testhost1s1.dev.example.int
   |  |--testhost2s1.dev.example.int
   |  |--testhost3s1.dev.example.int
-  |--@testgroup_lnx_site4:
+  |--@testgroup_linux_site4:
   |  |--ntp1s4.qa.example.int
   |  |--testhost1s4.dev.example.int
   |  |--testhost2s4.dev.example.int
@@ -41,11 +41,11 @@ ansible-inventory -i ./inventory/dev/ --graph testgroup_lnx
 #### Check correct hosts appear in the test hosts/groups 
 
 ```shell
-ansible-inventory -i Dev/ --host testhost1s1.dev.example.int
-ansible-inventory -i Dev/ --yaml --host testhost1s1.dev.example.int
-ansible-inventory -i Dev/ --graph testgroup_lnx
-ansible-inventory -i Dev/ --graph testgroup_ntp
-ansible-inventory -i Dev/ --graph dmz
+ansible-inventory -i dev/ --host testhost1s1.dev.example.int
+ansible-inventory -i dev/ --yaml --host testhost1s1.dev.example.int
+ansible-inventory -i dev/ --graph testgroup_linux
+ansible-inventory -i dev/ --graph testgroup_ntp
+ansible-inventory -i dev/ --graph dmz
 ```
 
 #### Check the host variable values are correctly set  
@@ -53,12 +53,14 @@ ansible-inventory -i Dev/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
-$ ansible -i Dev/ -m debug -a var=group_names testgroup_lnx
-$ ansible -i Dev/ -m debug -a var=group_names testgroup_ntp
-$ ansible -i Dev/ -m debug -a var=group_names testgroup_ntp_server
-$ ansible -i Dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
-$ ansible -i Dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
-$ ansible -i Dev/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
+$ ansible -i dev/ -m debug -a var=group_names testgroup_linux
+$ ansible -i dev/ -m debug -a var=group_names testgroup_ntp
+$ ansible -i dev/ -m debug -a var=group_names testgroup_ntp_server
+$ ansible -i dev/ -m debug -a var=ansible_python_interpreter control01
+$ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
+$ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
+$ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
+$ ansible -i dev/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
 ```
 
 Query multiple variables based on group:
@@ -72,7 +74,7 @@ $ ansible -i _test_inventory/ -m debug -a var=bootstrap_ntp_var_source,bootstrap
 
 Group based query:
 ```shell
-ansible -i Dev/ -m debug -a var=bootstrap_ntp_servers testgroup_lnx
+ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_linux
 ntp1s1.qa.example.int | SUCCESS => {
     "bootstrap_ntp_servers": [
         "us.pool.ntp.org",
@@ -113,15 +115,15 @@ testhost3s4.dev.example.int | SUCCESS => {
 Query hosts for intersecting groups:
 
 ```shell
-$ ansible -i Dev/ -m debug -a var=group_names dmz:\&lnx_all
-$ ansible -i Dev/ -m debug -a var=group_names dmz:\&testgroup_lnx
-$ ansible -i Dev/ -m debug -a var=group_names dmz:\&testgroup_lnx:\&ntp
+$ ansible -i dev/ -m debug -a var=group_names dmz:\&lnx_all
+$ ansible -i dev/ -m debug -a var=group_names dmz:\&testgroup_linux
+$ ansible -i dev/ -m debug -a var=group_names dmz:\&testgroup_linux:\&ntp
 
 ```
 
 Host based query:
 ```shell
-ansible -i Dev/ -m debug -a var=group_names testhostp1s*
+ansible -i dev/ -m debug -a var=group_names testhostp1s*
 testhost1s4.example.int | SUCCESS => {
     "group_names": [
         "examplegroup"
@@ -196,7 +198,7 @@ ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers ntp_client
 
 Query by group name:
 ```shell
-ansible-inventory -i Dev/ --graph examplegroup
+ansible-inventory -i dev/ --graph examplegroup
 @examplegroup:
   |--testhost1s1.example.int
   |--testhost1s4.example.int
@@ -220,7 +222,7 @@ ansible-inventory -i Dev/site1/ --graph ntp
 
 
 ```shell
-ansible-inventory -i Dev/ --graph ntp
+ansible-inventory -i dev/ --graph ntp
 @ntp:
   |--@ntp_client:
   |  |--@environment_test:
