@@ -38,14 +38,6 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
         keepDependencies(false)
         disabled(false)
         concurrentBuild(false)
-        quietPeriod(0)
-        logRotator {
-          numToKeep(10)
-        }
-        // ref: https://github.com/tomasbjerre/jenkins-configuration-as-code-sandbox/blob/master/jenkins-docker/jenkins.yaml
-        triggers {
-          cron("H/15 * * * *")
-        }
         scm {
             git {
                 remote {
