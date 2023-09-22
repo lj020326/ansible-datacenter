@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-## ref: https://www.geeksforgeeks.org/generic-linked-list-in-c-2/
+// ref: https://www.geeksforgeeks.org/generic-linked-list-in-c-2/
 
 typedef struct node {
 	void* data;
@@ -134,7 +134,7 @@ Instead the printGuest() function should take a parameter as the head of Guest l
 #define FILE_NAME "hotel.txt"
 #define MAXC   1024     /* if you need a constant, #define one (or more) */
 
-## ref: https://codereview.stackexchange.com/questions/260164/how-to-have-a-nested-struct-as-linked-list-in-c
+// ref: https://codereview.stackexchange.com/questions/260164/how-to-have-a-nested-struct-as-linked-list-in-c
 
 typedef struct Guest {
     char* name;
