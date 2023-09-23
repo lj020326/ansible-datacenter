@@ -38,24 +38,24 @@ that can be set for this role.
 - hosts: ...your hosts...
   any_errors_fatal: true
   roles:
-    - role: mrlesmithjr.netplan
+    - role: bootstrap-netplan
       become: yes
-      # This role will do nothing unless netplan_enabled is true.
-      netplan_enabled: true
+      # This role will do nothing unless bootstrap_netplan__enabled is true.
+      bootstrap_netplan__enabled: true
       
       # This should point to an existing netplan configuration file 
       # on your system which this role will overwrite, 
       # or to a nonexistent file which netplan is aware of.
       #
       # The default is /etc/netplan/config.yaml.
-      netplan_config_file: /etc/netplan/my-awesome-netplan.yaml
+      bootstrap_netplan__config_file: /etc/netplan/my-awesome-netplan.yaml
       
       # Ubuntu 18.04, for example, defaults to using networkd.
-      netplan_renderer: networkd
+      bootstrap_netplan__renderer: networkd
       # Simple network configuration to add a single network interface.
       # Configuration defined bellow will be written to the file defined
-      # above in `netplan_config_file`.
-      netplan_configuration:
+      # above in `bootstrap_netplan__config_file`.
+      bootstrap_netplan__configuration:
         network:
           version: 2
           ethernets:
