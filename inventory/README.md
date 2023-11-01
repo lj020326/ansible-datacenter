@@ -53,10 +53,12 @@ ansible-inventory -i dev/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
+$ ansible -i dev/ -m debug -a var=internal_domain control01
+$ ansible -i dev/ -m debug -a var=ansible_python_interpreter control01
+$ ansible -i dev/ -m debug -a var=ansible_python_interpreter control01
 $ ansible -i dev/ -m debug -a var=group_names testgroup_linux
 $ ansible -i dev/ -m debug -a var=group_names testgroup_ntp
 $ ansible -i dev/ -m debug -a var=group_names testgroup_ntp_server
-$ ansible -i dev/ -m debug -a var=ansible_python_interpreter control01
 $ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
 $ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
 $ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
@@ -66,7 +68,34 @@ $ ansible -i dev/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
 Query multiple variables based on group:
 
 ```shell
-$ ansible -i _test_inventory/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
+$ ansible -i dev/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
+```
+
+Query vaulted variable
+
+```shell
+$ PROJECT_DIR="$( git rev-parse --show-toplevel )"
+$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_abc123_dev
+$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_abc123
+$ ansible -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
+```
+
+Query with vault and vars files variables (e.g., `./test-vars.yml`) 
+
+```shell
+$ PROJECT_DIR="$( git rev-parse --show-toplevel )"
+$ ansible -e @./vars/vault.yml -e @test-vars.yml \
+    --vault-password-file \
+    ${PROJECT_DIR}/.vault_pass \
+    -i dev/ \
+    -m debug \
+    -a var=vault_platform \
+    toyboxd1s4.alsac.stjude.org
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=test_component_cyberark_base_url localhost
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=docker_stack_ldap_host toyboxd1s4.alsac.stjude.org
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_cdata_sync_sandbox
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_tableau
+$ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
 ```
 
 

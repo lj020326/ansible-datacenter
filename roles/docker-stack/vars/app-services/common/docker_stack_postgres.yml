@@ -51,6 +51,9 @@ __docker_stack__postgres__config_tpls:
 __docker_stack__postgres__firewalld_ports:
   - "{{ __docker_stack__postgres__port }}/tcp"
 
+__docker_stack__postgres__config_files:
+  - { src: 'files/postgres/create-multiple-pg-databases.sh', mode: '0755', dest: "{{ docker_stack__dir }}/postgres/multiple-dbs/create-multiple-pg-databases.sh" }
+
 __docker_stack__appspec__postgres:
   dirs: "{{ __docker_stack__postgres__config_dirs | d([]) }}"
   files: "{{ __docker_stack__postgres__config_files | d([]) }}"
@@ -58,7 +61,6 @@ __docker_stack__appspec__postgres:
   firewalld_services: "{{ __docker_stack__postgres__firewalld_services | d([]) }}"
   firewalld_ports: "{{ __docker_stack__postgres__firewalld_ports | d([]) }}"
   docker_services: "{{ __docker_stack__postgres__services | d({}) }}"
-
 
 __docker_stack__traefik__labels_postgres_pgadmin: "{{ docker_stack__traefik__labels_postgres_pgadmin
   | d(__docker_stack__traefik__labels_postgres_pgadmin_default) }}"
@@ -68,7 +70,7 @@ __docker_stack__postgres__services:
   ## ref: https://blog.exceptionerror.io/2018/08/29/openldap-keycloak-and-docker/
   ## ref: https://hub.docker.com/_/postgres
   postgres:
-    container_name: "postgres"
+    container_name: postgres
 #      image: postgres
     image: "postgres:11"
     ports:
@@ -95,6 +97,18 @@ __docker_stack__postgres__services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+#          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
 
   ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/container_deployment.html
   ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/config_py.html#config-py
@@ -126,3 +140,15 @@ __docker_stack__postgres__services:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
     labels: "{{ __docker_stack__traefik__labels_postgres_pgadmin }}"
+    deploy:
+      mode: replicated
+#      placement:
+#        constraints:
+#          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+##          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s

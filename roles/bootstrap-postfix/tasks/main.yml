@@ -13,6 +13,11 @@
     name: postfix
     state: present
 
+- name: "Ensure /etc/postfix"
+  file:
+    path: /etc/postfix
+    state: directory
+
 - name: "Configure mailname"
   template:
     src: "{{ postfix_mailname_file.lstrip('/') }}.j2"
@@ -27,7 +32,7 @@
     - postfix
     - postfix-mailname
 
-- name: "Update configuration file"
+- name: "Update {{ postfix_main_cf | basename }} configuration file"
   template:
     src: "{{ postfix_main_cf.lstrip('/') }}.j2"
     dest: "{{ postfix_main_cf }}"
@@ -41,7 +46,21 @@
     - postfix
     - postfix-configuration
 
-- name: "Configure sasl username/password"
+- name: "Update {{ postfix_master_cf | basename }} configuration file"
+  template:
+    src: "{{ postfix_master_cf.lstrip('/') }}.j2"
+    dest: "{{ postfix_master_cf }}"
+    owner: root
+    group: root
+    mode: "0644"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
+  notify: restart_postfix
+  tags:
+    - configuration
+    - postfix
+    - postfix-configuration
+
+- name: "Configure {{ postfix_sasl_passwd_file }}"
   template:
     src: "{{ postfix_sasl_passwd_file.lstrip('/') }}.j2"
     dest: "{{ postfix_sasl_passwd_file }}"
@@ -61,7 +80,26 @@
     - postfix
     - postfix-sasl-passwd
 
-- name: "Configure aliases"
+- name: "Configure {{ postfix_tls_policy_file }}"
+  template:
+    src: "{{ postfix_tls_policy_file.lstrip('/') }}.j2"
+    dest: "{{ postfix_tls_policy_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+    backup: "{{ postfix_backup_configs|d(True)|bool }}"
+  when:
+    - postfix_relayhost | length
+    - postfix_sasl_auth_enable | bool
+  no_log: "{{ not ansible_check_mode }}"
+  notify:
+    - postmap_sasl_passwd
+    - restart_postfix
+  tags:
+    - configuration
+    - postfix
+
+- name: "Configure {{ postfix_aliases_file }}"
   template:
     src: "{{ postfix_aliases_file.lstrip('/') }}.j2"
     dest: "{{ postfix_aliases_file }}"
@@ -91,7 +129,7 @@
     - postfix
     - postfix-aliases
 
-- name: "Configure virtual aliases"
+- name: "Configure {{ postfix_virtual_aliases_file }}"
   vars:
     __postfix_canonical_maps: "{{ postfix_virtual_aliases }}"
   template:
@@ -109,7 +147,7 @@
     - postfix
     - postfix-virtual-aliases
 
-- name: "Configure sender canonical maps"
+- name: "Configure {{ postfix_sender_canonical_maps_file }}"
   vars:
     __postfix_canonical_maps: "{{ postfix_sender_canonical_maps }}"
   template:
@@ -127,7 +165,7 @@
     - postfix
     - postfix-sender-canonical-maps
 
-- name: "Configure recipient canonical maps"
+- name: "Configure {{ postfix_recipient_canonical_maps_file }}"
   vars:
     __postfix_canonical_maps: "{{ postfix_recipient_canonical_maps }}"
   template:
@@ -145,7 +183,7 @@
     - postfix
     - postfix-recipient-canonical-maps
 
-- name: "Configure transport maps"
+- name: "Configure {{ postfix_transport_maps_file }}"
   vars:
     __postfix_canonical_maps: "{{ postfix_transport_maps }}"
   template:
@@ -163,7 +201,7 @@
     - postfix
     - postfix-transport-maps
 
-- name: "Configure sender dependent relayhost maps"
+- name: "Configure {{ postfix_sender_dependent_relayhost_maps_file }}"
   vars:
     __postfix_canonical_maps: "{{ postfix_sender_dependent_relayhost_maps }}"
   template:
@@ -181,7 +219,7 @@
     - postfix
     - postfix-sender-dependent-relayhost-maps
 
-- name: "Configure generic table"
+- name: "Configure {{ postfix_smtp_generic_maps_file }}"
   vars:
     __postfix_canonical_maps: "{{ postfix_smtp_generic_maps }}"
   template:
@@ -199,7 +237,7 @@
     - postfix
     - postfix-generic-table
 
-- name: "Configure header checks"
+- name: "Configure {{ postfix_header_checks_file }}"
   template:
     src: "{{ postfix_header_checks_file.lstrip('/') }}.j2"
     dest: "{{ postfix_header_checks_file }}"

@@ -1,0 +1,159 @@
+---
+
+- name: "Validate CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__cert_node }}] | Set __log_prefix_local"
+  set_fact:
+    __log_prefix_local: "Validate CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__ca_cert_cn
+      | d(__bootstrap_certs__cert_node) | d(__bootstrap_certs__ca_cert) }}] |"
+
+- name: "{{ __log_prefix_local }} Check for CA key existence (so we don't generate a new one on every run)"
+  block:
+
+    - name: "{{ __log_prefix_local }} Check if
+        {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }} certificate exists"
+      stat:
+        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
+      register: __key_file
+
+    - name: "{{ __log_prefix_local }} Display __key_file"
+      debug:
+        msg: "__key_file={{ __key_file }}"
+
+    - name: "{{ __log_prefix_local }} verify {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }} status"
+      debug: msg="{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }} is present
+                  - setting fact _ca_key_exists [ internal fact with _ prefix ] to yes - this role will not generate a new one"
+      when: __key_file.stat.exists | bool
+
+    - name: "{{ __log_prefix_local }} set _ca_key_exists var to {{ __key_file.stat.exists }}"
+      set_fact:
+        _ca_key_exists: "{{ __key_file.stat.exists | bool }}"
+
+#    - name: "{{ __log_prefix_local }} set _ca_key_exists var to yes"
+#      set_fact:
+#        _ca_key_exists: yes
+
+  rescue:
+    - name: "{{ __log_prefix_local }} rescue block - key exists ..."
+      debug: msg="{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }} is present
+                  (if you want a new one remove the existing one and rerun this role)
+                  - setting fact ca_key_exists to no"
+
+    - name: "{{ __log_prefix_local }} set _ca_key_exists var to no"
+      set_fact:
+        _ca_key_exists: no
+
+  always:
+    - name: "{{ __log_prefix_local }} Show _ca_key_exists value"
+      debug: msg="variable _ca_key_exists is set to {{ _ca_key_exists }}"
+
+- name: "Check for CA cert existence (so we don't generate a new onw on every run)"
+  block:
+
+    - name: "{{ __log_prefix_local }} Check if {{ __bootstrap_certs__ca_cert }} certificate exists"
+      stat: path="{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+      register: __cert_file
+
+    - name: "{{ __log_prefix_local }} Display __cert_file info"
+      debug:
+        msg: "__cert_file={{ __cert_file }}"
+
+    - name: "{{ __log_prefix_local }} Check certificate expiration date
+        [ Expecting more than a week before setting regeneration var ... ]"
+      changed_when: no
+      shell: >-
+        openssl x509 -checkend {{ __bootstrap_certs__ca_cert_expiration_panic_threshold }} \
+            -noout -in {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
+      when: __cert_file and __cert_file.stat.exists
+      register: cert_validity_exp_date
+
+    - name: "{{ __log_prefix_local }} Display cert_validity_exp_date"
+      debug:
+        msg: "cert_validity_exp_date={{ cert_validity_exp_date }}"
+
+    - name: "{{ __log_prefix_local }} Display cert_validity_exp_date message"
+      debug:
+        msg: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} is still valid no need to generate"
+      when: cert_validity_exp_date and cert_validity_exp_date.rc | default(0) == 0
+
+    - name: "{{ __log_prefix_local }} set _ca_missing_or_invalid_cert to {{ __cert_file.stat.exists }}"
+      set_fact:
+        _ca_missing_or_invalid_cert: "{{ not __cert_file.stat.exists | bool }}"
+
+#    - set_fact:
+#        _ca_missing_or_invalid_cert: no
+
+  rescue:
+    - debug: msg="{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} is not valid - bootstrap_certs__ca_force_create will be set"
+    - set_fact:
+        bootstrap_certs__ca_force_create: yes
+        _ca_missing_or_invalid_cert: yes
+
+  always:
+    - debug: var=_ca_key_exists
+    - debug: var=_ca_missing_or_invalid_cert
+    - debug: var=bootstrap_certs__ca_force_create
+
+#- name: "Check if intermediate CA cert signature is valid (so we don't generate a new onw on every run)"
+#  when: bootstrap_certs__ca_cert_type == "intermediate-ca"
+- name: "Check if CA cert signature is valid (so we don't generate a new onw on every run)"
+  when:
+#    - not __bootstrap_certs__ca_signer_is_root
+    - bootstrap_certs__ca_cert_type != "root-ca"
+    - not _ca_missing_or_invalid_cert
+  block:
+
+    ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
+    - name: "{{ __log_prefix_local }} Get ca certificate info"
+      openssl_certificate_info:
+        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+      register: cacert_result
+
+    - name: "{{ __log_prefix_local }} Display cacert_result"
+      when: bootstrap_certs__display_cacert_result
+      debug: var=cacert_result
+
+    - name: "{{ __log_prefix_local }} Assert cert info for {{ __bootstrap_certs__cert_node }} is valid"
+      assert:
+        that:
+          # issuer and issuer_strict
+          - cacert_result.issuer.organizationName == "{{ __bootstrap_certs__ca_signer_cert_info.organization }}"
+          - cacert_result.issuer.commonName == "{{ __bootstrap_certs__ca_signer_cert_info.commonName }}"
+          - cacert_result.subject.organizationName == "{{ __bootstrap_certs__ca_cert_info.organization }}"
+          - cacert_result.subject.commonName == "{{ __bootstrap_certs__ca_cert_info.commonName }}"
+          # has_expired
+          - not cacert_result.expired
+
+    - name: "{{ __log_prefix_local }} Validate signed by ca signer certs"
+      changed_when: no
+#      when: __cert_file and __cert_file.stat.exists
+#      shell: >-
+#        openssl verify -CAfile \
+#          {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
+#          {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
+      shell: >-
+        openssl verify -CAfile \
+          {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert_chain }} \
+          {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
+      register: cert_validity_signer
+
+    - name: "{{ __log_prefix_local }} Display cert_validity_signer"
+      debug:
+        msg: "cert_validity_signer={{ cert_validity_signer }}"
+
+    - name: "{{ __log_prefix_local }} Display cert_validity message"
+      debug:
+        msg: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} is still valid no need to generate"
+      when: cert_validity_signer and cert_validity_signer.rc | default(0) == 0
+
+    - set_fact:
+        _ca_missing_or_invalid_cert: no
+
+  rescue:
+    - debug: msg="{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} is not valid - bootstrap_certs__ca_force_create will be set"
+    - set_fact:
+        bootstrap_certs__ca_force_create: yes
+        _ca_missing_or_invalid_cert: yes
+
+  always:
+    - debug: var=_ca_key_exists
+    - debug: var=_ca_missing_or_invalid_cert
+    - debug: var=bootstrap_certs__ca_force_create

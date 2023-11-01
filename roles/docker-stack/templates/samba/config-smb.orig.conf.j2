@@ -1,0 +1,246 @@
+[global]
+
+## https://www.linuxtopia.org/online_books/network_administration_guides/samba_reference_guide/18_passdb_23.html
+
+    # ----------------------- Network Related Options -------------------------
+    workgroup = {{ docker_stack__ldap_domain | upper }}
+    server string = Johnson Domain/Samba Server Version %v
+    netbios name = samba1
+#    smb ports = 139
+    time server = Yes
+    dns proxy = no
+
+#    interfaces = lo eth0 192.168.12.2/24 192.168.13.2/24
+#    hosts allow = 127. 192.168.12. 192.168.13.
+    socket options = TCP_NODELAY
+    deadtime = 10
+    panic action = /usr/share/samba/panic-action %d
+
+
+# --------------------------- Logging Options -----------------------------
+#
+# Log File let you specify where to put logs and how to split them up.
+#
+# Max Log Size let you specify the max size log files should reach
+
+    # logs split per machine
+#    log file = /var/log/samba/samba.log
+#    log file = /var/log/samba/log.%m
+    log file = /var/log/samba/%m.log
+    # max 50KB per log file, then rotate
+#    max log size = 50
+    max log size = 5000
+    log level = 1
+#    log level = 2
+
+    debug pid = yes
+    debug uid = yes
+#    syslog = 0
+#    utmp = yes
+
+# ----------------------- Domain Members Options ------------------------
+
+#    security = ads
+#    passdb backend = tdbsam
+#    realm = mydomain.site.com
+#    use kerberos keytab = true
+
+    ## ref: https://help.ubuntu.com/community/Samba/SambaServerGuide
+    security = user
+
+    ## ref: https://serverfault.com/questions/657942/encrypting-smb-traffic-with-samba
+    smb encrypt = auto
+
+    obey pam restrictions = yes
+    admin users = root administrator @smbadmin
+    guest account = smbguest
+    pam password change = yes
+    encrypt passwords = true
+    unix password sync = yes
+
+#    users = @"Domain Users"
+    users = @users
+
+
+## ref : https://www.unixmen.com/setup-samba-domain-controller-with-openldap-backend-in-ubuntu-13-04/
+# ----------------------- LDAP Settings -------------------------------------
+   passdb backend = ldapsam:ldap://{{ docker_stack__ldap_host }}
+   ldap suffix = {{ docker_stack__ldap_base_dn }}
+   ldap user suffix = {{ docker_stack__samba_ldap_user_suffix }}
+   ldap group suffix = {{ docker_stack__samba_ldap_group_suffix }}
+   ldap machine suffix = {{ docker_stack__samba_ldap_machine_suffix }}
+   ldap idmap suffix = {{ docker_stack__samba_ldap_idmap_suffix }}
+   ldap admin dn = {{ docker_stack__samba_ldap_admin_dn }}
+#   ldap ssl = start tls
+   ldap ssl = off
+#   ldap passwd sync = yes
+   ldap password sync = yes
+   ldap delete dn = no
+
+
+# ----------------------- User CRUD Settings --------------------------------
+   add user script = /usr/sbin/smbldap-useradd -m '%u' -t 1
+   rename user script = /usr/sbin/smbldap-usermod -r '%unew' '%uold'
+   delete user script = /usr/sbin/smbldap-userdel '%u'
+   set primary group script = /usr/sbin/smbldap-usermod -g '%g' '%u'
+   add group script = /usr/sbin/smbldap-groupadd -p '%g'
+   delete group script = /usr/sbin/smbldap-groupdel '%g'
+   add user to group script = /usr/sbin/smbldap-groupmod -m '%u' '%g'
+   delete user from group script = /usr/sbin/smbldap-groupmod -x '%u' '%g'
+   add machine script = /usr/sbin/smbldap-useradd -w '%u' -t 1
+#   add machine script = sudo /usr/sbin/smbldap-useradd -t 0 -w "%u"
+
+#       add machine script = /usr/sbin/useradd -s /bin/false -d /nonexistent '%u' -g smbmachines
+#       add machine script = /usr/sbin/useradd -s /bin/false -d /nonexistent '%u' -g workstation
+#       add group script = /usr/sbin/groupadd '%g'
+#       add user to group script = /usr/sbin/usermod -G '%g' '%u'
+#       add user script = /usr/sbin/useradd -m '%u' -g smbusers -G smbusers
+#       delete user script = /usr/sbin/userdel -r '%u'
+#       delete group script = /usr/sbin/groupdel '%g'
+
+
+
+# ----------------------- Winbind Variables --------------------------------
+
+        winbind enum users = Yes
+        winbind enum groups = yes
+        winbind use default domain = Yes
+        winbind nested groups = Yes
+#        idmap uid = 10000-20000
+#        idmap gid = 10000-20000
+
+# ----------------------- Browser Control Options --------------------------
+
+        domain master = Yes
+        preferred master = Yes
+        domain logons = Yes
+#       os level = 64
+        os level = 65
+        wins support = true
+
+# ----------------------- Logon Options ------------------------------------
+#       logon path =
+        logon path = \\%L\profiles\%U
+        logon home =
+        logon drive = H:  ## Logon drive ##
+#       logon script =
+        logon script = logon.cmd
+
+
+# --------------------------- Printing Options -----------------------------
+
+        load printers = no
+#        printing = bsd
+        printing = cups
+        printcap name = /dev/null
+#        show add printer wizard = no
+        show add printer wizard = yes
+        disable spoolss = yes
+
+# --------------------------- Filesystem Options ---------------------------
+#
+# The following options can be uncommented if the filesystem supports
+# Extended Attributes and they are enabled (usually by the mount option
+# user_xattr). Thess options will let the admin store the DOS attributes
+# in an EA and make samba not mess with the permission bits.
+#
+# Note: these options can also be set just per share, setting them in global
+# makes them the default for all shares
+
+#       map archive = no
+#       map hidden = no
+#       map read only = no
+#       map system = no
+#       store dos attributes = yes
+
+
+#============================ Share Definitions ==============================
+
+
+[netlogon]
+    comment = Network Logon Service
+    path = /srv/storage/netlogon
+    guest ok = yes
+    read only = yes
+    valid users = @smbadmin @smbuser
+#    share modes = no
+
+## ref : https://www.unixmen.com/setup-samba-domain-controller-with-openldap-backend-in-ubuntu-13-04/
+[profiles]
+    comment = Roaming Profile Share
+#    path = /srv/storage/profiles
+    path = /data/profiles
+    browseable = no
+    writeable = yes
+#    read only = no
+    create mask = 0600
+    directory mask = 0700
+    guest ok = yes
+    force user = %U
+    profile acls = yes
+    map system = yes
+#    map hidden = yes
+
+[homes]
+    directory mode = 0700
+    comment = Home Directory
+    valid users = %S
+    create mode = 0600
+    writable = yes
+
+[storage]
+    comment = Shared Data
+    path = /srv/storage/data
+#    path = /data
+    browseable = yes
+    read only = no
+    create mask = 0644
+    directory mask = 0775
+
+[print$]
+    path = /var/lib/samba/printers/
+    guest ok = No
+    browseable = Yes
+    read only = Yes
+#    valid users = @smbadmin @smbuser
+#    write list = @smbadmin @smbuser
+    create mask = 0664
+    directory mask = 0775
+
+[printers]
+    comment = All Printers
+    path = /var/spool/samba
+    read only  = Yes
+    guest ok = Yes
+    printable = Yes
+    browseable = yes
+
+[data]
+#    browseable = yes
+    valid users = root @smbuser @smbguest @smbadmin @administrator
+    public = yes
+    guest ok = yes
+    force group = smbguest
+    force directory mode = 775
+    force create mode = 775
+    write list = root @smbuser @smbguest @smbadmin @administrator
+    writeable = yes
+    create mode = 0777
+    directory mode = 0777
+    path = /data
+#    read only = no
+#    create mask = 0644
+    directory mask = 0775
+#    comment = Shared Data
+#    public = yes
+#    force directory mode = 0777
+#    public = yes
+
+[public]
+    comment = Anonymous File Server Share
+    path = /srv/samba/anonymous_shares
+    browsable =yes
+    writable = yes
+    guest ok = yes
+    read only = no
+    force user = nobody

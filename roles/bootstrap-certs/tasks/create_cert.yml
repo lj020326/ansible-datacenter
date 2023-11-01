@@ -1,0 +1,175 @@
+---
+
+- name: "Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__cert_node }}] | Set __log_prefix_subtask"
+  set_fact:
+    __log_prefix_subtask: "Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__ca_cert_cn
+      | d(__bootstrap_certs__cert_node) }}] |"
+
+- name: "{{ __log_prefix_subtask }} Get common CA cert facts"
+  include_tasks: get_cert_facts.yml
+
+#- name: "Display cert info"
+#  debug:
+#    msg:
+#      - "bootstrap_certs__cacerts_base_dir={{ bootstrap_certs__cacerts_base_dir }}"
+#      - "bootstrap_certs__ca_domains_hosted={{ bootstrap_certs__ca_domains_hosted | to_nice_json }}"
+#      - "__bootstrap_certs__ca_intermediate_cert_list={{ __bootstrap_certs__ca_intermediate_cert_list | to_nice_json }}"
+#      - "bootstrap_certs__ca_service_routes_list={{ bootstrap_certs__ca_service_routes_list | to_nice_json }}"
+#      - "__bootstrap_certs__ca_fetch_domains_list={{ __bootstrap_certs__ca_fetch_domains_list | to_nice_json }}"
+
+- name: "{{ __log_prefix_subtask }} Create domain configuration directories"
+  file:
+    path: "{{ __bootstrap_certs__keystore_cert_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: "{{ __log_prefix_subtask }} Perform cacert validations"
+  include_tasks: validate_cacerts.yml
+
+- name: "{{ __log_prefix_subtask }} Create config json"
+  when: bootstrap_certs__ca_cert_type == "intermediate-ca"
+  template:
+#    backup: yes
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  with_items:
+    - src: "ca/ca-config.json.j2"
+      dest: "{{ bootstrap_certs__cacerts_base_dir }}/ca-config.json"
+    - src: "ca/ca-cacert-csr.json.j2"
+      dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_info.commonName }}.json"
+
+- name: "{{ __log_prefix_subtask }} Generating server csr config file [{{ __bootstrap_certs__ca_cert_cn }}.json]"
+  when: bootstrap_certs__ca_cert_type != "intermediate-ca"
+  template:
+    src: "ca/ca-cert-csr.json.j2"
+    dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_cn }}.json"
+
+## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
+## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
+## ref: https://gist.github.com/jdeathe/7f7bb957a4e8e0304f0df070f3cbcbee
+- name: "{{ __log_prefix_subtask }} Create signed certificate authority key pair and CSR"
+  when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or bootstrap_certs__ca_force_create|bool
+  block:
+
+    - name: "{{ __log_prefix_subtask }} Generating signed server certificate {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+      changed_when: no
+      shell: >-
+        cfssl gencert \
+          --config={{ bootstrap_certs__cacerts_base_dir }}/ca-config.json \
+          -profile={{ __bootstrap_certs__cacert_csr_profile }} \
+          -ca={{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
+          -ca-key={{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_key }} \
+          {{ __bootstrap_certs__ca_cert_cn }}.json \
+          | cfssljson -bare {{ __bootstrap_certs__ca_cert_cn }}
+      args:
+        chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
+#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+
+    - name: "Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+      file:
+        dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+        mode: "644"
+
+    - name: "{{ __log_prefix_subtask }} Create server cert chain pem file for root signer [{{ __bootstrap_certs__ca_cert_chain }}]"
+      changed_when: no
+      when: __bootstrap_certs__ca_signer_is_root|bool
+      shell: >-
+        cat {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} \
+          {{ bootstrap_certs__ca_root_cacerts_dir }}/{{ bootstrap_certs__ca_root_cert }} > {{ __bootstrap_certs__ca_cert_chain }}
+      args:
+        chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
+#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+
+    - name: "{{ __log_prefix_subtask }} Create server cert chain pem file for non-root signer [{{ __bootstrap_certs__ca_cert_chain }}]"
+      changed_when: no
+      when: __bootstrap_certs__ca_signer_is_root|bool == False
+      shell: >-
+        cat {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} \
+          {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert_chain }} \
+          > {{ __bootstrap_certs__ca_cert_chain }}
+      args:
+        chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
+#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+
+    - name: "Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+      file:
+        dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+        mode: "644"
+
+
+- name: "{{ __log_prefix_subtask }} Get cert chain info for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+  changed_when: no
+  shell: >-
+    openssl crl2pkcs7 -nocrl -certfile \
+      {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }} \
+      | openssl pkcs7 -print_certs -noout
+  register: ca_chain_info
+
+- name: "{{ __log_prefix_subtask }} Display cert chain info for {{ __bootstrap_certs__ca_cert_chain }}"
+  debug: var=ca_chain_info.stdout_lines
+
+  ## ref: https://www.tailored.cloud/devops/how-to-filter-and-map-lists-in-ansible/
+- name: "{{ __log_prefix_subtask }} Get cert chain issuer info"
+  vars:
+#    regexp: 'value=\"([^issuer]+)'
+#    regexp: '^issuer'
+    regexp: '^subject'
+  set_fact:
+#    ca_cert_issuers: "{{ ca_chain_info.stdout.split('\n') | select('match', regexp) | unique }}"
+    ca_cert_issuers: "{{ ca_chain_info.stdout_lines | select('match', regexp) | list | unique }}"
+
+- name: "Display cert chain issuers"
+  debug:
+    var: ca_cert_issuers
+
+
+## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
+- name: "{{ __log_prefix_subtask }} Get ca certificate info"
+  openssl_certificate_info:
+    path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+  register: cacert_result
+
+- name: "{{ __log_prefix_subtask }} Display cacert_result"
+  when: bootstrap_certs__display_cacert_result
+  debug: var=cacert_result
+
+- name: "{{ __log_prefix_subtask }} Assert cert info for {{ __bootstrap_certs__cert_node }} is valid"
+  assert:
+    that:
+      # issuer and issuer_strict
+      - cacert_result.issuer.organizationName == "{{ __bootstrap_certs__ca_signer_cert_info.organization }}"
+      - cacert_result.issuer.commonName == "{{ __bootstrap_certs__ca_signer_cert_info.commonName }}"
+      - cacert_result.subject.organizationName == "{{ __bootstrap_certs__ca_cert_info.organization }}"
+      - cacert_result.subject.commonName == "{{ __bootstrap_certs__ca_cert_info.commonName }}"
+      # has_expired
+      - not cacert_result.expired
+
+- name: "{{ __log_prefix_subtask }} Validate signed by root cert"
+  changed_when: no
+  when: __bootstrap_certs__ca_signer_is_root|bool
+  shell: >-
+    openssl verify -CAfile {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
+      {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
+
+- name: "{{ __log_prefix_subtask }} Perform intermediate cert validations"
+  when: __bootstrap_certs__ca_signer_is_root|bool == False
+  block:
+
+    - name: "{{ __log_prefix_subtask }} Validate server and intermediate cert chain"
+      changed_when: no
+      shell: >-
+        openssl verify -CAfile \
+          {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert_chain }} \
+          {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
+
+    ## ref: https://www.shellhacks.com/ansible-when-variable-is-defined-exists-empty-true/
+    - name: "{{ __log_prefix_subtask }} Validate signed by root and intermediate cert"
+      changed_when: no
+      when: ca_cert_issuers|length == 3
+      shell: >-
+        openssl verify -CAfile {{ bootstrap_certs__ca_root_cacerts_dir }}/{{ bootstrap_certs__ca_root_cert }} \
+          -untrusted {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
+          {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
