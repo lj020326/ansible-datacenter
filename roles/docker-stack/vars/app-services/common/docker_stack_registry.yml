@@ -133,6 +133,18 @@ __docker_stack__registry__services:
       - "{{ __docker_stack__registry__host_auth_path }}:/auth"
       - "{{ __docker_stack__registry__config_path }}/config.yml:/etc/docker/registry/config.yml:ro"
     environment: "{{ __docker_stack__registry__env }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+#          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
 
   registry-frontend:
 #      hostname: registry-frontend
@@ -142,6 +154,8 @@ __docker_stack__registry__services:
     image: konradkleine/docker-registry-frontend:v2
     links:
       - "{{__docker_stack__registry__container_name}}:registry"
+    depends_on:
+      - registry
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
@@ -159,3 +173,15 @@ __docker_stack__registry__services:
       ENV_REGISTRY_PROXY_FQDN: "{{ __docker_stack__registry__domain }}"
       ENV_REGISTRY_PROXY_PORT: "443"
     labels: "{{ __docker_stack__traefik__labels_registry }}"
+    deploy:
+      mode: replicated
+#      placement:
+#        constraints:
+#          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+##          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s

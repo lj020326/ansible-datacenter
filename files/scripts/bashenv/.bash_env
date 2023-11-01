@@ -123,8 +123,6 @@ if [[ "$platform" =~ ^(MSYS|MINGW64|MINGW32)$ ]]; then
     ## set user path
 #    export PATH=/usr/bin:/usr/local/bin
     export PATH=/usr/local/bin:/usr/bin
-    export PATH="${HOME}/.local/bin:${PATH}"
-
     if [[ "$platform" =~ ^(MINGW64)$ ]]; then
       export PATH=/usr/local/bin:/mingw64/bin:/usr/bin
     fi
@@ -134,7 +132,6 @@ if [[ "$platform" =~ ^(MSYS|MINGW64|MINGW32)$ ]]; then
     export PATH+=:$WINDOWS_APPS_BINDIR
 
     export PATH+=:/c/apps/bin
-    export PATH+=:"$HOME/bin"
     # export PATH+=:"/c/apps/7-Zip"
     export PATH+=:"$VSCOMMONTOOLS_MSYS"
     #export PATH+=:/c/apps/nvm
@@ -183,22 +180,28 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
     ## set user path
 # 	export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
   	export PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-    ## ref: https://www.topbug.net/blog/2013/04/14/install-and-use-gnu-command-line-tools-in-mac-os-x/
-    export PATH="$(brew --prefix coreutils)/libexec/gnubin:${PATH}"
-    export PATH="${HOME}/.local/bin:${PATH}"
 
     ## ref: https://code.visualstudio.com/docs/setup/mac#_alternative-manual-instructions
     export PATH+=":/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
 
-    ## Add Homebrew & Macports
+    ## Add Macports
     export MACPORTS_PREFIX="/opt/local"
+    export PATH="${MACPORTS_PREFIX}/bin:${MACPORTS_PREFIX}/sbin:${PATH}"
+    export MANPATH+=":${MACPORTS_PREFIX}/share/man"
+
+    ## Add Homebrew & Macports
     export HOMEBREW_PREFIX="/usr/local"
+
+    ## ref: https://www.topbug.net/blog/2013/04/14/install-and-use-gnu-command-line-tools-in-mac-os-x/
     ## ref: https://formulae.brew.sh/formula/findutils
-    export PATH="$HOMEBREW_PREFIX/opt/findutils/libexec/gnubin:${MACPORTS_PREFIX}/bin:${MACPORTS_PREFIX}/sbin:${PATH}"
-    export MANPATH+=":${MACPORTS_PREFIX}/share/man:${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnuman"
+    export PATH="$(brew --prefix coreutils)/libexec/gnubin:${PATH}"
+    #export PATH="${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnubin:${PATH}"
+    export PATH="${HOMEBREW_PREFIX}/opt/findutils/libexec/gnubin:${PATH}"
+    export PATH="${HOMEBREW_PREFIX}/opt/grep/libexec/gnubin:${PATH}"
+    export MANPATH+=":${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnuman"
 
     ## ref: https://stackoverflow.com/questions/52509602/cant-compile-c-program-on-a-mac-after-upgrade-to-mojave
-    export CPATH=/Library/Developer/CommandLineTools/usr/include/c++/v1
+#    export CPATH=/Library/Developer/CommandLineTools/usr/include/c++/v1
 
     ## ref: https://emacsformacosx.com/tips
     ## ref: https://stackoverflow.com/questions/23148787/why-emacsclient-cant-find-socket-after-executing-emacs-daemon/26471957
@@ -207,25 +210,6 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
 
     export PYTHON3_HOME=/usr/local/bin
     # setenv-python 3
-
-    ## using pyenv
-    ## ref: https://opensource.com/article/19/5/python-3-default-mac
-    ## https://realpython.com/intro-to-pyenv/
-    if command -v pyenv 1>/dev/null 2>&1; then
-        export PATH="$(pyenv root)/shims:$PATH"
-#        export PYENV_ROOT="$HOME/.pyenv"
-#        export PATH="$PYENV_ROOT/bin:$PATH"
-
-        if command -v pyenv 1>/dev/null 2>&1; then
-           eval "$(pyenv init -)"
-        fi
-
-        if which pyenv-virtualenv-init > /dev/null; then
-          ## https://stackoverflow.com/questions/62532807/pyenv-no-such-command-virtualenv
-          ## brew install pyenv-virtualenv
-          eval "$(pyenv virtualenv-init -)";
-        fi
-    fi
 
     ## ref: https://stackoverflow.com/questions/40684543/how-to-make-python-use-ca-certificates-from-mac-os-truststore
     CERT_PATH=$(python -m certifi)
@@ -257,8 +241,6 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
     export JAVA_11_HOME=$(/usr/libexec/java_home -v11)
 #    export JAVA_13_HOME=$(/usr/libexec/java_home -v13)
 
-    export PATH="~/.local/bin:$PATH"
-
 else
     echo "${log_prefix} setting path for LINUX/Other env"
 
@@ -288,8 +270,30 @@ setenv-python ${PYTHON_VERSION}
 
 echo "${log_prefix} more PATH env var updates"
 
+## using pyenv
+## ref: https://opensource.com/article/19/5/python-3-default-mac
+## https://realpython.com/intro-to-pyenv/
+if command -v pyenv 1>/dev/null 2>&1; then
+    export PATH="$(pyenv root)/shims:$PATH"
+#    export PYENV_ROOT="$HOME/.pyenv"
+#    export PATH="$PYENV_ROOT/bin:$PATH"
+
+    if command -v pyenv 1>/dev/null 2>&1; then
+       eval "$(pyenv init -)"
+    fi
+
+    if which pyenv-virtualenv-init > /dev/null; then
+      ## https://stackoverflow.com/questions/62532807/pyenv-no-such-command-virtualenv
+      ## brew install pyenv-virtualenv
+      eval "$(pyenv virtualenv-init -)";
+    fi
+fi
+
 if [ -d "${HOME}/bin" ]; then
-    export PATH+=":${HOME}/bin"
+    export PATH="${HOME}/bin:${PATH}"
+fi
+if [ -d "${HOME}/.local/bin" ]; then
+    export PATH="${HOME}/.local/bin:${PATH}"
 fi
 
 export PATH=".:${PATH}"

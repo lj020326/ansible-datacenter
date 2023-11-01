@@ -1,0 +1,40 @@
+---
+
+- name: "Set __bootstrap_certs__ca_intermediate_certs"
+  set_fact:
+    __bootstrap_certs__ca_intermediate_certs: "{{ __bootstrap_certs__ca_intermediate_certs|default({}) | combine( { item.commonName: item } )  }}"
+  loop: "{{ bootstrap_certs__ca_intermediate_certs_list }}"
+
+#- name: "Set __bootstrap_certs__ca_intermediate_certs"
+#  set_fact:
+#    __bootstrap_certs__ca_intermediate_certs: "{{ __bootstrap_certs__ca_intermediate_certs|default({}) | combine( { hostvars[item].ca_signer_common_name: hostvars[item].ca_cert_info } )  }}"
+#  loop: "{{ groups['ca_intermediate_certs'] }}"
+
+- name: "Display __bootstrap_certs__ca_intermediate_certs"
+  debug:
+    var: __bootstrap_certs__ca_intermediate_certs
+
+- name: "Set __bootstrap_certs__ca_signer_certs"
+  set_fact:
+    __bootstrap_certs__ca_signer_certs: "{{ { bootstrap_certs__ca_root_cn: bootstrap_certs__ca_root } | combine(__bootstrap_certs__ca_intermediate_certs) }}"
+    ## ref: https://stackoverflow.com/questions/37287013/how-to-convert-a-dictionary-of-dictionaries-into-a-list-of-dictionaries-in-a-ans
+    __bootstrap_certs__ca_intermediate_cert_list: "{{ __bootstrap_certs__ca_intermediate_certs.values() | list }}"
+
+- name: "Set __bootstrap_certs__ca_intermediate_certs_by_domain"
+  set_fact:
+    __bootstrap_certs__ca_intermediate_certs_by_domain: "{{ __bootstrap_certs__ca_intermediate_certs_by_domain|default({}) | combine( { item.domainName: item } ) }}"
+  loop: "{{ bootstrap_certs__ca_intermediate_certs_list }}"
+
+#- name: "Set __bootstrap_certs__ca_intermediate_certs_by_domain"
+#  set_fact:
+#    __bootstrap_certs__ca_intermediate_certs_by_domain: "{{ __bootstrap_certs__ca_intermediate_certs_by_domain|default({}) | combine( { hostvars[item].ca_signer_domain_name: hostvars[item].ca_cert_info } ) }}"
+#  loop: "{{ groups['ca_intermediate_certs'] }}"
+
+#- name: "Display __bootstrap_certs__ca_intermediate_certs_by_domain"
+#  debug:
+#    var: __bootstrap_certs__ca_intermediate_certs_by_domain
+
+- name: "Set ca_service_routes fact"
+  set_fact:
+    ca_service_routes: "{{ ca_service_routes|default({}) | combine( { item.route: item } ) }}"
+  loop: "{{ bootstrap_certs__ca_service_routes_list }}"

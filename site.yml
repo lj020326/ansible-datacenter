@@ -44,8 +44,8 @@
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
 - name: "Apply common groups and vars"
-#  tags: always
   hosts: all,!local,!node_offline
+#  tags: always
 #  gather_facts: no
   roles:
     - role: apply-common-groups
@@ -119,6 +119,7 @@
   hosts: all,!local,!node_offline
   ignore_unreachable: yes
   ignore_errors: yes
+#  gather_facts: no
   tags:
     - bootstrap-cacerts
     - bootstrap-signing-certs
@@ -538,10 +539,20 @@
   roles:
     - bootstrap-veeam-agent-config
 
-- name: "Bootstrap postfix"
-  hosts: postfix_server,postfix_client,!node_offline
+- name: "Bootstrap postfix server"
+  hosts: postfix_server,!node_offline
   tags:
     - bootstrap-postfix
+    - bootstrap-postfix-server
+  become: yes
+  roles:
+    - role: bootstrap-postfix
+
+- name: "Bootstrap postfix client"
+  hosts: postfix_network,!postfix_server,!node_offline
+  tags:
+    - bootstrap-postfix
+    - bootstrap-postfix-client
   become: yes
   roles:
     - role: bootstrap-postfix
@@ -562,7 +573,7 @@
     - bootstrap-ldap-client
   become: yes
   roles:
-    - role: ldap-client
+    - role: bootstrap-ldap-client
 
 - name: "Bootstrap ansible node"
   hosts: ansible_controller,!node_offline
@@ -602,9 +613,8 @@
 - name: "Setup ca_root and cacerts"
   hosts: ca_keystore,!node_offline
   gather_facts: false
-#  collections:
-#    - lvrfrc87.git_acp
   tags:
+    - bootstrap-certs
     - bootstrap-cacerts
     - bootstrap-signing-certs
     - bootstrap-keyring
@@ -617,7 +627,7 @@
   become: yes
   roles:
     - role: bootstrap-cfssl
-    - role: bootstrap-signing-certs
+    - role: bootstrap-certs
       tags: [cacerts-create]
 
 - name: "Deploy CA certs to cert_node"
@@ -625,7 +635,6 @@
   gather_facts: false
   tags:
     - bootstrap-node
-    - bootstrap-cacerts
 #    - bootstrap-docker-stack
     - cacerts
     - cacerts-distribute

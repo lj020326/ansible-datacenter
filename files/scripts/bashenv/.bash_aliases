@@ -92,6 +92,9 @@ alias rsync2='rsync -arv --no-links --update --progress --exclude=.idea --exclud
 alias rsync3='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv --exclude=save'
 #alias rsync2='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv}'
 #alias rsync3='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv,**/save}'
+alias rsyncisofile="rsync -arP -e'ssh -o StrictHostKeyChecking=no' --rsync-path 'sudo -u root rsync' \
+  ~/Downloads/rhel-server-7.9-x86_64-dvd.iso \
+  administrator@control01.johnson.int:/data/datacenter/vmware/iso-repos/linux/RedHat/7/"
 
 #alias rsyncnew='rsync -arv --no-links --update --progress --exclude=node_modules --exclude=venv /jdrive/media/torrents/completed/new /x/save/movies/; rm /jdrive/media/torrents/completed/new/*'
 alias rsyncmirror='rsync -ar --info=progress2 --delete --update'
