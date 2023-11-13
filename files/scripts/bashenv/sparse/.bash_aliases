@@ -1,6 +1,6 @@
 
-log_prefix=".bash_aliases"
-echo "${log_prefix} configuring shell aliases..."
+log_prefix_aliases=".bash_aliases"
+echo "${log_prefix_aliases} configuring shell aliases..."
 
 #
 # Some example alias instructions
@@ -102,9 +102,12 @@ alias prettyjson='python3 -m json.tool'
 
 ## ref: https://stackoverflow.com/questions/19551908/finding-duplicate-files-according-to-md5-with-bash
 ## ref: https://superuser.com/questions/259148/bash-find-duplicate-files-mac-linux-compatible
-alias finddupes="find . -not -empty -type f -printf '%s\n' | sort -rn | uniq -d |\
-xargs -I{} -n1 find . -type f -size {}c -print0 | xargs -0 md5sum |\
-sort | uniq -w32 --all-repeated=separate"
+alias find_dupe_files="find . -not -empty -type f -printf '%s\n' | sort -rn | uniq -d |\
+  xargs -I{} -n1 find . -type f -size {}c -print0 | xargs -0 md5sum |\
+  sort | uniq -w32 --all-repeated=separate"
+
+alias find_old_dirs="find . -mtime +14 -type d"
+alias delete_old_dirs="find . -mtime +14 -type d | xargs rm -f -r;"
 
 alias systemctl-list='systemctl list-unit-files | sort | grep enabled'
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
@@ -258,10 +261,17 @@ alias spacemacs='emacs -q --load "$HOME/.spacemacs.d/init.el"'
 
 alias fetchimagesfrommarkdown="~/bin/fetch_images_from_markdown.sh"
 alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
-alias fetch-and-import-site-certs="~/bin/fetch_and_import_site_cert_pem.sh"
+## use with host:port
+#alias fetch-and-import-site-cert="sudo ~/bin/fetch_and_import_site_cert_pem.sh"
+## use with host:port
+alias importsitecerts="sudo ~/bin/install_site_cacerts.sh"
+## use with host:port
+alias importsslcert="sudo ~/bin/import_site_cert.sh"
+
+alias syncpythoncerts="sudo ~/bin/sync-python-certs-with-system-cabundle.sh"
 
 if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
-  echo "${log_prefix} setting aliases specific to MSYS/MINGW platform"
+  echo "${log_prefix_aliases} setting aliases specific to MSYS/MINGW platform"
 
   alias flushdns="ipconfig //flushdns"
 
@@ -292,7 +302,7 @@ if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
   alias open='start'
 
 elif [[ "${platform}" == *"DARWIN"* ]]; then
-  echo "${log_prefix} setting aliases for DARWIN env"
+  echo "${log_prefix_aliases} setting aliases for DARWIN env"
   # alias emacs='emacs -q --load "${HOME}/.emacs.d/init.el"'
 
   ## ref: https://opensource.com/article/19/5/python-3-default-mac
@@ -320,6 +330,10 @@ elif [[ "${platform}" == *"DARWIN"* ]]; then
   ## ref: https://www.servernoobs.com/how-to-find-and-kill-all-zombie-processes/
   alias getpidparents="pstree -paul"
   alias getparentpids="pstree -paul"
+
+  alias find="gfind"
+  alias sed="gsed"
+  alias grep="ggrep"
 
 else  ## linux
   # alias venv2="virtualenv --python=/usr/bin/python2.7 venv"
@@ -385,6 +399,7 @@ alias syncwork="sync-sshfs-work.sh"
 alias syncworkdns="sync-dns-hosts-to-pfsense.sh"
 
 alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
+alias getcapwd="cagetpwd"
 
 alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
 alias sshansiblework="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"

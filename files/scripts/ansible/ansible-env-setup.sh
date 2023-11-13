@@ -2,6 +2,11 @@
 # usage: source hacking/env-setup [-q]
 #    modifies environment for running Ansible from checkout
 
+###########
+## ref: https://www.buildahomelab.com/2022/04/26/how-to-install-ansible-with-pipenv-pyenv/
+## ref: https://www.buildahomelab.com/2018/10/06/setup-ansible-with-virtualenv/
+## ref: https://www.redhat.com/sysadmin/python-venv-ansible
+
 # prepend a value to a potentially empty path variable
 # usage: prepend_path variable_name value
 prepend_path()

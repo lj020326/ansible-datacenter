@@ -1,6 +1,6 @@
 
-log_prefix=".bash_aliases"
-echo "${log_prefix} configuring shell aliases..."
+log_prefix_aliases=".bash_aliases"
+echo "${log_prefix_aliases} configuring shell aliases..."
 
 #
 # Some example alias instructions
@@ -130,7 +130,7 @@ alias sshesx01='ssh root@esx01.dettonville.int'
 alias sshesx02='ssh root@esx02.dettonville.int'
 alias sshesx10='ssh root@esx10.dettonville.int'
 alias sshesx11='ssh root@esx11.dettonville.int'
-#alias sshpacker="ssh -i ~/.ssh/${SSH_KEY}"
+alias sshpacker="ssh -i ~/.ssh/${SSH_KEY}"
 
 alias sshmedia='ssh administrator@media.johnson.int'
 alias sshplex='ssh administrator@plex.johnson.int'
@@ -274,7 +274,7 @@ alias importsslcert="sudo ~/bin/import_site_cert.sh"
 alias syncpythoncerts="sudo ~/bin/sync-python-certs-with-system-cabundle.sh"
 
 if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
-  echo "${log_prefix} setting aliases specific to MSYS/MINGW platform"
+  echo "${log_prefix_aliases} setting aliases specific to MSYS/MINGW platform"
 
   alias flushdns="ipconfig //flushdns"
 
@@ -305,7 +305,7 @@ if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
   alias open='start'
 
 elif [[ "${platform}" == *"DARWIN"* ]]; then
-  echo "${log_prefix} setting aliases for DARWIN env"
+  echo "${log_prefix_aliases} setting aliases for DARWIN env"
   # alias emacs='emacs -q --load "${HOME}/.emacs.d/init.el"'
 
   ## ref: https://opensource.com/article/19/5/python-3-default-mac
@@ -404,5 +404,5 @@ alias syncworkdns="sync-dns-hosts-to-pfsense.sh"
 alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
 alias getcapwd="cagetpwd"
 
-#alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
+alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
 alias sshansiblework="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
