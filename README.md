@@ -90,7 +90,7 @@ ansible -i inventory/hosts.yml all -m ping -b -vvvv
 
 An ansible role is used to setup all docker stack instances.
 
-The ansible role used to stand up the docker stack [can be found here](https://github.com/lj020326/ansible-datacenter/tree/main/roles/docker-stack).
+The `docker-stack` ansible role used to stand up the docker stack [can be found here](https://github.com/lj020326/ansible-datacenter/tree/main/roles/docker-stack).
 
 The [`docker-stack` ansible role](https://github.com/lj020326/ansible-datacenter/tree/main/roles/docker-stack) contains the [__jenkins config-as-code (jcac) yaml definition__](https://github.com/lj020326/ansible-datacenter/blob/main/roles/docker-stack/templates/jenkins_jcac/jenkins_casc.yml.j2) in template form used to setup the jenkins jcac instance.
 
