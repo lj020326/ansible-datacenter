@@ -103,7 +103,7 @@ The pipeline automation library used can be found [here](https://github.com/lj02
 [The pipeline automation library](https://github.com/lj020326/pipeline-automation-lib) defines the shared jenkins templates that are used throughout all of the jenkins ansible pipelines.  
 
 Configure the library in jenkins as seen below.
-![Jenkins - Configure shared Pipeline Automation Library](./docs/img/screenshots/packer-templates-00-pipeline-library.png)
+![Jenkins - Configure shared Pipeline Automation Library](./docs/img/screenshots/ansible-datacenter-00-pipeline-library.png)
 
 ### Site Root folder
 
