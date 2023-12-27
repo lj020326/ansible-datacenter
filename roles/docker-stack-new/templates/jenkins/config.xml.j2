@@ -1,0 +1,134 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<hudson>
+  <disabledAdministrativeMonitors>
+    <string>hudsonHomeIsFull</string>
+  </disabledAdministrativeMonitors>
+  <version>2.263.4</version>
+  <installStateName>RUNNING</installStateName>
+  <numExecutors>4</numExecutors>
+  <mode>NORMAL</mode>
+  <useSecurity>true</useSecurity>
+  <authorizationStrategy class="hudson.security.FullControlOnceLoggedInAuthorizationStrategy">
+    <denyAnonymousReadAccess>false</denyAnonymousReadAccess>
+  </authorizationStrategy>
+  <securityRealm class="hudson.security.LDAPSecurityRealm" plugin="ldap@1.26">
+    <disableMailAddressResolver>false</disableMailAddressResolver>
+    <configurations>
+      <jenkins.security.plugins.ldap.LDAPConfiguration>
+        <server>{{ __docker_stack__jenkins__ldap_host }}</server>
+        <rootDN>{{ __docker_stack__jenkins__ldap_base_dn }}</rootDN>
+        <inhibitInferRootDN>false</inhibitInferRootDN>
+        <userSearchBase>ou=users</userSearchBase>
+        <userSearch>uid={0}</userSearch>
+        <groupSearchBase>ou=groups</groupSearchBase>
+        <groupMembershipStrategy class="jenkins.security.plugins.ldap.FromGroupSearchLDAPGroupMembershipStrategy">
+          <filter>memberUid={1}</filter>
+        </groupMembershipStrategy>
+        <managerPasswordSecret>{{ __docker_stack__jenkins__mgr_pwd_secret }}</managerPasswordSecret>
+        <displayNameAttributeName>displayname</displayNameAttributeName>
+        <mailAddressAttributeName>mail</mailAddressAttributeName>
+        <ignoreIfUnavailable>false</ignoreIfUnavailable>
+      </jenkins.security.plugins.ldap.LDAPConfiguration>
+    </configurations>
+    <userIdStrategy class="jenkins.model.IdStrategy$CaseInsensitive"/>
+    <groupIdStrategy class="jenkins.model.IdStrategy$CaseInsensitive"/>
+    <disableRolePrefixing>true</disableRolePrefixing>
+  </securityRealm>
+  <disableRememberMe>false</disableRememberMe>
+  <projectNamingStrategy class="jenkins.model.ProjectNamingStrategy$DefaultProjectNamingStrategy"/>
+  <workspaceDir>${JENKINS_HOME}/workspace/${ITEM_FULL_NAME}</workspaceDir>
+  <buildsDir>${ITEM_ROOTDIR}/builds</buildsDir>
+  <markupFormatter class="hudson.markup.EscapedMarkupFormatter"/>
+  <jdks/>
+  <viewsTabBar class="hudson.views.DefaultViewsTabBar"/>
+  <myViewsTabBar class="hudson.views.DefaultMyViewsTabBar"/>
+  <clouds>
+    <com.nirima.jenkins.plugins.docker.DockerCloud plugin="docker-plugin@1.2.2">
+      <name>dockercloud01</name>
+      <templates>
+        <com.nirima.jenkins.plugins.docker.DockerTemplate>
+          <configVersion>2</configVersion>
+          <labelString>docker dockercloud dockercloud-agent</labelString>
+          <connector class="io.jenkins.docker.connector.DockerComputerJNLPConnector">
+            <jnlpLauncher>
+              <tunnel>{{ __docker_stack__jenkins__agent_tunnel }}</tunnel>
+              <workDirSettings>
+                <disabled>false</disabled>
+                <internalDir>remoting</internalDir>
+                <failIfWorkDirIsMissing>false</failIfWorkDirIsMissing>
+              </workDirSettings>
+              <webSocket>false</webSocket>
+            </jnlpLauncher>
+          </connector>
+          <remoteFs>/home/jenkins</remoteFs>
+          <instanceCap>5</instanceCap>
+          <mode>EXCLUSIVE</mode>
+          <retentionStrategy class="com.nirima.jenkins.plugins.docker.strategy.DockerOnceRetentionStrategy">
+            <idleMinutes>10</idleMinutes>
+          </retentionStrategy>
+          <dockerTemplateBase>
+            <image>{{ __docker_stack__jenkins__agent_image }}</image>
+            <pullCredentialsId>docker-registry-admin</pullCredentialsId>
+            <volumes>
+              <string>/etc/pki/ca-trust/extracted/java/cacerts:/var/lib/jenkins/cacerts:ro</string>
+              <string>/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/ssl/certs/ca-certificates.crt:ro</string>
+              <string>/home/container-user/docker/jenkins_agent:/home/jenkins:rw</string>
+              <string>/export/data/jenkins:/data:rw</string>
+              <string>/srv/data2/data/vmware:/vmware:rw</string>
+            </volumes>
+            <environment>
+              <string>gid=1006</string>
+              <string>uid=1006</string>
+              <string>JAVA_OPTS=-Djavax.net.ssl.trustStore=/var/lib/jenkins/cacerts -Djavax.net.ssl.trustStorePassword=changeit</string>
+            </environment>
+            <bindAllPorts>false</bindAllPorts>
+            <cpuPeriod>0</cpuPeriod>
+            <cpuQuota>0</cpuQuota>
+            <privileged>false</privileged>
+            <tty>false</tty>
+          </dockerTemplateBase>
+          <removeVolumes>true</removeVolumes>
+          <stopTimeout>0</stopTimeout>
+          <pullStrategy>PULL_ALWAYS</pullStrategy>
+          <pullTimeout>300</pullTimeout>
+          <disabled>
+            <disabledByChoice>false</disabledByChoice>
+          </disabled>
+          <name>dockercloud-agent</name>
+        </com.nirima.jenkins.plugins.docker.DockerTemplate>
+      </templates>
+      <dockerApi>
+        <dockerHost plugin="docker-commons@1.17">
+          <uri>tcp://socket-proxy:2375</uri>
+        </dockerHost>
+        <connectTimeout>60</connectTimeout>
+        <readTimeout>60</readTimeout>
+      </dockerApi>
+      <containerCap>100</containerCap>
+      <exposeDockerHost>false</exposeDockerHost>
+      <disabled>
+        <disabledByChoice>false</disabledByChoice>
+      </disabled>
+    </com.nirima.jenkins.plugins.docker.DockerCloud>
+  </clouds>
+  <quietPeriod>5</quietPeriod>
+  <scmCheckoutRetryCount>0</scmCheckoutRetryCount>
+  <views>
+    <hudson.model.AllView>
+      <owner class="hudson" reference="../../.."/>
+      <name>all</name>
+      <filterExecutors>false</filterExecutors>
+      <filterQueue>false</filterQueue>
+      <properties class="hudson.model.View$PropertyList"/>
+    </hudson.model.AllView>
+  </views>
+  <primaryView>all</primaryView>
+  <slaveAgentPort>9000</slaveAgentPort>
+  <label>ansible</label>
+  <crumbIssuer class="hudson.security.csrf.DefaultCrumbIssuer">
+    <excludeClientIPFromCrumb>false</excludeClientIPFromCrumb>
+  </crumbIssuer>
+  <nodeProperties/>
+  <globalNodeProperties/>
+  <noUsageStatistics>true</noUsageStatistics>
+</hudson>

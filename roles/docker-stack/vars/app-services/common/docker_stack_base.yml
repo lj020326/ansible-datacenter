@@ -130,14 +130,13 @@ __docker_stack__base__networks_default:
 
   ## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
   net:
-    attachable: true
     driver: overlay
-#    external: false
+#    attachable: true
 
   socket_proxy:
-#    attachable: true
     driver: overlay
     external: true
+#    attachable: true
 
 #__docker_stack__traefik__networks: "{{ __docker_stack__base__networks_default | combine( { docker_stack_proxy_network: { 'external': true } } ) }}"
 __docker_stack__base__networks: "{{ (docker_stack__base_networks | d(__docker_stack__base__networks_default))
@@ -145,7 +144,7 @@ __docker_stack__base__networks: "{{ (docker_stack__base_networks | d(__docker_st
 
 __docker_stack__base__volumes: {}
 
-__docker_stack__appspec__base:
+docker_stack__appspec__base:
   dirs: "{{ __docker_stack__base__config_dirs | d([]) }}"
   files: "{{ __docker_stack__base__config_files | d([]) }}"
   templates: "{{ __docker_stack__base__config_tpls | d([]) }}"
@@ -155,20 +154,13 @@ __docker_stack__appspec__base:
   volumes: "{{ __docker_stack__base__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__base__services | d({}) }}"
 
-__docker_stack__traefik__labels_traefik: "{{ docker_stack__traefik__traefik_labels | d(__docker_stack__traefik__labels_traefik_default) }}"
-__docker_stack__traefik__labels_whoami: "{{ docker_stack__traefik__labels_whoami | d(__docker_stack__traefik__labels_whoami_default) }}"
-__docker_stack__traefik__labels_portainer: "{{ docker_stack__traefik__labels_portainer | d(__docker_stack__traefik__labels_portainer_default) }}"
-__docker_stack__traefik__labels_dozzle: "{{ docker_stack__traefik__labels_dozzle | d(__docker_stack__traefik__labels_dozzle_default) }}"
+__docker_stack__traefik__traefik_labels: "{{ docker_stack__traefik__traefik_labels | d(__docker_stack__traefik__traefik_labels_default) }}"
+__docker_stack__whoami__traefik_labels: "{{ docker_stack__whoami__traefik_labels | d(__docker_stack__whoami__traefik_labels_default) }}"
+__docker_stack__portainer__traefik_labels: "{{ docker_stack__portainer__traefik_labels | d(__docker_stack__portainer__traefik_labels_default) }}"
+__docker_stack__dozzle__traefik_labels: "{{ docker_stack__dozzle__traefik_labels | d(__docker_stack__dozzle__traefik_labels_default) }}"
 
-__docker_stack__environment__dozzle_default:
-  DOCKER_HOST: tcp://socket-proxy:2375
-  DOZZLE_FILTER: "status=running"
-  # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
-  DOZZLE_LEVEL: info
-  DOZZLE_TAILSIZE: 300
-
-__docker_stack__environment__dozzle: "{{ docker_stack__environment__dozzle
-  | d(__docker_stack__environment__dozzle_default) }}"
+__docker_stack__dozzle__environment: "{{ docker_stack__dozzle__environment
+  | d(__docker_stack__dozzle__environment_default) }}"
 
 ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
 __docker_stack__base__services:
@@ -246,7 +238,7 @@ __docker_stack__base__services:
         delay: 10s
         # order: start-first
         order: stop-first
-    labels: "{{ __docker_stack__traefik__labels_traefik }}"
+    labels: "{{ __docker_stack__traefik__traefik_labels }}"
 
   # Docker Socket Proxy - Security Enchanced Proxy for Docker Socket
   socket-proxy:
@@ -345,7 +337,7 @@ __docker_stack__base__services:
         parallelism: 1
         delay: 10s
         order: start-first
-    labels: "{{ __docker_stack__traefik__labels_whoami }}"
+    labels: "{{ __docker_stack__whoami__traefik_labels }}"
 
   ######### DOCKER RELATED ##########
   # Watchtower - Automatic Update of Containers/Apps
@@ -508,7 +500,7 @@ __docker_stack__base__services:
         delay: 10s
         max_attempts: 3
         window: 120s
-    labels: "{{ __docker_stack__traefik__labels_portainer }}"
+    labels: "{{ __docker_stack__portainer__traefik_labels }}"
 
   # Dozzle - Real-time Docker Log Viewer
   dozzle:
@@ -522,7 +514,7 @@ __docker_stack__base__services:
 #      - socket-proxy
     security_opt:
       - no-new-privileges:true
-    environment: "{{ __docker_stack__environment__dozzle }}"
+    environment: "{{ __docker_stack__dozzle__environment }}"
     ports:
      - target: 8080
        published: 8080
@@ -542,4 +534,4 @@ __docker_stack__base__services:
         delay: 10s
         max_attempts: 3
         window: 120s
-    labels: "{{ __docker_stack__traefik__labels_dozzle }}"
+    labels: "{{ __docker_stack__dozzle__traefik_labels }}"

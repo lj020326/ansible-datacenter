@@ -1,0 +1,595 @@
+## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/credentials
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      - usernamePassword:
+          id: "jenkins-admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+          scope: GLOBAL
+          username: "admin"
+          usernameSecret: true
+      - basicSSHUserPrivateKey:
+          description: "bitbucket-ssh-jenkins"
+          id: "bitbucket-ssh-jenkins"
+          privateKeySource:
+            directEntry:
+              privateKey: "${BITBUCKET_SSH_PRIVATE_KEY}"
+          scope: GLOBAL
+          username: "${BITBUCKET_SSH_USERNAME}"
+          usernameSecret: true
+      - usernamePassword:
+          id: "docker-registry-admin"
+          password: "${DOCKER_REGISTRY_PASSWORD}"
+          scope: GLOBAL
+          username: "admin"
+          usernameSecret: true
+      - usernamePassword:
+          id: "github-lj020326"
+          password: "${GITHUB_PASSWORD}"
+          scope: GLOBAL
+          username: "${GITHUB_USERNAME}"
+          usernameSecret: true
+    - domain:
+        name: "INFRA"
+        description: "INFRA domain"
+      credentials:
+        - usernamePassword:
+            id: "dcapi-govc-cred"
+            password: "${VSPHERE_PASSWORD}"
+            scope: GLOBAL
+            username: "administrator@vsphere.local"
+            usernameSecret: true
+        - usernamePassword:
+            id: "dcapi-jenkins-git-user"
+            password: "${JENKINS_GIT_PASSWORD}"
+            scope: GLOBAL
+            username: "jenkins"
+            usernameSecret: true
+        - usernamePassword:
+            description: "ansible-ssh-password"
+            id: "dcapi-ansible-ssh-password"
+            password: "${ANSIBLE_SSH_PASSWORD}"
+            scope: GLOBAL
+            username: "ansible"
+            usernameSecret: true
+        - basicSSHUserPrivateKey:
+            description: "jenkins-ansible-ssh"
+            id: "jenkins-ansible-ssh"
+            privateKeySource:
+              directEntry:
+                privateKey: "${ANSIBLE_SSH_PRIVATE_KEY}"
+            scope: GLOBAL
+            username: "ansible"
+            usernameSecret: true
+        - string:
+            id: "vmware-vcenter-password"
+            scope: GLOBAL
+            secret: "${VSPHERE_PASSWORD}"
+            description: "vmware-vcenter-password"
+        - string:
+            id: "vmware-esxi-password"
+            scope: GLOBAL
+            secret: "${VMWARE_ESXI_PASSWORD}"
+            description: "vmware-esxi-password"
+        - string:
+            id: "packer-ssh-password"
+            scope: GLOBAL
+            secret: "${PACKER_SSH_PASSWORD}"
+            description: "packer-ssh-password"
+        - string:
+            scope: GLOBAL
+            id: "ansible-vault-password"
+            secret: "${ANSIBLE_VAULT_PASSWORD}"
+            description: "Ansible Vault Password"
+jenkins:
+  agentProtocols:
+  - "JNLP4-connect"
+  - "Ping"
+#  ## ref: https://webapp.chatgpt4google.com/s/MjcyNDgx
+#  agentProtocols:
+#  - jnlp:
+#      agentInboundSecurity:
+#        preference: "preferred"
+#        randomSeed: "some-random-string"
+#        fixedSecret: "${JENKINS_AGENT_SECRET}"
+#  ## ref: https://webapp.chatgpt4google.com/s/MTk5ODA5
+#  agents:
+#    inbound:
+#      - name: "jenkins-agent-{{ inventory_hostname_short }}"
+#        agentType: "jnlp"
+#        labels:
+#          - "linux"
+#          - "docker"
+#          - "packer"
+#        secret: "${JENKINS_AGENT_SECRET}"
+  authorizationStrategy:
+    ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/global-matrix-auth
+    ## ref: https://stackoverflow.com/questions/32111825/jenkins-how-to-set-authorization-on-project-basis
+    ## ref: https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code.yml
+    projectMatrix:
+      permissions:
+      - "GROUP:Overall/Administer:SG - Ansible-Admin"
+      - "GROUP:Overall/Administer:admin"
+      - "GROUP:Overall/Read:authenticated"
+      - "USER:Agent/Build:admin"
+      - "USER:Agent/Configure:admin"
+      - "USER:Agent/Connect:admin"
+      - "USER:Agent/Create:admin"
+      - "USER:Agent/Delete:admin"
+      - "USER:Agent/Disconnect:admin"
+      - "USER:Credentials/Create:admin"
+      - "USER:Credentials/Delete:admin"
+      - "USER:Credentials/ManageDomains:admin"
+      - "USER:Credentials/Update:admin"
+      - "USER:Credentials/View:admin"
+      - "USER:Job/Build:admin"
+      - "USER:Job/Cancel:admin"
+      - "USER:Job/Configure:admin"
+      - "USER:Job/Create:admin"
+      - "USER:Job/Delete:admin"
+      - "USER:Job/Discover:admin"
+      - "USER:Job/Move:admin"
+      - "USER:Job/Read:admin"
+      - "USER:Job/Workspace:admin"
+      - "USER:Metrics/HealthCheck:admin"
+      - "USER:Metrics/ThreadDump:admin"
+      - "USER:Metrics/View:admin"
+      - "USER:Overall/Administer:admin"
+      - "USER:Overall/Read:admin"
+      - "USER:Run/Delete:admin"
+      - "USER:Run/Replay:admin"
+      - "USER:Run/Update:admin"
+      - "USER:SCM/Tag:admin"
+      - "USER:View/Configure:admin"
+      - "USER:View/Create:admin"
+      - "USER:View/Delete:admin"
+      - "USER:View/Read:admin"
+  clouds:
+  - docker:
+      dockerApi:
+        connectTimeout: 60
+        dockerHost:
+          uri: "tcp://socket-proxy:2375"
+        readTimeout: 60
+      exposeDockerHost: true
+      name: "dockercloud01"
+      ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/docker
+      templates:
+      - connector:
+          attach:
+            user: "jenkins"
+#      - connector:
+#          jnlp:
+#            jnlpLauncher:
+#              tunnel: "{{ __docker_stack__jenkins_endpoint }}:9000"
+#              workDirSettings:
+#                disabled: false
+#                failIfWorkDirIsMissing: false
+#                internalDir: "remoting"
+        dockerTemplateBase:
+          bindAllPorts: true
+          cpuPeriod: 0
+          cpuQuota: 0
+          environment:
+          - "gid={{ docker_stack__user_gid }}"
+          - "uid={{ docker_stack__user_uid }}"
+          - "JAVA_OPTS=-Djavax.net.ssl.trustStore=/var/lib/jenkins/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
+          image: "{{ __docker_stack__jenkins_agent_image }}"
+          mounts:
+          - "type=tmpfs,destination=/run"
+          - "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock"
+          - "type=bind,source={{ __docker_stack__ca_java_keystore }},destination=/var/lib/jenkins/cacerts,readonly"
+          - "type=bind,source={{ __docker_stack__ca_cert_bundle }},destination=/etc/ssl/certs/ca-certificates.crt,readonly"
+          - "type=bind,source={{ __docker_stack__jenkins_stack_dir }}/jenkins_agent,destination=/home/jenkins"
+          - "type=bind,source={{ __docker_stack__jenkins_data_dir }},destination=/data"
+          - "type=bind,source={{ __docker_stack__jenkins_vmware_data_dir }},destination=/vmware"
+          pullCredentialsId: "docker-registry-admin"
+        instanceCapStr: "1"
+        labelString: "docker dockercloud dockercloud-agent ansible"
+        mode: EXCLUSIVE
+        name: "dockercloud-agent"
+        pullStrategy: PULL_ALWAYS
+        pullTimeout: 300
+#        remoteFs: "/home/jenkins"
+        remoteFs: "/home/jenkins/agent"
+        removeVolumes: true
+        retentionStrategy:
+          idleMinutes: 30
+        stopTimeout: 0
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+  disableRememberMe: false
+  disabledAdministrativeMonitors:
+  - "hudson.node_monitors.MonitorMarkedNodeOffline"
+  - "hudsonHomeIsFull"
+  - "jenkins.diagnostics.ControllerExecutorsAgents"
+  labelAtoms:
+  - name: "ansible"
+  - name: "built-in"
+  - name: "controller"
+  - name: "docker"
+  - name: "dockercloud"
+  - name: "dockercloud-agent"
+  - name: "linux"
+  - name: "packer"
+  - name: "swarm"
+  - name: "jenkins-agent-{{ inventory_hostname_short }}"
+  labelString: "controller"
+  markupFormatter: "plainText"
+  mode: NORMAL
+  myViewsTabBar: "standard"
+  noUsageStatistics: true
+  ## ref: https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code.yml
+  nodes:
+  - permanent:
+      labelString: "docker ansible"
+      launcher:
+        inbound:
+          tunnel: "{{ __docker_stack__jenkins_endpoint }}:9000"
+          workDirSettings:
+            disabled: false
+            failIfWorkDirIsMissing: false
+            internalDir: "remoting"
+            workDirPath: "/home/jenkins/agent"
+      name: "jenkins-agent-{{ inventory_hostname_short }}"
+      nodeProperties:
+      - authorizationMatrix:
+          inheritanceStrategy: "inheritingGlobal"
+          permissions:
+          - "GROUP:Agent/Build:authenticated"
+          - "GROUP:Agent/Disconnect:authenticated"
+          - "USER:Agent/Build:anonymous"
+      remoteFS: "/home/jenkins/agent"
+      retentionStrategy: "always"
+  numExecutors: 4
+  primaryView:
+    all:
+      name: "all"
+  projectNamingStrategy: "standard"
+  quietPeriod: 5
+#  ## Since Jenkins 2.326, the agent-to-controller security subsystem is always enabled, so
+#  ## following block is no longer needed and only prints a deprecation message and stacktrace during startup:
+#  ##   j.s.s2m.AdminWhitelistRule#setMasterKillSwitch: Setting AdminWhitelistRule no longer has any effect.
+#  ## ref: https://github.com/cider-security-research/cicd-goat/issues/15
+#  remotingSecurity:
+#    enabled: true
+  scmCheckoutRetryCount: 0
+  securityRealm:
+    ldap:
+      cache:
+        size: 100
+        ttl: 30
+      configurations:
+      - groupMembershipStrategy:
+          fromUserRecord:
+            attributeName: "memberOf"
+        groupSearchBase: "OU=Resource"
+        groupSearchFilter: "(& (cn={0}) (objectclass=group) )"
+        inhibitInferRootDN: false
+        managerDN: "${LDAP_USERNAME}"
+        managerPasswordSecret: "${LDAP_PASSWORD}"
+        rootDN: "{{ __docker_stack__jenkins_ldap_base_dn }}"
+        server: "{{ __docker_stack__jenkins_ldap_host }}"
+        userSearch: "sAMAccountName={0}"
+        userSearchBase: "OU=Corp"
+      disableMailAddressResolver: false
+      disableRolePrefixing: true
+      groupIdStrategy: "caseInsensitive"
+      userIdStrategy: "caseInsensitive"
+  slaveAgentPort: 9000
+  systemMessage: |+
+    Welcome to our CI\CD server.  This Jenkins is configured and managed 'as code'.
+
+  updateCenter:
+    sites:
+    - id: "default"
+      url: "https://updates.jenkins.io/update-center.json"
+  views:
+  - all:
+      name: "all"
+  viewsTabBar: "standard"
+globalCredentialsConfiguration:
+  configuration:
+    providerFilter: "none"
+    typeFilter: "none"
+security:
+  apiToken:
+    creationOfLegacyTokenEnabled: false
+    tokenGenerationOnCreationEnabled: false
+    usageStatisticsEnabled: true
+  gitHooks:
+    allowedOnAgents: false
+    allowedOnController: false
+  gitHostKeyVerificationConfiguration:
+    sshHostKeyVerificationStrategy: "noHostKeyVerificationStrategy"
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+  ## ref: https://github.com/jenkinsci/authorize-project-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/authorizeproject/ConfigurationAsCodeTest/global.config.TriggeringUsersAuthorizationStrategy.yml
+  ## ref: https://bobcares.com/blog/jenkins-setup-docker/
+  queueItemAuthenticator:
+    authenticators:
+    - global:
+        strategy: "triggeringUsersAuthorizationStrategy"
+#        strategy: "systemAuthorizationStrategy"
+  sSHD:
+    port: -1
+  updateSiteWarningsConfiguration:
+    ignoredWarnings:
+    - "SECURITY-2617-extended-choice-parameter"
+    - "SECURITY-2232"
+    - "SECURITY-1351"
+    - "SECURITY-1350"
+unclassified:
+  ansiColorBuildWrapper:
+    colorMaps:
+    - black: "#000000"
+      blackB: "#4C4C4C"
+      blue: "#1E90FF"
+      blueB: "#4682B4"
+      cyan: "#00CDCD"
+      cyanB: "#00FFFF"
+      green: "#00CD00"
+      greenB: "#00FF00"
+      magenta: "#CD00CD"
+      magentaB: "#FF00FF"
+      name: "xterm"
+      red: "#CD0000"
+      redB: "#FF0000"
+      white: "#E5E5E5"
+      whiteB: "#FFFFFF"
+      yellow: "#AA5500"
+      yellowB: "#FFFF00"
+    - black: "#000000"
+      blackB: "#555555"
+      blue: "#0000AA"
+      blueB: "#5555FF"
+      cyan: "#00AAAA"
+      cyanB: "#55FFFF"
+      defaultBackground: 0
+      defaultForeground: 7
+      green: "#00AA00"
+      greenB: "#55FF55"
+      magenta: "#AA00AA"
+      magentaB: "#FF55FF"
+      name: "vga"
+      red: "#AA0000"
+      redB: "#FF5555"
+      white: "#AAAAAA"
+      whiteB: "#FFFFFF"
+      yellow: "#AA5500"
+      yellowB: "#FFFF55"
+    - black: "black"
+      blackB: "black"
+      blue: "blue"
+      blueB: "blue"
+      cyan: "darkcyan"
+      cyanB: "cyan"
+      green: "green"
+      greenB: "green"
+      magenta: "darkorange"
+      magentaB: "magenta"
+      name: "css"
+      red: "red"
+      redB: "red"
+      white: "white"
+      whiteB: "white"
+      yellow: "brown"
+      yellowB: "yellow"
+    - black: "#2E3436"
+      blackB: "#2E3436"
+      blue: "#3465A4"
+      blueB: "#3465A4"
+      cyan: "#06989A"
+      cyanB: "#06989A"
+      defaultBackground: 0
+      defaultForeground: 7
+      green: "#4E9A06"
+      greenB: "#4E9A06"
+      magenta: "#75507B"
+      magentaB: "#75507B"
+      name: "gnome-terminal"
+      red: "#CC0000"
+      redB: "#CC0000"
+      white: "#D3D7CF"
+      whiteB: "#D3D7CF"
+      yellow: "#C4A000"
+      yellowB: "#C4A000"
+    globalColorMapName: "css"
+  buildDiscarders:
+    configuredBuildDiscarders:
+    - "jobBuildDiscarder"
+  buildStepOperation:
+    enabled: false
+  defaultFolderConfiguration:
+    healthMetrics:
+    - worstChildHealthMetric:
+        recursive: true
+  email-ext:
+    adminRequiredForTemplateTesting: false
+    allowUnregisteredEnabled: false
+    charset: "UTF-8"
+    debugMode: false
+    defaultBody: |-
+      $PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS:
+
+      Check console output at $BUILD_URL to view the results.
+    defaultContentType: "text/plain"
+    defaultSubject: "$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!"
+    defaultSuffix: "@dettonville.org"
+    defaultTriggerIds:
+    - "hudson.plugins.emailext.plugins.trigger.FailureTrigger"
+    mailAccount:
+      smtpHost: "mail.johnson.int"
+    maxAttachmentSize: -1
+    maxAttachmentSizeMb: -1
+    precedenceBulk: false
+    watchingEnabled: false
+  enrichedSummaryConfig:
+    enrichedSummaryEnabled: false
+    httpClientDelayBetweenRetriesInSeconds: 1
+    httpClientMaxRetries: 3
+    httpClientTimeoutInSeconds: 1
+  fingerprints:
+    fingerprintCleanupDisabled: false
+    storage: "file"
+  gitHubConfiguration:
+    apiRateLimitChecker: ThrottleForNormalize
+  gitHubPluginConfig:
+    hookUrl: "https://{{ __docker_stack__jenkins_endpoint }}/github-webhook/"
+  giteaServers:
+    servers:
+    - credentialsId: "dcapi-jenkins-git-user"
+      displayName: "gitea-admin"
+      manageHooks: true
+      serverUrl: "https://gitea.admin.dettonville.int"
+  globalLibraries:
+    libraries:
+    - cachingConfiguration:
+        refreshTimeMinutes: 30
+      defaultVersion: "main"
+      includeInChangesets: false
+      name: "pipeline-automation-lib"
+      retriever:
+        modernSCM:
+          scm:
+            git:
+              credentialsId: "dcapi-jenkins-git-user"
+#              id: "0f7f6074-dd56-42c9-8db4-9d6ec8a0b566"
+              remote: "{{ __docker_stack__jenkins_pipeline_lib_repo }}"
+              traits:
+              - "gitBranchDiscovery"
+              - cleanBeforeCheckout:
+                  extension:
+                    deleteUntrackedNestedRepositories: true
+  globalTimeOutConfiguration:
+    operations:
+    - "abortOperation"
+    overwriteable: false
+  injectionConfig:
+    allowUntrusted: false
+    enabled: false
+    enforceUrl: false
+    injectCcudExtension: false
+    injectMavenExtension: false
+#  jiraCloudPluginConfig:
+#    autoBuildsEnabled: false
+#    autoDeploymentsEnabled: false
+#    autoDeploymentsRegex: "^deploy to (?<envName>.*)$"
+#    debugLogging: false
+  junitTestResultStorage:
+    storage: "file"
+  location:
+    adminAddress: "admin+jenkins@dettonville.com"
+    url: "${JENKINS_HOST}"
+  mailer:
+    charset: "UTF-8"
+    defaultSuffix: "@dettonville.org"
+    smtpHost: "mail.johnson.int"
+    useSsl: false
+    useTls: false
+  pluginImpl:
+    enableCredentialsFromNode: false
+  pollSCM:
+    pollingThreadCount: 10
+  prismConfiguration:
+    theme: PRISM
+  prometheusConfiguration:
+    appendParamLabel: false
+    appendStatusLabel: false
+    collectDiskUsage: true
+    collectingMetricsPeriodInSeconds: 180
+    countAbortedBuilds: true
+    countFailedBuilds: true
+    countNotBuiltBuilds: true
+    countSuccessfulBuilds: true
+    countUnstableBuilds: true
+    defaultNamespace: "default"
+    fetchTestResults: true
+    jobAttributeName: "jenkins_job"
+    path: "prometheus"
+    perBuildMetrics: false
+    processingDisabledBuilds: false
+    useAuthenticatedEndpoint: false
+  scmGit:
+    addGitTagAction: false
+    allowSecondFetch: false
+    createAccountBasedOnEmail: false
+    disableGitToolChooser: false
+    globalConfigEmail: "admin+jenkins@dettonville.com"
+    globalConfigName: "jenkins"
+    hideCredentials: false
+    showEntireCommitSummaryInChanges: false
+    useExistingAccountWithSameEmail: false
+  simple-theme-plugin:
+    elements:
+    - cssText:
+        text: |
+          :root {
+              --material-primary: #ff973f !important;
+          }
+          #jenkins-head-icon {
+              display: none;
+          }
+          #jenkins-home-link::before {
+              background-repeat: no-repeat;
+              height: 40px;
+              display: inline-block;
+              width: 80px;
+              content: '';
+              background-size: contain;
+              vertical-align: middle;
+          }
+  slackNotifier:
+    botUser: false
+    sendAsText: false
+  themeManager:
+    disableUserThemes: true
+    theme: "noOp"
+  timestamper:
+    allPipelines: false
+    elapsedTimeFormat: "'<b>'HH:mm:ss.S'</b> '"
+    systemTimeFormat: "'<b>'HH:mm:ss'</b> '"
+#  warningsParsers:
+#    consoleLogScanningPermitted: false
+  whitelist:
+    enabled: false
+tool:
+  ansible:
+    installations:
+    - home: "/usr/local/bin"
+      name: "ansible-local"
+  customTool:
+    installations:
+    - home: "/usr/local/bin"
+      name: "packer-local"
+#      labelSpecifics:
+#      - label: "packer"
+  git:
+    installations:
+    - home: "git"
+      name: "Default"
+  mavenGlobalConfig:
+    globalSettingsProvider: "standard"
+    settingsProvider: "standard"
+#  packer:
+#    installations:
+#    - home: "/usr/local/bin"
+#      name: "packer-1.6.2"
+#    # packer_template_file: provision/base.json
+  pipelineMaven:
+    globalTraceability: false
+    triggerDownstreamUponResultAborted: false
+    triggerDownstreamUponResultFailure: false
+    triggerDownstreamUponResultNotBuilt: false
+    triggerDownstreamUponResultSuccess: true
+    triggerDownstreamUponResultUnstable: false
+  terraform:
+    installations:
+    - home: "/usr/bin"
+      name: "terraform"
+## ref: https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code.yml
+## ref: https://stackoverflow.com/questions/54434162/how-to-create-a-jenkins-pipelinejob-via-configuration-as-code
+jobs:
+  - file: /var/jenkins_home/casc_configs/seedjob.groovy

@@ -3,7 +3,7 @@
 // ref: https://blog.ippon.tech/setting-up-a-shared-library-and-seed-job-in-jenkins-part-2/
 // ref: https://devops.stackexchange.com/questions/11833/how-do-i-load-a-jenkins-shared-library-in-a-jenkins-job-dsl-seed
 // ref: https://stackoverflow.com/questions/69364938/error-creating-jobdsl-parameters-programatically
-String jobsRepoUrl = "{{ __docker_stack__jenkins_pipeline_lib_repo }}"
+String jobsRepoUrl = "{{ __docker_stack__jenkins__pipeline_lib_repo }}"
 
 String seedJobName = "ADMIN/bootstrap-projects"
 

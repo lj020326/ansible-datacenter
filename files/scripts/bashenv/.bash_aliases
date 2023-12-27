@@ -130,7 +130,9 @@ alias sshesx01='ssh root@esx01.dettonville.int'
 alias sshesx02='ssh root@esx02.dettonville.int'
 alias sshesx10='ssh root@esx10.dettonville.int'
 alias sshesx11='ssh root@esx11.dettonville.int'
-alias sshpacker="ssh -i ~/.ssh/${SSH_KEY}"
+
+## this is a function instead
+#alias sshpacker="ssh -i ~/.ssh/${SSH_KEY}"
 
 alias sshmedia='ssh administrator@media.johnson.int'
 alias sshplex='ssh administrator@plex.johnson.int'
@@ -404,5 +406,7 @@ alias syncworkdns="sync-dns-hosts-to-pfsense.sh"
 alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
 alias getcapwd="cagetpwd"
 
-alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
+## this is a function instead
+#alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
+
 alias sshansiblework="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
