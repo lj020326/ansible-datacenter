@@ -7,7 +7,7 @@
     * [Check correct hosts appear in the test hosts/groups](#check-correct-hosts-appear-in-the-test-hostsgroups)
     * [Check the host variable values are correctly set](#check-the-host-variable-values-are-correctly-set)
   * [2 - Check the groups are correctly setup for the hosts getting added](#2---check-the-groups-are-correctly-setup-for-the-hosts-getting-added)
-    * [CORE/Essential "DCC" groups](#coreessential-dcc-groups)
+    * [CORE/Essential "DC" groups](#coreessential-dc-groups)
   * [3 - Key role variable checks for hosts in group(s)](#3---key-role-variable-checks-for-hosts-in-groups)
   * [4 - Graphs for group hierarchy checks](#4---graphs-for-group-hierarchy-checks)
 * [Testing Inventory host and/or group variable settings](#testing-inventory-host-andor-group-variable-settings)
@@ -167,16 +167,16 @@ testhost1s1.example.int | SUCCESS => {
 
 Seeing the situation above should inspire/invoke the following questions/concerns: 
 
-* shouldn't these machines also be in the respective core/essential DCC groups used to derive core/essential settings/configs? 
-* currently, they only appear to be in only the `examplegroup` group, so they would not derive any values for the DCC group settings. (see next subsection for more info).
+* shouldn't these machines also be in the respective core/essential DC groups used to derive core/essential settings/configs? 
+* currently, they only appear to be in only the `examplegroup` group, so they would not derive any values for the DC group settings. (see next subsection for more info).
 
-#### CORE/Essential "DCC" groups
+#### CORE/Essential "DC" groups
 
-All hosts should in appear in respective core/essential "DCC" groups to derive the correct settings.
+All hosts should in appear in respective core/essential "DC" groups to derive the correct settings.
 
-We would always expect there to be "core" DCC groups that all machines should appear.
+We would always expect there to be "core" DC groups that all machines should appear.
 
-The "core" DCC groups we expect to see:
+The "core" DC groups we expect to see:
 
 * sdlc_environment 
   * DEV

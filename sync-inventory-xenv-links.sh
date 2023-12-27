@@ -1,1 +1,1 @@
-inventory/sync-inventory-xenv-links.sh
+./inventory/sync-inventory-xenv-links.sh

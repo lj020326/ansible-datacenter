@@ -1,1 +1,1 @@
-inventory/run-inventory-tests.sh
+./inventory/run-inventory-tests.sh

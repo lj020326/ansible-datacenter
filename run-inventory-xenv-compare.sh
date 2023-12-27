@@ -1,1 +1,1 @@
-inventory/run-inventory-xenv-compare.sh
+./inventory/run-inventory-xenv-compare.sh
