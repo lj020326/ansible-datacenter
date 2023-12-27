@@ -11,7 +11,7 @@
   * [3 - Key role variable checks for hosts in group(s)](#3---key-role-variable-checks-for-hosts-in-groups)
   * [4 - Graphs for group hierarchy checks](#4---graphs-for-group-hierarchy-checks)
 * [Testing Inventory host and/or group variable settings](#testing-inventory-host-andor-group-variable-settings)
-  * [Show list of all Dev/DMZ/MEM hosts](#show-list-of-all-sandboxdmzmem-hosts)
+  * [Show list of all DEV/DMZ/SITE1 hosts](#show-list-of-all-sandboxdmzmem-hosts)
   * [Debug host/group vars for inventory hosts](#debug-hostgroup-vars-for-inventory-hosts)
     * [Get groups for a host](#get-groups-for-a-host)
   * [Get info for all hosts in a specified inventory](#get-info-for-all-hosts-in-a-specified-inventory)
@@ -24,7 +24,7 @@ Perform the following CLI based sanity checks whenever making updates/additions 
 
 Using a group with name 'testgroup'
 ```shell
-ansible-inventory -i ./inventory/dev/ --graph testgroup_linux
+ansible-inventory -i ./inventory/DEV/ --graph testgroup_linux
 @testgroup_linux:
   |--@testgroup_linux_site1:
   |  |--ntp1s1.qa.example.int
@@ -41,11 +41,11 @@ ansible-inventory -i ./inventory/dev/ --graph testgroup_linux
 #### Check correct hosts appear in the test hosts/groups 
 
 ```shell
-ansible-inventory -i dev/ --host testhost1s1.dev.example.int
-ansible-inventory -i dev/ --yaml --host testhost1s1.dev.example.int
-ansible-inventory -i dev/ --graph testgroup_linux
-ansible-inventory -i dev/ --graph testgroup_ntp
-ansible-inventory -i dev/ --graph dmz
+ansible-inventory -i DEV/ --host testhost1s1.dev.example.int
+ansible-inventory -i DEV/ --yaml --host testhost1s1.dev.example.int
+ansible-inventory -i DEV/ --graph testgroup_linux
+ansible-inventory -i DEV/ --graph testgroup_ntp
+ansible-inventory -i DEV/ --graph dmz
 ```
 
 #### Check the host variable values are correctly set  
@@ -53,31 +53,31 @@ ansible-inventory -i dev/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
-$ ansible -i dev/ -m debug -a var=internal_domain control01
-$ ansible -i dev/ -m debug -a var=ansible_python_interpreter control01
-$ ansible -i dev/ -m debug -a var=ansible_python_interpreter control01
-$ ansible -i dev/ -m debug -a var=group_names testgroup_linux
-$ ansible -i dev/ -m debug -a var=group_names testgroup_ntp
-$ ansible -i dev/ -m debug -a var=group_names testgroup_ntp_server
-$ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
-$ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
-$ ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
-$ ansible -i dev/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
+$ ansible -i DEV/ -m debug -a var=internal_domain control01
+$ ansible -i DEV/ -m debug -a var=ansible_python_interpreter control01
+$ ansible -i DEV/ -m debug -a var=ansible_python_interpreter control01
+$ ansible -i DEV/ -m debug -a var=group_names testgroup_linux
+$ ansible -i DEV/ -m debug -a var=group_names testgroup_ntp
+$ ansible -i DEV/ -m debug -a var=group_names testgroup_ntp_server
+$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
+$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
+$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
+$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
 ```
 
 Query multiple variables based on group:
 
 ```shell
-$ ansible -i dev/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
+$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
 ```
 
 Query vaulted variable
 
 ```shell
 $ PROJECT_DIR="$( git rev-parse --show-toplevel )"
-$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_abc123_dev
-$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_abc123
-$ ansible -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
+$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_abc123_dev
+$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_abc123
+$ ansible -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
 ```
 
 Query with vault and vars files variables (e.g., `./test-vars.yml`) 
@@ -87,15 +87,15 @@ $ PROJECT_DIR="$( git rev-parse --show-toplevel )"
 $ ansible -e @./vars/vault.yml -e @test-vars.yml \
     --vault-password-file \
     ${PROJECT_DIR}/.vault_pass \
-    -i dev/ \
+    -i DEV/ \
     -m debug \
     -a var=vault_platform \
     toyboxd1s4.alsac.stjude.org
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=test_component_cyberark_base_url localhost
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=docker_stack_ldap_host toyboxd1s4.alsac.stjude.org
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_cdata_sync_sandbox
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=ansible_user app_tableau
-$ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i dev/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=test_component_cyberark_base_url localhost
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=docker_stack_ldap_host toyboxd1s4.alsac.stjude.org
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_cdata_sync_sandbox
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_tableau
+$ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
 ```
 
 
@@ -103,7 +103,7 @@ $ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${PROJECT_D
 
 Group based query:
 ```shell
-ansible -i dev/ -m debug -a var=bootstrap_ntp_servers testgroup_linux
+ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_linux
 ntp1s1.qa.example.int | SUCCESS => {
     "bootstrap_ntp_servers": [
         "us.pool.ntp.org",
@@ -144,15 +144,15 @@ testhost3s4.dev.example.int | SUCCESS => {
 Query hosts for intersecting groups:
 
 ```shell
-$ ansible -i dev/ -m debug -a var=group_names dmz:\&lnx_all
-$ ansible -i dev/ -m debug -a var=group_names dmz:\&testgroup_linux
-$ ansible -i dev/ -m debug -a var=group_names dmz:\&testgroup_linux:\&ntp
+$ ansible -i DEV/ -m debug -a var=group_names dmz:\&lnx_all
+$ ansible -i DEV/ -m debug -a var=group_names dmz:\&testgroup_linux
+$ ansible -i DEV/ -m debug -a var=group_names dmz:\&testgroup_linux:\&ntp
 
 ```
 
 Host based query:
 ```shell
-ansible -i dev/ -m debug -a var=group_names testhostp1s*
+ansible -i DEV/ -m debug -a var=group_names testhostp1s*
 testhost1s4.example.int | SUCCESS => {
     "group_names": [
         "examplegroup"
@@ -190,8 +190,8 @@ The "core" DC groups we expect to see:
   * GCP
 
 * availability zone/site/location
-  * site1 (MEM), 
-  * site4 (DFW)
+  * site1 (SITE1), 
+  * site4 (SITE2)
   * AWS 
     * AZ01, 
     * AZ02, 
@@ -201,8 +201,10 @@ The "core" DC groups we expect to see:
 
 * network 
   * site1
+  * site2
   * DMZ
-  * internal (e.g., not-site1)
+  * pci_site1
+  * pci_site2
 
 and perhaps some others
 
@@ -216,9 +218,9 @@ E.g.,
 In the following example, we are updating the ntp client configuration for hosts and want to see that those machines have the expected value for variable 'ntp_servers'.
 
 ```shell
-ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers ntp_client
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=ntp_servers ntp_client
 
-#ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers,some_other_var ntp_client
+#ansible -i ./inventory/DEV/SITE1/ -m debug -a var=ntp_servers,some_other_var ntp_client
 
 ```
 
@@ -227,7 +229,7 @@ ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers ntp_client
 
 Query by group name:
 ```shell
-ansible-inventory -i dev/ --graph examplegroup
+ansible-inventory -i DEV/ --graph examplegroup
 @examplegroup:
   |--testhost1s1.example.int
   |--testhost1s4.example.int
@@ -236,7 +238,7 @@ ansible-inventory -i dev/ --graph examplegroup
 
 Other examples:
 ```shell
-ansible-inventory -i Dev/site1/ --graph ntp
+ansible-inventory -i DEV/SITE1/ --graph ntp
 @ntp:
   |--@ntp_client:
   |  |--@environment_test:
@@ -251,7 +253,7 @@ ansible-inventory -i Dev/site1/ --graph ntp
 
 
 ```shell
-ansible-inventory -i dev/ --graph ntp
+ansible-inventory -i DEV/ --graph ntp
 @ntp:
   |--@ntp_client:
   |  |--@environment_test:
@@ -273,15 +275,15 @@ ansible-inventory -i dev/ --graph ntp
   |  |  |--web1s4.qa.test.test.example.int
   |  |--@linux:
   |  |  |--@linux_dmz:
-  |  |  |  |--@linux_dmz_dfw:
+  |  |  |  |--@linux_dmz_site2:
   |  |  |  |  |--web1s4.example.int
-  |  |  |  |--@linux_dmz_mem:
+  |  |  |  |--@linux_dmz_site1:
   |  |  |  |  |--webp1.example.int
   |  |  |--@linux_site1:
-  |  |  |  |--@linux_site1_dfw:
+  |  |  |  |--@linux_site1_site2:
   |  |  |  |  |--lnxr7t1s4.example.int
   |  |  |  |  |--lnxr8t1s4.example.int
-  |  |  |  |--@linux_site1_mem:
+  |  |  |  |--@linux_site1_site1:
   |  |  |  |  |--awxtest1s1.dev.example.int
   |  |  |  |  |--testhost1s1.dev.example.int
   |  |  |  |  |--testhost2s1.dev.example.int
@@ -296,25 +298,25 @@ ansible-inventory -i dev/ --graph ntp
 
 
 ```shell
-ansible -i ./inventory/dev/ -m debug -a var=ansible_winrm_transport windows_dev
-ansible -i ./inventory/dev/ test* -m debug -a var=environment.name var=location_name
-ansible -i ./inventory/dev/site1/ --list-hosts all
-ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers all
-ansible -i ./inventory/dev/site1/ -m debug -a var=ntp_servers bootstrap_ntp_servers
-ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers all
-ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names all
-ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_server
-ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
-ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
-ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names all
-ansible -i ./inventory/dev/site1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp
-ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address" ntp
-ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr(bool)" ntp
-ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr('bool')" ntp
-ansible -i ./inventory/dev/site1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('172.21.40.0/24')|ansible.utils.ipaddr('bool')" ntp
-ansible -i ./inventory/dev/site1/ -m debug -a var="ntp_servers|d('')" ntp
-ansible -i ./inventory/dev/site1/ -m debug -a var="bootstrap_ntp_servers|d('')" ntp
-ansible -i ./inventory/dev/site1/ -m debug -a var="bootstrap_ntp_servers|d(''),bootstrap_ntp_peers|d('')" ntp
+ansible -i ./inventory/DEV/ -m debug -a var=ansible_winrm_transport windows_dev
+ansible -i ./inventory/DEV/ test* -m debug -a var=environment.name var=location_name
+ansible -i ./inventory/DEV/SITE1/ --list-hosts all
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=ntp_servers all
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=ntp_servers bootstrap_ntp_servers
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=bootstrap_ntp_servers all
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=bootstrap_ntp_servers,group_names all
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_server
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp_client
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=bootstrap_ntp_servers,group_names all
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var=bootstrap_ntp_servers,group_names ntp
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var="ansible_default_ipv4.address" ntp
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr(bool)" ntp
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('10.10.10.0/24')|ansible.utils.ipaddr('bool')" ntp
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var="ansible_default_ipv4.address|ansible.utils.ipaddr('172.21.40.0/24')|ansible.utils.ipaddr('bool')" ntp
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var="ntp_servers|d('')" ntp
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var="bootstrap_ntp_servers|d('')" ntp
+ansible -i ./inventory/DEV/SITE1/ -m debug -a var="bootstrap_ntp_servers|d(''),bootstrap_ntp_peers|d('')" ntp
 
 ```
 
@@ -322,10 +324,10 @@ ansible -i ./inventory/dev/site1/ -m debug -a var="bootstrap_ntp_servers|d(''),b
 
 We will now run through several ansible CLI tests to verify that the correct machines result for each respective limit used.
 
-### Show list of all Dev/DMZ/MEM hosts
+### Show list of all DEV/DMZ/SITE1 hosts
 
 ```shell
-$ ansible -i ./inventory/dev/DMZ/MEM --list-hosts all
+$ ansible -i ./inventory/DEV/DMZ/SITE1 --list-hosts all
   hosts (9):
     testhost1s1.dev.example.int
     testhost2s1.dev.example.int
@@ -353,9 +355,9 @@ testhost1s1.dev.example.int | SUCCESS => {
         "dmz_qa",
         "lnx_all",
         "lnx_dev",
-        "lnx_mem",
+        "lnx_site1",
         "lnx_qa",
-        "mem",
+        "dc_site_1",
         "ntp",
         "ntp_client",
         "qa",
@@ -370,7 +372,7 @@ testhost1s1.dev.example.int | SUCCESS => {
 ### Get info for all hosts in a specified inventory
 
 ```shell
-$ ansible -i ./inventory/dev/DMZ/MEM -m debug -a var=group_names all
+$ ansible -i ./inventory/DEV/DMZ/SITE1 -m debug -a var=group_names all
 testhost1s1.dev.example.int | SUCCESS => {
     "group_names": [
         "dmz",
