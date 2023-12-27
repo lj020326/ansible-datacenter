@@ -1,0 +1,34 @@
+---
+
+- set_fact:
+    __log_prefix_local: "Docker Stack | Stop Docker Services |"
+
+- name: "{{ __log_prefix_local }} Stop docker stack services"
+  when: not docker_stack__swarm_mode|d(False)|bool
+  ignore_errors: yes
+  community.docker.docker_compose:
+    project_src: "{{ docker_stack__dir }}"
+    remove_orphans: "{{ docker_stack__remove_orphans }}"
+    state: absent
+  register: __service_result
+  retries: 5
+  delay: 20
+  until: __service_result is not failed
+
+- name: "{{ __log_prefix_local }} Stop docker compose services"
+  when: docker_stack__swarm_mode|d(False)|bool
+  ignore_errors: yes
+  community.docker.docker_stack:
+    name: "{{ docker_stack__compose_stack_name }}"
+    compose: "{{ docker_stack__compose_stack_compose_file }}"
+    prune: "{{ docker_stack__remove_orphans }}"
+    state: absent
+  register: __service_result
+  retries: 3
+  delay: 20
+  until: __service_result is not failed
+
+- name: "{{ __log_prefix_local }} Display __service_result"
+  debug:
+    var: __service_result
+    verbosity: 1

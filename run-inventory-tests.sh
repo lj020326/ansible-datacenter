@@ -1,0 +1,1 @@
+inventory/run-inventory-tests.sh

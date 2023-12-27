@@ -1,50 +1,51 @@
 ---
 
-- set_fact:
-    log_prefix_local: "Docker Stack | Init Vars |"
-
-- name: "{{ log_prefix_local }} Display docker_stack__action"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__action"
   debug:
     var: docker_stack__action
 
-- name: "{{ log_prefix_local }} Assert docker_stack__action is in supported actions"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Assert docker_stack__action is in supported actions"
   assert:
     that: docker_stack__action in __docker_stack__supported_actions
 
-- name: "{{ log_prefix_local }} Display docker_stack__swarm_mode"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__swarm_mode"
   debug:
     var: docker_stack__swarm_mode
 
-- name: "{{ log_prefix_local }} Assert either `docker_stack__enable_selfsigned_certs` OR `docker_stack__enable_cacerts` but not both"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__swarm_manager"
+  debug:
+    var: docker_stack__swarm_manager
+
+- name: "{{ __docker_stack__log_prefix__init_vars }} Assert either `docker_stack__enable_selfsigned_certs` OR `docker_stack__enable_cacerts` but not both"
   assert:
     that:
       - docker_stack__enable_selfsigned_certs or docker_stack__enable_cacerts
       - not (docker_stack__enable_selfsigned_certs and docker_stack__enable_cacerts)
 
-- name: "{{ log_prefix_local }} Load OS distribution vars"
-  include_vars: "{{ item }}"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Load OS distribution vars"
+  ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "os_distribution/{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
     - "os_distribution/{{ ansible_distribution | lower }}.yml"
     - "os_distribution/{{ ansible_os_family | lower }}.yml"
     - "os_distribution/default.yml"
 
-- name: "{{ log_prefix_local }} Set __docker_stack__ca_cert_bundle"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__ca_cert_bundle"
   set_fact:
     __docker_stack__ca_cert_bundle: "{{ docker_stack__ca_cert_bundle | d(__docker_stack__ca_cert_bundle_default) }}"
     __docker_stack__ca_java_keystore: "{{ docker_stack__ca_java_keystore | d(__docker_stack__ca_java_keystore_default) }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack_* os vars"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack_* os vars"
   debug:
     msg:
       - "__docker_stack__ca_cert_bundle={{ __docker_stack__ca_cert_bundle }}"
       - "__docker_stack__ca_java_keystore={{ __docker_stack__ca_java_keystore }}"
 
-- name: "{{ log_prefix_local }} Get docker group / user id"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Get docker group / user id"
   block:
 
     ## ref: https://docs.ansible.com/ansible/latest/modules/getent_module.html
-    - name: "{{ log_prefix_local }} Get docker group / user info"
+    - name: "{{ __docker_stack__log_prefix__init_vars }} Get docker group / user info"
       getent:
         key: "{{ docker_stack__user_username }}"
         database: passwd
@@ -52,7 +53,7 @@
     - debug:
         var: getent_passwd
 
-    - name: "{{ log_prefix_local }} Get docker group info"
+    - name: "{{ __docker_stack__log_prefix__init_vars }} Get docker group info"
       getent:
         database: group
         split: ':'
@@ -60,7 +61,7 @@
     - debug:
         var: getent_group
 
-    - name: "{{ log_prefix_local }} Set docker user info facts"
+    - name: "{{ __docker_stack__log_prefix__init_vars }} Set docker user info facts"
       set_fact:
         docker_stack__user_uid: "{{ getent_passwd[docker_stack__user_username][1] }}"
         docker_stack__user_gid: "{{ getent_passwd[docker_stack__user_username][2] }}"
@@ -71,7 +72,7 @@
     - debug:
         msg: 'Docker user {{ docker_stack__user_username }} not found - add and try again, :-)'
 
-    - name: "{{ log_prefix_local }} Add user(s) to docker group"
+    - name: "{{ __docker_stack__log_prefix__init_vars }} Add user(s) to docker group"
       user:
         name: "{{ docker_stack__user_username }}"
         groups: "docker"
@@ -83,42 +84,42 @@
         key: "{{ docker_stack__user_username }}"
         database: passwd
 
-    - name: "{{ log_prefix_local }} Set docker user info facts"
+    - name: "{{ __docker_stack__log_prefix__init_vars }} Set docker user info facts"
       set_fact:
         docker_stack__user_uid: "{{ getent_passwd[docker_stack__user_username][1] }}"
         docker_stack__user_gid: "{{ getent_passwd[docker_stack__user_username][2] }}"
         docker_stack__user_home: "{{ getent_passwd[docker_stack__user_username][4] }}"
 
-- name: "{{ log_prefix_local }} Display docker_stack__service_groups"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__service_groups"
   debug:
      var: docker_stack__service_groups
 
-- name: "{{ log_prefix_local }} Init __docker_stack__service_groups_combined"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__service_groups_combined"
   set_fact:
     __docker_stack__service_groups_combined: "{{ docker_stack__service_groups|d([]) }}"
 
-- name: "{{ log_prefix_local }} Set __docker_stack__service_groups_list_var_prefix"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups_list_var_prefix"
   set_fact:
     __docker_stack__service_groups_list_var_prefix: "docker_stack__service_groups__"
 
-- name: "{{ log_prefix_local }} Set __docker_stack__service_groups_list_var_regex"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups_list_var_regex"
   set_fact:
     __docker_stack__service_groups_list_var_regex: "^{{ __docker_stack__service_groups_list_var_prefix }}"
 
-- name: "{{ log_prefix_local }} Show variables with '{{ __docker_stack__service_groups_list_var_regex }}' prefix"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Show variables with '{{ __docker_stack__service_groups_list_var_regex }}' prefix"
   debug:
     msg: "{{ lookup('varnames', __docker_stack__service_groups_list_var_regex, wantlist=True) }}"
 
-- name: "{{ log_prefix_local }} Coalesce lists from {{ __docker_stack__service_groups_list_var_prefix }}* vars into merged list"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Coalesce lists from {{ __docker_stack__service_groups_list_var_prefix }}* vars into merged list"
   set_fact:
     __docker_stack__service_groups_combined: "{{ __docker_stack__service_groups_combined|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames', __docker_stack__service_groups_list_var_regex, wantlist=True) }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__service_groups_combined"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups_combined"
   debug:
     var: __docker_stack__service_groups_combined
 
-- name: "{{ log_prefix_local }} Set __docker_stack__service_groups_by_name"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups_by_name"
   set_fact:
     __docker_stack__service_groups_by_name: "{{ __docker_stack__service_groups_by_name | d({})
       | combine({ ((item is mapping) | ternary( item.name, item)): {
@@ -127,30 +128,34 @@
             } } ) }}"
   loop: "{{ __docker_stack__service_groups_combined }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__service_groups_by_name"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups_by_name"
   debug:
     var: __docker_stack__service_groups_by_name
 
-- name: "{{ log_prefix_local }} Set __docker_stack__service_groups"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups"
   set_fact:
     __docker_stack__service_groups: "{{ __docker_stack__service_groups | d([]) + [ item.value ] }}"
   loop: "{{ __docker_stack__service_groups_by_name | dict2items }}"
 #  loop: "{{ __docker_stack__service_groups_combined }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__service_groups"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups"
   debug:
      var: __docker_stack__service_groups
 
-- name: "{{ log_prefix_local }} Init __docker_stack__proxy_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__proxy_configs"
   set_fact:
     __docker_stack__proxy_services: []
 #    __docker_stack__proxy_services: "{{ docker_stack__proxy_services | d([]) }}"
 
-- name: "{{ log_prefix_local }} Display docker_stack__proxy_services"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__traefik_routing_method"
+  debug:
+     var: docker_stack__traefik_routing_method
+
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__proxy_services"
   debug:
      var: docker_stack__proxy_services
 
-- name: "{{ log_prefix_local }} Set __docker_stack__proxy_services"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__proxy_services"
   set_fact:
     __docker_stack__proxy_services: "{{ __docker_stack__proxy_services|d([])
       + [ { 'source': item.source | d('role'),
@@ -158,30 +163,30 @@
           } ] }}"
   loop: "{{ docker_stack__proxy_services }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__proxy_services"
-  debug:
-     var: __docker_stack__proxy_services
+#- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_services"
+#  debug:
+#     var: __docker_stack__proxy_services
 
-- name: "{{ log_prefix_local }} Setup docker_stack__proxy_services"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Setup docker_stack__proxy_services"
   when: __docker_stack__proxy_services | d([]) | length>0
   block:
 
-  - name: "{{ log_prefix_local }} Display __docker_stack__proxy_services"
+  - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_services"
     debug:
        var: __docker_stack__proxy_services
-       verbosity: 2
+#       verbosity: 2
 
-  - name: "{{ log_prefix_local }} Set the app proxy services vars specific to traefik version"
+  - name: "{{ __docker_stack__log_prefix__init_vars }} Set the app proxy services vars specific to traefik version"
     when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik_version + '/' + docker_stack__traefik_routing_method + '/docker_stack_proxy_' + item.name + '.yml') is file
     include_vars:  "app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_proxy_{{ item.name }}.yml"
     with_items: "{{ __docker_stack__proxy_services }}"
 
-  - name: "{{ log_prefix_local }} Set the app proxy services vars"
+  - name: "{{ __docker_stack__log_prefix__init_vars }} Set the app proxy services vars"
     when: (role_path + '/vars/app-services/common/docker_stack_proxy_' + item.name + '.yml') is file
     include_vars:  "app-services/common/docker_stack_proxy_{{ item.name }}.yml"
     with_items: "{{ __docker_stack__proxy_services }}"
 
-- name: "{{ log_prefix_local }} Set the traefik app services vars"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set the traefik app services vars"
 #  when: item.source|d('role') == 'role'
   when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik_version + '/' + docker_stack__traefik_routing_method + '/docker_stack_' + item.name + '.yml') is file
   include_vars:  "app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_{{ item.name }}.yml"
@@ -189,7 +194,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Set the common app services vars"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set the common app services vars"
 #  when: item.source|d('role') == 'role'
   when: (role_path + '/vars/app-services/common/docker_stack_' + item.name + '.yml') is file
   include_vars: "app-services/common/docker_stack_{{ item.name }}.yml"
@@ -197,7 +202,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Display docker stack info"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker stack info"
   debug:
     msg:
       - "docker_stack__service_route_name={{ docker_stack__service_route_name }}"
@@ -207,62 +212,62 @@
       - "docker_stack__user_gid={{ docker_stack__user_gid }}"
       - "docker_stack__user_uid={{ docker_stack__user_uid }}"
 
-- name: "{{ log_prefix_local }} Init __docker_stack__app_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_configs"
   set_fact:
     __docker_stack__app_configs: "{{ docker_stack__app_configs|d({}) }}"
 
-- name: "{{ log_prefix_local }} Combine app varname configs into __docker_stack__app_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Combine app varname configs into __docker_stack__app_configs"
   set_fact:
     __docker_stack__app_configs: "{{ __docker_stack__app_configs|d({})
-      | combine({ item.name: lookup('vars', q('varnames','^__docker_stack__appspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
+      | combine({ item.name: lookup('vars', q('varnames','^docker_stack__appspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__service_groups }}"
 
 ## NOTE: sensitive info - this var contains the secrets
-- name: "{{ log_prefix_local }} Display __docker_stack__app_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_configs"
   debug:
      var: __docker_stack__app_configs
 ##     verbosity: 3
 
-- name: "{{ log_prefix_local }} Display __docker_stack__proxy_services"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_services"
   debug:
     var: __docker_stack__proxy_services
 
-- name: "{{ log_prefix_local }} Init __docker_stack__proxy_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__proxy_configs"
   set_fact:
     __docker_stack__proxy_configs: "{{ docker_stack__proxy_configs|d({}) }}"
 
-- name: "{{ log_prefix_local }} Show variables with 'docker_stack__proxyspec__' prefix"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Show variables with 'docker_stack__proxyspec__' prefix"
   debug:
     msg: "{{ lookup('varnames', '^__docker_stack__proxyspec__', wantlist=True) }}"
 
-- name: "{{ log_prefix_local }} Combine proxy varname configs into __docker_stack__proxy_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Combine proxy varname configs into __docker_stack__proxy_configs"
   set_fact:
     __docker_stack__proxy_configs: "{{ __docker_stack__proxy_configs|d({})
       | combine({ item.name: lookup('vars', q('varnames','^__docker_stack__proxyspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__proxy_services|d([]) }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__proxy_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_configs"
   debug:
      var: __docker_stack__proxy_configs
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Set __docker_stack__proxy_service_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__proxy_service_configs"
   when: __docker_stack__proxy_configs[item.name].proxy_config | d([]) | length > 0
   set_fact:
     __docker_stack__proxy_service_configs: "{{ __docker_stack__proxy_service_configs|d({})
       | combine(__docker_stack__proxy_configs[item.name].proxy_config, recursive=True) }}"
   loop: "{{ __docker_stack__proxy_services }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__proxy_service_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_service_configs"
   debug:
      var: __docker_stack__proxy_service_configs
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__secrets"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__secrets"
   set_fact:
     __docker_stack__secrets: "{{ docker_stack__secrets|d([]) }}"
 
-- name: "{{ log_prefix_local }} Set __docker_stack__secrets"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__secrets"
   when: __docker_stack__app_configs[item.name].secrets | d([]) | length > 0
   set_fact:
     __docker_stack__secrets: "{{ __docker_stack__secrets|d([])
@@ -271,16 +276,16 @@
   loop_control:
     label: "{{ item.name }}"
 
-#- name: "{{ log_prefix_local }} Display __docker_stack__secrets"
-#  debug:
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__secrets"
+  debug:
+    var: __docker_stack__secrets | map(attribute='name') | list
 #     var: __docker_stack__secrets
-##     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__networks"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__networks"
   set_fact:
     __docker_stack__networks: "{{ docker_stack__networks|d({}) }}"
 
-- name: "{{ log_prefix_local }} Add service networks to __docker_stack__networks"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service networks to __docker_stack__networks"
   when:
     - __docker_stack__app_configs[item.name].networks is defined
     - __docker_stack__app_configs[item.name].networks | length > 0
@@ -291,16 +296,16 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__networks"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__networks"
   debug:
      var: __docker_stack__networks
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__volumes fact"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__volumes fact"
   set_fact:
     __docker_stack__volumes: "{{ docker_stack__volumes|d({}) }}"
 
-- name: "{{ log_prefix_local }} Add service volumes to __docker_stack__volumes"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service volumes to __docker_stack__volumes"
   when: __docker_stack__app_configs[item.name].volumes | d([]) | length > 0
   set_fact:
     __docker_stack__volumes: "{{ __docker_stack__volumes|d({})
@@ -309,16 +314,16 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__volumes"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__volumes"
   debug:
      var: __docker_stack__volumes
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__app_config_dirs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_dirs"
   set_fact:
     __docker_stack__app_config_dirs: "{{ docker_stack__config_dirs|d([]) }}"
 
-- name: "{{ log_prefix_local }} Add service config dirs to __docker_stack__app_config_dirs fact"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service config dirs to __docker_stack__app_config_dirs fact"
   when: __docker_stack__app_configs[item.name].dirs | d([]) | length > 0
   set_fact:
     __docker_stack__app_config_dirs: "{{ (__docker_stack__app_config_dirs|d([])
@@ -327,16 +332,16 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__app_config_dirs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_dirs"
   debug:
      var: __docker_stack__app_config_dirs
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__app_config_files"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_files"
   set_fact:
     __docker_stack__app_config_files: "{{ docker_stack__config_files|d([]) }}"
 
-- name: "{{ log_prefix_local }} Add service config files to __docker_stack__app_config_files"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service config files to __docker_stack__app_config_files"
   when: __docker_stack__app_configs[item.name].files | d([]) | length > 0
   set_fact:
     __docker_stack__app_config_files: "{{ (__docker_stack__app_config_files|d([])
@@ -345,16 +350,16 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__app_config_files"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_files"
   debug:
      var: __docker_stack__app_config_files
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__app_config_tpls"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_tpls"
   set_fact:
     __docker_stack__app_config_tpls: "{{ docker_stack__config_tpls|d([]) }}"
 
-- name: "{{ log_prefix_local }} Add service templates to __docker_stack__app_config_tpls"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service templates to __docker_stack__app_config_tpls"
   when: __docker_stack__app_configs[item.name].templates | d([]) | length > 0
   set_fact:
     __docker_stack__app_config_tpls: "{{ (__docker_stack__app_config_tpls|d([])
@@ -363,16 +368,16 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__app_config_tpls"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_tpls"
   debug:
      var: __docker_stack__app_config_tpls
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__service_group_configs_tpl"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__service_group_configs_tpl"
   set_fact:
     __docker_stack__service_group_configs_tpl: "{{ docker_stack__service_group_configs_tpl|d({}) }}"
 
-- name: "{{ log_prefix_local }} Add docker services to __docker_stack__service_group_configs_tpl fact"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add docker services to __docker_stack__service_group_configs_tpl fact"
   when: __docker_stack__app_configs[item.name].docker_services is defined
   set_fact:
     __docker_stack__service_group_configs_tpl: "{{ __docker_stack__service_group_configs_tpl|d({})
@@ -381,12 +386,12 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__service_group_configs_tpl"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_group_configs_tpl"
   debug:
      var: __docker_stack__service_group_configs_tpl
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Combine app varname configs into __docker_stack__app_services"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Combine app varname configs into __docker_stack__app_services"
   set_fact:
     __docker_stack__app_services: "{{ _service_list|from_yaml }}"
   vars:
@@ -401,16 +406,16 @@
       {% endif %}
       {% endfor %}
 
-- name: "{{ log_prefix_local }} Display __docker_stack__app_services"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_services"
   debug:
      var: __docker_stack__app_services
 #     verbosity: 2
 
-- name: "{{ log_prefix_local }} Init __docker_stack__container_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__container_configs"
   set_fact:
     __docker_stack__container_configs: "{{ docker_stack__container_configs|d({}) }}"
 
-- name: "{{ log_prefix_local }} Add service container configs to __docker_stack__container_configs"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service container configs to __docker_stack__container_configs"
   when: __docker_stack__app_configs[item.name].container_configs | d([]) | length > 0
   set_fact:
     __docker_stack__container_configs: "{{ __docker_stack__container_configs|d({}) | combine({item.name: __docker_stack__app_configs[item.name].container_configs}) }}"
@@ -418,16 +423,16 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ log_prefix_local }} Init __docker_stack__container_config_list"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__container_config_list"
   set_fact:
     __docker_stack__container_config_list: "{{ docker_stack__container_config_list| d([]) }}"
 
-- name: "{{ log_prefix_local }} Add service container configs to __docker_stack__container_config_list"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service container configs to __docker_stack__container_config_list"
   when: item.key in __docker_stack__service_group_configs_tpl
   set_fact:
     __docker_stack__container_config_list: "{{ __docker_stack__container_config_list| d([]) + [ { 'container_name' : item.key } | combine(item.value) ] }}"
   loop: "{{ __docker_stack__container_configs | dict2items }}"
 
-- name: "{{ log_prefix_local }} Display __docker_stack__container_config_list"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__container_config_list"
   debug:
      var: __docker_stack__container_config_list

@@ -18,13 +18,7 @@ trap 'rm -fr "$TMP_DIR"' EXIT
 GIT_REMOVE_CACHED_FILES=0
 
 CONFIRM=0
-SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
-
-#PROJECT_DIR="$( cd "$SCRIPT_DIR/../../../" && pwd )"
-#PROJECT_DIR="$( pwd . )"
-#PROJECT_DIR=$(git rev-parse --show-toplevel)
-#PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
-PROJECT_DIR="$( git rev-parse --show-toplevel )"
+PROJECT_DIR=$(git rev-parse --show-toplevel)
 
 PUBLIC_GITIGNORE=files/git/pub.gitignore
 
@@ -61,7 +55,6 @@ printf -v EXCLUDES '%s,' "${EXCLUDES_ARRAY[@]}"
 EXCLUDES="${EXCLUDES%,}"
 echo "EXCLUDES=${EXCLUDES}"
 
-echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 echo "PROJECT_DIR=${PROJECT_DIR}"
 echo "TMP_DIR=${TMP_DIR}"
 
@@ -176,5 +169,14 @@ git push -f -u ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH} || true && \
 echo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:" && \
 git checkout ${GIT_DEFAULT_BRANCH}
 
+echo "chmod project admin/maintenance scripts"
+chmod +x inventory/*.sh
 chmod +x files/scripts/bashenv/*.sh
 chmod +x files/scripts/git/*.sh
+
+echo "creating links for useful project scripts"
+cd ${PROJECT_DIR}
+chmod +x ./files/scripts/git/*.sh
+ln -sf ./files/scripts/git/stash-*.sh ./
+ln -sf ./files/scripts/git/sync-*.sh ./
+ln -sf ./inventory/*.sh ./

@@ -84,7 +84,7 @@ The docker runtime environment is expected to be already prepared in a prior pla
 | docker_stack__ssl_external_cert_file         | no       | "{{ docker_stack__external_domain }}.pem"                                         |                            |
 | docker_stack__ssl_external_privatekey_file   | no       | "{{ docker_stack__external_domain }}-key.pem"                                     |                            |
 | docker_stack__script_dir                     | no       | "/opt/scripts"                                                                    |                            |
-| docker_stack__jenkins_vmware_data_dir        | no       | /export/data/vmware                                                               |                            |
+| docker_stack__jenkins__vmware_data_dir        | no       | /export/data/vmware                                                               |                            |
 | docker_stack__api_port                       | no       | "2375"                                                                            |                            |
 | docker_stack__app_config_dirs                | no       | {}                                                                                |                            |
 | docker_stack__config_dirs                    | no       | []                                                                                |                            |
@@ -322,5 +322,23 @@ $ ./deploy-stack.sh ## utility script found in the /home/container-user/docker d
 
 ## References
 
+- https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/docker
+- https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code-v3.yml
+- https://docs.docker.com/engine/swarm/ingress/
+- https://www.amapac.io/blog/2023/vds_jenkins_with_docker_desktop_jcasc.html
+- https://vmware.github.io/photon/assets/files/html/1.0-2.0/Install-and-Configure-a-Swarm-Cluster-with-DNS-Service-on-PhotonOS.html
+- https://dev.to/roylarsen/jenkins-build-agents-as-docker-swarm-services-9b4
 - https://github.com/IronicBadger/ansible-role-docker-compose-generator/blob/master/templates/docker-compose.yml.j2
-
+- https://stackoverflow.com/questions/44362258/swarm-node-status-down-but-node-should-be-ready
+- https://docker-tutorial.schoolofdevops.com/swarm-networking-deepdive/
+- https://www.suse.com/c/docker-swarm-container-networking/
+- https://github.com/jfrog/artifactory-docker-examples/blob/master/swarm/artifactory-pro.yml
+- https://github.com/jfrog/artifactory-docker-examples
+- https://stackoverflow.com/questions/64685593/how-to-mirror-dockerhub-with-artifactory
+- https://codeblog.dotsandbrackets.com/private-registry-swarm/
+- https://www.happycoders.eu/devops/jenkins-tutorial-implementing-seed-job/
+- https://github.com/riteshsoni10/jenkins_seed_job
+- https://marcesher.com/2016/06/21/jenkins-as-code-registering-jobs-for-automatic-seed-job-creation/
+- https://souravatta.medium.com/automatic-trigger-of-generated-jobs-created-from-jenkins-seedjob-b517ed88b6f8
+- https://docs.cloudbees.com/docs/cloudbees-jenkins-platform/latest/casc-oc/rbac
+- 
