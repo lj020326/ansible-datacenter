@@ -173,7 +173,7 @@ alias gethist="history | tr -s ' ' | cut -d' ' -f3-"
 alias startheroku='heroku local'
 
 # alias syncbashenv='rsync1 ${ANSIBLE_DC_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
-alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/install_bashrc.sh && .bash"
+alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/sync_bashenv.sh && .bash"
 alias getsitecertinfo="get_site_cert_info.sh"
 
 ## see function for more dynamic/robust version of the same shortcut
@@ -382,6 +382,7 @@ alias sshtestd3s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD3S4}
 
 alias sshatrnextd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRNEXTDS1S4}"
 alias sshatrup1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRUP1S4}"
+alias sshaaputil="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@ansutilp1s4.${WORK_DOMAIN}"
 alias sshtime5s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S1}"
 alias sshtime5s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S4}"
 

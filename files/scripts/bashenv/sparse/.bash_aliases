@@ -168,7 +168,7 @@ alias gethist="history | tr -s ' ' | cut -d' ' -f3-"
 alias startheroku='heroku local'
 
 # alias syncbashenv='rsync1 ${ANSIBLE_DC_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
-alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/install_bashrc.sh && .bash"
+alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/sync_bashenv.sh && .bash"
 alias getsitecertinfo="get_site_cert_info.sh"
 
 ## see function for more dynamic/robust version of the same shortcut

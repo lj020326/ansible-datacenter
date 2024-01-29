@@ -123,8 +123,6 @@ $ runme.sh site.yml -t deploy-cacerts -l admin01
 $ runme.sh site.yml -t bootstrap-linux -l admin01
 $ runme.sh site.yml -t bootstrap-webmin -l admin01
 $ runme.sh site.yml -t bootstrap-docker -l admin01
-$ runme.sh site.yml -t bootstrap-jenkins-agent -l docker_stack_jenkins_jcac
-$ runme.sh site.yml -t bootstrap-jenkins-agent -l vcontrol01
 $ runme.sh site.yml -t bootstrap-docker-stack -l admin01
 $ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_control
 $ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_openldap

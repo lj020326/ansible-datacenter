@@ -1,7 +1,100 @@
 #!/usr/bin/env bash
 
+VERSION="2024.1.1"
+
+## install sync tool bin requirements in local user bin dir at ${HOME}/bin (yq)
+export PATH="${HOME}/bin:${PATH}"
+
+## PURPOSE RELATED VARS
+PROJECT_DIR=$( git rev-parse --show-toplevel )
+INVENTORY_DIR="${PROJECT_DIR}/inventory"
+
+ENVS="
+PROD
+QA
+DEV
+"
+
+SORT_FILES="
+xenv_groups.yml
+xenv_hosts.yml
+DEV/hosts.yml
+PROD/hosts.yml
+QA/hosts.yml
+"
+
+
+#### LOGGING RELATED
+LOG_ERROR=0
+LOG_WARN=1
+LOG_INFO=2
+LOG_TRACE=3
+LOG_DEBUG=4
+
+#LOG_LEVEL=${LOG_DEBUG}
+LOG_LEVEL=${LOG_INFO}
+
+function logError() {
+  if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
+  	echo -e "[ERROR]: ${1}"
+  fi
+}
+function logWarn() {
+  if [ $LOG_LEVEL -ge $LOG_WARN ]; then
+  	echo -e "[WARN ]: ${1}"
+  fi
+}
+function logInfo() {
+  if [ $LOG_LEVEL -ge $LOG_INFO ]; then
+  	echo -e "[INFO ]: ${1}"
+  fi
+}
+function logTrace() {
+  if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
+  	echo -e "[TRACE]: ${1}"
+  fi
+}
+function logDebug() {
+  if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
+  	echo -e "[DEBUG]: ${1}"
+  fi
+}
+
+function setLogLevel() {
+  local LOGLEVEL=$1
+
+  case "${LOGLEVEL}" in
+    ERROR*)
+      LOG_LEVEL=$LOG_ERROR
+      ;;
+    WARN*)
+      LOG_LEVEL=$LOG_WARN
+      ;;
+    INFO*)
+      LOG_LEVEL=$LOG_INFO
+      ;;
+    TRACE*)
+      LOG_LEVEL=$LOG_TRACE
+      ;;
+    DEBUG*)
+      LOG_LEVEL=$LOG_DEBUG
+      ;;
+    *)
+      abort "Unknown loglevel of [${LOGLEVEL}] specified"
+  esac
+
+}
+
+function abort() {
+  printf "%s\n" "$@" >&2
+  exit 1
+}
+
+## ref: https://stackoverflow.com/questions/229551/how-to-check-if-a-string-contains-a-substring-in-bash#229585
+function stringContain() { case $2 in *$1* ) return 0;; *) return 1;; esac ;}
+
 ## ref: https://unix.stackexchange.com/questions/573047/how-to-get-the-relative-path-between-two-directories
-pnrelpath() {
+function pnrelpath() {
   ## get the relative path between two directories
   set -- "${1%/}/" "${2%/}/" ''               ## '/'-end to avoid mismatch
   while [ "$1" ] && [ "$2" = "${2#"$1"}" ]    ## reduce $1 to shared path
@@ -13,19 +106,22 @@ pnrelpath() {
   echo "${REPLY}"
 }
 
-#SCRIPT_DIR=$( cd "$( dirname "$0" )" && pwd )
-PROJECT_DIR=$( git rev-parse --show-toplevel )
-INVENTORY_DIR="${PROJECT_DIR}/inventory"
+function checkRequiredCommands() {
+  missingCommands=""
+  for currentCommand in "$@"
+  do
+      isInstalled "${currentCommand}" || missingCommands="${missingCommands} ${currentCommand}"
+  done
 
-#echo "SCRIPT_DIR=${SCRIPT_DIR}"
-echo "PROJECT_DIR=${PROJECT_DIR}"
-echo "INVENTORY_DIR=${INVENTORY_DIR}"
+  if [[ ! -z "${missingCommands}" ]]; then
+      fail "checkRequiredCommands(): Please install the following commands required by this script:${missingCommands}"
+  fi
+}
 
-ENVS="
-PROD
-QA
-DEV
-"
+function isInstalled() {
+  command -v "${1}" >/dev/null 2>&1 || return 1
+}
+
 
 ## For `SPECIAL_LINKS` use the following format to specify any special links
 ## [linkName]:[linkSource]
@@ -55,91 +151,117 @@ DEV
 ##
 ## Since the filename pattern is `*.yml` at the top level, the `xenv_infra_hosts.yml` hosts file will
 ## setup by `create_host_links_yml` function
-create_host_links_yml() {
-  INVENTORY_DIR=$1
-  ENVS=$2
+function create_host_links_yml() {
+  local INVENTORY_DIR=$1
+  local ENVS=$2
+  local LOG_PREFIX="==> create_host_links_yml():"
 
   BASE_DIRECTORY="${INVENTORY_DIR}"
-
-  echo "BASE_DIRECTORY=[$BASE_DIRECTORY]"
+  logDebug "${LOG_PREFIX} BASE_DIRECTORY=${BASE_DIRECTORY}"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
   ##
   IFS=$'\n'
-  for environment in ${ENVS}
+  for ENVIRONMENT in ${ENVS}
   do
-    echo "#######################################################"
-    echo "#######################################################"
-    echo "##### Create host (*.yml) symlinks for files in environment [$environment]"
+    logDebug "${LOG_PREFIX} ############### ENVIRONMENT=${ENVIRONMENT} ########################################"
+    logInfo "${LOG_PREFIX} Create host (*.yml) symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
 
-    ENV_DIR="${INVENTORY_DIR}/${environment}"
-    echo "ENV_DIR=${ENV_DIR}"
-    echo "cd ${ENV_DIR}"
+    ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
+    logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
+    logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
     cd "${ENV_DIR}"/
 
-    echo "get the relative path between $PWD and $BASE_DIRECTORY directories"
+    logDebug "${LOG_PREFIX} get the relative path between $PWD and $BASE_DIRECTORY directories"
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    echo "RELPATH=${RELPATH}"
+    logDebug "${LOG_PREFIX} RELPATH=${RELPATH}"
 
-    echo "Remove all existing host links in ${ENV_DIR}"
-    find . -maxdepth 1 -type l -print -exec rm {} \;
+    logDebug "${LOG_PREFIX} Remove all existing host links in ${ENV_DIR}"
+    if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
+#      find . -maxdepth 1 -type l -print -exec rm {} \;
+      find . -maxdepth 1 -type l -delete
+    else
+      find . -maxdepth 1 -type l -delete > /dev/null 2>&1
+    fi
 
-    echo "ln -sf ${RELPATH}/*.yml ./"
+    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/*.yml ./"
     ln -sf "${RELPATH}"/*.yml ./
 
   done
 
+  return 0
 }
 
-create_groupvars_links_yml() {
-  INVENTORY_DIR=$1
-  ENVS=$2
+function create_groupvars_links_yml() {
+  local INVENTORY_DIR=$1
+  local ENVS=$2
+
+  local LOG_PREFIX="==> create_groupvars_links_yml():"
 
   BASE_DIRECTORY="${INVENTORY_DIR}"
-
-  echo "BASE_DIRECTORY=[$BASE_DIRECTORY]"
+  logDebug "${LOG_PREFIX} BASE_DIRECTORY=${BASE_DIRECTORY}"
+  logDebug "${LOG_PREFIX} ENVS=${ENVS}"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
   ##
   IFS=$'\n'
-  for environment in ${ENVS}
+  for ENVIRONMENT in ${ENVS}
   do
-    echo "#######################################################"
-    echo "#######################################################"
-    echo "##### Create group_vars/*.yml symlinks for files in environment [$environment]"
+    logDebug "${LOG_PREFIX} ############### ENVIRONMENT=${ENVIRONMENT} ########################################"
+    logInfo "${LOG_PREFIX} Create group_vars/*.yml symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
 
-    ENV_DIR="${INVENTORY_DIR}/${environment}"
-    echo "ENV_DIR=${ENV_DIR}"
-    echo "cd ${ENV_DIR}"
+    ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
+    logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
+    logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
     cd ${ENV_DIR}/
 
     mkdir -p group_vars
     cd group_vars
 
-    echo "get the relative path between $PWD and $BASE_DIRECTORY directories"
+    logDebug "${LOG_PREFIX} get relative path between $PWD and $BASE_DIRECTORY dirs"
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    echo "RELPATH=${RELPATH}"
+    logDebug "${LOG_PREFIX} RELPATH=${RELPATH}"
 
-    echo "Remove all existing group_var links in ${ENV_DIR}"
-    find . -type l -print -exec rm {} \;
+    logDebug "${LOG_PREFIX} Remove all existing group_var links in ${ENV_DIR}"
+    if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
+#      find . -type l -print -exec rm {} \;
+      find . -type l -print -delete
+    else
+      find . -type l -print -delete > /dev/null 2>&1
+    fi
 
-    echo "ln -sf ${RELPATH}/group_vars/*.yml ./"
+    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/group_vars/*.yml ./"
     ln -sf ${RELPATH}/group_vars/*.yml ./
 
+    ## ref: https://stackoverflow.com/questions/4210042/how-do-i-exclude-a-directory-when-using-find#15736463
+    logDebug "${LOG_PREFIX} find sub directories in groups_vars excluding 'all'"
+    GROUPVAR_SUBDIRS=$(find ${RELPATH}/group_vars/* -maxdepth 0 -type d -not \( -name all -prune \))
+    logDebug "${LOG_PREFIX} GROUPVAR_SUBDIRS=${GROUPVAR_SUBDIRS}"
+
+    for SUB_DIR in ${GROUPVAR_SUBDIRS}; do
+      logDebug "${LOG_PREFIX} ln -sf ${SUB_DIR} ./"
+      ln -sf "${SUB_DIR}" ./
+    done
+
 #    rm -f all.yml
-    echo "Create ${PWD}/all dir if does not exist"
+    logDebug "${LOG_PREFIX} Create ${PWD}/all dir if does not exist"
     mkdir -p all
 
     cd all
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    echo "group_vars/all/ => RELPATH=${RELPATH}"
+    logDebug "${LOG_PREFIX} group_vars/all/ => RELPATH=${RELPATH}"
 
-    echo "Remove all existing group_var links in ${ENV_DIR}/group_vars/all/"
-    find all/. -type l -print -exec rm {} \;
+    logDebug "${LOG_PREFIX} Remove all existing group_var links in ${ENV_DIR}/group_vars/all/"
+    if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
+#      find . -type l -print -exec rm {} \;
+      find . -type l -delete
+    else
+      find . -type l -delete > /dev/null 2>&1
+    fi
 
-    echo "ln -sf ${RELPATH}/group_vars/all/*.yml ./"
+    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/group_vars/all/*.yml ./"
     ln -sf ${RELPATH}/group_vars/all/*.yml ./
 
 ## NOTES:
@@ -154,7 +276,7 @@ create_groupvars_links_yml() {
 ## Not sure I like it much though 😐.
 ##
 ## The real reason the initial name `000_cross_env_vars.yml` was used was residue from observing the initial example from
-## the [source article at digitalocean here](https://www.digitalocean.com/community/tutorials/how-to-manage-multistage-environments-with-ansible).
+## the [source article at digitalocean here](https://www.digitalocean.com/community/tutorials/how-to-manage-multistage-ENVIRONMENTs-with-ansible).
 ##
 ## As such, I did not feel the need to continue to keep to this specific naming convention going forward since:
 ##
@@ -170,7 +292,7 @@ create_groupvars_links_yml() {
 ## > When you put multiple inventory sources in a directory, Ansible merges them in ASCII order according to the filenames
 ## > source: https://docs.ansible.com/ansible/latest/inventory_guide/intro_inventory.html#managing-inventory-variable-load-order
 ##
-## This was the consideration in the naming convention/approach used in [this article at digitalocean](https://www.digitalocean.com/community/tutorials/how-to-manage-multistage-environments-with-ansible).
+## This was the consideration in the naming convention/approach used in [this article at digitalocean](https://www.digitalocean.com/community/tutorials/how-to-manage-multistage-ENVIRONMENTs-with-ansible).
 ##
 ## However, during testing it was found that the current ansible version does not appear to support merging variable files in `group_vars/all/*.yml` in ASCII order according to the filenames.
 ##
@@ -204,40 +326,42 @@ create_groupvars_links_yml() {
 
   done
 
+  return 0
 }
 
-create_hostvars_links_yml() {
-  INVENTORY_DIR=$1
-  ENVS=$2
+function create_hostvars_links_yml() {
+  local INVENTORY_DIR=$1
+  local ENVS=$2
+
+  local LOG_PREFIX="==> create_hostvars_links_yml():"
 
   BASE_DIRECTORY="${INVENTORY_DIR}"
-
-  echo "BASE_DIRECTORY=[$BASE_DIRECTORY]"
+  logDebug "${LOG_PREFIX} BASE_DIRECTORY=${BASE_DIRECTORY}"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
   ##
   IFS=$'\n'
-  for environment in ${ENVS}
+  for ENVIRONMENT in ${ENVS}
   do
-    echo "#######################################################"
-    echo "#######################################################"
-    echo "##### Create host_vars symlinks for files in environment [$environment]"
+    logDebug "${LOG_PREFIX} ############### ENVIRONMENT=${ENVIRONMENT} ########################################"
+    logInfo "${LOG_PREFIX} Create host_vars symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
 
-    ENV_DIR="${INVENTORY_DIR}/${environment}"
-    echo "ENV_DIR=${ENV_DIR}"
-    echo "cd ${ENV_DIR}"
+    ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
+    logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
+    logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
     cd ${ENV_DIR}/
 
-    echo "get the relative path between $PWD and $BASE_DIRECTORY directories"
+    logDebug "${LOG_PREFIX} get the relative path between $PWD and $BASE_DIRECTORY directories"
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    echo "RELPATH=${RELPATH}"
+    logDebug "${LOG_PREFIX} RELPATH=${RELPATH}"
 
-    echo "ln -sf ${RELPATH}/host_vars ./"
+    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/host_vars ./"
     ln -sf ${RELPATH}/host_vars ./
 
   done
 
+  return 0
 }
 
 ######################
@@ -255,11 +379,14 @@ create_hostvars_links_yml() {
 ##DEV/nonprod_xenv_hosts.yml:../NONPROD/xenv_infra_hosts.yml
 ##QA/nonprod_xenv_hosts.yml:../NONPROD/xenv_infra_hosts.yml
 ##"
-create_special_links() {
-  INVENTORY_DIR=$1
-  SPECIAL_LINKS=$2
+function create_special_links() {
+  local INVENTORY_DIR=$1
+  local SPECIAL_LINKS=$2
   BASE_DIRECTORY="${INVENTORY_DIR}/${ENV_BASE}"
-  echo "BASE_DIRECTORY=[$BASE_DIRECTORY]"
+
+  local LOG_PREFIX="==> create_special_links():"
+
+  logInfo "${LOG_PREFIX} ############### BASE_DIRECTORY=${BASE_DIRECTORY} ########################################"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
@@ -268,9 +395,8 @@ create_special_links() {
   for special_link in ${SPECIAL_LINKS}
   do
 
-    echo "#######################################################"
-    echo "#######################################################"
-    echo "##### Create SPECIAL_LINKS symlinks for special_link [$special_link]"
+    logInfo "${LOG_PREFIX} ###############"
+    logInfo "${LOG_PREFIX} Create SPECIAL_LINKS symlinks for special_link [$special_link]"
     # split sub-list if available
     if [[ $special_link == *":"* ]]
     then
@@ -281,38 +407,283 @@ create_special_links() {
       link=${linkInfoArray[0]}
       linkSource=${linkInfoArray[1]}
 
-      echo "link=[$link]"
-      echo "linkSource=[$linkSource]"
+      logDebug "${LOG_PREFIX} link=[$link]"
+      logDebug "${LOG_PREFIX} linkSource=[$linkSource]"
 
       linkName=$(basename "${link}")
-      environment=$(dirname "${link}")
+      ENVIRONMENT=$(dirname "${link}")
 
-      echo "linkName=[$linkName]"
-      echo "environment=[$environment]"
+      logDebug "${LOG_PREFIX} linkName=[$linkName]"
+      logDebug "${LOG_PREFIX} ENVIRONMENT=[$ENVIRONMENT]"
 
-      ENV_DIR="${INVENTORY_DIR}/${environment}"
-      echo "ENV_DIR=${ENV_DIR}"
-      echo "cd ${ENV_DIR}"
+      ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
+      logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
+      logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
       cd "${ENV_DIR}"/
 
-      echo "Remove existing link in ${ENV_DIR}"
-      find . -maxdepth 1 -name "${linkName}" -type l -print -exec rm {} \;
+      logDebug "${LOG_PREFIX} Remove existing link in ${ENV_DIR}"
+      if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
+#        find . -maxdepth 1 -name "${linkName}" -type l -print -exec rm {} \;
+        find . -maxdepth 1 -name "${linkName}" -type l -delete
+      else
+        find . -maxdepth 1 -name "${linkName}" -type l -delete > /dev/null 2>&1
+      fi
 
-      echo "ln -sf ${linkSource} ${linkName}"
+      logDebug "${LOG_PREFIX} ln -sf ${linkSource} ${linkName}"
       ln -sf "${linkSource}" "${linkName}"
     fi
 
   done
 
+  return 0
 }
 
-create_host_links_yml "${INVENTORY_DIR}" "${ENVS}"
+function install_jq() {
+  local LOG_PREFIX="==> install_jq():"
+  local OS="${1}"
+  local PACKAGE_NAME="jq"
 
-create_groupvars_links_yml "${INVENTORY_DIR}" "${ENVS}"
+  echo "==> installing jq - required for yq sort-keys (https://mikefarah.gitbook.io/yq/operators/sort-keys)"
+  if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
+    logInfo "${LOG_PREFIX} Installing jq for linux"
+    if [[ -n "$(command -v dnf)" ]]; then
+      sudo dnf install -y "${PACKAGE_NAME}"
+    elif [[ -n "$(command -v yum)" ]]; then
+      sudo yum install -y "${PACKAGE_NAME}"
+    elif [[ -n "$(command -v apt-get)" ]]; then
+      sudo apt-get install -y "${PACKAGE_NAME}"
+    fi
+  fi
+  if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
+    logInfo "${LOG_PREFIX} Installing jq for MacOS"
+    brew install "${PACKAGE_NAME}"
+  fi
+  if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
+    PACKAGE_NAME="mingw-w64-x86_64-jq"
+    logInfo "${LOG_PREFIX} Installing jq for MSYS2"
+    ## ref: https://packages.msys2.org/package/mingw-w64-x86_64-jq?repo=mingw64
+    pacman --noconfirm -S "${PACKAGE_NAME}"
+  fi
+}
 
-create_hostvars_links_yml "${INVENTORY_DIR}" "${ENVS}"
+function cleanup_tmpdir() {
+  test "${KEEP_TMP:-0}" = 1 || rm -rf "${TMPDIR}"
+}
 
-## only run if SPECIAL_LINKS is defined
-if [[ -n "${SPECIAL_LINKS}" ]]; then
-  create_special_links "${INVENTORY_DIR}" "${SPECIAL_LINKS}"
-fi
+function install_yq() {
+  local LOG_PREFIX="==> install_jq():"
+  local OS="${1}"
+  local VERSION="v4.40.5"
+  local BINARY="yq_linux_amd64"
+
+  logInfo "${LOG_PREFIX} Installing yq (golang) (https://github.com/mikefarah/yq#install)"
+
+  if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
+
+    TMPDIR="$(mktemp -d --suffix .yq-go XXXX -p /tmp)"
+    trap cleanup_tmpdir INT TERM EXIT
+
+#    INSTALL_DIR="/usr/local/bin"
+    INSTALL_DIR="${HOME}/bin"
+    mkdir -p "${INSTALL_DIR}"
+
+    logInfo "${LOG_PREFIX} Installing yq for linux"
+    ## ref: https://unix.stackexchange.com/questions/85194/how-to-download-an-archive-and-extract-it-without-saving-the-archive-to-disk
+    curl -s -L "https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz" |\
+      tar xzf - -C "${TMPDIR}" && mv "${TMPDIR}/${BINARY}" "${INSTALL_DIR}/yq"
+  fi
+  if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
+    logInfo "${LOG_PREFIX} Installing jq for MacOS"
+    brew install yq
+  fi
+  if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
+    logInfo "${LOG_PREFIX} Installing jq for MSYS2"
+
+    ## ref: https://github.com/mikefarah/yq#arch-linux
+    #pacman --noconfirm -S go-yq
+
+    ## ref: https://stackoverflow.com/questions/37198369/use-go-lang-with-msys2
+    pacman --noconfirm -S mingw-w64-x86_64-go && \
+    export GOROOT=/mingw64/lib/go && \
+    export GOPATH=/mingw64 && \
+    go install github.com/mikefarah/yq/v4@latest
+
+    # go install github.com/mikefarah/yq/v4@latest
+  fi
+}
+
+function ensure_tool() {
+  local LOG_PREFIX="==> ensure_tool():"
+  if [[ $# -ne 1 ]]
+  then
+    return 1
+  fi
+
+  local executable="${1}"
+  local install_function="install_${executable}"
+
+  if [[ -z "$(command -v "${executable}")" ]]; then
+    # First check OS.
+    OS=$(uname -s | tr "[:upper:]" "[:lower:]")
+
+    case "${OS}" in
+      linux*)
+        INSTALL_ON_LINUX=1
+        ;;
+      darwin*)
+        INSTALL_ON_MACOS=1
+        ;;
+      cygwin* | mingw64* | mingw32* | msys*)
+        INSTALL_ON_MSYS=1
+        ;;
+      *)
+        abort "Package installation method is only supported on macOS, Linux and msys2."
+        ;;
+    esac
+
+    eval "${install_function} ${OS}"
+  fi
+}
+
+function ensure_pip_tool() {
+  local LOG_PREFIX="==> ensure_pip_tool():"
+  if [[ $# -ne 1 ]]
+  then
+    return 1
+  fi
+
+  local executable="${1}"
+
+  if [[ -z "$(command -v ${executable})" ]]; then
+    pip install "${executable}"
+  fi
+}
+
+function sort_xenv_files() {
+  local LOG_PREFIX="==> sort_xenv_files():"
+  local SORT_FILES=$1
+
+  ## ref: https://pypi.org/project/yq/
+  logInfo "${LOG_PREFIX} Ensure jq present/installed (required for yq sort-keys)"
+  ensure_tool jq
+
+  ## ref: https://github.com/mikefarah/yq#install
+  logInfo "${LOG_PREFIX} Ensure yq present/installed (required for yq sort-keys)"
+  ensure_tool yq
+
+  IFS=$'\n'
+  for FILE_PATH in ${SORT_FILES}
+  do
+    logInfo "${LOG_PREFIX} Sort file [$FILE_PATH]"
+    ## ref: https://mikefarah.gitbook.io/yq/operators/sort-keys
+    yq -i -P 'sort_keys(..)' "${FILE_PATH}"
+  done
+
+  return 0
+}
+
+function run_sync_function() {
+  local SYNC_FUNCTION_STR=$1
+  local SYNC_FUNCTION=$2
+  local SYNC_ARGS=()
+  shift 2
+  local ERROR_COUNT=0
+
+  if [ $# -gt 0 ]; then
+#    SYNC_ARGS=(${@})
+    SYNC_ARGS=("$@")
+  fi
+  local LOG_PREFIX="==> run_sync_function(${SYNC_FUNCTION}):"
+
+  if stringContain "${SYNC_FUNCTION}" "${SYNC_FUNCTION_STR}" || [ "${SYNC_FUNCTION_STR}" == "all" ]; then
+#    logDebug "${LOG_PREFIX} SYNC_FUNCTION=${SYNC_FUNCTION}"
+#    logDebug "${LOG_PREFIX} SYNC_ARGS=${SYNC_ARGS}"
+
+#    ${SYNC_FUNCTION} "${SYNC_ARGS[@]}"
+    sync_results=$(${SYNC_FUNCTION} "${SYNC_ARGS[@]}")
+    returnStatus=$?
+
+    logDebug "${LOG_PREFIX} returnStatus=${returnStatus}"
+    ERROR_COUNT=$((${ERROR_COUNT} + ${returnStatus}))
+
+    if [[ $returnStatus -eq 0 ]]; then
+      logInfo "${LOG_PREFIX} SUCCESS"
+    else
+      logError "${LOG_PREFIX} FAILED"
+    fi
+    if [[ $returnStatus -ne 0 || $ALWAYS_SHOW_SYNC_RESULTS -gt 0 || $LOG_LEVEL -ge $LOG_TRACE ]]; then
+      logInfo "${LOG_PREFIX} sync_results ****"
+      echo "${sync_results}"
+    fi
+  fi
+
+}
+
+function usage() {
+  echo "Usage: ${0} [options] [[SYNC_FUNCTION_NAME] [SYNC_FUNCTION_NAME]...]"
+  echo ""
+  echo "  Options:"
+  echo "       -l [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -v : show script version"
+  echo "       -h : help"
+  echo "     [SYNC_FUNCTION_NAME]"
+  echo "        choices for SYNC_FUNCTION_NAME:"
+  echo "        - create_host_links_yml"
+  echo "        - create_groupvars_links_yml"
+  echo "        - create_hostvars_links_yml"
+  echo "        - create_special_links"
+  echo "        - sort_xenv_files"
+  echo ""
+  echo "  Examples:"
+	echo "       ${0} "
+	echo "       ${0} create_host_links_yml"
+	echo "       ${0} create_host_links_yml create_hostvars_links_yml"
+	echo "       ${0} sort_xenv_files"
+	echo "       ${0} -l DEBUG sort_xenv_files"
+  echo "       ${0} -v"
+	[ -z "$1" ] || exit "$1"
+}
+
+function main() {
+
+  logInfo "==> PROJECT_DIR=${PROJECT_DIR}"
+  logInfo "==> INVENTORY_DIR=${INVENTORY_DIR}"
+
+  SHOW_VERSION=0
+  while getopts "l:pvh" opt; do
+      case "${opt}" in
+          l) setLogLevel "${OPTARG}" ;;
+          v) echo "${VERSION}" && SHOW_VERSION=1 ;;
+          h) usage 1 ;;
+          \?) usage 2 ;;
+          *) usage ;;
+      esac
+  done
+  shift $((OPTIND-1))
+
+  if [ $SHOW_VERSION -eq 1 ]; then
+    exit
+  fi
+
+  SYNC_FUNCTIONS=("all")
+  if [ $# -gt 0 ]; then
+    SYNC_FUNCTIONS=("$@")
+  fi
+  logInfo "==> SYNC_FUNCTIONS[@]=${SYNC_FUNCTIONS[@]}"
+
+  SYNC_FUNCTIONS_STR="${SYNC_FUNCTIONS[@]}"
+
+  cd "${INVENTORY_DIR}"
+
+  run_sync_function "${SYNC_FUNCTIONS_STR}" create_host_links_yml "${INVENTORY_DIR}" "${ENVS}"
+  run_sync_function "${SYNC_FUNCTIONS_STR}" create_groupvars_links_yml "${INVENTORY_DIR}" "${ENVS}"
+  run_sync_function "${SYNC_FUNCTIONS_STR}" create_hostvars_links_yml "${INVENTORY_DIR}" "${ENVS}"
+  if [[ -n "${SPECIAL_LINKS}" ]]; then
+    run_sync_function "${SYNC_FUNCTIONS_STR}" create_special_links "${INVENTORY_DIR}" "${SPECIAL_LINKS}"
+  fi
+  if [[ -n "${SORT_FILES}" ]]; then
+    run_sync_function "${SYNC_FUNCTIONS_STR}" sort_xenv_files "${SORT_FILES}"
+  fi
+}
+
+main "$@"
