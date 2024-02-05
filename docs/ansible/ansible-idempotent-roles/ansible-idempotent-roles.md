@@ -553,9 +553,7 @@ The role will automatically dereference all the app-specific FW configuration se
 
 [site.yml](https://github.com/lj020326/ansible-datacenter/blob/main/site.yml#L210-L219):
 ```yaml
-##
-## Bootstrap linux component plays
-##
+...
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Bootstrap linux firewall"
@@ -580,4 +578,5 @@ The role will automatically dereference all the app-specific FW configuration se
     - name: bootstrap-linux-firewalld
       firewalld_action: configure
 
+...
 ```
