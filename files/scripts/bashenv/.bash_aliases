@@ -270,6 +270,7 @@ alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
 #alias fetch-and-import-site-cert="sudo ~/bin/fetch_and_import_site_cert_pem.sh"
 ## use with host:port
 alias importsitecerts="sudo ~/bin/install_site_cacerts.sh"
+alias importworksitecerts="sudo ~/bin/install_worksite_cacerts.sh"
 ## use with host:port
 alias importsslcert="sudo ~/bin/import_site_cert.sh"
 
