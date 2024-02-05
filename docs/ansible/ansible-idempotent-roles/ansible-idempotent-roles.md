@@ -218,7 +218,7 @@ firewalld_ports__bind:
 
 ```
 
-./roles/bootstrap-linux-firewalld/tasks/main.yml
+./roles/bootstrap-linux-firewalld/tasks/main.yml:
 ```yml
 ---
 
@@ -373,7 +373,7 @@ firewall_win_rules__mssql:
 ```
 
 
-./roles/ansible-win-firewall/tasks/main.yml
+./roles/ansible-win-firewall/tasks/main.yml:
 ```yml
 ---
 
@@ -410,10 +410,10 @@ For examples, see the group_var files in the [example repo here](https://github.
 
 group var file|var names used
 ---|---
-[dc_os_linux.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/dc_os_linux.yml)|firewalld_services__linux
-[postfix_server.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
-[nameserver.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/nameserver.yml)|firewalld_ports__bind
-[veeam_agent.yml](https://github.com/lj020326/ansible-datacenter/inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
+[dc_os_linux.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/dc_os_linux.yml)|firewalld_services__linux
+[postfix_server.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
+[nameserver.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/nameserver.yml)|firewalld_ports__bind
+[veeam_agent.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
 
 ## Firewall Role execution from another role
 
