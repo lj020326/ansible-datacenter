@@ -545,3 +545,38 @@ If there is the need to invoke the firewall role from another role, see the exam
   tags: [ 'never', 'setup-rancher']
 
 ```
+
+## Example - Using site.yml to set the firewall state independently from any implementing roles
+
+Now that FW state has been established in the inventory, the FW state for multiple apps can be set simply by running the `bootstrap-linux-firewalld` role from the site.yml.
+
+[site.yml](https://github.com/lj020326/ansible-datacenter/blob/main/site.yml#L210-L219):
+```yaml
+##
+## Bootstrap linux component plays
+##
+
+## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
+- name: "Bootstrap linux firewall"
+  hosts: dc_os_linux,!node_offline
+  become: yes
+  tags:
+    - bootstrap-firewall
+    - bootstrap-linux-firewall
+    - bootstrap-linux-firewalld
+  roles:
+    - name: bootstrap-linux-firewalld
+      firewalld_action: install
+
+## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
+- name: "Configure linux firewall"
+  hosts: dc_os_linux,!node_offline
+  become: yes
+  tags:
+    - configure-firewall
+    - configure-linux-firewall
+  roles:
+    - name: bootstrap-linux-firewalld
+      firewalld_action: configure
+
+```
