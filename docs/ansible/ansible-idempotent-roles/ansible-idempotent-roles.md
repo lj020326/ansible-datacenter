@@ -438,7 +438,7 @@ If there is the need to invoke the firewall role from another role, see the exam
     firewalld_ports: "{{ nfs_firewalld_ports | d([]) }}"
 ```
 
-### Example 2 : 'nginx-stack' role using firewalld role
+### Example 2 : 'nginx-service' role using firewalld role
 
 [roles/nginx-service/tasks/main.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/nginx-service/tasks/main.yml#L3-L10):
 ```yaml
