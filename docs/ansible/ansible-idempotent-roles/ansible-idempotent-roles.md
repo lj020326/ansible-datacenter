@@ -419,7 +419,7 @@ group var file|var names used
 
 If there is the need to invoke the firewall role from another role, see the example nfs-service role invoking the firewall role below.
 
-[roles/nfs-service/tasks/main.yml](https://github.com/lj020326/ansible-datacenter/roles/nfs-service/tasks/main.yml):
+[roles/bootstrap-nfs-service/tasks/main.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/bootstrap-nfs-service/tasks/main.yml#L56-L64):
 ```yaml
 - name: Setup and run nfs
   include_role:
