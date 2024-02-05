@@ -417,6 +417,8 @@ group var file|var names used
 
 ## Firewall Role execution from another role
 
+### Example 1 : 'bootstrap-nfs-service' role using firewalld role
+
 If there is the need to invoke the firewall role from another role, see the example nfs-service role invoking the firewall role below.
 
 [roles/bootstrap-nfs-service/tasks/main.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/bootstrap-nfs-service/tasks/main.yml#L56-L64):
@@ -436,3 +438,110 @@ If there is the need to invoke the firewall role from another role, see the exam
     firewalld_ports: "{{ nfs_firewalld_ports | d([]) }}"
 ```
 
+### Example 2 : 'nginx-stack' role using firewalld role
+
+[roles/nginx-service/tasks/main.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/nginx-service/tasks/main.yml#L3-L10):
+```yaml
+---
+
+- name: Allow nginx ports through the firewall
+  when: firewalld_enabled | bool
+  tags: [ firewall-config-nginx ]
+  include_role:
+    name: bootstrap-linux-firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_ports: "{{ nginx_firewalld_ports | d([]) }}"
+
+- name: Install nginx systemd unit file
+  template:
+    src: "config-openresty.service.j2"
+    dest: "/etc/systemd/system/openresty.service"
+
+- name: enable service openresty and ensure it is not masked
+  systemd:
+    name: openresty
+    enabled: yes
+    masked: no
+
+- name: Make sure openresty service is running
+  systemd:
+    name: openresty
+    state: started
+
+```
+
+### Example 3 : 'docker-stack' role using firewalld role
+
+[roles/docker-stack/tasks/setup-firewalld.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/docker-stack/tasks/setup-firewalld.yml#L28-L34):
+```yaml
+---
+
+- set_fact:
+    log_prefix_local: "Docker Stack | Setup Firewall |"
+
+- name: "{{ log_prefix_local }} Set the firewall services"
+  when: __docker_stack__app_configs[item.name].firewalld_services | d([]) | length > 0
+  set_fact:
+    __docker_stack__firewalld_services: "{{ (__docker_stack__firewalld_services|d([])
+      + __docker_stack__app_configs[item.name].firewalld_services) | flatten | unique }}"
+  with_items: "{{ __docker_stack__service_groups }}"
+
+- name: "{{ log_prefix_local }} Set the firewall ports"
+  when: __docker_stack__app_configs[item.name].firewalld_ports | d([]) | length > 0
+  set_fact:
+    __docker_stack__firewalld_ports: "{{ (__docker_stack__firewalld_ports|d([])
+      + __docker_stack__app_configs[item.name].firewalld_ports) | flatten | unique }}"
+  with_items: "{{ __docker_stack__service_groups }}"
+
+- name: "{{ log_prefix_local }} Display __docker_stack__firewalld_services"
+  debug:
+     var: __docker_stack__firewalld_services
+
+- name: "{{ log_prefix_local }} Display __docker_stack__firewalld_ports"
+  debug:
+     var: __docker_stack__firewalld_ports
+
+- name: "{{ log_prefix_local }} Configure firewall for docker stack apps"
+  include_role:
+    name: bootstrap-linux-firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ __docker_stack__firewalld_services | d([]) }}"
+    firewalld_ports: "{{ __docker_stack__firewalld_ports | d([]) }}"
+
+```
+
+
+### Example 4 : 'bootstrap_awx' role using firewalld role
+
+[roles/bootstrap_awx/tasks/main.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/bootstrap_awx/tasks/main.yml#L15-L22):
+```yaml
+---
+
+- name: "Do prerequisite server setup for AWX/Ansible Controller"
+  import_tasks: server_setup.yml
+  tags: [ 'never', 'setup' ]
+
+- name: "Setup k3s on host"
+  import_tasks: k3s_setup.yml
+  tags: [ 'never', 'setup' ]
+
+- name: "Deploy AWX/Automation Controller to Kubernetes"
+  import_tasks: awx_setup.yml
+  tags: [ 'never', 'setup' ]
+
+- name: "Configure linux firewalld"
+  include_role:
+    name: bootstrap-linux-firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ bootstrap_awx_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ bootstrap_awx_firewalld_ports | d([]) }}"
+  tags: [ 'never', 'setup-firewall']
+
+- name: "Deploy Rancher for Kubernetes management"
+  import_tasks: rancher_setup.yml
+  tags: [ 'never', 'setup-rancher']
+
+```
