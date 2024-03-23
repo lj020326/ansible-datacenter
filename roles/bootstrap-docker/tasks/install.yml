@@ -1,15 +1,15 @@
 ---
 
 - name: "Docker | OS not supported by docker-ce"
-  fail:
+  ansible.builtin.fail:
     msg: "This OS is not supported by Docker-CE, and therefore not supported by this role."
   when:
     - bootstrap_docker__edition == "ce"
-    - (ansible_distribution|lower == "centos" and ansible_distribution_major_version == "6") or
+    - (ansible_distribution|lower == "centos" and ansible_distribution_major_version | int == "6") or
       ansible_distribution|lower == "oraclelinux"
 
 - name: "Docker | Include {{ ansible_distribution }} specific variables"
-  include_vars: "{{ item }}"
+  ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
     - "{{ ansible_distribution|lower }}.yml"
@@ -20,55 +20,60 @@
   when:
     - bootstrap_docker__edition == "ee"
     - bootstrap_docker__ee_url is not defined
-  fail:
+  ansible.builtin.fail:
     msg: "Variable bootstrap_docker__ee_url is required and is not defined."
 
 - name: "Docker | Storage Driver"
-  include_tasks: "storage_drivers/{{ bootstrap_docker__storage_driver }}.yml"
+  ansible.builtin.include_tasks: "storage_drivers/{{ bootstrap_docker__storage_driver }}.yml"
   when: bootstrap_docker__storage_driver is defined
 
 - name: "Docker | Start Installation using {{ ansible_pkg_mgr }} package manager"
-  include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_pkg_mgr }}.yml"
+  ansible.builtin.include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_pkg_mgr }}.yml"
   when: bootstrap_docker__repo == "docker"
 
 - name: "Docker | Start Installation using {{ ansible_pkg_mgr }} package manager using RHSM"
-  include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_pkg_mgr }}-rhsm.yml"
+  ansible.builtin.include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_pkg_mgr }}-rhsm.yml"
   when: bootstrap_docker__repo == "rhsm"
 
 - name: "Docker | Start Installation | Other repo"
-  include_tasks: other_repo.yml
+  ansible.builtin.include_tasks: other_repo.yml
   when: bootstrap_docker__repo == "other"
 
+- name: "Docker | Install additional packages"
+  ansible.builtin.package:
+    name: "{{ bootstrap_docker__packages }}"
+    state: present
+
 - name: "Docker | Ensure service starts at boot"
-  service:
+  ansible.builtin.service:
     name: docker
     enabled: "{{ bootstrap_docker__service_enabled }}"
 
 - name: "Docker | Setup LVM for docker"
   when: bootstrap_docker__setup_lvm|bool
-  include_tasks: "lvm_setup.yml"
+  ansible.builtin.include_tasks: "lvm_setup.yml"
 
 - name: "Docker | Deploy Config"
-  include_tasks: deploy_config.yml
+  ansible.builtin.include_tasks: deploy_config.yml
 
 - name: "Docker | Proxy configuration"
-  include_tasks: proxy.yml
+  ansible.builtin.include_tasks: proxy.yml
   when: bootstrap_docker__http_proxy is defined or
         bootstrap_docker__https_proxy is defined or
         bootstrap_docker__no_proxy_params is defined
 
 - name: "Docker | Setup docker users"
   when: bootstrap_docker__users is defined
-  include_tasks: docker_users.yml
+  ansible.builtin.include_tasks: docker_users.yml
 
 - name: "Docker | Ensure service started"
-  service:
+  ansible.builtin.service:
     name: docker
     state: started
 
 - name: "Docker | Setup docker-compose"
   when: bootstrap_docker__install_compose | bool
-  include_tasks: docker_compose.yml
+  ansible.builtin.include_tasks: docker_compose.yml
 
 - name: "Docker | Get docker system info on docker host"
   community.docker.docker_host_info:

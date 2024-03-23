@@ -10,14 +10,18 @@
 
 - name: "Display primary role input variables"
   debug:
-    var: "{{ item }}"
-  loop:
-    - jenkins_swarm_agent_master
-    - jenkins_swarm_agent_master_url
-    - jenkins_swarm_agent_labels
-    - jenkins_swarm_jenkins_user_groups
-    - jenkins_swarm_path
-    - jenkins_swarm_fsroot_path
+    msg:
+      - "jenkins_swarm_agent__controller={{ jenkins_swarm_agent__controller }}"
+      - "jenkins_swarm_agent__controller_url={{ jenkins_swarm_agent__controller_url }}"
+      - "jenkins_swarm_agent__labels={{ jenkins_swarm_agent__labels }}"
+      - "jenkins_swarm_agent__jenkins_user_groups={{ jenkins_swarm_agent__jenkins_user_groups }}"
+      - "jenkins_swarm_agent__path={{ jenkins_swarm_agent__path }}"
+      - "jenkins_swarm_agent__remote_fs={{ jenkins_swarm_agent__remote_fs }}"
+
+- name: "Register agent node with Jenkins controller"
+  when: jenkins_swarm_agent__register_with_controller|d(True)|bool
+  delegate_to: localhost
+  import_tasks: register_agent.yml
 
 - name: "Running Jenkins Agent install tasks for {{ ansible_os_family|lower() }}"
   include_tasks: "{{ task_file }}"
@@ -27,9 +31,3 @@
     - "{{ ansible_os_family|lower() }}.yml"
   loop_control:
     loop_var: task_file
-
-## TODO: fetch token using jenkins API and set the token in the swarm agent config
-## ref: https://stackoverflow.com/questions/42683324/create-jenkins-jlnp-slave-programmatically
-## ref: https://plugins.jenkins.io/swarm/
-## ref: https://github.com/jenkinsci/swarm-plugin/blob/master/docs/configfile.adoc
-## ref: https://github.com/jenkinsci/swarm-plugin/blob/master/docs/security.adoc#authentication

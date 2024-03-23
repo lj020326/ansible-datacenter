@@ -1,6 +1,6 @@
 ---
 
-- set_fact:
+- ansible.builtin.set_fact:
     log_prefix_local: "Docker Stack | Setup StepCA |"
 
 - name: "{{ log_prefix_local }} Check if CA cert signature is valid (so we don't generate a new on on every run)"
@@ -14,7 +14,7 @@
 #
 #    - name: "{{ log_prefix_local }} validate_cert | Display cacert_result"
 #      when: cacert_display_cacert_result
-#      debug: var=cacert_result
+#      ansible.builtin.debug: var=cacert_result
 #
 #    - name: "{{ log_prefix_local }} validate_cert | Assert cert info is valid"
 #      assert:
@@ -36,26 +36,27 @@
       register: cert_validity_signer
 
     - name: "{{ log_prefix_local }} validate_cert | Display cert_validity_signer"
-      debug:
+      ansible.builtin.debug:
         msg: "cert_validity_signer={{ cert_validity_signer }}"
 
     - name: "{{ log_prefix_local }} validate_cert | Display cert_validity message"
-      debug:
+      ansible.builtin.debug:
         msg: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt is still valid no need to generate"
       when: cert_validity_signer and cert_validity_signer.rc | default(0) == 0
 
-    - set_fact:
+    - ansible.builtin.set_fact:
         __docker_stack__stepca_missing_or_invalid_ca_cert: no
 
   rescue:
-    - debug: msg="{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt is not valid - __docker_stack__stepca_missing_or_invalid_ca_cert will be set"
-    - set_fact:
+    - ansible.builtin.debug: 
+        msg: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt is not valid - __docker_stack__stepca_missing_or_invalid_ca_cert will be set"
+    - ansible.builtin.set_fact:
         __docker_stack__stepca_missing_or_invalid_ca_cert: yes
 
   always:
-    - debug:
+    - ansible.builtin.debug:
         var: __docker_stack__stepca_missing_or_invalid_ca_cert
-    - debug:
+    - ansible.builtin.debug:
         var: docker_stack__stepca_ca_force_create
 
 - name: Setup signed stepca cert
@@ -86,12 +87,12 @@
           register: stepca_init_docker_output
 
         - name: "{{ log_prefix_local }} Display stepca_init_docker_output results"
-          debug:
+          ansible.builtin.debug:
 #            var: stepca_csr_docker_output
             var: stepca_init_docker_output.container.Output|d('')
 
         - name: "{{ log_prefix_local }} Remove {{ __docker_stack__stepca__home_dir}}/secrets/root_ca_key"
-          file:
+          ansible.builtin.file:
             path: "{{ __docker_stack__stepca__home_dir}}/secrets/root_ca_key"
             state: absent
           loop:
@@ -99,7 +100,7 @@
 
         - name: "{{ log_prefix_local }} Copy step-ca's root, intermediate CA cert and key"
           when: docker_stack__stepca_use_host_cacerts
-          copy:
+          ansible.builtin.copy:
             remote_src: yes
             src: "{{ item.src }}"
             dest: "{{ item.dest }}"
@@ -120,7 +121,7 @@
 
         ## ref: https://github.com/smallstep/cli/issues/386
         - name: "{{ log_prefix_local }} Deploy step-ca's signed intermediate CA cert and key"
-          copy:
+          ansible.builtin.copy:
             remote_src: "{{ item.remote_src | d(True) }}"
             src: "{{ item.src }}"
             dest: "{{ item.dest }}"
@@ -163,12 +164,12 @@
           register: stepca_csr_docker_output
 
         - name: "{{ log_prefix_local }} Display stepca_csr_docker_output results"
-          debug:
+          ansible.builtin.debug:
 #            var: stepca_csr_docker_output
             var: stepca_csr_docker_output.container.Output|d('')
 
         - name: "{{ log_prefix_local }} Setup cfssl profile for stepca"
-          template:
+          ansible.builtin.template:
             src: "{{ item.src }}"
             dest: "{{ item.dest }}"
           loop:
@@ -177,7 +178,7 @@
 
         ## ref: https://github.com/smallstep/certificates/blob/master/docs/questions.md#i-already-have-pki-in-place-can-i-use-this-with-my-own-root-certificate
         - name: "{{ log_prefix_local }} Remove old certs/keys from {{ __docker_stack__stepca__home_dir}}"
-          file:
+          ansible.builtin.file:
             path: "{{ item }}"
             state: absent
           loop:
@@ -201,7 +202,7 @@
 #            creates: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
 
         - name: "{{ log_prefix_local }} Install cfssl"
-          include_role:
+          ansible.builtin.include_role:
             name: bootstrap-cfssl
 
         - name: "{{ log_prefix_local }} Generating signed server certificate"
@@ -219,7 +220,7 @@
             creates: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
 
         - name: "{{ log_prefix_local }} Deploy step-ca's signed intermediate CA cert and key"
-          copy:
+          ansible.builtin.copy:
             remote_src: yes
             src: "{{ item.src }}"
             dest: "{{ item.dest }}"

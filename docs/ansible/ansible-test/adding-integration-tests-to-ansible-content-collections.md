@@ -33,7 +33,7 @@ $ git clone \
 
 $ cd digital_ocean
 
-$ export ANSIBLE_COLLECTIONS_PATHS=~/digital_ocean
+$ export ANSIBLE_COLLECTIONS_PATH=~/digital_ocean
 
 $ ansible-doc digital_ocean.digital_ocean.droplet
 ```

@@ -309,6 +309,8 @@ $ docker service create docker_stack_jenkins-jcac
 ## OR
 $ ./deploy-stack.sh
 $ docker service logs -f docker_stack_jenkins-jcac
+## How to view complete error message from 'docker stack ps'
+$ docker stack ps --no-trunc docker_stack_jenkins-jcac
 ```
 
 Scale down/up == restart

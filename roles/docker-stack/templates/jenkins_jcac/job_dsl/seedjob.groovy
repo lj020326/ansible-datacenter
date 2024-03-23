@@ -19,12 +19,6 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
                 }
                 // ref: https://github.com/jenkinsci/matrix-auth-plugin/releases
                 entries {
-                  user {
-                      name('admin')
-                      permissions([
-                        'Overall/Administer'
-                      ])
-                  }
                   group {
                       name('admin')
                       permissions([
@@ -44,18 +38,6 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
                       ])
                   }
                 }
-
-//                 permissions([
-//                     "GROUP:Job/Build:admin",
-//                     "GROUP:Job/Cancel:admin",
-//                     "GROUP:Job/Configure:admin",
-//                     "GROUP:Job/Create:admin",
-//                     "GROUP:Job/Delete:admin",
-//                     "GROUP:Job/Discover:admin",
-//                     "GROUP:Job/Move:admin",
-//                     "GROUP:Job/Read:admin",
-//                     "GROUP:Job/Workspace:admin",
-//                 ])
             }
         }
     }
@@ -72,7 +54,7 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
         }
         // ref: https://github.com/tomasbjerre/jenkins-configuration-as-code-sandbox/blob/master/jenkins-docker/jenkins.yaml
         triggers {
-          cron("H/15 * * * *")
+          cron("H/30 * * * *")
         }
         scm {
             git {

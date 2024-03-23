@@ -17,7 +17,7 @@ Although I am going to walk you through the steps of setting up your playbook, h
 
 ## Directory Structure
 
-To keep the example short and simple, let’s assume that we want to create an Azure Container Registry within an Azure Resource Group in two environments, viz. **staging** and **production**. Execute the following script to set up the relevant directories for the project. Refer to the [Ansible Roles](https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-1/#roles "Ansible Roles") section of the previous post to understand the layout of the **roles** folder created by the command. The folder named **tf** will contain the Terraform configuration files, and the folder named **host\_vars** will contain the host-specific variables. There are multiple ways of setting the values of the variables used in an Ansible playbook. You can set them through the command line using the flag `-e` with the highest precedence or set them through files in the **host\_vars** or **group\_vars** folder. Each file in the **host\_vars** folder is named after the host that it represents. You can read more about [adding variables to an Ansible inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#adding-variables-to-inventory) on the Ansible documentation website.
+To keep the example short and simple, let’s assume that we want to create an Azure Container Registry within an Azure Resource Group in two environments, viz. **staging** and **production**. Execute the following script to set up the relevant directories for the project. Refer to the [Ansible Roles](https://thecloudblog.net/post/simplifying-terraform-deployments-with-ansible-part-1/#roles "Ansible Roles") section of the previous post to understand the layout of the **roles** folder created by the command. The folder named **tf** will contain the Terraform configuration files, and the folder named **host_vars** will contain the host-specific variables. There are multiple ways of setting the values of the variables used in an Ansible playbook. You can set them through the command line using the flag `-e` with the highest precedence or set them through files in the **host_vars** or **group_vars** folder. Each file in the **host_vars** folder is named after the host that it represents. You can read more about [adding variables to an Ansible inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#adding-variables-to-inventory) on the Ansible documentation website.
 
 ```
 $ mkdir -p infra/{tf,roles/plan/{tasks,templates},host_vars}
@@ -97,14 +97,14 @@ Let’s now create tasks in the `plan` [Playbook Role](https://docs.ansible.com/
 
 ## Playbook Role
 
-As we discussed earlier, Ansible’s roles organization feature allows you to organize your Ansible files better. This organization helps in automatically loading the vars files and tasks based on the structure of the folders. Create a file named **main.yaml** in the tasks folder and define the tasks that constitute the plan.
+As we discussed earlier, Ansible’s roles organization feature allows you to organize your Ansible files better. This organization helps in automatically loading the vars files and tasks based on the structure of the folders. Create a file named **main.yml** in the tasks folder and define the tasks that constitute the plan.
 
 ```
 - name: TF tasks
-  import_tasks: tf-tasks.yaml
+  import_tasks: tf-tasks.yml
 ```
 
-The task `TF tasks` will import the tasks present in the file **tf-tasks.yaml**. Create a file named **tf-tasks.yaml** and define the tasks as follows.
+The task `TF tasks` will import the tasks present in the file **tf-tasks.yml**. Create a file named **tf-tasks.yml** and define the tasks as follows.
 
 ```
 - name: Substitute tfvars
@@ -170,7 +170,7 @@ An interesting aspect of the script is that it supports [conditional execution](
 
 Here is what each task in the playbook does:
 
-1.  **Substitute tfvars**: This task copies the Jinja2 template **templates/tfvars.j2** to **{{ playbook\_dir }}/tf/env.tfvars** after transforming the values of the variables. `{{ playbook_dir }}` is an inbuilt variable whose value is the path to the playbook file’s directory. In our case, it will be the path to the folder containing the playbook file **cluster.yaml**.
+1.  **Substitute tfvars**: This task copies the Jinja2 template **templates/tfvars.j2** to **{{ playbook_dir }}/tf/env.tfvars** after transforming the values of the variables. `{{ playbook_dir }}` is an inbuilt variable whose value is the path to the playbook file’s directory. In our case, it will be the path to the folder containing the playbook file **cluster.yml**.
     
 2.  **Init Terraform**: When the value of the parameter `operation` is set to **init**, this task will initialize Terraform, and the subsequent task will display the output of initialization on the console.
     
@@ -197,7 +197,7 @@ The value of `terraform['%s' | format(env)]` will be:
 1.  terraform\[‘production’\] when the value of `env` is “production”.
 2.  terraform\[‘staging’\] when the value of `env` is “staging”.
 
-The variables such as `terraform['production'].rg_name` will be read from host variables file **host\_vars/localhost.yaml**. The template step of the playbook will place the [variable definition](https://www.terraform.io/docs/configuration/variables.html) (.tfvars) file next to the terraform configuration file **main.tf** after which you can execute the Terraform plan as follows.
+The variables such as `terraform['production'].rg_name` will be read from host variables file **host_vars/localhost.yml**. The template step of the playbook will place the [variable definition](https://www.terraform.io/docs/configuration/variables.html) (.tfvars) file next to the terraform configuration file **main.tf** after which you can execute the Terraform plan as follows.
 
 ```
 terraform plan -var-file=env.tfvars
@@ -205,7 +205,7 @@ terraform apply -var-file=env.tfvars
 terraform destroy -var-file=env.tfvars
 ```
 
-Create a file named **localhost.yaml** in the **host\_vars** folder. The file **localhost.yaml** will be read by Ansible when we execute the playbook against the host localhost. The files in the **host\_vars** folder contain the variables that Ansible should use when targeting a particular host. You can also define variables that are common for all hosts in the same group here.
+Create a file named **localhost.yml** in the **host_vars** folder. The file **localhost.yml** will be read by Ansible when we execute the playbook against the host localhost. The files in the **host_vars** folder contain the variables that Ansible should use when targeting a particular host. You can also define variables that are common for all hosts in the same group here.
 
 ```
 terraform:
@@ -223,10 +223,10 @@ terraform:
 
 With the nested configuration, the Jinja template will set the following values of the variables.
 
-1.  **rg\_name** (= terraform\[‘production’\].rg\_name) will be set to **prod-ae-rg**
-2.  **acr\_name** (= terraform\[‘staging’\].acr\_name) will be set to **stageacr**
+1.  **rg_name** (= terraform\[‘production’\].rg_name) will be set to **prod-ae-rg**
+2.  **acr_name** (= terraform\[‘staging’\].acr_name) will be set to **stageacr**
 
-Finally, you require the playbook file that will drive this workflow. Create a file named **deploy.yaml** in the **infra** folder. The following configuration will run the **plan** role tasks against the localhost.
+Finally, you require the playbook file that will drive this workflow. Create a file named **deploy.yml** in the **infra** folder. The following configuration will run the **plan** role tasks against the localhost.
 
 ```
 - name: Apply configuration via localhost
@@ -272,16 +272,16 @@ export ARM_ACCESS_KEY=$(az storage account keys list -n $tfstate --query [0].val
 
 case $2 in
 "init")
-    ansible-playbook deploy.yaml -e env=$3 -e operation=init
+    ansible-playbook deploy.yml -e env=$3 -e operation=init
     ;;
 "destroy")
-    ansible-playbook deploy.yaml -e env=$3 -e operation=destroy
+    ansible-playbook deploy.yml -e env=$3 -e operation=destroy
     ;;
 "create")
-    ansible-playbook deploy.yaml -e env=$3 -e operation=create
+    ansible-playbook deploy.yml -e env=$3 -e operation=create
     ;;
 "create-plan" | *)
-    ansible-playbook deploy.yaml -e env=$3 -e operation=create-plan
+    ansible-playbook deploy.yml -e env=$3 -e operation=create-plan
     if [ ! -f "/tf/plan.tfplan" ]; then
         (
             cd tf
@@ -292,7 +292,7 @@ case $2 in
 esac
 ```
 
-Terraform requires a state file to record the state of the infrastructure and configuration. Line 1 to 26 of the script creates a resource group, a storage account, and a container within the storage account to store the state. It will also install the Azure CLI if it is not already installed on your system. The connection key of the storage account is exposed to Terraform via the **ARM\_ACCESS\_KEY** environment variable. There are other approaches to configuring the azurerm backend you can read about on the [Terraform documentation website](https://www.terraform.io/docs/backends/types/azurerm.html).
+Terraform requires a state file to record the state of the infrastructure and configuration. Line 1 to 26 of the script creates a resource group, a storage account, and a container within the storage account to store the state. It will also install the Azure CLI if it is not already installed on your system. The connection key of the storage account is exposed to Terraform via the **ARM_ACCESS_KEY** environment variable. There are other approaches to configuring the azurerm backend you can read about on the [Terraform documentation website](https://www.terraform.io/docs/backends/types/azurerm.html).
 
 Based on the positional parameter value passed to the script, you can perform the various Terraform operations viz. initialize, create the plan, create, and destroy. You can read more about Terraform commands on [its docs website](https://www.terraform.io/docs/commands/index.html).
 
@@ -307,7 +307,7 @@ sh start.sh <subscription_id> init staging
 The command leads to the execution of the following playbook command.
 
 ```
-ansible-playbook deploy.yaml -e env=staging -e operation=init
+ansible-playbook deploy.yml -e env=staging -e operation=init
 ```
 
 ![Terraform Init](./img/terraform_with_ansible/1-1.png "Terraform Init")
@@ -323,7 +323,7 @@ sh start.sh <subscription_id> create-plan staging
 The ansible command executed is the following.
 
 ```
-ansible-playbook deploy.yaml -e env=staging -e operation=create-plan
+ansible-playbook deploy.yml -e env=staging -e operation=create-plan
 ```
 
 ![Terraform Plan](./img/terraform_with_ansible/2-1.png "Terraform Plan")
@@ -339,7 +339,7 @@ sh start.sh <subscription_id> create staging
 The Ansible playbook command executed this time is the following.
 
 ```
-ansible-playbook deploy.yaml -e env=staging -e operation=create
+ansible-playbook deploy.yml -e env=staging -e operation=create
 ```
 
 ![Terraform Apply](./img/terraform_with_ansible/3.png "Terraform Apply")

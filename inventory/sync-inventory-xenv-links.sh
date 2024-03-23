@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-VERSION="2024.1.1"
+VERSION="2024.2.1"
 
-## install sync tool bin requirements in local user bin dir at ${HOME}/bin (yq)
-export PATH="${HOME}/bin:${PATH}"
+#SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(dirname "$0")"
 
 ## PURPOSE RELATED VARS
-PROJECT_DIR=$( git rev-parse --show-toplevel )
+#PROJECT_DIR=$( git rev-parse --show-toplevel )
+PROJECT_DIR="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 INVENTORY_DIR="${PROJECT_DIR}/inventory"
 
 ENVS="
@@ -15,13 +16,9 @@ QA
 DEV
 "
 
-SORT_FILES="
-xenv_groups.yml
-xenv_hosts.yml
-DEV/hosts.yml
-PROD/hosts.yml
-QA/hosts.yml
-"
+INVENTORY_YML_LIST=("hosts.yml")
+INVENTORY_YML_LIST+=("xenv_hosts.yml")
+INVENTORY_YML_LIST+=("xenv_groups.yml")
 
 
 #### LOGGING RELATED
@@ -122,6 +119,9 @@ function isInstalled() {
   command -v "${1}" >/dev/null 2>&1 || return 1
 }
 
+function cleanup_tmpdir() {
+  test "${KEEP_TMP:-0}" = 1 || rm -rf "${TMPDIR}"
+}
 
 ## For `SPECIAL_LINKS` use the following format to specify any special links
 ## [linkName]:[linkSource]
@@ -276,7 +276,7 @@ function create_groupvars_links_yml() {
 ## Not sure I like it much though 😐.
 ##
 ## The real reason the initial name `000_cross_env_vars.yml` was used was residue from observing the initial example from
-## the [source article at digitalocean here](https://www.digitalocean.com/community/tutorials/how-to-manage-multistage-ENVIRONMENTs-with-ansible).
+## the [source article at digitalocean here](https://www.digitalocean.com/community/tutorials/how-to-manage-multistage-environments-with-ansible).
 ##
 ## As such, I did not feel the need to continue to keep to this specific naming convention going forward since:
 ##
@@ -466,10 +466,6 @@ function install_jq() {
   fi
 }
 
-function cleanup_tmpdir() {
-  test "${KEEP_TMP:-0}" = 1 || rm -rf "${TMPDIR}"
-}
-
 function install_yq() {
   local LOG_PREFIX="==> install_jq():"
   local OS="${1}"
@@ -483,14 +479,23 @@ function install_yq() {
     TMPDIR="$(mktemp -d --suffix .yq-go XXXX -p /tmp)"
     trap cleanup_tmpdir INT TERM EXIT
 
-#    INSTALL_DIR="/usr/local/bin"
+    ## install sync tool bin dir at ${HOME}/bin (yq)
     INSTALL_DIR="${HOME}/bin"
+    if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
+      if [ "$EUID" -eq 0 ]; then
+        ## if running as root install in /usr/local/bin
+        INSTALL_DIR="/usr/local/bin"
+      fi
+    fi
+
     mkdir -p "${INSTALL_DIR}"
+    export PATH="${INSTALL_DIR}:${PATH}"
 
     logInfo "${LOG_PREFIX} Installing yq for linux"
     ## ref: https://unix.stackexchange.com/questions/85194/how-to-download-an-archive-and-extract-it-without-saving-the-archive-to-disk
     curl -s -L "https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz" |\
       tar xzf - -C "${TMPDIR}" && mv "${TMPDIR}/${BINARY}" "${INSTALL_DIR}/yq"
+
   fi
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
     logInfo "${LOG_PREFIX} Installing jq for MacOS"
@@ -554,14 +559,14 @@ function ensure_pip_tool() {
 
   local executable="${1}"
 
-  if [[ -z "$(command -v ${executable})" ]]; then
+  if [[ -z "$(command -v "${executable}")" ]] || pip show "${executable}" | grep -q -i version; then
     pip install "${executable}"
   fi
 }
 
 function sort_xenv_files() {
   local LOG_PREFIX="==> sort_xenv_files():"
-  local SORT_FILES=$1
+  local INVENTORY_YML_LIST=("$@")
 
   ## ref: https://pypi.org/project/yq/
   logInfo "${LOG_PREFIX} Ensure jq present/installed (required for yq sort-keys)"
@@ -571,12 +576,29 @@ function sort_xenv_files() {
   logInfo "${LOG_PREFIX} Ensure yq present/installed (required for yq sort-keys)"
   ensure_tool yq
 
-  IFS=$'\n'
-  for FILE_PATH in ${SORT_FILES}
+  logDebug "${LOG_PREFIX} INVENTORY_YML_LIST=${INVENTORY_YML_LIST[*]}"
+
+  local DELIM=' -o '
+  ## ref: https://superuser.com/questions/1371834/escaping-hyphens-with-printf-in-bash
+  #'-name' ==> '\055name'
+  printf -v FIND_FILE_ARGS "\055name %s${DELIM}" "${INVENTORY_YML_LIST[@]}"
+  FIND_FILE_ARGS=${FIND_FILE_ARGS%$DELIM}
+
+  logDebug "${LOG_PREFIX} FIND_FILE_ARGS=${FIND_FILE_ARGS}"
+
+  FIND_CMD="find . -type f \( ${FIND_FILE_ARGS} \) -printf '%P\n' | sort"
+  logInfo "${LOG_PREFIX} ${FIND_CMD}"
+
+  INVENTORY_YML_FILES_FOUND=$(eval "${FIND_CMD}")
+  logDebug "${LOG_PREFIX} INVENTORY_YML_FILES_FOUND=${INVENTORY_YML_FILES_FOUND}"
+
+  for INVENTORY_FILE in ${INVENTORY_YML_FILES_FOUND}
   do
-    logInfo "${LOG_PREFIX} Sort file [$FILE_PATH]"
     ## ref: https://mikefarah.gitbook.io/yq/operators/sort-keys
-    yq -i -P 'sort_keys(..)' "${FILE_PATH}"
+    SORT_CMD="yq -i -P 'sort_keys(..)' ${INVENTORY_FILE}"
+    logInfo "${LOG_PREFIX} ${SORT_CMD}"
+    eval "${SORT_CMD}"
+#    yq -i -P 'sort_keys(..)' "${INVENTORY_FILE}"
   done
 
   return 0
@@ -623,7 +645,7 @@ function usage() {
   echo "Usage: ${0} [options] [[SYNC_FUNCTION_NAME] [SYNC_FUNCTION_NAME]...]"
   echo ""
   echo "  Options:"
-  echo "       -l [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
   echo "       -v : show script version"
   echo "       -h : help"
   echo "     [SYNC_FUNCTION_NAME]"
@@ -639,7 +661,7 @@ function usage() {
 	echo "       ${0} create_host_links_yml"
 	echo "       ${0} create_host_links_yml create_hostvars_links_yml"
 	echo "       ${0} sort_xenv_files"
-	echo "       ${0} -l DEBUG sort_xenv_files"
+	echo "       ${0} -L DEBUG sort_xenv_files"
   echo "       ${0} -v"
 	[ -z "$1" ] || exit "$1"
 }
@@ -649,21 +671,16 @@ function main() {
   logInfo "==> PROJECT_DIR=${PROJECT_DIR}"
   logInfo "==> INVENTORY_DIR=${INVENTORY_DIR}"
 
-  SHOW_VERSION=0
-  while getopts "l:pvh" opt; do
+  while getopts "L:pvh" opt; do
       case "${opt}" in
-          l) setLogLevel "${OPTARG}" ;;
-          v) echo "${VERSION}" && SHOW_VERSION=1 ;;
+          L) setLogLevel "${OPTARG}" ;;
+          v) echo "${VERSION}" && exit ;;
           h) usage 1 ;;
           \?) usage 2 ;;
           *) usage ;;
       esac
   done
   shift $((OPTIND-1))
-
-  if [ $SHOW_VERSION -eq 1 ]; then
-    exit
-  fi
 
   SYNC_FUNCTIONS=("all")
   if [ $# -gt 0 ]; then
@@ -681,8 +698,8 @@ function main() {
   if [[ -n "${SPECIAL_LINKS}" ]]; then
     run_sync_function "${SYNC_FUNCTIONS_STR}" create_special_links "${INVENTORY_DIR}" "${SPECIAL_LINKS}"
   fi
-  if [[ -n "${SORT_FILES}" ]]; then
-    run_sync_function "${SYNC_FUNCTIONS_STR}" sort_xenv_files "${SORT_FILES}"
+  if [[ -n "${INVENTORY_YML_LIST}" ]]; then
+    run_sync_function "${SYNC_FUNCTIONS_STR}" sort_xenv_files "${INVENTORY_YML_LIST[@]}"
   fi
 }
 

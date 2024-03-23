@@ -37,9 +37,9 @@ credentials:
           usernameSecret: true
       - usernamePassword:
           id: "docker-registry-admin"
-          password: "${DOCKER_REGISTRY_PASSWORD}"
+          password: "${DOCKER_REGISTRY_ADMIN_PASSWORD}"
           scope: GLOBAL
-          username: "admin"
+          username: "${DOCKER_REGISTRY_ADMIN_USERNAME}"
           usernameSecret: true
       - usernamePassword:
           id: "github-jenkins"
@@ -88,16 +88,23 @@ credentials:
             scope: GLOBAL
             secret: "${VSPHERE_PASSWORD}"
             description: "vmware-vcenter-password"
-        - string:
-            id: "vmware-esxi-password"
+        - usernamePassword:
+            id: "infra-packer-cred"
+            description: "infra-packer-cred"
+            password: "${PACKER_USER_PASSWORD}"
             scope: GLOBAL
-            secret: "${VMWARE_ESXI_PASSWORD}"
-            description: "vmware-esxi-password"
+            username: "${PACKER_USER_USERNAME}"
+            usernameSecret: true
         - string:
             id: "packer-ssh-password"
             scope: GLOBAL
             secret: "${PACKER_SSH_PASSWORD}"
             description: "packer-ssh-password"
+        - string:
+            id: "vmware-esxi-password"
+            scope: GLOBAL
+            secret: "${VMWARE_ESXI_PASSWORD}"
+            description: "vmware-esxi-password"
         - string:
             id: "ansible-vault-password"
             scope: GLOBAL
@@ -162,46 +169,6 @@ jenkins:
 #      - "GROUP:Overall/Read:authenticated"
 #      - "USER:Overall/Administer:admin"
   clouds:
-{% if __docker_stack__jenkins_jcac__agent_swarm_mode|bool %}
-  - dockerSwarm:
-      agentTemplates:
-#      - command: |-
-#          sh
-#          -cx
-#          curl --connect-timeout 20 --max-time 60 -o agent.jar $DOCKER_SWARM_PLUGIN_JENKINS_AGENT_JAR_URL && java -jar agent.jar -jnlpUrl $DOCKER_SWARM_PLUGIN_JENKINS_AGENT_JNLP_URL -secret $DOCKER_SWARM_PLUGIN_JENKINS_AGENT_SECRET -noReconnect -workDir /tmp
-      - command: |-
-          sh
-          -cx
-          java -jar /home/jenkins/swarm-client.jar ${ENV_COMMAND_OPTIONS}
-        dnsIps: "10.0.0.1"
-        envVars: |-
-          ENV_COMMAND_OPTIONS="-master '${JENKINS_HOST}' \
-                      -tunnel '{{ __docker_stack__jenkins_jcac__agent_tunnel }}' \
-                      -username '@/run/secrets/jenkins_agent_username' \
-                      -password '@/run/secrets/jenkins_agent_password' \
-                      -name 'docker-swarm-{{ inventory_hostname_short }}' \
-                      -deleteExistingClients \
-                      -disableClientsUniqueId \
-                      -disableSslVerification"
-        image: "{{ __docker_stack__jenkins_jcac__swarm_agent_image }}"
-        label: "docker-agent docker dockercloud"
-        limitsMemoryBytes: 0
-        limitsNanoCPUs: 0
-        osWindows: false
-        reservationsMemoryBytes: 0
-        reservationsNanoCPUs: 0
-        secrets: |
-          jenkins_admin_username:/run/secrets/jenkins_admin_username
-          jenkins_admin_password:/run/secrets/jenkins_admin_password
-        workingDir: "/tmp"
-      dockerHost:
-        uri: "http://socket-proxy:2375"
-      dockerSwarmApiUrl: "http://socket-proxy:2375"
-      jenkinsUrl: "${JENKINS_HOST}"
-#      swarmNetwork: "socket_proxy"
-      timeoutMinutes: 5
-      tunnel: "{{ __docker_stack__jenkins_jcac__agent_tunnel }}"
-{% else %}
   - docker:
       dockerApi:
         connectTimeout: 60
@@ -209,24 +176,15 @@ jenkins:
           uri: "tcp://socket-proxy:2375"
         readTimeout: 60
       exposeDockerHost: true
-      name: "dockercloud01"
+      name: "docker-cloud"
       ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/docker
+      ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/integrations/src/test/resources/io/jenkins/plugins/casc/DockerCloudTest2.yml
       templates:
-#      - connector:
-#          attach:
-#            user: "jenkins"
       - connector:
-          jnlp:
-            jnlpLauncher:
-              tunnel: "{{ __docker_stack__jenkins_jcac__agent_tunnel }}"
-              workDirSettings:
-                disabled: false
-                failIfWorkDirIsMissing: false
-                internalDir: "remoting"
+          attach:
+            user: "jenkins"
         dockerTemplateBase:
           bindAllPorts: true
-          cpuPeriod: 0
-          cpuQuota: 0
           environment:
           - "gid={{ docker_stack__user_gid }}"
           - "uid={{ docker_stack__user_uid }}"
@@ -242,9 +200,10 @@ jenkins:
           - "type=bind,source={{ __docker_stack__jenkins_jcac__vmware_data_dir }},destination=/vmware"
           pullCredentialsId: "docker-registry-admin"
         instanceCapStr: "1"
-        labelString: "docker dockercloud dockercloud-agent ansible"
+        labelString: "dockercloud dockercloud-agent"
+#        labelString: "docker dockercloud dockercloud-agent"
         mode: EXCLUSIVE
-        name: "dockercloud-agent"
+        name: "docker-agent"
 #        pullStrategy: PULL_ALWAYS
         pullStrategy: PULL_LATEST
         pullTimeout: 300
@@ -254,7 +213,6 @@ jenkins:
         retentionStrategy:
           idleMinutes: 30
         stopTimeout: 0
-{% endif %}
   crumbIssuer:
     standard:
       excludeClientIPFromCrumb: false
@@ -273,12 +231,8 @@ jenkins:
   - name: "built-in"
   - name: "controller"
   - name: "docker"
-  - name: "dockercloud"
-  - name: "dockercloud-agent"
   - name: "linux"
   - name: "packer"
-  - name: "swarm"
-  - name: "jenkins-agent-{{ inventory_hostname_short }}"
   labelString: "controller"
 #  markupFormatter: "plainText"
   markupFormatter:
@@ -318,7 +272,7 @@ jenkins:
   ## ref: https://github.com/jenkinsci/matrix-auth-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/matrixauth/integrations/casc/configuration-as-code.yml
   nodes:
   - permanent:
-      labelString: "docker ansible"
+      labelString: "docker ansible packer"
       launcher:
         inbound:
           tunnel: "{{ __docker_stack__jenkins_jcac__agent_tunnel }}"
@@ -327,7 +281,7 @@ jenkins:
             failIfWorkDirIsMissing: false
             internalDir: "remoting"
             workDirPath: "/home/jenkins/agent"
-      name: "jenkins-agent-{{ inventory_hostname_short }}"
+      name: "{{ inventory_hostname }}"
       nodeProperties:
       - authorizationMatrix:
           inheritanceStrategy: "inheritingGlobal"
@@ -453,16 +407,24 @@ security:
     - "method java.io.File mkdirs"
     - "method java.nio.file.Path toFile"
     - "new java.io.File java.lang.String"
+    - "new java.lang.IllegalArgumentException java.lang.String"
+    - "new java.lang.RuntimeException java.lang.String"
     - "staticField com.dettonville.api.pipeline.utils.logging.LogLevel ALL"
     - "staticField com.dettonville.api.pipeline.utils.logging.LogLevel DEBUG"
+    - "staticField com.dettonville.api.pipeline.utils.logging.LogLevel DEPRECATED"
     - "staticField com.dettonville.api.pipeline.utils.logging.LogLevel INFO"
+    - "staticField com.dettonville.api.pipeline.utils.logging.LogLevel NONE"
     - "staticField com.dettonville.api.pipeline.utils.logging.LogLevel TRACE"
+    - "staticField com.dettonville.api.pipeline.utils.logging.LogLevel WARN"
+    - "staticField com.dettonville.api.pipeline.versioning.ComparableSemanticVersion ALPHANUM"
+    - "staticField com.dettonville.api.pipeline.versioning.ComparableSemanticVersion FIELD"
+    - "staticField com.dettonville.api.pipeline.versioning.ComparableSemanticVersion IDENT"
+    - "staticField com.dettonville.api.pipeline.versioning.ComparableSemanticVersion NAT"
     - "staticMethod java.nio.file.Paths get java.lang.String java.lang.String[]"
     - "staticMethod com.dettonville.api.pipeline.utils.logging.LogLevel $INIT java.lang.Object[]"
     - "staticMethod org.codehaus.groovy.runtime.DefaultGroovyMethods max java.util.Collection"
   updateSiteWarningsConfiguration:
     ignoredWarnings:
-    - "core-2_442"
     - "SECURITY-142"
     - "SECURITY-1350"
     - "SECURITY-1351"
@@ -586,7 +548,7 @@ unclassified:
   gitHubConfiguration:
     apiRateLimitChecker: ThrottleForNormalize
   gitHubPluginConfig:
-    hookUrl: "https://{{ __docker_stack__jenkins__endpoint }}/github-webhook/"
+    hookUrl: "https://{{ __docker_stack__jenkins_endpoint }}/github-webhook/"
   giteaServers:
     servers:
     - credentialsId: "infra-jenkins-git-user"
@@ -697,9 +659,9 @@ tool:
           - command:
               command: |+
                 {{ __docker_stack__jenkins_jcac__ansible_tool_python_interpreter }} -m venv .venv/ansible && \
-                .venv/ansible/bin/pip3 -q install --upgrade pip && \
-                .venv/ansible/bin/pip3 -q install ansible && \
-                .venv/ansible/bin/pip3 -q install {{ __docker_stack__jenkins_ansible_venv_libs | join(' ') }}
+                .venv/ansible/bin/pip3 -q install --upgrade pip || true && \
+                .venv/ansible/bin/pip3 -q install ansible || true && \
+                .venv/ansible/bin/pip3 -q install {{ __docker_stack__jenkins__ansible_venv_libs | join(' ') }}
               label: "ansible"
               toolHome: ".venv/ansible/bin"
 #    - home: ".venv/ansible"

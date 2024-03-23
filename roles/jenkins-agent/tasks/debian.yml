@@ -1,0 +1,72 @@
+---
+
+- name: "Add a jenkins group"
+  group:
+    name: jenkins
+    state: present
+
+- name: "Add a jenkins user"
+  user:
+    name: jenkins
+    state: present
+
+- name: "Add jenkins user to jenkins user groups"
+  when: jenkins_agent__jenkins_user_groups|d([])|length>0
+  user:
+    name: jenkins
+    groups: "{{ jenkins_agent__jenkins_user_groups }}"
+    append: yes
+    state: present
+
+- name: "Create Jenkins-Agent directory"
+  file:
+    path: "{{ jenkins_agent__path }}"
+    state: directory
+    mode: "0755"
+
+- name: "Ensure Jenkins Agent config directories exist"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ jenkins_agent__systemd_path }}"
+    - "{{ jenkins_agent__path }}"
+    - "{{ jenkins_agent__work_dir }}"
+
+- name: "Download the Jenkins Agent"
+  get_url:
+    url: "{{ jenkins_agent__download_url }}"
+    dest: "{{ jenkins_agent__path }}"
+    owner: jenkins
+    group: jenkins
+    validate_certs: "{{ jenkins_agent__validate_certs }}"
+  notify:
+    - Restart Jenkins Agent service
+  register: jenkins_agent_jar
+
+- name: "Ensure {{ jenkins_agent__password_file }} file exists"
+  when:
+    - jenkins_agent__password_file is defined
+    - jenkins_agent__password is defined
+  template:
+    src: "jenkins-agent-password.conf.j2"
+    dest: "{{ jenkins_agent__password_file }}"
+    mode: '0400'
+    backup: yes
+  notify: Restart Jenkins Agent service
+
+#- name: Install jre package
+#  package:
+#    name: "{{ jenkins_agent__jre_packages }}"
+#    state: present
+
+- name: "Ensure Jenkins Agent service definition"
+  template:
+    src: "jenkins-agent.service.j2"
+    dest: "{{ jenkins_agent__systemd_service_dir }}/{{ jenkins_agent__service_name }}.service"
+    mode: "0644"
+    force: "{{ jenkins_agent__service_force_update | bool }}"
+  notify:
+    - Reload Systemd
+    - Restart Jenkins Agent service

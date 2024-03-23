@@ -33,7 +33,7 @@ $ git clone https://github.com/lj020326/ansible-datacenter.git
 $ cd ansible-datacenter/tests
 $ PROJECT_DIR="$( git rev-parse --show-toplevel )"
 $ WORKDIR="${PROJECT_DIR}/.."
-$ export ANSIBLE_COLLECTIONS_PATHS=${PROJECT_DIR}/collections:${WORKDIR}/requirements_collections
+$ export ANSIBLE_COLLECTIONS_PATH=${PROJECT_DIR}/collections:${WORKDIR}/requirements_collections
 
 ```
 
@@ -49,7 +49,7 @@ tower-inventory
 tower-management
 ```
 
-The runme.sh shell script can be used to run test playbooks.  It sets the ANSIBLE_COLLECTIONS_PATHS variable to include the 'requirements_collections' directory.
+The runme.sh shell script can be used to run test playbooks.  It sets the ANSIBLE_COLLECTIONS_PATH variable to include the 'requirements_collections' directory.
 
 ### Use [create_test_symlinks.sh script](./create_test_symlinks.sh) to automate creation of test symbolic links (symlinks)
 
@@ -171,8 +171,13 @@ $
 ### Test site.yml with tags and limit
 
 ```shell
-$ runme.sh site.yml -t display-ansible-env -l docker_stack
-$ runme.sh site.yml -t bootstrap-ntp -l docker_stack
+$ runme.sh site.yml -t display-common-vars -l testd1s4.example.int
+$ runme.sh site.yml -t display-common-vars -l admin01
+$ runme.sh site.yml -t display-common-vars -l testgroup
+$ runme.sh site.yml -t display-controller-vars
+$ runme.sh site.yml -t bootstrap-ntp -l testgroup
+$ runme.sh site.yml -t bootstrap-docker -l docker
+$ runme.sh site.yml -t bootstrap-docker-stack
 ```
 
 ## Test Inventory Checks 

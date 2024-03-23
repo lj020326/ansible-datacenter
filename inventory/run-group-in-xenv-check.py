@@ -75,8 +75,8 @@ def get_all_subkeys(input_dict: dict, key_list: list, parent_key: str = None):
             yield from get_all_subkeys(j, key_list, i)
 
 def validate_children_groups_in_groups_file(log,
-                                        groups_file_path: str = "xenv_groups.yml",
-                                        hosts_file_path: str = "SANDBOX/hosts.yml") -> int:
+                                            groups_file_path: str = "xenv_groups.yml",
+                                            hosts_file_path: str = "DEV/hosts.yml") -> int:
     log_prefix = "validate_groups_in_xenv_groups():"
     num_errors = 0
 
@@ -168,8 +168,8 @@ def main(argv):
 Examples of use:
 
 {0} hosts_file.yml
-{0} SANDBOX/hosts.yml
-{0} -G xenv_groups.yml SANDBOX/hosts.yml
+{0} DEV/hosts.yml
+{0} -G xenv_groups.yml PROD/hosts.yml
 {0} -l DEBUG DEV/hosts.yml
 {0} -d xenv_groups.yml
 
@@ -203,7 +203,7 @@ Examples of use:
                         help="groups yaml file - e.g., 'groups.yml', 'xenv_groups.yml', etc")
 
     parser.add_argument("hostsfile",
-                        help="hosts yaml file - e.g., 'hosts.yml', 'SANDBOX/hosts.yml', etc")
+                        help="hosts yaml file - e.g., 'hosts.yml', 'DEV/hosts.yml', etc")
 
     # parser.add_argument('args', nargs=argparse.REMAINDER)
     # parser.add_argument('args', nargs='?')

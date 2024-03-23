@@ -30,7 +30,7 @@ __docker_stack__jenkins__agent_port: "{{ docker_stack__jenkins__agent_port | d('
 __docker_stack__jenkins__agent_tcp_port: "{{ docker_stack__jenkins__tcp_port | d('9000') }}"
 __docker_stack__jenkins__agent_ssh_port: "{{ docker_stack__jenkins__ssh_port | d('4444') }}"
 
-__docker_stack__jenkins__agent_tunnel: "{{ __docker_stack__jenkins__endpoint }}:9000"
+__docker_stack__jenkins__agent_tunnel: "{{ __docker_stack__jenkins_endpoint }}:9000"
 
 __docker_stack__jenkins__mgr_pwd_secret: "{{ docker_stack__jenkins__mgr_pwd_secret | d('00000000000000000000000') }}"
 
@@ -134,23 +134,25 @@ __docker_stack__jenkins__cred_vm_root_password: "{{ docker_stack__jenkins__cred_
 __docker_stack__jenkins__cred_github_username: "{{ docker_stack__jenkins__cred_github_username | d('CHANGEME123') }}"
 __docker_stack__jenkins__cred_github_password: "{{ docker_stack__jenkins__cred_github_password | d('CHANGEME123') }}"
 
-__docker_stack__jenkins_ansible_venv_libs_default:
+__docker_stack__jenkins__ansible_venv_libs_default:
   - jmespath
   - netaddr
   - requests
   - requests-credssp
   - pywinrm
+  - ruamel.yaml
+  - dnspython
   - pytz
+  - py
   - python-dateutil
   - yamllint
   - ansible-lint-junit
   - pytest
   - pytest-shell-utilities
-  - py
   - pytest-parallel
 
-__docker_stack__jenkins_ansible_venv_libs: "{{ docker_stack__jenkins_ansible_venv_libs
-  | d(__docker_stack__jenkins_ansible_venv_libs_default) }}"
+__docker_stack__jenkins__ansible_venv_libs: "{{ docker_stack__jenkins__ansible_venv_libs
+  | d(__docker_stack__jenkins__ansible_venv_libs_default) }}"
 
 
 __docker_stack__jenkins__secrets:
@@ -195,12 +197,6 @@ __docker_stack__jenkins__secrets:
   - name: jenkins_agent_password
     value: "{{ __docker_stack__jenkins__agent_password }}"
 
-
-#####################
-## merge all de-referenced app configs into single composite service config dict for tasks setup to use
-## TODO: instead of having this done in each app config, have a single merge/dereference
-## done by init-vars.yml using varname lookups
-#####################
 docker_stack__appspec__jenkins:
   dirs: "{{ __docker_stack__jenkins__config_dirs | d([]) }}"
   files: "{{ __docker_stack__jenkins__config_files | d([]) }}"
@@ -213,7 +209,7 @@ docker_stack__appspec__jenkins:
   docker_services: "{{ __docker_stack__jenkins__services | d({}) }}"
 
 __docker_stack__jenkins__traefik_labels: "{{ docker_stack__jenkins__traefik_labels
-  | d(__docker_stack__jenkins___traefik_labels_default) }}"
+  | d(__docker_stack__jenkins__traefik_labels_default) }}"
 
 __docker_stack__jenkins__services:
 
@@ -244,6 +240,7 @@ __docker_stack__jenkins__services:
 #      - "{{ __docker_stack__jenkins__agent_port }}:9000/tcp"
 #      command: "--httpsCertificate=/var/lib/jenkins/cert --httpsPrivateKey=/var/lib/jenkins/pk"
     volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
       - "{{ __docker_stack__jenkins__base_dir }}/passwd:/etc/passwd:ro"
       - "{{ __docker_stack__jenkins__base_dir }}/group:/etc/group:ro"
       - "{{ __docker_stack__jenkins__base_dir }}/jenkins_home:/var/jenkins_home"

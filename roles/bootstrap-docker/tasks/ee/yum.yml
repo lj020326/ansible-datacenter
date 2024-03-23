@@ -1,41 +1,45 @@
 ---
 - name: Docker | EE | Store Docker EE repository URL
-  copy:
+  ansible.builtin.copy:
     content: "{{ bootstrap_docker__ee_url }}"
     dest: /etc/yum/vars/dockerurl
 
 - name: Docker | EE | YUM | Install yum-utils
-  yum: name=yum-utils
+  ansible.builtin.yum:
+    name: yum-utils
   register: task_result
   until: task_result is success
   retries: 10
   delay: 2
 
 - name: Docker | EE | YUM | Deploy repository
-  shell: "yum-config-manager --add-repo {{ bootstrap_docker__ee_url }}/docker-ee.repo"
+  ansible.builtin.shell: "yum-config-manager --add-repo {{ bootstrap_docker__ee_url }}/docker-ee.repo"
   args:
     creates: /etc/yum.repos.d/docker-ee.repo
 
 - name: Docker | EE | YUM | Perform specific os tasks
-  include_tasks: os/{{ ansible_distribution|lower }}.yml
+  ansible.builtin.include_tasks: os/{{ ansible_distribution|lower }}.yml
 
 - name: Docker | EE | YUM | Remove older Docker installations
-  yum: name={{ item }} state=absent
-  with_items:
-    - docker
-    - docker-common
-    - docker-selinux
-    - container-selinux
-    - docker-engine-selinux
-    - docker-engine
-    - docker-ce
+  ansible.builtin.yum:
+    name:
+      - docker
+      - docker-common
+      - docker-selinux
+      - container-selinux
+      - docker-engine-selinux
+      - docker-engine
+      - docker-ce
+    state: absent
   register: task_result
   until: task_result is success
   retries: 10
   delay: 2
 
 - name: Docker | EE | YUM | Install Docker Application
-  yum: name=docker-ee state=present
+  ansible.builtin.yum:
+    name: docker-ee
+    state: present
   notify: Docker | Restart Docker
   register: task_result
   until: task_result is success

@@ -7,19 +7,23 @@
 log_bash=".bashrc"
 echo "${log_bash} configuring shell env..."
 
-#unameOut="$(/bin/uname -s)"
-unameOut="$(uname -s)"
-case "${unameOut}" in
-    Linux*)     platform=Linux;;
-    Darwin*)    platform=DARWIN;;
-    CYGWIN*)    platform=CYGWIN;;
-    MINGW64*)   platform=MINGW64;;
-    MINGW32*)   platform=MINGW32;;
-    MSYS*)      platform=MSYS;;
-    *)          platform="UNKNOWN:${unameOut}"
+#OS="$(/bin/uname -s)"
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)     PLATFORM=Linux;;
+    Darwin*)    PLATFORM=DARWIN;;
+    CYGWIN*)    PLATFORM=CYGWIN;;
+    MINGW64*)   PLATFORM=MINGW64;;
+    MINGW32*)   PLATFORM=MINGW32;;
+    MSYS*)      PLATFORM=MSYS;;
+    *)          PLATFORM="UNKNOWN:${OS}"
 esac
 
-echo "platform=[${platform}]"
+echo "${log_bash} PLATFORM=[${PLATFORM}]"
+
+function isInstalled() {
+    command -v "${1}" >/dev/null 2>&1 || return 1
+}
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
@@ -27,24 +31,35 @@ if [ -f /etc/bashrc ]; then
 fi
 
 if [ -f "${HOME}/.bash_functions" ]; then
-    echo "setting functions"
+    echo "${log_bash} setting functions"
     source "${HOME}/.bash_functions"
+fi
+
+if [ -f "${HOME}/.bash_secrets" ]; then
+    if [ ! -f "${HOME}/.vault_pass" ]; then
+        echo "${log_bash} ~/.vault_pass not found, skip loading ${HOME}/.bash_secrets"
+    elif ! isInstalled ansible-vault; then
+        echo "${log_bash} ansible-vault not installed, skip loading ${HOME}/.bash_secrets"
+    else
+        echo "${log_bash} sourcing ~/.bash_secrets"
+        eval "$(ansible-vault view ${HOME}/.bash_secrets --vault-password-file ${HOME}/.vault_pass)"
+    fi
 fi
 
 if [ -f "${HOME}/.bash_env" ]; then
     echo "${log_bash} sourcing .bash_env"
-    . ~/.bash_env
+    source ~/.bash_env
 fi
 
-if [ -f "${HOME}/.bash_secrets" ]; then
-    echo "${log_bash} sourcing .bash_secrets"
-    . ~/.bash_secrets
+if [ -f "${HOME}/.bash_path" ]; then
+    echo "${log_bash} sourcing .bash_path"
+    source ~/.bash_path
 fi
 
-#if [[ "$platform" =~ ^(MSYS|MINGW)$ ]]; then
+#if [[ "$PLATFORM" =~ ^(MSYS|MINGW)$ ]]; then
 if [ -f "${HOME}/.bash_prompt" ]; then
     echo "${log_bash} setting prompt"
-    . ~/.bash_prompt
+    source ~/.bash_prompt
 fi
 
 if [ -f "${HOME}/.bash_aliases" ]; then
@@ -52,9 +67,3 @@ if [ -f "${HOME}/.bash_aliases" ]; then
     source "${HOME}/.bash_aliases"
 fi
 
-#export ANSIBLE_ROLES_PATH=/etc/ansible/roles:~/.ansible/roles
-#export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-if [ -d "${HOME}/.local/bin" ]; then
-    export PATH+=":${HOME}/.local/bin"
-fi

@@ -102,6 +102,7 @@ eval $rsync_cmd
 
 mirrorDirList="
 .github
+.jenkins
 collections
 docs
 files
@@ -171,7 +172,6 @@ git checkout ${GIT_DEFAULT_BRANCH}
 
 echo "chmod project admin/maintenance scripts"
 chmod +x inventory/*.sh
-chmod +x files/scripts/bashenv/*.sh
 chmod +x files/scripts/git/*.sh
 
 echo "creating links for useful project scripts"

@@ -1,0 +1,68 @@
+---
+
+# agent config vars
+jenkins_agent__controller: jenkins.example.int
+jenkins_agent__controller_port: 8080
+jenkins_agent__controller_protocol: http
+jenkins_agent__controller_url: "{{ jenkins_agent__controller_protocol }}://{{ jenkins_agent__controller }}:{{ jenkins_agent__controller_port }}"
+jenkins_agent__tunnel: "{{ jenkins_agent__controller }}:9000"
+
+jenkins_agent__username: jenkins_agent
+jenkins_agent__password_file: "{{ jenkins_agent__path }}/password.jenkins-agent"
+jenkins_agent__name: "{{ inventory_hostname }}"
+#jenkins_agent__name: "{{ ansible_hostname }}"
+jenkins_agent__num_executors: "{{ ansible_processor_cores|default(1)*2 }}"
+
+jenkins_agent__labels: "{{ (ansible_os_family|lower() == 'windows')|ternary(['windows'], ['linux']) | list }}"
+jenkins_agent__label: "{{ jenkins_agent__labels | join(' ' ) }}"
+
+jenkins_agent__log_file: "{{ jenkins_agent__path }}/jenkins-agent.log"
+jenkins_agent__additional_args:
+  - failIfWorkDirIsMissing
+#jenkins_agent__additional_args:
+#  - "-disableClientsUniqueId"
+#  - "noCertificateCheck"
+#  - "disableHttpsCertValidation"
+##  - "-disableSslVerification"
+
+jenkins_agent__systemd_service_dir: "/lib/systemd/system"
+#jenkins_agent__systemd_service_dir: "/etc/systemd/system"
+
+jenkins_agent__conf:
+
+#jenkins_agent__plugins_url: https://repo.jenkins-ci.org
+jenkins_agent__download_url: "{{ jenkins_agent__controller_url }}/jnlpJars/agent.jar"
+jenkins_agent__validate_certs: false
+
+# Linux Vars
+jenkins_agent__path: /var/lib/jenkins-agent
+jenkins_agent__config_path: /etc/jenkins-agent
+jenkins_agent__task_name: Jenkins Agent
+jenkins_agent__systemd_path: /lib/systemd/system
+jenkins_agent__service_name: jenkins-agent
+jenkins_agent__service_force_update: yes
+#jenkins_agent__work_dir: /var/tmp/jenkins-agent
+jenkins_agent__work_dir: /home/jenkins/agent
+
+jenkins_agent__jenkins_user_groups:
+  - docker
+
+jenkins_agent__jre_packages:
+  - default-jre
+
+jenkins_agent__java_home: /etc/alternatives/java
+
+#################
+# Windows Vars
+jenkins_agent__wrapper_version: 2.0.3
+jenkins_agent__wrapper_download_url: "{{ jenkins_agent__plugins_url}}/releases/com/sun/winsw/winsw/{{ jenkins_agent__wrapper_version }}/winsw-{{jenkins_agent__wrapper_version}}-bin.exe"
+
+jenkins_agent__win_java_version: 8.0.144
+jenkins_agent__win_base_jenkins_path: "C:\\jenkins-agent"
+jenkins_agent__win_jenkins_agent_jar_path: "{{ jenkins_agent__win_base_jenkins_path }}\\{{ jenkins_agent__jar }}"
+jenkins_agent__win_jenkins_agent_wrapper_path: "{{ jenkins_agent__win_base_jenkins_path }}\\{{ jenkins_agent__jar|replace('.jar', '.exe') }}"
+jenkins_agent__win_jenkins_agent_wrapper_config_path: "{{ jenkins_agent__win_base_jenkins_path }}\\{{ jenkins_agent__jar|replace('.jar', '.xml') }}"
+
+##################
+# Setup node in jenkins controller
+jenkins_agent__register_with_controller: yes
