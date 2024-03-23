@@ -1,27 +1,27 @@
 ---
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Init __docker_stack__compose_state to present"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__compose_state: present
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Set __docker_stack__compose_state to absent"
   when: docker_stack__action == 'down'
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__compose_state: absent
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Set __docker_stack__compose_restarted"
   when: docker_stack__action == 'restart'
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__compose_restarted: yes
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Set __docker_stack__compose_stopped"
   when: docker_stack__action == 'stop'
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__compose_stopped: yes
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Login to docker docker-registry"
   when: docker_stack__registry_login | d(False)
-  debug:
+  ansible.builtin.debug:
     msg:
     - "docker_stack__registry_login={{ docker_stack__registry_login }}"
     - "docker_stack__action={{ docker_stack__action }}"
@@ -43,7 +43,7 @@
     tls: yes
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Display compose args"
-  debug:
+  ansible.builtin.debug:
     msg:
       - "__docker_stack__compose_state: {{ __docker_stack__compose_state }}"
       - "__docker_stack__compose_restarted: {{ __docker_stack__compose_restarted|d('') }}"
@@ -85,21 +85,21 @@
 
   rescue:
     - name: "{{ __docker_stack__log_prefix__run_compose }} Display __compose_result"
-      debug:
+      ansible.builtin.debug:
         var: __compose_result
         verbosity: 1
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Init __restart_docker"
-      set_fact:
+      ansible.builtin.set_fact:
         __restart_docker: no
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Set __restart_docker"
-      set_fact:
+      ansible.builtin.set_fact:
 #        __restart_docker: "{{ (__compose_result.msg | regex_search("INVALID_ZONE .* docker")) }}"
         __restart_docker: "{{ (__compose_result.msg | regex_search('Failed to program NAT chain')) }}"
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Display __restart_docker"
-      debug:
+      ansible.builtin.debug:
         var: __restart_docker
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Re-emit failure"
@@ -107,14 +107,14 @@
       vars:
         failed_task:
           result: '{{ ansible_failed_result }}'
-      fail:
+      ansible.builtin.fail:
         msg: '{{ failed_task }}'
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Handle docker service exception"
       when: __restart_docker
       block:
       - name: "{{ ____docker_stack__log_prefix__run_compose }} Restart docker daemon"
-        include_tasks: restart-docker-daemon.yml
+        ansible.builtin.include_tasks: restart-docker-daemon.yml
 
       ## run docker compose
       ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
@@ -132,6 +132,6 @@
         until: __compose_result is not failed
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Display __compose_result"
-  debug:
+  ansible.builtin.debug:
     var: __compose_result
     verbosity: 1

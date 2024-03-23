@@ -8,7 +8,7 @@
 
 This is an ansible playbook that will configure your datacenter based on multi-OS-platform roles on Ubuntu/Centos/Debian linux and windows servers.
 
-The [bootstrap_vm_template.yml](./bootstrap_vm_template.yml) playbook is used by [packer-template repo](https://github.com/lj020326/packer-templates) to build VMware Ubuntu, Debian, and Centos templates. 
+The [bootstrap_vm_template.yml](./bootstrap_vm_template.yml) playbook is used by [vm-templates repo](https://github.com/lj020326/vm-templates) to build VMware Ubuntu, Debian, and Centos templates. 
 
 The 'ansible' and 'vm template build' pipelines are both automated using the [pipeline-automation-lib](https://github.com/lj020326/pipeline-automation-lib/) jenkins library.
 
@@ -19,6 +19,26 @@ Testing of the linux OS bootstrap playbooks is performed by molecule with platfo
 The molecule test pipeline is set up in the github actions [ci.yml](.github/workflows/ci.yml) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
 
 The systemd-python enabled docker images used by the molecule tests can be found on [dockerhub](https://hub.docker.com/repositories/lj020326?search=systemd).  The corresponding dockerfile image definitions for the systemd-python enabled docker platform containers used in the molecule tests can be found [here](https://github.com/lj020326/systemd-python-dockerfiles).  
+
+## Ansible Developer Environment
+
+A companion [ansible-developer repository here](https://github.com/lj020326/ansible-developer) can be used to bootstrap/set-up an ansible development environment.
+
+The installer shell script from this repo will:
+1) create the local developer repo directory under $HOME/repos/ansible
+2) clone the repo into the developer's local repo directory at $HOME/repos/ansible/ansible-developer
+3) setup/synchronize the developer's bash environment with source bash files located in `files/scripts/bashenv`
+4) source the bash env
+
+For install from public github: 
+
+```shell
+$ INSTALL_REMOTE_SCRIPT="https://raw.githubusercontent.com/lj020326/ansible-developer/main/install.sh" && bash -c "$(curl -fsSL ${INSTALL_REMOTE_SCRIPT})"
+```
+
+The environment setup from the aforementioned repo is utilized to prepare the developer environment to:
+1) run playbooks
+2) run molecule testing 
 
 ## Summary
 
@@ -657,4 +677,6 @@ runme.sh bootstrap-jenkins-agent.yml -l admin01
 ## Contact
 
 [![Linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/leejjohnson/)
+
+## Reference
 

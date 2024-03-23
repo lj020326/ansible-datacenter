@@ -1,0 +1,127 @@
+---
+
+## ref: https://stackoverflow.com/questions/42683324/create-jenkins-jlnp-slave-programmatically
+## ref: https://plugins.jenkins.io/swarm/
+## ref: https://github.com/jenkinsci/swarm-plugin/blob/master/docs/configfile.adoc
+## ref: https://github.com/jenkinsci/swarm-plugin/blob/master/docs/security.adoc#authentication
+## ref: https://www.netexpertise.eu/en/devops/ansible/register-a-jenkins-slave-with-ansible.html
+
+- name: "Install lxml"
+  pip:
+    name: lxml
+    state: present
+
+- name: "Get jenkins api crumb"
+  ansible.builtin.uri:
+    url: "{{ jenkins_agent__controller_url }}/crumbIssuer/api/json"
+    method: GET
+    force_basic_auth: yes
+    user: "{{ jenkins_agent__username }}"
+    password: "{{ jenkins_agent__password }}"
+    return_content: yes
+#    status_code: 200, 302, 400
+  register: __api_get_crumb_result
+  
+- name: "Display __api_get_crumb_result"
+  debug:
+    var: __api_get_crumb_result
+    verbosity: 1
+
+- name: "Set __api_headers"
+  set_fact:
+#    __api_crumb: "{{ __api_get_crumb_result.json.crumb }}"
+    __api_headers:
+      Cookie: "{{ __api_get_crumb_result.cookies_string }}"
+      Jenkins-Crumb: "{{ __api_get_crumb_result.json.crumb }}"
+
+- name: "Display __api_headers"
+  debug:
+    var: __api_headers
+    verbosity: 1
+
+- name: "Get jenkins api token"
+  ansible.builtin.uri:
+    url: "{{ jenkins_agent__controller_url }}/me/descriptorByName/jenkins.security.ApiTokenProperty/generateNewToken?newTokenName=ansible"
+    method: POST
+    force_basic_auth: yes
+    user: "{{ jenkins_agent__username }}"
+    password: "{{ jenkins_agent__password }}"
+    headers: "{{ __api_headers }}"
+    return_content: yes
+    body:
+#    status_code: 200
+#    status_code: 200, 302, 400
+  register: __api_get_token_result
+
+- name: "Display __api_get_token_result"
+  debug:
+    var: __api_get_token_result
+    verbosity: 1
+
+- name: "Set __api_token"
+  set_fact:
+    __api_token: "{{ __api_get_token_result.json.data.tokenValue }}"
+
+- name: "Display __api_token"
+  debug:
+    var: __api_token
+    verbosity: 1
+
+- name: "Create node on Jenkins controller"
+  ansible.builtin.uri:
+    url: "{{ jenkins_agent__controller_url }}/computer/doCreateItem?name={{ jenkins_agent__name }}&type=hudson.slaves.DumbSlave"
+    method: POST
+    body_format: form-urlencoded
+    force_basic_auth: yes
+    user: "{{ jenkins_agent__username }}"
+    password: "{{ __api_token }}"
+    headers: "{{ __api_headers }}"
+    body: "json={{ lookup('template', 'node.json.j2', convert_data=False) }}"
+    return_content: yes
+    status_code: 200, 302, 400
+  register: __api_setup_agent_result
+
+- name: "Proceed if 'already exists' error"
+  fail:
+  when: >
+       __api_setup_agent_result.status == '400'
+       and 'already exists' not in __api_setup_agent_result.x_error 
+
+- name: "Post agent node setup content to jenkins api"
+  ansible.builtin.uri:
+    url: "{{ jenkins_agent__controller_url }}/computer/{{ jenkins_agent__name }}/slave-agent.jnlp"
+    method: POST
+    body_format: form-urlencoded
+    force_basic_auth: yes
+    user: "{{ jenkins_agent__username }}"
+    password: "{{ __api_token }}"
+    headers: "{{ __api_headers }}"
+    return_content: yes
+    status_code: 200
+  register: __agent_api_info
+
+- name: "Display __agent_api_info"
+  debug:
+    var: __agent_api_info
+    verbosity: 1
+
+- name: "Get secret from xml"
+  community.general.xml:
+    xmlstring: "{{ __agent_api_info.content }}"
+    xpath: /jnlp/application-desc/argument
+    content: text
+  register: __agent_xmlinfo
+
+- name: "Display __agent_xmlinfo"
+  debug:
+    var: __agent_xmlinfo
+    verbosity: 1
+
+- name: "Set __jenkins_agent__password"
+  set_fact:
+    __jenkins_agent__password: "{{ __agent_xmlinfo.matches[0].argument }}"
+
+- name: "Display __jenkins_agent__password"
+  debug:
+    var: __jenkins_agent__password
+    verbosity: 1

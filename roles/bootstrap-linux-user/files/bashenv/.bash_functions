@@ -1,7 +1,7 @@
 
-log_prefix=".bash_functions"
+log_prefix_functions=".bash_functions"
 
-echo "${log_prefix} configuring shell functions..."
+echo "${log_prefix_functions} configuring shell functions..."
 
 ## ref: https://gist.github.com/vby/ef4d72e6ae51c64acbe7790ca7d89606#file-msys2-bashrc-sh
 unset -f add_winpath || true
@@ -174,7 +174,7 @@ function find-up () {
 
 unset -f cdnvm || true
 function cdnvm(){
-    cd $@;
+    cd "$@";
     nvm_path=$(find-up .nvmrc | tr -d '[:space:]')
 
     # If there are no .nvmrc file, use the default nvm version

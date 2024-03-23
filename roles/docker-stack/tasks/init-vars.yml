@@ -1,7 +1,7 @@
 ---
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__action"
-  debug:
+  ansible.builtin.debug:
     var: docker_stack__action
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Assert docker_stack__action is in supported actions"
@@ -9,12 +9,16 @@
     that: docker_stack__action in __docker_stack__supported_actions
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__swarm_mode"
-  debug:
+  ansible.builtin.debug:
     var: docker_stack__swarm_mode
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__swarm_manager"
-  debug:
+  ansible.builtin.debug:
     var: docker_stack__swarm_manager
+
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__environment"
+  ansible.builtin.debug:
+    var: docker_stack__environment
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Assert either `docker_stack__enable_selfsigned_certs` OR `docker_stack__enable_cacerts` but not both"
   assert:
@@ -31,12 +35,12 @@
     - "os_distribution/default.yml"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__ca_cert_bundle"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__ca_cert_bundle: "{{ docker_stack__ca_cert_bundle | d(__docker_stack__ca_cert_bundle_default) }}"
     __docker_stack__ca_java_keystore: "{{ docker_stack__ca_java_keystore | d(__docker_stack__ca_java_keystore_default) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack_* os vars"
-  debug:
+  ansible.builtin.debug:
     msg:
       - "__docker_stack__ca_cert_bundle={{ __docker_stack__ca_cert_bundle }}"
       - "__docker_stack__ca_java_keystore={{ __docker_stack__ca_java_keystore }}"
@@ -50,7 +54,7 @@
         key: "{{ docker_stack__user_username }}"
         database: passwd
 
-    - debug:
+    - ansible.builtin.debug:
         var: getent_passwd
 
     - name: "{{ __docker_stack__log_prefix__init_vars }} Get docker group info"
@@ -58,18 +62,18 @@
         database: group
         split: ':'
         key: docker
-    - debug:
+    - ansible.builtin.debug:
         var: getent_group
 
     - name: "{{ __docker_stack__log_prefix__init_vars }} Set docker user info facts"
-      set_fact:
+      ansible.builtin.set_fact:
         docker_stack__user_uid: "{{ getent_passwd[docker_stack__user_username][1] }}"
         docker_stack__user_gid: "{{ getent_passwd[docker_stack__user_username][2] }}"
         docker_stack__user_home: "{{ getent_passwd[docker_stack__user_username][4] }}"
         docker_stack__docker_group_gid: "{{ getent_group['docker'][1] }}"
 
   rescue:
-    - debug:
+    - ansible.builtin.debug:
         msg: 'Docker user {{ docker_stack__user_username }} not found - add and try again, :-)'
 
     - name: "{{ __docker_stack__log_prefix__init_vars }} Add user(s) to docker group"
@@ -85,42 +89,42 @@
         database: passwd
 
     - name: "{{ __docker_stack__log_prefix__init_vars }} Set docker user info facts"
-      set_fact:
+      ansible.builtin.set_fact:
         docker_stack__user_uid: "{{ getent_passwd[docker_stack__user_username][1] }}"
         docker_stack__user_gid: "{{ getent_passwd[docker_stack__user_username][2] }}"
         docker_stack__user_home: "{{ getent_passwd[docker_stack__user_username][4] }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__service_groups"
-  debug:
+  ansible.builtin.debug:
      var: docker_stack__service_groups
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__service_groups_combined"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_groups_combined: "{{ docker_stack__service_groups|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups_list_var_prefix"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_groups_list_var_prefix: "docker_stack__service_groups__"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups_list_var_regex"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_groups_list_var_regex: "^{{ __docker_stack__service_groups_list_var_prefix }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Show variables with '{{ __docker_stack__service_groups_list_var_regex }}' prefix"
-  debug:
+  ansible.builtin.debug:
     msg: "{{ lookup('varnames', __docker_stack__service_groups_list_var_regex, wantlist=True) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Coalesce lists from {{ __docker_stack__service_groups_list_var_prefix }}* vars into merged list"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_groups_combined: "{{ __docker_stack__service_groups_combined|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames', __docker_stack__service_groups_list_var_regex, wantlist=True) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups_combined"
-  debug:
+  ansible.builtin.debug:
     var: __docker_stack__service_groups_combined
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups_by_name"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_groups_by_name: "{{ __docker_stack__service_groups_by_name | d({})
       | combine({ ((item is mapping) | ternary( item.name, item)): {
             'source': item.source | d('role'),
@@ -129,50 +133,50 @@
   loop: "{{ __docker_stack__service_groups_combined }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups_by_name"
-  debug:
+  ansible.builtin.debug:
     var: __docker_stack__service_groups_by_name
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__service_groups"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_groups: "{{ __docker_stack__service_groups | d([]) + [ item.value ] }}"
   loop: "{{ __docker_stack__service_groups_by_name | dict2items }}"
 #  loop: "{{ __docker_stack__service_groups_combined }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__service_groups
 
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__traefik_routing_method"
+  ansible.builtin.debug:
+     var: docker_stack__traefik_routing_method
+
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__proxy_configs"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__proxy_services: []
 #    __docker_stack__proxy_services: "{{ docker_stack__proxy_services | d([]) }}"
 
-- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__traefik_routing_method"
-  debug:
-     var: docker_stack__traefik_routing_method
-
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__proxy_services"
-  debug:
+  ansible.builtin.debug:
      var: docker_stack__proxy_services
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__proxy_services"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__proxy_services: "{{ __docker_stack__proxy_services|d([])
       + [ { 'source': item.source | d('role'),
             'name': ((item is mapping) | ternary( item.name, item))
           } ] }}"
   loop: "{{ docker_stack__proxy_services }}"
 
-#- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_services"
-#  debug:
-#     var: __docker_stack__proxy_services
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_services"
+  ansible.builtin.debug:
+     var: __docker_stack__proxy_services
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Setup docker_stack__proxy_services"
   when: __docker_stack__proxy_services | d([]) | length>0
   block:
 
   - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_services"
-    debug:
+    ansible.builtin.debug:
        var: __docker_stack__proxy_services
 #       verbosity: 2
 
@@ -203,7 +207,7 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker stack info"
-  debug:
+  ansible.builtin.debug:
     msg:
       - "docker_stack__service_route_name={{ docker_stack__service_route_name }}"
       - "docker_stack__internal_root_domain={{ docker_stack__internal_root_domain }}"
@@ -213,63 +217,63 @@
       - "docker_stack__user_uid={{ docker_stack__user_uid }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_configs"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_configs: "{{ docker_stack__app_configs|d({}) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Combine app varname configs into __docker_stack__app_configs"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_configs: "{{ __docker_stack__app_configs|d({})
       | combine({ item.name: lookup('vars', q('varnames','^docker_stack__appspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__service_groups }}"
 
 ## NOTE: sensitive info - this var contains the secrets
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_configs"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__app_configs
 ##     verbosity: 3
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_services"
-  debug:
+  ansible.builtin.debug:
     var: __docker_stack__proxy_services
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__proxy_configs"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__proxy_configs: "{{ docker_stack__proxy_configs|d({}) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Show variables with 'docker_stack__proxyspec__' prefix"
-  debug:
+  ansible.builtin.debug:
     msg: "{{ lookup('varnames', '^__docker_stack__proxyspec__', wantlist=True) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Combine proxy varname configs into __docker_stack__proxy_configs"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__proxy_configs: "{{ __docker_stack__proxy_configs|d({})
       | combine({ item.name: lookup('vars', q('varnames','^__docker_stack__proxyspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__proxy_services|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_configs"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__proxy_configs
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__proxy_service_configs"
   when: __docker_stack__proxy_configs[item.name].proxy_config | d([]) | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__proxy_service_configs: "{{ __docker_stack__proxy_service_configs|d({})
       | combine(__docker_stack__proxy_configs[item.name].proxy_config, recursive=True) }}"
   loop: "{{ __docker_stack__proxy_services }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_service_configs"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__proxy_service_configs
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__secrets"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__secrets: "{{ docker_stack__secrets|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__secrets"
   when: __docker_stack__app_configs[item.name].secrets | d([]) | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__secrets: "{{ __docker_stack__secrets|d([])
       + __docker_stack__app_configs[item.name].secrets }}"
   loop: "{{ __docker_stack__service_groups }}"
@@ -277,19 +281,20 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__secrets"
-  debug:
+  ansible.builtin.debug:
     var: __docker_stack__secrets | map(attribute='name') | list
 #     var: __docker_stack__secrets
+#     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__networks"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__networks: "{{ docker_stack__networks|d({}) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add service networks to __docker_stack__networks"
   when:
     - __docker_stack__app_configs[item.name].networks is defined
     - __docker_stack__app_configs[item.name].networks | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__networks: "{{ __docker_stack__networks|d({})
       | combine(__docker_stack__app_configs[item.name].networks) }}"
   loop: "{{ __docker_stack__service_groups }}"
@@ -297,17 +302,17 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__networks"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__networks
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__volumes fact"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__volumes: "{{ docker_stack__volumes|d({}) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add service volumes to __docker_stack__volumes"
   when: __docker_stack__app_configs[item.name].volumes | d([]) | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__volumes: "{{ __docker_stack__volumes|d({})
       | combine(__docker_stack__app_configs[item.name].volumes) }}"
   loop: "{{ __docker_stack__service_groups }}"
@@ -315,17 +320,17 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__volumes"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__volumes
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_dirs"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_config_dirs: "{{ docker_stack__config_dirs|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add service config dirs to __docker_stack__app_config_dirs fact"
   when: __docker_stack__app_configs[item.name].dirs | d([]) | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_config_dirs: "{{ (__docker_stack__app_config_dirs|d([])
       + __docker_stack__app_configs[item.name].dirs) | unique }}"
   loop: "{{ __docker_stack__service_groups }}"
@@ -333,17 +338,17 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_dirs"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__app_config_dirs
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_files"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_config_files: "{{ docker_stack__config_files|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add service config files to __docker_stack__app_config_files"
   when: __docker_stack__app_configs[item.name].files | d([]) | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_config_files: "{{ (__docker_stack__app_config_files|d([])
       + __docker_stack__app_configs[item.name].files) | unique }}"
   loop: "{{ __docker_stack__service_groups }}"
@@ -351,17 +356,17 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_files"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__app_config_files
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_tpls"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_config_tpls: "{{ docker_stack__config_tpls|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add service templates to __docker_stack__app_config_tpls"
   when: __docker_stack__app_configs[item.name].templates | d([]) | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_config_tpls: "{{ (__docker_stack__app_config_tpls|d([])
       + __docker_stack__app_configs[item.name].templates) | unique }}"
   loop: "{{ __docker_stack__service_groups }}"
@@ -369,17 +374,17 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_tpls"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__app_config_tpls
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__service_group_configs_tpl"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_group_configs_tpl: "{{ docker_stack__service_group_configs_tpl|d({}) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add docker services to __docker_stack__service_group_configs_tpl fact"
   when: __docker_stack__app_configs[item.name].docker_services is defined
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__service_group_configs_tpl: "{{ __docker_stack__service_group_configs_tpl|d({})
       | combine({item.name: __docker_stack__app_configs[item.name].docker_services}) }}"
   loop: "{{ __docker_stack__service_groups }}"
@@ -387,12 +392,12 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_group_configs_tpl"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__service_group_configs_tpl
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Combine app varname configs into __docker_stack__app_services"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__app_services: "{{ _service_list|from_yaml }}"
   vars:
     _service_list: |-
@@ -407,32 +412,32 @@
       {% endfor %}
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_services"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__app_services
 #     verbosity: 2
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__container_configs"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__container_configs: "{{ docker_stack__container_configs|d({}) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add service container configs to __docker_stack__container_configs"
   when: __docker_stack__app_configs[item.name].container_configs | d([]) | length > 0
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__container_configs: "{{ __docker_stack__container_configs|d({}) | combine({item.name: __docker_stack__app_configs[item.name].container_configs}) }}"
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__container_config_list"
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__container_config_list: "{{ docker_stack__container_config_list| d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Add service container configs to __docker_stack__container_config_list"
   when: item.key in __docker_stack__service_group_configs_tpl
-  set_fact:
+  ansible.builtin.set_fact:
     __docker_stack__container_config_list: "{{ __docker_stack__container_config_list| d([]) + [ { 'container_name' : item.key } | combine(item.value) ] }}"
   loop: "{{ __docker_stack__container_configs | dict2items }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__container_config_list"
-  debug:
+  ansible.builtin.debug:
      var: __docker_stack__container_config_list

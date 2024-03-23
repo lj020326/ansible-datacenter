@@ -1,0 +1,36 @@
+[Unit]
+Description={{ jenkins_agent__task_name }}
+After=network.target
+After=docker.service
+
+[Service]
+Type=simple
+PIDFile=/var/run/{{ jenkins_agent__service_name }}.pid
+ExecStartPre=/bin/rm -f /var/run/{{ jenkins_agent__service_name }}.pid
+ExecStart=/usr/bin/java \
+{% if jenkins_agent__jvm_args is defined %}
+  {{ jenkins_agent__jvm_args|join(' ') }} \
+{% endif %}
+  -jar {{ jenkins_agent_jar.dest }} \
+  -url '{{ jenkins_agent__controller_url }}' \
+{% if jenkins_agent__tunnel is defined %}
+  -tunnel '{{ jenkins_agent__tunnel }}' \
+{% endif %}
+{% if jenkins_agent__work_dir is defined %}
+  -workDir '{{ jenkins_agent__work_dir }}' \
+{% endif %}
+{% if jenkins_agent__password_file is defined %}
+  -secret '@{{ jenkins_agent__password_file }}' \
+{% elif jenkins_agent__password is defined %}
+  -secret '{{ jenkins_agent__password }}' \
+{% endif %}
+{% if jenkins_agent__additional_args is defined %}
+{% for arg in jenkins_agent__additional_args %}
+  -{{ arg }} \
+{% endfor %}
+{% endif %}
+  -name '{{ jenkins_agent__name }}'
+Restart=on-abort
+
+[Install]
+WantedBy=default.target

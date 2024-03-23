@@ -1,6 +1,6 @@
 
-log_prefix=".bash_aliases"
-echo "${log_prefix} configuring shell aliases..."
+log_prefix_aliases=".bash_aliases"
+echo "${log_prefix_aliases} configuring shell aliases..."
 
 #
 # Some example alias instructions
@@ -39,6 +39,8 @@ alias ll='ls -Fla --color'
 alias la='ls -alrt --color'
 alias lld='ll | grep ^d'
 alias lll='ll | grep ^l'
+
+alias installdevenv="bash -c $(curl -fsSL "${DEVENV_INSTALL_REMOTE_SCRIPT}")"
 
 alias cdrepos='cd ~/repos'
 alias cddocs='cd ~/docs'
@@ -164,8 +166,7 @@ alias dockerdigest='docker manifest inspect'
 alias gethist="history | tr -s ' ' | cut -d' ' -f3-"
 alias startheroku='heroku local'
 
-# alias syncbashenv='rsync1 ${ANSIBLE_DC_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
-alias syncbashenv="${ANSIBLE_DC_REPO}/files/scripts/bashenv/sync_bashenv.sh && .bash"
+alias syncbashenv="${ANSIBLE_DEVELOPER_REPO}/files/scripts/sync-bashenv.sh && source ~/.bashrc"
 alias getsitecertinfo="get_site_cert_info.sh"
 
 ## see function for more dynamic/robust version of the same shortcut
@@ -186,6 +187,7 @@ alias gitgetrequestid="getgitrequestid"
 alias gitpullrebase="git pull origin --rebase"
 
 ## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
+git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
 alias gitmerge="git merge-no-edit"
 alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout master && git merge-no-edit -X theirs main"
 
@@ -259,130 +261,12 @@ alias fetchimagesfrommarkdown="~/bin/fetch_images_from_markdown.sh"
 alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
 alias fetch-and-import-site-certs="~/bin/fetch_and_import_site_cert_pem.sh"
 
-if [[ "$platform" =~ ^(MSYS|MINGW32|MINGW64)$ ]]; then
-  echo "${log_prefix} setting aliases specific to MSYS/MINGW platform"
+# alias venv2="virtualenv --python=/usr/bin/python2.7 venv"
+# alias venv3="virtualenv --python=/usr/bin/python3.5 venv"
+# alias .venv=". ./venv/bin/activate"
 
-  alias flushdns="ipconfig //flushdns"
+# alias python=/usr/local/bin/python3
+# alias pip=/usr/local/bin/pip3
 
-  if [[ "${PYTHON_VERSION}" == *"WIN"* ]]; then
-      alias python="winpty python"
-      alias pip="winpty pip"
-  fi
-  alias venv2="virtualenv --python=${PYTHON2_BIN_DIR}/python.exe venv"
-
-  alias notepad='/c/apps/notepad++/notepad++.exe'
-  alias startheroku='heroku local web -f Procfile.windows'
-  alias syncjdrive='rsync2 /c/data/* /j/'
-
-  ## Lee@ljlaptop:[Zenkom](master)$ whereis meteor.bat
-  ## meteor: /c/Users/Lee/AppData/Local/.meteor/meteor.bat
-  ## SET PYTHON=c:\apps\python27\python-2.7.13.amd64\python
-  alias meteor='PYTHON=c:\apps\python27\python-2.7.13.amd64\python; meteor.bat'
-  alias meteor2='PYTHON=c:\apps\python27\python-2.7.13.amd64\python; cmd //c meteor.bat'
-  #alias meteor='PYTHON=c:\apps\python27\python-2.7.13.amd64\python; meteor.bat'
-  #alias meteor='PYTHON=c:\apps\python27\python-2.7.13.amd64\python; winpty meteor.bat'
-  #alias meteor='winpty meteor.bat'
-  #alias meteor-list-depends='for p in `meteor list | grep "^[a-z]" | awk \'{ print $1"@"$2 }\'`; do echo "$p"; meteor show "$p" | grep -E "^  [a-z]"; echo; done'
-
-  alias choco="cmd //c choco"
-  alias vc='cmd //c "C:\Program^ Files^ ^(x86^)\Microsoft^ Visual^ Studio^ 14.0\VC\vcvarsall.bat & bash"'
-
-  # per https://epsil.github.io/blog/2016/04/20/
-  alias open='start'
-
-elif [[ "${platform}" == *"DARWIN"* ]]; then
-  echo "${log_prefix} setting aliases for DARWIN env"
-  # alias emacs='emacs -q --load "${HOME}/.emacs.d/init.el"'
-
-  ## ref: https://opensource.com/article/19/5/python-3-default-mac
-  # alias python=/usr/local/bin/python3
-  # alias pip=/usr/local/bin/pip3
-
-  alias editvscodesettings="emacs ${VSCODE_SETTINGS_DIR}/settings.json"
-
-  alias java7='export JAVA_HOME=$JAVA_7_HOME'
-  alias java8='export JAVA_HOME=$JAVA_8_HOME'
-  alias java11='export JAVA_HOME=$JAVA_11_HOME'
-#  alias java13='export JAVA_HOME=$JAVA_13_HOME'
-
-  ## ref: https://superuser.com/questions/1400250/how-to-query-macos-dns-resolver-from-terminal
-  alias dnslookup='scutil -W -r '
-  alias dnslookup2='dscacheutil -q host -a name '
-  alias dnslookup3='dns-sd -G v4v6 '
-  alias dnsflushcache="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
-  alias dnsresetcache="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
-  alias dnsresolvers='scutil --dns'
-
-  ## ref: https://discussions.apple.com/thread/250681170
-  alias getzombies="ps -A -ostat,ppid,pid,command | grep -e '^[Zz]'"
-
-  ## ref: https://www.servernoobs.com/how-to-find-and-kill-all-zombie-processes/
-  alias getpidparents="pstree -paul"
-  alias getparentpids="pstree -paul"
-
-else  ## linux
-  # alias venv2="virtualenv --python=/usr/bin/python2.7 venv"
-  # alias venv3="virtualenv --python=/usr/bin/python3.5 venv"
-  # alias .venv=". ./venv/bin/activate"
-
-  # alias python=/usr/local/bin/python3
-  # alias pip=/usr/local/bin/pip3
-
-  ## useful iscsi commands
-  alias getiscsi='iscsiadm --mode session -P 3 | grep -i -e attached -e target'
-
-fi
-
-## work related
-alias cdworkdocs='cd ~/repos/silex/docs-internal'
-alias cdalsac='cd ~/repos/silex/alsac'
-alias cdtower='cd /h/Source/Ansible_Tower'
-alias cddcc='cd /h/Source/Ansible_Tower/dcc_common'
-
-alias gitaddworkkey="git config core.sshCommand 'ssh -i ~/.ssh/${SSH_KEY_WORK}'"
-alias gitaddworkkey2="git config core.sshCommand 'ssh -i ~/.ssh/${SSH_KEY_WORK2}'"
-alias gitclonework="GIT_SSH_COMMAND=\"ssh -i ~/.ssh/${SSH_KEY_WORK2}\" git clone"
-#alias gitclonework2="GIT_SSH_COMMAND=\"ssh -i ~/.ssh/${SSH_KEY_WORK2}\" git clone"
-alias gitwork="GIT_SSH_COMMAND=\"ssh -i ~/.ssh/${SSH_KEY_WORK2}\""
-
-#alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@studentvm.${RH_VM_GUID}.example.opentlc.com"
-alias sshopentlc="ssh -i ~/.ssh/${SSH_KEY_REDHAT} lab-user@${RH_VM_HOST}"
-alias sshopentlc-pw="sshpass -p ${RH_USER_PWD} ssh lab-user@${RH_VM_HOST}"
-alias sshopentlc-tower="ssh -i ~/.ssh/${SSH_KEY_REDHAT} ${RH_USER_ID}"
-
-alias sshcicd="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${CICD_HOST1}"
-alias sshanscicd="sshpass -p ${ANSIBLE_PASSWORD_LNX_WORK} ssh ${ANSIBLE_USER_LNX_WORK}@${CICD_HOST1}"
-
-alias sshtestd1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD1S1}"
-alias sshtestd2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD2S1}"
-alias sshtestd3s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD3S1}"
-alias sshtestd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD1S4}"
-alias sshtestd2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD2S4}"
-alias sshtestd3s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TEST_HOSTD3S4}"
-
-alias sshatrnextd1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRNEXTDS1S4}"
-alias sshatrup1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${ATRUP1S4}"
-alias sshtime5s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S1}"
-alias sshtime5s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${TIME5S4}"
-
-alias sshntpq1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${NTPQ1S1}"
-alias sshntpq1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${NTPQ1S4}"
-
-alias sshtestrhel8="sshpass -p ${ANSIBLE_PASSWORD_LNX_WORK} ssh ${ANSIBLE_USER_LNX_WORK}@${WORKTESTRHEL8}"
-
-alias sshawxtest="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_TEST}"
-alias sshawxprod="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_PROD}"
-
-alias sshawxp1s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S1}"
-alias sshawxp1s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P1S4}"
-alias sshawxp2s1="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S1}"
-alias sshawxp2s4="ssh -i ~/.ssh/${SSH_KEY_WORK} ${TEST_SSH_ID}@${AWX_STJ_P2S4}"
-
-alias mountalsac="mount-sshfs-alsac.sh"
-alias unmountalsac="unmount-sshfs-alsac.sh"
-alias syncalsac="sync-sshfs-alsac.sh"
-
-alias cagetpwd="cagetaccountpwd ${CYBERARK_API_BASE_URL} ${CYBERARK_API_USERNAME} ${CYBERARK_API_PASSWORD} ${CYBERARK_ACCOUNT_USERNAME}"
-
-alias sshpackerwork="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
-alias sshansiblework="ssh -i ~/.ssh/${SSH_ANSIBLE_KEY_WORK}"
+## useful iscsi commands
+alias getiscsi='iscsiadm --mode session -P 3 | grep -i -e attached -e target'

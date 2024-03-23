@@ -27,7 +27,7 @@ LOCKFILE=${LOCKFILE:="/var/lock/subsys/jenkins-swarm-client"}
 LOGFILE=${LOGFILE:="/var/log/jenkins/swarm-client.log"}
 
 # The location of the swarm-client jar file
-JAR=${JAR:="/var/lib/jenkins/swarm-client.jar"}
+SWARM_AGENT_JAR=${SWARM_AGENT_JAR:="/var/lib/jenkins/swarm-client.jar"}
 
 # The arguments to pass to the JVM.  Most useful for specifying heap sizes.
 JVM_ARGS=${JVM_ARGS:=""}
@@ -42,22 +42,22 @@ MASTER_PORT=${MASTER_PORT:="80"}
 MASTER_PROTOCOL=${MASTER_PROTOCOL:="http"}
 
 # The username to use when connecting to the master
-USERNAME=${SWARM_USERNAME:=""}
+SWARM_AGENT_USERNAME=${SWARM_AGENT_USERNAME:=""}
 
 # The password to use when connecting to the master
-PASSWORD=${SWARM_PASSWORD:=""}
+SWARM_AGENT_PASSWORD=${SWARM_AGENT_PASSWORD:=""}
 
 # The file in which to store the password to use when connecting to the master
-PASSWORD_FILE=${SWARM_PASSWORD_FILE:=""}
+SWARM_AGENT_PASSWORD_FILE=${SWARM_AGENT_PASSWORD_FILE:=""}
 
-# The name of this slave
-NAME=${NAME:="$(hostname)"}
+# The name of this swarm agent
+SWARM_AGENT_NAME=${SWARM_AGENT_NAME:="$(hostname)"}
 
 # The number of executors to run, by default one per core
-NUM_EXECUTORS=${NUM_EXECUTORS:="$(/usr/bin/nproc)"}
+SWARM_AGENT_NUM_EXECUTORS=${SWARM_AGENT_NUM_EXECUTORS:="$(/usr/bin/nproc)"}
 
 # The labels to associate with each executor (space separated)
-LABELS=${LABELS:=""}
+SWARM_AGENT_LABELS=${SWARM_AGENT_LABELS:=""}
 
 ADDITIONAL_FLAGS=${SWARM_ADDITIONAL_FLAGS:="-disableClientsUniqueId"}
 
@@ -84,38 +84,38 @@ start() {
   chown "${USER}":"${USER}" "${LOCKDIR}"
 
   # give the user specified all permissions to the directory containing the jar file
-  chown "${USER}":"${USER}" $(dirname "${JAR}")
+  chown "${USER}":"${USER}" $(dirname "${SWARM_AGENT_JAR}")
 
   # Must be in /var/lib/jenkins for the swarm client to run properly
   local cmd="cd /var/lib/jenkins;"
 
   cmd="${cmd} java ${JVM_ARGS} "
-  cmd="${cmd} -jar '${JAR}'"
+  cmd="${cmd} -jar '${SWARM_AGENT_JAR}'"
   cmd="${cmd} -master '${MASTER_PROTOCOL}://${MASTER}:${MASTER_PORT}'"
 
-  if [[ -n "${USERNAME}" ]]; then
-    cmd="${cmd} -username '${USERNAME}'"
+  if [[ -n "${SWARM_AGENT_USERNAME}" ]]; then
+    cmd="${cmd} -username '${SWARM_AGENT_USERNAME}'"
   fi
 
-  if [[ -n "${PASSWORD_FILE}" ]]; then
-    cmd="${cmd} -password '@${PASSWORD_FILE}'"
-  elif [[ -n "${PASSWORD}" ]]; then
-    cmd="${cmd} -password '${PASSWORD}'"
+  if [[ -n "${SWARM_AGENT_PASSWORD_FILE}" ]]; then
+    cmd="${cmd} -password '@${SWARM_AGENT_PASSWORD_FILE}'"
+  elif [[ -n "${SWARM_AGENT_PASSWORD}" ]]; then
+    cmd="${cmd} -password '${SWARM_AGENT_PASSWORD}'"
   fi
 
-  cmd="${cmd} -name '${NAME}'"
+  cmd="${cmd} -name '${SWARM_AGENT_NAME}'"
 
-  if [[ -n "${LABELS}" ]]; then
-    cmd="${cmd} -labels '${LABELS}'"
+  if [[ -n "${SWARM_AGENT_LABELS}" ]]; then
+    cmd="${cmd} -labels '${SWARM_AGENT_LABELS}'"
   fi
 
-  cmd="${cmd} -executors '${NUM_EXECUTORS}'"
+  cmd="${cmd} -executors '${SWARM_AGENT_NUM_EXECUTORS}'"
   cmd="${cmd} ${ADDITIONAL_FLAGS}"
   cmd="${cmd} >> '${LOGFILE}' 2>&1 </dev/null &"
 
   daemon --user "${USER}" --check "swarm-client" --pidfile "${PIDFILE}" "${cmd}"
 
-  local pid=$(sudo -u "${USER}" jps -l | grep "${JAR}" | awk '{print $1}')
+  local pid=$(sudo -u "${USER}" jps -l | grep "${SWARM_AGENT_JAR}" | awk '{print $1}')
   [ -n ${pid} ] && echo ${pid} > "${PIDFILE}"
   RETVAL=$?
   [ $RETVAL -eq 0 ] && touch $LOCKFILE

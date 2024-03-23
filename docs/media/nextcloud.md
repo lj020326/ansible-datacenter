@@ -24,4 +24,4 @@ $
 
 govc datastore.upload -ds=NFS_ISO /data/datacenter/jenkins/osimages/rhel-9.2-x86_64-dvd.iso iso-repos/linux/RHEL/9/rhel-9.2-x86_64-dvd.iso
 
-govc vm.clone -debug -ds=NFS_Templates -vm=vm-templates-rhel-8-0012 -host=esxnpo1s4.alsac.stjude.org -folder=/DFW/vm/Templates -on=false -template vm-template-redhat8
+govc vm.clone -debug -ds=NFS_Templates -vm=vm-templates-rhel-8-0012 -host=esxnpo1s4.example.int -folder=/DFW/vm/Templates -on=false -template vm-template-redhat8

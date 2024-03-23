@@ -1,59 +1,72 @@
 ---
 # Swarm config vars
-jenkins_swarm_agent_master: jenkins.example.int
-jenkins_swarm_agent_master_port: 8080
-jenkins_swarm_agent_master_protocol: http
-jenkins_swarm_agent_tunnel: jenkins.example.int:9000
+jenkins_swarm_agent__controller: jenkins.example.int
+jenkins_swarm_agent__controller_port: 8080
+jenkins_swarm_agent__controller_protocol: http
+jenkins_swarm_agent__controller_url: "{{ jenkins_swarm_agent__controller_protocol }}://{{ jenkins_swarm_agent__controller }}:{{ jenkins_swarm_agent__controller_port }}"
+jenkins_swarm_agent__tunnel: "{{ jenkins_swarm_agent__controller }}:9000"
 
-jenkins_swarm_agent_master_url: "{{ jenkins_swarm_agent_master_protocol }}://{{ jenkins_swarm_agent_master }}:{{ jenkins_swarm_agent_master_port }}"
+jenkins_swarm_agent__username: sa_swarm_agent
+jenkins_swarm_agent__password_file: "{{ jenkins_swarm_agent__path }}/password.swarm"
+#jenkins_swarm_agent__name: "{{ inventory_hostname }}"
+jenkins_swarm_agent__name: "{{ ansible_hostname }}"
+jenkins_swarm_agent__num_executors: "{{ ansible_processor_cores|default(1)*2 }}"
 
-jenkins_swarm_agent_username: sa_swarm_agent
-jenkins_swarm_agent_password: "{{ lookup('password', '../credentials/{{ inventory_hostname }}/jenkins-agent/agent-password.txt') }}"
-jenkins_swarm_agent_password_file: "{{ jenkins_swarm_path }}/password.swarm"
-jenkins_swarm_agent_name: "{{ inventory_hostname }}"
-jenkins_swarm_agent_num_executors: "{{ ansible_processor_cores|default(1)*2 }}"
-jenkins_swarm_agent_labels: "[{{ (ansible_os_family|lower() == 'windows')|ternary(['windows'], ['linux']) }}]"
-jenkins_swarm_agent_labels_file: "{{ jenkins_swarm_path }}/labels.swarm"
-jenkins_swarm_agent_log_file: "{{ jenkins_swarm_path }}/swarm.log"
-jenkins_swarm_agent_additional_args:
+jenkins_swarm_agent__labels: "{{ (ansible_os_family|lower() == 'windows')|ternary(['windows'], ['linux']) | list }}"
+jenkins_swarm_agent__label: "{{ jenkins_swarm_agent__labels | join(' ' ) }}"
+
+jenkins_swarm_agent__labels_file: "{{ jenkins_swarm_agent__path }}/labels.swarm"
+jenkins_swarm_agent__log_file: "{{ jenkins_swarm_agent__path }}/swarm.log"
+jenkins_swarm_agent__additional_args:
   - "-deleteExistingClients"
   - "-disableClientsUniqueId"
 #  - "-disableSslVerification"
 
-jenkins_swarm_systemd_service_dir: "/lib/systemd/system"
-#jenkins_swarm_systemd_service_dir: "/etc/systemd/system"
+jenkins_swarm_agent__systemd_service_dir: "/lib/systemd/system"
+#jenkins_swarm_agent__systemd_service_dir: "/etc/systemd/system"
 
-jenkins_swarm_agent_conf:
+jenkins_swarm_agent__conf:
 
 # Swarm agent url building
-#jenkins_swarm_agent_version: 3.25
-jenkins_swarm_agent_version: 3.41
-jenkins_swarm_plugins_url: https://repo.jenkins-ci.org
-jenkins_swarm_plugins_repo_path: "releases/org/jenkins-ci/plugins/swarm-client/{{ jenkins_swarm_agent_version }}"
-jenkins_swarm_agent_jar: "swarm-client-{{ jenkins_swarm_agent_version }}.jar"
-jenkins_swarm_download_url: "{{ jenkins_swarm_plugins_url }}/{{ jenkins_swarm_plugins_repo_path }}/{{ jenkins_swarm_agent_jar }}"
+#jenkins_swarm_agent__version: 3.25
+#jenkins_swarm_agent__version: 3.41
+#jenkins_swarm_agent__version: 4.13
+
+#jenkins_swarm_agent__plugins_url: https://repo.jenkins-ci.org
+#jenkins_swarm_agent__plugins_repo_path: "releases/org/jenkins-ci/plugins/swarm-client/{{ jenkins_swarm_agent__version }}"
+#jenkins_swarm_agent__jar: "swarm-client-{{ jenkins_swarm_agent__version }}.jar"
+jenkins_swarm_agent__download_url: "{{ jenkins_swarm_agent__controller_url }}/jnlpJars/agent.jar"
+jenkins_swarm_agent__validate_certs: false
 
 # Linux Vars
-jenkins_swarm_path: /var/lib/jenkins-swarm-agent
-jenkins_swarm_config_path: /etc/jenkins-swarm-agent
-jenkins_swarm_task_name: Jenkins Swarm Client
-jenkins_swarm_systemd_path: /lib/systemd/system
-jenkins_swarm_service_name: swarm-agent
-jenkins_swarm_service_force_update: yes
-jenkins_swarm_fsroot_path: /var/tmp/jenkins-swarm-agent
+jenkins_swarm_agent__path: /var/lib/jenkins-swarm-agent
+jenkins_swarm_agent__config_path: /etc/jenkins-swarm-agent
+jenkins_swarm_agent__task_name: Jenkins Swarm Client
+jenkins_swarm_agent__systemd_path: /lib/systemd/system
+jenkins_swarm_agent__service_name: swarm-agent
+jenkins_swarm_agent__service_force_update: yes
+#jenkins_swarm_agent__remote_fs: /var/tmp/jenkins-swarm-agent
+jenkins_swarm_agent__remote_fs: /home/jenkins/agent
 
-jenkins_swarm_jenkins_user_groups:
+jenkins_swarm_agent__jenkins_user_groups:
   - docker
 
-jenkins_swarm_jre_packages:
+jenkins_swarm_agent__jre_packages:
   - default-jre
+
+jenkins_swarm_agent__java_home: /etc/alternatives/java
 
 #################
 # Windows Vars
-jenkins_swarm_agent_wrapper_version: 2.0.3
-jenkins_swarm_wrapper_download_url: "{{ jenkins_swarm_plugins_url}}/releases/com/sun/winsw/winsw/{{ jenkins_swarm_agent_wrapper_version }}/winsw-{{jenkins_swarm_agent_wrapper_version}}-bin.exe"
-win_java_version: 8.0.144
-win_base_jenkins_path: "C:\\jenkins"
-win_swarm_agent_jar_path: "{{ win_base_jenkins_path }}\\{{ jenkins_swarm_agent_jar }}"
-win_swarm_agent_wrapper_path: "{{ win_base_jenkins_path }}\\{{ jenkins_swarm_agent_jar|replace('.jar', '.exe') }}"
-win_swarm_agent_wrapper_config_path: "{{ win_base_jenkins_path }}\\{{ jenkins_swarm_agent_jar|replace('.jar', '.xml') }}"
+jenkins_swarm_agent__wrapper_version: 2.0.3
+jenkins_swarm_agent__wrapper_download_url: "{{ jenkins_swarm_agent__plugins_url}}/releases/com/sun/winsw/winsw/{{ jenkins_swarm_agent__wrapper_version }}/winsw-{{jenkins_swarm_agent__wrapper_version}}-bin.exe"
+
+jenkins_swarm_agent__win_java_version: 8.0.144
+jenkins_swarm_agent__win_base_jenkins_path: "C:\\jenkins"
+jenkins_swarm_agent__win_swarm_agent_jar_path: "{{ jenkins_swarm_agent__win_base_jenkins_path }}\\{{ jenkins_swarm_agent__jar }}"
+jenkins_swarm_agent__win_swarm_agent_wrapper_path: "{{ jenkins_swarm_agent__win_base_jenkins_path }}\\{{ jenkins_swarm_agent__jar|replace('.jar', '.exe') }}"
+jenkins_swarm_agent__win_swarm_agent_wrapper_config_path: "{{ jenkins_swarm_agent__win_base_jenkins_path }}\\{{ jenkins_swarm_agent__jar|replace('.jar', '.xml') }}"
+
+##################
+# Setup node in jenkins controller
+jenkins_swarm_agent__register_with_controller: yes

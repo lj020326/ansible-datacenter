@@ -30,7 +30,7 @@
 ##
 
 - name: "Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'"
-  hosts: all,!local,!node_offline
+  hosts: all,!ansible_localhost,!node_offline
 #  tags: always
   ignore_unreachable: yes
   gather_facts: no
@@ -44,7 +44,7 @@
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
 - name: "Apply common groups and vars"
-  hosts: all,!local,!node_offline
+  hosts: all,!ansible_localhost,!node_offline
 #  tags: always
 #  gather_facts: no
   roles:
@@ -54,8 +54,36 @@
         - not apply_common_groups_exclude|d(False)|bool
         - inventory_hostname in ansible_play_hosts
 
+- name: "Display apply_common_groups derived group vars"
+  hosts: os_linux,os_windows,!node_offline
+  tags:
+    - always
+    - display-common-vars
+    - display-network-vars
+  tasks:
+
+    - name: "Validate that the apply_common_group group derived variables are set correctly in the dc_(machine|os|network)_* groups"
+      debug:
+        msg:
+          - "dc_machine_type={{ dc_machine_type|d('') }}"
+          - "dc_os_family={{ dc_os_family|d('') }}"
+          - "dc_os_family_shortname={{ dc_os_family_shortname|d('') }}"
+          - "dc_os_distribution={{ dc_os_distribution|d('') }}"
+          - "dc_os_dist_version={{ dc_os_dist_version|d('') }}"
+#          - "dc_network_site={{ dc_network_site|d('') }}"
+#          - "dc_network_location={{ dc_network_location|d('') }}"
+#          - "dc_network_segment={{ dc_network_segment|d('') }}"
+
+#    - name: "Validate 'dc_network_config' dictionary lookup in 'dc_network/network_configs.yml' parent group"
+#      ansible.builtin.debug:
+#        var: dc_network_config|d({})
+
+    - name: "Validate dc_utils__machine_ip set correctly by apply_common_groups role"
+      debug:
+        var: dc_utils__machine_ip|d('')
+
 - name: "Display controller vars"
-  hosts: localhost
+  hosts: ansible_localhost
   tags:
     - display-controller-vars
   tasks:
@@ -70,7 +98,7 @@
               | list | items2dict
 
 - name: "Display controller environment variables"
-  hosts: localhost
+  hosts: ansible_localhost
   tags:
     - display-ansible-env
     - display-envvars
@@ -116,7 +144,7 @@
               | list | items2dict
 
 - name: "Display cert info"
-  hosts: all,!local,!node_offline
+  hosts: all,!ansible_localhost,!node_offline
   ignore_unreachable: yes
   ignore_errors: yes
 #  gather_facts: no
@@ -173,7 +201,7 @@
 ## Reporting plays
 ##
 - name: Get linux os configs
-  hosts: dc_os_linux,!node_offline,!local
+  hosts: dc_os_linux,!node_offline,!ansible_localhost
   tags:
     - fetch-linux-os-configs
   gather_facts: false
@@ -318,7 +346,7 @@
 ## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
 ##
 - name: "Display bootstrap user info"
-#  hosts: localhost
+#  hosts: ansible_localhost
   hosts: dc_os_linux,!node_offline
   become: false
   gather_facts: false
@@ -432,7 +460,7 @@
 
 ## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
 - name: "Bootstrap CI/CD node"
-  hosts: cicd_node,!node_offline,!local
+  hosts: cicd_node,!node_offline,!ansible_localhost
   tags:
     - bootstrap
     - bootstrap-cicd
@@ -449,7 +477,8 @@
     - role: bootstrap-ansible
     - role: bootstrap-packer
     - role: bootstrap-nodejs
-    - role: jenkins-swarm-agent
+#    - role: jenkins-swarm-agent
+    - role: jenkins-agent
     - role: ansible-role-inspec
     - role: bootstrap-govc
     - role: ansible-role-ovftool
@@ -461,7 +490,8 @@
     - deploy-jenkins-agent
   become: yes
   roles:
-    - role: jenkins-swarm-agent
+    - role: bootstrap-linux-package
+    - role: jenkins-agent
     - role: geerlingguy.git
     - role: bootstrap-ansible
     - role: bootstrap-govc
@@ -775,8 +805,7 @@
 #      pve_reboot_on_kernel_update: true
 
 - name: "Fetch OS images"
-  hosts: localhost
-  connection: local
+  hosts: ansible_localhost
   gather_facts: false
   tags:
     - fetch-os-images
@@ -927,7 +956,7 @@
   hosts: dell_idrac_hosts,!node_offline
   tags:
     - dell-idrac-get-host-info
-  connection: local
+  connection: ansible_localhost
   gather_facts: False
   collections:
     - dellemc.openmanage
@@ -1013,11 +1042,9 @@
   tags:
     - export-tower-resources
   gather_facts: false
-  collections:
-    - awx.awx
   tasks:
     - name: Export all resources
-      tower_export:
+      awx.awx.export:
         all: yes
 #        teams: "TEST - Test Team 1"
 

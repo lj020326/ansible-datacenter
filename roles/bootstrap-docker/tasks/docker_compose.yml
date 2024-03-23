@@ -1,30 +1,30 @@
 ---
 
-- set_fact:
+- ansible.builtin.set_fact:
     __log_prefix_compose: "Docker | Docker Compose |"
 
 - name: "{{ __log_prefix_compose }} Install docker-compose package from package manager {{ ansible_pkg_mgr }}"
   when: bootstrap_docker__compose_package is defined
-  package:
+  ansible.builtin.package:
     state: present
     name: "{{ bootstrap_docker__compose_package }}"
 
 - name: "{{ __log_prefix_compose }} Check current docker-compose version."
-  command: "{{ bootstrap_docker__compose_path }} --version"
+  ansible.builtin.command: "{{ bootstrap_docker__compose_path }} --version"
   register: __bootstrap_docker__compose_version
   check_mode: false
   changed_when: false
   failed_when: false
 
 - name: "{{ __log_prefix_compose }} Set __bootstrap_docker__compose_current_version"
-  set_fact:
+  ansible.builtin.set_fact:
     __bootstrap_docker__compose_current_version: "{{ __bootstrap_docker__compose_version.stdout | regex_search('(\\d+(\\.\\d+)+)') }}"
   when: >
     __bootstrap_docker__compose_version.stdout is defined
     and (__bootstrap_docker__compose_version.stdout | length > 0)
 
 - name: "{{ __log_prefix_compose }} Init __bootstrap_docker__compose_version"
-  set_fact:
+  ansible.builtin.set_fact:
     __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d('') }}"
 
 - name: "{{ __log_prefix_compose }} Get __bootstrap_docker__compose_version"
@@ -33,44 +33,44 @@
   block:
 
     - name: "{{ __log_prefix_compose }} Set __compose_latest_version_result"
-      uri:
+      ansible.builtin.uri:
         url: "{{ bootstrap_docker__compose_url_latest }}"
       register: __compose_latest_version_result
 
     - name: "{{ __log_prefix_compose }} Display __compose_latest_version_result"
-      debug:
+      ansible.builtin.debug:
         var: __compose_latest_version_result
         verbosity: 2
 
     - name: "{{ __log_prefix_compose }} Set __docker_compose_latest_version_url"
-      set_fact:
+      ansible.builtin.set_fact:
         __docker_compose_latest_version_url: "{{ __compose_latest_version_result.url }}"
 
     - name: "{{ __log_prefix_compose }} Display __docker_compose_latest_version_url"
-      debug:
+      ansible.builtin.debug:
         var: __docker_compose_latest_version_url
 
     - name: "{{ __log_prefix_compose }} Set __docker_compose_latest_version"
-      set_fact:
+      ansible.builtin.set_fact:
         __docker_compose_latest_version: "{{ __docker_compose_latest_version_url | regex_replace('.*tag\\/(.*)', '\\1') }}"
 
     - name: "{{ __log_prefix_compose }} Display __docker_compose_latest_version"
-      debug:
+      ansible.builtin.debug:
         var: __docker_compose_latest_version
 
     - name: "{{ __log_prefix_compose }} Set __bootstrap_docker__compose_version"
-      set_fact:
+      ansible.builtin.set_fact:
         __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d(__docker_compose_latest_version) }}"
 
 - name: "{{ __log_prefix_compose }} Init __replace_docker_compose"
-  set_fact:
+  ansible.builtin.set_fact:
     __replace_docker_compose: no
 
 - name: "{{ __log_prefix_compose }} Set __replace_docker_compose"
   when: >
     __bootstrap_docker__compose_current_version is not defined
     or (__bootstrap_docker__compose_current_version | length == 0)
-  set_fact:
+  ansible.builtin.set_fact:
     __replace_docker_compose: yes
 
 - name: "{{ __log_prefix_compose }} Set __replace_docker_compose"
@@ -78,7 +78,7 @@
     - bootstrap_docker__compose_version is defined
     - bootstrap_docker__update_exist_compose_version|d(False)|bool
     - (__bootstrap_docker__compose_version | regex_replace('v', '')) not in __bootstrap_docker__compose_current_version
-  set_fact:
+  ansible.builtin.set_fact:
     __replace_docker_compose: yes
 
 - name: "{{ __log_prefix_compose }} Replace existing docker-compose"
@@ -86,7 +86,7 @@
   block:
 
     - name: "{{ __log_prefix_compose }} Delete existing docker-compose version if it's different."
-      file:
+      ansible.builtin.file:
         path: "{{ bootstrap_docker__compose_path }}"
         state: absent
 
@@ -147,7 +147,7 @@
 #    SETUPTOOLS_USE_DISTUTILS: stdlib
 #
 #- name: "{{ __log_prefix_compose }} Symlink Docker Python binary to {{ __bootstrap_docker_python_docker_interpreter }}"
-#  file:
+#  ansible.builtin.file:
 #    path: "{{ __bootstrap_docker_python_docker_interpreter }}"
 #    src: "{{ bootstrap_docker__pip_virtualenv }}/bin/python"
 #    state: link

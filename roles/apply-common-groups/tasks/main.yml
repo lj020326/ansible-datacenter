@@ -4,26 +4,66 @@
   include_tasks: set-os-groups.yml
 
 - name: "Set common machine type"
-  include_tasks: set-machine-type.yml
+  include_tasks: set-machine-groups.yml
 
 - name: "Set systemd status"
-  when: dc_os_family in ['dc_os_linux']
+  when: __apply_common_groups__os_family in ['apply_common_groups__os_linux']
   include_tasks: set-systemd-status.yml
 
-- name: "Display important common variable information"
+- name: "Display ansible controller environment information"
+  run_once: yes
+  delegate_to: localhost
+  connection: local
+#  vars:
+#    ansible_connection: local
+  block:
+
+  - name: "Display play/controller variable information"
+    debug:
+      msg:
+        ## BEGIN ansible special/magic variables
+        ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_vars_facts.html#discovering-variables-facts-and-magic-variables
+        - "ansible_run_tags={{ ansible_run_tags | d([]) }}"
+        - "ansible_limit={{ ansible_limit | d('') }}"
+        - "ansible_inventory_sources={{ ansible_inventory_sources | d('') }}"
+        - "ansible_version={{ ansible_version | d('') }}"
+        - "ansible_config_file={{ ansible_config_file | d('') }}"
+        - "discovered_interpreter_python={{ discovered_interpreter_python | d('') }}"
+        - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
+        - "ansible_playbook_python={{ ansible_playbook_python | d('') }}"
+        - "ansible_python_version={{ ansible_python_version | d('') }}"
+        - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('') }}"
+
+  - name: Get installed python module/package list
+    ignore_errors: yes
+    failed_when: false
+#    no_log: true
+    community.general.pip_package_info:
+      clients: ['pip3']
+    register: __python_package_info
+
+  - name: Display __python_package_info
+    debug:
+      var: __python_package_info
+      verbosity: 2
+
+  - name: Set __pip3_package_info
+    when: __python_package_info is defined
+#    no_log: true
+    set_fact:
+      __pip3_package_info: "{{ __python_package_info.packages['pip3'] | dict2items
+        | map(attribute='value') | flatten }}"
+
+  - name: Display __pip3_package_info
+    debug:
+      var: __pip3_package_info|d('')
+      verbosity: 2
+
+- name: "Display ansible target host information"
   debug:
     msg:
-      ## BEGIN ansible special/magic variables
-      ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_vars_facts.html#discovering-variables-facts-and-magic-variables
-      - "ansible_run_tags={{ ansible_run_tags | d([]) }}"
-      - "ansible_limit={{ ansible_limit | d('') }}"
       - "ansible_pkg_mgr={{ ansible_pkg_mgr | d('') }}"
-      - "ansible_service_mgr={{ ansible_service_mgr | d('') }}"
-      - "ansible_version={{ ansible_version | d('') }}"
-      - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
-      - "ansible_python_version={{ ansible_python_version | d('') }}"
-      - "ansible_pip_executable={{ ansible_pip_executable | d('') }}"
-      - "ansible_user={{ ansible_user }}"
+      - "ansible_user={{ ansible_user | d('') }}"
       - "ansible_nodename={{ ansible_nodename | d('') }}"
       - "ansible_host={{ ansible_host }}"
       - "ansible_hostname={{ ansible_hostname | d('') }}"
@@ -31,6 +71,7 @@
       - "ansible_fqdn={{ ansible_fqdn | d('') }}"
       - "ansible_default_ipv4.address={{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) | d('') }}"
       - "ansible_connection={{ ansible_connection | d('') }}"
+      - "ansible_architecture={{ ansible_architecture | d('') }}"
       - "ansible_virtualization_type={{ ansible_virtualization_type | d('') }}"
       - "ansible_virtualization_role={{ ansible_virtualization_role | d('') }}"
       - "ansible_system_vendor={{ ansible_system_vendor | d('') }}"
@@ -48,22 +89,19 @@
       - "internal_domain={{ internal_domain | d('') }}"
       - "internal_subdomain={{ internal_subdomain | d('') }}"
       ## BEGIN dynamically derived DC group_vars/host_vars
-      - "dc_environment={{ dc_environment | d('') }}"
-      - "dc_os_family={{ dc_os_family }}"
-      - "dc_os_distribution={{ dc_os_distribution }}"
-      - "dc_os_distribution_version={{ dc_os_distribution_version }}"
-      - "dc_os_family_shortname={{ dc_os_family_shortname }}"
-      - "dc_os_family_abbrev={{ dc_os_family_abbrev }}"
-      - "dc_os_distribution={{ dc_os_distribution }}"
-      - "dc_os_distribution_version={{ dc_os_distribution_version }}"
-      - "dc_machine_type_group={{ dc_machine_type_group }}"
-      - "dc_machine_type={{ dc_machine_type }}"
+      - "__apply_common_groups__environment={{ __apply_common_groups__environment | d('') }}"
+      - "__apply_common_groups__os_family={{ __apply_common_groups__os_family }}"
+      - "__apply_common_groups__os_distribution={{ __apply_common_groups__os_distribution }}"
+      - "__apply_common_groups__os_dist_version={{ __apply_common_groups__os_dist_version }}"
+      - "__apply_common_groups__os_family_shortname={{ __apply_common_groups__os_family_shortname }}"
+      - "__apply_common_groups__machine_type_group={{ __apply_common_groups__machine_type_group }}"
+      - "__apply_common_groups__machine_type={{ __apply_common_groups__machine_type }}"
       - "os_python_interpreter={{ os_python_interpreter | d('') }}"
       - "os_pip_bin={{ os_pip_bin | d('') }}"
       - "container_user_name={{ container_user_name | d('') }}"
       - "container_user_uid={{ container_user_uid | d('') }}"
       - "container_user_gid={{ container_user_uid | d('') }}"
 
-- name: "Display group_names - including derived dc_* groups"
+- name: "Display group_names - including derived __apply_common_groups__* groups"
   debug:
     var: group_names | d([])

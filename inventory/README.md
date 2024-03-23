@@ -53,9 +53,12 @@ ansible-inventory -i DEV/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
+$ ansible -i PROD/ -m debug -a var=group_names admin01
 $ ansible -i DEV/ -m debug -a var=internal_domain control01
 $ ansible -i DEV/ -m debug -a var=ansible_python_interpreter control01
 $ ansible -i DEV/ -m debug -a var=ansible_python_interpreter control01
+$ ansible -i PROD/ -m debug -a var=bootstrap_linux_package_list__jenkins_agent
+$ ansible -i PROD/ -m debug -a var=docker_stack__environment control01
 $ ansible -i DEV/ -m debug -a var=group_names testgroup_linux
 $ ansible -i DEV/ -m debug -a var=group_names testgroup_ntp
 $ ansible -i DEV/ -m debug -a var=group_names testgroup_ntp_server
@@ -90,9 +93,9 @@ $ ansible -e @./vars/vault.yml -e @test-vars.yml \
     -i DEV/ \
     -m debug \
     -a var=vault_platform \
-    toyboxd1s4.alsac.stjude.org
+    testd1s4.example.int
 $ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=test_component_cyberark_base_url localhost
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=docker_stack_ldap_host toyboxd1s4.alsac.stjude.org
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=docker_stack_ldap_host testd1s4.example.int
 $ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_cdata_sync_sandbox
 $ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_tableau
 $ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
