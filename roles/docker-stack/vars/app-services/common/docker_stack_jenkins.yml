@@ -1,6 +1,10 @@
 ---
 
-__docker_stack__jenkins__ansible_tool_python_interpreter_default: "python3"
+__docker_stack__jenkins__environment: "{{ docker_stack__jenkins__environment | d(docker_stack__environment) }}"
+
+#__docker_stack__jenkins__ansible_tool_python_interpreter_default: "python3"
+#__docker_stack__jenkins__ansible_tool_python_interpreter_default: "python3.10"
+__docker_stack__jenkins__ansible_tool_python_interpreter_default: "python3.11"
 __docker_stack__jenkins__ansible_tool_python_interpreter: "{{
   docker_stack__jenkins__ansible_tool_python_interpreter
   | d(__docker_stack__jenkins__ansible_tool_python_interpreter_default) }}"
@@ -12,7 +16,7 @@ __docker_stack__jenkins__base_dir: "{{ docker_stack__jenkins__dir | d(__docker_s
 
 __docker_stack__jenkins__traefik_host_default: "jenkins.example.int"
 __docker_stack__jenkins__host: "{{ docker_stack__jenkins__host
-  | d(docker_stack__jenkins__host)
+  | d(docker_stack__jenkins_host)
   | d(docker_stack__traefik_host)
   | d(__docker_stack__jenkins__traefik_host_default) }}"
 
@@ -49,9 +53,9 @@ __docker_stack__jenkins__image: "{{ docker_stack__jenkins__image | d(__docker_st
 __docker_stack__jenkins__agent_image_default: "{{ docker_stack__registry_endpoint }}/jenkins-docker-cicd-agent:latest"
 __docker_stack__jenkins__agent_image: "{{ docker_stack__jenkins__agent_image | d(__docker_stack__jenkins__agent_image_default) }}"
 
-__docker_stack__jenkins_agent__swarm_image_default: "{{ docker_stack__registry_endpoint }}/jenkins-swarm-agent:latest"
-__docker_stack__jenkins_agent__swarm_image: "{{ docker_stack__jenkins_agent__swarm_image
-  | d(__docker_stack__jenkins_agent__swarm_image_default) }}"
+__docker_stack__jenkins__swarm_agent_image_default: "{{ docker_stack__registry_endpoint }}/jenkins-swarm-agent:latest"
+__docker_stack__jenkins__swarm_agent_image: "{{ docker_stack__jenkins_swarm_agent_image
+  | d(__docker_stack__jenkins__swarm_agent_image_default) }}"
 
 __docker_stack__jenkins__ldap_host: "{{ docker_stack__jenkins__ldap_host | d('ldap.example.int:389')}}"
 __docker_stack__jenkins__ldap_uri: "{{ docker_stack__jenkins__ldap_uri | d(docker_stack__ldap_uri) | d(docker_stack__ldap_host) }}"
@@ -64,14 +68,13 @@ __docker_stack__jenkins__ldap_bind_user_dn: "{{ docker_stack__jenkins__ldap_bind
 __docker_stack__jenkins__ldap_bind_user_password: "{{ docker_stack__jenkins__ldap_bind_user_password
   | d(docker_stack__ldap_bind_user_password) }}"
 
+#__docker_stack__jenkins_ssh_private_key: "{{ docker_stack__jenkins_ssh_private_key | d('') }}"
+#__docker_stack__jenkins_ssh_public_key: "{{ docker_stack__jenkins_ssh_public_key | d('') }}"
+
 #__docker_stack__jenkins__data_dir_default: /export/data/jenkins/osimages
 #__docker_stack__jenkins__data_dir_default: /export/data/jenkins
 __docker_stack__jenkins__data_dir_default: /data/datacenter/jenkins
 __docker_stack__jenkins__data_dir: "{{ docker_stack__jenkins__data_dir | d(__docker_stack__jenkins__data_dir_default) }}"
-
-__docker_stack__jenkins__pipeline_lib_repo_default: "https://gitea.example.int/infra/pipeline-automation-lib.git"
-__docker_stack__jenkins__pipeline_lib_repo: "{{ docker_stack__jenkins__pipeline_lib_repo
-  | d(__docker_stack__jenkins__pipeline_lib_repo_default) }}"
 
 __docker_stack__jenkins__pipeline_lib_repo_default: "https://gitea.example.int/infra/pipeline-automation-lib.git"
 __docker_stack__jenkins__pipeline_lib_repo: "{{ docker_stack__jenkins__pipeline_lib_repo
@@ -95,6 +98,7 @@ __docker_stack__jenkins__config_tpls:
     dest: "{{ __docker_stack__jenkins__base_dir }}/jenkins_home/casc_configs/jenkins.yml"
   - src: 'jenkins/job_dsl/seedjob.groovy'
     dest: "{{ __docker_stack__jenkins__base_dir }}/jenkins_home/casc_configs/seedjob.groovy"
+    force: yes
   - src: 'jenkins/config-group.conf.j2'
     dest: "{{ __docker_stack__jenkins__base_dir }}/group"
   - src: 'jenkins/config-passwd.conf.j2'
@@ -111,6 +115,7 @@ __docker_stack__jenkins__firewalld_ports:
 
 #########
 ## Credential vars
+__docker_stack__jenkins__cred_docker_registry_admin_username: "{{ docker_stack__jenkins__cred_docker_registry_admin_username | d('admin') }}"
 __docker_stack__jenkins__cred_docker_registry_admin_password: "{{ docker_stack__jenkins__cred_docker_registry_admin_password | d('CHANGEME123') }}"
 
 __docker_stack__jenkins__cred_jenkins_admin_user_username: "{{ docker_stack__jenkins__cred_jenkins_admin_user_username | d('admin') }}"
@@ -133,6 +138,15 @@ __docker_stack__jenkins__cred_packer_ssh_password: "{{ docker_stack__jenkins__cr
 __docker_stack__jenkins__cred_vm_root_password: "{{ docker_stack__jenkins__cred_vm_root_password | d('CHANGEME123') }}"
 __docker_stack__jenkins__cred_github_username: "{{ docker_stack__jenkins__cred_github_username | d('CHANGEME123') }}"
 __docker_stack__jenkins__cred_github_password: "{{ docker_stack__jenkins__cred_github_password | d('CHANGEME123') }}"
+
+#__docker_stack__jenkins__cred_packer_user_username_default: packer
+__docker_stack__jenkins__cred_packer_user_username_default: osbuild
+__docker_stack__jenkins__cred_packer_user_username: "{{ docker_stack__jenkins__cred_packer_user_username
+  | d(__docker_stack__jenkins__cred_packer_user_username_default) }}"
+
+#__docker_stack__jenkins__cred_packer_ssh_password: "{{ docker_stack__jenkins__cred_packer_ssh_password | d('CHANGEME123') }}"
+__docker_stack__jenkins__cred_packer_user_password: "{{ docker_stack__jenkins__cred_packer_user_password | d('CHANGEME123') }}"
+
 
 __docker_stack__jenkins__ansible_venv_libs_default:
   - jmespath
@@ -174,8 +188,10 @@ __docker_stack__jenkins__secrets:
     value: "{{ __docker_stack__jenkins__cred_vsphere_password }}"
   - name: vmware_esxi_password
     value: "{{ __docker_stack__jenkins__cred_esxi_password }}"
-  - name: packer_ssh_password
-    value: "{{ __docker_stack__jenkins__cred_packer_ssh_password }}"
+  - name: packer_user_username
+    value: "{{ __docker_stack__jenkins__cred_packer_user_username }}"
+  - name: packer_user_password
+    value: "{{ __docker_stack__jenkins__cred_packer_user_password }}"
   - name: ansible_vault_password
     value: "{{ __docker_stack__jenkins__cred_ansible_vault_password }}"
   - name: ansible_ssh_username
@@ -196,6 +212,15 @@ __docker_stack__jenkins__secrets:
     value: "{{ __docker_stack__jenkins__agent_username }}"
   - name: jenkins_agent_password
     value: "{{ __docker_stack__jenkins__agent_password }}"
+  - name: docker_registry_admin_username
+    value: "{{ __docker_stack__jenkins__cred_docker_registry_admin_username }}"
+  - name: docker_registry_admin_password
+    value: "{{ __docker_stack__jenkins__cred_docker_registry_admin_password }}"
+
+
+docker_stack__jenkins__firewalld_appspec_ports:
+  - "{{ __docker_stack__jenkins__agent_tcp_port }}/tcp"
+  - "{{ __docker_stack__jenkins__agent_ssh_port }}/tcp"
 
 docker_stack__appspec__jenkins:
   dirs: "{{ __docker_stack__jenkins__config_dirs | d([]) }}"
@@ -241,12 +266,12 @@ __docker_stack__jenkins__services:
 #      command: "--httpsCertificate=/var/lib/jenkins/cert --httpsPrivateKey=/var/lib/jenkins/pk"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+      - "{{ __docker_stack__ca_java_keystore }}:/var/lib/jenkins/cacerts"
       - "{{ __docker_stack__jenkins__base_dir }}/passwd:/etc/passwd:ro"
       - "{{ __docker_stack__jenkins__base_dir }}/group:/etc/group:ro"
       - "{{ __docker_stack__jenkins__base_dir }}/jenkins_home:/var/jenkins_home"
 #      - "{{ __docker_stack__jenkins__base_dir }}/jenkins_home:/home/jenkins"
-      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
-      - "{{ __docker_stack__ca_java_keystore }}:/var/lib/jenkins/cacerts"
       - "{{ __docker_stack__jenkins__data_dir }}:/data"
       - "{{ __docker_stack__jenkins__vmware_data_dir }}:/vmware"
 #    environment: "{{ __docker_stack__jenkins__environment }}"
@@ -255,19 +280,22 @@ __docker_stack__jenkins__services:
 #    secrets:
 #      - ldap_username
 #      - ldap_password
+#      - jenkins_admin_username
 #      - jenkins_admin_password
 #      - jenkins_git_password
-#      - docker_registry_password
 #      - vsphere_username
 #      - vsphere_password
 #      - vmware_esxi_password
-#      - packer_ssh_password
+#      - packer_user_username
+#      - packer_user_password
 #      - ansible_vault_password
 #      - ansible_ssh_username
 #      - ansible_ssh_password
 #      - ansible_ssh_private_key
 #      - bitbucket_ssh_username
 #      - bitbucket_ssh_private_key
+#      - docker_registry_admin_username
+#      - docker_registry_admin_password
 #      - github_ssh_username
 #      - github_ssh_password
     deploy:

@@ -7,9 +7,9 @@
 ##
 
 ## LDAP System Users
-{% for uid,user_config in docker_stack__ldap_base_user_map.items() %}
+{% for uid,user_config in __docker_stack__openldap__base_user_map.items() %}
 
-dn: cn={{ uid }},{{ docker_stack__ldap_base_dn }}
+dn: cn={{ uid }},{{ __docker_stack__openldap__base_dn }}
 changetype: add
     {% if user_config.object_class_list|d([])|length > 0 %}
         {% for object_class in user_config.object_class_list %}
@@ -30,14 +30,14 @@ description: {{ user_config.description | d(uid) }}
 {% endfor %}
 
 ## LDAP Org Units (OUs)
-{% if docker_stack__ldap_domain_ou_map|d({})|dict2items|length>0 %}
-    {% for ou,ou_config in docker_stack__ldap_domain_ou_map.items() %}
+{% if __docker_stack__openldap__domain_ou_map|d({})|dict2items|length>0 %}
+    {% for ou,ou_config in __docker_stack__openldap__domain_ou_map.items() %}
 
         {% set _ou = ou_config.ou|d(ou) %}
         {% if ou_config.parent_ou is defined %}
-            {% set _ou_dn = 'ou='+_ou+','+ou_config.parent_ou+','+docker_stack__ldap_base_dn %}
+            {% set _ou_dn = 'ou='+_ou+','+ou_config.parent_ou+','+__docker_stack__openldap__base_dn %}
         {% else %}
-            {% set _ou_dn = 'ou='+_ou+','+docker_stack__ldap_base_dn %}
+            {% set _ou_dn = 'ou='+_ou+','+__docker_stack__openldap__base_dn %}
         {% endif %}
 dn: {{ _ou_dn }}
 changetype: add
@@ -48,9 +48,9 @@ ou: {{ ou }}
 {% endif %}
 
 ## LDAP samba domains
-{% for domain_name,domain_config in __docker_stack__ldap_samba_domain_map.items() %}
+{% for domain_name,domain_config in ____docker_stack__openldap__samba_domain_map.items() %}
 
-dn: sambaDomainName={{ domain_name }},{{ docker_stack__ldap_base_dn }}
+dn: sambaDomainName={{ domain_name }},{{ __docker_stack__openldap__base_dn }}
 changetype: add
 objectClass: sambaDomain
 sambaDomainName: {{ domain_name }}
@@ -70,7 +70,7 @@ sambaRefuseMachinePwdChange: 0
 {% endfor %}
 
 ## LDAP Domain Users
-{% for user_key,user_config in __docker_stack__ldap_domain_user_map.items() %}
+{% for user_key,user_config in ____docker_stack__openldap__domain_user_map.items() %}
 
     {% set _uid = user_config.uid|d(user_key) %}
 dn: {{ user_config.dn }}
@@ -126,10 +126,10 @@ sambaAcctFlags: {{ user_config.samba.account_flags }}
         {% else %}
 sambaAcctFlags: [XU         ]
         {% endif %}
-sambaDomainName: {{ docker_stack__ldap_domain }}
+sambaDomainName: {{ __docker_stack__openldap__domain }}
         {% if user_config.homedir|d('') != '/nonexistent' %}
 sambaHomeDrive: H:
-sambaHomePath: {{ docker_stack__ldap_user_smb_profile_base }}\{{ _uid }}
+sambaHomePath: {{ __docker_stack__openldap__user_smb_profile_base }}\{{ _uid }}
 sambaProfilePath: \\%L\profiles\{{ _uid }}
         {% endif %}
         {% if user_config.samba.workstations is defined %}
@@ -148,7 +148,7 @@ sshPublicKey: {{ user_config.ssh_public_key }}
 {% endfor %}
 
 ## LDAP Domain Groups
-{% for group_key,group_config in __docker_stack__ldap_domain_group_map.items() %}
+{% for group_key,group_config in ____docker_stack__openldap__domain_group_map.items() %}
 
     {% set group_cn = group_config.cn | d(group_key) %}
 dn: {{ group_config.dn }}
@@ -185,7 +185,7 @@ memberURL: {{ group_config.memberURL }}
     {% endif %}
     {% if group_config.memberDnList|d([])|length > 0 %}
         {% for uid in group_config.memberDnList %}
-member: uid={{ uid }},{{ docker_stack__ldap_user_base_dn }}
+member: uid={{ uid }},{{ docker_stack__openldap__user_base_dn }}
         {% endfor %}
     {% endif %}
     {% if group_config.memberUidList|d([])|length > 0 %}
@@ -199,14 +199,14 @@ sambaSID: {{ _group_samba_sid }}
 sambaGroupType: {{ group_config.samba.group_type | d(2) }}
         {% if group_config.samba.users|d([])|length > 0 %}
             {% for uid in group_config.samba.users %}
-                {% set _user_config = __docker_stack__ldap_domain_user_map[uid] %}
+                {% set _user_config = __docker_stack__openldap__domain_user_map[uid] %}
                 {% set _user_samba_sid = _user_config.samba.sid %}
 sambaSIDList: {{ _user_samba_sid }}
             {% endfor %}
         {% endif %}
         {% if group_config.samba.groups|d([])|length > 0 %}
             {% for gid in group_config.samba.groups %}
-                {% set _group_config = __docker_stack__ldap_domain_group_map[gid] %}
+                {% set _group_config = __docker_stack__openldap__domain_group_map[gid] %}
                 {% set _group_samba_sid = _group_config.samba.sid %}
 sambaSIDList: {{ _group_samba_sid }}
             {% endfor %}
@@ -215,8 +215,8 @@ sambaSIDList: {{ _group_samba_sid }}
 {% endfor %}
 
 ## LDAP domain hosts
-{% if __docker_stack__ldap_domain_host_map|d({})|dict2items|length>0 %}
-    {% for host_cn,host_config in __docker_stack__ldap_domain_host_map.items() %}
+{% if __docker_stack__openldap__domain_host_map|d({})|dict2items|length>0 %}
+    {% for host_cn,host_config in __docker_stack__openldap__domain_host_map.items() %}
 
 dn: {{ host_config.dn }}
 changetype: add
@@ -243,7 +243,7 @@ loginShell: /bin/false
 sambaSID: {{ host_config.samba.sid }}
             {% endif %}
 sambaAcctFlags: [W          ]
-sambaDomainName: {{ docker_stack__ldap_domain }}
+sambaDomainName: {{ docker_stack__openldap__domain }}
             {% if host_config.samba.primary_group_sid is defined %}
 sambaPrimaryGroupSID: {{ host_config.samba.primary_group_sid }}
             {% endif %}
