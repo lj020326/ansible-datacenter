@@ -18,7 +18,13 @@ trap 'rm -fr "$TMP_DIR"' EXIT
 GIT_REMOVE_CACHED_FILES=0
 
 CONFIRM=0
-PROJECT_DIR=$(git rev-parse --show-toplevel)
+#SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(dirname "$0")"
+
+## PURPOSE RELATED VARS
+#PROJECT_DIR=$( git rev-parse --show-toplevel )
+PROJECT_DIR="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
+#PROJECT_DIR=$(git rev-parse --show-toplevel)
 
 PUBLIC_GITIGNORE=files/git/pub.gitignore
 
