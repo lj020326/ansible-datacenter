@@ -4,9 +4,43 @@
 #__docker_stack__openldap__image: "osixia/openldap:1.4.0"
 __docker_stack__openldap__image: "osixia/openldap:1.5.0"
 
+__docker_stack__openldap__domain_default: "example.int"
+__docker_stack__openldap__domain: "{{ docker_stack__openldap__domain 
+  | d(__docker_stack__openldap__domain_default) }}"
+
 __docker_stack__openldap__base_dn_default: "dc=example,dc=int"
 __docker_stack__openldap__base_dn: "{{ docker_stack__openldap__base_dn 
   | d(__docker_stack__openldap__base_dn_default) }}"
+
+__docker_stack__openldap__group_ou: "groups"
+__docker_stack__openldap__group_base_dn_default: "ou={{ 
+  __docker_stack__openldap__group_ou }},{{ __docker_stack__openldap__base_dn }}"
+__docker_stack__openldap__group_base_dn: "{{ docker_stack__openldap__group_base_dn 
+  | d(__docker_stack__openldap__group_base_dn_default) }}"
+
+__docker_stack__openldap__user_ou: "users"
+__docker_stack__openldap__user_base_dn_default: "ou={{ 
+  __docker_stack__openldap__user_ou }},{{ __docker_stack__openldap__base_dn }}"
+__docker_stack__openldap__user_base_dn: "{{ docker_stack__openldap__user_base_dn 
+  | d(__docker_stack__openldap__user_base_dn_default) }}"
+
+__docker_stack__openldap__idmap_ou: "Idmap"
+__docker_stack__openldap__idmap_base_dn_default: "ou={{ 
+  __docker_stack__openldap__idmap_ou }},{{ __docker_stack__openldap__base_dn }}"
+__docker_stack__openldap__idmap_base_dn: "{{ docker_stack__openldap__idmap_base_dn 
+  | d(__docker_stack__openldap__idmap_base_dn_default) }}"
+
+__docker_stack__openldap__computer_ou: "computers"
+__docker_stack__openldap__computer_base_dn_default: "ou={{ 
+  __docker_stack__openldap__computer_ou }},{{ __docker_stack__openldap__base_dn }}"
+__docker_stack__openldap__computer_base_dn: "{{ docker_stack__openldap__computer_base_dn 
+  | d(__docker_stack__openldap__computer_base_dn_default) }}"
+
+__docker_stack__openldap__host_ou: "hosts"
+__docker_stack__openldap__host_base_dn_default: "ou={{ 
+  __docker_stack__openldap__host_ou }},{{ __docker_stack__openldap__base_dn }}"
+__docker_stack__openldap__host_base_dn: "{{ docker_stack__openldap__host_base_dn 
+  | d(__docker_stack__openldap__host_base_dn_default) }}"
 
 __docker_stack__openldap__organisation_default: "example org"
 __docker_stack__openldap__organisation: "{{ docker_stack__openldap__organisation 
@@ -21,8 +55,8 @@ __docker_stack__openldap__admin_password: "{{ docker_stack__openldap__admin_pass
 __docker_stack__openldap__config_password: "{{ docker_stack__openldap__config_password | d('passsword') }}"
 #__docker_stack__openldap__host: "{{ docker_stack__openldap__host | d('ldap.example.int') }}"
 __docker_stack__openldap__readonly_user: "true"
-__docker_stack__openldap__readonly_username: "readonly"
-__docker_stack__openldap__readonly_password: "{{ docker_stack__openldap__bind_user_password }}"
+__docker_stack__openldap__readonly_username: "{{ docker_stack__openldap__readonly_username | d('readonly') }}"
+__docker_stack__openldap__readonly_password: "{{ docker_stack__openldap__readonly_password | d('changeit') }}"
 
 ##########################################
 ## start of openldap database config
@@ -113,6 +147,32 @@ __docker_stack__openldap__samba_guest_user_primary_group_sid: "{{ docker_stack__
 #__docker_stack__openldap__samba_admin_sid_default: "{{ docker_stack__openldap__domain_sid_root }}-500"
 #__docker_stack__openldap__samba_admin_sid: "{{ docker_stack__openldap__samba_admin_sid | d(__docker_stack__openldap__samba_admin_sid_default) }}"
 
+__docker_stack__openldap__user_smb_base_dir_default: '\\samba.{{ docker_stack__openldap__domain }}'
+__docker_stack__openldap__user_smb_base_dir: "{{ docker_stack__openldap__user_smb_base_dir 
+  | d(__docker_stack__openldap__user_smb_base_dir_default) }} "
+
+__docker_stack__openldap__user_smb_profile_base_default: '{{ __docker_stack__openldap__user_smb_base_dir }}\profiles'
+__docker_stack__openldap__user_smb_profile_base: "{{ docker_stack__openldap__user_smb_profile_base 
+  | d(__docker_stack__openldap__user_smb_profile_base_default) }}"
+
+__docker_stack__openldap__domain_user_object_class_list_default:
+  - inetOrgPerson
+  - organizationalPerson
+  - person
+  - posixAccount
+  - sambaSamAccount
+  - shadowAccount
+
+__docker_stack__openldap__domain_group_object_class_list_default:
+  - top
+  - posixGroup
+
+__docker_stack__openldap__domain_host_object_class_list_default:
+  - account
+  - posixAccount
+  - sambaSamAccount
+
+
 __docker_stack__openldap__domain_ou_map_default:
   groups: {}
   users: {}
@@ -146,7 +206,7 @@ __docker_stack__openldap__base_user_map_default:
 __docker_stack__openldap__base_user_map: "{{ docker_stack__openldap__base_user_map 
   | d(__docker_stack__openldap__base_user_map_default) }}"
 
-__docker_stack__openldap__domain_user_map_public_default:
+__docker_stack__openldap__domain_user_map_default:
   root:
     uid_number: 0
     gid_number: 500
@@ -211,12 +271,12 @@ __docker_stack__openldap__domain_user_map_public_default:
       primary_group_sid: "{{ __docker_stack__openldap__samba_guest_user_primary_group_sid }}"
       account_flags: "[NUD        ]"
 
-__docker_stack__openldap__domain_user_map_public: "{{ docker_stack__openldap__domain_user_map_public 
-  | d(__docker_stack__openldap__domain_user_map_public_default) }}"
+__docker_stack__openldap__domain_user_map: "{{ docker_stack__openldap__domain_user_map 
+  | d(__docker_stack__openldap__domain_user_map_default) }}"
 
-__docker_stack__openldap__domain_group_map_public_default:
+__docker_stack__openldap__domain_group_map_default:
   admins:
-    gid_number: "{{ docker_stack__openldap__admins_gid_number }}"
+    gid_number: "{{ __docker_stack__openldap__admins_gid_number }}"
     object_class_list:
       - top
       - posixGroup
@@ -224,7 +284,7 @@ __docker_stack__openldap__domain_group_map_public_default:
       - netadmin
       - admin
   users:
-    gid_number: "{{ docker_stack__openldap__users_gid_number }}"
+    gid_number: "{{ __docker_stack__openldap__users_gid_number }}"
     object_class_list:
       - top
       - posixGroup
@@ -273,8 +333,8 @@ __docker_stack__openldap__domain_group_map_public_default:
       - netadmin
       - admin
 
-__docker_stack__openldap__domain_group_map_public: "{{ docker_stack__openldap__domain_group_map_public 
-  | d(__docker_stack__openldap__domain_group_map_public_default) }}"
+__docker_stack__openldap__domain_group_map: "{{ docker_stack__openldap__domain_group_map 
+  | d(__docker_stack__openldap__domain_group_map_default) }}"
 
 
 #### end of openldap database config
@@ -333,8 +393,10 @@ docker_stack__appspec__openldap:
   firewalld_ports: "{{ __docker_stack__openldap__firewalld_ports | d([]) }}"
   docker_services: "{{ __docker_stack__openldap__services | d({}) }}"
 
-__docker_stack__ldapui__traefik_labels: "{{ docker_stack__ldapui__traefik_labels
-  | d(__docker_stack__ldapui__traefik_labels_default) }}"
+__docker_stack__openldapui__port: "{{ docker_stack__openldapui__port | d(18080) }}"
+
+__docker_stack__openldapui__traefik_labels: "{{ docker_stack__openldapui__traefik_labels
+  | d(__docker_stack__openldapui__traefik_labels_default) }}"
 
 __docker_stack__openldap__services:
   ## must have --copy-service for runtime bootstrap to work
@@ -343,7 +405,7 @@ __docker_stack__openldap__services:
     container_name: "openldap"
 #    image: {{ docker_stack__registry_endpoint }}/openldap:latest
     image: "{{ __docker_stack__openldap__image }}"
-#    hostname: "{{ docker_stack__openldap__host }}"
+#    hostname: "{{ __docker_stack__openldap__host }}"
     command: --copy-service --loglevel debug
     ports:
       - 389:389
@@ -366,8 +428,8 @@ __docker_stack__openldap__services:
 #      LDAP_TLS: 0
       LDAP_OPENLDAP_UID: "{{ docker_stack__user_uid }}"
       LDAP_OPENLDAP_GID: "{{ docker_stack__user_gid }}"
-      LDAP_ORGANISATION: "{{ docker_stack__openldap__organisation }}"
-      LDAP_DOMAIN: "{{ docker_stack__openldap__domain }}"
+      LDAP_ORGANISATION: "{{ __docker_stack__openldap__organisation }}"
+      LDAP_DOMAIN: "{{ __docker_stack__openldap__domain }}"
       LDAP_BASE_DN: "{{ __docker_stack__openldap__base_dn }}"
       LDAP_ADMIN_PASSWORD: "{{ __docker_stack__openldap__admin_password }}"
       LDAP_READONLY_USER: "{{ __docker_stack__openldap__readonly_user }}"
@@ -392,63 +454,65 @@ __docker_stack__openldap__services:
         max_attempts: 3
         window: 120s
 
-  ## ref: https://ruan.dev/blog/2022/03/20/run-openldap-with-a-ui-on-docker
-  openldap-ui:
-    image: wheelybird/ldap-user-manager:v1.5
-    container_name: openldap-ui
-    environment:
-      LDAP_URI: ldap://openldap
-      LDAP_BASE_DN: "{{ __docker_stack__openldap__base_dn }}"
-      LDAP_REQUIRE_STARTTLS: FALSE
-      LDAP_ADMINS_GROUP: admins
-      LDAP_ADMIN_BIND_DN: "{{ __docker_stack__openldap__admin_password }}"
-      LDAP_ADMIN_BIND_DN: cn=admin,dc=example,dc=org
-      LDAP_ADMIN_BIND_PWD: admin
-      LDAP_IGNORE_CERT_ERRORS: true
-      NO_HTTPS: TRUE
-      PASSWORD_HASH: SSHA
-      SERVER_HOSTNAME: localhost:18080
-    depends_on:
-      - openldap
-    restart: "unless-stopped"
-    networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
-    ports:
-      - 18080:80
-    deploy:
-      mode: replicated
-      placement:
-        constraints:
-          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-#          - node.role == manager
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 3
-        window: 120s
-    labels: "{{ __docker_stack__ldapui__traefik_labels }}"
+#  ## ref: https://ruan.dev/blog/2022/03/20/run-openldap-with-a-ui-on-docker
+#  openldap-ui:
+#    image: wheelybird/ldap-user-manager:v1.5
+#    container_name: openldap-ui
+#    environment:
+#      LDAP_URI: ldap://openldap
+#      LDAP_BASE_DN: "{{ __docker_stack__openldap__base_dn }}"
+#      LDAP_REQUIRE_STARTTLS: FALSE
+#      LDAP_ADMINS_GROUP: admin
+#      LDAP_ADMIN_BIND_DN: "{{ __docker_stack__openldap__admin_dn }}"
+#      LDAP_ADMIN_BIND_PWD: "{{ __docker_stack__openldap__admin_password }}"
+#      LDAP_IGNORE_CERT_ERRORS: true
+#      NO_HTTPS: TRUE
+#      PASSWORD_HASH: SSHA
+#      SERVER_HOSTNAME: localhost:18080
+#    depends_on:
+#      - openldap
+#    restart: "unless-stopped"
+#    networks:
+#      - "{{ docker_stack__traefik_proxy_network }}"
+#    ports:
+#      - "{{ __docker_stack__openldapui__port }}:80"
+#    deploy:
+#      mode: replicated
+#      placement:
+#        constraints:
+#          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+##          - node.role == manager
+#      replicas: 1
+#      restart_policy:
+#        condition: on-failure
+#        delay: 10s
+#        max_attempts: 3
+#        window: 120s
+#    labels: "{{ __docker_stack__openldapui__traefik_labels }}"
 
 
 __docker_stack__openldap__samba_domain_map_yaml: |-
   {
-  {{ docker_stack__openldap__domain }}: { 'sid': {{ docker_stack__openldap__domain_sid_root }} }
+  {{ __docker_stack__openldap__domain }}: { 'sid': {{ __docker_stack__openldap__domain_sid_root }} }
   }
 
 __docker_stack__openldap__samba_domain_map: "{{ __docker_stack__openldap__samba_domain_map_yaml | from_yaml }}"
 
+__docker_stack__openldap__domain_host_list_default: []
+__docker_stack__openldap__domain_host_list: "{{ docker_stack__openldap__domain_host_list 
+  | d(docker_stack__openldap__domain_host_list_default) }}"
 
 ## ref: https://serverfault.com/questions/885324/background-on-sambasid-calculation
-__docker_stack__openldap__domain_user_map_yaml: |-
+__docker_stack__openldap__domain_user_map_combined_yaml: |-
   {
-  {% for user_key,user_config in docker_stack__openldap__domain_user_map.items() %}
+  {% for user_key,user_config in __docker_stack__openldap__domain_user_map.items() %}
     {% set _uid = user_config.uid|d(user_key) %}
     {% set _uid_number_default = (range(100, 999) | random(seed=_uid))|int + 10000 %}
     {% set _uid_number = user_config.uid_number | d(_uid_number_default) %}
     {% set _gid_number = user_config.gid_number | d(_uid_number) %}
     {% set _uid = user_config.uid|d(user_key) %}
-    {% set _dn = 'uid='+_uid+','+ docker_stack__openldap__user_base_dn %}
-    {% set _object_class_list = user_config.object_class_list | d(docker_stack__openldap__domain_user_object_class_list_default) %}
+    {% set _dn = 'uid='+_uid+','+ __docker_stack__openldap__user_base_dn %}
+    {% set _object_class_list = user_config.object_class_list | d(__docker_stack__openldap__domain_user_object_class_list_default) %}
     {% set _user_config = { 'dn': _dn, 'object_class_list': _object_class_list } %}
     {% if 'posixAccount' in _object_class_list %}
       {% set __ = _user_config.update({ 'uid_number': _uid_number, 'gid_number': _gid_number }) %}
@@ -456,7 +520,7 @@ __docker_stack__openldap__domain_user_map_yaml: |-
     {% if 'sambaSamAccount' in _object_class_list %}
       {% set _user_config_samba = user_config.samba | d({}) %}
       {% if _user_config_samba.sid is not defined %}
-        {% set _samba_sid_default = docker_stack__openldap__domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
+        {% set _samba_sid_default = __docker_stack__openldap__domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
         {% set __ = _user_config_samba.update({'sid': _samba_sid_default }) %}
       {% endif %}
       {% set __ = _user_config.update({ 'samba': _user_config_samba }) %}
@@ -465,11 +529,11 @@ __docker_stack__openldap__domain_user_map_yaml: |-
   {% endfor %}
   }
 
-__docker_stack__openldap__domain_user_map: "{{ __docker_stack__openldap__domain_user_map_yaml | from_yaml }}"
+__docker_stack__openldap__domain_user_map_combined: "{{ __docker_stack__openldap__domain_user_map_combined_yaml | from_yaml }}"
 
-__docker_stack__openldap__domain_group_map_yaml: |-
+__docker_stack__openldap__domain_group_map_combined_yaml: |-
   {
-  {% for group_key,group_config in docker_stack__openldap__domain_group_map.items() %}
+  {% for group_key,group_config in __docker_stack__openldap__domain_group_map.items() %}
     {% set _gid = group_config.gid|d(group_key) %}
     {% set _gid_number_default = (range(100, 999) | random(seed=_gid))|int + 10000 %}
     {% set _gid_number = group_config.gid_number | d(_gid_number_default) %}
@@ -477,9 +541,9 @@ __docker_stack__openldap__domain_group_map_yaml: |-
     {% if group_config.parent_ou is defined %}
         {% set _dn = 'cn='+_group_cn+','+group_config.parent_ou+','+__docker_stack__openldap__base_dn %}
     {% else %}
-        {% set _dn = 'cn='+_group_cn+','+ docker_stack__openldap__group_base_dn %}
+        {% set _dn = 'cn='+_group_cn+','+ __docker_stack__openldap__group_base_dn %}
     {% endif %}
-    {% set _object_class_list = group_config.object_class_list | d(docker_stack__openldap__domain_group_object_class_list_default) %}
+    {% set _object_class_list = group_config.object_class_list | d(__docker_stack__openldap__domain_group_object_class_list_default) %}
     {% set _group_config = { 'dn': _dn, 'cn': _group_cn, 'object_class_list': _object_class_list } %}
     {% if 'posixGroup' in _object_class_list %}
       {% set __ = _group_config.update({ 'gid_number': _gid_number }) %}
@@ -487,7 +551,7 @@ __docker_stack__openldap__domain_group_map_yaml: |-
     {% if 'sambaGroupMapping' in _object_class_list %}
       {% set _group_config_samba = group_config.samba | d({}) %}
       {% if _group_config_samba.sid is not defined %}
-        {% set _samba_group_sid_default = docker_stack__openldap__domain_sid_root+'-'+((_gid_number|int*2+1001)|string) %}
+        {% set _samba_group_sid_default = __docker_stack__openldap__domain_sid_root+'-'+((_gid_number|int*2+1001)|string) %}
         {% set __ = _group_config_samba.update({'sid': _samba_group_sid_default }) %}
       {% endif %}
       {% set __ = _group_config.update({ 'samba': _group_config_samba }) %}
@@ -496,31 +560,31 @@ __docker_stack__openldap__domain_group_map_yaml: |-
   {% endfor %}
   }
 
-__docker_stack__openldap__domain_group_map: "{{ __docker_stack__openldap__domain_group_map_yaml | from_yaml }}"
+__docker_stack__openldap__domain_group_map_combined: "{{ __docker_stack__openldap__domain_group_map_combined_yaml | from_yaml }}"
 
 __docker_stack__openldap__domain_host_map_yaml: |-
   {
-  {% for host_key in docker_stack__openldap__domain_host_list %}
+  {% for host_key in __docker_stack__openldap__domain_host_list %}
     {% set _host_ldap_config = hostvars[host_key].ldap_host_config %}
     {% set _uid = _host_ldap_config.uid|d(host_key) %}
     {% set _uid_number_default = (range(100, 999) | random(seed=_uid))|int + 50000 %}
     {% set _uid_number = _host_ldap_config.uid_number | d(_uid_number_default) %}
     {% set _gid_number = _host_ldap_config.gid_number | d(_uid_number) %}
     {% set _host_cn = _host_ldap_config.cn | d(host_key) %}
-    {% set _dn = 'cn='+_host_cn+','+ docker_stack__openldap__host_base_dn %}
-    {% set _object_class_list = _host_ldap_config.object_class_list | d(docker_stack__openldap__domain_host_object_class_list_default) %}
+    {% set _dn = 'cn='+_host_cn+','+ __docker_stack__openldap__host_base_dn %}
+    {% set _object_class_list = _host_ldap_config.object_class_list | d(__docker_stack__openldap__domain_host_object_class_list_default) %}
     {% set _host_config = { 'dn': _dn, 'cn': _host_cn, 'object_class_list': _object_class_list } %}
-    {% if 'posixAccount' in _host_ldap_config.object_class_list|d(docker_stack__openldap__domain_host_object_class_list_default) %}
+    {% if 'posixAccount' in _host_ldap_config.object_class_list|d(__docker_stack__openldap__domain_host_object_class_list_default) %}
       {% set __ = _host_config.update({ 'uid_number': _uid_number, 'gid_number': _gid_number }) %}
     {% endif %}
     {% if 'sambaSamAccount' in _object_class_list %}
       {% set _host_config_samba = _host_ldap_config.samba | d({}) %}
       {% if _host_config_samba.sid is not defined %}
-        {% set _samba_sid_default = docker_stack__openldap__domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
+        {% set _samba_sid_default = __docker_stack__openldap__domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
         {% set __ = _host_config_samba.update({'sid': _samba_sid_default }) %}
       {% endif %}
       {% if _host_config_samba.primary_group_sid is not defined %}
-        {% set __ = _host_config_samba.update({'primary_group_sid': docker_stack__openldap__domain_computers_group_sid }) %}
+        {% set __ = _host_config_samba.update({'primary_group_sid': __docker_stack__openldap__domain_computers_group_sid }) %}
       {% endif %}
       {% set __ = _host_config.update({ 'samba': _host_config_samba }) %}
     {% endif %}

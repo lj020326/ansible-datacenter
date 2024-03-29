@@ -1,6 +1,18 @@
 
 # Tests
 
+## Prepare molecule env
+
+## Run molecule tests
+
+The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/master/systemd).
+
+```shell
+$ git clone https://github.com/lj020326/ansible-datacenter.git
+$ cd ansible-datacenter
+$ pip install -r requirements.molecule.txt
+```
+
 ## To sync the latest image version
 
 ```shell

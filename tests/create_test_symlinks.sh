@@ -18,7 +18,8 @@ ln -sf ../library
 ln -sf ../roles
 ln -sf ../vars
 
-echo "==> Set up resource/other symlinks (files/etc)"
+echo "==> Set up resource/other symlinks (molecule/files/etc)"
+ln -sf ../molecule
 ln -sf ../files
 
 echo "==> Set up inventory symlink"

@@ -62,7 +62,7 @@
     - display-network-vars
   tasks:
 
-    - name: "Validate that the apply_common_group group derived variables are set correctly in the dc_(machine|os|network)_* groups"
+    - name: "Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups"
       debug:
         msg:
           - "dc_machine_type={{ dc_machine_type|d('') }}"
@@ -73,14 +73,6 @@
 #          - "dc_network_site={{ dc_network_site|d('') }}"
 #          - "dc_network_location={{ dc_network_location|d('') }}"
 #          - "dc_network_segment={{ dc_network_segment|d('') }}"
-
-#    - name: "Validate 'dc_network_config' dictionary lookup in 'dc_network/network_configs.yml' parent group"
-#      ansible.builtin.debug:
-#        var: dc_network_config|d({})
-
-    - name: "Validate dc_utils__machine_ip set correctly by apply_common_groups role"
-      debug:
-        var: dc_utils__machine_ip|d('')
 
 - name: "Display controller vars"
   hosts: ansible_localhost
@@ -201,7 +193,7 @@
 ## Reporting plays
 ##
 - name: Get linux os configs
-  hosts: dc_os_linux,!node_offline,!ansible_localhost
+  hosts: os_linux,!node_offline,!ansible_localhost
   tags:
     - fetch-linux-os-configs
   gather_facts: false
@@ -209,8 +201,8 @@
     - role: fetch-linux-os-configs
 
 - name: "Report inventory facts"
-#  hosts: dc_os_windows,!node_offline
-  hosts: dc_os_windows,dc_os_linux,!node_offline
+#  hosts: os_windows,!node_offline
+  hosts: os_windows,os_linux,!node_offline
   gather_facts: false
   collections:
     - lvrfrc87.git_acp
@@ -225,7 +217,7 @@
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Bootstrap linux firewall"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - bootstrap-firewall
@@ -237,7 +229,7 @@
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Configure linux firewall"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - configure-firewall
@@ -247,7 +239,7 @@
       firewalld_action: configure
 
 - name: "Bootstrap linux packages"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - bootstrap-packages
@@ -259,7 +251,7 @@
 ## bootstrap logrotate
 ##
 - name: "Bootstrap logrotate"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   tags:
     - bootstrap-logrotate
     - bootstrap-linux-logrotate
@@ -271,7 +263,7 @@
 ## bootstrap mounts
 ##
 - name: "Bootstrap mounts"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   tags:
     - bootstrap-mounts
     - bootstrap-linux-mounts
@@ -280,7 +272,7 @@
     - name: bootstrap-linux-mount
 
 - name: "Bootstrap linux ntp"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - bootstrap-ntp
@@ -289,7 +281,7 @@
     - name: bootstrap-ntp
 
 - name: "Bootstrap nfs services"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - bootstrap-nfs
@@ -300,7 +292,7 @@
       firewalld_action: configure
 
 - name: "Bootstrap webmin"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - bootstrap-webmin
@@ -347,7 +339,7 @@
 ##
 - name: "Display bootstrap user info"
 #  hosts: ansible_localhost
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: false
   gather_facts: false
   tags:
@@ -365,7 +357,7 @@
         var: ansible_user
 
 - name: "Bootstrap linux VM ansible user"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   gather_facts: yes
   become: yes
   remote_user: "{{ bootstrap_user }}"
@@ -387,7 +379,7 @@
       bootstrap_linux_user_list: "[ {{ bootstrap_ansible_user }} ]"
 
 - name: "Bootstrap linux users"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   gather_facts: yes
   become: yes
   remote_user: "{{ bootstrap_user }}"
@@ -416,7 +408,7 @@
     - role: bootstrap-linux
 
 - name: "Bootstrap linux"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   gather_facts: no
   tags:
     - bootstrap-linux
@@ -427,7 +419,7 @@
     - role: bootstrap-linux
 
 - name: "Bootstrap linux core"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   tags:
     - bootstrap-linux-core
   become: yes
@@ -446,7 +438,7 @@
     - role: bootstrap-windows
 
 - name: "Bootstrap windows"
-  hosts: dc_os_windows,!node_offline
+  hosts: os_windows,!node_offline
 #  hosts: windows,!node_offline
   tags:
     - bootstrap-windows
@@ -588,7 +580,7 @@
     - role: bootstrap-postfix
 
 - name: "Bootstrap sshd"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   gather_facts: false
   tags:
     - bootstrap-linux-sshd
@@ -619,7 +611,7 @@
     - role: bootstrap-ansible
 
 - name: "Bootstrap pip"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   tags:
     - bootstrap-pip
   become: yes
@@ -661,7 +653,7 @@
       tags: [cacerts-create]
 
 - name: "Deploy CA certs to cert_node"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   gather_facts: false
   tags:
     - bootstrap-node

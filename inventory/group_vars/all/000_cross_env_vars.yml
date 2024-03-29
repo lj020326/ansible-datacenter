@@ -1,4 +1,40 @@
 ---
+
+############
+## DNS related vars
+############
+dns_domain: "{{ internal_domain }}"
+dns_search_domains:
+  - johnson.int
+  - dettonville.int
+
+dns_nameservers:
+  - "{{ gateway_ipv4 }}"
+
+#############
+## machine ip
+#############
+apply_common_groups__dns_servers: "{{ dns_nameservers }}"
+dc_dns_servers: "{{ dns_nameservers }}"
+
+## ref: https://ansible-collections.github.io/community.dns/branch/main/lookup_lookup.html
+dc_machine_dns_ipv4: "{{ 
+  query('community.dns.lookup', 
+        inventory_hostname, 
+        server=dc_dns_servers,
+        nxdomain_handling='empty') | first }}"
+
+dc_machine_address_list_ipv4: "{{
+    ansible_facts.all_ipv4_addresses
+    | d(ansible_facts|json_query('interfaces[*].ipv4.address'))
+    | d([]) | unique }}"
+
+##dc_machine_ipv4_default: "{{ ansible_default_ipv4.address|d(ansible_all_ipv4_addresses | first }}"
+dc_machine_ipv4: "{{ ansible_default_ipv4.address 
+  | d(dc_machine_dns_ipv4) | d(dc_machine_address_list_ipv4 | first) }}"
+dc_machine_ip: "{{ dc_machine_ipv4 }}"
+
+
 ############
 ## Ansible vars
 ############
@@ -9,6 +45,11 @@ host_key_checking: no
 ansible_user: "ansible"
 ansible_ssh_user: "{{ ansible_user }}"
 #ansible_debug_mode: yes
+
+############
+## common vars
+############
+
 bootstrap_user: "{{ ansible_user }}"
 
 nfs_primary_host: diskstation01.johnson.int
@@ -139,17 +180,6 @@ gateway_ipv4_net_cidr: 8
 gateway_ipv4_network_cidr: "{{ gateway_ipv4_subnet }}/{{ gateway_ipv4_net_cidr }}"
 #gateway_ipv4_netmask: "255.0.0.0"
 gateway_ipv4_netmask: "{{ gateway_ipv4_network_cidr | ansible.utils.ipaddr('netmask') }}"
-
-############
-## DNS related vars
-############
-dns_domain: "{{ internal_domain }}"
-dns_search_domains:
-  - johnson.int
-  - dettonville.int
-
-dns_nameservers:
-  - "{{ gateway_ipv4 }}"
 
 ############
 ## LDAP host vars
