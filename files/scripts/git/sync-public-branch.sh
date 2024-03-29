@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 GIT_DEFAULT_BRANCH=main
+GIT_PUBLIC_BRANCH=public
 
 ## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
 # exit when any command fails
@@ -26,11 +27,29 @@ SCRIPT_DIR="$(dirname "$0")"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 #PROJECT_DIR=$(git rev-parse --show-toplevel)
 
+MIRROR_DIR_LIST="
+.github
+.jenkins
+collections
+docs
+files
+filter_plugins
+inventory
+library
+molecule
+playbooks
+roles
+scripts
+tests
+vars
+"
+
 PUBLIC_GITIGNORE=files/git/pub.gitignore
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a PRIVATE_CONTENT_ARRAY
 PRIVATE_CONTENT_ARRAY+=('**/private/***')
+PRIVATE_CONTENT_ARRAY+=('**/vault/***')
 PRIVATE_CONTENT_ARRAY+=('**/save/***')
 PRIVATE_CONTENT_ARRAY+=('**/vault.yml')
 PRIVATE_CONTENT_ARRAY+=('**/*vault.yml')
@@ -78,111 +97,170 @@ RSYNC_OPTS_GIT_UPDATE=(
     --links
 )
 
-git fetch --all
-git checkout ${GIT_DEFAULT_BRANCH}
+function search_repo_keywords () {
+  local LOG_PREFIX="==> search_repo_keywords():"
 
-#RSYNC_OPTS=${RSYNC_OPTS_GIT_MIRROR[@]}
+  local REPO_EXCLUDE_DIR_LIST=(".git")
+  REPO_EXCLUDE_DIR_LIST+=(".idea")
+  REPO_EXCLUDE_DIR_LIST+=("venv")
+  REPO_EXCLUDE_DIR_LIST+=("private")
+  REPO_EXCLUDE_DIR_LIST+=("save")
 
-echo "copy project to temporary dir $TMP_DIR"
-#rsync_cmd="rsync ${RSYNC_OPTS} ${PROJECT_DIR}/ ${TMP_DIR}/"
-rsync_cmd="rsync ${RSYNC_OPTS_GIT_MIRROR[@]} ${PROJECT_DIR}/ ${TMP_DIR}/"
-echo "${rsync_cmd}"
-eval $rsync_cmd
-
-echo "Checkout public branch"
-git checkout public
-
-if [ $GIT_REMOVE_CACHED_FILES -eq 1 ]; then
-  echo "Removing files cached in git"
-  git rm -r --cached .
-fi
-
-#echo "Removing existing non-dot files for clean sync"
-#rm -fr *
-
-echo "Copy ${TMP_DIR} to project dir $PROJECT_DIR"
-#echo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
-rsync_cmd="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
-echo "${rsync_cmd}"
-eval $rsync_cmd
-
-mirrorDirList="
-.github
-.jenkins
-collections
-docs
-files
-filter_plugins
-inventory
-library
-molecule
-playbooks
-roles
-scripts
-tests
-vars
-"
-
-IFS=$'\n'
-for dir in ${mirrorDirList}
-do
-  echo "Mirror ${TMP_DIR}/${dir}/ to project dir $PROJECT_DIR/${dir}/"
-  rsync_cmd="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} --delete --update --exclude=save ${TMP_DIR}/${dir}/ ${PROJECT_DIR}/${dir}/"
-  echo "${rsync_cmd}"
-  eval $rsync_cmd
-done
-
-printf -v TO_REMOVE '%s ' "${PRIVATE_CONTENT_ARRAY[@]}"
-TO_REMOVE="${TO_REMOVE% }"
-echo "TO_REMOVE=${TO_REMOVE}"
-cleanupPvt="rm -fr ${TO_REMOVE}"
-echo "${cleanupPvt}"
-eval $cleanupPvt
-
-if [ -e $PUBLIC_GITIGNORE ]; then
-  echo "Update public files:"
-  cp -p $PUBLIC_GITIGNORE .gitignore
-fi
-
-echo "Show changes before push:"
-git status
-
-## https://stackoverflow.com/questions/5989592/git-cannot-checkout-branch-error-pathspec-did-not-match-any-files-kn
-## git diff --name-only public ${GIT_DEFAULT_BRANCH} --
-
-if [ $CONFIRM -eq 0 ]; then
-  ## https://www.shellhacks.com/yes-no-bash-script-prompt-confirmation/
-  read -p "Are you sure you want to merge the changes above to public branch ${TARGET_BRANCH}? " -n 1 -r
-  echo    # (optional) move to a new line
-  if [[ ! $REPLY =~ ^[Yy]$ ]]
-  then
-      exit 1
+  #export -p | sed 's/declare -x //' | sed 's/export //'
+  if [ -z ${REPO_EXCLUDE_KEYWORDS+x} ]; then
+    echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS not set/defined"
+    exit 1
   fi
-fi
 
-## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
-echo "Add all the files:"
-LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
-REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
-IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
-echo "Staging changes:" && \
-git add -A || true && \
-echo "Committing changes:" && \
-git commit -am "group updates to public branch" || true && \
-echo "Pushing branch '${LOCAL_BRANCH}' to remote origin branch '${LOCAL_BRANCH}':" && \
-git push -f origin ${LOCAL_BRANCH} || true && \
-echo "Pushing branch '${LOCAL_BRANCH}' to remote '${REMOTE}' branch '${REMOTE_BRANCH}':" && \
-git push -f -u ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH} || true && \
-echo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:" && \
-git checkout ${GIT_DEFAULT_BRANCH}
+  echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS=${REPO_EXCLUDE_KEYWORDS}"
 
-echo "chmod project admin/maintenance scripts"
-chmod +x inventory/*.sh
-chmod +x files/scripts/git/*.sh
+  IFS=',' read -ra REPO_EXCLUDE_KEYWORDS_ARRAY <<< "$REPO_EXCLUDE_KEYWORDS"
 
-echo "creating links for useful project scripts"
-cd ${PROJECT_DIR}
-chmod +x ./files/scripts/git/*.sh
-ln -sf ./files/scripts/git/stash-*.sh ./
-ln -sf ./files/scripts/git/sync-*.sh ./
-ln -sf ./inventory/*.sh ./
+  echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS_ARRAY=${REPO_EXCLUDE_KEYWORDS_ARRAY[*]}"
+
+  # ref: https://superuser.com/questions/1371834/escaping-hyphens-with-printf-in-bash
+  #'-e' ==> '\055e'
+  GREP_DELIM=' \055e '
+  printf -v GREP_PATTERN_SEARCH "${GREP_DELIM}%s" "${REPO_EXCLUDE_KEYWORDS_ARRAY[@]}"
+
+  ## strip prefix
+  GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH#"$GREP_DELIM"}
+  ## strip suffix
+  #GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH%"$GREP_DELIM"}
+
+  echo "${LOG_PREFIX} GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH}"
+
+  GREP_COMMAND="grep ${GREP_PATTERN_SEARCH}"
+  echo "${LOG_PREFIX} GREP_COMMAND=${GREP_COMMAND}"
+
+  local FIND_DELIM=' -o '
+#  printf -v FIND_EXCLUDE_DIRS "\055path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
+  printf -v FIND_EXCLUDE_DIRS "! -path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
+  FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS%$FIND_DELIM}
+
+  echo "${LOG_PREFIX} FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS}"
+
+  ## ref: https://stackoverflow.com/questions/6565471/how-can-i-exclude-directories-from-grep-r#8692318
+  ## ref: https://unix.stackexchange.com/questions/342008/find-and-echo-file-names-only-with-pattern-found
+#  FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null \;"
+  FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null +"
+  echo "${LOG_PREFIX} ${FIND_CMD}"
+
+  EXCEPTION_COUNT=$(eval "${FIND_CMD} | wc -l")
+  if [[ $EXCEPTION_COUNT -eq 0 ]]; then
+    echo "${LOG_PREFIX} SUCCESS => No exclusion keyword matches found!!"
+  else
+    echo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] exclusion keyword matches found:"
+    eval "${FIND_CMD}"
+    exit 1
+  fi
+  return "${EXCEPTION_COUNT}"
+}
+
+function main() {
+
+  search_repo_keywords
+  eval search_repo_keywords
+  local RETURN_STATUS=$?
+  if [[ $RETURN_STATUS -eq 0 ]]; then
+    echo "${LOG_PREFIX} search_repo_keywords: SUCCESS"
+  else
+    echo "${LOG_PREFIX} search_repo_keywords: FAILED"
+    exit ${RETURN_STATUS}
+  fi
+
+  git fetch --all
+  git checkout ${GIT_DEFAULT_BRANCH}
+  
+  #RSYNC_OPTS=${RSYNC_OPTS_GIT_MIRROR[@]}
+  
+  echo "copy project to temporary dir $TMP_DIR"
+  #local RSYNC_CMD="rsync ${RSYNC_OPTS} ${PROJECT_DIR}/ ${TMP_DIR}/"
+  local RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_MIRROR[@]} ${PROJECT_DIR}/ ${TMP_DIR}/"
+  echo "${RSYNC_CMD}"
+  eval $RSYNC_CMD
+  
+  echo "Checkout public branch"
+  git checkout ${GIT_PUBLIC_BRANCH}
+  
+  if [ $GIT_REMOVE_CACHED_FILES -eq 1 ]; then
+    echo "Removing files cached in git"
+    git rm -r --cached .
+  fi
+  
+  #echo "Removing existing non-dot files for clean sync"
+  #rm -fr *
+  
+  echo "Copy ${TMP_DIR} to project dir $PROJECT_DIR"
+  #echo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
+  RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
+  echo "${RSYNC_CMD}"
+  eval ${RSYNC_CMD}
+  
+  IFS=$'\n'
+  for dir in ${MIRROR_DIR_LIST}
+  do
+    echo "Mirror ${TMP_DIR}/${dir}/ to project dir $PROJECT_DIR/${dir}/"
+    RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} --delete --update --exclude=save ${TMP_DIR}/${dir}/ ${PROJECT_DIR}/${dir}/"
+    echo "${RSYNC_CMD}"
+    eval ${RSYNC_CMD}
+  done
+  
+  printf -v TO_REMOVE '%s ' "${PRIVATE_CONTENT_ARRAY[@]}"
+  TO_REMOVE="${TO_REMOVE% }"
+  echo "TO_REMOVE=${TO_REMOVE}"
+  CLEANUP_CMD="rm -fr ${TO_REMOVE}"
+  echo "${CLEANUP_CMD}"
+  eval ${CLEANUP_CMD}
+  
+  if [ -e $PUBLIC_GITIGNORE ]; then
+    echo "Update public files:"
+    cp -p $PUBLIC_GITIGNORE .gitignore
+  fi
+  
+  echo "Show changes before push:"
+  git status
+  
+  ## https://stackoverflow.com/questions/5989592/git-cannot-checkout-branch-error-pathspec-did-not-match-any-files-kn
+  ## git diff --name-only public ${GIT_DEFAULT_BRANCH} --
+  
+  if [ $CONFIRM -eq 0 ]; then
+    ## https://www.shellhacks.com/yes-no-bash-script-prompt-confirmation/
+    read -p "Are you sure you want to merge the changes above to public branch ${TARGET_BRANCH}? " -n 1 -r
+    echo    # (optional) move to a new line
+    if [[ ! $REPLY =~ ^[Yy]$ ]]
+    then
+        exit 1
+    fi
+  fi
+  
+  ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
+  echo "Add all the files:"
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  echo "Staging changes:" && \
+  git add -A || true && \
+  echo "Committing changes:" && \
+  git commit -am "group updates to public branch" || true && \
+  echo "Pushing branch '${LOCAL_BRANCH}' to remote origin branch '${LOCAL_BRANCH}':" && \
+  git push -f origin ${LOCAL_BRANCH} || true && \
+  echo "Pushing branch '${LOCAL_BRANCH}' to remote '${REMOTE}' branch '${REMOTE_BRANCH}':" && \
+  git push -f -u ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH} || true && \
+  echo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:" && \
+  git checkout ${GIT_DEFAULT_BRANCH}
+  
+  echo "chmod project admin/maintenance scripts"
+  chmod +x inventory/*.sh
+  chmod +x files/scripts/*.sh
+  chmod +x files/scripts/git/*.sh
+  
+  echo "creating links for useful project scripts"
+  cd ${PROJECT_DIR}
+  chmod +x ./files/scripts/git/*.sh
+  ln -sf ./files/scripts/git/stash-*.sh ./
+  ln -sf ./files/scripts/git/sync-*.sh ./
+  ln -sf ./inventory/*.sh ./
+}
+
+main "$@"
