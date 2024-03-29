@@ -1,12 +1,5 @@
 ---
 
-- name: "Display role input vars"
-  ansible.builtin.debug:
-    var: "{{ item }}"
-  loop:
-    - docker_stack__firewalld_enabled
-    - ansible_python_interpreter
-
 - name: "Setup role facts"
   ansible.builtin.include_tasks: init-vars.yml
 
@@ -21,6 +14,15 @@
 - name: "Display docker_stack__action"
   ansible.builtin.debug:
     var: docker_stack__action
+
+- name: "Setup app PRE-SETUP configs defined in tasks/apps/[__container_service_name]/pre-setup.yml"
+  when:
+    - docker_stack__action == 'setup'
+    - (role_path + '/tasks/apps/' + __container_service_name + '/pre-setup.yml') is file
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ __container_service_name }}/pre-setup.yml"
+  loop: "{{ __docker_stack__app_services }}"
+  loop_control:
+    loop_var: __container_service_name
 
 - name: "Setup docker app dirs and configs"
   when: docker_stack__action == 'setup'

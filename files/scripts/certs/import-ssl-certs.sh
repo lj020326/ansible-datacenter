@@ -7,4 +7,4 @@ SITE_LIST+=("updates.jenkins.io:443")
 SITE_LIST+=("get.jenkins.io:443")
 SITE_LIST+=("archives.jenkins.io:443")
 
-install-cacerts.sh "${SITE_LIST[*]}"
+install-cacerts.sh "$@" ${SITE_LIST[@]}

@@ -1,43 +1,43 @@
-#!/usr/bin/env python
-##!/usr/bin/env python
+#!/usr/bin/env python3
 
-import subprocess
-import dns.resolver, dns.exception
-
-import ipaddress
-import socket
-import ssl
-
-import sys
 import datetime
-
+import ipaddress
 import json
 import os
+import socket
+import subprocess
+import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from loguru import logger
-import questionary
-
-#import requests
-from requests import Response, Session
 import click
+import dns.exception
+import dns.resolver
+import questionary
+from loguru import logger
+from pydantic import BaseModel, Field, field_validator
 
-from pydantic import BaseModel, Field, validator
-from typing import Any, Dict, List, Optional, Union
+# import requests
+from requests import Response, Session
 
+import urllib3
+
+urllib3.disable_warnings()
+
+# global constants
+LOG_FILE_RETENTION = 3
+VERSION = "2024.3.1"
+NAME = "pfsense_api_client"
 
 LOGGER_FORMAT = '<level>{message}</level>'
 
 ##################
-## This api client assumes that the pfsense api has been installed on the endpoint
-## ref: https://github.com/jaredhendrickson13/pfsense-api
+# This api client assumes that the pfsense api has been installed on the endpoint
+# ref: https://github.com/jaredhendrickson13/pfsense-api
 
 # See examples here:
 # https://github.com/MikeWooster/api-client
 # ref: https://github.com/MikeWooster/api-client/blob/master/README.md#extended-example
-
-from copy import deepcopy
-from typing import TYPE_CHECKING, Callable
 
 from apiclient import (
     APIClient,
@@ -45,6 +45,8 @@ from apiclient import (
     JsonResponseHandler,
     JsonRequestFormatter,
 )
+
+
 # from apiclient.exceptions import APIClientError
 # from apiclient.request_formatters import BaseRequestFormatter, NoOpRequestFormatter
 # from apiclient.response_handlers import BaseResponseHandler, RequestsResponseHandler
@@ -69,14 +71,14 @@ class PFSenseConfig(BaseModel):
     ```
     """
 
-    username: Optional[str]
-    password: Optional[str]
+    username: Optional[str] = None
+    password: Optional[str] = None
     port: int = 443
     hostname: str
     mode: str = "local"
-    jwt: Optional[str]
-    client_id: Optional[str]
-    client_token: Optional[str]
+    jwt: Optional[str] = None
+    client_id: Optional[str] = None
+    client_token: Optional[str] = None
     # verify: bool = True
     verify: bool = False
     # verify: Optional[bool]
@@ -93,7 +95,7 @@ class APIResponse(BaseModel):
     message: str
     data: Any
 
-    @validator("code")
+    @field_validator("code")
     def validate_code(cls, value: int) -> int:
         """validates it's an integer in the expected list"""
         if value not in [200, 400, 401, 403, 404, 500]:
@@ -119,6 +121,7 @@ class DNSresponse:
     response_full - full DNS response raw
     answer - DNS answer to the query
     """
+
     def __init__(self, response_full=[], answer=[]):
         self.response_full = response_full
         self.answer = answer
@@ -127,13 +130,15 @@ class DNSresponse:
 # ref: https://github.com/wesinator/pynslookup/blob/master/nslookup/nslookup.py
 class Nslookup:
     """Object for initializing DNS resolver, with optional specific DNS servers"""
+
     def __init__(self, dns_servers=[], verbose=True, tcp=False):
         self.dns_resolver = dns.resolver.Resolver()
         self.verbose = verbose
 
         if tcp:
             print("Warning: using TCP mode with multiple requests will open a new session for each request.\n\
-For large number of requests or iterative requests, it may be better to use the granular dnspython dns.query API.", file=sys.stderr)
+For large number of requests or iterative requests, it may be better to use the granular dnspython dns.query API.",
+                  file=sys.stderr)
         self.tcp = tcp
 
         if dns_servers:
@@ -159,7 +164,7 @@ For large number of requests or iterative requests, it may be better to use the 
                 print("Error: DNS exception occurred looking up '{}':".format(domain), e, file=sys.stderr)
 
     def dns_host_lookup(self, domain, record_type, include_cname=False):
-        if record_type in ['A','AAAA']:
+        if record_type in ['A', 'AAAA']:
             dns_answer = self.base_lookup(domain, record_type)
             if dns_answer:
                 dns_response = [answer.to_text() for answer in dns_answer.response.answer]
@@ -181,7 +186,7 @@ For large number of requests or iterative requests, it may be better to use the 
     def dns_lookup_all(self, domain, include_cname=False):
         resp_a = self.dns_lookup(domain, include_cname)
         resp_aaaa = self.dns_lookup6(domain, include_cname)
-        return DNSresponse([*resp_a.response_full,*resp_aaaa.response_full], [*resp_a.answer,*resp_aaaa.answer])
+        return DNSresponse([*resp_a.response_full, *resp_aaaa.response_full], [*resp_a.answer, *resp_aaaa.answer])
 
     def soa_lookup(self, domain):
         soa_answer = self.base_lookup(domain, "SOA")
@@ -217,15 +222,15 @@ class PFSenseAPIClient:
     """ Base """
 
     def __init__(
-        self,
-        config_filename: Optional[str] = None
+            self,
+            config_filename: Optional[str] = None
     ):
 
         if config_filename:
             self.config_filename = Path(os.path.expanduser(config_filename))
             self.config = self.load_config()
 
-        logger.info("self.config=%s" % self.config)
+        logger.debug("self.config=%s" % self.config)
         self.requests_session = Session()
         self.requests_session.verify = self.config.verify
         # self.requests_session.verify = False
@@ -303,27 +308,27 @@ class PFSenseAPIClient:
         # self.port = pfsense_config.port
         # self.mode = pfsense_config.mode or "local"
         # logger.info("config=%s" % config)
-        print("self.config=%s" % self.config)
+        # print("self.config=%s" % self.config)
 
         return pfsense_config
 
     def call(
-        self,
-        url: str,
-        method: str = "GET",
-        payload: Optional[Any] = None,
-        params: Optional[Any] = None,
-        **kwargs: Dict[str, Any],
+            self,
+            url: str,
+            method: str = "GET",
+            payload: Optional[Any] = None,
+            params: Optional[Any] = None,
+            **kwargs: Dict[str, Any],
     ) -> Response:
         """mocking type for mypy inheritance"""
         if url.startswith("/"):
             url = f"{self.baseurl}{url}"
 
-        logger.info("url[final]=%s" % url)
-        logger.info("method=%s" % method)
-        logger.info("payload=%s" % payload)
-        logger.info("params=%s" % params)
-        # logger.info("kwargs[0]=%s" % kwargs)
+        logger.debug("url[final]=%s" % url)
+        logger.debug("method=%s" % method)
+        logger.debug("payload=%s" % payload)
+        logger.debug("params=%s" % params)
+        # logger.debug("kwargs[0]=%s" % kwargs)
 
         # if payload is not None and method == "GET":
         if payload is not None and payload != {}:
@@ -354,7 +359,7 @@ class PFSenseAPIClient:
         # if params is not None and params != {}:
         #     kwargs["params"] = params
 
-        logger.info("kwargs=%s" % kwargs)
+        logger.debug("kwargs=%s" % kwargs)
 
         if method == 'GET':
             return self.api_client_json.get(url, **kwargs)
@@ -371,21 +376,22 @@ class PFSenseAPIClient:
         #     )
 
     def call_api_dict(
-        self,
-        url: str,
-        method: str = "GET",
-        payload: Optional[Dict[str, Any]] = None,
+            self,
+            url: str,
+            method: str = "GET",
+            payload: Optional[Dict[str, Any]] = None,
     ) -> APIResponse:
         """makes a call, returns the JSON blob as a dict"""
         response = self.call(url, method, payload)
         # print("response=%s" % response)
-        return APIResponse.parse_obj(response)
+        # return APIResponse.parse_obj(response)
+        return APIResponse.model_validate(response)
 
     def call_json(
-        self,
-        url: str,
-        method: str = "GET",
-        payload: Optional[Dict[str, Any]] = None,
+            self,
+            url: str,
+            method: str = "GET",
+            payload: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """makes a call, returns the JSON blob as a dict"""
         response = self.call(url, method, payload)
@@ -394,7 +400,7 @@ class PFSenseAPIClient:
         return result
 
     def get_gateway_status(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-gateway-status"""
         url = Urls.gateways
@@ -402,7 +408,7 @@ class PFSenseAPIClient:
         # return self.call(url, payload=filterargs)
 
     def get_interface_status(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-interface-status"""
         url = Urls.interfaces
@@ -410,7 +416,7 @@ class PFSenseAPIClient:
         # return self.call(url, payload=filterargs)
 
     def get_service_unbound_access_list(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-interface-status"""
         url = Urls.services_unbound_access_list
@@ -418,7 +424,7 @@ class PFSenseAPIClient:
         # return self.call(url, payload=filterargs)
 
     def __get_service_unbound_host_overrides(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-interface-status"""
         url = Urls.services_unbound_host_override
@@ -426,8 +432,8 @@ class PFSenseAPIClient:
         # return self.call(url, payload=filterargs)
 
     def get_configuration_history_status_log(
-        self,
-        **filterargs: Dict[str, Any],
+            self,
+            **filterargs: Dict[str, Any],
     ) -> APIResponse:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-configuration-history-status-log"""
         url = Urls.config_history_log
@@ -435,39 +441,40 @@ class PFSenseAPIClient:
         # return self.call(url, payload=filterargs)
 
     def get_dhcp_status_log(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#2-read-dhcp-status-log"""
         url = Urls.dhcp_log
         return self.call_api_dict(url, payload=filterargs)
 
     def get_firewall_status_log(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> Response:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#3-read-firewall-status-log"""
         url = Urls.firewall
         return self.call(url, payload=filterargs)
 
     def get_system_status_log(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> Response:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#4-read-system-status-log"""
         url = Urls.system_log
         return self.call(url, payload=filterargs)
 
     def get_openvpn_status(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> Response:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-openvpn-status"""
         url = Urls.openvpn_status
         return self.call(url, payload=filterargs)
 
     def get_system_status(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponseDict:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-system-status"""
         url = Urls.system_status
-        result = APIResponseDict.parse_obj(self.call_json(url, payload=filterargs))
+        # result = APIResponseDict.parse_obj(self.call_json(url, payload=filterargs))
+        result = APIResponseDict.model_validate(self.call_json(url, payload=filterargs))
         return result
 
     def get_system_api_version(self) -> APIResponse:
@@ -479,20 +486,20 @@ class PFSenseAPIClient:
         return self.call_api_dict(url)
 
     def get_dhcpd_leases(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         """https://github.com/jaredhendrickson13/pfsense-api/blob/master/README.md#1-read-dhcpd-leases"""
         url = Urls.services_dhcp_leases
         return self.call_api_dict(url, payload=filterargs)
 
     def add_service_unbound_host_override(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         url = Urls.services_unbound_host_override
         return self.call_api_dict(url, method="POST", payload=filterargs)
 
     def delete_service_unbound_host_override(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> APIResponse:
         # url = Urls.services_unbound_host_override_delete.format(id=id, apply=apply)
         url = Urls.services_unbound_host_override
@@ -501,8 +508,8 @@ class PFSenseAPIClient:
     @staticmethod
     def dig_host_ip_list(
             hostname: str,
-        dns_nameserver: str,
-        debug: bool = False,
+            dns_nameserver: str,
+            debug: bool = False,
     ) -> List[str]:
         dig_command = "dig +short %s @%s | grep '^[.0-9]*$'" % (hostname, dns_nameserver)
         if debug:
@@ -512,14 +519,14 @@ class PFSenseAPIClient:
                            text=True,
                            shell=True)
         if a.stderr:
-            logger.info("dig error [%s]" % a.stderr)
+            logger.error("dig error [%s]" % a.stderr)
             return None
         else:
             sortie = a.stdout
             response = str(sortie).split(':')
             # print("response=%s" % response)
             host_list = response[0].strip().split('\n')
-            logger.info("host_list=%s" % host_list)
+            logger.debug("host_list=%s" % host_list)
             return host_list
 
     def dns_resolve_host_ip_list(
@@ -568,22 +575,22 @@ class PFSenseAPIClient:
         return host_ip_list
 
     def get_service_unbound_host_overrides(
-        self, **filterargs: Dict[str, Any]
+            self, **filterargs: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         service_unbound_host_override_info = self.__get_service_unbound_host_overrides()
 
         host_override_data: List[Dict[str, str]] = service_unbound_host_override_info.data
         host_override_list = []
         for key, host_override in enumerate(host_override_data):
-            host_override_with_id = host_override | dict(id = key)
+            host_override_with_id = host_override | dict(id=key)
             host_override_list.append(host_override_with_id)
 
         return host_override_list
 
     def get_service_unbound_host_overrides_by_hostname(
-        self,
-        hostname: str,
-        debug: bool = False,
+            self,
+            hostname: str,
+            debug: bool = False,
     ) -> List[Dict[str, Any]]:
         (host, domain) = hostname.split('.', 1)
         host_override_data: List[Dict[str, str]] = self.get_service_unbound_host_overrides()
@@ -611,7 +618,7 @@ class PFSenseAPIClient:
             debug: bool = False,
     ) -> List[Dict[str, str]]:
 
-        logger.info("deleting host override id {}", id)
+        logger.debug("deleting host override id {}", id)
         host_override_delete = {
             'id': id,
             'apply': apply
@@ -625,7 +632,7 @@ class PFSenseAPIClient:
         host_override_result = self.delete_service_unbound_host_override(**kwargs)
         host_override_result_data: List[Dict[str, str]] = host_override_result.data
 
-        logger.info(host_override_result_data)
+        logger.debug(host_override_result_data)
         return host_override_result_data
 
     def delete_service_unbound_host_override_by_hostname(
@@ -648,10 +655,19 @@ class PFSenseAPIClient:
                 apply=apply,
                 debug=debug)
 
+
 def get_client() -> PFSenseAPIClient:
     """ client factory """
-    logger.remove()
-    logger.add(format=LOGGER_FORMAT, sink=sys.stdout)
+
+    # ref: https://betterstack.com/community/guides/logging/loguru/
+    # logger.remove()
+    # logger.add(format=LOGGER_FORMAT,
+    #            sink=sys.stdout,
+    #            level="INFO")
+
+    # ref: https://github.com/Delgan/loguru/issues/138#issuecomment-1740069619
+    logger.configure(handlers=[{"sink": sys.stdout, "level": "INFO"}])
+
     client = PFSenseAPIClient(
         config_filename="~/.config/pfsense-api.json"
     )
@@ -659,8 +675,27 @@ def get_client() -> PFSenseAPIClient:
 
 
 @click.group()
+@click.version_option(version=VERSION, prog_name=NAME)
 def cli():
     """ CLI for pFsense """
+
+
+@cli.command()
+def set_loglevel(
+        logLevel: str
+):
+    """ Sets the Log Level
+
+    LOGLEVEL   : log level to set [debug, info, warn, error]
+    """
+
+    # ref: https://github.com/Delgan/loguru/issues/138#issuecomment-1740069619
+    logger.configure(handlers=[{"sink": sys.stdout, "level": logLevel}])
+    # """Log at different severity levels."""
+    # logger.debug("debug message")
+    # logger.info("info message")
+    # logger.warning("warning message")
+    # logger.error("error message")
 
 
 @cli.command()
@@ -668,9 +703,9 @@ def cli():
 @click.option("--expired", "-e", is_flag=True, default=False, help="Includes expired leases, off by default.")
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def list_leases(
-    find: Optional[str]=None,
-    expired: bool=False,
-    debug: bool=False,
+        find: Optional[str] = None,
+        expired: bool = False,
+        debug: bool = False,
 ) -> None:
     """ lists DHCP leases """
     client = get_client()
@@ -691,7 +726,7 @@ def list_leases(
         if not lease["online"]:
             logger.debug(lease_message)
         else:
-            logger.info(lease_message)
+            logger.debug(lease_message)
         if debug:
             logger.debug(lease)
 
@@ -699,7 +734,7 @@ def list_leases(
 @cli.command()
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def get_system_api_version(
-    debug: bool=False,
+        debug: bool = False,
 ) -> None:
     """ lists system api version """
     client = get_client()
@@ -715,7 +750,7 @@ def get_system_api_version(
 @cli.command()
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def get_system_status(
-    debug: bool=False,
+        debug: bool = False,
 ) -> None:
     """ lists system status """
     client = get_client()
@@ -731,7 +766,7 @@ def get_system_status(
 @cli.command()
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def get_gateway_status(
-    debug: bool=False,
+        debug: bool = False,
 ) -> None:
     """ lists gateway leases """
     client = get_client()
@@ -747,7 +782,7 @@ def get_gateway_status(
 @cli.command()
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def get_interface_status(
-    debug: bool=False,
+        debug: bool = False,
 ) -> None:
     """ lists interface status """
     client = get_client()
@@ -762,7 +797,7 @@ def get_interface_status(
 @cli.command()
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def get_service_unbound_access_list(
-    debug: bool=False,
+        debug: bool = False,
 ) -> None:
     """ lists service_unbound_access_list """
     client = get_client()
@@ -779,8 +814,8 @@ def get_service_unbound_access_list(
 @click.option("--find", "-f", help="Does a wildcard match based on this")
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def get_service_unbound_host_overrides(
-    find: Optional[str]=None,
-    debug: bool=False,
+        find: Optional[str] = None,
+        debug: bool = False,
 ) -> None:
     """ lists service_unbound_host_override """
     client = get_client()
@@ -797,7 +832,7 @@ def get_service_unbound_host_overrides(
             if find not in str(host_override.values()):
                 continue
 
-        linebreak = '='*100
+        linebreak = '=' * 100
         host_override_message = f"{linebreak}"
         host_name = '*'
         if host_override["host"]:
@@ -824,8 +859,8 @@ def get_service_unbound_host_overrides(
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 @click.argument('hostname')
 def get_service_unbound_host_overrides_by_hostname(
-    hostname: str,
-    debug: bool = False,
+        hostname: str,
+        debug: bool = False,
 ) -> None:
     """ lists service_unbound_host_override """
     client = get_client()
@@ -837,7 +872,7 @@ def get_service_unbound_host_overrides_by_hostname(
         if debug:
             logger.debug("host_override=%s" % host_override)
 
-        linebreak = '='*100
+        linebreak = '=' * 100
         host_override_message = f"{linebreak}"
         host_name = '*'
         host_override_id = host_override['id']
@@ -865,8 +900,8 @@ def get_service_unbound_host_overrides_by_hostname(
 @click.option("--find", "-f", help="Does a wildcard match based on this")
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def get_configuration_history_status_log(
-    find: Optional[str]=None,
-    debug: bool=False,
+        find: Optional[str] = None,
+        debug: bool = False,
 ) -> None:
     """ lists configuration history status log """
     client = get_client()
@@ -883,9 +918,9 @@ def get_configuration_history_status_log(
             if find not in str(log_item.values()):
                 continue
 
-        ## ref: https://stackoverflow.com/questions/9744775/how-to-convert-integer-timestamp-into-a-datetime
+        # ref: https://stackoverflow.com/questions/9744775/how-to-convert-integer-timestamp-into-a-datetime
         log_time = datetime.datetime.fromtimestamp(log_item['time'] / 1e3)
-        ## ref: https://stackoverflow.com/questions/3961581/in-python-how-to-display-current-time-in-readable-format
+        # ref: https://stackoverflow.com/questions/3961581/in-python-how-to-display-current-time-in-readable-format
         log_time_string = log_time.strftime("%Y-%m-%d %H:%M:%S")
 
         log_item_message = f"{log_time_string}"
@@ -901,10 +936,10 @@ def get_configuration_history_status_log(
 @click.option("--ip", "-i", help="Delete by IP Address")
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 def delete_lease(
-    mac: Optional[str] = None,
-    hostname: Optional[str] = None,
-    ip: Optional[str] = None,
-    debug: bool = False,
+        mac: Optional[str] = None,
+        hostname: Optional[str] = None,
+        ip: Optional[str] = None,
+        debug: bool = False,
 ) -> None:
     """ Delete a DHCP lease, not actually supported by the pFsense API yet... https://github.com/jaredhendrickson13/pfsense-api/issues/212 """
     client = get_client()
@@ -958,12 +993,12 @@ def delete_lease(
 @click.argument('domain')
 @click.argument('ip')
 def add_service_unbound_host_override(
-    host: str,
-    domain: str,
-    ip: str,
-    overwrite: bool,
-    apply: bool,
-    debug: bool = False,
+        host: str,
+        domain: str,
+        ip: str,
+        overwrite: bool,
+        apply: bool,
+        debug: bool = False,
 ) -> None:
     """ Add Unbound Host Override
 
@@ -1030,11 +1065,11 @@ def add_service_unbound_host_override(
 @click.argument('domain')
 @click.argument('ip')
 def delete_service_unbound_host_override(
-    host: str,
-    domain: str,
-    ip: str,
-    apply: bool,
-    debug: bool = False,
+        host: str,
+        domain: str,
+        ip: str,
+        apply: bool,
+        debug: bool = False,
 ) -> None:
     """ Delete Unbound Host Override
 
@@ -1065,7 +1100,7 @@ def delete_service_unbound_host_override(
         logger.warning("Target:")
         logger.info("{:10} {}", host_override_id, host_override)
         if questionary.confirm("Please confirm deletion: ").ask():
-            logger.info("deleting item {}", host_override)
+            logger.debug("deleting item {}", host_override)
             host_override_result_data: List[Dict[str, str]] = client.delete_service_unbound_host_override_by_id(
                 id=host_override_id,
                 apply=apply,
@@ -1094,9 +1129,9 @@ def delete_service_unbound_host_override(
 @click.option("--debug", "-d", is_flag=True, default=False, help="Debug mode, dump more data.")
 @click.argument('hostname')
 def delete_service_unbound_host_overrides_by_hostname(
-    hostname: str,
-    apply: bool,
-    debug: bool = False,
+        hostname: str,
+        apply: bool,
+        debug: bool = False,
 ) -> None:
     """ Delete Unbound Host Overrides by hostname
 
@@ -1114,7 +1149,7 @@ def delete_service_unbound_host_overrides_by_hostname(
         logger.warning("Target:")
         logger.info("{:10} {}", host_override_id, host_override)
         if questionary.confirm("Please confirm deletion: ").ask():
-            logger.info("deleting item {}", host_override)
+            logger.debug("deleting item {}", host_override)
             host_override_result_data: List[Dict[str, str]] = client.delete_service_unbound_host_override_by_id(
                 id=host_override_id,
                 apply=apply,
@@ -1129,8 +1164,8 @@ def delete_service_unbound_host_overrides_by_hostname(
 @click.argument('hostname')
 @click.argument('dns_nameserver')
 def dig_host_ip_list(
-    hostname: str,
-    dns_nameserver: str,
+        hostname: str,
+        dns_nameserver: str,
 ) -> None:
     """ Perform dig for hostname using specified dns nameserver
 
@@ -1140,7 +1175,7 @@ def dig_host_ip_list(
     client = get_client()
     host_list: List[str] = client.dig_host_ip_list(hostname=hostname, dns_nameserver=dns_nameserver)
 
-    logger.info("host_list=%s" % host_list)
+    logger.debug("host_list=%s" % host_list)
 
 
 # pylint: disable=too-many-branches,invalid-name
@@ -1149,9 +1184,9 @@ def dig_host_ip_list(
 @click.argument('hostname')
 @click.argument('dns_nameservers')
 def dns_resolve_host_ip_list(
-    hostname: str,
-    dns_nameservers: str,
-    debug: bool = False,
+        hostname: str,
+        dns_nameservers: str,
+        debug: bool = False,
 ) -> None:
     """ Perform dns resolve for hostname using specified dns nameserver
 
@@ -1168,7 +1203,7 @@ def dns_resolve_host_ip_list(
         debug=debug
     )
 
-    logger.info("host_list=%s" % host_list)
+    logger.debug("host_list=%s" % host_list)
 
 
 # pylint: disable=too-many-branches,invalid-name
@@ -1178,10 +1213,10 @@ def dns_resolve_host_ip_list(
 @click.argument('hostname')
 @click.argument('dns_nameserver')
 def sync_host_ip_list(
-    hostname: str,
-    dns_nameserver: str,
-    apply: bool,
-    debug: bool = False,
+        hostname: str,
+        dns_nameserver: str,
+        apply: bool,
+        debug: bool = False,
 ) -> None:
     """ Synchronize host ip list for specified dns nameserver to pfsense unbound with respective host overrides
 

@@ -1,6 +1,6 @@
 
 ```shell
-$ cat ~/config/pfsense-api.json
+$ cat ~/.config/pfsense-api.json
 {
     "client_id": "api_client_id_here",
     "client_token": "api_client_token_here",

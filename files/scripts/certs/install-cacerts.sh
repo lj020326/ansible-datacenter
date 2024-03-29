@@ -441,7 +441,7 @@ function setup_python_cacerts() {
   ## ref: https://stackoverflow.com/questions/40684543/how-to-make-python-use-ca-certificates-from-mac-os-truststore
   pip_install_certifi
 
-  local PYTHON_SSL_CERT_FILE=$(python -m certifi)
+  local PYTHON_SSL_CERT_FILE=$(python3 -m certifi)
   local PYTHON_SSL_CERT_DIR=$(dirname "${PYTHON_SSL_CERT_FILE}")
 
   logInfo "${LOG_PREFIX} PYTHON_SSL_CERT_DIR=${PYTHON_SSL_CERT_DIR}"
