@@ -159,7 +159,7 @@ function search_repo_keywords () {
 
 function main() {
 
-  search_repo_keywords
+#  search_repo_keywords
   eval search_repo_keywords
   local RETURN_STATUS=$?
   if [[ $RETURN_STATUS -eq 0 ]]; then
