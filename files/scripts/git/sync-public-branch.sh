@@ -27,6 +27,9 @@ SCRIPT_DIR="$(dirname "$0")"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 #PROJECT_DIR=$(git rev-parse --show-toplevel)
 
+source "${PROJECT_DIR}/files/scripts/logger.sh"
+
+
 MIRROR_DIR_LIST="
 .github
 .jenkins
@@ -64,7 +67,7 @@ PRIVATE_CONTENT_ARRAY+=('*.log')
 
 printf -v EXCLUDE_AND_REMOVE '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"
 EXCLUDE_AND_REMOVE="${EXCLUDE_AND_REMOVE%,}"
-echo "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
+logDebug "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY
@@ -78,10 +81,10 @@ EXCLUDES_ARRAY+=('*.log')
 
 printf -v EXCLUDES '%s,' "${EXCLUDES_ARRAY[@]}"
 EXCLUDES="${EXCLUDES%,}"
-echo "EXCLUDES=${EXCLUDES}"
+logDebug "EXCLUDES=${EXCLUDES}"
 
-echo "PROJECT_DIR=${PROJECT_DIR}"
-echo "TMP_DIR=${TMP_DIR}"
+logDebug "PROJECT_DIR=${PROJECT_DIR}"
+logDebug "TMP_DIR=${TMP_DIR}"
 
 ## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
@@ -108,15 +111,15 @@ function search_repo_keywords () {
 
   #export -p | sed 's/declare -x //' | sed 's/export //'
   if [ -z ${REPO_EXCLUDE_KEYWORDS+x} ]; then
-    echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS not set/defined"
+    logError "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS not set/defined"
     exit 1
   fi
 
-  echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS=${REPO_EXCLUDE_KEYWORDS}"
+  logDebug "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS=${REPO_EXCLUDE_KEYWORDS}"
 
   IFS=',' read -ra REPO_EXCLUDE_KEYWORDS_ARRAY <<< "$REPO_EXCLUDE_KEYWORDS"
 
-  echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS_ARRAY=${REPO_EXCLUDE_KEYWORDS_ARRAY[*]}"
+  logDebug "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS_ARRAY=${REPO_EXCLUDE_KEYWORDS_ARRAY[*]}"
 
   # ref: https://superuser.com/questions/1371834/escaping-hyphens-with-printf-in-bash
   #'-e' ==> '\055e'
@@ -128,29 +131,29 @@ function search_repo_keywords () {
   ## strip suffix
   #GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH%"$GREP_DELIM"}
 
-  echo "${LOG_PREFIX} GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH}"
+  logDebug "${LOG_PREFIX} GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH}"
 
   GREP_COMMAND="grep ${GREP_PATTERN_SEARCH}"
-  echo "${LOG_PREFIX} GREP_COMMAND=${GREP_COMMAND}"
+  logDebug "${LOG_PREFIX} GREP_COMMAND=${GREP_COMMAND}"
 
   local FIND_DELIM=' -o '
 #  printf -v FIND_EXCLUDE_DIRS "\055path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
   printf -v FIND_EXCLUDE_DIRS "! -path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
   FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS%$FIND_DELIM}
 
-  echo "${LOG_PREFIX} FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS}"
+  logDebug "${LOG_PREFIX} FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS}"
 
   ## ref: https://stackoverflow.com/questions/6565471/how-can-i-exclude-directories-from-grep-r#8692318
   ## ref: https://unix.stackexchange.com/questions/342008/find-and-echo-file-names-only-with-pattern-found
 #  FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null \;"
   FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null +"
-  echo "${LOG_PREFIX} ${FIND_CMD}"
+  logDebug "${LOG_PREFIX} ${FIND_CMD}"
 
   EXCEPTION_COUNT=$(eval "${FIND_CMD} | wc -l")
   if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-    echo "${LOG_PREFIX} SUCCESS => No exclusion keyword matches found!!"
+    logInfo "${LOG_PREFIX} SUCCESS => No exclusion keyword matches found!!"
   else
-    echo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] exclusion keyword matches found:"
+    logError "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] exclusion keyword matches found:"
     eval "${FIND_CMD}"
     exit 1
   fi
@@ -163,9 +166,9 @@ function main() {
   eval search_repo_keywords
   local RETURN_STATUS=$?
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    echo "${LOG_PREFIX} search_repo_keywords: SUCCESS"
+    logInfo "${LOG_PREFIX} search_repo_keywords: SUCCESS"
   else
-    echo "${LOG_PREFIX} search_repo_keywords: FAILED"
+    logError "${LOG_PREFIX} search_repo_keywords: FAILED"
     exit ${RETURN_STATUS}
   fi
 
@@ -174,51 +177,51 @@ function main() {
   
   #RSYNC_OPTS=${RSYNC_OPTS_GIT_MIRROR[@]}
   
-  echo "copy project to temporary dir $TMP_DIR"
+  logDebug "copy project to temporary dir $TMP_DIR"
   #local RSYNC_CMD="rsync ${RSYNC_OPTS} ${PROJECT_DIR}/ ${TMP_DIR}/"
   local RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_MIRROR[@]} ${PROJECT_DIR}/ ${TMP_DIR}/"
-  echo "${RSYNC_CMD}"
+  logDebug "${RSYNC_CMD}"
   eval $RSYNC_CMD
   
-  echo "Checkout public branch"
+  logInfo "Checkout public branch"
   git checkout ${GIT_PUBLIC_BRANCH}
   
   if [ $GIT_REMOVE_CACHED_FILES -eq 1 ]; then
-    echo "Removing files cached in git"
+    logInfo "Removing files cached in git"
     git rm -r --cached .
   fi
   
-  #echo "Removing existing non-dot files for clean sync"
+  #logInfo "Removing existing non-dot files for clean sync"
   #rm -fr *
   
-  echo "Copy ${TMP_DIR} to project dir $PROJECT_DIR"
-  #echo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
+  logInfo "Copy ${TMP_DIR} to project dir $PROJECT_DIR"
+  #logInfo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
   RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
-  echo "${RSYNC_CMD}"
+  logInfo "${RSYNC_CMD}"
   eval ${RSYNC_CMD}
   
   IFS=$'\n'
   for dir in ${MIRROR_DIR_LIST}
   do
-    echo "Mirror ${TMP_DIR}/${dir}/ to project dir $PROJECT_DIR/${dir}/"
+    logInfo "Mirror ${TMP_DIR}/${dir}/ to project dir $PROJECT_DIR/${dir}/"
     RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} --delete --update --exclude=save ${TMP_DIR}/${dir}/ ${PROJECT_DIR}/${dir}/"
-    echo "${RSYNC_CMD}"
+    logInfo "${RSYNC_CMD}"
     eval ${RSYNC_CMD}
   done
   
   printf -v TO_REMOVE '%s ' "${PRIVATE_CONTENT_ARRAY[@]}"
   TO_REMOVE="${TO_REMOVE% }"
-  echo "TO_REMOVE=${TO_REMOVE}"
+  logInfo "TO_REMOVE=${TO_REMOVE}"
   CLEANUP_CMD="rm -fr ${TO_REMOVE}"
-  echo "${CLEANUP_CMD}"
+  logInfo "${CLEANUP_CMD}"
   eval ${CLEANUP_CMD}
   
   if [ -e $PUBLIC_GITIGNORE ]; then
-    echo "Update public files:"
+    logInfo "Update public files:"
     cp -p $PUBLIC_GITIGNORE .gitignore
   fi
   
-  echo "Show changes before push:"
+  logInfo "Show changes before push:"
   git status
   
   ## https://stackoverflow.com/questions/5989592/git-cannot-checkout-branch-error-pathspec-did-not-match-any-files-kn
@@ -235,27 +238,27 @@ function main() {
   fi
   
   ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
-  echo "Add all the files:"
+  logInfo "Add all the files:"
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
-  echo "Staging changes:" && \
+  logInfo "Staging changes:" && \
   git add -A || true && \
-  echo "Committing changes:" && \
+  logInfo "Committing changes:" && \
   git commit -am "group updates to public branch" || true && \
-  echo "Pushing branch '${LOCAL_BRANCH}' to remote origin branch '${LOCAL_BRANCH}':" && \
+  logInfo "Pushing branch '${LOCAL_BRANCH}' to remote origin branch '${LOCAL_BRANCH}':" && \
   git push -f origin ${LOCAL_BRANCH} || true && \
-  echo "Pushing branch '${LOCAL_BRANCH}' to remote '${REMOTE}' branch '${REMOTE_BRANCH}':" && \
+  logInfo "Pushing branch '${LOCAL_BRANCH}' to remote '${REMOTE}' branch '${REMOTE_BRANCH}':" && \
   git push -f -u ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH} || true && \
-  echo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:" && \
+  logInfo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:" && \
   git checkout ${GIT_DEFAULT_BRANCH}
   
-  echo "chmod project admin/maintenance scripts"
+  logInfo "chmod project admin/maintenance scripts"
   chmod +x inventory/*.sh
   chmod +x files/scripts/*.sh
   chmod +x files/scripts/git/*.sh
   
-  echo "creating links for useful project scripts"
+  logInfo "creating links for useful project scripts"
   cd ${PROJECT_DIR}
   chmod +x ./files/scripts/git/*.sh
   ln -sf ./files/scripts/git/stash-*.sh ./
