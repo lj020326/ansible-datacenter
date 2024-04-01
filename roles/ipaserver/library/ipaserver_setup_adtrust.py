@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Authors:
@@ -6,7 +5,7 @@
 #
 # Based on ipa-client-install code
 #
-# Copyright (C) 2017  Red Hat
+# Copyright (C) 2017-2022  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
+from __future__ import (absolute_import, division, print_function)
+
+__metaclass__ = type
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
@@ -32,12 +33,48 @@ ANSIBLE_METADATA = {
 
 DOCUMENTATION = '''
 ---
-module: setup_adtrust
-short description: 
-description:
+module: ipaserver_setup_adtrust
+short_description: Setup trust ad
+description: Setup trust ad
 options:
+  hostname:
+    description: Fully qualified name of this host
+    type: str
+    required: no
+  setup_ca:
+    description: Configure a dogtag CA
+    type: bool
+    default: no
+    required: no
+  setup_adtrust:
+    description: Configure AD trust capability
+    type: bool
+    default: no
+    required: no
+  enable_compat:
+    description: Enable support for trusted domains for old clients
+    type: bool
+    default: no
+    required: no
+  rid_base:
+    description: Start value for mapping UIDs and GIDs to RIDs
+    type: int
+    required: no
+  secondary_rid_base:
+    description:
+      Start value of the secondary range for mapping UIDs and GIDs to RIDs
+    type: int
+    required: no
+  adtrust_netbios_name:
+    description: The adtrust netbios_name setting
+    type: str
+    required: yes
+  adtrust_reset_netbios_name:
+    description: The adtrust reset_netbios_name setting
+    type: bool
+    required: yes
 author:
-    - Thomas Woerner
+    - Thomas Woerner (@t-woerner)
 '''
 
 EXAMPLES = '''
@@ -47,19 +84,32 @@ RETURN = '''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.ansible_ipa_server import *
+from ansible.module_utils.ansible_ipa_server import (
+    check_imports, AnsibleModuleLog, setup_logging, options, sysrestore, paths,
+    api_Backend_ldap2, redirect_stdout, adtrust, api
+)
+
 
 def main():
     ansible_module = AnsibleModule(
-        argument_spec = dict(
+        argument_spec=dict(
             # basic
-            hostname=dict(required=False),
-            setup_ca=dict(required=True, type='bool', default=False),
-            setup_adtrust=dict(required=True, type='bool', default=False),
+            hostname=dict(required=False, type='str'),
+            setup_ca=dict(required=False, type='bool', default=False),
+            setup_adtrust=dict(required=False, type='bool', default=False),
+            # ad trust
+            enable_compat=dict(required=False, type='bool', default=False),
+            rid_base=dict(required=False, type='int'),
+            secondary_rid_base=dict(required=False, type='int'),
+            # additional
+            adtrust_netbios_name=dict(required=True, type='str'),
+            adtrust_reset_netbios_name=dict(required=True, type='bool'),
         ),
     )
 
     ansible_module._ansible_debug = True
+    check_imports(ansible_module)
+    setup_logging()
     ansible_log = AnsibleModuleLog(ansible_module)
 
     # set values ####################################################
@@ -67,13 +117,21 @@ def main():
     options.host_name = ansible_module.params.get('hostname')
     options.setup_ca = ansible_module.params.get('setup_ca')
     options.setup_adtrust = ansible_module.params.get('setup_adtrust')
+    # ad trust
+    options.enable_compat = ansible_module.params.get('enable_compat')
+    options.rid_base = ansible_module.params.get('rid_base')
+    options.secondary_rid_base = ansible_module.params.get(
+        'secondary_rid_base')
+    # additional
+    adtrust.netbios_name = ansible_module.params.get('adtrust_netbios_name')
+    adtrust.reset_netbios_name = ansible_module.params.get(
+        'adtrust_reset_netbios_name')
 
     # init ##########################################################
 
     fstore = sysrestore.FileStore(paths.SYSRESTORE)
-    sstore = sysrestore.StateFile(paths.SYSRESTORE)
 
-    api_Backend_ldap2_connect(options.host_name, options.setup_ca)
+    api_Backend_ldap2(options.host_name, options.setup_ca, connect=True)
 
     # setup ds ######################################################
 
@@ -83,6 +141,7 @@ def main():
     # done ##########################################################
 
     ansible_module.exit_json(changed=True)
+
 
 if __name__ == '__main__':
     main()

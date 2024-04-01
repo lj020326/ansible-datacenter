@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Authors:
@@ -6,7 +5,7 @@
 #
 # Based on ipa-client-install code
 #
-# Copyright (C) 2017  Red Hat
+# Copyright (C) 2017-2022  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
+from __future__ import (absolute_import, division, print_function)
+
+__metaclass__ = type
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
@@ -33,23 +34,88 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = '''
 ---
 module: ipaserver_setup_ds
-short description: 
-description:
+short_description: Configure directory server
+description: Configure directory server
 options:
   dm_password:
+    description: Directory Manager password
+    type: str
+    required: yes
   password:
+    description: Admin user kerberos password
+    type: str
+    required: yes
   domain:
+    description: Primary DNS domain of the IPA deployment
+    type: str
+    required: yes
   realm:
+    description: Kerberos realm name of the IPA deployment
+    type: str
+    required: yes
   hostname:
+    description: Fully qualified name of this host
+    type: str
+    required: no
   idstart:
+    description: The starting value for the IDs range (default random)
+    type: int
+    required: yes
   idmax:
-  no_pkinit:
+    description: The max value for the IDs range (default idstart+199999)
+    type: int
+    required: yes
   no_hbac_allow:
+    description: Don't install allow_all HBAC rule
+    type: bool
+    default: no
+    required: no
+  no_pkinit:
+    description: Disable pkinit setup steps
+    type: bool
+    default: no
+    required: no
+  dirsrv_config_file:
+    description:
+      The path to LDIF file that will be used to modify configuration of
+      dse.ldif during installation of the directory server instance
+    type: str
+    required: no
+  dirsrv_cert_files:
+    description:
+      Files containing the Directory Server SSL certificate and private key
+    type: list
+    elements: str
+    required: no
+  _dirsrv_pkcs12_info:
+    description: The installer _dirsrv_pkcs12_info setting
+    type: list
+    elements: str
+    required: no
+  external_cert_files:
+    description:
+      File containing the IPA CA certificate and the external CA certificate
+      chain
+    type: list
+    elements: str
+    required: no
   subject_base:
+    description:
+      The certificate subject base (default O=<realm-name>).
+      RDNs are in LDAP order (most specific RDN first).
+    type: str
+    required: no
   ca_subject:
-  setup_ca
+    description: The installer ca_subject setting
+    type: str
+    required: no
+  setup_ca:
+    description: Configure a dogtag CA
+    type: bool
+    default: no
+    required: no
 author:
-    - Thomas Woerner
+    - Thomas Woerner (@t-woerner)
 '''
 
 EXAMPLES = '''
@@ -59,60 +125,74 @@ RETURN = '''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.ansible_ipa_server import *
+from ansible.module_utils.ansible_ipa_server import (
+    check_imports, AnsibleModuleLog, setup_logging, options, sysrestore, paths,
+    api_Backend_ldap2, redirect_stdout, api, NUM_VERSION, tasks,
+    dsinstance, ntpinstance, IPAAPI_USER
+)
+
 
 def main():
     ansible_module = AnsibleModule(
-        argument_spec = dict(
-            ### basic ###
-            dm_password=dict(required=True, no_log=True),
-            password=dict(required=True, no_log=True),
-            domain=dict(required=True),
-            realm=dict(required=True),
-            hostname=dict(required=False),
-            ### server ###
+        argument_spec=dict(
+            # basic
+            dm_password=dict(required=True, type='str', no_log=True),
+            password=dict(required=True, type='str', no_log=True),
+            domain=dict(required=True, type='str'),
+            realm=dict(required=True, type='str'),
+            hostname=dict(required=False, type='str'),
+            # server
             idstart=dict(required=True, type='int'),
             idmax=dict(required=True, type='int'),
             no_hbac_allow=dict(required=False, type='bool', default=False),
             no_pkinit=dict(required=False, type='bool', default=False),
-            dirsrv_config_file=dict(required=False),
-            ### ssl certificate ###
-            dirsrv_cert_files=dict(required=False, type='list', default=[]),
-            ### certificate system ###
-            external_cert_files=dict(required=False, type='list', default=[]),
-            subject_base=dict(required=False),
-            ca_subject=dict(required=False),
+            dirsrv_config_file=dict(required=False, type='str'),
+            # ssl certificate
+            dirsrv_cert_files=dict(required=False, type='list', elements='str',
+                                   default=[]),
+            _dirsrv_pkcs12_info=dict(required=False, type='list',
+                                     elements='str'),
+            # certificate system
+            external_cert_files=dict(required=False, type='list',
+                                     elements='str', default=[]),
+            subject_base=dict(required=False, type='str'),
+            ca_subject=dict(required=False, type='str'),
 
-            ### additional ###
+            # additional
             setup_ca=dict(required=False, type='bool', default=False),
         ),
     )
 
     ansible_module._ansible_debug = True
+    check_imports(ansible_module)
+    setup_logging()
     ansible_log = AnsibleModuleLog(ansible_module)
 
     # set values ############################################################
 
-    ### basic ###
+    # basic
     options.dm_password = ansible_module.params.get('dm_password')
     options.domain_name = ansible_module.params.get('domain')
     options.realm_name = ansible_module.params.get('realm')
     options.host_name = ansible_module.params.get('hostname')
-    ### server ###
+    # server
     options.idstart = ansible_module.params.get('idstart')
     options.idmax = ansible_module.params.get('idmax')
     options.no_pkinit = ansible_module.params.get('no_pkinit')
     options.no_hbac_allow = ansible_module.params.get('no_hbac_allow')
-    options.dirsrv_config_file = ansible_module.params.get('dirsrv_config_file')
-    ### ssl certificate ###
+    options.dirsrv_config_file = ansible_module.params.get(
+        'dirsrv_config_file')
+    options._dirsrv_pkcs12_info = ansible_module.params.get(
+        '_dirsrv_pkcs12_info')
+    # ssl certificate
     options.dirsrv_cert_files = ansible_module.params.get('dirsrv_cert_files')
-    ### certificate system ###
+    # certificate system
     options.external_cert_files = ansible_module.params.get(
         'external_cert_files')
     options.subject_base = ansible_module.params.get('subject_base')
     options.ca_subject = ansible_module.params.get('ca_subject')
 
-    ### additional ###
+    # additional
     options.setup_ca = ansible_module.params.get('setup_ca')
 
     # init ##################################################################
@@ -127,7 +207,7 @@ def main():
     # Make sure tmpfiles dir exist before installing components
     if NUM_VERSION == 40504:
         tasks.create_tmpfiles_dirs(IPAAPI_USER)
-    elif NUM_VERSION >= 40500 and NUM_VERSION <= 40503:
+    elif 40500 <= NUM_VERSION <= 40503:
         tasks.create_tmpfiles_dirs()
 
     # Create a directory server instance
@@ -138,9 +218,9 @@ def main():
         ds.set_output(ansible_log)
 
         if options.dirsrv_cert_files:
-            _dirsrv_pkcs12_info=options.dirsrv_pkcs12_info
+            _dirsrv_pkcs12_info = options._dirsrv_pkcs12_info
         else:
-            _dirsrv_pkcs12_info=None
+            _dirsrv_pkcs12_info = None
 
         with redirect_stdout(ansible_log):
             ds.create_instance(options.realm_name, options.host_name,
@@ -172,6 +252,7 @@ def main():
     # done ##################################################################
 
     ansible_module.exit_json(changed=True)
+
 
 if __name__ == '__main__':
     main()

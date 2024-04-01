@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Authors:
@@ -6,7 +5,7 @@
 #
 # Based on ipa-client-install code
 #
-# Copyright (C) 2017  Red Hat
+# Copyright (C) 2017-2022  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
+from __future__ import (absolute_import, division, print_function)
+
+__metaclass__ = type
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
@@ -32,12 +33,21 @@ ANSIBLE_METADATA = {
 
 DOCUMENTATION = '''
 ---
-module: setup_ntp
-short description: 
-description:
+module: ipaserver_setup_ntp
+short_description: Setup NTP
+description: Setup NTP
 options:
+  ntp_servers:
+    description: ntp servers to use
+    type: list
+    elements: str
+    required: no
+  ntp_pool:
+    description: ntp server pool to use
+    type: str
+    required: no
 author:
-    - Thomas Woerner
+    - Thomas Woerner (@t-woerner)
 '''
 
 EXAMPLES = '''
@@ -47,15 +57,31 @@ RETURN = '''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.ansible_ipa_server import *
+from ansible.module_utils.ansible_ipa_server import (
+    check_imports, AnsibleModuleLog, setup_logging, options, sysrestore, paths,
+    redirect_stdout, time_service, sync_time, ntpinstance, timeconf,
+    getargspec
+)
+
 
 def main():
     ansible_module = AnsibleModule(
-        argument_spec = dict(),
+        argument_spec=dict(
+            ntp_servers=dict(required=False, type='list', elements='str',
+                             default=None),
+            ntp_pool=dict(required=False, type='str', default=None),
+        ),
     )
 
     ansible_module._ansible_debug = True
+    check_imports(ansible_module)
+    setup_logging()
     ansible_log = AnsibleModuleLog(ansible_module)
+
+    # set values ############################################################
+
+    options.ntp_servers = ansible_module.params.get('ntp_servers')
+    options.ntp_pool = ansible_module.params.get('ntp_pool')
 
     # init ##########################################################
 
@@ -70,14 +96,21 @@ def main():
         # chrony will be handled here in uninstall() method as well by invoking
         # the ipa-server-install --uninstall
         ansible_module.log("Synchronizing time")
-        options.ntp_servers = None
-        options.ntp_pool = None
-        if sync_time(options, fstore, sstore):
-            ansible_module.log("Time synchronization was successful.")
+
+        # pylint: disable=deprecated-method
+        argspec = getargspec(sync_time)
+        # pylint: enable=deprecated-method
+        if "options" not in argspec.args:
+            synced_ntp = sync_time(options.ntp_servers, options.ntp_pool,
+                                   fstore, sstore)
         else:
-            ansible_module.warn("IPA was unable to sync time with chrony!")
-            ansible_module.warn("Time synchronization is required for IPA "
-                                "to work correctly")
+            synced_ntp = sync_time(options, fstore, sstore)
+        if not synced_ntp:
+            ansible_module.log(
+                "Warning: IPA was unable to sync time with chrony!")
+            ansible_module.log(
+                "         Time synchronization is required for IPA "
+                "to work correctly")
     else:
         # Configure ntpd
         timeconf.force_ntpd(sstore)
@@ -90,6 +123,7 @@ def main():
     # done ##########################################################
 
     ansible_module.exit_json(changed=True)
+
 
 if __name__ == '__main__':
     main()

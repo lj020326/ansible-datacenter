@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Authors:
@@ -6,7 +5,7 @@
 #
 # Based on ipa-replica-install code
 #
-# Copyright (C) 2018  Red Hat
+# Copyright (C) 2018-2022  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
+from __future__ import (absolute_import, division, print_function)
+
+__metaclass__ = type
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
@@ -32,97 +33,131 @@ ANSIBLE_METADATA = {
 
 DOCUMENTATION = '''
 ---
-module: ipareplica_install_ca_cert
-short description: Install CA certs
+module: ipareplica_install_ca_certs
+short_description: Install CA certs
 description:
   Install CA certs
 options:
   dm_password:
     description: Directory Manager password
-    required: yes
+    type: str
+    required: no
   password:
     description: Admin user kerberos password
-    required: yes
+    type: str
+    required: no
   ip_addresses:
     description: List of Master Server IP Addresses
+    type: list
+    elements: str
     required: no
   domain:
     description: Primary DNS domain of the IPA deployment
-    required: yes
+    type: str
+    required: no
   realm:
     description: Kerberos realm name of the IPA deployment
-    required: yes
+    type: str
+    required: no
   hostname:
     description: Fully qualified name of this host
-    required: yes
+    type: str
+    required: no
   ca_cert_files:
-    description: List of iles containing CA certificates for the service certificate files
-    required: yes
+    description:
+      List of files containing CA certificates for the service certificate
+      files
+    type: list
+    elements: str
+    required: no
   no_host_dns:
     description: Do not use DNS for hostname lookup during installation
-    required: yes
+    type: bool
+    default: no
+    required: no
   setup_adtrust:
-    description: 
-    required: yes
-  setup_kra:
-    description: 
-    required: yes
-  setup_dns:
-    description: 
-    required: yes
-  external_ca:
-    description: 
-    required: yes
-  external_cert_files:
-    description: 
-    required: yes
-  subject_base:
-    description: 
-    required: yes
-  ca_subject:
-    description: 
-    required: yes
-  reverse_zones:
-    description: 
-    required: yes
-  no_reverse:
-    description: 
-    required: yes
-  auto_reverse:
-    description: 
-    required: yes
-  forwarders:
-    description: 
-    required: yes
-  no_forwarders:
-    description: 
-    required: yes
-G  auto_forwarders:
-    description: 
-    required: yes
-  forward_policy:
-    description: 
-    required: yes
-  enable_compat:
-    description: 
-    required: yes
-  netbios_name:
-    description: 
-    required: yes
-  rid_base:
-    description: 
-    required: yes
-  secondary_rid_base:
-    description: 
-    required: yes
+    description: Configure AD trust capability
+    type: bool
+    required: no
   setup_ca:
-    description: 
+    description: Configure a dogtag CA
+    type: bool
+    required: no
+  setup_kra:
+    description: Configure a dogtag KRA
+    type: bool
+    required: no
+  setup_dns:
+    description: Configure bind with our zone
+    type: bool
+    required: no
+  dirsrv_cert_files:
+    description:
+      Files containing the Directory Server SSL certificate and private key
+    type: list
+    elements: str
+    required: no
+  force_join:
+    description: Force client enrollment even if already enrolled
+    type: bool
+    required: no
+  subject_base:
+    description:
+      The certificate subject base (default O=<realm-name>).
+      RDNs are in LDAP order (most specific RDN first).
+    type: str
     required: yes
-  _hostname_overridden:
-    description: 
+  server:
+    description: Fully qualified name of IPA server to enroll to
+    type: str
     required: yes
+  ccache:
+    description: The local ccache
+    type: str
+    required: yes
+  installer_ccache:
+    description: The installer ccache setting
+    type: str
+    required: yes
+  _top_dir:
+    description: The installer _top_dir setting
+    type: str
+    required: yes
+  _add_to_ipaservers:
+    description: The installer _add_to_ipaservers setting
+    type: bool
+    required: yes
+  _ca_subject:
+    description: The installer _ca_subject setting
+    type: str
+    required: yes
+  _subject_base:
+    description: The installer _subject_base setting
+    type: str
+    required: yes
+  dirman_password:
+    description: Directory Manager (master) password
+    type: str
+    required: yes
+  config_setup_ca:
+    description: The config setup_ca setting
+    type: bool
+    required: yes
+  config_master_host_name:
+    description: The config master_host_name setting
+    type: str
+    required: yes
+  config_ca_host_name:
+    description: The config ca_host_name setting
+    type: str
+    required: yes
+  config_ips:
+    description: The config ips setting
+    type: list
+    elements: str
+    required: no
 author:
-    - Thomas Woerner
+    - Thomas Woerner (@t-woerner)
 '''
 
 EXAMPLES = '''
@@ -131,61 +166,71 @@ EXAMPLES = '''
 RETURN = '''
 '''
 
+import os
+
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.ansible_ipa_replica import *
+from ansible.module_utils.ansible_ipa_replica import (
+    check_imports, AnsibleModuleLog, setup_logging, installer, DN, paths,
+    ansible_module_get_parsed_ip_addresses,
+    gen_env_boostrap_finalize_core, constants, api_bootstrap_finalize,
+    gen_ReplicaConfig, gen_remote_api, api, redirect_stdout, ipaldap,
+    install_ca_cert
+)
+
 
 def main():
     ansible_module = AnsibleModule(
-        argument_spec = dict(
-            ### basic ###
-            dm_password=dict(required=False, no_log=True),
-            password=dict(required=False, no_log=True),
-            ip_addresses=dict(required=False, type='list', default=[]),
-            domain=dict(required=False),
-            realm=dict(required=False),
-            hostname=dict(required=False),
-            ca_cert_files=dict(required=False, type='list', default=[]),
+        argument_spec=dict(
+            # basic
+            dm_password=dict(required=False, type='str', no_log=True),
+            password=dict(required=False, type='str', no_log=True),
+            ip_addresses=dict(required=False, type='list', elements='str',
+                              default=[]),
+            domain=dict(required=False, type='str'),
+            realm=dict(required=False, type='str'),
+            hostname=dict(required=False, type='str'),
+            ca_cert_files=dict(required=False, type='list', elements='str',
+                               default=[]),
             no_host_dns=dict(required=False, type='bool', default=False),
-            ### server ###
+            # server
             setup_adtrust=dict(required=False, type='bool'),
             setup_ca=dict(required=False, type='bool'),
             setup_kra=dict(required=False, type='bool'),
             setup_dns=dict(required=False, type='bool'),
-            ### ssl certificate ###
-            dirsrv_cert_files=dict(required=False, type='list', default=[]),
-            ### client ###
+            # ssl certificate
+            dirsrv_cert_files=dict(required=False, type='list', elements='str',
+                                   default=[]),
+            # client
             force_join=dict(required=False, type='bool'),
-            ### certificate system ###
-            subject_base=dict(required=True),
-            ### additional ###
-            server=dict(required=True),
-            ccache=dict(required=True),
-            installer_ccache=dict(required=True),
-            _ca_enabled=dict(required=False, type='bool'),
-            _kra_enabled=dict(required=False, type='bool'),
-            _dirsrv_pkcs12_info = dict(required=False),
-            _http_pkcs12_info = dict(required=False),
-            _pkinit_pkcs12_info = dict(required=False),
-            _top_dir = dict(required=True),
-            _add_to_ipaservers = dict(required=True),
-            _ca_subject=dict(required=True),
-            _subject_base=dict(required=True),
-            dirman_password=dict(required=True, no_log=True),
-            config_setup_ca=dict(required=True),
-            config_master_host_name=dict(required=True),
-            config_ca_host_name=dict(required=True),
-            config_ips=dict(required=False, type='list', default=[]),
+            # certificate system
+            subject_base=dict(required=True, type='str'),
+            # additional
+            server=dict(required=True, type='str'),
+            ccache=dict(required=True, type='str'),
+            installer_ccache=dict(required=True, type='str'),
+            _top_dir=dict(required=True, type='str'),
+            _add_to_ipaservers=dict(required=True, type='bool'),
+            _ca_subject=dict(required=True, type='str'),
+            _subject_base=dict(required=True, type='str'),
+            dirman_password=dict(required=True, type='str', no_log=True),
+            config_setup_ca=dict(required=True, type='bool'),
+            config_master_host_name=dict(required=True, type='str'),
+            config_ca_host_name=dict(required=True, type='str'),
+            config_ips=dict(required=False, type='list', elements='str',
+                            default=[]),
         ),
-        supports_check_mode = True,
+        supports_check_mode=False,
     )
 
     ansible_module._ansible_debug = True
+    check_imports(ansible_module)
+    setup_logging()
     ansible_log = AnsibleModuleLog(ansible_module)
 
     # get parameters #
 
     options = installer
-    ### basic ###
+    # basic
     options.dm_password = ansible_module.params.get('dm_password')
     options.password = options.dm_password
     options.admin_password = ansible_module.params.get('password')
@@ -196,16 +241,16 @@ def main():
     options.host_name = ansible_module.params.get('hostname')
     options.ca_cert_files = ansible_module.params.get('ca_cert_files')
     options.no_host_dns = ansible_module.params.get('no_host_dns')
-    ### server ###
+    # server
     options.setup_adtrust = ansible_module.params.get('setup_adtrust')
     options.setup_ca = ansible_module.params.get('setup_ca')
     options.setup_kra = ansible_module.params.get('setup_kra')
     options.setup_dns = ansible_module.params.get('setup_dns')
-    ### ssl certificate ###
+    # ssl certificate
     options.dirsrv_cert_files = ansible_module.params.get('dirsrv_cert_files')
-    ### client ###
+    # client
     options.force_join = ansible_module.params.get('force_join')
-    ### certificate system ###
+    # certificate system
     options.external_ca = ansible_module.params.get('external_ca')
     options.external_cert_files = ansible_module.params.get(
         'external_cert_files')
@@ -213,43 +258,29 @@ def main():
     if options.subject_base is not None:
         options.subject_base = DN(options.subject_base)
     options.ca_subject = ansible_module.params.get('ca_subject')
-    ### dns ###
-    options.reverse_zones = ansible_module.params.get('reverse_zones')
-    options.no_reverse = ansible_module.params.get('no_reverse')
-    options.auto_reverse = ansible_module.params.get('auto_reverse')
-    options.forwarders = ansible_module.params.get('forwarders')
-    options.no_forwarders = ansible_module.params.get('no_forwarders')
-    options.auto_forwarders = ansible_module.params.get('auto_forwarders')
-    options.forward_policy = ansible_module.params.get('forward_policy')
-    ### additional ###
+    # additional
     options.server = ansible_module.params.get('server')
     ccache = ansible_module.params.get('ccache')
     os.environ['KRB5CCNAME'] = ccache
-    #os.environ['KRB5CCNAME'] = ansible_module.params.get('installer_ccache')
+    # os.environ['KRB5CCNAME'] = ansible_module.params.get('installer_ccache')
     installer._ccache = ansible_module.params.get('installer_ccache')
-    ca_enabled = ansible_module.params.get('_ca_enabled')
-    kra_enabled = ansible_module.params.get('_kra_enabled')
-    dirsrv_pkcs12_info = ansible_module.params.get('_dirsrv_pkcs12_info')
-    http_pkcs12_info = ansible_module.params.get('_http_pkcs12_info')
-    pkinit_pkcs12_info = ansible_module.params.get('_pkinit_pkcs12_info')
     options.subject_base = ansible_module.params.get('subject_base')
     if options.subject_base is not None:
         options.subject_base = DN(options.subject_base)
     options._top_dir = ansible_module.params.get('_top_dir')
-    options._add_to_ipaservers = ansible_module.params.get('_add_to_ipaservers')
+    options._add_to_ipaservers = ansible_module.params.get(
+        '_add_to_ipaservers')
     options._ca_subject = ansible_module.params.get('_ca_subject')
     options._subject_base = ansible_module.params.get('_subject_base')
     dirman_password = ansible_module.params.get('dirman_password')
     config_setup_ca = ansible_module.params.get('config_setup_ca')
-    config_master_host_name = ansible_module.params.get('config_master_host_name')
+    config_master_host_name = ansible_module.params.get(
+        'config_master_host_name')
     config_ca_host_name = ansible_module.params.get('config_ca_host_name')
     config_ips = ansible_module_get_parsed_ip_addresses(ansible_module,
                                                         "config_ips")
 
     # init #
-
-    fstore = sysrestore.FileStore(paths.SYSRESTORE)
-    sstore = sysrestore.StateFile(paths.SYSRESTORE)
 
     ansible_log.debug("== INSTALLER ==")
 
@@ -288,7 +319,8 @@ def main():
 
             ansible_log.debug("-- INSTALL_CA_CERT --")
             # Update and istall updated CA file
-            cafile = install_ca_cert(conn, api.env.basedn, api.env.realm, cafile)
+            cafile = install_ca_cert(conn, api.env.basedn, api.env.realm,
+                                     cafile)
             install_ca_cert(conn, api.env.basedn, api.env.realm, cafile,
                             destfile=paths.KDC_CA_BUNDLE_PEM)
             install_ca_cert(conn, api.env.basedn, api.env.realm, cafile,
@@ -304,6 +336,7 @@ def main():
     ansible_module.exit_json(changed=True,
                              config_master_host_name=config.master_host_name,
                              config_ca_host_name=config.ca_host_name)
+
 
 if __name__ == '__main__':
     main()

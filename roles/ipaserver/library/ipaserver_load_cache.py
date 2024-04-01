@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Authors:
@@ -6,7 +5,7 @@
 #
 # Based on ipa-client-install code
 #
-# Copyright (C) 2017  Red Hat
+# Copyright (C) 2017-2022  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
+from __future__ import (absolute_import, division, print_function)
+
+__metaclass__ = type
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
@@ -33,12 +34,15 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = '''
 ---
 module: ipaserver_load_cache
-short description: 
-description:
+short_description: Load cache file
+description: Load cache file
 options:
   dm_password:
+    description: Directory Manager password
+    type: str
+    required: yes
 author:
-    - Thomas Woerner
+    - Thomas Woerner (@t-woerner)
 '''
 
 EXAMPLES = '''
@@ -47,23 +51,29 @@ EXAMPLES = '''
 RETURN = '''
 '''
 
+import os
+
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.ansible_ipa_server import *
+from ansible.module_utils.ansible_ipa_server import (
+    check_imports, setup_logging, options, paths, read_cache
+)
+
 
 def main():
     ansible_module = AnsibleModule(
-        argument_spec = dict(
-            ### basic ###
-            dm_password=dict(required=True, no_log=True),
+        argument_spec=dict(
+            # basic
+            dm_password=dict(required=True, type='str', no_log=True),
         ),
     )
 
     ansible_module._ansible_debug = True
-    ansible_log = AnsibleModuleLog(ansible_module)
+    check_imports(ansible_module)
+    setup_logging()
 
     # set values ############################################################
 
-    ### basic ###
+    # basic
     options.dm_password = ansible_module.params.get('dm_password')
 
     # restore cache #########################################################
@@ -72,7 +82,7 @@ def main():
         if options.dm_password is None:
             ansible_module.fail_json(msg="Directory Manager password required")
         try:
-            cache_vars = read_cache(dm_password)
+            cache_vars = read_cache(options.dm_password)
             options.__dict__.update(cache_vars)
             if cache_vars.get('external_ca', False):
                 options.external_ca = False
@@ -81,14 +91,15 @@ def main():
             ansible_module.fail_json(
                 msg="Cannot process the cache file: %s" % str(e))
 
-        kwargs = { "changed": True }
+        kwargs = {"changed": True}
         for name in options.__dict__:
             kwargs[name] = options.__dict__[name]
-        ansible_module.exit_json(kwargs)
+        ansible_module.exit_json(**kwargs)
 
     # done ##################################################################
 
     ansible_module.exit_json(changed=False)
+
 
 if __name__ == '__main__':
     main()

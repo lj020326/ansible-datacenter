@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Authors:
@@ -6,7 +5,7 @@
 #
 # Based on ipa-client-install code
 #
-# Copyright (C) 2017  Red Hat
+# Copyright (C) 2017-2022  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
+from __future__ import (absolute_import, division, print_function)
+
+__metaclass__ = type
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
@@ -32,12 +33,25 @@ ANSIBLE_METADATA = {
 
 DOCUMENTATION = '''
 ---
-module: setup_otpd
-short description: 
-description:
+module: ipaserver_setup_otpd
+short_description: Setup OTPD
+description: Setup OTPD
 options:
+  realm:
+    description: Kerberos realm name of the IPA deployment
+    type: str
+    required: yes
+  hostname:
+    description: Fully qualified name of this host
+    type: str
+    required: no
+  setup_ca:
+    description: Configure a dogtag CA
+    type: bool
+    default: no
+    required: no
 author:
-    - Thomas Woerner
+    - Thomas Woerner (@t-woerner)
 '''
 
 EXAMPLES = '''
@@ -47,19 +61,25 @@ RETURN = '''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.ansible_ipa_server import *
+from ansible.module_utils.ansible_ipa_server import (
+    check_imports, AnsibleModuleLog, setup_logging, options,
+    api_Backend_ldap2, redirect_stdout, otpdinstance, ipautil
+)
+
 
 def main():
     ansible_module = AnsibleModule(
-        argument_spec = dict(
+        argument_spec=dict(
             # basic
-            realm=dict(required=True),
-            hostname=dict(required=False),
+            realm=dict(required=True, type='str'),
+            hostname=dict(required=False, type='str'),
             setup_ca=dict(required=False, type='bool', default=False),
         ),
     )
 
     ansible_module._ansible_debug = True
+    check_imports(ansible_module)
+    setup_logging()
     ansible_log = AnsibleModuleLog(ansible_module)
 
     # set values ####################################################
@@ -69,9 +89,6 @@ def main():
     options.setup_ca = ansible_module.params.get('setup_ca')
 
     # init ##########################################################
-
-    fstore = sysrestore.FileStore(paths.SYSRESTORE)
-    sstore = sysrestore.StateFile(paths.SYSRESTORE)
 
     api_Backend_ldap2(options.host_name, options.setup_ca, connect=True)
 
@@ -86,6 +103,7 @@ def main():
     # done ##########################################################
 
     ansible_module.exit_json(changed=True)
+
 
 if __name__ == '__main__':
     main()

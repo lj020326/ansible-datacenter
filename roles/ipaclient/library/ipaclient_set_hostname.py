@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 # Authors:
@@ -6,7 +5,7 @@
 #
 # Based on ipa-client-install code
 #
-# Copyright (C) 2018  Red Hat
+# Copyright (C) 2018-2022  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,6 +21,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import (absolute_import, division, print_function)
+
+__metaclass__ = type
+
 ANSIBLE_METADATA = {
     'metadata_version': '1.0',
     'supported_by': 'community',
@@ -31,15 +34,16 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = '''
 ---
 module: ipaclient_set_hostname
-short description: Backup and set hostname
+short_description: Backup and set hostname
 description:
   Backup and set hostname
 options:
   hostname:
-    description: The hostname of the machine to join (FQDN).
-    required: true
+    description: Fully qualified name of this host
+    type: str
+    required: yes
 author:
-    - Thomas Woerner
+    - Thomas Woerner (@t-woerner)
 '''
 
 EXAMPLES = '''
@@ -52,21 +56,24 @@ EXAMPLES = '''
 RETURN = '''
 '''
 
-import os
-import tempfile
-
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.ansible_ipa_client import *
+from ansible.module_utils.ansible_ipa_client import (
+    setup_logging, check_imports, sysrestore, paths, tasks
+)
+
 
 def main():
     module = AnsibleModule(
-        argument_spec = dict(
-            hostname=dict(required=True),
+        argument_spec=dict(
+            hostname=dict(required=True, type='str'),
         ),
-        supports_check_mode = True,
+        supports_check_mode=False,
     )
 
     module._ansible_debug = True
+    check_imports(module)
+    setup_logging()
+
     hostname = module.params.get('hostname')
 
     fstore = sysrestore.FileStore(paths.IPA_CLIENT_SYSRESTORE)
@@ -76,6 +83,7 @@ def main():
     tasks.set_hostname(hostname)
 
     module.exit_json(changed=True)
+
 
 if __name__ == '__main__':
     main()
