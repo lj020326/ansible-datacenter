@@ -29,7 +29,6 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 
 source "${PROJECT_DIR}/files/scripts/logger.sh"
 
-
 MIRROR_DIR_LIST="
 .github
 .jenkins
@@ -81,10 +80,6 @@ EXCLUDES_ARRAY+=('*.log')
 
 printf -v EXCLUDES '%s,' "${EXCLUDES_ARRAY[@]}"
 EXCLUDES="${EXCLUDES%,}"
-logDebug "EXCLUDES=${EXCLUDES}"
-
-logDebug "PROJECT_DIR=${PROJECT_DIR}"
-logDebug "TMP_DIR=${TMP_DIR}"
 
 ## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
@@ -99,6 +94,22 @@ RSYNC_OPTS_GIT_UPDATE=(
     -ari
     --links
 )
+
+function isInstalled() {
+    command -v "${1}" >/dev/null 2>&1 || return 1
+}
+
+function checkRequiredCommands() {
+    missingCommands=""
+    for currentCommand in "$@"
+    do
+        isInstalled "${currentCommand}" || missingCommands="${missingCommands} ${currentCommand}"
+    done
+
+    if [[ ! -z "${missingCommands}" ]]; then
+        fail "checkRequiredCommands(): Please install the following commands required by this script:${missingCommands}"
+    fi
+}
 
 function search_repo_keywords () {
   local LOG_PREFIX="==> search_repo_keywords():"
@@ -160,17 +171,7 @@ function search_repo_keywords () {
   return "${EXCEPTION_COUNT}"
 }
 
-function main() {
-
-#  search_repo_keywords
-  eval search_repo_keywords
-  local RETURN_STATUS=$?
-  if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "${LOG_PREFIX} search_repo_keywords: SUCCESS"
-  else
-    logError "${LOG_PREFIX} search_repo_keywords: FAILED"
-    exit ${RETURN_STATUS}
-  fi
+function sync_public_branch() {
 
   git fetch --all
   git checkout ${GIT_DEFAULT_BRANCH}
@@ -264,6 +265,58 @@ function main() {
   ln -sf ./files/scripts/git/stash-*.sh ./
   ln -sf ./files/scripts/git/sync-*.sh ./
   ln -sf ./inventory/*.sh ./
+}
+
+
+function usage() {
+  echo "Usage: ${0} [options]"
+  echo ""
+  echo "  Options:"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -v : show script version"
+  echo "       -h : help"
+  echo "     [TEST_CASES]"
+  echo ""
+  echo "  Examples:"
+	echo "       ${0} "
+	echo "       ${0} -L DEBUG"
+  echo "       ${0} -v"
+	[ -z "$1" ] || exit "$1"
+}
+
+
+function main() {
+
+  checkRequiredCommands rsync
+
+  while getopts "L:vh" opt; do
+      case "${opt}" in
+          L) setLogLevel "${OPTARG}" ;;
+          v) echo "${VERSION}" && exit ;;
+          h) usage 1 ;;
+          \?) usage 2 ;;
+          *) usage ;;
+      esac
+  done
+  shift $((OPTIND-1))
+
+  logDebug "EXCLUDES=${EXCLUDES}"
+
+  logDebug "PROJECT_DIR=${PROJECT_DIR}"
+  logDebug "TMP_DIR=${TMP_DIR}"
+
+#  search_repo_keywords
+  eval search_repo_keywords
+  local RETURN_STATUS=$?
+  if [[ $RETURN_STATUS -eq 0 ]]; then
+    logInfo "${LOG_PREFIX} search_repo_keywords: SUCCESS"
+  else
+    logError "${LOG_PREFIX} search_repo_keywords: FAILED"
+    exit ${RETURN_STATUS}
+  fi
+
+  sync_public_branch
+
 }
 
 main "$@"

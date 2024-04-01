@@ -526,6 +526,11 @@ function run_tests() {
   return ${ERROR_COUNT}
 }
 
+
+function isInstalled() {
+    command -v "${1}" >/dev/null 2>&1 || return 1
+}
+
 function checkRequiredCommands() {
     missingCommands=""
     for currentCommand in "$@"
@@ -536,10 +541,6 @@ function checkRequiredCommands() {
     if [[ ! -z "${missingCommands}" ]]; then
         fail "checkRequiredCommands(): Please install the following commands required by this script:${missingCommands}"
     fi
-}
-
-function isInstalled() {
-    command -v "${1}" >/dev/null 2>&1 || return 1
 }
 
 
