@@ -70,7 +70,7 @@ logDebug "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY
-EXCLUDES_ARRAY=('.git')
+EXCLUDES_ARRAY+=('.git')
 EXCLUDES_ARRAY+=('.gitmodule')
 EXCLUDES_ARRAY+=('.idea')
 EXCLUDES_ARRAY+=('.vscode')

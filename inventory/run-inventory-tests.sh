@@ -375,7 +375,7 @@ function validate_yml_sortorder() {
 ###################################
 ### run pytests
 function run_pytests() {
-  local LOG_PREFIX="==> run_pytests():"
+  local LOG_PREFIX="run_pytests():"
   local PYTEST_JUNIT_REPORT=$1
   shift 1
   local TEST_CASES=("$@")
@@ -545,7 +545,7 @@ function checkRequiredCommands() {
 
 
 function install_jq() {
-  local LOG_PREFIX="==> install_jq():"
+  local LOG_PREFIX="install_jq():"
   local OS="${1}"
   local PACKAGE_NAME="jq"
 
@@ -574,7 +574,7 @@ function install_jq() {
 
 
 function install_yq() {
-  local LOG_PREFIX="==> install_jq():"
+  local LOG_PREFIX="install_jq():"
   local OS="${1}"
   local VERSION="v4.40.5"
   local BINARY="yq_linux_amd64"
@@ -627,7 +627,7 @@ function ensure_python_modules() {
 
 
 function ensure_tool() {
-  local LOG_PREFIX="==> ensure_tool():"
+  local LOG_PREFIX="ensure_tool():"
   if [[ $# -ne 1 ]]
   then
     return 1

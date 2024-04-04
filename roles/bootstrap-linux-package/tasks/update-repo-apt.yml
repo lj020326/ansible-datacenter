@@ -1,13 +1,13 @@
 ---
 
-- name: Package | APT - Check that HTTPS Transport is Installed
+- name: "Package | APT - Check that HTTPS Transport is Installed"
   apt:
     name: apt-transport-https
     state: present
   when:
     - bootstrap_linux_package__apt_repo_use_https | bool
 
-- name: Package | APT - Install sources.list
+- name: "Package | APT - Install sources.list"
   template:
     src: "{{ bootstrap_linux_package__apt_sources_tpl }}"
     dest: "{{ bootstrap_linux_package__apt_sources_file }}"
@@ -17,7 +17,7 @@
     backup: yes
   notify: APT Update Cache
 
-- name: Package | APT - Install backports.list
+- name: "Package | APT - Install backports.list"
   when:
     - bootstrap_linux_package__apt_backports | bool
     - ansible_distribution == 'Debian'
@@ -30,7 +30,7 @@
     backup: yes
   notify: APT Update Cache
 
-- name: Package | APT - Install experimental.list
+- name: "Package | APT - Install experimental.list"
   when:
     - bootstrap_linux_package__apt_experimental | bool
     - ansible_distribution == 'Debian'
@@ -43,11 +43,11 @@
     backup: yes
   notify: APT Update Cache
 
-- name: packages APT - Custom repos
+- name: "Package | APT - Custom repos"
   when: bootstrap_linux_package__custom_repo_list.apt | length > 0
   block:
 
-    - name: Package | APT - Install Custom repo key
+    - name: "Package | APT - Install Custom repo key"
       apt_key:
         url: "{{ item.key_url }}"
         state: "{{ item.state | default(package__state) }}"
@@ -55,7 +55,7 @@
       loop_control:
         label: "{{ item.name }}"
 
-    - name: Package | APT - Install Custom repo
+    - name: "Package | APT - Install Custom repo"
       apt_repository:
         repo: "{{ item.repo_url }}"
         state: "{{ item.state | default(package__state) }}"
@@ -65,6 +65,11 @@
       loop_control:
         label: "{{ item.name }}"
 
+- name: "Package | APT - Update System Package Cache"
+  apt:
+    update_cache: yes
+    force_apt_get: yes
+#    cache_valid_time: 3600
 
-- name: Package | APT - Run Handlers
+- name: "Package | APT - Run Handlers"
   meta: flush_handlers
