@@ -249,7 +249,7 @@ when: bootstrap_certs__ca_fetch_certs is defined
      - "{{ ca_node.swarm.swarm-workers }}"
      - "{{ ca_node.swarm.swarm-managers }}"
 
- when: inventory_hostname == "{{ item.commonName }}"
+ when: inventory_hostname == item.commonName
 
 # Root CA key/cert
 
