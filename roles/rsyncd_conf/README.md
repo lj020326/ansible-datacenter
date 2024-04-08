@@ -27,8 +27,3 @@ Example Playbook
       roles:
         - rsyncd_conf
 ```
-
-Author Information
-------------------
-
-(Estelle lisouck) elissouck@silexdata.com
