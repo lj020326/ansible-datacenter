@@ -12,6 +12,20 @@
   when: ansible_os_family|lower == "redhat"
 
 - name: Docker | Storage Driver | overlay2 | Enable overlay driver
-  modprobe:
-    name: overlay
-    state: present
+  block:
+    - name: Docker | Storage Driver | overlay2 | Enable overlay driver
+      community.general.modprobe:
+        name: overlay
+        state: present
+      register: __modprobe_result
+
+  rescue:
+    - name: Docker | Storage Driver | overlay2 | Display __modprobe_result
+      debug:
+        var: __modprobe_result
+
+    ## ref: https://unix.stackexchange.com/questions/328978/docker-and-overlayfs
+    - name: Docker | Storage Driver | overlay2 | Alternatively add overlay to systemd
+      copy:
+        content: "overlay"
+        dest: /etc/modules-load.d/overlay.conf

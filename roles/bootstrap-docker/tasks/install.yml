@@ -67,6 +67,7 @@
   ansible.builtin.include_tasks: docker_users.yml
 
 - name: "Docker | Ensure service started"
+  when: bootstrap_docker__service_started|bool
   ansible.builtin.service:
     name: docker
     state: started
@@ -76,14 +77,17 @@
   ansible.builtin.include_tasks: docker_compose.yml
 
 - name: "Docker | Get docker system info on docker host"
-  community.docker.docker_host_info:
-  register: __docker_info_result
+  when: bootstrap_docker__service_started|bool
+  block:
+  - name: "Docker | Get docker system info on docker host"
+    community.docker.docker_host_info:
+    register: __docker_info_result
 
-- name: "Docker | Display __docker_info_result"
-  ansible.builtin.debug:
-    var: __docker_info_result
+  - name: "Docker | Display __docker_info_result"
+    ansible.builtin.debug:
+      var: __docker_info_result
 
-- name: "Docker | Assert docker setup successful"
-  ansible.builtin.assert:
-    that:
-      - not __docker_info_result.failed
+  - name: "Docker | Assert docker setup successful"
+    ansible.builtin.assert:
+      that:
+        - not __docker_info_result.failed

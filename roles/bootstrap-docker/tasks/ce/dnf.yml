@@ -102,10 +102,26 @@
   when: bootstrap_docker__channel == "edge"
 
 - name: "{{ __log_prefix_dnf }} Perform specific os tasks"
-  ansible.builtin.include_tasks: "{{ item }}"
-  with_first_found:
-    - os/{{ ansible_distribution.split(' ', 1)[0]|lower }}.yml
-    - os/default.yml
+  ansible.builtin.include_tasks: "{{ lookup('first_found', __file_params) }}"
+  vars:
+    __file_params:
+      files:
+        - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+        - "{{ ansible_distribution|lower }}.yml"
+        - "default.yml"
+      paths:
+        - "{{ role_path }}/tasks/ce/os"
+
+#- name: "{{ __log_prefix_dnf }} Perform specific os tasks"
+#  ansible.builtin.include_tasks: "{{ item }}"
+#  with_first_found:
+#    - paths:
+##        - "tasks/ce/os"
+#        - "{{ role_path }}/tasks/ce/os"
+#    - files:
+#      - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+#      - "{{ ansible_distribution|lower }}.yml"
+#      - "default.yml"
 
 - name: "{{ __log_prefix_dnf }} Configure containerd on RHEL 8."
   when: ansible_distribution_major_version | int == 8

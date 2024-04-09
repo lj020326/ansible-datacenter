@@ -1,13 +1,10 @@
 ---
 
-- set_fact:
-    __log_prefix_pipenv: "Install Pip Libs | Pip ENV=>[{{ __bootstrap_pip_env.name }}] |"
-
-- name: "{{ __log_prefix_pipenv }} Display __bootstrap_pip_env"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display __bootstrap_pip_env"
   debug:
     var: __bootstrap_pip_env
 
-- name: "{{ __log_prefix_local }} Update system pip via package manager"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update system pip via package manager"
   when:
     - not __bootstrap_pip__system_pip_upgrade_allowed|bool
     - __bootstrap_pip_env.virtualenv is not defined
@@ -16,22 +13,22 @@
     name: '{{ bootstrap_pip__packages }}'
     state: 'latest'
 
-- name: "{{ __log_prefix_local }} Update system pip"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update system pip"
   when:
     - __bootstrap_pip__system_pip_upgrade_allowed|bool
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env.pip_version|d('')=='latest'
   include_tasks: run-get-pip.yml
 
-- name: "{{ __log_prefix_pipenv }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
   when: __bootstrap_pip_env.virtualenv is defined
   block:
 
-  - name: "{{ __log_prefix_pipenv }} Set __virtual_env_python"
+  - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __virtual_env_python"
     set_fact:
       __virtual_env_python: "{{ __bootstrap_pip_env.virtualenv | expanduser }}/bin/python3"
 
-  - name: "{{ __log_prefix_pipenv }} Display python interpreter info"
+  - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display python interpreter info"
     debug:
       var: "{{ item }}"
     loop:
@@ -39,7 +36,7 @@
       - ansible_python_interpreter
       - discovered_interpreter_python
 
-  - name: "{{ __log_prefix_pipenv }} Remove existing virtualenv if rebuilding venv"
+  - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Remove existing virtualenv if rebuilding venv"
     when:
       - bootstrap_pip__env_force_rebuild|d(True)|bool
       - __virtual_env_python != __bootstrap_pip__python_interpreter
@@ -47,9 +44,9 @@
       path: "{{ __bootstrap_pip_env.virtualenv }}"
       state: absent
 
-  - name: "{{ __log_prefix_pipenv }} Set up venv for {{ __bootstrap_pip_env.virtualenv }}"
+  - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv for {{ __bootstrap_pip_env.virtualenv }}"
     block:
-    - name: "{{ __log_prefix_pipenv }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
       pip:
         name: pip
         state: present
@@ -60,7 +57,7 @@
         virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(__bootstrap_pip__virtualenv_command) }}"
       register: __pip_update_result
 
-    - name: "{{ __log_prefix_pipenv }} Set up latest pip"
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up latest pip"
       when: __bootstrap_pip_env.pip_version|d('')=='latest'
       pip:
         name: pip
@@ -71,7 +68,7 @@
       environment: "{{ __bootstrap_pip__environment_ignore_root_user_action | d(omit) }}"
       register: __pip_update_result
 
-    - name: "{{ __log_prefix_pipenv }} Ensure pip version is at [{{ __bootstrap_pip_env.pip_version }}]"
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure pip version is at [{{ __bootstrap_pip_env.pip_version }}]"
       when: __bootstrap_pip_env.pip_version|d('')!='latest'
       pip:
         name: "pip=={{ __bootstrap_pip_env.pip_version }}"
@@ -86,20 +83,20 @@
 
     ## ref: https://stackoverflow.com/questions/69503329/pip-is-not-working-for-python-3-10-on-ubuntu/69527217#69527217
     ## ref: https://stackoverflow.com/questions/70431655/importerror-cannot-import-name-html5lib-from-pip-vendor-usr-lib-python3
-    - name: "{{ __log_prefix_pipenv }} Install pip using downloaded pip installer"
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Install pip using downloaded pip installer"
   #    when:
   #      - __pip_update_result.msg | regex_search("cannot import name .* from 'pip._vendor'")
       include_tasks: run-get-pip.yml
 
-- name: "{{ __log_prefix_pipenv }} Init __bootstrap_pip_env_libs_list_by_priority"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Init __bootstrap_pip_env_libs_list_by_priority"
   set_fact:
     __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority }}"
 
-- name: "{{ __log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
   when: __bootstrap_pip_env.libraries|d([])|length>0
   block:
 
-  - name: "{{ __log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
+  - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
     set_fact:
       __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip_env_libs_list_by_priority | d({})
         | combine({ (item.priority | default(bootstrap_pip__lib_priority_default)|int): {
@@ -110,11 +107,11 @@
                     }, recursive=True) }}"
     loop: "{{ __bootstrap_pip_env.libraries }}"
 
-- name: "{{ __log_prefix_pipenv }} Display __bootstrap_pip_env_libs_list_by_priority"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display __bootstrap_pip_env_libs_list_by_priority"
   debug:
     var: __bootstrap_pip_env_libs_list_by_priority
 
-- name: "{{ __log_prefix_pipenv }} Ensure pip libraries are installed for virtualenv"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure pip libraries are installed for virtualenv"
   when:
     - __bootstrap_pip_env.virtualenv is defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
@@ -132,7 +129,7 @@
   loop_control:
     label: "installing pip packages with priority={{ item }}"
 
-- name: "{{ __log_prefix_pipenv }} Ensure system pip libraries are installed"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure system pip libraries are installed"
   when:
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
@@ -152,7 +149,7 @@
 
 ### NOTE: Unable to find pip in the virtualenv (python 3.10)
 ### https://github.com/ansible/ansible/issues/77604
-#- name: "{{ __log_prefix_pipenv }} Install python libraries into virtualenv"
+#- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Install python libraries into virtualenv"
 #  when:
 #    - __bootstrap_pip_env.virtualenv is defined
 #    - item.name | d()

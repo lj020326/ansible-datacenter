@@ -1,15 +1,15 @@
 ---
 
-- name: "{{ __log_prefix_local }} Display __bootstrap_pip_env.pip_version"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Display __bootstrap_pip_env.pip_version"
   debug:
     var: __bootstrap_pip_env.pip_version
 
-- name: "{{ __log_prefix_local }} Display __bootstrap_pip_env.python_executable"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Display __bootstrap_pip_env.python_executable"
   debug:
     var: __bootstrap_pip_env.python_executable
 
 ## ref: https://stackoverflow.com/questions/73293401/ansible-install-python-module-only-if-it-not-exist
-- name: "{{ __log_prefix_local }} Gather installed {{ __bootstrap_pip_env.python_executable }} version"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Gather installed {{ __bootstrap_pip_env.python_executable }} version"
   shell: "{{ __bootstrap_pip_env.python_executable }} --version | cut -d ' ' -f 2"
   register: __python_version_result
   failed_when: __python_version_result.rc != 0 and __python_version_result.rc != 127
@@ -18,50 +18,50 @@
   changed_when: false
   check_mode: false
 
-- name: "{{ __log_prefix_local }} Display __python_version_result"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Display __python_version_result"
   debug:
     var: __python_version_result
 
-- name: "{{ __log_prefix_local }} Init __python_version_current"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Init __python_version_current"
   set_fact:
     __python_version_current: "00.0.0"
 
-- name: "{{ __log_prefix_local }} Set __python_version_current"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Set __python_version_current"
   when:
     - __python_version_result.stdout is defined
     - __python_version_result.stdout | length > 0
   set_fact:
     __python_version_current: "{{ __python_version_result.stdout }}"
 
-- name: "{{ __log_prefix_local }} Display __python_version_current"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Display __python_version_current"
   debug:
     var: __python_version_current
 
-- name: "{{ __log_prefix_local }} Override __bootstrap_pip__get_pip_url if __python_version_current == 3.6"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Override __bootstrap_pip__get_pip_url if __python_version_current == 3.6"
   when:
     - __python_version_current is version('3.6', '>=')
     - __python_version_current is version('3.7', '<')
   set_fact:
     __bootstrap_pip__get_pip_url: "https://bootstrap.pypa.io/pip/3.6/get-pip.py"
 
-- name: "{{ __log_prefix_local }} Get get-pip.py install script"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Get get-pip.py install script"
   get_url:
     url: "https://bootstrap.pypa.io/pip/3.6/get-pip.py"
     dest: "{{ __bootstrap_pip__tmp }}/"
     validate_certs: false
 
-- name: "{{ __log_prefix_local }} Install 'pip' only if it not exist"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Install 'pip' only if it not exist"
   when: __bootstrap_pip_env.pip_version == "present"
   shell:
     cmd: "{{ __pip_executable }} --version
       || {{ __bootstrap_pip_env.python_executable }} {{ __bootstrap_pip__tmp }}/get-pip.py"
 
-- name: "{{ __log_prefix_local }} Install latest 'pip'"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Install latest 'pip'"
   when: __bootstrap_pip_env.pip_version == "latest"
   shell:
     cmd: "{{ __bootstrap_pip_env.python_executable }} {{ __bootstrap_pip__tmp }}/get-pip.py"
 
-- name: "{{ __log_prefix_local }} Delete /tmp/get-pip.py"
+- name: "{{ __bootstrap_pip__log_prefix_get_pip }} Delete /tmp/get-pip.py"
   file:
     path: "{{ __bootstrap_pip__tmp }}//get-pip.py"
     state: absent
