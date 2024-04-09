@@ -1,10 +1,36 @@
 ---
 
-docker_stack__samba_domain: EXAMPLE.COM
-docker_stack__samba_data_path: /data
+__docker_stack__samba__domain_default: EXAMPLE.COM
+__docker_stack__samba__data_path_default: /data
+
+__docker_stack__samba__domain: "{{ docker_stack__samba__domain | d(__docker_stack__samba__domain_default) }}"
+__docker_stack__samba__data_path: "{{ docker_stack__samba__data_path | d(__docker_stack__samba__data_path_default) }}"
 
 __docker_stack__samba__config_dirs:
   - { path: "{{ docker_stack__dir }}/samba" }
+
+__docker_stack__samba__ldap_base_dn_default: "dc=example,dc=int"
+__docker_stack__samba__ldap_user_suffix_default: "ou=users"
+__docker_stack__samba__ldap_group_suffix_default: "ou=groups"
+#__docker_stack__samba__ldap_machine_suffix_default: "ou=computers"
+__docker_stack__samba__ldap_machine_suffix_default: "ou=hosts"
+__docker_stack__samba__ldap_idmap_suffix_default: "ou=Idmap"
+__docker_stack__samba__ldap_admin_dn_default: "cn=admin,{{ __docker_stack__samba__ldap_base_dn }}"
+
+__docker_stack__samba__ldap_base_dn: "{{ docker_stack__samba__ldap_base_dn 
+  | d(__docker_stack__samba__ldap_base_dn_default) }}"
+__docker_stack__samba__ldap_user_suffix: "{{ docker_stack__samba__ldap_user_suffix 
+  | d(__docker_stack__samba__ldap_user_suffix_default) }}"
+__docker_stack__samba__ldap_group_suffix: "{{ docker_stack__samba__ldap_group_suffix 
+  | d(__docker_stack__samba__ldap_group_suffix_default) }}"
+__docker_stack__samba__ldap_machine_suffix: "{{ docker_stack__samba__ldap_machine_suffix 
+  | d(__docker_stack__samba__ldap_machine_suffix_default) }}"
+__docker_stack__samba__ldap_idmap_suffix: "{{ docker_stack__samba__ldap_idmap_suffix 
+  | d(__docker_stack__samba__ldap_idmap_suffix_default) }}"
+__docker_stack__samba__ldap_admin_dn: "{{ docker_stack__samba__ldap_admin_dn 
+  | d(__docker_stack__samba__ldap_admin_dn_default) }}"
+__docker_stack__samba__ldap_admin_pw: "{{ docker_stack__samba__ldap_admin_pw | d('password') }}"
+
 
 __docker_stack__samba__config_tpls:
   - { src: "samba/config-libnss-ldap.conf.j2", dest: "{{ docker_stack__dir }}/samba/libnss-ldap.conf" }
@@ -30,7 +56,7 @@ __docker_stack__samba__services:
       - "/etc/localtime:/etc/localtime:ro"
       - "{{ docker_stack__dir }}/samba/libnss-ldap.conf:/etc/libnss-ldap.conf:ro"
       - "{{ docker_stack__dir }}/samba/smb.conf:/etc/samba/smb.conf:ro"
-      - "{{ docker_stack__samba_data_path }}:/data"
+      - "{{ __docker_stack__samba__data_path }}:/data"
     deploy:
       mode: replicated
       placement:
@@ -52,11 +78,3 @@ docker_stack__appspec__samba:
   firewalld_ports: "{{ __docker_stack__samba__firewalld_ports | d([]) }}"
   docker_services: "{{ __docker_stack__samba__services | d({}) }}"
 
-docker_stack__samba_ldap_base_dn: "dc=example,dc=int"
-docker_stack__samba_ldap_user_suffix: "ou=users"
-docker_stack__samba_ldap_group_suffix: "ou=groups"
-#docker_stack__samba_ldap_machine_suffix: "ou=computers"
-docker_stack__samba_ldap_machine_suffix: "ou=hosts"
-docker_stack__samba_ldap_idmap_suffix: "ou=Idmap"
-
-docker_stack__samba_ldap_admin_dn: "cn=admin,{{ docker_stack__samba_ldap_base_dn }}"
