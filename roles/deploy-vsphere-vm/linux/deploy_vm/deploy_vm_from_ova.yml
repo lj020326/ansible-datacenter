@@ -16,7 +16,7 @@
     # OVA file on NFS server
     - name: "Get OVA path and file name after mounting NFS storage at local"
       block:
-        - include_tasks: ../../common/mount_nfs_storage_local.yml
+        - ansible.builtin.include_tasks: ../../common/mount_nfs_storage_local.yml
           vars:
             nfs_server_path: "{{ ova_nfs_server_path }}"
         - name: "Get OVA path and file name"
@@ -32,14 +32,14 @@
       failed_when: not vm_ova_stat.stat.exists
 
     # Deploy a new VM from OVA
-    - include_tasks: ../../common/ovf_deploy.yml
+    - ansible.builtin.include_tasks: ../../common/ovf_deploy.yml
       vars:
         ovf_path: "{{ vm_ova_path }}"
         ovf_vm_name: "{{ vm_name }}"
         deploy_datastore: "{{ datastore }}"
 
     # Get OVA deployed VM info
-    - include_tasks: ../../common/vm_get_vm_info.yml
+    - ansible.builtin.include_tasks: ../../common/vm_get_vm_info.yml
     - name: "Set fact of vm_exists to True"
       ansible.builtin.set_fact:
         vm_exists: true
@@ -49,7 +49,7 @@
     - name: "Set fact of the base snapshot name"
       ansible.builtin.set_fact:
         base_snapshot_for_reconfig: "FreshDeployedFromOVA"
-    - include_tasks: ../../common/vm_take_snapshot.yml
+    - ansible.builtin.include_tasks: ../../common/vm_take_snapshot.yml
       vars:
         snapshot_name: "{{ base_snapshot_for_reconfig }}"
 
@@ -66,29 +66,29 @@
     # Known issue on Ubuntu cloud image OVA deployed VM, after upgrade hardware version,
     # VM will hang during booting, tracked in this issue:
     # https://bugs.launchpad.net/cloud-images/+bug/1898871
-    - include_tasks: upgrade_ova_vm_hwv.yml
+    - ansible.builtin.include_tasks: upgrade_ova_vm_hwv.yml
       when:
         - hardware_version is defined and hardware_version
         - hardware_version == "latest" or (vm_hardware_version_num | int < hardware_version | int)
 
     # Power on VM and try to get OS type from guest info or vmx detailed data
     - block:
-        - include_tasks: ../../common/vm_set_power_state.yml
+        - ansible.builtin.include_tasks: ../../common/vm_set_power_state.yml
           vars:
             vm_power_state_set: 'powered-on'
         - name: "Set current power state"
           ansible.builtin.set_fact:
             current_power_state: "{{ vm_power_state_get }}"
-        - include_tasks: ../../common/vm_get_guest_info.yml
+        - ansible.builtin.include_tasks: ../../common/vm_get_guest_info.yml
 
         # Try to get OS type from guest info
-        - include_tasks: get_os_type_from_guestinfo.yml
+        - ansible.builtin.include_tasks: get_os_type_from_guestinfo.yml
       when: ova_guest_os_type == 'unknown'
 
     # Revert to snapshot "FreshDeployedFromOVA" or "AfterUpgradeHwv" to
     # proceed the following tasks so that VM's reconfiguration can be
     # performed at the first time boot.
-    - include_tasks: ../../common/vm_revert_snapshot.yml
+    - ansible.builtin.include_tasks: ../../common/vm_revert_snapshot.yml
       vars:
         snapshot_name: "{{ base_snapshot_for_reconfig }}"
       when:
@@ -97,19 +97,19 @@
 
     # Configure username/password, ssh public key, sshd, etc in guest
     # Reconfig Amazon Linux VM
-    - include_tasks: amazonlinux/reconfigure_amazonlinux_vm.yml
+    - ansible.builtin.include_tasks: amazonlinux/reconfigure_amazonlinux_vm.yml
       when: ova_guest_os_type == 'amazonlinux'
 
     # Reconfig Photon OS VM
-    - include_tasks: photon/reconfigure_photon_vm.yml
+    - ansible.builtin.include_tasks: photon/reconfigure_photon_vm.yml
       when: ova_guest_os_type == 'photon'
 
     # Reconfig Flatcar VM
-    - include_tasks: flatcar/reconfigure_flatcar_vm.yml
+    - ansible.builtin.include_tasks: flatcar/reconfigure_flatcar_vm.yml
       when: ova_guest_os_type == 'flatcar'
 
     # Reconfig Ubuntu VM
-    - include_tasks: ubuntu/reconfigure_ubuntu_ova_vm.yml
+    - ansible.builtin.include_tasks: ubuntu/reconfigure_ubuntu_ova_vm.yml
       when: ova_guest_os_type == 'ubuntu'
 
     # Warning about other OS OVAs which are not supported
@@ -117,33 +117,33 @@
         msg: "WARN: OVA guest OS type is not supported in this project. The following tests might fail."
       when: ova_guest_os_type == 'unknown'
   rescue:
-    - include_tasks: ../../common/test_rescue.yml
+    - ansible.builtin.include_tasks: ../../common/test_rescue.yml
       vars:
         exit_testing_when_fail: true
   always:
     - block:
         # Umount NFS share points
-        - include_tasks: ../../common/local_unmount.yml
+        - ansible.builtin.include_tasks: ../../common/local_unmount.yml
           vars:
             mount_path: "{{ nfs_mount_dir }}"
             local_unmount_ignore_errors: true
           when: nfs_mounted is defined and nfs_mounted | bool
 
         # Remove temporary folders
-        - include_tasks: ../../common/delete_local_file.yml
+        - ansible.builtin.include_tasks: ../../common/delete_local_file.yml
           vars:
             local_path: "{{ nfs_mount_dir }}"
             del_local_file_ignore_errors: true
       when: nfs_mount_dir is defined and nfs_mount_dir
 
     # Collect cloud-init logs for deploying Ubuntu and Photon OVA
-    - include_tasks: ../../common/vm_get_power_state.yml
+    - ansible.builtin.include_tasks: ../../common/vm_get_power_state.yml
     - name: "Collect cloud-init logs"
       block:
-        - include_tasks: ../../common/vm_get_vmtools_status.yml
+        - ansible.builtin.include_tasks: ../../common/vm_get_vmtools_status.yml
           vars:
             get_vmtools_status_retries: 10
-        - include_tasks: ../utils/collect_cloudinit_logs.yml
+        - ansible.builtin.include_tasks: ../utils/collect_cloudinit_logs.yml
           when:
             - vmtools_is_installed is defined
             - vmtools_is_installed

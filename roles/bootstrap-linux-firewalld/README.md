@@ -277,13 +277,13 @@ If there is the need to invoke the firewall role from another role, see the exam
 [roles/nfs-service/tasks/main.yml](./../../roles/nfs-service/tasks/main.yml):
 ```yaml
 - name: Setup and run nfs
-  include_role:
+  ansible.builtin.include_role:
     name: geerlingguy.nfs
  
 - name: Allow nfs traffic through the firewall
   when: firewalld_enabled | bool
   tags: [ firewall-config-nfs ]
-  include_role:
+  ansible.builtin.include_role:
     name: bootstrap-linux-firewalld
   vars:
     firewalld_action: configure

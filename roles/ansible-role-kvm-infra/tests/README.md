@@ -751,7 +751,7 @@ inventory to update and reboot all nodes.
 - hosts: all,!kvmhost
   tasks:
     - name: Upgrade all packages
-      package:
+      ansible.builtin.package:
         name: '*'
         state: latest
       become: true
@@ -761,7 +761,7 @@ inventory to update and reboot all nodes.
       until: result_package_update is succeeded
 
     - name: Install packages
-      package:
+      ansible.builtin.package:
         name:
           - git
           - tmux

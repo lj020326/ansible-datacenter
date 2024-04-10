@@ -1,6 +1,6 @@
 ---
 # Get VM memory size before memory hotadd
-- include_tasks: ../../common/vm_get_guest_facts.yml
+- ansible.builtin.include_tasks: ../../common/vm_get_guest_facts.yml
 - name: "Set fact of the memory size before hotadd"
   ansible.builtin.set_fact:
     mem_before_hotadd: "{{ vm_guest_facts.instance.hw_memtotal_mb }}"
@@ -15,20 +15,20 @@
 - block:
     # It requires a cold add when VM memory size is less than
     # 3072MB before hotadd, and greater than 3072MB after hotadd.
-    - include_tasks: ../utils/shutdown.yml
+    - ansible.builtin.include_tasks: ../utils/shutdown.yml
       when:
         - mem_before_hotadd | int <= 3072
         - mem_after_hotadd | int > 3072
-    - include_tasks: ../../common/vm_set_memory_size.yml
+    - ansible.builtin.include_tasks: ../../common/vm_set_memory_size.yml
       vars:
         memory_mb: "{{ mem_after_hotadd }}"
 
     - block:
-        - include_tasks: ../../common/vm_set_power_state.yml
+        - ansible.builtin.include_tasks: ../../common/vm_set_power_state.yml
           vars:
             vm_power_state_set: 'powered-on'
 
-        - include_tasks: ../../common/update_inventory.yml
+        - ansible.builtin.include_tasks: ../../common/update_inventory.yml
       when:
         - mem_before_hotadd | int <= 3072
         - mem_after_hotadd | int > 3072 
@@ -37,7 +37,7 @@
         - name: "Pause 5 seconds then check VM connection status"
           ansible.builtin.pause:
             seconds: 5
-        - include_tasks: ../../common/vm_wait_connection.yml
+        - ansible.builtin.include_tasks: ../../common/vm_wait_connection.yml
           vars:
             vm_wait_connection_timeout: 900
       when: >
@@ -45,10 +45,10 @@
         mem_after_hotadd | int <= 3072
 
     # Get VM memory size in guest OS
-    - include_tasks: ../utils/wait_for_memory_blocks.yml
+    - ansible.builtin.include_tasks: ../utils/wait_for_memory_blocks.yml
       vars:
         memory_size_mb: "{{ mem_after_hotadd | int }}"
-    - include_tasks: ../utils/memory_size_in_guest.yml
+    - ansible.builtin.include_tasks: ../utils/memory_size_in_guest.yml
 
     - name: "Check VM memory size got in guest OS"
       ansible.builtin.assert:

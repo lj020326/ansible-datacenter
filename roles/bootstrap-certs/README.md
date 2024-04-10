@@ -144,7 +144,7 @@ when: bootstrap_certs__ca_fetch_certs is defined
   - "{{ ca_certs_base_dir }}"
 
 - name: "Deploy configuration items"
-  template:
+  ansible.builtin.template:
     src: "{{ item }}.j2"
     dest: "{{ ca_certs_base_dir }}/{{ item }}"
     owner: root

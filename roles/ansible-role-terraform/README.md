@@ -40,7 +40,7 @@ This is a repo showing how you can create multiple VM's in vmware using ansible 
   - {FQDN}:
     hostname: {hostname}
     domain: "{domain_name}"
-    template: "{template_name}"
+    ansible.builtin.template: "{template_name}"
     hardware:
       vcpu: 2
       ram: 2048

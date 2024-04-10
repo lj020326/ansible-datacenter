@@ -184,7 +184,7 @@ The following playbook creates 2 organizations and all defined resources.
 
   tasks:
     - name: Setup tower resources
-      include_role:
+      ansible.builtin.include_role:
         name: ansible-tower-resources
       vars:
         tower_resources:

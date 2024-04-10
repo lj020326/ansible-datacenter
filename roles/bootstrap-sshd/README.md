@@ -306,7 +306,7 @@ for example:
   become: true
   tasks:
   - name: "Configure sshd"
-    include_role:
+    ansible.builtin.include_role:
       name: willshersystems.sshd
     vars:
       sshd_skip_defaults: true
@@ -332,7 +332,7 @@ option:
 - hosts: all
   tasks:
   - name: Configure sshd to accept some useful environment variables
-    include_role:
+    ansible.builtin.include_role:
       name: ansible-sshd
     vars:
       sshd_config_namespace: accept-env

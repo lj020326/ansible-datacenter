@@ -10,27 +10,27 @@
       ansible.builtin.set_fact:
         enable_cloudinit_gosc: "{% if gosc_workflow  == 'cloud-init' %}True{% else %}False{% endif %}"
 
-    - include_tasks: ../setup/test_setup.yml
+    - ansible.builtin.include_tasks: ../setup/test_setup.yml
       vars:
         skip_test_no_vmtools: true
 
-    - include_tasks: check_gosc_support_status.yml
+    - ansible.builtin.include_tasks: check_gosc_support_status.yml
 
     - name: "Test case block"
       block:
         # Traditional GOSC in Photon OS is implemented with cloud-init,
         # so will upgrade cloud-init to the latest version in Photon OS
-        - include_tasks: ../utils/install_uninstall_package.yml
+        - ansible.builtin.include_tasks: ../utils/install_uninstall_package.yml
           vars:
             package_name: "cloud-init"
             package_state: "latest"
 
         # Install tar for collecting cloud-init logs
-        - include_tasks: ../utils/get_installed_package_info.yml
+        - ansible.builtin.include_tasks: ../utils/get_installed_package_info.yml
           vars:
             package_name: "tar"
 
-        - include_tasks: ../utils/install_uninstall_package.yml
+        - ansible.builtin.include_tasks: ../utils/install_uninstall_package.yml
           vars:
             package_name: "tar"
             package_state: "present"
@@ -40,7 +40,7 @@
 
         # In Photon OS 4.0, open-vm-tools-gosc is provided with GOSC scripts
         # from open-vm-tools 11.3.5
-        - include_tasks: ../utils/install_uninstall_package.yml
+        - ansible.builtin.include_tasks: ../utils/install_uninstall_package.yml
           vars:
             package_name: "open-vm-tools-gosc-{{ vmtools_version }}"
             package_state: "present"
@@ -59,7 +59,7 @@
           register: which_perl_result
           delegate_to: "{{ vm_guest_ip }}"
 
-        - include_tasks: ../utils/install_uninstall_package.yml
+        - ansible.builtin.include_tasks: ../utils/install_uninstall_package.yml
           vars:
             package_name: "perl"
             package_state: "latest"
@@ -67,7 +67,7 @@
             - which_perl_result.rc is undefined or which_perl_result.rc != 0
             - guest_os_ansible_kernel is version('4.0', '<')
 
-        - include_tasks: ../utils/install_uninstall_package.yml
+        - ansible.builtin.include_tasks: ../utils/install_uninstall_package.yml
           vars:
             package_name: "perl-interpreter"
             package_state: "latest"
@@ -79,7 +79,7 @@
         - guest_os_family == "RedHat"
 
     # Check cloud-init version for cloud-init gosc workflow
-    - include_tasks: ../utils/cloudinit_pkg_check.yml
+    - ansible.builtin.include_tasks: ../utils/cloudinit_pkg_check.yml
 
     # Skip cloud-init GOSC if cloud-init version is lower than required version.
     - block:
@@ -93,7 +93,7 @@
             gosc_required_cloudinit_version: >-
               {% if guest_os_ansible_distribution != 'Debian' %}18.5{% else %}22.1{% endif %}
 
-        - include_tasks: ../../common/skip_test_case.yml
+        - ansible.builtin.include_tasks: ../../common/skip_test_case.yml
           vars:
             skip_reason: "Not Supported"
             skip_msg: >
@@ -102,7 +102,7 @@
       when: enable_cloudinit_gosc
 
     # Get DNS server info before GOSC
-    - include_tasks: ../utils/get_system_dns.yml
+    - ansible.builtin.include_tasks: ../utils/get_system_dns.yml
     - name: "Set fact of the DNS servers in /etc/resolv.conf before GOSC"
       ansible.builtin.set_fact:
         dns_servers_before_gosc: "{{ dns_servers }}"
@@ -110,9 +110,9 @@
         msg: "DNS servers before GOSC: {{ dns_servers_before_gosc }}"
 
     # Modify cloud-init GOSC config in guest OS
-    - include_tasks: ../utils/enable_disable_cloudinit_cfg.yml
+    - ansible.builtin.include_tasks: ../utils/enable_disable_cloudinit_cfg.yml
     # Prepare router VM, vSwitch and portgroup
-    - include_tasks: ../../common/network_testbed_setup.yml
+    - ansible.builtin.include_tasks: ../../common/network_testbed_setup.yml
       when:
         - router_vm_required | default(false)
         - router_vm_deployed is undefined or not router_vm_deployed | bool
@@ -148,8 +148,8 @@
       when: ip_assignment == "dhcp"
 
     # Execute guest customization on VM
-    - include_tasks: linux_gosc_start.yml
+    - ansible.builtin.include_tasks: linux_gosc_start.yml
     # Check guest customization results
-    - include_tasks: linux_gosc_verify.yml
+    - ansible.builtin.include_tasks: linux_gosc_verify.yml
   rescue:
-    - include_tasks: ../../common/test_rescue.yml
+    - ansible.builtin.include_tasks: ../../common/test_rescue.yml

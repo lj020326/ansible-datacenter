@@ -22,8 +22,8 @@
     __ipaddr_version: "utils"
 
 - name: "Init {{ role_name }} vars with __ipaddr_version={{ __ipaddr_version }}"
-  include_tasks: "init-vars-{{ __ipaddr_version }}.yml"
-#  include_tasks: "init-vars-{{ ansible_version.major }}.yml"
+  ansible.builtin.include_tasks: "init-vars-{{ __ipaddr_version }}.yml"
+#  ansible.builtin.include_tasks: "init-vars-{{ ansible_version.major }}.yml"
 
 ## ref: https://stackoverflow.com/questions/30328506/check-if-service-exists-with-ansible
 - name: "Populate service facts to determine if ntpd is installed"
@@ -47,18 +47,18 @@
       - ntpd.service
 
   - name: "Ensure ntp package is uninstalled"
-    package:
+    ansible.builtin.package:
       name: ntp
       state: absent
 
 - name: "Ensure ntp packages are installed."
-  package:
+  ansible.builtin.package:
     name: "{{ bootstrap_ntp__packages }}"
     state: present
 
 - name: "Ensure {{ bootstrap_ntp__tzdata_package }} package is installed (Linux)."
   when: ansible_system == "Linux"
-  package:
+  ansible.builtin.package:
     name: "{{ bootstrap_ntp__tzdata_package }}"
     state: present
 
@@ -91,7 +91,7 @@
 
 - name: Generate ntp configuration file.
   when: bootstrap_ntp__manage_config | bool
-  template:
+  ansible.builtin.template:
     src: "{{ bootstrap_ntp__config_file | basename }}.j2"
     dest: "{{ bootstrap_ntp__config_file }}"
     mode: "0644"
@@ -111,7 +111,7 @@
     - bootstrap_ntp__daemon == 'chronyd'
     - bootstrap_ntp__role_action in ['all', 'sync']
     - not (bootstrap_ntp__do_not_sync|bool)
-  include_tasks: sync-chrony.yml
+  ansible.builtin.include_tasks: sync-chrony.yml
 
 - name: "Sync ntp"
   when:
@@ -119,18 +119,18 @@
     - bootstrap_ntp__daemon in ['ntp','ntpd']
     - bootstrap_ntp__role_action in ['all', 'sync']
     - not (bootstrap_ntp__do_not_sync|bool)
-  include_tasks: sync-ntp.yml
+  ansible.builtin.include_tasks: sync-ntp.yml
 
 - name: "Test chronyc"
   when:
     - bootstrap_ntp__enabled | bool
     - bootstrap_ntp__daemon == 'chronyd'
     - bootstrap_ntp__role_action in ['all', 'test']
-  include_tasks: test-chrony.yml
+  ansible.builtin.include_tasks: test-chrony.yml
 
 - name: "Test ntp"
   when:
     - bootstrap_ntp__enabled | bool
     - bootstrap_ntp__daemon in ['ntp','ntpd']
     - bootstrap_ntp__role_action in ['all', 'test']
-  include_tasks: test-ntp.yml
+  ansible.builtin.include_tasks: test-ntp.yml

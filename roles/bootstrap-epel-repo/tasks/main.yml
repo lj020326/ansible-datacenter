@@ -1,35 +1,80 @@
 ---
-- name: Check if EPEL repo is already configured.
+
+- name: "Check if EPEL repo is already configured."
   stat:
     path: "{{ bootstrap_epel_repo__repofile_path }}"
   register: __epel_repofile_result
 
-- name: Import EPEL GPG key.
-  rpm_key:
-    key: "{{ bootstrap_epel_repo__gpg_key_url }}"
-    state: present
-  register: result
-  until: result is succeeded
-  retries: 5
-  delay: 10
-  when: not __epel_repofile_result.stat.exists
-  ignore_errors: "{{ ansible_check_mode }}"
-
-- name: Install EPEL repo.
-  yum:
-    name: "{{ bootstrap_epel_repo__url }}"
-    state: present
-  register: result
-  until: result is succeeded
-  retries: 5
-  delay: 10
-  when: not __epel_repofile_result.stat.exists
-
-- name: Disable Main EPEL repo.
+- name: "Disable Main EPEL repo."
+  when: __epel_repofile_result.stat.exists
   ini_file:
-    path: "/etc/yum.repos.d/epel.repo"
+    path: "{{ bootstrap_epel_repo__repofile_path }}"
     section: epel
     option: enabled
     value: "{{ bootstrap_epel_repo__disable | ternary(0, 1) }}"
     no_extra_spaces: true
     mode: "0644"
+
+- name: "Install EPEL repo."
+  when:
+    - not bootstrap_epel_repo__disable
+#    - not __epel_repofile_result.stat.exists
+  block:
+
+  # Example removing a repository and cleaning up metadata cache
+  - name: "Remove repository (and clean up left-over metadata)"
+    when: __epel_repofile_result.stat.exists
+    block:
+      - name: "Remove repository (and clean up left-over metadata)"
+        ansible.builtin.yum_repository:
+          name: epel
+          state: absent
+
+      - name: "yum-clean-metadata"
+        when: __epel_repofile_result.stat.exists
+        ansible.builtin.command: yum clean metadata
+
+  ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/builtin/yum_repository_module.html
+  ## ref: https://www.toptechskills.com/ansible-tutorials-courses/ansible-rpm_key-module-tutorial-examples/
+  - name: "Import EPEL GPG key."
+    ansible.builtin.rpm_key:
+      key: "{{ bootstrap_epel_repo__gpg_key_url }}"
+      state: present
+    register: result
+    until: result is succeeded
+    retries: 5
+    delay: 10
+    ignore_errors: "{{ ansible_check_mode }}"
+
+#  - name: "Install EPEL repo."
+#    ansible.builtin.yum:
+#      name: "{{ bootstrap_epel_repo__url }}"
+#      state: present
+#    register: result
+#    until: result is succeeded
+#    retries: 5
+#    delay: 10
+
+  ## ref: https://www.toptechskills.com/ansible-tutorials-courses/ansible-rpm_key-module-tutorial-examples/#how-to-import-a-gpg-key-from-a-file
+  - name: "Download the EPEL rpm key"
+    get_url:
+      url: "{{ bootstrap_epel_repo__gpg_key_url }}"
+      dest: "{{ bootstrap_epel_repo__gpg_key_path }}"
+
+  - name: "Install EPEL repo."
+    ansible.builtin.yum_repository:
+      name: epel
+      description: EPEL YUM repo
+      file: epel
+#      baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
+      metalink: https://mirrors.fedoraproject.org/metalink?repo=epel-$releasever&arch=$basearch&infra=$infra&content=$contentdir
+      gpgcheck: yes
+#      gpgcheck: no
+#      gpgkey: "{{ bootstrap_epel_repo__gpg_key_url }}"
+      gpgkey: "file://{{ bootstrap_epel_repo__gpg_key_path }}"
+
+  - name: "Update yum repo and cache"
+    yum:
+      name: '*'
+      state: latest
+      update_cache: yes

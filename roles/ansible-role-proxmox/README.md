@@ -285,7 +285,7 @@ Finally, let's write our playbook. `site.yml` will look something like this:
         name: bridge-utils
 
     - name: Configure /etc/network/interfaces
-      template:
+      ansible.builtin.template:
         src: "{{ interfaces_template }}"
         dest: /etc/network/interfaces
       register: _configure_interfaces

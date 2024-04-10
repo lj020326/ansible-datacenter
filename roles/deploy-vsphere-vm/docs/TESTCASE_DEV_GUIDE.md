@@ -32,17 +32,17 @@ Below is an example of test case playbook:
   tasks:
     - name: All the tasks of test case execution
       block:
-        - include_tasks: ../setup/test_setup.yml
+        - ansible.builtin.include_tasks: ../setup/test_setup.yml
 
         # e.g., set test result to 'No Run' when VMware tools is not installed
-        - include_tasks: ../../common/print_test_result.yml
+        - ansible.builtin.include_tasks: ../../common/print_test_result.yml
           vars:
             test_result: "No Run"
           when: not vmtools_is_installed
 
         # e.g., run test case when VMware tools is installed
         - block: 
-            - include_tasks: test_case_1_task.yml
+            - ansible.builtin.include_tasks: test_case_1_task.yml
             
             - name: Verify task result
               assert:
@@ -52,13 +52,13 @@ Below is an example of test case playbook:
                 success_msg: "test_result is expected_value"
 
             # set test result to 'Passed' when check point verified
-            - include_tasks: ../../common/print_test_result.yml
+            - ansible.builtin.include_tasks: ../../common/print_test_result.yml
               vars:
                 test_result: "Passed"
 
           when: vmtools_is_installed
       rescue:
-        - include_tasks: ../setup/test_rescue.yml
+        - ansible.builtin.include_tasks: ../setup/test_rescue.yml
 ```
 
 #### Test case "block"

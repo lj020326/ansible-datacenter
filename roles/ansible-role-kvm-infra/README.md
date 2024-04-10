@@ -675,7 +675,7 @@ same inventory to do whatever you wanted with those machines...
 ```yaml
 ---
 - name: Upgrade all packages
-  package:
+  ansible.builtin.package:
     name: '*'
     state: latest
   become: true
@@ -685,7 +685,7 @@ same inventory to do whatever you wanted with those machines...
   until: result_package_update is succeeded
 
 - name: Install packages
-  package:
+  ansible.builtin.package:
     name:
       - git
       - tmux
