@@ -6,7 +6,7 @@
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update system pip via package manager"
   when:
-    - not __bootstrap_pip__system_pip_upgrade_allowed|bool
+    - not __bootstrap_pip__system_pip_upgrade_enabled|bool
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env.pip_version|d('')=='latest'
   ansible.builtin.package:
@@ -15,7 +15,7 @@
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update system pip"
   when:
-    - __bootstrap_pip__system_pip_upgrade_allowed|bool
+    - __bootstrap_pip__system_pip_upgrade_enabled|bool
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env.pip_version|d('')=='latest'
   ansible.builtin.include_tasks: run-get-pip.yml
@@ -30,11 +30,10 @@
 
   - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display python interpreter info"
     debug:
-      var: "{{ item }}"
-    loop:
-      - __virtual_env_python
-      - ansible_python_interpreter
-      - discovered_interpreter_python
+      msg:
+        - "__virtual_env_python={{ __virtual_env_python }}"
+        - "ansible_python_interpreter={{ ansible_python_interpreter }}"
+        - "discovered_interpreter_python={{ discovered_interpreter_python }}"
 
   - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Remove existing virtualenv if rebuilding venv"
     when:
@@ -136,13 +135,15 @@
     - __bootstrap_pip_env_libs_list_by_priority[item].present.keys()|d([])|length>0
 #  environment: "{{ bootstrap_pip__environment_vars | d({}) }}"
   environment:
-    PATH: "$PATH:/usr/bin:/usr/local/bin"
+#    PATH: "$PATH:/usr/bin:/usr/local/bin"
     PIP_ROOT_USER_ACTION: ignore
   pip:
     name: "{{ __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | list }}"
     state: present
     extra_args: "{{ __bootstrap_pip_env.extra_args | d(omit) }}"
     executable: "{{ __bootstrap_pip_env.pip_executable | d(__bootstrap_pip__pip_executable) }}"
+    virtualenv_command: "{{ __bootstrap_pip__virtualenv_command }}"
+    virtualenv_python: "{{ __bootstrap_pip__python_executable }}"
   loop: "{{ __bootstrap_pip_env_libs_list_by_priority.keys()|sort }}"
   loop_control:
     label: "installing pip packages with priority={{ item }}"

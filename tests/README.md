@@ -245,20 +245,20 @@ $ pip install -r requirements.molecule.txt
 $ export MOLECULE_DISTRO=redhat7
 $ molecule create
 $ molecule login
-$ MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package
 $ molecule --debug test -s bootstrap-linux-package
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8 molecule --debug test -s bootstrap-linux-package --destroy never
-$ MOLECULE_DISTRO=redhat8 molecule login
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_DISTRO=centos7 molecule converge --destroy never
-$ MOLECULE_DISTRO=centos7 molecule login
+$ MOLECULE_DISTRO=centos7-systemd-python molecule converge --destroy never
+$ MOLECULE_DISTRO=centos7-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_DISTRO=centos8 --debug converge
+$ MOLECULE_DISTRO=centos8-systemd-python --debug converge
 $ molecule destroy
-$ MOLECULE_DISTRO=ubuntu2004 converge
+$ MOLECULE_DISTRO=ubuntu2004-systemd-python converge
 $ molecule destroy
-$ MOLECULE_DISTRO=ubuntu2204 --debug converge
+$ MOLECULE_DISTRO=ubuntu2204-systemd-python --debug converge
 
 ```
 

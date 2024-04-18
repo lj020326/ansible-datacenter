@@ -1,5 +1,24 @@
 ---
 
+- name: Determine if sysctl command found
+  shell:
+    cmd: sysctl --version
+#    cmd: sysctl --version 2>&1 | head -1 | cut -d ' ' -f 4
+  register: __sysctl_version_result
+  check_mode: false
+  changed_when: false
+  ignore_errors: true
+#  failed_when: __sysctl_version_result.rc != 0 and __sysctl_version_result.rc != 127
+#  failed_when: __sysctl_version_result.rc != 0
+
+- name: Install sysctl
+  when:
+    - __sysctl_version_result is failed
+    - bootstrap_linux_core__systemd_sysctl_package is defined
+  package:
+    name: "{{ bootstrap_linux_core__systemd_sysctl_package }}"
+    state: present
+
 - name: Ensure sysctl
   sysctl:
     name: "{{ item.name }}"
