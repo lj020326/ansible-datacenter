@@ -3,8 +3,21 @@
 - name: "Assert primary role input vars are defined"
   assert:
     that:
-      - bootstrap_systemd_service_name is defined
-      - bootstrap_systemd_service_Service_ExecStart is defined
+      - bootstrap_systemd_service__name is defined
+      - bootstrap_systemd_service__Service_ExecStart is defined
+
+## ref: https://github.com/ansible/ansible/issues/19084
+- name: "Set role variable facts from bootstrap_systemd_service__config_map"
+  when: bootstrap_systemd_service__config_map is defined
+  ansible.builtin.set_fact:
+    "bootstrap_systemd_service__{{ _role_item.key }}": "{{ _role_item.value }}"
+  with_dict: "{{ bootstrap_systemd_service__config_map }}"
+  loop_control:
+    loop_var: _role_item
+
+- name: "Show variables with 'bootstrap_systemd_service__' in their names"
+  debug:
+    msg: "{{ lookup('varnames', '^bootstrap_systemd_service__', wantlist=True) }}"
 
 # tasks file for roles/systemd/service
 - name: "Create service directories"
@@ -13,27 +26,27 @@
     path: "{{ item }}"
     recurse: yes
   with_items:
-    - "{{ ansible_unit_test_prefix_dir }}{{ bootstrap_systemd_service_default_dir }}"
-    - "{{ ansible_unit_test_prefix_dir }}{{ bootstrap_systemd_service_systemd_dir }}"
+    - "{{ ansible_unit_test_prefix_dir }}{{ bootstrap_systemd_service__default_dir }}"
+    - "{{ ansible_unit_test_prefix_dir }}{{ bootstrap_systemd_service__systemd_dir }}"
 
 - name: "Write default configuration for service"
   ansible.builtin.template:
     src: default.j2
-    dest: "{{ ansible_unit_test_prefix_dir }}/{{ bootstrap_systemd_service_default_dir }}/{{ bootstrap_systemd_service_name }}"
+    dest: "{{ ansible_unit_test_prefix_dir }}/{{ bootstrap_systemd_service__default_dir }}/{{ bootstrap_systemd_service__name }}"
     mode: "0644"
   notify: reload systemd
 
 - name: "Ensure systemd service entry for service"
   ansible.builtin.template:
     src: service.j2
-    dest: "{{ ansible_unit_test_prefix_dir }}/{{ bootstrap_systemd_service_systemd_dir }}/{{ bootstrap_systemd_service_name }}.service"
-    force: "{{ bootstrap_systemd_service_force_update | d(False) }}"
+    dest: "{{ ansible_unit_test_prefix_dir }}/{{ bootstrap_systemd_service__systemd_dir }}/{{ bootstrap_systemd_service__name }}.service"
+    force: "{{ bootstrap_systemd_service__force_update | d(False) }}"
     mode: "0644"
   register: service_file
   notify: reload systemd
 
 - name: "Reload systemctl manager configuration"
-  shell: systemctl daemon-reload
+  ansible.builtin.shell: systemctl daemon-reload
   when:
     - service_file.changed
     - not ansible_unit_test

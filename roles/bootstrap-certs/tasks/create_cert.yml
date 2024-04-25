@@ -1,7 +1,7 @@
 ---
 
 - name: "Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__cert_node }}] | Set __log_prefix_subtask"
-  set_fact:
+  ansible.builtin.set_fact:
     __log_prefix_subtask: "Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__ca_cert_cn
       | d(__bootstrap_certs__cert_node) }}] |"
 
@@ -56,7 +56,7 @@
 
     - name: "{{ __log_prefix_subtask }} Generating signed server certificate {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
       changed_when: no
-      shell: >-
+      ansible.builtin.shell: >-
         cfssl gencert \
           --config={{ bootstrap_certs__cacerts_base_dir }}/ca-config.json \
           -profile={{ __bootstrap_certs__cacert_csr_profile }} \
@@ -76,7 +76,7 @@
     - name: "{{ __log_prefix_subtask }} Create server cert chain pem file for root signer [{{ __bootstrap_certs__ca_cert_chain }}]"
       changed_when: no
       when: __bootstrap_certs__ca_signer_is_root|bool
-      shell: >-
+      ansible.builtin.shell: >-
         cat {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} \
           {{ bootstrap_certs__ca_root_cacerts_dir }}/{{ bootstrap_certs__ca_root_cert }} > {{ __bootstrap_certs__ca_cert_chain }}
       args:
@@ -86,7 +86,7 @@
     - name: "{{ __log_prefix_subtask }} Create server cert chain pem file for non-root signer [{{ __bootstrap_certs__ca_cert_chain }}]"
       changed_when: no
       when: __bootstrap_certs__ca_signer_is_root|bool == False
-      shell: >-
+      ansible.builtin.shell: >-
         cat {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} \
           {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert_chain }} \
           > {{ __bootstrap_certs__ca_cert_chain }}
@@ -102,7 +102,7 @@
 
 - name: "{{ __log_prefix_subtask }} Get cert chain info for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
   changed_when: no
-  shell: >-
+  ansible.builtin.shell: >-
     openssl crl2pkcs7 -nocrl -certfile \
       {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }} \
       | openssl pkcs7 -print_certs -noout
@@ -117,7 +117,7 @@
 #    regexp: 'value=\"([^issuer]+)'
 #    regexp: '^issuer'
     regexp: '^subject'
-  set_fact:
+  ansible.builtin.set_fact:
 #    ca_cert_issuers: "{{ ca_chain_info.stdout.split('\n') | select('match', regexp) | unique }}"
     ca_cert_issuers: "{{ ca_chain_info.stdout_lines | select('match', regexp) | list | unique }}"
 
@@ -150,7 +150,7 @@
 - name: "{{ __log_prefix_subtask }} Validate signed by root cert"
   changed_when: no
   when: __bootstrap_certs__ca_signer_is_root|bool
-  shell: >-
+  ansible.builtin.shell: >-
     openssl verify -CAfile {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
       {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
 
@@ -160,7 +160,7 @@
 
     - name: "{{ __log_prefix_subtask }} Validate server and intermediate cert chain"
       changed_when: no
-      shell: >-
+      ansible.builtin.shell: >-
         openssl verify -CAfile \
           {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert_chain }} \
           {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
@@ -169,7 +169,7 @@
     - name: "{{ __log_prefix_subtask }} Validate signed by root and intermediate cert"
       changed_when: no
       when: ca_cert_issuers|length == 3
-      shell: >-
+      ansible.builtin.shell: >-
         openssl verify -CAfile {{ bootstrap_certs__ca_root_cacerts_dir }}/{{ bootstrap_certs__ca_root_cert }} \
           -untrusted {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
           {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}

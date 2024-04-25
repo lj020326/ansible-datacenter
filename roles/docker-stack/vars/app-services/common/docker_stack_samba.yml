@@ -1,13 +1,32 @@
 ---
 
-__docker_stack__samba__domain_default: EXAMPLE.COM
-__docker_stack__samba__data_path_default: /data
+__docker_stack__samba__ldap_domain_default: EXAMPLE.COM
+__docker_stack__samba__ldap_domain: "{{ docker_stack__samba__ldap_domain | d(__docker_stack__samba__ldap_domain_default) }}"
 
+__docker_stack__samba__data_path_default: /data
+__docker_stack__samba__data_path: "{{ docker_stack__samba__data_path | d(__docker_stack__samba__data_path_default) }}"
+
+__docker_stack__samba__ldap_host_default: openldap
+__docker_stack__samba__ldap_host: "{{ docker_stack__samba__ldap_host | d(__docker_stack__samba__ldap_host_default) }}"
+
+__docker_stack__samba__ldap_port_default: 389
+__docker_stack__samba__ldap_port: "{{ docker_stack__samba__ldap_port | d(__docker_stack__samba__ldap_port_default) }}"
+
+#__docker_stack__samba__ldap_uri_default: "ldap://{{ __docker_stack__samba__ldap_host }}:{{ __docker_stack__samba__ldap_port }}"
+__docker_stack__samba__ldap_uri_default: "ldap://{{ __docker_stack__samba__ldap_host }}"
+__docker_stack__samba__ldap_uri: "{{ docker_stack__samba__ldap_uri | d(__docker_stack__samba__ldap_uri_default) }}"
+
+## ref: https://serverfault.com/questions/515648/samba-standalone-server-using-ldap-for-authentication-sid-mismatch
+__docker_stack__samba__domain_sid_root_default: S-1-5-21-2692816586-533150880-2664591277
+__docker_stack__samba__domain_sid_root: "{{ docker_stack__samba__domain_sid_root 
+  | d(__docker_stack__openldap__domain_sid_root_default) }}"
+
+## ref: https://github.com/andrespp/docker-samba-ldap
+## ref: https://github.com/guillaumedsde/samba-ldap
+#__docker_stack__samba__image_default: "guillaumedsde/samba-ldap:latest"
 __docker_stack__samba__image_default: "andrespp/samba-ldap:latest"
 __docker_stack__samba__image: "{{ docker_stack__samba__image | d(__docker_stack__samba__image_default) }}"
 
-__docker_stack__samba__domain: "{{ docker_stack__samba__domain | d(__docker_stack__samba__domain_default) }}"
-__docker_stack__samba__data_path: "{{ docker_stack__samba__data_path | d(__docker_stack__samba__data_path_default) }}"
 
 __docker_stack__samba__config_dirs:
   - { path: "{{ docker_stack__dir }}/samba" }
@@ -36,29 +55,41 @@ __docker_stack__samba__ldap_admin_pw: "{{ docker_stack__samba__ldap_admin_pw | d
 
 
 __docker_stack__samba__config_tpls:
-  - { src: "samba/config-libnss-ldap.conf.j2", dest: "{{ docker_stack__dir }}/samba/libnss-ldap.conf" }
-#    - { src: "samba/config-nslcd.conf.j2", dest: "{{ docker_stack__dir }}/samba/nslcd.conf" }
-#    - { src: "samba/config-smbldap.conf.j2", dest: "{{ docker_stack__dir }}/samba/smbldap.conf" }
-#    - { src: "samba/config-smbldap_bind.conf.j2", dest: "{{ docker_stack__dir }}/samba/smbldap_bind.conf" }
-  - { src: "samba/config-smb.conf.j2", dest: "{{ docker_stack__dir }}/samba/smb.conf" }
+#  - src: "samba/config-libnss-ldap.conf.j2"
+#    dest: "{{ docker_stack__dir }}/samba/libnss-ldap.conf"
+  - src: "samba/config-nslcd.conf.j2"
+    dest: "{{ docker_stack__dir }}/samba/nslcd.conf"
+  - src: "samba/config-smbldap.conf.j2"
+    dest: "{{ docker_stack__dir }}/samba/smbldap.conf"
+  - src: "samba/config-smbldap_bind.conf.j2"
+    dest: "{{ docker_stack__dir }}/samba/smbldap_bind.conf"
+  - src: "samba/config-smb.conf.j2"
+    dest: "{{ docker_stack__dir }}/samba/smb.conf"
 
 __docker_stack__samba__services:
   ## ref: https://github.com/andrespp/docker-samba-ldap
+  ## ref: https://github.com/andrespp/samba-ldap/blob/master/config/samba/smb.conf
+  ## ref: https://github.com/andrespp/samba-ldap/blob/master/docker-compose.yml
   samba:
     container_name: "samba"
     image: "{{ __docker_stack__samba__image }}"
     restart: "unless-stopped"
     networks:
-#      - internal
       - net
+      - "{{ docker_stack__traefik_proxy_network }}"
     environment:
-      SAMBA_LDAP_PASSWORD: "{{ ldap_admin_password }}"
+      SID: "{{ __docker_stack__samba__domain_sid_root }}"
+      SAMBA_LDAP_PASSWORD: "{{ __docker_stack__samba__ldap_admin_pw }}"
     ports:
+      - "139:139"
       - "445:445"
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
       - "{{ docker_stack__dir }}/samba/libnss-ldap.conf:/etc/libnss-ldap.conf:ro"
       - "{{ docker_stack__dir }}/samba/smb.conf:/etc/samba/smb.conf:ro"
+#      - "{{ docker_stack__dir }}/samba/nslcd.conf:/etc/nslcd.conf:ro"
+      - "{{ docker_stack__dir }}/samba/smbldap.conf:/etc/smbldap-tools/smbldap.conf:ro"
+      - "{{ docker_stack__dir }}/samba/smbldap_bind.conf:/etc/smbldap-tools/smbldap_bind.conf:ro"
       - "{{ __docker_stack__samba__data_path }}:/data"
     deploy:
       mode: replicated

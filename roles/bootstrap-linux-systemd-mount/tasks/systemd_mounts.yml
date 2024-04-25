@@ -1,7 +1,7 @@
 ---
 
 - name: Set mount facts
-  set_fact:
+  ansible.builtin.set_fact:
     bootstrap_linux_systemd_mount_suffix: "{{ (item.type == 'swap') | ternary('swap', 'mount') }}"
     bootstrap_linux_systemd_mount_item: "{{ item.where | default(item.what) }}"
 
@@ -27,7 +27,7 @@
     - systemd-mount
 
 - name: Place mount credentials when required
-  copy:
+  ansible.builtin.copy:
     dest: "/etc/passwd-{{ mount_service_name.stdout }}"
     content: "{{ item.credentials }}"
     owner: "root"
@@ -60,12 +60,12 @@
     - item.state | default('unknown') != 'absent'
 
 # NOTE(cloudnull): The systemd module is not used to start the
-#                  mount because we don't want to inavertently
+#                  mount because we don't want to inadvertently
 #                  "restart" a mount unnecessarily. To ensure
 #                  we're able to load new options without
 #                  requiring a mount restart the systemctl
 #                  command is used with the "reload-or-restart"
-#                  argument. Additionally this command escapes
+#                  argument. Additionally, this command escapes
 #                  the name of the mount. If this command fails
 #                  the task will be rescued and the regular
 #                  systemd module will be attempted before
@@ -73,7 +73,7 @@
 - name: Mount state block
   block:
     - name: Set the state of the mount
-      shell: >-
+      ansible.builtin.shell: >-
         systemctl
         {{ bootstrap_linux_systemd_mount_states[item.state] }}
         $(systemd-escape -p --suffix="{{ bootstrap_linux_systemd_mount_suffix }}" "{{ bootstrap_linux_systemd_mount_item }}")

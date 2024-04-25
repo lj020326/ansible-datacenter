@@ -1,7 +1,7 @@
 ---
 
 - name: "Validate CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__cert_node }}] | Set __log_prefix_local"
-  set_fact:
+  ansible.builtin.set_fact:
     __log_prefix_local: "Validate CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__ca_cert_cn
       | d(__bootstrap_certs__cert_node) | d(__bootstrap_certs__ca_cert) }}] |"
 
@@ -24,11 +24,11 @@
       when: __key_file.stat.exists | bool
 
     - name: "{{ __log_prefix_local }} set _ca_key_exists var to {{ __key_file.stat.exists }}"
-      set_fact:
+      ansible.builtin.set_fact:
         _ca_key_exists: "{{ __key_file.stat.exists | bool }}"
 
 #    - name: "{{ __log_prefix_local }} set _ca_key_exists var to yes"
-#      set_fact:
+#      ansible.builtin.set_fact:
 #        _ca_key_exists: yes
 
   rescue:
@@ -38,7 +38,7 @@
                   - setting fact ca_key_exists to no"
 
     - name: "{{ __log_prefix_local }} set _ca_key_exists var to no"
-      set_fact:
+      ansible.builtin.set_fact:
         _ca_key_exists: no
 
   always:
@@ -59,7 +59,7 @@
     - name: "{{ __log_prefix_local }} Check certificate expiration date
         [ Expecting more than a week before setting regeneration var ... ]"
       changed_when: no
-      shell: >-
+      ansible.builtin.shell: >-
         openssl x509 -checkend {{ __bootstrap_certs__ca_cert_expiration_panic_threshold }} \
             -noout -in {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
       when: __cert_file and __cert_file.stat.exists
@@ -75,15 +75,15 @@
       when: cert_validity_exp_date and cert_validity_exp_date.rc | default(0) == 0
 
     - name: "{{ __log_prefix_local }} set _ca_missing_or_invalid_cert to {{ __cert_file.stat.exists }}"
-      set_fact:
+      ansible.builtin.set_fact:
         _ca_missing_or_invalid_cert: "{{ not __cert_file.stat.exists | bool }}"
 
-#    - set_fact:
+#    - ansible.builtin.set_fact:
 #        _ca_missing_or_invalid_cert: no
 
   rescue:
     - debug: msg="{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} is not valid - bootstrap_certs__ca_force_create will be set"
-    - set_fact:
+    - ansible.builtin.set_fact:
         bootstrap_certs__ca_force_create: yes
         _ca_missing_or_invalid_cert: yes
 
@@ -125,11 +125,11 @@
     - name: "{{ __log_prefix_local }} Validate signed by ca signer certs"
       changed_when: no
 #      when: __cert_file and __cert_file.stat.exists
-#      shell: >-
+#      ansible.builtin.shell: >-
 #        openssl verify -CAfile \
 #          {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
 #          {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
-      shell: >-
+      ansible.builtin.shell: >-
         openssl verify -CAfile \
           {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert_chain }} \
           {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
@@ -144,12 +144,12 @@
         msg: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} is still valid no need to generate"
       when: cert_validity_signer and cert_validity_signer.rc | default(0) == 0
 
-    - set_fact:
+    - ansible.builtin.set_fact:
         _ca_missing_or_invalid_cert: no
 
   rescue:
     - debug: msg="{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} is not valid - bootstrap_certs__ca_force_create will be set"
-    - set_fact:
+    - ansible.builtin.set_fact:
         bootstrap_certs__ca_force_create: yes
         _ca_missing_or_invalid_cert: yes
 

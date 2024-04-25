@@ -504,7 +504,7 @@ You can then merge one or more dicts into bind_zone_domains in your playbook:
 
   pre_tasks:
   - name: Merge zones dicts
-    set_fact:
+    ansible.builtin.set_fact:
       bind_zone_domains: "{{ external_forward_zones }} + {{ external_reverse_zones }} +
                           {{ internal_forward_zones }} + {{ internal_reverse_zones }}"
 

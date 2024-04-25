@@ -2,27 +2,27 @@
 
 - name: (storage) get filesystems list
   # also: "esxcli storage vmfs extent list"
-  shell: "esxcfg-scsidevs --vmfs | awk '{print $1, $5}' | sed -e 's/:/ /'"
+  ansible.builtin.shell: "esxcfg-scsidevs --vmfs | awk '{print $1, $5}' | sed -e 's/:/ /'"
   register: fs_list_res
   changed_when: false
   check_mode: false
 
 - name: (storage) get device paths list
   # several paths could map to one device
-  shell: "esxcfg-mpath -L | awk '{print $1, $3, $4, $5, $6, $7}'"
+  ansible.builtin.shell: "esxcfg-mpath -L | awk '{print $1, $3, $4, $5, $6, $7}'"
   register: dev_list_res
   changed_when: false
   check_mode: false
 
 - name: (storage) get filesystems usage
   # a bit complex :)
-  shell: "for f in $(find /vmfs/volumes/* -prune -type l | awk -F/ '{print $4}'); do echo -n $f '' && ls /vmfs/volumes/$f/ | wc -l; done"
+  ansible.builtin.shell: "for f in $(find /vmfs/volumes/* -prune -type l | awk -F/ '{print $4}'); do echo -n $f '' && ls /vmfs/volumes/$f/ | wc -l; done"
   register: fs_usage_res
   changed_when: false
   check_mode: false
 
 - name: (storage) convert lists to structures
-  set_fact:
+  ansible.builtin.set_fact:
     # steps:
     # - split to to array of tuples like ['adm-srv', 'vSwitch0', '210']
     # - convert to records like {'name': 'adm-srv', 'switch': 'vSwitch0', 'tag': '210'}
@@ -68,7 +68,7 @@
     - fsinfo_by_dev[devinfo_by_path[item.key].dev].name != item.value
 
 - name: (storage) rename datastores
-  shell: "vim-cmd hostsvc/datastore/rename {{ fsinfo_by_dev[devinfo_by_path[item.key]['dev']]['name'] }} {{ item.value }}"
+  ansible.builtin.shell: "vim-cmd hostsvc/datastore/rename {{ fsinfo_by_dev[devinfo_by_path[item.key]['dev']]['name'] }} {{ item.value }}"
   with_dict: "{{ esx_local_datastores }}"
   when:
     - esx_rename_datastores == true
@@ -88,7 +88,7 @@
 # on errors like "unknown partition table": "partedUtil mklabel /dev/disks/naa.NNN gpt"
 # on errors like "not all space is used": try "partedUtil fix /dev/disks/naa.NNN"
 - name: (storage) make sure partition tables on vacant LUNs are empty
-  shell: "[[ $(partedUtil getptbl /dev/disks/{{ devinfo_by_path[item.key].dev }} | wc -l) == 2 ]]"
+  ansible.builtin.shell: "[[ $(partedUtil getptbl /dev/disks/{{ devinfo_by_path[item.key].dev }} | wc -l) == 2 ]]"
   with_dict: "{{ esx_local_datastores }}"
   when:
     - esx_create_datastores == true
@@ -97,14 +97,14 @@
   changed_when: false
 
 - name: (storage) create gpt labels on vacant LUNs
-  shell: "partedUtil mklabel /dev/disks/{{ devinfo_by_path[item.key].dev }} gpt"
+  ansible.builtin.shell: "partedUtil mklabel /dev/disks/{{ devinfo_by_path[item.key].dev }} gpt"
   with_dict: "{{ esx_local_datastores }}"
   when:
     - esx_create_datastores == true
     - devinfo_by_path[item.key].dev not in fsinfo_by_dev
 
 - name: (storage) partition vacant LUNs
-  shell: >
+  ansible.builtin.shell: >
     dev=/dev/disks/{{ devinfo_by_path[item.key].dev }};
     last=$(partedUtil getUsableSectors $dev | awk '{print $2}');
     partedUtil setptbl $dev gpt "1 128 $last {{ esx_vmfs_guid }} 0"
@@ -114,7 +114,7 @@
     - devinfo_by_path[item.key].dev not in fsinfo_by_dev
 
 - name: (storage) create VMFS on vacant LUNs
-  shell: "vmkfstools -C vmfs5 -b 1m -S {{ item.value }} /dev/disks/{{ devinfo_by_path[item.key].dev }}:1"
+  ansible.builtin.shell: "vmkfstools -C vmfs5 -b 1m -S {{ item.value }} /dev/disks/{{ devinfo_by_path[item.key].dev }}:1"
   with_dict: "{{ esx_local_datastores }}"
   when:
     - esx_create_datastores == true

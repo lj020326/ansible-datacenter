@@ -97,10 +97,21 @@ __docker_stack__keycloak__services:
       - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/themes:/opt/jboss/keycloak/themes/custome/:rw"
 #        - {{ __docker_stack__keycloak__stack_dir }}/keycloak/data:/data
       - keycloak_data:/data
-    labels: "{{ __docker_stack__keycloak__traefik_labels }}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/auth/"]
       interval: 5s
       timeout: 2s
       retries: 15
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+    labels: "{{ __docker_stack__keycloak__traefik_labels }}"
 

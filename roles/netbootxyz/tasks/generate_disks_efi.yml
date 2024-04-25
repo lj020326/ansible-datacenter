@@ -1,7 +1,7 @@
 ---
 
   - name: Copy netboot.xyz local EFI iPXE configs
-    copy:
+    ansible.builtin.copy:
       src: "ipxe/local/{{ item }}"
       dest: "{{ ipxe_source_dir }}/src/config/local/{{ item }}"
     with_items:
@@ -10,22 +10,22 @@
       - crypto.h
 
   - name: Copy netboot.xyz general.h.efi iPXE config
-    copy:
+    ansible.builtin.copy:
       src: "ipxe/local/general.h.efi"
       dest: "{{ ipxe_source_dir }}/src/config/local/general.h"
 
   - name: Set trust file to ipxe ca
-    set_fact:
+    ansible.builtin.set_fact:
       trust_files: "{{ cert_dir }}/{{ ipxe_ca_filename }}"
     when: not generate_signatures
 
   - name: Combine trust files if set
-    set_fact:
+    ansible.builtin.set_fact:
       trust_files: "{{ cert_dir }}/{{ ipxe_ca_filename }},{{ cert_dir }}/{{ cert_file_filename }}"
     when: generate_signatures | bool
 
   - name: Compile iPXE bootloader for EFI
-    shell: |
+    ansible.builtin.shell: |
       make clean
       make EMBED={{ bootloader_filename }} \
            TRUST={{ trust_files }} \
@@ -38,7 +38,7 @@
     - skip_ansible_lint
 
   - name: Generate iPXE EFI ISO Disk
-    shell: |
+    ansible.builtin.shell: |
       mkdir -p efi_tmp
       dd if=/dev/zero of=efi_tmp/ipxe.img count=2880
       mformat -i efi_tmp/ipxe.img -m 0xf8 -f 2880
@@ -52,7 +52,7 @@
     - skip_ansible_lint
 
   - name: Generate iPXE EFI USB image
-    shell: |
+    ansible.builtin.shell: |
       truncate -s 3MiB ipxe-efi.usb
       mkfs.vfat ipxe-efi.usb
       mmd -i ipxe-efi.usb "::/efi"
@@ -65,7 +65,7 @@
     - skip_ansible_lint
 
   - name: Copy iPXE EFI builds to http directory
-    copy:
+    ansible.builtin.copy:
       src: "{{ ipxe_source_dir }}/src/{{ item.src }}"
       dest: "{{ netbootxyz_root }}/ipxe/{{ item.dest }}"
       remote_src: True
@@ -78,7 +78,7 @@
     when: bootloader_filename != "netboot.xyz-packet"
 
   - name: Copy iPXE EFI builds to http directory for packet
-    copy:
+    ansible.builtin.copy:
       src: "{{ ipxe_source_dir }}/src/{{ item.src }}"
       dest: "{{ netbootxyz_root }}/ipxe/{{ item.dest }}"
       remote_src: True

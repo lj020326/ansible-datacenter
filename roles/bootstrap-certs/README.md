@@ -154,12 +154,12 @@ when: bootstrap_certs__ca_fetch_certs is defined
   - ca.conf
 
 - name: "set CA_SUBJECT var"
-  set_fact:
+  ansible.builtin.set_fact:
     ca_subject: '/C={{ ca_country }}/ST={{ ca_state }}/L={{ ca_locality }}/O={{ ca_organization }}/OU={{ ca_organizationalUnit }}/CN={{ ca_signer_common_name }}/emailAddress={{ ca_email }}'
    when: ca_subject is not defined
 
 - name: "Generate private key && Create root CA files"
-  shell: "{{ item }}"
+  ansible.builtin.shell: "{{ item }}"
   args:
     chdir: "{{ ca_certs_dir }}"
   with_items:
@@ -171,7 +171,7 @@ when: bootstrap_certs__ca_fetch_certs is defined
 
 ```yaml
 - name: "Generate Certs for Infra server || CA server"
-  shell: 'openssl genrsa -out {{ item.commonName }}-priv-key.pem 2048'
+  ansible.builtin.shell: 'openssl genrsa -out {{ item.commonName }}-priv-key.pem 2048'
   args:
     chdir: "{{ ca_certs_dir }}"
   with_items:
@@ -180,7 +180,7 @@ when: bootstrap_certs__ca_fetch_certs is defined
   - "{{ ca_node.swarm.swarm-managers }}"
 
 - name: "Create certificate request for Infra server || CA server"
-  shell: 'openssl req -subj "/CN={{ item.commonName }}" -new -key "{{ item.commonName }}"-priv-key.pem -out "{{ item.commonName }}".csr'
+  ansible.builtin.shell: 'openssl req -subj "/CN={{ item.commonName }}" -new -key "{{ item.commonName }}"-priv-key.pem -out "{{ item.commonName }}".csr'
   args:
    chdir: "{{ ca_certs_dir }}"
   with_items:
@@ -189,7 +189,7 @@ when: bootstrap_certs__ca_fetch_certs is defined
   - "{{ ca_node.swarm.swarm-managers }}"
 
 - name: "Generate the CA trusted certificate"
-  shell: 'sudo openssl x509 -req -days 1825 -in "{{ item.commonName }}".csr -CA ca.pem -CAkey ca-priv-key.pem -CAcreateserial -out "{{ item.commonName }}"-cert.pem -extensions v3_req -extfile /usr/lib/ssl/openssl.cnf'
+  ansible.builtin.shell: 'sudo openssl x509 -req -days 1825 -in "{{ item.commonName }}".csr -CA ca.pem -CAkey ca-priv-key.pem -CAcreateserial -out "{{ item.commonName }}"-cert.pem -extensions v3_req -extfile /usr/lib/ssl/openssl.cnf'
   args:
    chdir: "{{ ca_certs_dir }}"
   with_items:
@@ -254,14 +254,14 @@ when: bootstrap_certs__ca_fetch_certs is defined
 # Root CA key/cert
 
 - name: "copy {{ bootstrap_certs__pki_caroot_key }} to {{ bootstrap_certs__cacert_local_key_dir }}"
-  copy:
+  ansible.builtin.copy:
    src: "{{ bootstrap_certs__cacert_keys_dir }}/{{ item }}"
    dest: "{{ bootstrap_certs__cacert_local_key_dir }}/{{ item }}"
   with_items:
   - "{{ bootstrap_certs__pki_caroot_key }}"
 
 - name: "copy {{ bootstrap_certs__caroot_cert }} to {{ bootstrap_certs__ca_local_cert_dir }}"
-  copy:
+  ansible.builtin.copy:
    src: "{{ bootstrap_certs__cacert_certs_dir }}/{{ item }}"
    dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item }}"
   with_items:

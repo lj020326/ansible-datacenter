@@ -8,7 +8,7 @@ Role Variables
 
 ```yaml
 # list of dictionaries holding all devices that need to be mounted.
-bootstrap_linux_mount_list:
+bootstrap_linux_mount__list:
   - name: /                         # NO default
     src: /dev/mapper/root           # NO default
     fstype: ext4                    # NO default

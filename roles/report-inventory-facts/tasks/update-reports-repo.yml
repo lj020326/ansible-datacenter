@@ -7,7 +7,7 @@
     var: ansible_date_time
     verbosity: 1
 
-- set_fact:
+- ansible.builtin.set_fact:
     __report_date_time: "{{ ansible_date_time }}"
 - debug:
     var: __report_date_time
@@ -20,11 +20,11 @@
   notify: "cleanup report_inventory_facts_tempdir"
 
 - name: "update-reports-repo | Set fact for report_inventory_facts_repo_dir"
-  set_fact:
+  ansible.builtin.set_fact:
     __report_inventory_facts_repo_dir: "{{ __report_inventory_facts_tempdir.path }}/report-inventory-facts"
 
 - name: "update-reports-repo | Set fact for report_inventory_facts_reports_dir"
-  set_fact:
+  ansible.builtin.set_fact:
     __report_inventory_facts_reports_dir: "{{ __report_inventory_facts_repo_dir }}/inventory/{{ report_inventory_facts_inventory_source }}"
     __report_inventory_facts_git_ssh_private_keydir: "{{ __report_inventory_facts_tempdir.path }}"
 
@@ -83,7 +83,7 @@
 
 
 - name: Set __ansible_host_facts
-  set_fact:
+  ansible.builtin.set_fact:
     __ansible_host_facts: "{{ __ansible_host_facts|d([]) + [hostvars[item].ansible_facts | combine({ 'reported_facts': hostvars[item].report_inventory_list_facts_flattened|d({}) } ) ] }}"
     __report_inventory_list_facts_flattened: "{{ __report_inventory_list_facts_flattened|d([]) + [hostvars[item].report_inventory_list_facts_flattened|d({})] }}"
   loop: "{{ ansible_play_hosts }}"
@@ -98,12 +98,12 @@
     var: __report_inventory_list_facts_flattened
 
 - name: "update-reports-repo | Create YAML file with Ansible Facts"
-  copy:
+  ansible.builtin.copy:
     content: "{{ __ansible_host_facts | to_nice_json }}"
     dest: "{{ __report_inventory_facts_reports_dir }}/json/server_facts.json"
 
 - name: "update-reports-repo | Create YAML file with Ansible Facts"
-  copy:
+  ansible.builtin.copy:
     content: "{{ __ansible_host_facts | to_nice_yaml(indent=2) }}"
     dest: "{{ __report_inventory_facts_reports_dir }}/yaml/server_facts.yml"
 
@@ -115,12 +115,12 @@
     line: ---
 
 - name: "update-reports-repo | Create YAML file with Ansible Facts"
-  copy:
+  ansible.builtin.copy:
     content: "{{ __ansible_host_facts | to_nice_yaml(indent=2) }}"
     dest: "{{ __report_inventory_facts_reports_dir }}/yaml/server_facts.yml"
 
 - name: "update-reports-repo | Set __csv_headers"
-  set_fact:
+  ansible.builtin.set_fact:
     __csv_headers: "{{ __csv_headers| d([]) + [ { 'name' : item.key, 'header': item.value } ] }}"
   loop: "{{ report_inventory_list_headers | dict2items }}"
 
@@ -170,10 +170,10 @@
 
 - name: "Create server_facts Mind Map"
   when: report_inventory_facts_create_mindmap|d(True)|bool
-  shell: "markmap --no-open {{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md -o {{ __report_inventory_facts_reports_dir }}/mindmap/server_facts.html"
+  ansible.builtin.shell: "markmap --no-open {{ __report_inventory_facts_reports_dir }}/markdown/server_facts.md -o {{ __report_inventory_facts_reports_dir }}/mindmap/server_facts.html"
   register: markmap
 
-- set_fact:
+- ansible.builtin.set_fact:
     git_commit_message: "ansible [{{ role_path|basename }}] inventory report updated as of {{ ansible_date_time.iso8601 }}"
 
 ## ref: https://github.com/lvrfrc87/git-acp-ansible
@@ -214,7 +214,7 @@
 ### ref: https://github.com/lvrfrc87/git-acp-ansible
 ### ref: https://lvrfrc87.medium.com/git-add-commit-and-push-with-ansible-67861c5e0782
 #- name: "update-reports-repo | Push reports git(ssh) to {{ report_inventory_facts_git_repo_url }}"
-#  shell: "git add . && git commit -m '{{ git_commit_message }}' && git push origin master"
+#  ansible.builtin.shell: "git add . && git commit -m '{{ git_commit_message }}' && git push origin master"
 #  args:
 #    chdir: "{{ __report_inventory_facts_repo_dir }}"
 #  register: git_acp_result

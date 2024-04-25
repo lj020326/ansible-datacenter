@@ -151,7 +151,7 @@ Server installation step 2: Copy `<ipaserver hostname>-chain.crt` to the IPA ser
 
   pre_tasks:
   - name: Copy "{{ groups.ipaserver[0] + '-chain.crt' }}" to /root/chain.crt on node
-    copy:
+    ansible.builtin.copy:
       src: "{{ groups.ipaserver[0] + '-chain.crt' }}"
       dest: "/root/chain.crt"
       force: yes

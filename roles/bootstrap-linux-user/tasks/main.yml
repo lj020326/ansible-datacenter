@@ -19,11 +19,11 @@
 ## possible alternative to custom filter:
 ## https://gist.github.com/halberom/9bfe009c9a3df5d64c7bb505a7700430
 - name: "Initialize homedir for users"
-  set_fact:
+  ansible.builtin.set_fact:
     __bootstrap_linux_user_list: "{{ bootstrap_linux_user_list | rejectattr('name', 'equalto', 'root') | list | add_homedir | list }}"
 
 - name: "Initialize __all_bootstrap_linux_user_list"
-  set_fact:
+  ansible.builtin.set_fact:
     __all_bootstrap_linux_user_list: "{{ __bootstrap_linux_user_list + [bootstrap_linux_root_user] }}"
 
 - name: "Display __bootstrap_linux_user_list"
@@ -62,7 +62,7 @@
     state: "{{ item.state | d('present') }}"
     name: "{{ item.name }}"
     system: "{{ item.system | d(false) }}"
-    shell: "{{ item.shell | d(omit) }}"
+    ansible.builtin.shell: "{{ item.shell | d(omit) }}"
     append: "{{ True if item.groups is defined else False }}"
     uid: "{{ item.uid | d(omit) }}"
     group: "{{ item.gid | default(omit) }}"
@@ -81,7 +81,7 @@
 
 ## ref: https://github.com/selivan/ansible-set-user-password-expire/blob/master/passwords-set-expire.yml
 - name: "Check users password valid days"
-  shell: getent shadow "{{ item.name }}" | cut -d':' -f5
+  ansible.builtin.shell: getent shadow "{{ item.name }}" | cut -d':' -f5
   register: users_pw_valid
   changed_when: False
   loop: "{{ __bootstrap_linux_user_list }}"
@@ -105,7 +105,7 @@
 #    var: users_pw_valid.results|map(attribute='stdout')
 
 - name: "Set users password valid days"
-  shell: chage -M "{{ item.password_valid_days }}" "{{ item.name }}"
+  ansible.builtin.shell: chage -M "{{ item.password_valid_days }}" "{{ item.name }}"
 #  when: item.stdout is defined and item.stdout != {{ user_password_valid_time }}
 #  loop: users_pw_valid.results
   when:
@@ -125,7 +125,7 @@
 - name: "Add to sudoers"
   when: item.system|d(False)==True
 #  no_log: yes
-  copy:
+  ansible.builtin.copy:
     dest: /etc/sudoers.d/{{ item.name }}
     mode: "0644"
     content: |
@@ -171,7 +171,7 @@
 - name: Add user SSH private key
   no_log: yes
   when: bootstrap_linux_user_creds[item.name].ssh_keypair.private is defined
-  copy:
+  ansible.builtin.copy:
     content: "{{ bootstrap_linux_user_creds[item.name].ssh_keypair.private }}"
     dest: "{{ item.homedir }}/.ssh/id_rsa"
     owner: "{{ item.name }}"
@@ -184,7 +184,7 @@
 
 - name: Add user SSH public key
   when: bootstrap_linux_user_creds[item.name].ssh_keypair.public is defined
-  copy:
+  ansible.builtin.copy:
     content: "{{ bootstrap_linux_user_creds[item.name].ssh_keypair.public }}"
     dest: "{{ item.homedir }}/.ssh/id_rsa.pub"
     owner: "{{ item.name }}"
@@ -198,7 +198,7 @@
 - name: Copy bash env files to home directory
   when: item.0.setup_bashenv|d(True)|bool
 #  no_log: yes
-  copy:
+  ansible.builtin.copy:
     backup: yes
     src: "{{ item.1 }}"
     dest: "{{ item.0.homedir }}/"

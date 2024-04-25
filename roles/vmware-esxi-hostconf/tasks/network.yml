@@ -1,12 +1,12 @@
 - name: (network) get portgroups list
   # skip header (first 2 lines) and Management, print group, vswitch and vlan tag
-  shell: "esxcli network vswitch standard portgroup list | awk -F'  +' 'NR > 2 && !/^(Management Network) / {print $2, $4, $3, $1}'"
+  ansible.builtin.shell: "esxcli network vswitch standard portgroup list | awk -F'  +' 'NR > 2 && !/^(Management Network) / {print $2, $4, $3, $1}'"
   register: portgroup_list_res
   changed_when: false
   check_mode: false
 
 - name: (network) convert portgroup list to structure
-  set_fact:
+  ansible.builtin.set_fact:
     # steps:
     # - split to to array of tuples like ['adm-srv', 'vSwitch0', '210']
     # - convert to records like {'name': 'adm-srv', 'switch': 'vSwitch0', 'tag': '210'}
@@ -44,7 +44,7 @@
   when: (item.key not in portgroups) or (item.value.tag != portgroups[item.key]['tag']|int)
 
 - name: (network) check if BPDUs are blocked
-  shell: "esxcli system settings advanced list -o /Net/BlockGuestBPDU | awk '/^   Int Value:/ {print $3}'"
+  ansible.builtin.shell: "esxcli system settings advanced list -o /Net/BlockGuestBPDU | awk '/^   Int Value:/ {print $3}'"
   register: bpdu_block_res
   changed_when: false
   check_mode: false
@@ -61,7 +61,7 @@
       check_mode: false
 
     - name: (network) parse ip interface list
-      set_fact:
+      ansible.builtin.set_fact:
         # have 2 junk entries from header (with keys "Name" and "----")
         # safe to ignore (filter out with e.g. "rejectattr" if not)
         ip_by_nic: "{{ ipv4_ifaces_res.stdout_lines
@@ -75,7 +75,7 @@
         - esx_vmotion_iface_name not in ipv4_ifaces_res.stdout
 
     - name: (network) calculate vmotion addr
-      set_fact:
+      ansible.builtin.set_fact:
         # be careful not to include "." in RE: \1 became \1241 :)
         vmotion_addr: "{{ ip_by_nic['vmk0'].address | regex_replace('^(\\d+\\.\\d+)\\.\\d+', '\\1.' + (esx_vmotion_subnet_number|string)) }}"
 

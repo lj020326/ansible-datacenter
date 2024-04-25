@@ -14,7 +14,7 @@
 ## ref: https://unix.stackexchange.com/questions/85466/how-to-see-process-created-by-specific-user-in-unix-linux
 - name: "Get running user processes"
   when: getent_passwd[item.name][1] is defined
-  shell: "ps -fu {{ item.name }} | awk '{print $2}' | tail -n +2"
+  ansible.builtin.shell: "ps -fu {{ item.name }} | awk '{print $2}' | tail -n +2"
   loop: "{{ __bootstrap_linux_user_list }}"
   loop_control:
     label: "{{ item.name }}"
@@ -27,7 +27,7 @@
 #    verbosity: 2
 
 - name: "Set process_list"
-  set_fact:
+  ansible.builtin.set_fact:
     process_list: "{{ running_processes.results | selectattr('stdout_lines', 'defined') | map(attribute='stdout_lines') | d([]) | list | flatten }}"
 
 - name: "Display process_list"
@@ -40,7 +40,7 @@
 
     - name: "Kill running processes"
       when: item != ''
-      shell: "kill {{ item }}"
+      ansible.builtin.shell: "kill {{ item }}"
       with_items: "{{ process_list }}"
       register: shell_cmd
       failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )
@@ -54,7 +54,7 @@
       register: killed_processes
 
     - name: Force kill stuck processes
-      shell: "kill -9 {{ item }}"
+      ansible.builtin.shell: "kill -9 {{ item }}"
       with_items: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
       register: shell_cmd
       failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )

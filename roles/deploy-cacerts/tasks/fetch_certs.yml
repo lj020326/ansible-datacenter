@@ -1,6 +1,6 @@
 ---
 
-- set_fact:
+- ansible.builtin.set_fact:
     __log_prefix_fetch: "Deploy CA Certs | Fetch certs |"
     
 - name: "{{ __log_prefix_fetch }} Display cert and key dir info"
@@ -104,11 +104,11 @@
     ## ref: https://smallstep.com/docs/step-ca/getting-started#initialize-your-certificate-authority
     - name: "{{ __log_prefix_fetch }} Bootstrap step cli configuration"
       changed_when: no
-      shell: "step ca bootstrap --force --ca-url {{ deploy_cacerts__stepca_host_url }} --fingerprint {{ deploy_cacerts__stepca_root_ca_fingerprint }}"
+      ansible.builtin.shell: "step ca bootstrap --force --ca-url {{ deploy_cacerts__stepca_host_url }} --fingerprint {{ deploy_cacerts__stepca_root_ca_fingerprint }}"
 
     - name: "{{ __log_prefix_fetch }} Fetch root cert/key from stepca to {{ deploy_cacerts__cacert_local_cert_dir }}"
       when: not __cacert_root_result.stat.exists
-      shell: "step ca root {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+      ansible.builtin.shell: "step ca root {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
 
     - name: "{{ __log_prefix_fetch }} Validate root cert"
       when: deploy_cacerts__validate_certs|d(True)|bool
@@ -131,7 +131,7 @@
       rescue:
         - name: "{{ __log_prefix_fetch }} Fetch root cert/key from stepca and overwrite old/stale at {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
 #          when: __step_get_result.status != 200
-          shell: "step ca root -f {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+          ansible.builtin.shell: "step ca root -f {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
 
         - name: "trust_cert | Copy root cert to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
           copy_remotely:
@@ -158,7 +158,7 @@
 
         - name: "{{ __log_prefix_fetch }} Deploy cert/key to {{ deploy_cacerts__cacert_local_cert_dir }}"
           when: not (cacert_cert_result.stat.exists and cacert_key_result.stat.exists)
-          shell: >-
+          ansible.builtin.shell: >-
             step ca certificate {{ deploy_cacerts__hostname_full }} \
               {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.pem \
               {{ deploy_cacerts__cacert_local_key_dir }}/{{ deploy_cacerts__hostname_full }}-key.pem \
@@ -172,7 +172,7 @@
 
         - name: "{{ __log_prefix_fetch }} Deploy cert/key to {{ deploy_cacerts__cacert_local_cert_dir }}"
           when: not (cacert_cert_result.stat.exists and cacert_key_result.stat.exists)
-          shell: >-
+          ansible.builtin.shell: >-
             step ca certificate {{ deploy_cacerts__hostname_full }} \
               {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.pem \
               {{ deploy_cacerts__cacert_local_key_dir }}/{{ deploy_cacerts__hostname_full }}-key.pem \
@@ -185,7 +185,7 @@
 
         - name: "{{ __log_prefix_fetch }} Create cert bundle from stepca to {{ deploy_cacerts__cacert_local_cert_dir }}"
           when: not (cacert_certbundle_result.stat.exists and cacert_key_result.stat.exists)
-          shell: >-
+          ansible.builtin.shell: >-
             step certificate bundle \
               {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.pem \
               {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }} \
@@ -205,7 +205,7 @@
 
     - name: "{{ __log_prefix_fetch }} Add intermediate certs to __cert_from_to_list"
       when: item.domainName in __deploy_cacerts__ca_fetch_domains_list
-      set_fact:
+      ansible.builtin.set_fact:
         __cert_from_to_list: "{{ __cert_from_to_list|d([]) +
             [ { 'src': deploy_cacerts__keystore_cert_base_dir + '/' + item.domainName + '/' + item.commonName + '.pem',
                 'dest': deploy_cacerts__cacert_local_cert_dir + '/' + item.commonName + '.pem' },
@@ -219,7 +219,7 @@
 
     ## ref: https://unix.stackexchange.com/posts/175673/timeline
     - name: "{{ __log_prefix_fetch }} Add route certs to __cert_from_to_list"
-      set_fact:
+      ansible.builtin.set_fact:
         __cert_from_to_list: "{{ __cert_from_to_list|d([]) +
             [ { 'src': deploy_cacerts__keystore_cert_base_dir + '/' + item.route + '/' + item.route + '.pem',
                 'dest': deploy_cacerts__cacert_local_cert_dir + '/' + item.route + '.pem' },
@@ -245,7 +245,7 @@
 #      when: item.route in deploy_cacerts__ca_domains_hosted
 #      become: yes
 #      copy_remotely:
-      copy:
+      ansible.builtin.copy:
         src: "{{ deploy_cacerts__cacert_local_key_dir }}/{{ item.route }}-key.pem"
         dest: "{{ deploy_cacerts__ca_key_dir }}/{{ item.route }}-key.pem"
         backup: yes

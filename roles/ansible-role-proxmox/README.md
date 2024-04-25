@@ -292,7 +292,7 @@ Finally, let's write our playbook. `site.yml` will look something like this:
 
     - block:
       - name: Reboot for networking changes
-        shell: "sleep 5 && shutdown -r now 'Networking changes found, rebooting'"
+        ansible.builtin.shell: "sleep 5 && shutdown -r now 'Networking changes found, rebooting'"
         async: 1
         poll: 0
 

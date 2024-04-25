@@ -15,11 +15,11 @@
 
   - name: Calcuating log shards differences
     block:
-      - set_fact:
+      - ansible.builtin.set_fact:
           __current_prefixes: '{{ ansible_local.ctlog.current_shards | d([]) | map(attribute="prefix") | list }}'
           __desired_prefixes: '{{ ctlog_shards | map(attribute="prefix") | list }}'
 
-      - set_fact:
+      - ansible.builtin.set_fact:
           __remove_prefixes: '{{ __current_prefixes | difference(__desired_prefixes) }}'
           __new_prefixes: '{{ __desired_prefixes | difference(__current_prefixes) }}'
           __stay_prefixes: '{{ __current_prefixes | intersect(__desired_prefixes) }}'
@@ -88,14 +88,14 @@
 
     - name: Calculating current established shard informations
       block:
-        - set_fact:
+        - ansible.builtin.set_fact:
             __new_shards: '{{ __new_shards | d([]) + [ { "prefix": item.0, "id": item.1 } ] }}'
           loop: '{{ __new_prefixes | zip(__new_tree_ids.results | map(attribute="stdout")) | list }}'
 
-        - set_fact:
+        - ansible.builtin.set_fact:
             __all_shards_id: '{{ (ansible_local.ctlog.current_shards | d([]) + __new_shards) | sort(False, True, attribute="prefix") }}'
 
-        - set_fact:
+        - ansible.builtin.set_fact:
             __all_shards: '{{ __all_shards | d([]) + [ item.0 | combine(item.1) ] }}'
           loop: '{{ ctlog_shards | sort(False,True,attribute="prefix") | zip(__all_shards_id) | list }}'
 
@@ -105,7 +105,7 @@
             path: /etc/ansible/facts.d
             state: directory
 
-        - copy:
+        - ansible.builtin.copy:
             dest: /etc/ansible/facts.d/ctlog.fact
             content: |
               {
@@ -135,6 +135,6 @@
     loop: '{{ __stay_prefixes + __new_prefixes | d([]) }}'
 
   - name: Copying accepting CA certificate file
-    copy:
+    ansible.builtin.copy:
       src: '{{ secret + "/certificates/" + ansible_fqdn + "/issuing/" + issuing_ca_crtname }}'
       dest: '{{ ct_install_root + "/config/" + issuing_ca_crtname }}'

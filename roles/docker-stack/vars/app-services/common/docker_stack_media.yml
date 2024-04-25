@@ -210,14 +210,6 @@ __docker_stack__media__config_dirs:
   - path: "{{ __docker_stack__media__config_dir }}/lychee"
 #    - { path: "{{ __docker_stack__media__config_dir }}/piwigo" }
   - path: "{{ __docker_stack__media__config_dir }}/photoshow"
-  - path: "{{ __docker_stack__media__config_dir }}/nextcloud"
-  - path: "{{ __docker_stack__media__config_dir }}/nextcloud/certs"
-  - path: "{{ __docker_stack__media__config_dir }}/nextcloud/config"
-  - path: "{{ __docker_stack__media__config_dir }}/nextcloud/config/keys"
-  - path: "{{ __docker_stack__media__config_dir }}/nextcloud/config/apps"
-  - path: "{{ __docker_stack__media__config_dir }}/nextcloud/config/www/nextcloud/config"
-  - path: "{{ __docker_stack__media__config_dir }}/nextcloud/data"
-  - path: "{{ __docker_stack__media__config_dir }}/pydio"
   - path: "{{ __docker_stack__media__config_dir }}/couchpotato"
   - path: "{{ __docker_stack__media__config_dir }}/ombi"
   - path: "{{ __docker_stack__media__config_dir }}/homeassistant"
@@ -266,13 +258,6 @@ __docker_stack__media__config_tpls:
 #    dest: "{{ __docker_stack__media__config_dir }}/lazylibrarian/config.xml"
   - src: 'media/config-transmission.json.j2'
     dest: "{{ __docker_stack__media__config_dir }}/transmission/settings.json", force: yes
-#  - src: 'media/config-nextcloud.php.j2'
-#    dest: "{{ __docker_stack__media__config_dir }}/nextcloud/www/nextcloud/config/config.php"
-#  - src: 'media/config-nextcloud.php.j2'
-#    dest: "{{ __docker_stack__media__config_dir }}/nextcloud/config/www/nextcloud/config/config.php"
-  ## ref: https://help.nextcloud.com/t/updates-between-multiple-major-versions-are-unsupported/7094/12
-  - src: 'media/config-nextcloud.php.j2'
-    dest: "{{ __docker_stack__media__config_dir }}/nextcloud/config/www/nextcloud/config/others.config.php"
 #  - src: 'media/config-organizr-nginx-default.conf.j2'
 #    dest: "{{ __docker_stack__media__config_dir }}/organizr/nginx/site-confs/default"
 
@@ -290,12 +275,6 @@ __docker_stack__media__config_files:
     dest: "{{ __docker_stack__media__config_dir }}/prometheus/rules/swarm_node.rules.yml"
   - src: 'files/prometheus/rules/swarm_task.rules.yml'
     dest: "{{ __docker_stack__media__config_dir }}/prometheus/rules/swarm_task.rules.yml"
-  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem"
-    dest: "{{ __docker_stack__media__config_dir }}/nextcloud/config/keys/cert.crt"
-    remote_src: yes
-  - src: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__internal_domain }}-key.pem"
-    dest: "{{ __docker_stack__media__config_dir }}/nextcloud/config/keys/cert.key"
-    remote_src: yes
 #  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem"
 #    dest: "{{ __docker_stack__media__config_dir }}/sonarr/certs/{{ docker_stack__internal_domain }}.chain.cer"
 #    remote_src: yes
@@ -430,21 +409,6 @@ __docker_stack__media_hydra__traefik_labels: "{{ docker_stack__media_hydra__trae
 
 __docker_stack__media_jackett__traefik_labels: "{{ docker_stack__media_jackett__traefik_labels
   | d(__docker_stack__media_jackett__traefik_labels_default) }}"
-
-__docker_stack__media_nextcloud__traefik_labels: "{{ docker_stack__media_nextcloud__traefik_labels
-  | d(__docker_stack__media_nextcloud__traefik_labels_default) }}"
-
-#__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:latest
-#__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:19.0.3-ls100
-#__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:20.0.5-ls116
-#__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:version-20.0.7
-#__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:version-21.0.3
-#__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:22.2.3
-#__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:php8-version-23.0.4
-__docker_stack__media_nextcloud__image: lscr.io/linuxserver/nextcloud:28.0.4
-
-__docker_stack__media_pydio__traefik_labels: "{{ docker_stack__media_pydio__traefik_labels
-  | d(__docker_stack__media_pydio__traefik_labels_default) }}"
 
 __docker_stack__media_duplicati__traefik_labels: "{{ docker_stack__media_duplicati__traefik_labels
   | d(__docker_stack__media_duplicati__traefik_labels_default) }}"
@@ -1142,52 +1106,6 @@ __docker_stack__media__services:
       - "{{ __docker_stack__media__downloads_watch }}:/downloads"
       - "{{ __docker_stack__media__config_dir }}/shared:/shared"
     labels: "{{ __docker_stack__media_jackett__traefik_labels }}"
-
-  ## NextCloud – Your Own Cloud Storage
-  nextcloud:
-    container_name: nextcloud
-    image: "{{ __docker_stack__media_nextcloud__image }}"
-    environment:
-      PUID: "{{ docker_stack__user_uid }}"
-      PGID: "{{ docker_stack__user_gid }}"
-      TZ: "{{ docker_stack__timezone }}"
-    restart: "unless-stopped"
-    networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
-    volumes:
-      - "{{ __docker_stack__media__config_dir }}/nextcloud/config:/config"
-#        - "{{ docker_stack__user_home }}/shared_data:/data"
-      - "{{ __docker_stack__media__config_dir }}/nextcloud/data:/data"
-#      - "{{ __docker_stack__media__config_dir }}/nextcloud/certs:/etc/nginx/certs"
-#        - "{{ __docker_stack__media__config_dir }}/shared:/shared"
-      - "{{ __docker_stack__media__shared_data_dir }}:/shared"
-      - "{{ __docker_stack__media__path }}:/media"
-#      - "{{ __docker_stack__media__nas_path }}:/remote_media"
-    labels: "{{ __docker_stack__media_nextcloud__traefik_labels }}"
-
-  ## Pydio – Your Own Cloud Storage
-  pydio:
-    active: no
-    container_name: pydio
-    hostname: pydio
-#      image: "lscr.io/linuxserver/pydio"
-    image: "lscr.io/linuxserver/pydio:latest"
-    environment:
-      PUID: "{{ docker_stack__user_uid }}"
-      PGID: "{{ docker_stack__user_gid }}"
-    restart: "unless-stopped"
-    networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
-    volumes:
-      - "/etc/localtime:/etc/localtime:ro"
-      - "{{ __docker_stack__media__config_dir }}/pydio:/config"
-#        - "{{ docker_stack__user_home }}/shared_data:/data"
-      - "{{ __docker_stack__media__config_dir }}/pydio/data:/data"
-#        - "{{ __docker_stack__media__config_dir }}/shared:/shared"
-      - "{{ __docker_stack__media__shared_data_dir }}:/shared"
-      - "{{ __docker_stack__media__path }}:/media"
-#      - "{{ __docker_stack__media__nas_path }}:/remote_media"
-    labels: "{{ __docker_stack__media_pydio__traefik_labels }}"
 
   ## ref: https://hub.docker.com/r/lscr.io/linuxserver/thelounge
   ## ref: https://dev.to/adamkdean/setup-your-own-persistent-web-irc-client-3678
