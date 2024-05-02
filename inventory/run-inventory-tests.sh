@@ -14,6 +14,7 @@ INVENTORY_DIR="${PROJECT_DIR}/inventory"
 
 RUN_PYTEST=0
 LIST_TEST_CASES=0
+ENSURE_PYTHON_MODULES=0
 
 PYTEST_JUNIT_REPORT_DEFAULT=".test-results/junit-report.xml"
 
@@ -128,7 +129,7 @@ function validate_file_extensions() {
 
   local EXCEPTION_COUNT=$(find . \
     -type f \( ! -iname ".*" ! -iname "*.yml" ! -iname "*.sh" ! -iname "*.py" ! -iname "*.log" ! -iname "*.md" ! -iname "pytest.ini" \) \
-      -not -path "./.test-results/*" -not -path "./__pycache__/*" | wc -l)
+      -not -path "./.test-results/*" -not -path "./__pycache__/*" -not -path "./.pytest_cache/*" | wc -l)
   if [[ $EXCEPTION_COUNT -eq 0 ]]; then
     logInfo "${LOG_PREFIX} SUCCESS => No inconsistent file extensions found!!"
   else
@@ -136,7 +137,7 @@ function validate_file_extensions() {
     logInfo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] inconsistent file names found without *.yml extension:"
     find . \
       -type f \( ! -iname ".*" ! -iname "*.yml" ! -iname "*.sh" ! -iname "*.py" ! -iname "*.log" ! -iname "*.md" ! -iname "pytest.ini" \) \
-      -not -path "./.test-results/*" -not -path "./__pycache__/*"
+      -not -path "./.test-results/*" -not -path "./__pycache__/*" -not -path "./.pytest_cache/*"
   fi
 
   logInfo "#######################################################"
@@ -377,12 +378,13 @@ function validate_yml_sortorder() {
 function run_pytests() {
   local LOG_PREFIX="run_pytests():"
   local PYTEST_JUNIT_REPORT=$1
-  shift 1
+  local PYTESTS_TARGET=$2
+  shift 2
   local TEST_CASES=("$@")
 
   logInfo "${LOG_PREFIX} TEST_CASES[@]=${TEST_CASES[@]}"
 
-  local TEST_COMMAND="pytest --verbose --capture=tee-sys --junitxml=${PYTEST_JUNIT_REPORT} ."
+  local TEST_COMMAND="pytest --verbose --capture=tee-sys --junitxml=${PYTEST_JUNIT_REPORT} ${PYTESTS_TARGET}"
   if [[ "${TEST_CASES[@]}" != "ALL" ]]; then
     ## ref: https://stackoverflow.com/questions/1527049/how-can-i-join-elements-of-a-bash-array-into-a-delimited-string#17841619
     SEPARATOR=" or "
@@ -526,11 +528,6 @@ function run_tests() {
   return ${ERROR_COUNT}
 }
 
-
-function isInstalled() {
-    command -v "${1}" >/dev/null 2>&1 || return 1
-}
-
 function checkRequiredCommands() {
     missingCommands=""
     for currentCommand in "$@"
@@ -543,9 +540,13 @@ function checkRequiredCommands() {
     fi
 }
 
+function isInstalled() {
+    command -v "${1}" >/dev/null 2>&1 || return 1
+}
+
 
 function install_jq() {
-  local LOG_PREFIX="install_jq():"
+  local LOG_PREFIX="==> install_jq():"
   local OS="${1}"
   local PACKAGE_NAME="jq"
 
@@ -574,7 +575,7 @@ function install_jq() {
 
 
 function install_yq() {
-  local LOG_PREFIX="install_jq():"
+  local LOG_PREFIX="==> install_jq():"
   local OS="${1}"
   local VERSION="v4.40.5"
   local BINARY="yq_linux_amd64"
@@ -725,8 +726,10 @@ function main() {
   logDebug "Ensure yq present/installed (required for yq sort-keys)"
   ensure_tool yq
 
-  logDebug "Ensure python modules present/installed"
-  ensure_python_modules
+  if [ $ENSURE_PYTHON_MODULES -eq 1 ]; then
+    logDebug "Ensure python modules present/installed"
+    ensure_python_modules
+  fi
 
   checkRequiredCommands ansible-inventory yamllint jq yq
 
@@ -741,7 +744,7 @@ function main() {
 
   if [ $RUN_PYTEST -eq 1 ]; then
     checkRequiredCommands pytest
-    run_pytests "${PYTEST_JUNIT_REPORT}" "${TEST_CASES[@]}"
+    run_pytests "${PYTEST_JUNIT_REPORT}" "${INVENTORY_DIR}" "${TEST_CASES[@]}"
     exit $?
   fi
 

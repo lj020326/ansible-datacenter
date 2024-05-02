@@ -100,7 +100,7 @@ The docker runtime environment is expected to be already prepared in a prior pla
 | docker_stack__email_to                       | no       | "admin@example.com"                                                               |                            |
 | docker_stack__email_default_suffix           | no       | "@example.com"                                                                    |                            |
 | docker_stack__email_admin_address            | no       | "admin@example.com"                                                               |                            |
-| docker_stack__smtp                           | no       | "mail.example.int"                                                                |                            |
+| docker_stack__smtp_host                           | no       | "mail.example.int"                                                                |                            |
 | docker_stack__firewalld_enabled              | no       | yes                                                                               |                            |
 | docker_stack__firewalld_services             | no       | []                                                                                |                            |
 | docker_stack__firewalld_app_services         | no       | {}                                                                                |                            |
