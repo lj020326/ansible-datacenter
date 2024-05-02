@@ -79,7 +79,7 @@ PRIVATE_CONTENT_ARRAY+=('*.log')
 
 printf -v EXCLUDE_AND_REMOVE '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"
 EXCLUDE_AND_REMOVE="${EXCLUDE_AND_REMOVE%,}"
-logDebug "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
+echo "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY
@@ -136,15 +136,15 @@ function search_repo_keywords () {
 
   #export -p | sed 's/declare -x //' | sed 's/export //'
   if [ -z ${REPO_EXCLUDE_KEYWORDS+x} ]; then
-    logError "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS not set/defined"
+    echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS not set/defined"
     exit 1
   fi
 
-  logDebug "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS=${REPO_EXCLUDE_KEYWORDS}"
+  echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS=${REPO_EXCLUDE_KEYWORDS}"
 
   IFS=',' read -ra REPO_EXCLUDE_KEYWORDS_ARRAY <<< "$REPO_EXCLUDE_KEYWORDS"
 
-  logDebug "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS_ARRAY=${REPO_EXCLUDE_KEYWORDS_ARRAY[*]}"
+  echo "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS_ARRAY=${REPO_EXCLUDE_KEYWORDS_ARRAY[*]}"
 
   # ref: https://superuser.com/questions/1371834/escaping-hyphens-with-printf-in-bash
   #'-e' ==> '\055e'
@@ -156,29 +156,29 @@ function search_repo_keywords () {
   ## strip suffix
   #GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH%"$GREP_DELIM"}
 
-  logDebug "${LOG_PREFIX} GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH}"
+  echo "${LOG_PREFIX} GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH}"
 
   GREP_COMMAND="grep ${GREP_PATTERN_SEARCH}"
-  logDebug "${LOG_PREFIX} GREP_COMMAND=${GREP_COMMAND}"
+  echo "${LOG_PREFIX} GREP_COMMAND=${GREP_COMMAND}"
 
   local FIND_DELIM=' -o '
 #  printf -v FIND_EXCLUDE_DIRS "\055path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
   printf -v FIND_EXCLUDE_DIRS "! -path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
   FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS%$FIND_DELIM}
 
-  logDebug "${LOG_PREFIX} FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS}"
+  echo "${LOG_PREFIX} FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS}"
 
   ## ref: https://stackoverflow.com/questions/6565471/how-can-i-exclude-directories-from-grep-r#8692318
   ## ref: https://unix.stackexchange.com/questions/342008/find-and-echo-file-names-only-with-pattern-found
 #  FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null \;"
   FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null +"
-  logDebug "${LOG_PREFIX} ${FIND_CMD}"
+  echo "${LOG_PREFIX} ${FIND_CMD}"
 
   EXCEPTION_COUNT=$(eval "${FIND_CMD} | wc -l")
   if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-    logInfo "${LOG_PREFIX} SUCCESS => No exclusion keyword matches found!!"
+    echo "${LOG_PREFIX} SUCCESS => No exclusion keyword matches found!!"
   else
-    logError "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] exclusion keyword matches found:"
+    echo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] exclusion keyword matches found:"
     eval "${FIND_CMD}"
     exit 1
   fi
@@ -192,51 +192,52 @@ function sync_public_branch() {
   
   #RSYNC_OPTS=${RSYNC_OPTS_GIT_MIRROR[@]}
   
-  logDebug "copy project to temporary dir $TMP_DIR"
+  echo "copy project to temporary dir $TMP_DIR"
   #local RSYNC_CMD="rsync ${RSYNC_OPTS} ${PROJECT_DIR}/ ${TMP_DIR}/"
-  local RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_MIRROR[@]} ${PROJECT_DIR}/ ${TMP_DIR}/"
-  logDebug "${RSYNC_CMD}"
+  local RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_MIRROR[*]} ${PROJECT_DIR}/ ${TMP_DIR}/"
+  echo "${RSYNC_CMD}"
   eval $RSYNC_CMD
   
-  logInfo "Checkout public branch"
+  echo "Checkout public branch"
   git checkout ${GIT_PUBLIC_BRANCH}
   
   if [ $GIT_REMOVE_CACHED_FILES -eq 1 ]; then
-    logInfo "Removing files cached in git"
+    echo "Removing files cached in git"
     git rm -r --cached .
   fi
   
-  #logInfo "Removing existing non-dot files for clean sync"
+  #echo "Removing existing non-dot files for clean sync"
   #rm -fr *
   
-  logInfo "Copy ${TMP_DIR} to project dir $PROJECT_DIR"
-  #logInfo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
-  RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
-  logInfo "${RSYNC_CMD}"
+  echo "Copy ${TMP_DIR} to project dir $PROJECT_DIR"
+  #echo "rsync ${RSYNC_OPTS_GIT_UPDATE[@]} ${TMP_DIR}/ ${PROJECT_DIR}/"
+  RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[*]} ${TMP_DIR}/ ${PROJECT_DIR}/"
+  echo "${RSYNC_CMD}"
   eval ${RSYNC_CMD}
   
   IFS=$'\n'
   for dir in ${MIRROR_DIR_LIST}
   do
-    logInfo "Mirror ${TMP_DIR}/${dir}/ to project dir $PROJECT_DIR/${dir}/"
-    RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[@]} --delete --update --exclude=save ${TMP_DIR}/${dir}/ ${PROJECT_DIR}/${dir}/"
-    logInfo "${RSYNC_CMD}"
+    echo "Mirror ${TMP_DIR}/${dir}/ to project dir $PROJECT_DIR/${dir}/"
+#    RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[*]} --delete --update --exclude=save ${TMP_DIR}/${dir}/ ${PROJECT_DIR}/${dir}/"
+    RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_MIRROR[*]} ${TMP_DIR}/${dir}/ ${PROJECT_DIR}/${dir}/"
+    echo "${RSYNC_CMD}"
     eval ${RSYNC_CMD}
   done
   
   printf -v TO_REMOVE '%s ' "${PRIVATE_CONTENT_ARRAY[@]}"
   TO_REMOVE="${TO_REMOVE% }"
-  logInfo "TO_REMOVE=${TO_REMOVE}"
+  echo "TO_REMOVE=${TO_REMOVE}"
   CLEANUP_CMD="rm -fr ${TO_REMOVE}"
-  logInfo "${CLEANUP_CMD}"
+  echo "${CLEANUP_CMD}"
   eval ${CLEANUP_CMD}
   
   if [ -e $PUBLIC_GITIGNORE ]; then
-    logInfo "Update public files:"
+    echo "Update public files:"
     cp -p $PUBLIC_GITIGNORE .gitignore
   fi
   
-  logInfo "Show changes before push:"
+  echo "Show changes before push:"
   git status
   
   ## https://stackoverflow.com/questions/5989592/git-cannot-checkout-branch-error-pathspec-did-not-match-any-files-kn
@@ -253,17 +254,17 @@ function sync_public_branch() {
   fi
   
   ## https://stackoverflow.com/questions/5738797/how-can-i-push-a-local-git-branch-to-a-remote-with-a-different-name-easily
-  logInfo "Add all the files:"
+  echo "Add all the files:"
   gitcommitpush
-  logInfo "Checkout ${GIT_DEFAULT_BRANCH} branch:" && \
+  echo "Checkout ${GIT_DEFAULT_BRANCH} branch:" && \
   git checkout ${GIT_DEFAULT_BRANCH}
 
-  logInfo "chmod project admin/maintenance scripts"
+  echo "chmod project admin/maintenance scripts"
   chmod +x inventory/*.sh
   chmod +x files/scripts/*.sh
   chmod +x files/scripts/git/*.sh
   
-  logInfo "creating links for useful project scripts"
+  echo "creating links for useful project scripts"
   cd ${PROJECT_DIR}
   chmod +x ./files/scripts/git/*.sh
   ln -sf ./files/scripts/git/stash-*.sh ./
@@ -304,16 +305,16 @@ function main() {
   done
   shift $((OPTIND-1))
 
-  logDebug "EXCLUDES=${EXCLUDES}"
+  echo "EXCLUDES=${EXCLUDES}"
 
-  logDebug "PROJECT_DIR=${PROJECT_DIR}"
-  logDebug "TMP_DIR=${TMP_DIR}"
+  echo "PROJECT_DIR=${PROJECT_DIR}"
+  echo "TMP_DIR=${TMP_DIR}"
 
 #  search_repo_keywords
   eval search_repo_keywords
   local RETURN_STATUS=$?
   if [[ $RETURN_STATUS -ne 0 ]]; then
-    logError "${LOG_PREFIX} search_repo_keywords: FAILED"
+    echo "${LOG_PREFIX} search_repo_keywords: FAILED"
     exit ${RETURN_STATUS}
   fi
 
