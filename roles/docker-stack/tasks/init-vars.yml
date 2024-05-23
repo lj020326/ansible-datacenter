@@ -118,10 +118,18 @@
   ansible.builtin.debug:
     msg: "{{ lookup('varnames', __docker_stack__service_groups_list_var_regex, wantlist=True) }}"
 
-- name: "{{ __docker_stack__log_prefix__init_vars }} Coalesce lists from {{ __docker_stack__service_groups_list_var_prefix }}* vars into merged list"
+#- name: "{{ __docker_stack__log_prefix__init_vars }} Coalesce lists from {{ __docker_stack__service_groups_list_var_prefix }}* vars into merged list"
+#  ansible.builtin.set_fact:
+#    __docker_stack__service_groups_combined: "{{ __docker_stack__service_groups_combined|d([]) + lookup('vars', item)|d([]) }}"
+#  loop: "{{ lookup('varnames', __docker_stack__service_groups_list_var_regex, wantlist=True) }}"
+
+- name: "{{ __docker_stack__log_prefix__init_vars }} Coalesce lists from {{ 
+    __docker_stack__service_groups_list_var_prefix }}* vars into merged list"
   ansible.builtin.set_fact:
-    __docker_stack__service_groups_combined: "{{ __docker_stack__service_groups_combined|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames', __docker_stack__service_groups_list_var_regex, wantlist=True) }}"
+    __docker_stack__service_groups_combined: "{{ 
+      lookup('community.general.merge_variables', 
+        __docker_stack__service_groups_list_var_regex, 
+        pattern_type='regex') }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups_combined"
   ansible.builtin.debug:
@@ -251,7 +259,8 @@
 - name: "{{ __docker_stack__log_prefix__init_vars }} Combine proxy varname configs into __docker_stack__proxy_configs"
   ansible.builtin.set_fact:
     __docker_stack__proxy_configs: "{{ __docker_stack__proxy_configs|d({})
-      | combine({ item.name: lookup('vars', q('varnames','^__docker_stack__proxyspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
+      | combine({ item.name: lookup('vars', 
+        q('varnames','^__docker_stack__proxyspec__'+item.name.replace('-','_')+'$')| first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__proxy_services|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_configs"

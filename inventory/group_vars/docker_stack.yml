@@ -203,3 +203,28 @@ docker_stack__registry_password: "{{ docker_registry_password }}"
 docker_stack__registry_service_common_name: "{{ docker_stack__internal_domain }}"
 docker_stack__registry_users: "{{ registry_users }}"
 
+##########
+## crons
+##   list of CRONs to be setup for docker_stack machines.
+##########
+bootstrap_linux_cron__list__docker_stack:
+  - name: "Docker disk clean up"
+    job: "docker system prune -af 2>&1"
+#    job: "docker system prune -af > /dev/null 2>&1"
+    ## run 12:00AM every sunday
+    schedule: ["0", "0", "*", "*", "0"]
+    cron_file: "docker-disk-clean-up"
+#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+  - name: "Docker large log file clean up"
+    job: "/opt/scripts/docker-cleanup-large-logfiles.sh -y 2>&1"
+    ## run 12:00AM every sunday
+    schedule: ["0", "0", "*", "*", "0"]
+    cron_file: "docker-large-logfile-clean-up"
+#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+
+  - name: "Restart the docker stack"
+    job: "cd /home/{{ docker_stack__user_username }}/docker && /usr/local/bin/docker-compose up -d"
+    ## run 1:10AM every day
+    schedule: ["10", "1", "*", "*", "*"]
+    cron_file: "docker-stack-restart"
+#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"

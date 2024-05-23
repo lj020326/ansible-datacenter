@@ -94,13 +94,6 @@ EXCLUDES_ARRAY+=('*.log')
 printf -v EXCLUDES '%s,' "${EXCLUDES_ARRAY[@]}"
 EXCLUDES="${EXCLUDES%,}"
 
-REPO_EXCLUDE_DIR_LIST=(".git")
-REPO_EXCLUDE_DIR_LIST+=(".idea")
-REPO_EXCLUDE_DIR_LIST+=("venv")
-REPO_EXCLUDE_DIR_LIST+=("private")
-REPO_EXCLUDE_DIR_LIST+=("save")
-
-
 ## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
 RSYNC_OPTS_GIT_MIRROR=(
@@ -134,6 +127,12 @@ function checkRequiredCommands() {
 function search_repo_keywords () {
   local LOG_PREFIX="search_repo_keywords():"
 
+  local REPO_EXCLUDE_DIR_LIST=(".git")
+  REPO_EXCLUDE_DIR_LIST+=(".idea")
+  REPO_EXCLUDE_DIR_LIST+=("venv")
+  REPO_EXCLUDE_DIR_LIST+=("private")
+  REPO_EXCLUDE_DIR_LIST+=("save")
+
   #export -p | sed 's/declare -x //' | sed 's/export //'
   if [ -z ${REPO_EXCLUDE_KEYWORDS+x} ]; then
     logError "${LOG_PREFIX} REPO_EXCLUDE_KEYWORDS not set/defined"
@@ -148,33 +147,37 @@ function search_repo_keywords () {
 
   # ref: https://superuser.com/questions/1371834/escaping-hyphens-with-printf-in-bash
   #'-e' ==> '\055e'
-  GREP_DELIM=' \055e '
+  local GREP_DELIM=' \055e '
   printf -v GREP_PATTERN_SEARCH "${GREP_DELIM}%s" "${REPO_EXCLUDE_KEYWORDS_ARRAY[@]}"
 
   ## strip prefix
-  GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH#"$GREP_DELIM"}
+  local GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH#"$GREP_DELIM"}
   ## strip suffix
-  #GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH%"$GREP_DELIM"}
+  #local GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH%"$GREP_DELIM"}
 
   logDebug "${LOG_PREFIX} GREP_PATTERN_SEARCH=${GREP_PATTERN_SEARCH}"
 
-  GREP_COMMAND="grep ${GREP_PATTERN_SEARCH}"
+  local GREP_COMMAND="grep ${GREP_PATTERN_SEARCH}"
   logDebug "${LOG_PREFIX} GREP_COMMAND=${GREP_COMMAND}"
 
   local FIND_DELIM=' -o '
-#  printf -v FIND_EXCLUDE_DIRS "\055path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
-  printf -v FIND_EXCLUDE_DIRS "! -path %s${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
-  FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS%$FIND_DELIM}
+#  printf -v FIND_EXCLUDE_DIRS "\055path '*/%s/*' -prune${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
+  printf -v FIND_EXCLUDE_DIRS "! -path '*/%s/*'${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
+  local FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS%$FIND_DELIM}
 
   logDebug "${LOG_PREFIX} FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS}"
 
+  ## this works:
+  ## find . \( -path '*/.git/*' \) -prune -name '.*' -o -exec grep -i example {} 2>/dev/null +
+  ## find . \( -path '*/save/*' -prune -o -path '*/.git/*' -prune \) -o -exec grep -i example {} 2>/dev/null +
+  ## find . \( ! -path '*/save/*' -o ! -path '*/.git/*' \) -o -exec grep -i example {} 2>/dev/null +
   ## ref: https://stackoverflow.com/questions/6565471/how-can-i-exclude-directories-from-grep-r#8692318
   ## ref: https://unix.stackexchange.com/questions/342008/find-and-echo-file-names-only-with-pattern-found
-#  FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null \;"
-  FIND_CMD="find ${PROJECT_DIR}/ -type f \( ${FIND_EXCLUDE_DIRS} \) -prune -o -exec ${GREP_COMMAND} {} 2>/dev/null +"
-  logDebug "${LOG_PREFIX} ${FIND_CMD}"
+  ## ref: https://www.baeldung.com/linux/find-exclude-paths
+  local FIND_CMD="find ${PROJECT_DIR}/ \( ${FIND_EXCLUDE_DIRS} \) -o -exec ${GREP_COMMAND} {} 2>/dev/null +"
+  logInfo "${LOG_PREFIX} ${FIND_CMD}"
 
-  EXCEPTION_COUNT=$(eval "${FIND_CMD} | wc -l")
+  local EXCEPTION_COUNT=$(eval "${FIND_CMD} | wc -l")
   if [[ $EXCEPTION_COUNT -eq 0 ]]; then
     logInfo "${LOG_PREFIX} SUCCESS => No exclusion keyword matches found!!"
   else
@@ -309,8 +312,7 @@ function main() {
   logDebug "PROJECT_DIR=${PROJECT_DIR}"
   logDebug "TMP_DIR=${TMP_DIR}"
 
-#  search_repo_keywords
-  eval search_repo_keywords
+  search_repo_keywords
   local RETURN_STATUS=$?
   if [[ $RETURN_STATUS -ne 0 ]]; then
     logError "${LOG_PREFIX} search_repo_keywords: FAILED"
