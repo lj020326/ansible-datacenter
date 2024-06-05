@@ -34,32 +34,32 @@
         persistent: yes
 
     - name: ensure httpd service is enabled
-      service:
+      ansible.builtin.service:
         name: httpd
         enabled: yes
         state: started
 
     - name: ensure xinetd service is enabled and started
-      service:
+      ansible.builtin.service:
         name: xinetd
         enabled: yes
         state: started
 
     - name: ensure named-chroot is enabled and started
-      service:
+      ansible.builtin.service:
         name: named-chroot
         enabled: yes
         state: started
       when: cobbler_manage_dns | bool
 
     - name: ensure dhcpd
-      service:
+      ansible.builtin.service:
         name: dhcpd
         enabled: yes
       when: cobbler_manage_dhcp | bool
 
     - name: ensure cobbler services is enabled and started
-      service:
+      ansible.builtin.service:
         name: cobblerd
         enabled: yes
         state: started
@@ -96,35 +96,35 @@
   when: cobbler_templates_force | bool
 
 - name: ensure server is set in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "server: {{ ansible_default_ipv4.address }}"
     regexp: "^server:"
     dest: /etc/cobbler/settings
   notify: restart cobblerd
 
 - name: ensure next_server is set in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "next_server: {{ ansible_default_ipv4.address }}"
     regexp: "^next_server:"
     dest: /etc/cobbler/settings
   notify: restart cobblerd
 
 - name: ensure default_password_crypted is set in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "default_password_crypted: {{ cobbler_default_password_crypted }}"
     regexp: "^default_password_crypted:"
     dest: /etc/cobbler/settings
   notify: restart cobblerd
 
 - name: ensure pxe_just_once is enabled in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "pxe_just_once: {{ cobbler_pxe_just_once }}"
     regexp: "^pxe_just_once:"
     dest: /etc/cobbler/settings
   notify: restart cobblerd
 
 - name: ensure authn_configfile is set in /etc/cobbler/modules.conf for cobbler web
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "module = authn_configfile"
     regexp: "^module = authn"
     insertafter: "[authentication]"
@@ -134,7 +134,7 @@
    - restart apache
 
 - name: ensure authz_allowall is set in /etc/cobbler/modules.conf for cobbler web
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "module = authz_allowall"
     regexp: "^module = authz"
     insertafter: "[authorization]"
@@ -152,14 +152,14 @@
    - restart apache
 
 - name: ensure dhcp management is enabled in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "manage_dhcp: {{ cobbler_manage_dhcp }}"
     regexp: "^manage_dhcp:"
     dest: /etc/cobbler/settings
   notify: restart cobblerd
 
 - name: ensure dns management is enabled in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "manage_dns: {{ cobbler_manage_dns }}"
     regexp: "^manage_dns:"
     dest: /etc/cobbler/settings
@@ -167,14 +167,14 @@
   register: cobbler_dns_enabled
 
 - name: ensure /etc/secondary.conf exists with se type cobbler_var_lib_t
-  file:
+  ansible.builtin.file:
     state: touch
     setype: cobbler_var_lib_t
     path: /etc/secondary.conf
   when: cobbler_dns_enabled.changed
 
 - name: ensure dns forward zones are set in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "manage_forward_zones: {{ cobbler_manage_forward_zones }}"
     regexp: "^manage_forward_zones:"
     dest: /etc/cobbler/settings
@@ -182,7 +182,7 @@
   when: cobbler_manage_dns | bool
 
 - name: ensure dns reverse zones are set in /etc/cobbler/settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "manage_reverse_zones: {{ cobbler_manage_reverse_zones }}"
     regexp: "^manage_reverse_zones:"
     dest: /etc/cobbler/settings
@@ -190,36 +190,36 @@
   when: cobbler_manage_dns | bool
 
 - name: ensure di_dists directive is set in /etc/debmirror.conf
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "@di_dists=\"dists\";"
     regexp: "@di_dists="
     dest: /etc/debmirror.conf
 
 - name: ensure di_archs directive is set in /etc/debmirror.conf
-  lineinfile:
+  ansible.builtin.lineinfile:
     line: "@di_archs=\"arches\";"
     regexp: "@di_archs="
     dest: /etc/debmirror.conf
 
 - name: ensure cobbler profile folder exists in /var/www/cobbler/ks_mirror/
-  file:
+  ansible.builtin.file:
     path: "/var/www/cobbler/ks_mirror/{{ item.name }}-{{ item.arch }}"
     state: directory
   with_items: "{{ cobbler_profiles }}"
   register: cobbler_profiles_folders
 
 - name: ensure folder for iso files exist
-  file:
+  ansible.builtin.file:
     path: "{{ cobbler_isos_path }}"
     state: directory
 
 - name: ensure iso mount path exists
-  file:
+  ansible.builtin.file:
     path: "{{ cobbler_isos_mount_path }}"
     state: directory
 
 - name: ensure iso files are present
-  get_url:
+  ansible.builtin.get_url:
     url: "{{ item.item.url }}"
     dest: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
   with_items: "{{ cobbler_profiles_folders.results }}"
@@ -262,7 +262,7 @@
   with_items: "{{ cobbler_profiles_folders.results }}"
 
 - name: ensure isos are deleted after import
-  file:
+  ansible.builtin.file:
     path: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
     state: absent
   when: cobbler_isos_delete == true and item.changed == true

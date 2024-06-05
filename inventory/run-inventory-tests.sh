@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION="2024.2.1"
+VERSION="2024.5.1"
 
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(dirname "$0")"
@@ -10,10 +10,8 @@ SCRIPT_DIR="$(dirname "$0")"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 INVENTORY_DIR="${PROJECT_DIR}/inventory"
 
-#KEEP_TMP=1
-
+KEEP_TMP=0
 RUN_PYTEST=0
-LIST_TEST_CASES=0
 ENSURE_PYTHON_MODULES=0
 
 PYTEST_JUNIT_REPORT_DEFAULT=".test-results/junit-report.xml"
@@ -658,7 +656,7 @@ function ensure_tool() {
     esac
 
     logDebug "${LOG_PREFIX} installing executable '${executable}'"
-    eval "${install_function} ${OS}"
+    eval "${install_function} ${PLATFORM_OS}"
   fi
 }
 
@@ -673,6 +671,7 @@ function usage() {
   echo "       -p : run pytest"
   echo "       -r [PYTEST_JUNIT_REPORT] : use specified junitxml path for pytest report"
   echo "       -v : show script version"
+  echo "       -k : keep temp directory/files"
   echo "       -h : help"
   echo "     [TEST_CASES]"
   echo ""
@@ -681,6 +680,7 @@ function usage() {
 	echo "       ${0} -l"
 	echo "       ${0} 01"
 	echo "       ${0} validate_file_extensions"
+	echo "       ${0} -k -L DEBUG validate_yml_sortorder"
 	echo "       ${0} 01 03"
 	echo "       ${0} -L DEBUG 02 04"
 	echo "       ${0} -p"
@@ -695,12 +695,13 @@ function main() {
 
   checkRequiredCommands ansible-inventory yamllint
 
-  while getopts "L:r:dlpvh" opt; do
+  while getopts "L:r:dlpvhk" opt; do
       case "${opt}" in
           L) setLogLevel "${OPTARG}" ;;
+          l) print_test_cases && exit ;;
           r) PYTEST_JUNIT_REPORT="${OPTARG}" ;;
           d) DISPLAY_TEST_RESULTS=1 ;;
-          l) LIST_TEST_CASES=1 ;;
+          k) KEEP_TMP=1 ;;
           p) RUN_PYTEST=1 ;;
           v) echo "${VERSION}" && exit ;;
           h) usage 1 ;;
@@ -712,10 +713,6 @@ function main() {
 
   if [[ -n "${PYTEST_JUNIT_REPORT-}" ]]; then
     PYTEST_JUNIT_REPORT="${PYTEST_JUNIT_REPORT_DEFAULT}"
-  fi
-  if [ "${LIST_TEST_CASES}" -eq 1 ]; then
-    print_test_cases
-    exit
   fi
 
   ## ref: https://pypi.org/project/yq/
