@@ -1,34 +1,34 @@
 ---
 
-- name: "Set __relative_role_vars_path for bootstrap-ntp"
-  set_fact:
-    __relative_role_vars_path: ../../roles/bootstrap-ntp/vars
+- name: "Set __relative_role_vars_path for role"
+  ansible.builtin.set_fact:
+    __relative_role_vars_path: ../../../roles/bootstrap-ntp/vars
 
 - name: "Include ntp OS-specific variables."
-  include_vars: "{{ item }}"
+  ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
     - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}.yml"
     - "{{ __relative_role_vars_path }}/{{ ansible_os_family }}.yml"
     - "{{ __relative_role_vars_path }}/default.yml"
 
-- name: "Check ntp package status"
-  package:
+- name: "Check {{ bootstrap_ntp_package }} package status"
+  ansible.builtin.package:
     name: "{{ bootstrap_ntp__packages }}"
     state: "installed"
   check_mode: yes
   register: pkg_status_ntp
 
 - name: "Display pkg_status_ntp"
-  debug:
+  ansible.builtin.debug:
     var: pkg_status_ntp
 
-- name: "Check ntp packages are installed"
-  assert:
+- name: "Check {{ bootstrap_ntp_package }} package is installed"
+  ansible.builtin.assert:
     that:
       - not pkg_status_ntp.changed
 
 - name: "Assert ntp service is installed/running"
-  assert:
+  ansible.builtin.assert:
     that:
       - services | intersect([bootstrap_ntp_daemon, bootstrap_ntp_daemon+'.service'])| d([]) | length > 0

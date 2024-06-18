@@ -20,11 +20,11 @@
 #    ignoreerrors: yes
 #  with_items: "{{ remove_sysctl }}"
 #
-#- name: os-harden-reload Sysctl
-#  command: /bin/true
+#- name: OS-HARDEN-RELOAD-Sysctl
+#  ansible.builtin.command: /bin/true
 #  notify:
-#    - os-harden-reload sysctl.conf
-#    - os-harden-flush routes
+#    - OS-HARDEN-RELOAD-sysctl.conf
+#    - OS-HARDEN-FLUSH-routes
 
 
 ##
@@ -32,7 +32,7 @@
 ##
 
 - name: Protect sysctl.conf
-  file:
+  ansible.builtin.file:
     path: '/etc/sysctl.conf'
     owner: 'root'
     group: 'root'
@@ -51,7 +51,7 @@
   when: ansible_facts.distribution in ['Amazon', 'CentOS', 'Fedora', 'RedHat']
 
 - name: Install initramfs-tools
-  apt:
+  ansible.builtin.apt:
     name: 'initramfs-tools'
     state: 'present'
     update_cache: true
@@ -67,7 +67,7 @@
     group: 'root'
     mode: '0440'
   notify:
-    - os-harden-update-initramfs
+    - OS-HARDEN-UPDATE-initramfs
   when:
     - ansible_facts.os_family == 'Debian'
     - ansible_facts.distribution_major_version|int is version('9', '>')
@@ -91,7 +91,7 @@
         var: __sysctl_config
 
     - name: Change various sysctl-settings, look at the sysctl-vars file for documentation
-      sysctl:
+      ansible.posix.sysctl:
         name: '{{ item.key }}'
         value: '{{ item.value }}'
         sysctl_set: yes
@@ -101,7 +101,7 @@
       with_dict: '{{ __sysctl_config }}'
 
     - name: Change various sysctl-settings on rhel6-hosts or older, look at the sysctl-vars file for documentation
-      sysctl:
+      ansible.posix.sysctl:
         name: '{{ item.key }}'
         value: '{{ item.value }}'
         state: present
@@ -111,8 +111,8 @@
       when: ((ansible_facts.distribution in ['CentOS', 'Fedora', 'RedHat']) and
             ansible_distribution_version|int is version('7', '<')) or ansible_facts.distribution == 'Amazon'
       notify:
-        - os-harden-reload sysctl.conf
-        - os-harden-flush routes
+        - OS-HARDEN-RELOAD-sysctl.conf
+        - OS-HARDEN-FLUSH-routes
 
 
 - name: Apply ufw defaults
@@ -141,12 +141,12 @@
 #            ) and hasgrub.stat.exists and harden_linux__os_security_ipv6_grub_disable
 #      block:
 #        - name: "Update Grub - disable ipv6"
-#          replace:
+#          ansible.builtin.replace:
 #            dest: /etc/default/grub
 #            regexp: '^GRUB_CMDLINE_LINUX="(.*)"'
 #            replace: 'GRUB_CMDLINE_LINUX="\1 ipv6.disable=1"'
 #            mode: '0644'
 #            backup: yes
 #          notify:
-##            - os-harden-grub2-mkconfig
-#            - os-harden-update-grub
+##            - OS-HARDEN-GRUB2-mkconfig
+#            - OS-HARDEN-UPDATE-grub

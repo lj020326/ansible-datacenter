@@ -6,7 +6,7 @@
   roles:
       ## https://github.com/ansible-community/molecule/issues/816#issuecomment-696411525
     - role: apply-common-groups
-      changed_when: "'molecule-idempotence-notest' not in ansible_skip_tags"
+#      changed_when: "'molecule-idempotence-notest' not in ansible_skip_tags"
 
 - name: "Bootstrap docker"
 #  hosts: molecule_docker_linux
@@ -14,22 +14,24 @@
   connection: local
   become: yes
   pre_tasks:
-    - name: "setup systemd config"
+    - name: "Setup systemd config"
       when: ansible_service_mgr == "systemd"
       block:
 
-      - name: "create containerd folder"
-        file:
+      - name: "Create containerd folder"
+        ansible.builtin.file:
           path: /etc/systemd/system/containerd.service.d
           state: directory
+          mode: "0755"
 
-      - name: "override file for containerd"
-        copy:
+      - name: "Override file for containerd"
+        ansible.builtin.copy:
           src: files/override.conf
           dest: /etc/systemd/system/containerd.service.d/override.conf
+          mode: "0644"
 
-      - name: "Wait for systemd to complete initialization."  # noqa 303
-        command: systemctl is-system-running
+      - name: "Wait for systemd to complete initialization."  # noqa command-instead-of-module
+        ansible.builtin.command: systemctl is-system-running
         register: systemctl_status
         until: >
           'running' in systemctl_status.stdout or

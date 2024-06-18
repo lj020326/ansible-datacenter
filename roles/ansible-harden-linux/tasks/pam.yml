@@ -9,7 +9,7 @@
     state: present
 
 #- name: Set Lockout for Failed Password Attempts
-#  lineinfile:
+#  ansible.builtin.lineinfile:
 #    dest: '/etc/pam.d/login'
 #    regexp: "pam_tally2.so"
 #    line: "auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900"
@@ -17,14 +17,14 @@
 #  when: ansible_distribution == "Ubuntu"
 
 - name: Limit Password Reuse
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: "{{ pam_password_file }}"
     regexp: "remember=5"
     line: "password sufficient pam_unix.so remember=5"
     state: present
 
 - name: Restrict Access to the su Command
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/pam.d/su
     regexp: 'remember=5'
     line: 'auth            required        pam_wheel.so use_uid'
@@ -35,10 +35,9 @@
 ## ansible-harden-linux tasks below
 ##
 
-
-- name: update pam on Debian systems
-  command: 'pam-auth-update --package'
+- name: Update pam on Debian systems
   when: ansible_facts.distribution in ['Debian', 'Ubuntu']
+  ansible.builtin.command: 'pam-auth-update --package'
   changed_when: False
   environment:
     DEBIAN_FRONTEND: noninteractive
@@ -47,135 +46,135 @@
 # that isn't connected to an LDAP server anymore.
 # normally caching credentials shouldn't be necessary for most machines.
 # removing it provides some more security while not removing usability.
-- name: remove pam ccreds to disable password caching
+- name: Remove pam ccreds to disable password caching
   ansible.builtin.package:
     name: '{{ os_packages_pam_ccreds }}'
-    state: 'absent'
+    state: absent
 
-- name: remove pam_cracklib, because it does not play nice with passwdqc
-  apt:
-    name: '{{ os_packages_pam_cracklib }}'
-    state: 'absent'
+- name: Remove pam_cracklib, because it does not play nice with passwdqc
   when:
     - ansible_facts.distribution in ['Debian', 'Ubuntu']
     - harden_linux__os_auth_pam_passwdqc_enable|bool
+  ansible.builtin.apt:
+    name: '{{ os_packages_pam_cracklib }}'
+    state: absent
 
-- name: install the package for strong password checking
-  apt:
+- name: Install the package for strong password checking
+  when:
+    - ansible_facts.distribution in ['Debian', 'Ubuntu']
+    - harden_linux__os_auth_pam_passwdqc_enable|bool
+  ansible.builtin.apt:
     name: '{{ os_packages_pam_passwdqc }}'
     state: 'present'
     update_cache: 'yes'
+
+- name: Configure passwdqc
   when:
     - ansible_facts.distribution in ['Debian', 'Ubuntu']
     - harden_linux__os_auth_pam_passwdqc_enable|bool
-
-- name: configure passwdqc
   ansible.builtin.template:
     src: 'usr/share/pam-configs/pam_passwdqd.j2'
     dest: '{{ passwdqc_path }}'
     mode: '0644'
     owner: 'root'
     group: 'root'
-  when:
-    - ansible_facts.distribution in ['Debian', 'Ubuntu']
-    - harden_linux__os_auth_pam_passwdqc_enable|bool
 
-- name: remove passwdqc
-  apt:
-    name: '{{ os_packages_pam_passwdqc }}'
-    state: 'absent'
+- name: Remove passwdqc
   when:
     - ansible_facts.distribution in ['Debian', 'Ubuntu']
     - not harden_linux__os_auth_pam_passwdqc_enable|bool
+  ansible.builtin.apt:
+    name: '{{ os_packages_pam_passwdqc }}'
+    state: absent
 
-- name: install tally2
-  apt:
-    name: 'libpam-modules'
-    state: 'present'
+- name: Install tally2
   when:
     - ansible_facts.distribution in ['Debian', 'Ubuntu']
     - not harden_linux__os_auth_pam_passwdqc_enable
     - harden_linux__os_auth_retries > 0
+  ansible.builtin.apt:
+    name: 'libpam-modules'
+    state: 'present'
 
-- name: configure tally2
+- name: Configure tally2
+  when:
+    - ansible_facts.distribution in ['Debian', 'Ubuntu']
+    - not harden_linux__os_auth_pam_passwdqc_enable
+    - harden_linux__os_auth_retries > 0
   ansible.builtin.template:
     src: 'usr/share/pam-configs/pam_tally2.j2'
     dest: '{{ tally2_path }}'
     mode: '0644'
     owner: 'root'
     group: 'root'
-  when:
-    - ansible_facts.distribution in ['Debian', 'Ubuntu']
-    - not harden_linux__os_auth_pam_passwdqc_enable
-    - harden_linux__os_auth_retries > 0
 
-- name: delete tally2 when retries is 0
-  file:
-    path: '{{ tally2_path }}'
-    state: 'absent'
+- name: Delete tally2 when retries is 0
   when:
     - ansible_facts.distribution in ['Debian', 'Ubuntu']
     - not harden_linux__os_auth_pam_passwdqc_enable
     - harden_linux__os_auth_retries == 0
+  ansible.builtin.file:
+    path: '{{ tally2_path }}'
+    state: absent
 
-- name: remove pam_cracklib, because it does not play nice with passwdqc
-  yum:
-    name: '{{ os_packages_pam_cracklib }}'
-    state: 'absent'
+- name: Remove pam_cracklib, because it does not play nice with passwdqc
   when:
     - ansible_facts.os_family == 'RedHat'
     - ansible_facts.distribution_major_version|int is version('7', '<')
     - ansible_facts.distribution != 'Amazon'
     - harden_linux__os_auth_pam_passwdqc_enable
+  ansible.builtin.yum: # noqa fqcn[action-core]
+    name: "{{ os_packages_pam_cracklib }}"
+    state: absent
 
-- name: install the package for strong password checking
-  yum:
-    name: '{{ os_packages_pam_passwdqc }}'
+- name: Install the package for strong password checking
+  when:
+    - ansible_facts.os_family == 'RedHat'
+    - ansible_facts.distribution_major_version|int is version('7', '<')
+    - ansible_facts.distribution != 'Amazon'
+    - harden_linux__os_auth_pam_passwdqc_enable
+  ansible.builtin.yum: # noqa fqcn[action-core]
+    name: "{{ os_packages_pam_passwdqc }}"
     state: 'present'
-  when:
-    - ansible_facts.os_family == 'RedHat'
-    - ansible_facts.distribution_major_version|int is version('7', '<')
-    - ansible_facts.distribution != 'Amazon'
-    - harden_linux__os_auth_pam_passwdqc_enable
 
-- name: remove passwdqc
-  yum:
-    name: '{{ os_packages_pam_passwdqc }}'
-    state: 'absent'
+- name: Remove passwdqc
   when:
     - ansible_facts.os_family == 'RedHat'
     - not harden_linux__os_auth_pam_passwdqc_enable
+  ansible.builtin.yum: # noqa fqcn[action-core]
+    name: "{{ os_packages_pam_passwdqc }}"
+    state: absent
 
-- name: configure passwdqc and tally via central system-auth confic
+- name: Configure passwdqc and tally via central system-auth confic
+  when: ansible_facts.os_family == 'RedHat'
   ansible.builtin.template:
     src: 'etc/pam.d/rhel_system_auth.j2'
     dest: '/etc/pam.d/system-auth-ac'
     mode: '0640'
     owner: 'root'
     group: 'root'
-  when: ansible_facts.os_family == 'RedHat'
 
 - name: Set Password Requirement Parameters Using pam_cracklib (Configure)
-  lineinfile:
+  when:
+    - not harden_linux__os_auth_pam_passwdqc_enable|bool
+  ansible.builtin.lineinfile:
     dest: "{{ pam_password_file }}"
     regexp: "pam_cracklib.so"
     line: "password required pam_cracklib.so try_first_pass retry=3 minlen=14 dcredit=-1 ucredit=-1 ocredit=-1 lcredit=-1"
     state: present
-  when:
-    - not harden_linux__os_auth_pam_passwdqc_enable|bool
 
 - name: Gather package facts
-  package_facts:
-    manager: auto
   when: ansible_facts.os_family != 'Suse'
+  ansible.builtin.package_facts:
+    manager: auto
 
 - name: NSA 2.3.3.5 Upgrade Password Hashing Algorithm to SHA-512
+  when:
+    - ansible_facts.os_family != 'Suse'
+    - "'libuser' in ansible_facts.packages"
   ansible.builtin.template:
     src: 'etc/libuser.conf.j2'
     dest: '/etc/libuser.conf'
     mode: '0640'
     owner: 'root'
     group: 'root'
-  when:
-    - ansible_facts.os_family != 'Suse'
-    - "'libuser' in ansible_facts.packages"

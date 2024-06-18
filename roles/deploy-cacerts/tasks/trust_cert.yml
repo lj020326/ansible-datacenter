@@ -1,18 +1,18 @@
 ---
 
-- name: "trust_cert | ensure trust dir exists for {{ __deploy_cacerts__trust_ca_cacert_dir }}"
+- name: "Trust_cert | ensure trust dir exists for {{ __deploy_cacerts__trust_ca_cacert_dir }}"
   file:
     state: directory
     path: "{{ __deploy_cacerts__trust_ca_cacert_dir }}"
 
-- name: "trust_cert | Remove all existing old CA certs from {{ __deploy_cacerts__trust_ca_cacert_dir }}"
+- name: "Trust_cert | Remove all existing old CA certs from {{ __deploy_cacerts__trust_ca_cacert_dir }}"
   when: deploy_cacerts__ca_force_distribute_nodes|bool or deploy_cacerts__ca_force_create|bool
   ansible.builtin.shell: "/bin/rm -rf {{ __deploy_cacerts__trust_ca_cacert_dir }}/*"
 
 ### ref: https://stackoverflow.com/questions/37043442/how-to-add-certificate-authority-file-in-centos-7
 ### ref: https://www.techrepublic.com/article/how-to-install-ca-certificates-in-ubuntu-server/
 ### ref: https://gist.github.com/aseigneurin/4902819f17218340d11f
-- name: "trust_cert | Copy root cert to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
+- name: "Trust_cert | Copy root cert to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
   copy_remotely:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
@@ -21,11 +21,11 @@
       dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
   register: trust_ca_cacertinstalled
 
-- name: "trust_cert | trust client and intermediate certs"
+- name: "Trust_cert | trust client and intermediate certs"
   when: deploy_cacerts__deploy_intermediate_certs|d(True)|bool
   block:
 
-    - name: "trust_cert | Copy host cert chain to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
+    - name: "Trust_cert | Copy host cert chain to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
@@ -33,21 +33,21 @@
         - src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.chain.pem"
           dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__hostname_full }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
 
-    - name: "trust_cert | Copy intermediate cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
+    - name: "Trust_cert | Copy intermediate cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
 #        src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item }}.pem"
         src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item }}.chain.pem"
         dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
       loop: "{{ __deploy_cacerts__ca_intermediate_certs | list }}"
 
-    - name: "trust_cert | Copy service route cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
+    - name: "Trust_cert | Copy service route cert chains to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
       copy_remotely:
 #        src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.pem"
         src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.chain.pem"
         dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ item.route }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
       loop: "{{ deploy_cacerts__ca_service_routes_list }}"
 
-#- name: "trust_cert | Get list of certs"
+#- name: "Trust_cert | Get list of certs"
 #  ansible.builtin.shell: "ls -lR {{ __deploy_cacerts__trust_ca_cacert_dir }}/"
 #  register: ls
 #  changed_when: false
@@ -55,14 +55,14 @@
 #- debug: var=ls.stdout_lines
 #  when: debug is defined
 
-- name: "trust_cert | Display __deploy_cacerts__trust_ca_update_trust_cmd"
+- name: "Trust_cert | Display __deploy_cacerts__trust_ca_update_trust_cmd"
   ansible.builtin.debug:
     var: __deploy_cacerts__trust_ca_update_trust_cmd
 
 ## need to research for centos how to add multiple CAs - if even possible
 ## ref: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/security_hardening/using-shared-system-certificates_security-hardening
 ## ref: https://techjourney.net/update-add-ca-certificates-bundle-in-redhat-centos/
-- name: "trust_cert | update CA trust for newly added external certs"
+- name: "Trust_cert | update CA trust for newly added external certs"
   ansible.builtin.command: "{{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
 #  when: trust_ca_cacertinstalled is changed or deploy_cacerts__ca_force_distribute_nodes|bool
 
@@ -76,7 +76,7 @@
 ## WORKS on ubuntu20 with openjdk-11
 ##keytool -importcert -v -storepass changeit   -noprompt   -alias ca-root   -cacerts -file /usr/local/ssl/certs/ca-root.pem
 
-#- name: "trust_cert | Add service cert to keystore"
+#- name: "Trust_cert | Add service cert to keystore"
 #  when: deploy_cacerts__ca_java_keystore_enabled|bool
 #  ansible.builtin.command: |
 #    keytool -importcert \
@@ -89,7 +89,7 @@
 #  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
 #  loop: "{{ deploy_cacerts__ca_service_routes_list }}"
 
-#- name: "trust_cert | Add root ca root and host certs to keystore"
+#- name: "Trust_cert | Add root ca root and host certs to keystore"
 #  when: deploy_cacerts__ca_java_keystore_enabled|bool
 #  ansible.builtin.command: |
 #    keytool -importcert -v \
@@ -104,13 +104,13 @@
 #    - { cn: "{{ deploy_cacerts__ca_root_cn }}", path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}" }
 ##    - { cn: "{{ inventory_hostname }}", path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
 
-- name: "trust_cert | Update java keystore"
+- name: "Trust_cert | Update java keystore"
   when: deploy_cacerts__ca_java_keystore_enabled|bool
   block:
 
     ## ref: https://superuser.com/questions/881665/keytool-commands-to-replace-existing-ssl-certificate
     ## ref: https://stackoverflow.com/questions/48204014/how-to-delete-already-import-certificate-alias-by-keytool-command
-    - name: "trust_cert | Remove old service cert from keystore"
+    - name: "Trust_cert | Remove old service cert from keystore"
       ansible.builtin.command: |
         keytool -delete -v \
           -storepass {{ deploy_cacerts__ca_java_keystore_pass }} \
@@ -126,7 +126,7 @@
         var: keystore_remove_cert
         verbosity: 1
 
-    - name: "trust_cert | Add current service cert to keystore"
+    - name: "Trust_cert | Add current service cert to keystore"
       ansible.builtin.command: |
         keytool -importcert -v \
           -storepass {{ deploy_cacerts__ca_java_keystore_pass }} \

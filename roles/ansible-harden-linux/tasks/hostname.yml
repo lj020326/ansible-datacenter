@@ -10,25 +10,24 @@
   tags: ec2_facts
 
 - name: Get resource tags from EC2 Facts
+  when: ansible_distribution in ['Red Hat Enterprise Linux', 'Debian', 'CentOS', 'Ubuntu', 'Amazon', 'OracleLinux']
   become: false
-  ec2_tag:
+  amazon.aws.ec2_tag:
      resource: "{{ec2_facts.ansible_facts.ansible_ec2_instance_id}}"
      region: us-east-1
      state: list
   register: ec2_tags
-  when: (ansible_distribution == "Red Hat Enterprise Linux") or
-        (ansible_distribution == "Debian") or
-        (ansible_distribution == "CentOS") or
-        (ansible_distribution == "Ubuntu") or
-        (ansible_distribution == "Amazon") or
-        (ansible_distribution == "OracleLinux")
   tags: ec2_facts
 
-- debug: msg=" {{ ec2_tags.tags.Name }}"
+- name: Display ec2_tags.tags.Name
   when: ec2_tags
-  tags: ec2_facts
+  block:
+    - name: Display ec2_tags.tags.Name
+      ansible.builtin.debug:
+        msg: "ec2_tags.tags.Name={{ ec2_tags.tags.Name }}"
+      tags: ec2_facts
 
-- name: Set the Hostname to the Name tag
-  hostname: name="{{ ec2_tags.tags.Name }}"
-  when: ec2_tags
-  tags: set_hostname
+    - name: Set the Hostname to the Name tag
+      ansible.builtin.hostname:
+        name: "{{ ec2_tags.tags.Name }}"
+      tags: set_hostname

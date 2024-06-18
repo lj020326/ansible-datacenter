@@ -1,16 +1,18 @@
 ---
 
-- block:
-  - name: create limits.d-directory if it does not exist | sysctl-31a, sysctl-31b
-    file:
+- name: Disable kernel core dump
+  when: not harden_linux__os_security_kernel_enable_core_dump | bool
+  block:
+  - name: Create limits.d-directory if it does not exist | sysctl-31a, sysctl-31b
+    ansible.builtin.file:
       path: '/etc/security/limits.d'
       owner: 'root'
       group: 'root'
       mode: '0755'
       state: 'directory'
 
-  - name: create additional limits config file -> 10.hardcore.conf | sysctl-31a, sysctl-31b
-    pam_limits:
+  - name: Create additional limits config file -> 10.hardcore.conf | sysctl-31a, sysctl-31b
+    community.general.pam_limits:
       dest: '/etc/security/limits.d/10.hardcore.conf'
       domain: '*'
       limit_type: hard
@@ -18,17 +20,16 @@
       value: '0'
       comment: Prevent core dumps for all users. These are usually not needed and may contain sensitive information
 
-  - name: set 10.hardcore.conf perms to 0400 and root ownership
-    file:
+  - name: Set 10.hardcore.conf perms to 0400 and root ownership
+    ansible.builtin.file:
       path: /etc/security/limits.d/10.hardcore.conf
       owner: 'root'
       group: 'root'
       mode: '0440'
 
-  when: not harden_linux__os_security_kernel_enable_core_dump | bool
 
 - name: remove 10.hardcore.conf config file
-  file:
+  ansible.builtin.file:
     path: /etc/security/limits.d/10.hardcore.conf
     state: absent
   when: harden_linux__os_security_kernel_enable_core_dump | bool

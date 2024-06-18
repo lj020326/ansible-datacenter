@@ -1,12 +1,12 @@
 ---
 
-- name: "caroot | Set caroot facts"
+- name: "Caroot | Set caroot facts"
   ansible.builtin.set_fact:
     __bootstrap_certs__keystore_cert_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ bootstrap_certs__ca_root.domainName }}"
     __bootstrap_certs__ca_cert: "{{ bootstrap_certs__ca_root.domainName }}.pem"
     __bootstrap_certs__ca_key: "{{ bootstrap_certs__ca_root.domainName }}-key.pem"
 
-- name: "caroot | Display ca info"
+- name: "Caroot | Display ca info"
   ansible.builtin.debug:
     msg:
       - "bootstrap_certs__ca_root={{ bootstrap_certs__ca_root | to_nice_json }}"
@@ -15,14 +15,14 @@
       - "__bootstrap_certs__ca_cert={{ __bootstrap_certs__ca_cert }}"
       - "__bootstrap_certs__ca_key={{ __bootstrap_certs__ca_key }}"
 
-- name: "create_caroot | Perform cacert validations"
+- name: "Create_caroot | Perform cacert validations"
   ansible.builtin.include_tasks: validate_cacerts.yml
 
-- name: "create_caroot | Create intermediate certificate authority key pair and CSR"
+- name: "Create_caroot | Create intermediate certificate authority key pair and CSR"
   when: _ca_missing_or_invalid_cert|bool == True or _ca_key_exists|bool == False or bootstrap_certs__ca_force_create|bool
   block:
 
-  - name: "caroot | Create domain configuration directories"
+  - name: "Caroot | Create domain configuration directories"
     file:
       path: "{{ __bootstrap_certs__keystore_cert_dir }}"
       state: directory
@@ -30,7 +30,7 @@
       group: root
       mode: "0755"
 
-  - name: "caroot | Create CA CSR json"
+  - name: "Caroot | Create CA CSR json"
     ansible.builtin.template:
       src: "ca/ca-root-csr.json.j2"
       dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ bootstrap_certs__ca_root.commonName }}.json"
@@ -38,7 +38,7 @@
 
   ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
   ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
-  - name: "caroot | Create certificate authority key pair and CSR"
+  - name: "Caroot | Create certificate authority key pair and CSR"
     ansible.builtin.shell: >-
       cfssl genkey -initca {{ bootstrap_certs__ca_root.commonName }}.json \
         | cfssljson -bare {{ bootstrap_certs__ca_root.commonName }}
@@ -58,16 +58,16 @@
 
 
 ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
-- name: "caroot | Get ca root certificate info"
+- name: "Caroot | Get ca root certificate info"
   openssl_certificate_info:
 #    path: /etc/ssl/crt/ansible.com.crt
     path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
   register: cacert_result
 
-- name: "caroot | Display ca root cert info"
+- name: "Caroot | Display ca root cert info"
   debug: var=cacert_result
 
-- name: "caroot | Assert CA root cert info is valid"
+- name: "Caroot | Assert CA root cert info is valid"
   assert:
     that:
       # issuer and issuer_strict

@@ -153,7 +153,7 @@ when: bootstrap_certs__ca_fetch_certs is defined
   - serial
   - ca.conf
 
-- name: "set CA_SUBJECT var"
+- name: "Set CA_SUBJECT var"
   ansible.builtin.set_fact:
     ca_subject: '/C={{ ca_country }}/ST={{ ca_state }}/L={{ ca_locality }}/O={{ ca_organization }}/OU={{ ca_organizationalUnit }}/CN={{ ca_signer_common_name }}/emailAddress={{ ca_email }}'
    when: ca_subject is not defined
@@ -201,21 +201,21 @@ when: bootstrap_certs__ca_fetch_certs is defined
 * Fetching the keys for distribution (copy from CA server to Ansible control machine):
 
 ```yaml
-- name: "copy keys from ca_root_node to ansible machine for distribution"
+- name: "Copy keys from ca_root_node to ansible machine for distribution"
   fetch: src="{{ ca_certs_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_certs__cacert_keys_dir }}/{{ item.ssl_key }}" flat=yes
   with_items:
   - "{{ ca_node.ca_root_node }}"
   - "{{ ca_node.swarm.swarm-workers }}"
   - "{{ ca_node.swarm.swarm-managers }}"
 
-- name: "copy certs from ca_root_node to ansible machine for distribution"
+- name: "Copy certs from ca_root_node to ansible machine for distribution"
   fetch: src="{{ ca_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_certs__cacert_certs_dir }}/{{ item.ssl_cert }}" flat=yes
   with_items:
   - "{{ ca_node.ca_root_node }}"
   - "{{ ca_node.swarm.swarm-workers }}"
   - "{{ ca_node.swarm.swarm-managers }}"
 
-- name: "copy ca.pem ca-priv-key.pem"
+- name: "Copy ca.pem ca-priv-key.pem"
   fetch: src="{{ item.src }}" dest="{{ item.dest }}" flat=yes
   with_items:
   - "{{ bootstrap_certs__caroot_cert }}"
@@ -235,14 +235,14 @@ when: bootstrap_certs__ca_fetch_certs is defined
 
 - block:
 
-   - name: "copy keys from ca_root_node to ansible machine for distribution"
+   - name: "Copy keys from ca_root_node to ansible machine for distribution"
      copy: src="{{ bootstrap_certs__cacert_keys_dir }}/{{ item.ssl_key }}" dest="{{ bootstrap_certs__cacert_local_key_dir }}/{{ item.ssl_key }}"
      with_items:
      - "{{ ca_node.ca_root_node }}"
      - "{{ ca_node.swarm.swarm-workers }}"
      - "{{ ca_node.swarm.swarm-managers }}"
 
-   - name: "copy certs from ca_root_node to ansible machine for distribution"
+   - name: "Copy certs from ca_root_node to ansible machine for distribution"
      copy: src="{{ bootstrap_certs__cacert_certs_dir }}/{{ item.ssl_cert }}" dest="{{ bootstrap_certs__cacert_local_cert_dir }}/{{ item.ssl_cert }}"
      with_items:
      - "{{ ca_node.ca_root_node }}"
@@ -253,14 +253,14 @@ when: bootstrap_certs__ca_fetch_certs is defined
 
 # Root CA key/cert
 
-- name: "copy {{ bootstrap_certs__pki_caroot_key }} to {{ bootstrap_certs__cacert_local_key_dir }}"
+- name: "Copy {{ bootstrap_certs__pki_caroot_key }} to {{ bootstrap_certs__cacert_local_key_dir }}"
   ansible.builtin.copy:
    src: "{{ bootstrap_certs__cacert_keys_dir }}/{{ item }}"
    dest: "{{ bootstrap_certs__cacert_local_key_dir }}/{{ item }}"
   with_items:
   - "{{ bootstrap_certs__pki_caroot_key }}"
 
-- name: "copy {{ bootstrap_certs__caroot_cert }} to {{ bootstrap_certs__ca_local_cert_dir }}"
+- name: "Copy {{ bootstrap_certs__caroot_cert }} to {{ bootstrap_certs__ca_local_cert_dir }}"
   ansible.builtin.copy:
    src: "{{ bootstrap_certs__cacert_certs_dir }}/{{ item }}"
    dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item }}"
@@ -380,7 +380,7 @@ The following playbook creates and signs certificates with our provided configur
 - hosts: localhost
   connection: local
   vars_prompt:
-    - name: "keystore_password"
+    - name: "Keystore_password"
       prompt: "Please provide a password for the keystore"
   pre_tasks:
     - name: ensure pip is installed
