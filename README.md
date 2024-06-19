@@ -326,7 +326,7 @@ $ ansible-playbook site.yml --tags iscsi-client
 ansible -i inventory/hosts.yml openstack -m ping
 ansible -i inventory/hosts-openstack.ini openstack -m ping
 
-ansible-playbook site.yml --tags bootstrap-linux --limit dc_os_linux
+ansible-playbook site.yml --tags bootstrap-linux --limit os_linux
 ansible-playbook site.yml --tags bootstrap-linux-firewalld --limit vmub2201
 ansible-playbook site.yml --tags bootstrap-docker --limit docker
 ansible-playbook site.yml --tags bootstrap-network --limit node01
@@ -365,7 +365,7 @@ openstack server create --image cirros --flavor m1.tiny --key-name mykey --netwo
 
 Other useful plays
 ```shell
-ansible-playbook site.yml --tags bootstrap-linux-mounts --limit dc_os_linux
+ansible-playbook site.yml --tags bootstrap-linux-mounts --limit os_linux
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit dc_os_centos_7
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit postgres
 ansible-playbook site.yml --tags bootstrap-linux-mounts --limit media
@@ -439,7 +439,7 @@ ansible -v -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -e ansib
 
 ```shell
 ansible-playbook site.yml --tags display-vars -l control01
-ansible-playbook site.yml --tags display-domain-vars -l dc_os_linux
+ansible-playbook site.yml --tags display-domain-vars -l os_linux
 ansible-playbook site.yml --tags display-domain-vars -l nas02
 ansible-playbook site.yml --tags display-domain-vars -l control01
 ansible all -m debug -a var=groups['ca_domain']

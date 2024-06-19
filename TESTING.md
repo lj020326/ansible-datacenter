@@ -96,7 +96,7 @@ $ ansible -i inventory/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_s
 
 Query intersecting groups:
 ```shell
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&dc_os_linux
+$ ansible -i inventory/ -m debug -a var=group_names dmz:\&os_linux
 $ ansible -i inventory/ -m debug -a var=group_names dmz:\&testgroup_lnx
 $ ansible -i inventory/ -m debug -a var=group_names dmz:\&testgroup_lnx:\&ntp_network
 ```

@@ -110,7 +110,7 @@ $ ansible -i inventory/prod/hosts.yml -m debug -a var=bootstrap_ntp_var_source,b
 
 Query intersecting groups:
 ```shell
-$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&dc_os_linux
+$ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&os_linux
 $ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_stack
 $ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_stack:\&ntp_network
 ```

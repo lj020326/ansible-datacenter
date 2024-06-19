@@ -410,7 +410,7 @@ For examples, see the group_var files in the [example repo here](https://github.
 
 group var file|var names used
 ---|---
-[dc_os_linux.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/dc_os_linux.yml)|firewalld_services__linux
+[os_linux.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/os_linux.yml)|firewalld_services__linux
 [postfix_server.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
 [nameserver.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/nameserver.yml)|firewalld_ports__bind
 [veeam_agent.yml](https://github.com/lj020326/ansible-datacenter/tree/main/inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
@@ -558,7 +558,7 @@ The role will automatically dereference/merge/combine all the app-specific FW co
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Bootstrap linux firewall"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - bootstrap-firewall
@@ -570,7 +570,7 @@ The role will automatically dereference/merge/combine all the app-specific FW co
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: "Configure linux firewall"
-  hosts: dc_os_linux,!node_offline
+  hosts: os_linux,!node_offline
   become: yes
   tags:
     - configure-firewall

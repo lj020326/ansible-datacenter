@@ -265,7 +265,7 @@ For examples, see the group_var files in this repo for the following groups/exam
 
 group var file|var names used
 ---|---
-[dc_os_linux.yml](./../../inventory/group_vars/dc_os_linux.yml)|firewalld_services__linux
+[os_linux.yml](./../../inventory/group_vars/os_linux.yml)|firewalld_services__linux
 [postfix_server.yml](./../../inventory/group_vars/postfix_server.yml)|firewalld_ports__postfix
 [nameserver.yml](./../../inventory/group_vars/nameserver.yml)|firewalld_ports__bind
 [veeam_agent.yml](./../../inventory/group_vars/veeam_agent.yml)|firewalld_ports__veeam
