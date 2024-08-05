@@ -1,0 +1,41 @@
+---
+# This test case is testing Virtualization Based Security (VBS)
+# enable/disable on VM and in guest OS.
+#
+- name: vbs_enable_disable
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - name: Test case block
+      block:
+        - name: Run ../setup/test_setup.yml
+          ansible.builtin.include_tasks: ../setup/test_setup.yml
+          vars:
+            skip_test_no_vmtools: false
+
+        - name: Run ../../common/skip_test_case.yml
+          ansible.builtin.include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to VM is not 64 bit: {{ guest_os_ansible_architecture | default('NA') }}"
+            skip_reason: Not Applicable
+          when: guest_os_ansible_architecture is undefined or guest_os_ansible_architecture != "64-bit"
+
+        # Get VM firmware info
+        - name: Run ../../common/vm_get_boot_info.yml
+          ansible.builtin.include_tasks: ../../common/vm_get_boot_info.yml
+        - name: Run ../../common/skip_test_case.yml
+          ansible.builtin.include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to VM firmware is not EFI: {{ vm_firmware | default('NA') }}"
+            skip_reason: Not Applicable
+          when: vm_firmware is undefined or vm_firmware | lower != 'efi'
+
+        - name: Run vbs_enable_test.yml
+          ansible.builtin.include_tasks: vbs_enable_test.yml
+        - name: Run vbs_disable_test.yml
+          ansible.builtin.include_tasks: vbs_disable_test.yml
+      rescue:
+        - name: Run ../../common/test_rescue.yml
+          ansible.builtin.include_tasks: ../../common/test_rescue.yml

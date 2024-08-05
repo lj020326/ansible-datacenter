@@ -1,0 +1,14 @@
+---
+- name: Include distribution specific variables
+  ansible.builtin.include_vars:
+    file: "{{ item }}"
+    name: _os_specific
+  with_first_found:
+    - "{{ ansible_distribution_release }}.yml"
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - default.yml
+
+- name: Set OS specific vars if undefined # noqa: var-naming[no-jinja]
+  ansible.builtin.set_fact: { "{{ item.key }}": "{{ hostvars[inventory_hostname][item.key] | default(item.value) }}" }
+  with_dict: "{{ _os_specific }}"

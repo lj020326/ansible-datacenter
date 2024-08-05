@@ -1,0 +1,29 @@
+---
+- name: Run deploy_networkd_interfaces_prereq.yml
+  ansible.builtin.import_tasks:
+    file: deploy_networkd_interfaces.d/deploy_networkd_interfaces_prereq.yml
+
+- name: Run deploy_networkd_interfaces_generic.yml
+  ansible.builtin.import_tasks:
+    file: deploy_networkd_interfaces.d/deploy_networkd_interfaces_generic.yml
+
+- name: Run deploy_networkd_interfaces_vlan.yml
+  ansible.builtin.import_tasks:
+    file: deploy_networkd_interfaces.d/deploy_networkd_interfaces_vlan.yml
+
+- name: Run deploy_networkd_interfaces_macvlan.yml
+  ansible.builtin.import_tasks:
+    file: deploy_networkd_interfaces.d/deploy_networkd_interfaces_macvlan.yml
+
+- name: Run deploy_networkd_interfaces_vlan_macvlan.yml
+  when:
+    - outer_item_vlan['macvlans'] is defined
+    - outer_item_vlan['macvlans'] != []
+  ansible.builtin.include_tasks:
+    file: deploy_networkd_interfaces.d/deploy_networkd_interfaces_vlan_macvlan.yml
+  loop: "{{ systemd_networkd |
+    community.general.json_query(\"[].interfaces[?interface=='\" ~
+    outer_item ~ \"'].vlans[]\") | flatten(levels=1) }}"
+  loop_control:
+    loop_var: outer_item_vlan
+    label: "{{ 'Try to deploy macvlans on vlan interface: ' ~ outer_item_vlan['name'] }}"

@@ -1,0 +1,33 @@
+---
+# Parameters:
+## keys_send: a list of keys to be sent to guest
+## string_send: a string to be sent to guest
+- name: Assert keys or string to be sent is defined
+  ansible.builtin.assert:
+    that:
+      - keys_send is defined or string_send is defined
+    fail_msg: Either keys_send or string_send shall be defined
+
+- name: Send keys to {{ vm_name }}
+  community.vmware.vmware_guest_sendkey:
+    hostname: "{{ vsphere_host_name }}"
+    username: "{{ vsphere_host_user }}"
+    password: "{{ vsphere_host_user_password }}"
+    validate_certs: "{{ validate_certs | default(false) }}"
+    datacenter: "{{ vsphere_host_datacenter }}"
+    folder: "{{ vm_folder }}"
+    name: "{{ vm_name }}"
+    keys_send: "{{ keys_send }}"
+    string_send: "{{ string_send | default('') }}"
+  register: vm_sendkey
+
+- name: Display vm_sendkey
+  when: enable_debug|d(False)|bool
+  ansible.builtin.debug:
+    var: vm_sendkey
+
+- name: Verify send keys to VM {{ vm_name }} operation succeed
+  ansible.builtin.assert:
+    that:
+      - not vm_sendkey.failed
+      - vm_sendkey.changed

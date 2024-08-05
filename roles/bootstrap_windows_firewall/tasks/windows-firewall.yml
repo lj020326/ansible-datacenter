@@ -1,0 +1,188 @@
+---
+## https://docs.ansible.com/ansible/win_firewall_rule_module.html
+## https://support.microsoft.com/en-gb/kb/947709
+## Multiple issues
+## + win_firewall_rule fails if rule already exists
+## https://github.com/ansible/ansible-modules-extras/issues/2882 - Closed
+## + win_firewall_rule fails when locale isn't English - Closed
+## https://github.com/ansible/ansible/issues/18807
+## + After commit 9392943 win_firewall_rules rules default to services only - Closed
+## https://github.com/ansible/ansible/issues/18861
+## + win_firewall_rule works in 2.3.2.0, fails in 2.4.0.0 - Open
+## https://github.com/ansible/ansible/issues/31576
+## FIXME! Rules not visible in management console or
+##      HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\<profilename>
+##      HKLM\Software\Policies\Microsoft\WindowsFirewall\<Profilename>  (if set by gpo)
+
+## https://technet.microsoft.com/en-us/library/ee693371(v=exchg.80).aspx
+## not sure if apply to Win10?
+- name: Ensure Firewall is enabled for all profile
+  ansible.windows.win_regedit:
+    key: HKLM:\Software\Policies\Microsoft\WindowsFirewall\{{ item }}
+    value: EnableFirewall
+    data: 1
+    datatype: dword
+  loop:
+    - DomainProfile
+    - StandardProfile
+    - PublicProfile
+
+## FIXME! win_firewall_rule not idempotent
+- name: Firewall | allow svchost dns and ntp requests out - udp
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-allow-outgoing-svchost-{{ item }}-udp"
+    program: "%SystemRoot%\\System32\\svchost.exe"
+    enable: true
+    state: present
+    localport: any
+    remoteport: "{{ item }}"
+    protocol: UDP
+    action: allow
+    direction: Out
+  loop:
+    - 53
+    - 123
+
+- name: Firewall | allow svchost dns requests out - tcp
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-allow-outgoing-svchost-{{ item }}-tcp"
+    program: "%SystemRoot%\\System32\\svchost.exe"
+    enable: true
+    state: present
+    localport: any
+    remoteport: "{{ item }}"
+    protocol: TCP
+    action: allow
+    direction: Out
+  loop:
+    - 53
+
+- name: Firewall | block outgoing program
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-block-outgoing-{{ item | basename }}"
+    program: "{{ item }}"
+    enable: true
+    state: present
+    localport: any
+    action: block
+    direction: Out
+    # protocol: TCP
+    profile: Public
+  loop: "{{ win_fw_program_blocked_out_public }}"
+  # ignore_errors: true
+
+- name: Firewall | allow outgoing program
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-allow-outgoing-{{ item | basename }}"
+    enable: true
+    state: present
+    action: allow
+    direction: Out
+    profile: Public
+  loop: "{{ win_fw_program_allowed_out_public }}"
+  # ignore_errors: true
+
+- name: Firewall | allow outgoing web program
+  vars:
+    _fw_rule_action: allow
+    _fw_rule_direction: Out
+    _fw_rule_profile: Public
+    _fw_rule_ports: "{{ win_fw_web_ports }}"
+    _fw_rule_program: "{{ outer_item }}"
+  ansible.builtin.include_tasks: windows-firewall-unit.yml
+  loop: "{{ win_fw_program_allowed_web_out_public }}"
+  loop_control:
+    loop_var: outer_item
+
+- name: Firewall | block outgoing ports - TCP
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-block-outgoing-{{ item }}-tcp"
+    enable: true
+    state: present
+    localport: any
+    remoteport: "{{ item }}"
+    action: block
+    direction: Out
+    protocol: TCP
+    profile: Public
+  loop: "{{ win_fw_ports_blocked_out_public }}"
+  # ignore_errors: true
+
+- name: Firewall | block outgoing ports - UDP
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-block-outgoing-{{ item }}-udp"
+    enable: true
+    state: present
+    localport: any
+    remoteport: "{{ item }}"
+    action: block
+    direction: Out
+    protocol: UDP
+    profile: Public
+  loop: "{{ win_fw_ports_blocked_out_public }}"
+  # ignore_errors: true
+
+- name: Firewall | allow outgoing ports
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-allow-outgoing-{{ item }}"
+    enable: true
+    state: present
+    localport: any
+    remoteport: "{{ item }}"
+    protocol: TCP
+    action: allow
+    direction: Out
+    profile: Public
+  loop: "{{ win_fw_ports_allowed_out_public }}"
+  # ignore_errors: true
+
+## FIXME! 'Unexpected failure during module execution.', 'AttributeError: 'int' object has no attribute 'rfind''
+- name: Firewall | block incoming ports
+  community.windows.win_firewall_rule:
+    name: "{{ win_fw_prefix }}-block-incoming-{{ item }}"
+    enable: true
+    state: present
+    localport: "{{ item }}"
+    remoteport: any
+    action: block
+    direction: In
+    protocol: TCP
+    profile: Public
+  loop: "{{ win_fw_ports_blocked_in_public }}"
+
+- name: Debug | win_fw_rules_disable
+  ansible.builtin.debug:
+    var: win_fw_rules_disable
+
+- name: Firewall | disable rules
+  community.windows.win_firewall_rule:
+    name: "{{ item }}"
+    direction: Out
+    action: allow
+    state: present
+    enable: false
+  loop: "{{ win_fw_rules_disable }}"
+  # ignore_errors: true
+
+## FIXME! default rule
+## does not seem supported by ansible: http://docs.ansible.com/ansible/win_firewall_rule_module.html
+## rule order(block, after allow, after default): https://technet.microsoft.com/en-us/library/cc755191(v=ws.10).aspx
+# - name: Last Firewall rule (~default)
+#   community.windows.win_firewall_rule:
+#     name: "{{ win_fw_prefix }}-default-rule-{{ win_fw_default_action }}"
+#     direction: "{{ item }}"
+#     enable: yes
+#     action: "{{ win_fw_default_action }}"
+#     state: present
+#   loop:
+#     - in
+#     - out
+
+- name: Firewall reconfigure logging
+  ansible.windows.win_command: "{{ item }}"
+  loop:
+    # - netsh advfirewall set currentprofile logging maxfilesize 4096
+    ## 'Log file size must be between 1 and 32767.'
+    - netsh advfirewall set currentprofile logging maxfilesize 32767
+    - netsh advfirewall set currentprofile logging droppedconnections enable
+    - netsh advfirewall set currentprofile logging allowedconnections enable

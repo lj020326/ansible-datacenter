@@ -1,0 +1,312 @@
+---
+## uncomment for debug output
+# - ansible.builtin.debug: var=check_result
+
+- name: Get iDRAC User info for {{ idrac_user }}
+  changed_when: false
+  ansible.builtin.raw: racadm getconfig -u {{ idrac_user }}
+  register: idrac_user_info
+
+- name: Get config ini list
+  ansible.builtin.set_fact:
+    racadm_user_ini_list: "{{ ['[DEFAULT]'] + idrac_user_info.stdout_lines | map('regex_replace', '# (.*)', '\\1') | list }}"
+
+#cfgUserAdminIndex=2
+## ref: https://galaxy.ansible.com/sivel/toiletwater
+## ref: https://github.com/ansible/ansible/pull/22959
+- name: Get user ini
+  ansible.builtin.set_fact:
+    #    racadm_user_ini_dict: "{{ racadm_user_ini_list | join('\n') | sivel.toiletwater.from_ini }}"
+    racadm_user_ini_dict: "{{ racadm_user_ini_list | join('\n') | from_ini }}"
+
+- name: Get user index
+  ansible.builtin.set_fact:
+    racadm_user_index: "{{ racadm_user_ini_dict.DEFAULT.cfgUserAdminIndex }}"
+
+- name: Get iDRAC User ssh key for {{ idrac_user }}
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  ansible.builtin.raw: racadm sshpkauth -i {{ racadm_user_index }} -v -k 1
+  register: idrac_user_ssh_info
+
+- name: Set iDRAC User ssh key for {{ idrac_user }}
+  when: admin_ssh_public_key not in idrac_user_ssh_info.stdout
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  ansible.builtin.raw: racadm sshpkauth -i 2 -k 1 -t '{{ admin_ssh_public_key }}'
+
+- name: Get iDRAC SSL cert info
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  ansible.builtin.raw: racadm sslcertview -t 1
+  register: idrac_ssl_cert_info
+
+#- name: "Get certificate info for {{ inventory_hostname }}"
+#  delegate_to: localhost
+#  become: no
+#  community.crypto.x509_certificate_info:
+#    path: "{{ cacert_certs_dir }}/{{ inventory_hostname }}.pem"
+#  register: cacert_result
+#
+#- name: Display cacert_result
+#  ansible.builtin.debug:
+#    var: cacert_result
+
+- name: Get idrac certificate serial number info
+  delegate_to: localhost
+  become: false
+  ansible.builtin.command: openssl x509 -in {{ cacert_certs_dir }}/{{ hostname_name_full }}.pem -noout -serial
+  register: cacert_serial_result
+  changed_when: false
+
+#- name: "Display idrac_cert_serial_result"
+#  ansible.builtin.debug: var=idrac_cert_serial_result
+
+- name: Get idrac cert serial number
+  ansible.builtin.set_fact:
+    cacert_serial_number: "{{ cacert_serial_result.stdout | regex_replace('serial=','') }}"
+
+- name: Upload cert key and cert
+  #  when: cacert_serial_number not in idrac_ssl_cert_info.stdout
+  when: cacert_serial_number not in idrac_ssl_cert_info.stdout
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Upload iDRAC SSL cert key
+      #      delegate_to: localhost
+      #      become: no
+      changed_when: false
+      #      ansible.builtin.raw: "racadm -r {{ inventory_hostname }}.{{ ca_domain }} -i sslkeyupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}-key.pem"
+      #      ansible.builtin.raw: "racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} -i sslkeyupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}-key.pem"
+      ansible.builtin.raw: |
+        racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} \
+        -u {{ idrac_user }} -p {{ idrac_password }} \
+        sslkeyupload -t 1 \
+        -f {{ cacert_certs_dir }}/{{ inventory_hostname }}-key.pem
+
+    - name: Upload iDRAC SSL cert
+      #      delegate_to: localhost
+      #      become: no
+      changed_when: false
+      #      ansible.builtin.raw: "racadm -r {{ inventory_hostname }}.{{ ca_domain }} -i sslcertupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}.pem"
+      #      ansible.builtin.raw: "racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} -i sslcertupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}.pem"
+      ansible.builtin.raw: |
+        racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} \
+        -u {{ idrac_user }} -p {{ idrac_password }} \
+        sslcertupload -t 1 \
+        -f {{ cacert_certs_dir }}/{{ hostname_name_full }}.pem
+
+    #    - name: "Wait for the iDrac to reset after cert upload"
+    #      delegate_to: localhost
+    #      ansible.builtin.wait_for:
+    #        timeout: 120
+
+    - name: Wait for the iDrac to reset after cert upload
+      #      delegate_to: localhost
+      #      become: no
+      ansible.builtin.wait_for:
+        port: 443
+        host: "{{ hostvars[inventory_hostname]['ansible_host'] }}"
+        delay: 20
+        sleep: 30
+        #        timeout: 1500
+        timeout: 180
+        #connect_timeout: 180
+        state: stopped
+      register: idrac_port_status
+#      connection: local
+
+#    - name: Get Existing iDRAC IP Address
+#      changed_when: false
+#      delegate_to: localhost
+#      become: no
+#      ansible.builtin.raw: racadm get iDRAC.IPv4.Address
+#      register: idrac_ip
+
+- name: Get Existing iDRAC IP Address
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  #  ansible.builtin.raw: racadm getniccfg
+  ansible.builtin.raw: racadm getsysinfo -4
+  register: idrac_ip
+
+- name: Display Existing iDRAC IP Address
+  ansible.builtin.debug:
+    var: idrac_ip
+  #  ansible.builtin.debug: var=idrac_ip.stdout
+  failed_when: "'ERROR' in idrac_ip.stdout or 'Invalid' in idrac_ip.stdout"
+
+#- name: Get Existing iDRAC.NIC.DNSRacName
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm get iDRAC.NIC.DNSRacName
+#  register: idrac_rac_name
+#
+
+#- name: Get Existing iDRAC.NIC.DNSRacName
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm getsysinfo -c
+#  register: idrac_rac_name
+##  failed_when: "'ERROR' in idrac_rac_name.stdout or 'Invalid' in idrac_rac_name.stdout"
+#
+#- name: Display Existing iDRAC.NIC.DNSRacName
+#  ansible.builtin.debug:
+#    var: idrac_rac_name
+##  failed_when: "'ERROR' in idrac_rac_name.stdout or 'Invalid' in idrac_rac_name.stdout"
+#  ignore_errors: true
+
+#  ## ref: https://www.tailored.cloud/devops/how-to-filter-and-map-lists-in-ansible/
+#- name: "Get cert chain issuer info"
+#  vars:
+##    regexp: 'value=\"([^issuer]+)'
+#    regexp: '^issuer'
+#  ansible.builtin.set_fact:
+#    ca_cert_issuers: "{{ ca_chain_info.stdout_lines | select('match', regexp) | list | unique }}"
+
+#- name: Set iDRAC.NIC.DNSRacName
+#  when: idrac_racname not in idrac_rac_name.stdout
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.NIC.DNSRacName {{idrac_racname}}
+#  register: result
+#  failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout"
+#
+#- name: Get Existing iDRAC.NIC.DNSDomainName
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm get iDRAC.NIC.DNSDomainName
+#  register: idrac_domain_name
+
+#- name: debug - Get Existing iDRAC.NIC.DNSDomainName
+#  ansible.builtin.debug: var=idrac_domain_name.stdout
+#  failed_when: "'ERROR' in idrac_domain_name.stdout or 'Invalid' in idrac_domain_name.stdout"
+#
+#- name: Set iDRAC.NIC.DNSDomainName
+#  when: idrac_domainname not in idrac_domain_name.stdout
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.NIC.DNSDomainName {{idrac_domainname}}
+#  register: result
+#  failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout"
+#
+#- name: Get Existing iDRAC.IPv4.Netmask
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm get iDRAC.IPv4.Netmask
+#  register: idrac_netmask_value
+
+#- name: debug - Get Existing iDRAC.IPv4.Netmask
+#  ansible.builtin.debug: var=idrac_netmask_value.stdout
+#  failed_when: "'ERROR' in idrac_netmask_value.stdout or 'Invalid' in idrac_netmask_value.stdout"
+#
+#- name: Set iDRAC.IPv4.Netmask
+#  when: idrac_netmask not in idrac_netmask_value.stdout
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.IPv4.Netmask {{idrac_netmask}}
+#  register: result
+#  failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout"
+#
+#- name: Get Existing iDRAC.IPv4.Gateway
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm get iDRAC.IPv4.Gateway
+#  register: idrac_gateway_value
+
+#- name: debug - Get Existing iDRAC.IPv4.Gateway
+#  ansible.builtin.debug: var=idrac_gateway_value.stdout
+#  failed_when: "'ERROR' in idrac_gateway_value.stdout or 'Invalid' in idrac_gateway_value.stdout"
+#
+#- name: Set iDRAC.IPv4.Gateway
+#  when: idrac_gateway not in idrac_gateway_value.stdout
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.IPv4.Gateway {{idrac_gateway}}
+#  register: result
+#  failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout"
+#
+#- name: Get Existing iDRAC.IPv4.DNS1
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm get iDRAC.IPv4.DNS1
+#  register: idrac_dns1_value
+
+#- name: debug - Get Existing iDRAC.IPv4.DNS1
+#  ansible.builtin.debug:
+#    var: idrac_dns1_value.stdout
+#  failed_when: "'ERROR' in idrac_dns1_value.stdout or 'Invalid' in idrac_dns1_value.stdout"
+#
+#- name: Set iDRAC.IPv4.DNS1
+#  when: idrac_dns1 not in idrac_dns1_value.stdout
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.IPv4.DNS1 {{idrac_dns1}}
+#  register: result
+#  failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout"
+#
+#- name: Get Existing iDRAC.IPv4.DNS2
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm get iDRAC.IPv4.DNS2
+#  register: idrac_dns2_value
+#
+#- name: debug - Get Existing iDRAC.IPv4.DNS2
+#  ansible.builtin.debug: var=idrac_dns2_value.stdout
+#  failed_when: "'ERROR' in idrac_dns2_value.stdout or 'Invalid' in idrac_dns2_value.stdout"
+#
+#- name: Set iDRAC.IPv4.DNS2
+#  when: idrac_dns2 not in idrac_dns2_value.stdout
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.IPv4.DNS2 {{idrac_dns2}}
+#  register: result
+#  failed_when: "'ERROR' in result.stdout or 'Invalid' in result.stdout"
+#
+#- name: Set DHCP to Disable on iDRAC.IPv4.DHCPEnable
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.IPv4.DHCPEnable 0
+#  register: idrac_dhcp_disbale
+#
+#- name: debug - Set DHCP to Disable on iDRAC.IPv4.DHCPEnable
+#  ansible.builtin.debug:
+#    var: idrac_dhcp_disbale.stdout
+#  failed_when: "'ERROR' in idrac_dhcp_disbale.stdout or 'Invalid' in idrac_dhcp_disbale.stdout"
+#
+#- name: Set DNS from DHCP to Disable on iDRAC.IPv4.DNSFromDHCP
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.IPv4.DNSFromDHCP 0
+#  register: idrac_dns_disbale
+#
+#- name: debug - Set DNS from DHCP to Disable on iDRAC.IPv4.DNSFromDHCP
+#  ansible.builtin.debug:
+#    var: idrac_dns_disbale.stdout
+#  failed_when: "'ERROR' in idrac_dns_disbale.stdout or 'Invalid' in idrac_dns_disbale.stdout"
+#
+#- name: Enable IPMI on iDRAC
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set iDRAC.IPMILan.Enable 1
+#  register: idrac_ipmi_enable
+#
+#- name: debug - Enable IPMI on iDRAC
+#  ansible.builtin.debug:
+#    var: idrac_ipmi_enable.stdout
+#  failed_when: "'ERROR' in idrac_ipmi_enable.stdout or 'Invalid' in idrac_ipmi_enable.stdout"
+#
+#- name: Enable LifeController State
+#  delegate_to: localhost
+#  become: no
+#  ansible.builtin.raw: racadm set LifecycleController.LCAttributes.LifecycleControllerState 1
+#  register: lifecontroller_state
+#
+#- name: debug - Enable LifeController State
+#  ansible.builtin.debug:
+#    var: lifecontroller_state.stdout
+#  failed_when: "'ERROR' in lifecontroller_state.stdout or 'Invalid' in lifecontroller_state.stdout"

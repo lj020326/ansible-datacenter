@@ -1,0 +1,64 @@
+---
+# Get ESXi server major version and update version, build bumber info by vmware_host_facts module
+- name: Initialize ESXi version info to N/A
+  ansible.builtin.set_fact:
+    esxi_version: N/A
+    esxi_build: N/A
+    esxi_update_version: N/A
+
+- name: Get ESXi server product info
+  community.vmware.vmware_host_facts:
+    hostname: "{{ vsphere_host_name }}"
+    username: "{{ vsphere_host_user }}"
+    password: "{{ vsphere_host_user_password }}"
+    validate_certs: "{{ validate_certs | default(false) }}"
+    esxi_hostname: "{{ esxi_hostname }}"
+    schema: vsphere
+    properties:
+      - config.product
+      - config.option
+  register: gather_host_facts_result
+  ignore_errors: true
+  no_log: true
+
+- name: Set ESXi server update version
+  when: not gather_host_facts_result.failed
+  block:
+    - name: Set fact of the ESXi server version and build number
+      ansible.builtin.set_fact:
+        esxi_version: "{{ gather_host_facts_result.ansible_facts.config.product.version }}"
+        esxi_build: "{{ gather_host_facts_result.ansible_facts.config.product.build }}"
+
+    - name: Set fact of the ESXi server update version
+      when: esxi_version is version('7.0.0', '<')
+      block:
+        - name: Looking for ESXi update level in host config options
+          ansible.builtin.set_fact:
+            esxi_update_level: "{{ gather_host_facts_result.ansible_facts.config.option | selectattr('key', 'equalto', 'Misc.HostAgentUpdateLevel') }}"
+
+        - name: Set fact of the ESXi server update version
+          ansible.builtin.set_fact:
+            esxi_update_version: "{{ esxi_update_level[0]['value'] }}"
+          when: esxi_update_level | length > 0
+
+- name: Display exception
+  when: gather_host_facts_result.failed
+  ansible.builtin.debug:
+    msg: Get ESXi server '{{ esxi_hostname }}' config.product, config.option properties failed
+
+# For log plugin to gather ESXi info in result file
+- name: Print ESXi server hostname
+  ansible.builtin.debug:
+    var: esxi_hostname
+
+- name: Print ESXi server version
+  ansible.builtin.debug:
+    var: esxi_version
+
+- name: Print ESXi server build
+  ansible.builtin.debug:
+    var: esxi_build
+
+- name: Print ESXi server update version
+  ansible.builtin.debug:
+    var: esxi_update_version

@@ -283,6 +283,7 @@ $ tests/molecule_exec.sh ubuntu2204 --debug converge
 ```shell
 $ MOLECULE_DISTRO=centos7-systemd-python molecule --debug converge -s bootstrap-linux
 $ MOLECULE_DISTRO=centos7-systemd-python molecule --debug create -s bootstrap-linux
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule login -s bootstrap-linux
 $ MOLECULE_DISTRO=centos7-systemd-python molecule --debug destroy -s bootstrap-linux
 $ MOLECULE_DISTRO=centos7-systemd-python molecule --debug test -s bootstrap-linux
 $ MOLECULE_DISTRO=centos7-systemd-python molecule --debug test -s bootstrap-linux --destroy never

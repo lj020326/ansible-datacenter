@@ -1,0 +1,37 @@
+---
+
+- name: check if figurine is installed already
+  ansible.builtin.stat:
+    path: /usr/local/bin/figurine
+  register: file_result
+
+- name: download and unpack figurine
+  when: not file_result.stat.exists
+  ansible.builtin.unarchive:
+    src: https://github.com/arsham/figurine/releases/download/v1.3.0/figurine_linux_amd64_v1.3.0.tar.gz
+#    src: https://github.com/arsham/figurine/releases/download/v1.0.1/figurine_linux_v1.0.1.tar.gz
+#    src: https://github.com/lj020326/figurine/releases/download/v1.0.1/figurine_linux_v1.0.1.tar.gz
+#    src: https://github.com/lj020326/figurine/archive/v1.0.1.tar.gz
+    dest: /tmp
+    remote_src: true
+  register: __unarchive_result
+  until: __unarchive_result is success
+  retries: 3
+  delay: 5
+
+- name: move extracted file to bin directory
+#  ansible.builtin.command: mv /tmp/deploy/figurine /usr/local/bin/
+  ansible.builtin.copy:
+    src: /tmp/deploy/figurine
+    dest: /usr/local/bin/
+    mode: preserve
+    remote_src: true
+  when: not file_result.stat.exists
+
+- name: configure login
+  ansible.builtin.template:
+    src: figurine.sh.j2
+    dest: /etc/profile.d/figurine.sh
+    mode: "0644"
+    backup: true
+  when: not file_result.stat.exists or bootstrap_linux_core__figurine_force_config

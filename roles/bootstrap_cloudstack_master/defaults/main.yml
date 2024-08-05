@@ -1,0 +1,324 @@
+---
+
+CSAdminUser: "admin" # noqa: var-naming[pattern]
+CSMySQLPwd: "password" # noqa: var-naming[pattern]
+CSAdminPwd: "password" # noqa: var-naming[pattern]
+CloudDBPass: "cloud123" # noqa: var-naming[pattern]
+
+CSHostPassword: "password" # noqa: var-naming[pattern]
+XSPassword: "p4ssw0rd123" # noqa: var-naming[pattern]
+
+#mount_primary: /export/data/primary
+#mount_secondary: /export/data/secondary
+
+python_dist_version: 3.7
+cloudstack_conf_file: .cloudstack.ini
+
+##
+## ref: https://sources.progress-linux.org/distributions/dschinn-backports/packages/ansible/tree/test/integration/targets/cs_common/defaults/main.yml
+##
+cs_resource_prefix: "cs-{{ (ansible_date_time.iso8601_micro | to_uuid).split('-')[0] }}"
+cs_common_template: CentOS 6.5 (64-bit) no GUI (Simulator)
+cs_common_service_offering: Small Instance
+cs_common_zone_adv: Sandbox-simulator-advanced
+cs_common_zone_basic: Sandbox-simulator-basic
+
+## ref: https://github.com/resmo/ansible-role-exoscale/tree/master
+## ref: https://github.com/resmo/ansible-cloudstack
+cs_zone: null
+cs_region: cloudstack
+cs_group: null
+
+cs_force: false
+cs_offering: Tiny
+cs_template: Linux Debian 9 64-bit 10G Disk (2018-01-18-25e9ec)
+
+cs_affinity_groups: []
+cs_security_groups: []
+
+cs_instance_name: "{{ inventory_hostname_short }}"
+cs_instance_affinity_group: ""
+cs_instance_security_groups: [ default ]
+#cs_instance_ssh_key: "{{ lookup('env', 'USER') }}@{{ lookup('pipe', 'hostname -f') }}"
+cs_instance_ssh_key: "{{ lookup('env', 'USER') }}@{{ lookup('pipe', 'hostname') }}"
+
+cs_ssh_keys:
+  - "{{ cs_instance_ssh_key }}"
+
+cs_private_network: privNetForBasicZone
+
+cs_dns_domain: null
+
+cs_user_data: |
+  #cloud-config
+  manage_etc_hosts: true
+  fqdn: {{ cs_instance_name }}
+
+cloudstack_setup_nfs_share: no
+cloudstack_mount_nfs_share: yes
+
+cloudstack_reset_api_client_token: no
+
+## ref: https://github.com/dagsonstebo/CloudStack-Ansible-Playbook
+CMConfig: # noqa: var-naming[pattern]
+  Version: 4.12
+
+  ManagementIP: node01.johnson.int
+  VhdUtilURL: http://download.cloud.com.s3.amazonaws.com/tools/vhd-util
+
+  RegionEndpoint: "https://csh.cloud.johnson.int"
+
+  ## zone
+  ZoneName: zone01
+  PublicDNS1: 8.8.8.8
+  PublicDNS2: 8.8.4.4
+  InternalDNS1: 192.168.0.1
+  InternalDNS2:
+  GuestCIDR: 10.1.1.0/24
+#  GuestCIDR: 10.0.1.0/24
+#  GuestCIDR: 192.168.0.0/24
+  NetworkType: Advanced
+#  NetworkType: Basic
+
+  ## pod
+  PodName: pod01
+  PodGateway: 192.168.0.1
+  PodNetmask: 255.255.255.0
+  PodStartIP: 192.168.0.140
+  PodEndIP: 192.168.0.160
+
+  ## Guest network
+  GuestGateway: 192.168.0.1
+  GuestNetmask: 255.255.255.0
+  GuestStartIP: 192.168.0.161
+  GuestEndIP: 192.168.0.180
+#  GuestStartIP: 192.168.0.210
+#  GuestEndIP: 192.168.0.250
+
+  ## Public network
+  PublicGateway: 192.168.0.1
+  PublicNetmask: 255.255.255.0
+#  PublicStartIP: 192.168.0.161
+#  PublicEndIP: 192.168.0.180
+#  PublicStartIP: 192.168.100.210
+#  PublicEndIP: 192.168.100.250
+  PublicStartIP: 192.168.0.210
+  PublicEndIP: 192.168.0.250
+
+  ## cluster
+  ClusterName: kvm-cluster01
+#  ClusterHypervisor: XenServer
+  ClusterHypervisor: KVM
+#  XSHostIP: node01.johnson.int
+#  XSUsername: root
+
+  ## host
+  CSHostName: node01
+  CSHostIP: node01.johnson.int
+  CSHostUsername: root
+  CSHostPassword: "{{ CSHostPassword }}"
+
+  ## storage
+  PrimaryStoreName: primary
+  PrimaryMount: /mnt/primary
+  SecondaryStoreName: secondary
+  SecondaryMount: /mnt/secondary
+  NFSHost: admin2.johnson.int
+  NFSPrimaryShare: /data2/cloudstack_primary_storage
+  NFSSecondaryShare: /data2/cloudstack_secondary_storage
+
+  ## ref: https://docs.ansible.com/ansible/latest/modules/cs_physical_network_module.html
+  ## ref: http://docs.cloudstack.apache.org/projects/cloudstack-installation/en/4.6/network_setup.html#vlan-allocation-example
+  ## ref: http://docs.cloudstack.apache.org/en/4.11.2.0/installguide/hypervisor/kvm.html#openvswitch-network-example
+  Phys1Name: net01
+  Phys1Isolation: VLAN
+#  Phys1VLANs: 100-200,300-400
+#  Phys1VLANs: 100-200
+#  Phys1VLANs: 100-199,300-399
+  Phys1VLANs: 700-900
+
+  Phys1TrafficType1: Management
+#  Phys1TrafficType1Label: cloud-private
+#  Phys1TrafficType1Label: mgtbr0
+  Phys1TrafficType1Label: cloudbr0
+#  Phys1TrafficType1Label: cloudbr1
+
+  Phys1TrafficType2: Guest
+#  Phys1TrafficType2Label: cloud-private
+  Phys1TrafficType2Label: cloudbr0
+#  Phys1TrafficType2Label: cloudbr1
+
+  Phys1TrafficType3: Public
+#  Phys1TrafficType3Label: cloud-public
+  Phys1TrafficType3Label: cloudbr0
+
+#  ## ref: http://docs.cloudstack.apache.org/projects/cloudstack-installation/en/4.6/network_setup.html#vlan-allocation-example
+#  ## ref: http://docs.cloudstack.apache.org/en/4.11.2.0/installguide/hypervisor/kvm.html#openvswitch-network-example
+#  Phys2Name: net02
+#  Phys2Isolation: VLAN
+##  Phys2VLANs: 500-599
+#  Phys2VLANs: 200-299
+#
+#  Phys2TrafficType1: Public
+##  Phys2TrafficType1Label: cloud-public
+#  Phys2TrafficType1Label: cloudbr0
+##  Phys2TrafficType1Label: cloudbr1
+
+  NetworkName: defaultGuestNetwork
+#  NetworkDomain: "cloud.johnson.int"
+#  NetworkDomain: cs1cloud.internal
+  NetworkDomain: cs1.johnson.int
+  CSDomain: ROOT
+
+
+### Setup vars
+NTPServers: # noqa: var-naming[pattern]
+  - 0.north-america.pool.ntp.org
+  - 1.north-america.pool.ntp.org
+  - 2.north-america.pool.ntp.org
+  - 3.north-america.pool.ntp.org
+
+## cs-utils config
+CSUtils: # noqa: var-naming[pattern]
+  AppDir: "/opt/cs-utils"
+#  VenvDir: "{{ CSUtils.AppDir }}/.venv"
+#  VenvDir: "{{ AppDir }}/.venv"
+  VenvDir: "/opt/cs-utils/.venv"
+
+## mysql defaults
+CSMySQL: # noqa: var-naming[pattern]
+  RootUsername: "root"
+  RootPassword: "{{ CSMySQLPwd }}"
+  CloudDBUser: "cloud"
+  CloudDBPass: "{{ CloudDBPass }}"
+  CloudDBHost: localhost
+  MaxConnections: 700
+  BindAddress: 0.0.0.0
+  ClientHosts:
+#    - "{{ cs_manager_ip }}"
+#    - "{{ cs_mariadb_ip }}"
+#    - "127.0.0.7"
+    - "{{ ansible_hostname }}"
+    - "{{ ansible_fqdn }}"
+    - 127.0.0.1
+    - ::1
+    - localhost
+
+CSMgtClientEndpoint: http://{{ CMConfig.ManagementIP }}:8080/client/ # noqa: var-naming[pattern]
+CSMgtAPIEndpoint: http://{{ CMConfig.ManagementIP }}:8080/client/api # noqa: var-naming[pattern]
+
+system_cs_script_dir: /usr/share/cloudstack-common/scripts/storage/secondary
+
+## ref:
+VMTemplates: # noqa: var-naming[pattern]
+  - { url: "http://cloudstack.apt-get.eu/systemvm/4.11/systemvmtemplate-4.11.2-kvm.qcow2.bz2", hypervisor: 'kvm' }
+  - { url: "http://cloudstack.apt-get.eu/systemvm/4.11/systemvmtemplate-4.11.2-xen.vhd.bz2", hypervisor: 'xenserver' }
+  - { url: "http://cloudstack.apt-get.eu/systemvm/4.11/systemvmtemplate-4.11.2-vmware.ova", hypervisor: 'vmware' }
+  ## ref: https://doc.yonyoucloud.com/doc/cloudstack-4.3/index.html#prepare-the-system-vm-template
+  - { url: "http://cloudstack.apt-get.eu/systemvm/4.11/systemvmtemplate-4.11.2-kvm.qcow2.bz2", hypervisor: 'lxc' }
+
+VMSystemTemplates: # noqa: var-naming[pattern]
+  - name: systemvm-vmware-4.11.3
+#    url: "http://packages.shapeblue.com.s3-eu-west-1.amazonaws.com/systemvmtemplate/4.11/systemvmtemplate-4.11.3-vmware.ova"
+    url: "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-vmware.ova"
+    hypervisor: VMware
+    hypervisor_tmpl: vmware
+    format: OVA
+    cross_zones: yes
+    os_type: Debian GNU/Linux 7(64-bit)
+  - name: systemvm-kvm-4.11.3
+    url: "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-kvm.qcow2.bz2"
+    hypervisor: KVM
+    hypervisor_tmpl: kvm
+    format: QCOW2
+    cross_zones: yes
+    os_type: Debian GNU/Linux 7(64-bit)
+  - name: systemvm-lxc-4.11.3
+    url: "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-kvm.qcow2.bz2"
+    hypervisor: LXC
+    hypervisor_tmpl: lxc
+    format: QCOW2
+    cross_zones: yes
+    os_type: Debian GNU/Linux 7(64-bit)
+  - name: systemvm-ovm-4.11.3
+    url: "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-ovm.raw.bz2"
+    hypervisor: OVM
+    hypervisor_tmpl: ovm3
+    format: RAW
+    cross_zones: yes
+    os_type: Debian GNU/Linux 7(64-bit)
+  - name: systemvm-xen-4.11.3
+    url: "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-xen.vhd.bz2"
+    hypervisor: XenServer
+    hypervisor_tmpl: xenserver
+    format: VHD
+    cross_zones: yes
+    os_type: Debian GNU/Linux 7(64-bit)
+
+## ref: http://docs.cloudstack.apache.org/en/latest/installguide/hypervisor/kvm.html#configuring-the-firewall
+cloudstack_firewalld_ports:
+  - 80/tcp
+  - 111/tcp
+  - 662/tcp
+  - 875/tcp
+  - 892/tcp
+  - 1798/tcp
+  - 2020/tcp
+  - 2049/tcp
+  - 5900-6100/tcp
+  - 8080/tcp
+  - 16509/tcp
+  - 16514/tcp
+  - 32789/tcp
+  - 32803/tcp
+  - 54302/tcp
+  - 20048/tcp
+  - 46666/tcp
+  - 42955/tcp
+  - 49152-49216/tcp
+#  - 111/udp
+#  - 892/udp
+#  - 875/udp
+#  - 662/udp
+
+## copied from mariadb role
+#mysql_ports:
+#  - 3306
+
+### mysql defaults
+#mysql_root_username: "root"
+#myql_cloud_user: "cloud"
+#mysql_cloud_password: "pass1234"
+#mysql_root_password: "pass1234"
+#mysql_remote_password: "pass1234"
+
+#- name: Set root password
+#  community.mysql.mysql_user: name=root host={{item}} password={{cs_master_password | mandatory}} state=present
+#  loop:
+#    - '::1'
+#    - '127.0.0.1'
+#    - 'localhost'
+#  ignore_errors: yes
+
+#cs_manager_ip: 10.31.46.61
+#cs_mariadb_ip: 10.31.46.62
+
+#mysql_client_hosts:
+#  - name: "{{ cs_manager_ip }}"
+#  - name: "{{ cs_mariadb_ip }}"
+#  - name: "127.0.0.7"
+
+#mysql_databases:
+#  - name: cloud
+#  - name: cloud_usage
+
+#mysql_users:
+#  - name: " {{ mysql_root_username }} "
+#    host: "%"
+#    password: "{{ mysql_root_password   }}"
+#    priv: "cloud.*:all/cloud_usage.*:all"
+#
+#  - name: "{{ myql_cloud_user }}"
+#    host: "%"
+#    password: "{{ mysql_cloud_password }}"
+#    priv: "cloud.*:all/cloud_usage.*:all"

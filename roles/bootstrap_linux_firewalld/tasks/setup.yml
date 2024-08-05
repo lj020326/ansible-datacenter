@@ -1,0 +1,139 @@
+---
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Display firewalld_packages"
+  ansible.builtin.debug:
+    var: firewalld_packages
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Install firewalld and firewalld-python packages"
+  ansible.builtin.package:
+    name: "{{ firewalld_packages }}"
+    state: present
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Install firewalld"
+  ansible.builtin.package:
+    name: firewalld
+    state: present
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Enable firewalld"
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Initialize firewalld config"
+  ansible.builtin.template:
+    src: firewalld.conf.j2
+    dest: "{{ firewalld_conf_file }}"
+    backup: true
+    mode: "0644"
+  notify: Reload firewalld
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Customize firewalld.conf according to any firewalld_configs settings"
+  community.general.ini_file:
+    path: "{{ firewalld_conf_file }}"
+    no_extra_spaces: yes
+    section: ''
+    option: "{{ item.key }}"
+    value: "{{ item.value }}"
+    mode: "0644"
+  with_dict: "{{ firewalld_configs }}"
+  notify: Reload firewalld
+
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld custom services"
+#  when: item.custom|d(false)
+#  ansible.builtin.template:
+#    src: service_template.xml.j2
+#    dest: /etc/firewalld/services/{{ item.name }}.xml
+#    backup: true
+#  loop: "{{ firewalld_services }}"
+#  notify: Reload firewalld
+#  loop_control:
+#    label: "{{ item.name }}"
+#
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} reload firewalld"
+#  ansible.builtin.command: firewall-cmd --reload
+#
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Display __firewalld_zones"
+  ansible.builtin.debug:
+    var: __firewalld_zones
+
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld zones"
+#  ansible.builtin.template:
+#    src: zone_template.xml.j2
+#    dest: /etc/firewalld/zones/{{ item.name }}.xml
+#    backup: true
+#  loop: "{{ __firewalld_zones.values() | list }}"
+#  notify: Reload firewalld
+#  loop_control:
+#    label: "{{ item.name }}"
+#  register: __firewalld_zone_config_results
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld zones"
+  ansible.posix.firewalld:
+    zone: "{{ item.name }}"
+    state: present
+    permanent: true
+    target: ACCEPT
+  loop: "{{ __firewalld_zones.values() | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: __firewalld_zone_config_results
+
+- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Display __firewalld_zone_config_results"
+  ansible.builtin.debug:
+    var: __firewalld_zone_config_results
+
+#### ref: https://github.com/ansible/ansible/issues/16305#issuecomment-475220643
+##- name: "{{ __bootstrap_firewalld__log_prefix_setup }} "Move original {{ __firewalld_zone_config_results.backup }} zone file backup to backup directory {{ firewalld_backup_dir }}/zones""
+##  ansible.builtin.shell: >
+##    mkdir --parents {{ firewalld_backup_dir }}/zones &&
+##    mv {{ firewalld_zone_backup.backup }} {{ firewalld_backup_dir }}/zones/{{ firewalld_zone_backup.backup }}
+##  when: firewalld_zone_backup.backup
+#
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Get zones in /etc/firewalld/zones"
+#  ansible.builtin.shell: ls -1 /etc/firewalld/zones/ | grep -E .xml$
+#  register: get_firewalld_zones
+#  changed_when: false
+#  failed_when: false
+#
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Remove unmanaged zones in /etc/firewalld/zones"
+#  ansible.builtin.file:
+#    path: "/etc/firewalld/zones/{{ item }}"
+#    state: absent
+#  loop: "{{ get_firewalld_zones.stdout_lines }}"
+#  notify: Reload firewalld
+#  when: item|replace('.xml','') not in __firewalld_zones.values() | list |map(attribute='name')|list
+#
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} "Display firewalld_ipsets""
+#  ansible.builtin.debug:
+#    var: firewalld_ipsets
+#
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Configure firewalld ipsets"
+#  ansible.builtin.template:
+#    src: ipset_template.xml.j2
+#    dest: /etc/firewalld/ipsets/{{ item.name }}.xml
+#    backup: true
+#  loop: "{{ firewalld_ipsets }}"
+#  notify: Reload firewalld
+#  loop_control:
+#    label: "{{ item.name }}"
+#
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Get ipsets in /etc/firewalld/ipsets"
+#  ansible.builtin.shell: ls -1 /etc/firewalld/ipsets/ | grep -E .xml$
+#  register: get_firewalld_ipsets
+#  changed_when: false
+#  failed_when: false
+#
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Remove unmanaged ipsets in /etc/firewalld/ipsets"
+#  ansible.builtin.file:
+#    path: "/etc/firewalld/ipsets/{{ item }}"
+#    state: absent
+#  loop: "{{ get_firewalld_ipsets.stdout_lines }}"
+#  notify: Reload firewalld
+#  when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
+
+#- name: "{{ __bootstrap_firewalld__log_prefix_setup }} Restart firewalld"
+#  ansible.builtin.service:
+#    name: firewalld
+#    state: restarted

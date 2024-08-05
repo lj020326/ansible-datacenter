@@ -1,0 +1,28 @@
+---
+- name: Remove virtual BMC
+  when:
+    - hostvars[item]['inventory_hostname'] not in groups['kvmhost']
+    - hostvars[item]['virt_infra_state'] | default(virt_infra_state) == "undefined"
+    - hostvars[item]['virt_infra_vbmc_port'] is defined
+    - hostvars[item]['virt_infra_vbmc_port']
+    - hostvars[groups["kvmhost"][0]].virt_infra_vbmc is defined
+    - hostvars[groups["kvmhost"][0]].virt_infra_vbmc or virt_infra_vbmc
+    - hostvars[groups["kvmhost"][0]].result_vbmc_list is defined
+    - hostvars[item]['inventory_hostname'] in hostvars[groups["kvmhost"][0]].result_vbmc_list.stdout
+  changed_when: false
+  ansible.builtin.shell: "vbmc delete {{ hostvars[item]['inventory_hostname'] }}"
+  args:
+    executable: /bin/bash
+  become: true
+  register: result_vbmc_remove
+  retries: 10
+  delay: 2
+  until: result_vbmc_remove is succeeded
+  delegate_to: "{{ groups['kvmhost'][0] }}"
+  loop: "{{ play_hosts }}"
+  run_once: true
+  notify:
+    - restart virtual bmc
+
+- name: flush_handlers
+  ansible.builtin.meta: flush_handlers

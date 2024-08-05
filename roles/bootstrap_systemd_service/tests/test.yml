@@ -1,0 +1,91 @@
+---
+- name: Run minimum test
+  hosts: 127.0.0.1
+  connection: local
+  tags:
+    - minimum
+  vars:
+    ansible_unit_test: true
+  roles:
+    - role: ../.. # noqa: role-name[path]
+      bootstrap_systemd_service__name: min
+      bootstrap_systemd_service__Service_ExecStart: /sbin/ping 127.0.0.1 # noqa: var-naming[pattern]
+
+- name: Run swarm-manager test
+  hosts: 127.0.0.1
+  connection: local
+  tags:
+    - swarm-manager
+  vars:
+    ansible_unit_test: true
+  roles:
+    - role: ../.. # noqa: role-name[path]
+      bootstrap_systemd_service__name: swarm-manager
+      bootstrap_systemd_service__envs:
+        - DOCKER_HOST=tcp://127.0.0.1:2375
+      bootstrap_systemd_service__Unit_Description: Docker Swarm Manager # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Unit_Requires: docker.service # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Unit_After: docker.service # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_ExecStartPre: # noqa: var-naming[pattern]
+        - -/usr/bin/docker stop swarm-manager
+        - -/usr/bin/docker rm swarm-manager
+        - /usr/bin/docker pull swarm
+      bootstrap_systemd_service__Service_ExecStart: | # noqa: var-naming[pattern]
+        /usr/bin/docker run -p 2377:2375 --name swarm-manager swarm manage
+
+- name: Run full test
+  hosts: 127.0.0.1
+  connection: local
+  tags:
+    - full
+  vars:
+    ansible_unit_test: true
+  roles:
+    - role: ../.. # noqa: role-name[path]
+      bootstrap_systemd_service__default_dir: /etc/hoge
+      bootstrap_systemd_service__systemd_dir: /etc/fuga
+      bootstrap_systemd_service__name: full
+      bootstrap_systemd_service__envs:
+        - abc=def
+        - 123=256
+      bootstrap_systemd_service__Unit_Description: full oiptions test # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Unit_Documentation: This is a test of full options. # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Unit_Requires: req1 # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Unit_Wants: # noqa: var-naming[pattern]
+        - wants
+      bootstrap_systemd_service__Unit_After: after # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Unit_Before: before # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_Type: type # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_ExecStartPre: start pre # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_ExecStart: start command # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_ExecStartPost: # noqa: var-naming[pattern]
+        - start post 1
+        - start post 2
+      bootstrap_systemd_service__Service_Restart: restart # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_RestartSec: 10 # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_ExecReload: reload # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_ExecStop: stop # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_ExecStopPost: stop post # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_PIDFile: pid # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_BusName: bus # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_PrivateTmp: tmp # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Service_LimitNOFILE: 65536 # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Install_WantedBy: wantedby # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Install_RequiredBy: requiredby # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Install_Also: also # noqa: var-naming[pattern]
+      bootstrap_systemd_service__Install_Alias: alias # noqa: var-naming[pattern]
+
+- name: Run mapping test
+  hosts: 127.0.0.1
+  connection: local
+  tags:
+    - mapping
+  vars:
+    ansible_unit_test: true
+  roles:
+    - role: ../.. # noqa: role-name[path]
+      bootstrap_systemd_service__name: min
+      bootstrap_systemd_service__Service_ExecStart: /sbin/ping 127.0.0.1 # noqa: var-naming[pattern]
+      bootstrap_systemd_service__envs:
+        - abc: def
+        - 123: 256

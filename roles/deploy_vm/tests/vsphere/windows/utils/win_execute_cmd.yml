@@ -1,0 +1,60 @@
+---
+# Execute specified powershell command in Windows guest OS
+# Parameters:
+#   win_powershell_cmd: powershell command
+#   win_execute_cmd_ignore_error: true or false
+# Return:
+#   win_powershell_cmd_output
+#
+- name: Check required parameter
+  ansible.builtin.assert:
+    that:
+      - win_powershell_cmd is defined
+      - win_powershell_cmd
+    fail_msg: Parameter 'win_powershell_cmd' is not specified
+
+- name: Initialize the command execution result
+  ansible.builtin.set_fact:
+    win_powershell_cmd_output: ""
+
+- name: Execute powershell command '{{ win_powershell_cmd }}'
+  ansible.windows.win_shell: "{{ win_powershell_cmd }}"
+  register: win_powershell_cmd_output
+  ignore_errors: "{{ win_execute_cmd_ignore_error | default(false) }}"
+  delegate_to: "{{ vm_guest_ip }}"
+  ignore_unreachable: true
+
+- name: Test VM and guest connection when guest unreachable
+  when:
+    - win_powershell_cmd_output.unreachable is defined
+    - win_powershell_cmd_output.unreachable
+  block:
+    - name: Test connection to VM
+      ansible.builtin.command: ping -c 10 "{{ vm_guest_ip }}"
+      register: ping_vm_result
+      changed_when: false
+      ignore_errors: true
+
+    - name: Display ping_vm_result
+      ansible.builtin.debug:
+        var: ping_vm_result
+
+    - name: Test connection into guest
+      ansible.builtin.setup:
+        filter: ansible_all_ipv4_addresses
+      register: setup_vm_connection
+      delegate_to: "{{ vm_guest_ip }}"
+      ignore_errors: true
+
+    - name: Display setup_vm_connection
+      ansible.builtin.debug:
+        var: setup_vm_connection
+
+    - name: Guest OS unreachable
+      ansible.builtin.fail:
+        msg: "{{ win_powershell_cmd_output }}"
+
+- name: Display the powershell commmand result
+  when: enable_debug|d(False)|bool
+  ansible.builtin.debug:
+    var: win_powershell_cmd_output

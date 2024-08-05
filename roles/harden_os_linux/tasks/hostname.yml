@@ -1,0 +1,33 @@
+---
+###############################################################################
+# Role: components/linux-hardening
+# File: tasks/hostname.yml
+#
+###############################################################################
+- name: Gather EC2 Facts
+  action: amazon.aws.ec2_metadata_facts
+  register: __ec2_facts
+  tags: ec2_facts
+
+- name: Get resource tags from EC2 Facts
+  when: ansible_distribution in ['Red Hat Enterprise Linux', 'Debian', 'CentOS', 'Ubuntu', 'Amazon', 'OracleLinux']
+  become: false
+  amazon.aws.ec2_tag:
+    resource: "{{ __ec2_facts.ansible_facts.ansible_ec2_instance_id }}"
+    region: us-east-1
+    state: list
+  register: ec2_tags
+  tags: ec2_facts
+
+- name: Display ec2_tags.tags.Name
+  when: ec2_tags
+  block:
+    - name: Display ec2_tags.tags.Name
+      ansible.builtin.debug:
+        msg: ec2_tags.tags.Name={{ ec2_tags.tags.Name }}
+      tags: ec2_facts
+
+    - name: Set the Hostname to the Name tag
+      ansible.builtin.hostname:
+        name: "{{ ec2_tags.tags.Name }}"
+      tags: set_hostname

@@ -1,5 +1,3 @@
-# Copyright (c) 2017 Ansible Project
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 ## source: https://github.com/willthames/ansible/blob/generator_inventory_plugin/lib/ansible/plugins/inventory/generator.py
 ## ref: http://willthames.github.io/2017/11/01/generating-inventory.html
@@ -36,38 +34,38 @@ DOCUMENTATION = '''
 '''
 
 EXAMPLES = '''
-    # inventory.config file in YAML format
-    plugin: generator
-    strict: False
-    hosts:
-        name: "{{ operation }}-{{ application }}-{{ environment }}-runner"
-        parents:
-          - name: "{{ operation }}-{{ application }}-{{ environment }}"
-            parents:
-              - name: "{{ operation }}-{{ application }}"
-                parents:
-                  - name: "{{ operation }}"
-                  - name: "{{ application }}"
-              - name: "{{ application }}-{{ environment }}"
-                parents:
-                  - name: "{{ application }}"
-                    vars:
-                      application: "{{ application }}"
-                  - name: "{{ environment }}"
-                    vars:
-                      environment: "{{ environment }}"
-          - name: runner
-    layers:
-        operation:
-            - build
-            - launch
-        environment:
-            - dev
-            - test
-            - prod
-        application:
-            - web
-            - api
+# inventory.config file in YAML format
+plugin: generator
+strict: False
+hosts:
+  name: "{{ operation }}-{{ application }}-{{ environment }}-runner"
+  parents:
+    - name: "{{ operation }}-{{ application }}-{{ environment }}"
+      parents:
+        - name: "{{ operation }}-{{ application }}"
+          parents:
+            - name: "{{ operation }}"
+            - name: "{{ application }}"
+        - name: "{{ application }}-{{ environment }}"
+          parents:
+            - name: "{{ application }}"
+              vars:
+                application: "{{ application }}"
+            - name: "{{ environment }}"
+              vars:
+                environment: "{{ environment }}"
+    - name: runner
+layers:
+  operation:
+    - build
+    - launch
+  environment:
+    - dev
+    - test
+    - prod
+  application:
+    - web
+    - api
 '''
 
 import os

@@ -1,0 +1,79 @@
+---
+
+- name: "Start cloudstack-agent Service"
+  ansible.builtin.service:
+    enabled: yes
+    name: cloudstack-agent
+    state: started
+
+- name: Adding host
+  block:
+    ## ref: https://docs.ansible.com/ansible/latest/modules/cs_host_module.html#cs-host-module
+    ## ref: https://github.com/resmo/ansible-cloudstack/blob/master/tests/roles/test_cs_host/tasks/main.yml
+    - name: create host
+      ngine_io.cloudstack.cs_host:
+        name: "{{ CMConfig.CSHostName }}"
+        zone: "{{ CMConfig.ZoneName }}"
+        pod: "{{ CMConfig.PodName }}"
+        cluster: "{{ CMConfig.ClusterName }}"
+        username: "{{ CMConfig.CSHostUsername }}"
+        password: "{{ CMConfig.CSHostPassword }}"
+        url: "http://{{ CMConfig.CSHostIP }}"
+        hypervisor: "{{ CMConfig.ClusterHypervisor }}"
+    #    allocation_state: enabled
+        state: present
+        api_timeout: 180
+      register: host
+#      ignore_errors: yes
+
+  ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_error_handling.html#using-blocks
+  ## if add host failed due to timeout, restart the service and try again
+  rescue:
+    - name: "Display exception"
+      ansible.builtin.debug:
+        msg: 'Caught an error while adding host - restart the agent and try again, :-)'
+
+    - name: "Restart cloudstack-agent Service"
+      ansible.builtin.service:
+        enabled: yes
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - libvirtd
+
+    - name: "Restart cloudstack-agent Service"
+      ansible.builtin.service:
+        enabled: yes
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - cloudstack-agent
+
+    - name: create host
+      ngine_io.cloudstack.cs_host:
+        name: "{{ CMConfig.CSHostName }}"
+        zone: "{{ CMConfig.ZoneName }}"
+        pod: "{{ CMConfig.PodName }}"
+        cluster: "{{ CMConfig.ClusterName }}"
+        username: "{{ CMConfig.CSHostUsername }}"
+        password: "{{ CMConfig.CSHostPassword }}"
+        url: "http://{{ CMConfig.CSHostIP }}"
+        hypervisor: "{{ CMConfig.ClusterHypervisor }}"
+    #    allocation_state: enabled
+        state: present
+        api_timeout: 180
+      register: host
+
+- name: Print host info
+  ansible.builtin.debug:
+    var: host
+
+- name: verify test create host
+  ansible.builtin.assert:
+    that:
+#      - host is changed
+      - host.pod == CMConfig.PodName
+      - host.cluster == CMConfig.ClusterName
+#      - host.username == CMConfig.CSHostUsername
+#      - host.password == CMConfig.CSHostPassword
+#      - host.url == CMConfig.CSHostIP

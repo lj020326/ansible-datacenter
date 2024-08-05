@@ -1,0 +1,44 @@
+---
+
+- name: Restart systemd-journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+
+- name: Cleanup udev script
+  ansible.builtin.file:
+    path: /tmp/rule-syntax-check.py
+    state: absent
+
+- name: Restart systemd-timesyncd
+  when:
+    - bootstrap_linux_systemd__timesyncd | d('') | length > 0
+    - bootstrap_linux_systemd__timesyncd | community.general.json_query(systemd_timesyncd_restart) is defined
+    - bootstrap_linux_systemd__timesyncd | community.general.json_query(systemd_timesyncd_restart) == 'true'
+  vars:
+    systemd_timesyncd_restart: "[] | map(&restart || 'false', @) | [0]"
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: restarted
+
+- name: Restart systemd-resolved
+  when:
+    - bootstrap_linux_systemd__resolved | d('') | length > 0
+    - bootstrap_linux_systemd__resolved | community.general.json_query(systemd_resolved_restart) is defined
+    - bootstrap_linux_systemd__resolved | community.general.json_query(systemd_resolved_restart) == 'true'
+  vars:
+    systemd_resolved_restart: "[] | map(&restart || 'false', @) | [0]"
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+
+- name: Restart systemd-networkd
+  when:
+    - bootstrap_linux_systemd__networkd | d('') | length > 0
+    - bootstrap_linux_systemd__networkd | community.general.json_query(systemd_networkd_restart) is defined
+    - bootstrap_linux_systemd__networkd | community.general.json_query(systemd_networkd_restart) == 'true'
+  vars:
+    systemd_networkd_restart: "[] | map(&restart || 'false', @) | [0]"
+  ansible.builtin.systemd:
+    name: systemd-networkd
+    state: restarted

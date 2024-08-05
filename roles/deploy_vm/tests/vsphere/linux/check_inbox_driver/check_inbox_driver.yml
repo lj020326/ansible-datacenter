@@ -1,0 +1,91 @@
+---
+# Description:
+#   This test case is used for get inbox drivers' versions in Linux VM with
+# open-vm-tools installed, and will write drivers version info into file
+# 'inbox_driver_versions.txt' in the log path of current test run.
+#
+- name: check_inbox_driver
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - name: Initialized inbox drivers' versions dict
+      ansible.builtin.set_fact:
+        inbox_drivers_versions: {}
+
+    - name: Test case block
+      block:
+        - name: Run ../setup/test_setup.yml
+          ansible.builtin.include_tasks: ../setup/test_setup.yml
+          vars:
+            skip_test_no_vmtools: false
+
+        - name: Run get_os_release.yml
+          ansible.builtin.include_tasks: get_os_release.yml
+
+        - name: Get OS kernel version
+          ansible.builtin.set_fact:
+            inbox_drivers_versions: "{{ inbox_drivers_versions | combine({'kernel': guest_os_ansible_kernel}) }}"
+
+        - name: Get open-vm-tools version
+          when: vmtools_is_ovt is defined and vmtools_is_ovt
+          # Get cloud-init version
+          block:
+            - name: Run ../utils/get_vmware_toolbox_cmd_path.yml
+              ansible.builtin.include_tasks: ../utils/get_vmware_toolbox_cmd_path.yml
+
+            - name: Check open-vm-tools version
+              ansible.builtin.command: "{{ vmware_toolbox_cmd_path }} -v"
+              register: ovt_version
+              delegate_to: "{{ vm_guest_ip }}"
+              changed_when: false
+
+            - name: Collect open-vm-tools version
+              ansible.builtin.set_fact:
+                inbox_drivers_versions: "{{ inbox_drivers_versions | combine({'open-vm-tools': ovt_version.stdout}) }}"
+
+        - name: Run ../utils/cloudinit_pkg_check.yml
+          ansible.builtin.include_tasks: ../utils/cloudinit_pkg_check.yml
+
+        - name: Collect cloud-init version
+          ansible.builtin.set_fact:
+            inbox_drivers_versions: "{{ inbox_drivers_versions | combine({'cloud-init': cloudinit_version}) }}"
+          when:
+            - cloudinit_version is defined
+            - cloudinit_version
+
+        # Get Xorg version
+        - name: Run get_xorg_version.yml
+          ansible.builtin.include_tasks: get_xorg_version.yml
+
+        # Get Linux inbox drivers
+        - name: Run get_inbox_drivers.yml
+          ansible.builtin.include_tasks: get_inbox_drivers.yml
+
+      rescue:
+        - name: Run ../../common/test_rescue.yml
+          ansible.builtin.include_tasks: ../../common/test_rescue.yml
+      always:
+        - name: Print inbox drivers versions
+          ansible.builtin.debug:
+            var: inbox_drivers_versions
+
+        - name: Create test case log direcotry
+          ansible.builtin.include_tasks: ../../common/create_directory.yml
+          vars:
+            dir_path: "{{ current_test_log_folder }}"
+
+        - name: Set fact of the output file path
+          ansible.builtin.set_fact:
+            os_release_info_file_path: "{{ current_test_log_folder }}/{{ inbox_drivers_versions['Release'].replace(' ','-') | lower }}.json"
+
+        - name: The inbox drivers versions will be dump to a json file
+          ansible.builtin.debug:
+            var: os_release_info_file_path
+
+        - name: Dump inbox drivers versions
+          ansible.builtin.copy:
+            dest: "{{ os_release_info_file_path }}"
+            content: "{{ [inbox_drivers_versions] | to_nice_json }}"
+            mode: "0644"

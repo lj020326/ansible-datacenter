@@ -1,0 +1,82 @@
+---
+# Description:
+#   This test case is used for test VM memory hotadd with different VM vCPUs.
+# Note: VM memory size will be set to 2GB for 32 bit guest, 4GB for 64 bit
+# guest before hotadd testing.
+#
+- name: memory_hot_add_basic
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - name: Test VM memory hotadd
+      block:
+        - name: Run ../setup/test_setup.yml
+          ansible.builtin.include_tasks: ../setup/test_setup.yml
+
+        - name: Test VM memory hotadd for guest_os_ansible_architecture == "64-bit"
+          when: guest_os_ansible_architecture == "64-bit"
+          block:
+            # Refer to KB article https://kb.vmware.com/s/article/52584
+            - name: Run ../../common/vm_get_vbs_status.yml
+              ansible.builtin.include_tasks: ../../common/vm_get_vbs_status.yml
+            - name: Run ../../common/skip_test_case.yml
+              ansible.builtin.include_tasks: ../../common/skip_test_case.yml
+              vars:
+                skip_msg: Skip test case due to memory hotadd not supported for VM with VBS enabled.
+                skip_reason: Not Supported
+              when: vm_vbs_enabled is defined and vm_vbs_enabled | bool
+        - name: Set fact of initial memory size 2048MB for 32bit client
+          ansible.builtin.set_fact:
+            vm_initial_mem_mb: 2048
+          when:
+            - guest_os_ansible_architecture == "32-bit"
+            - guest_os_product_type | lower == "client"
+        - name: Set fact of initial memory size 4096MB for 64bit guest
+          ansible.builtin.set_fact:
+            vm_initial_mem_mb: 4096
+          when: guest_os_ansible_architecture == "64-bit"
+
+        # Memory limit for 32bit Windows is 4GB:
+        # https://docs.microsoft.com/en-us/windows/win32/memory/memory-limits-for-windows-releases
+        - name: Set fact of memory hotadd list for 32bit Windows
+          ansible.builtin.set_fact:
+            memory_hotadd_size_list: [1024, 1024]
+          when: guest_os_ansible_architecture == "32-bit"
+        - name: Run ../../linux/memory_hot_add_basic/generate_mem_hot_add_list.yml
+          ansible.builtin.include_tasks: ../../linux/memory_hot_add_basic/generate_mem_hot_add_list.yml
+          when: guest_os_ansible_architecture == "64-bit"
+
+        - name: Run ../../common/skip_test_case.yml
+          ansible.builtin.include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: Test case '{{ ansible_play_name }}' is blocked because memory hotadd test value list is empty
+            skip_reason: Blocked
+          when: memory_hotadd_size_list | length == 0
+
+        # Workaround of connection reset failure, not loop on CPU number when hotadd memory
+        # to try to see if it can decrease the failure rate
+        # - ansible.builtin.include_tasks: generate_cpu_num_list.yml
+
+        - name: Initialize the memory hotadd test result
+          ansible.builtin.set_fact:
+            mem_hotadd_results: []
+
+        - name: Run ../utils/shutdown_vm.yml
+          ansible.builtin.include_tasks: ../utils/shutdown_vm.yml
+        # Enable memory hotadd
+        - name: Run ../../common/vm_enable_memory_hotadd.yml
+          ansible.builtin.include_tasks: ../../common/vm_enable_memory_hotadd.yml
+
+        # Do memory hotadd with different vCPU in the list
+        - name: Run hotadd_memory_for_vcpu.yml
+          ansible.builtin.include_tasks: hotadd_memory_for_vcpu.yml
+          vars:
+            vcpu_number: 2
+        - name: Display the test results
+          ansible.builtin.debug:
+            var: mem_hotadd_results
+      rescue:
+        - name: Run ../../common/test_rescue.yml
+          ansible.builtin.include_tasks: ../../common/test_rescue.yml

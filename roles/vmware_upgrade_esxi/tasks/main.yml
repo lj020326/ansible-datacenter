@@ -1,0 +1,183 @@
+---
+- name: get list of running VMs
+  esxi_vm_info:
+    get_power_state: true
+  register: vm_info_res
+
+- name: Display vm_info_res
+  ansible.builtin.debug:
+    var: vm_info_res
+
+#- name: check if reboot is possible (no running VMs)
+#  ansible.builtin.set_fact:
+#    reboot_possible: "{{ vm_info_res.power_by_vm | dict2items | selectattr('value', 'equalto', true) | list | count == 0 }}"
+#    running_vm_list: "{{ vm_info_res.power_by_vm | dict2items | selectattr('value', 'equalto', true) | list }}"
+
+- name: check if reboot is possible (no running VMs)
+  ansible.builtin.set_fact:
+    running_vm_list: "{{ vm_info_res.power_by_vm | dict2items | selectattr('value', 'equalto', true) | reject('search', ('vCLS')) | list }}"
+
+- name: check if reboot is possible (no running VMs)
+  ansible.builtin.set_fact:
+    reboot_possible: "{{ running_vm_list | count == 0 }}"
+
+- name: Display running vm list
+  ansible.builtin.debug:
+    msg:
+      - reboot_possible={{reboot_possible}}
+      - running_vm_list={{running_vm_list}}
+
+- name: check that host is either free of VMs or reboot is forced
+  ansible.builtin.assert:
+    that:
+      - reboot_possible or vmware_force_reboot
+    msg: please either stop/migrate running VMs or use -e 'vmware_force_reboot=true'
+
+## ref: https://www.jeffreykusters.nl/2020/01/10/note-to-self-updating-my-standalone-esxi-host/
+## ref: http://www.virtubytes.com/2017/07/10/online-upgrade-esxi-6-5-using-esxcli/
+- name: Put the host in maintenance mode
+  ignore_errors: true
+  #  ansible.builtin.shell: "vim-cmd hostsvc/maintenance_mode_enter"
+  ansible.builtin.command: esxcli system maintenanceMode set -e true
+  register: shell_cmd
+  failed_when: shell_cmd.rc >= 0 and not ( shell_cmd.stdout | regex_search("Maintenance mode is already enabled") )
+  changed_when: false
+
+- name: Display shell_cmd
+  ansible.builtin.debug:
+    var: shell_cmd
+
+- name: Install vmware upgrade using local bundle at {{ vmware_iso_dir }}/{{ vmware_target_dist }}
+  when: vmware_use_local|bool
+  block:
+    #    ## ref: https://itspyworld.blogspot.com/2020/03/update-vmware-esxi-hosts-with-ansible.html
+    #    - name: "Update ESX software profile using local repo"
+    #      when: vmware_use_local|bool==True
+    #      ansible.builtin.shell: "esxcli software profile update -d {{ vmware_iso_dir }}/{{ vmware_target_dist }} -p {{ vmware_target_profile }}"
+
+    - name: list profiles in bundle
+#      ansible.builtin.shell: |
+#        esxcli software sources profile list -d {{ vmware_iso_dir }}/{{ vmware_target_dist }} | awk 'NR>2 {print $1}'
+      ansible.builtin.shell: |
+        set -o pipefail # <-- adding this will prevent surprises
+        esxcli software sources profile list -d {{ vmware_iso_dir }}/{{ vmware_target_dist }} \
+          | grep {{ vmware_target_profile }}
+      register: profile_res
+      failed_when: profile_res.stdout_lines | count != 1
+      changed_when: false
+
+    - name: dry-run software install
+      ansible.builtin.shell: >
+        esxcli --formatter=keyvalue software profile update
+        -p {{ vmware_target_profile }}
+        -d {{ vmware_iso_dir }}/{{ vmware_target_dist }}
+        --dry-run
+      register: update_test_res
+      changed_when: >-
+        not (update_test_res.stdout_lines[0].endswith('The following installers will be applied: []')
+         and update_test_res.stdout_lines[1].endswith('RebootRequired.boolean=false')
+         and update_test_res.stdout_lines[2].endswith('VIBsInstalled.string[] = ')
+         and update_test_res.stdout_lines[3].endswith('VIBsRemoved.string[] = '))
+
+    - name: perform install if required # noqa: no-handler
+      when: update_test_res.changed
+      ansible.builtin.shell: >
+        esxcli --formatter=keyvalue software profile update
+        -p {{ vmware_target_profile }}
+        -d {{ vmware_iso_dir }}/{{ vmware_target_dist }}
+      register: update_res
+      changed_when: |
+        not (update_res.stdout_lines[0].endswith('The following installers will be applied: []')
+         and update_res.stdout_lines[1].endswith('RebootRequired.boolean=false')
+         and update_res.stdout_lines[2].endswith('VIBsInstalled.string[] = ')
+         and update_res.stdout_lines[3].endswith('VIBsRemoved.string[] = '))
+
+- name: Fetch vmware upgrade from patch depot
+  when: not vmware_use_local|bool
+  block:
+    - name: Enable httpclient
+      ansible.builtin.command: esxcli network firewall ruleset set -e true -r httpClient
+      changed_when: false
+
+    - name: Update ESX using pull from the online VMware patch depot
+#      ansible.builtin.shell: |
+#        esxcli software profile update -d \
+#          https://hostupdate.vmware.com/software/VUM/PRODUCTION/main/vmw-depot-index.xml \
+#          -p ESXi-6.7.0-20191204001-standard
+      ansible.builtin.command: |
+        esxcli software profile update -d {{ vmware_patch_depot_url }} -p {{ vmware_target_profile }}
+      changed_when: false
+      register: update_res
+
+    - name: Disable httpclient after update complete
+      ansible.builtin.command: esxcli network firewall ruleset set -e false -r httpClient
+      changed_when: false
+
+- name: print update results
+  when:
+    - update_test_res.changed
+    - update_test_res.stdout_lines is defined
+  ansible.builtin.debug:
+    var: update_res.stdout_lines
+
+- name: check if reboot is required
+  ansible.builtin.set_fact:
+    reboot_required: "{{ update_test_res.stdout_lines[1].endswith('RebootRequired.boolean=true') }}"
+
+- name: determine if we will reboot host
+  ansible.builtin.set_fact:
+    will_reboot: "{{ reboot_required and (vmware_force_reboot or reboot_possible) }}"
+
+- name: print out reboot plans
+  ansible.builtin.debug:
+    msg: >-
+      ansible.builtin.reboot:
+      required: {{ reboot_required }}
+      possible: {{ reboot_possible }} (force: {{ vmware_force_reboot }})
+      will do: {{ will_reboot }}
+
+#- name: "Post install | turn on maintenance mode"
+#  ansible.builtin.shell: "esxcli system maintenanceMode set --enable true"
+
+#- name: "Post install | reboot ESXi server"
+#  ansible.builtin.shell: "esxcli system shutdown reboot --reason 'Software update to {{ vmware_target_profile }}'"
+
+# softer way:
+# esxcli system maintenanceMode set --enable true
+# esxcli system shutdown reboot --reason 'patch install'
+# ...
+# esxcli system maintenanceMode set --enable false
+- name: initiate host reboot
+  when: will_reboot|bool
+  block:
+    - name: initiate host reboot
+      ansible.builtin.command: /bin/reboot
+      changed_when: false
+
+    - name: wait for host to shut down
+      ansible.builtin.wait_for:
+        host: "{{ ansible_fqdn }}"
+        port: 22
+        state: stopped
+        delay: 20
+        timeout: 180
+
+    - name: wait for host to boot
+      ansible.builtin.wait_for:
+        host: "{{ ansible_fqdn }}"
+        port: 22
+        state: started
+        delay: 30
+        timeout: 300
+
+    # before that SSH is accessible but requesting password
+    - name: give the host some time to recover
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: reset ssh connection to re-login after host is booted
+      ansible.builtin.meta: reset_connection
+
+- name: Post install | turn on maintenance mode
+  ansible.builtin.command: esxcli system maintenanceMode set --enable false
+  changed_when: false

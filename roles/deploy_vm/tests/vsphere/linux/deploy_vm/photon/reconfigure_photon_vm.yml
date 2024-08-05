@@ -1,0 +1,71 @@
+---
+# Reset deploy_casename in case user doesn't provide correct guest_id
+- name: Set fact of the deploy VM test case name
+  ansible.builtin.set_fact:
+    deploy_casename: deploy_vmwarephoton_ova
+
+# Photon OS OVA for HWv11 is using other3xlinux64 as guest id
+- name: Run ../../../common/vm_set_guest_id.yml
+  ansible.builtin.include_tasks: ../../../common/vm_set_guest_id.yml
+  vars:
+    guest_id: vmwarePhoton64Guest
+  when:
+    - vm_guest_id != "vmwarePhoton64Guest"
+    - vm_hardware_version_num | int >= 13
+
+# Create the seed ISO to modify login information
+- name: Run ../../utils/create_seed_iso.yml
+  ansible.builtin.include_tasks: ../../utils/create_seed_iso.yml
+  vars:
+    user_data_template: photon-user-data.j2
+    local_hostname: photon-{{ hostname_timestamp }}
+
+# Upload seed ISO to VM path on ESXi server
+- name: Run ../../../common/esxi_upload_datastore_file.yml
+  ansible.builtin.include_tasks: ../../../common/esxi_upload_datastore_file.yml
+  vars:
+    src_file_path: "{{ seed_iso_path }}"
+    dest_file_path: "{{ vm_dir_name }}/{{ seed_iso_path | basename }}"
+
+# Attach seed ISO to Photon OS VM
+- name: Run ../../../common/vm_configure_cdrom.yml
+  ansible.builtin.include_tasks: ../../../common/vm_configure_cdrom.yml
+  vars:
+    cdrom_type: iso
+    cdrom_iso_file: "{{ vm_files_path_ds }}/{{ seed_iso_path | basename }}"
+    cdrom_controller_num: 0
+    cdrom_unit_num: 0
+
+# Power on VM to update login information
+- name: Run ../../common/vm_set_power_state.yml
+  ansible.builtin.include_tasks: ../../common/vm_set_power_state.yml
+  vars:
+    vm_power_state_set: powered-on
+- name: Run ../../../common/vm_wait_guest_fullname.yml
+  ansible.builtin.include_tasks: ../../../common/vm_wait_guest_fullname.yml
+
+# Get guest ip
+- name: Run ../../../common/update_inventory.yml
+  ansible.builtin.include_tasks: ../../../common/update_inventory.yml
+  vars:
+    update_inventory_timeout: 300
+
+# Eject seed ISO from guest
+- name: Eject seed ISO from Photon OS
+  ansible.builtin.include_tasks: ../../utils/eject_cdrom_in_guest.yml
+  vars:
+    guest_cdrom_device_num: 0
+
+# Disconnect seed ISO from Photon OS VM
+- name: Change VM's CD/DVD Drive 1 to client device
+  ansible.builtin.include_tasks: ../../../common/vm_configure_cdrom.yml
+  vars:
+    cdrom_type: client
+    cdrom_controller_num: 0
+    cdrom_unit_num: 0
+
+# Remove temporary folders
+- name: Remove temporary directory {{ tmp_seed_dir }}
+  ansible.builtin.include_tasks: ../../../common/delete_local_file.yml
+  vars:
+    local_path: "{{ tmp_seed_dir }}"

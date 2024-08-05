@@ -1,0 +1,133 @@
+---
+#############
+# Dell PowerEdge R620 servers: Reset RAID, and then Configure the RAID-1 using first two disks 
+#############
+
+- name: Reset RAID Controller
+  changed_when: false
+  ansible.builtin.raw: racadm raid resetconfig:RAID.Integrated.1-1
+  register: raidreset_status
+  #failed_when: '"ERROR" in raidreset_status.stdout'
+
+- name: debug | Reset RAID Controller
+  ansible.builtin.debug:
+    var: raidreset_status.stdout_lines
+
+- name: Create a Job RAID Controller Reset
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue create RAID.Integrated.1-1
+  register: raidreset_job
+  failed_when: '"ERROR" in raidreset_status.stdout'
+  #failed_when: "'STOR023' in 'raidreset_job'"
+
+- name: debug | Create a Job RAID Controller Reset
+  ansible.builtin.debug:
+    var: raidreset_job.stdout_lines
+
+- name: Powercycle the server to execute the job created RAID Controller Reset
+  when: raidreset_job|d('')|length>0
+  changed_when: false
+  ansible.builtin.raw: racadm serveraction powercycle
+  register: raidreset_reboot
+  #failed_when: '"ERROR" in raidreset_job.stdout_lines'
+
+- name: debug | Powercycle the server to execute the job created RAID Controller Reset
+  ansible.builtin.debug:
+    var: raidreset_reboot.stdout_lines
+
+- name: Wait for RAID Reset job to be completedi,30 sec intervals
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue view
+  register: raidreset_jobstatus
+  until: raidreset_jobstatus.stdout.find("Running") <= 0 and raidreset_jobstatus.stdout.find("Scheduled") <= 0 and raidreset_jobstatus.stdout.find("New") <= 0
+  retries: 20
+  delay: 30
+  when: '"Server power operation successful" in raidreset_reboot.stdout'
+
+- name: debug | Wait for RAID Reset job to be completed
+  ansible.builtin.debug:
+    var: raidreset_jobstatus.stdout_lines
+
+- name: Checking whether RAID reset deleted all the Virtual Disks
+  changed_when: false
+  ansible.builtin.raw: racadm raid get vdisks
+  register: vdisks_status
+  failed_when: '"Disk.Virtual" in vdisks_status.stdout'
+
+- name: debug | Checking whether RAID reset deleted all the Virtual Disks
+  ansible.builtin.debug:
+    var: vdisks_status.stdout_lines
+
+- name: Setup Hardware RAID-1 across first two disks
+  changed_when: false
+  ansible.builtin.raw: racadm raid createvd:RAID.Integrated.1-1 -rl r1 -wp wt -rp nra -dcp default -ss 64k -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1
+  register: vdisk_raid1_status
+  failed_when: '"ERROR" in vdisk_raid1_status.stdout'
+  #failed_when: '"Disk.Virtual.0:RAID.Integrated.1-1" in vdisks_status.stdout_lines'
+
+- name: Create a job for RAID-1 configuration (Reboot Required - PowerEdge 12g doesn't support realtime raid)
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue create RAID.Integrated.1-1
+  register: vdisk_raid1_job
+  failed_when: '"ERROR" in vdisk_raid1_job.stdout'
+- name: debug | Create a job for RAID-1 configuration
+  ansible.builtin.debug:
+    var: vdisk_raid1_job.stdout_lines
+
+- name: Powercycle the server to execute RAID-1 configuration
+  when:
+    - vdisk_raid1_job|d('')|length>0
+    - "'Successfully scheduled' in vdisk_raid1_job.stdout"
+  changed_when: false
+  ansible.builtin.raw: racadm serveraction powercycle
+  register: raid1_reboot
+  failed_when: '"ERROR" in raid1_reboot.stdout'
+
+- name: debug | Powercycle the server to execute RAID-1 configuration
+  ansible.builtin.debug:
+    var: raid1_reboot.stdout_lines
+
+- name: Wait for RAID-1 job to be completed,30 sec intervals
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue view
+  register: vdisk_raid1_jobstatus
+  until:
+    - vdisk_raid1_jobstatus.stdout.find("Running") <= 0
+    - vdisk_raid1_jobstatus.stdout.find("Scheduled") <= 0
+    - vdisk_raid1_jobstatus.stdout.find("New") <= 0
+  retries: 20
+  delay: 30
+  when: '"Server power operation successful" in raid1_reboot.stdout'
+- name: debug | Wait for RAID-1 job to be completed,30 sec intervals
+  ansible.builtin.debug:
+    var: vdisk_raid1_jobstatus.stdout_lines
+
+- name: Clear All the Jobs
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue delete --all
+  register: result_jobqueue
+
+- name: View the jobqueue -after clearing all the jobs
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue view
+  register: result_jobqueue_end
+
+- name: debug | View the jobqueue -after clearing all the jobs
+  ansible.builtin.debug:
+    var: result_jobqueue_end.stdout_lines
+
+# pause for 30 seconds
+- name: sleep for 30 seconds and continue with play
+  ansible.builtin.wait_for:
+    timeout: 30
+  delegate_to: localhost
+
+- name: Verifiyting whether RAID-1 virtual disk successfully created or not
+  changed_when: false
+  ansible.builtin.raw: racadm raid get vdisks
+  register: raid1_status
+  failed_when: '"Disk.Virtual.0" not in raid1_status.stdout'
+
+- name: debug | Verifiyting whether RAID-1 virtual disk successfully created or not
+  ansible.builtin.debug:
+    msg: Virtual Disks present are - {{raid1_status.stdout_lines}}

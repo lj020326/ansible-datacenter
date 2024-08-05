@@ -1,0 +1,51 @@
+---
+- name: Display the injected openstack SSH public key location
+  ansible.builtin.debug:
+    var: openstack_ssh_public_key_file
+
+- name: Display the injected openstack SSH public key
+  ansible.builtin.debug:
+    msg: "{{ lookup('file', openstack_ssh_public_key_file) }}"
+
+- name: store ssh public key as fact
+  ansible.builtin.set_fact:
+    os_ssh_public_key: "{{ lookup('file', openstack_ssh_public_key_file) }}"
+
+- name: upload ssh key to nova
+  openstack.cloud.keypair:
+    state: present
+    name: ansible_key
+    #        public_key_file: files/id_rsa.pub
+    #    public_key_file: "{{ openstack_ssh_public_key_file }}"
+    public_key: "{{ os_ssh_public_key }}"
+
+## ref: https://cplatform99.blogspot.com/2017/07/openstack-instance-deployment-using.html
+- name: Create a security groups
+  openstack.cloud.security_group:
+    cloud: "{{ openstack_admin_cloud_name }}"
+    name: "{{ item.name }}"
+    state: present
+    project: "{{ item.project | default(omit) }}"
+    validate_certs: "{{ item.validate_certs | default(omit) }}"
+  loop: "{{ openstack_cloud_security_groups }}"
+  register: os_secgroup_results
+
+- name: Display os secgroup results
+  ansible.builtin.debug:
+    msg: "{{ os_secgroup_results }}"
+
+- name: Add OS security group rules
+  openstack.cloud.security_group_rule:
+    security_group: "{{ item.0.name }}"
+    protocol: "{{ item.1.protocol | default(omit) }}"
+    port_range_min: "{{ item.1.port_range_min | default(omit) }}"
+    port_range_max: "{{ item.1.port_range_max | default(omit) }}"
+    remote_ip_prefix: "{{ item.1.remote_ip_prefix | default(omit) }}"
+    validate_certs: "{{ item.1.validate_certs | default(omit) }}"
+  loop: "{{ openstack_cloud_security_groups | subelements('rules', { 'skip_missing': true }) }}"
+  register: os_secgrouprule_results
+  failed_when: os_secgrouprule_results.failed and not ( os_secgrouprule_results.msg | regex_search("Security group rule already exists") )
+
+- name: Display os secgroup rules results
+  ansible.builtin.debug:
+    msg: "{{ os_secgrouprule_results }}"

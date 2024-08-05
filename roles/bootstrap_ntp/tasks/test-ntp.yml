@@ -1,0 +1,27 @@
+---
+
+## ref: https://vitux.com/how-to-install-ntp-server-and-client-on-ubuntu/
+- name: Query Time Synchronization Queue
+  changed_when: false
+  ansible.builtin.command: ntpq -p
+  register: __ntp_sources_results
+
+- name: Display __ntp_sources_results
+  ansible.builtin.debug:
+    var: __ntp_sources_results
+
+- name: Check ntp tracking results
+  ansible.builtin.assert:
+    that:
+      - __ntp_sources_results.rc == 0
+
+- name: Set __ntp_server_found
+  when: __ntp_sources_results.stdout_lines | select('search', item) | list | length == 1
+  ansible.builtin.set_fact:
+    __ntp_server_found: true
+  loop: "{{ __bootstrap_ntp__servers }}"
+
+- name: Check ntp sources include a defined ntp server
+  ignore_errors: true # noqa: ignore-errors
+  ansible.builtin.assert:
+    that: __ntp_server_found|d(False)|bool

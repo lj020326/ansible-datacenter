@@ -1,0 +1,52 @@
+---
+- name: Assert variables are defined
+  ansible.builtin.assert:
+    that:
+      - remote_host is defined
+      - remote_host|length > 0
+      - source_filesystem_path is defined
+      - source_filesystem_path|length > 0
+
+- name: Perform stat on source_filesystem_path
+  ansible.builtin.stat:
+    path: "{{ source_filesystem_path }}"
+  register: source_path_result
+
+- name: "{{ source_filesystem_path }} error handling"
+  block:
+    - name: Assert that source_filesystem_path exists on {{ source_host }}
+      ansible.builtin.assert:
+        that:
+          - source_path_result.stat.exists
+        fail_msg: "{{ source_filesystem_path }} was not found on {{ source_host }}. Unable to continue sync."
+  rescue:
+    - name: Set failed flag for handling later
+      ansible.builtin.set_fact:
+        __rsync_failures_detected: "{{ source_filesystem_path }} was not found on {{ source_host }}. Unable to continue sync."
+
+- name: Debug __rsync_failures_detected (execute_sync.yml)
+  ansible.builtin.debug:
+    var: hostvars[source_host].__rsync_failures_detected
+
+- name: Synchronize Files from {{ source_host }} to {{ remote_host }}
+  when:
+    - hostvars[source_host].__rsync_failures_detected | default('') | length == 0
+  block:
+    - name: Execute File Sync # noqa command-instead-of-module
+      changed_when: false
+      ansible.builtin.command:
+        cmd: |
+          rsync -av --delete-before
+          --rsync-path='sudo rsync'
+          {{ source_filesystem_path }}
+          {{ ansible_user }}@{{ remote_host }}::files
+      register: rsync_result
+
+    - name: Debug rsync_result
+      ansible.builtin.debug:
+        var: rsync_result
+        verbosity: 1
+  rescue:
+    - name: Set failed flag for handling later
+      ansible.builtin.set_fact:
+        __rsync_failures_detected: rsync action failed. {{ rsync_result.stderr }}

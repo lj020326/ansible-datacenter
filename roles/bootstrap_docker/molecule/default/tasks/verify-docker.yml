@@ -1,0 +1,35 @@
+---
+
+- name: "Set __relative_role_vars_path for role"
+  ansible.builtin.set_fact:
+    __relative_role_vars_path: ../../vars
+
+- name: "Include docker {{ ansible_os_family }} Family specific variables"
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution|lower }}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_os_family|lower }}.yml"
+    - "{{ __relative_role_vars_path }}/default.yml"
+
+- name: "Check docker package status"
+  ansible.builtin.package:
+    name: docker-ce
+    state: present
+  check_mode: yes
+  register: pkg_status_docker
+
+- name: "Display pkg_status_docker"
+  ansible.builtin.debug:
+    var: pkg_status_docker
+
+- name: "Check docker packages are installed"
+  ansible.builtin.assert:
+    that:
+      - not pkg_status_docker.changed
+
+- name: "Assert docker service is installed/running"
+  ansible.builtin.assert:
+    that:
+      - services | intersect(['docker', 'docker.service'])| d([]) | length > 0
+

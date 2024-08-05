@@ -1,0 +1,27 @@
+---
+# This task is used to enable/disable service
+# Parameters:
+#   service_name: The service name to be configured
+#   service_enabled: true or false to enable or disable service
+#   service_state: The service state: reloaded, restarted, started, or stopped
+#
+- name: Validate service state
+  ansible.builtin.fail:
+    msg: "Invalid parameter service_enabled or service_state. service_enabled: {{ service_enabled }}, service_state: {{ service_state }}"
+  when: >
+    (service_enabled is undefined and service_state is undefined) or
+    (service_enabled is defined and service_enabled | bool not in [true, false]) or
+    (service_state is defined and service_state not in ['reloaded', 'restarted', 'started', 'stopped'])
+
+- name: "Update service {{ service_name }}, enabled: {{ service_enabled }}, state: {{ service_state }}"
+  ansible.builtin.service:
+    name: "{{ service_name }}"
+    enabled: "{{ service_enabled }}"
+    state: "{{ service_state }}"
+  delegate_to: "{{ vm_guest_ip }}"
+
+- name: Run check_service_status.yml
+  ansible.builtin.include_tasks: check_service_status.yml
+  vars:
+    expected_service_state: "{{ 'active' if service_state in ['started', 'restarted'] else 'inactive' }}"
+    expected_service_status: "{{ 'enabled' if service_enabled else 'disabled' }}"

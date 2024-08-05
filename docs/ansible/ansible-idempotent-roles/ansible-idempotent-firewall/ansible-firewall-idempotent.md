@@ -110,7 +110,7 @@ The following playbook example then specifies the ports to be added to the firew
       - "953/tcp"
     firewalld_ports: "{{ bind_firewalld_ports }}"
   roles:
-    - role: ansible-role-bind
+    - role: ansible_role_bind
     - role: bootstrap-linux-firewalld
 
 
@@ -213,7 +213,7 @@ firewalld_ports__bind:
   become: true
   tags: bootstrap-bind
   roles:
-    - role: ansible-role-bind
+    - role: ansible_role_bind
     - role: bootstrap-linux-firewalld
 
 ```

@@ -1,0 +1,25 @@
+---
+# Description:
+#   This playbook is used for exporting VM to OVF
+# template, by default the exported template files
+# will be saved in '/tmp/' folder.
+#
+- name: export_ovf
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    # Check VM power status
+    - name: Run ../../common/vm_get_power_state.yml
+      ansible.builtin.include_tasks: ../../common/vm_get_power_state.yml
+    # Power off VM if it's not in poweredOff state
+    - name: Run ../utils/shutdown.yml
+      ansible.builtin.include_tasks: ../utils/shutdown.yml
+      when: vm_power_state_get != 'poweredOff'
+    # Export VM to ovf template to the specified path
+    # Please make sure enough disk space in specified path
+    - name: Run ../../common/ovf_export.yml
+      ansible.builtin.include_tasks: ../../common/ovf_export.yml
+      vars:
+        ovf_export_dst_path: "{{ exported_template_path | default('/tmp/') }}"

@@ -1,0 +1,81 @@
+---
+- name: Display key role inputs
+  ansible.builtin.debug:
+    msg:
+      - bootstrap_yq__version={{ bootstrap_yq__version }}
+      - bootstrap_yq__bin_path={{ bootstrap_yq__bin_path }}
+      - bootstrap_yq__bin_url={{ bootstrap_yq__bin_url }}
+
+- name: Ensure required packages are installed.
+  ansible.builtin.package:
+    name: "{{ bootstrap_yq__required_packages }}"
+    state: present
+
+- name: Get installed yq version.
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+  ansible.builtin.command: yq --version
+  ignore_errors: true
+  changed_when: false
+  #  failed_when: false
+  check_mode: false
+  register: __bootstrap_yq__installed_version_result
+
+- name: Set __bootstrap_yq__installed_version
+  ansible.builtin.set_fact:
+    __bootstrap_yq__installed_version: "{{ __bootstrap_yq__installed_version_result.stdout 
+      | regex_replace('^.* version v(.*)', '\\1') }}"
+
+- name: Display __bootstrap_yq__installed_version
+  ansible.builtin.debug:
+    var: __bootstrap_yq__installed_version
+
+- name: Init __bootstrap_yq__reinstall_from_source
+  ansible.builtin.set_fact:
+    __bootstrap_yq__reinstall_from_source: false
+
+- name: Set __bootstrap_yq__reinstall_from_source
+  ansible.builtin.set_fact:
+    __bootstrap_yq__reinstall_from_source: true
+  when:
+    - (bootstrap_yq__install_from_source_force_update | bool) or
+      (__bootstrap_yq__installed_version_result.failed) or
+      (__bootstrap_yq__installed_version is version(bootstrap_yq__version, operator="!="))
+
+- name: Display __bootstrap_yq__reinstall_from_source
+  ansible.builtin.debug:
+    var: __bootstrap_yq__reinstall_from_source
+
+- name: Create temporary directory
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: .{{ role_name }}
+  register: __remote_tmp_dir
+  notify:
+    - delete temporary yq directory
+
+- name: Set __bootstrap_yq__tmp
+  ansible.builtin.set_fact:
+    __bootstrap_yq__tmp: "{{ __remote_tmp_dir.path }}"
+
+- name: Download and unarchive yq
+  when: __bootstrap_yq__reinstall_from_source | bool
+  block:
+    - name: Download and unarchive yq
+      ansible.builtin.unarchive:
+        src: "{{ bootstrap_yq__bin_url }}"
+        dest: "{{ __bootstrap_yq__tmp }}/"
+        remote_src: true
+      register: __bootstrap_yq__unarchive_result
+
+    - name: Download and unarchive yq
+      ansible.builtin.copy:
+        src: "{{ __bootstrap_yq__tmp }}/{{ bootstrap_yq__binary }}"
+        dest: "{{ bootstrap_yq__bin_path }}/yq"
+        remote_src: true
+        mode: "0755"
+      register: __bootstrap_yq__copy_result
+
+    - name: Display bootstrap_yq__install_result
+      ansible.builtin.debug:
+        var: __bootstrap_yq__copy_result

@@ -1,0 +1,51 @@
+---
+- name: Docker | EE | APT | Install Prerequisites for APT
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - software-properties-common
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+
+- name: Docker | EE | APT | Perform specific os tasks
+  ansible.builtin.include_tasks: "{{ lookup('first_found', __file_params) }}"
+  vars:
+    __file_params:
+      files:
+        - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+        - "{{ ansible_distribution|lower }}.yml"
+        - "{{ ansible_distribution|lower }}.yml"
+        - default.yml
+      paths:
+        - tasks/ee/os
+#        - "{{ role_path }}/tasks/ce/os"
+
+- name: Docker | EE | APT | Remove old repo lxc-docker
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - lxc-docker
+    - docker
+    - docker-engine
+    - docker-ce
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+
+- name: Docker | EE | APT | Install Docker Engine
+  ansible.builtin.apt:
+    name: docker-ee
+    state: present
+  notify: Docker | Restart Docker
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2

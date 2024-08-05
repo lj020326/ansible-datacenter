@@ -1,0 +1,59 @@
+---
+- name: Test indentation
+  hosts: all
+  vars:
+    __sshd_test_backup_files:
+      - /etc/ssh/sshd_config
+      - /etc/ssh/sshd_config.d/00-ansible_system_role.conf
+  tasks:
+    - name: "Backup configuration files"
+      ansible.builtin.include_tasks: tasks/backup.yml
+
+    - name: Configure sshd with simple config options
+      ansible.builtin.include_role:
+        name: bootstrap_sshd
+      vars:
+        sshd:
+          PasswordAuthentication: true
+          PermitRootLogin: true
+          AcceptEnv:
+            - TEST
+            - LC_ALL
+          Match:
+            Condition: user root
+            AllowAgentForwarding: false
+            AcceptEnv:
+              - TESTENV
+              - LANG
+      when:
+        - not (ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution_major_version'] == '6')
+
+    - name: Verify the options are correctly set
+      tags: tests::verify
+      when:
+        - not (ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution_major_version'] == '6')
+      block:
+        - name: Flush handlers
+          ansible.builtin.meta: flush_handlers
+
+        - name: Print current configuration file
+          ansible.builtin.slurp:
+            src: "{{ main_sshd_config }}"
+          register: config
+
+        - name: Check the options are correctly indented in configuration file
+          ansible.builtin.assert:
+            that:
+              - content is search ('^PasswordAuthentication yes$', multiline=True)
+              - content is search ('^PermitRootLogin yes$', multiline=True)
+              - content is search ("^AcceptEnv TEST$", multiline=True)
+              - content is search ("^AcceptEnv LC_ALL$", multiline=True)
+              - content is search ('^Match user root$', multiline=True)
+              - content is search ("^  AcceptEnv TESTENV$", multiline=True)
+              - content is search ("^  AcceptEnv LANG$", multiline=True)
+              - content is search ('^  AllowAgentForwarding no$', multiline=True)
+          vars:
+            content: "{{ config.content | b64decode }}"
+
+    - name: "Restore configuration files"
+      ansible.builtin.include_tasks: tasks/restore.yml

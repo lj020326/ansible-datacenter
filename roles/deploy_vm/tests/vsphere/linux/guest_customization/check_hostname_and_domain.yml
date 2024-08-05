@@ -1,0 +1,69 @@
+---
+- name: Initialize hostname and domain check result
+  ansible.builtin.set_fact:
+    guest_hostname: ""
+    guest_dns_domain: ""
+    hostname_success: ""
+    dns_domain_success: ""
+
+# Get hostname FQDN
+- name: Run ../../common/vm_shell_in_guest.yml
+  ansible.builtin.include_tasks: ../../common/vm_shell_in_guest.yml
+  vars:
+    vm_shell_cmd: /usr/bin/hostname
+    vm_shell_args: -f
+    vm_shell_out: /tmp/hostname_f.txt
+
+- name: Run ../../common/vm_shell_in_guest.yml
+  ansible.builtin.include_tasks: ../../common/vm_shell_in_guest.yml
+  vars:
+    vm_shell_cmd: /bin/hostname
+    vm_shell_args: -f
+    vm_shell_out: /tmp/hostname_f.txt
+  when: vm_shell_result.exit_code is undefined
+
+- name: Run ../../common/vm_guest_file_operation.yml
+  ansible.builtin.include_tasks: ../../common/vm_guest_file_operation.yml
+  vars:
+    operation: fetch_file
+    src_path: /tmp/hostname_f.txt
+    dest_path: "{{ current_test_log_folder }}/hostname_f.txt"
+
+- name: Get guest FQDN
+  ansible.builtin.set_fact:
+    guest_fqdn: "{{ lookup('file', current_test_log_folder ~ '/hostname_f.txt') }}"
+
+- name: Set fact of guest OS hostname and domain
+  ansible.builtin.set_fact:
+    guest_hostname: "{{ guest_fqdn.split('.')[0] }}"
+    guest_dns_domain: "{{ (guest_fqdn.split('.')[1:] | join('.')) if guest_fqdn.split('.') | length > 1 else '' }}"
+
+# Check hostname
+- name: Check guest hostname is customized
+  ansible.builtin.set_fact:
+    hostname_success: "{{ guest_hostname == linux_gosc_spec['hostname'] }}"
+
+- name: Print hostname check result
+  ansible.builtin.debug:
+
+    var: hostname_success
+- name: Run set_gosc_validation_result.yml
+  ansible.builtin.include_tasks: set_gosc_validation_result.yml
+  vars:
+    gosc_check_item: hostname_success
+    gosc_check_error_msg: VM hostname is {{ guest_hostname }}, expected hostname is {{ linux_gosc_spec['hostname'] }}
+
+# Check domain name
+- name: Check DNS domain name is customized
+  ansible.builtin.set_fact:
+    dns_domain_success: "{{ guest_dns_domain == linux_gosc_spec['domain'] }}"
+
+- name: Print dns domain check result
+  ansible.builtin.debug:
+
+    var: dns_domain_success
+- name: Run set_gosc_validation_result.yml
+  ansible.builtin.include_tasks: set_gosc_validation_result.yml
+  vars:
+    gosc_check_item: dns_domain_success
+    gosc_check_error_msg: VM DNS domain name is {{ guest_dns_domain }}, expected domain name is {{ linux_gosc_spec['domain'] }}

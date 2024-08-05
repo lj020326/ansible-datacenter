@@ -1,0 +1,31 @@
+---
+
+## Trusted root certificates that are required by Windows Server 2008 R2, by Windows 7,
+##  by Windows Server 2008, by Windows Vista, by Windows Server 2003, by Windows XP, and by Windows 2000
+## https://support.microsoft.com/en-us/kb/293781
+
+## Configure Trusted Roots and Disallowed Certificates
+## https://technet.microsoft.com/en-us/library/dn265983.aspx
+# - ansible.builtin.command: Certutil
+# - ansible.builtin.command: certutil -dcinfo deleteBad
+# - command: certutil -dcinfo superfish
+# - name: remove certificates from Windows Certificate store
+#   ansible.windows.win_shell: "dir cert:\ -rec | where Subject -match '{{ item }}' | Remove-Item"
+#   loop: "{{ harden_win_certificates_removed }}"
+
+## certmgr.msc
+## https://github.com/ansible/ansible/issues/14387
+
+# - ansible.windows.win_shell: "dir cert:\\ -rec | where Subject -match 'Superfish' | Remove-Item"
+
+- name: set script to remove Root CA
+  ansible.windows.win_template:
+    src: Remove-TrustedRootCA.ps1.j2
+    dest: "{{ harden_win_temp_dir }}\\Remove-TrustedRootCA.ps1"
+
+- name: Remove some TrustedRootCA
+  ansible.windows.win_shell: "\"{{ harden_win_temp_dir }}\\Remove-TrustedRootCA.ps1\""
+  register: removetrusted
+- name: Debug | removetrusted
+  ansible.builtin.debug:
+    var: removetrusted

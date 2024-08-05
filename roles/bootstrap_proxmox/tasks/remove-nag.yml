@@ -1,0 +1,30 @@
+---
+- name: Get pveversion for backup filename
+  changed_when: false
+  ansible.builtin.shell: |
+    set -o pipefail # <-- adding this will prevent surprises
+    pveversion | awk -F / '{print $2}'
+  register: pveversion
+  check_mode: false
+
+- name: check if backup file exists
+  ansible.builtin.stat:
+    path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.bak-{{ pveversion.stdout }}
+  register: file_result
+
+- name: make a backup of original file
+  when: not file_result.stat.exists
+  ansible.builtin.copy:
+    remote_src: true
+    src: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+    dest: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.bak-{{ pveversion.stdout }}
+    mode: "0644"
+
+# credit: https://johnscs.com/remove-proxmox51-subscription-notice/
+- name: Modify line in file to remove nag message # noqa: command-instead-of-module
+  when: not file_result.stat.exists
+  changed_when: false
+  ansible.builtin.shell:
+    cmd: |
+      sed -Ezi.bak "s/(Ext.Msg.show\(\{\s+title: gettext\('No valid sub)/void\(\{ \/\/\1/g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+  notify: restart pveproxy

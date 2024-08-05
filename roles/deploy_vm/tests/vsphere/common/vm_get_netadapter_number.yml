@@ -1,0 +1,47 @@
+---
+# Get the number of VM network adapters using vmware_guest_network module
+# return the number of network adapters types: VMXNET2, VMXNET3, E1000, E1000E
+#
+- name: Initialize the number of VM network adapters
+  ansible.builtin.set_fact:
+    __vm_net_adapter_vmxnet2: 0
+    __vm_net_adapter_vmxnet3: 0
+    __vm_net_adapter_e1000: 0
+    __vm_net_adapter_e1000e: 0
+    __vm_net_adapter_mac_addr: []
+
+- name: Run vm_get_network_facts.yml
+  ansible.builtin.include_tasks: vm_get_network_facts.yml
+
+- name: Set fact of the total number of VM network adapters
+  ansible.builtin.set_fact:
+    vm_netadapter_num: "{{ vm_network_adapters | length }}"
+
+- name: Display network adapters info
+  ansible.builtin.debug:
+    msg: "Total number of VM network adapters: {{ vm_netadapter_num }}"
+
+- name: Set fact of the number of each VM network adapter type and the MAC address list
+  when: vm_network_adapters | length >= 1
+  ansible.builtin.set_fact:
+    __vm_net_adapter_vmxnet2: "{{ __vm_net_adapter_vmxnet2|int + 1 if item.value.device_type | lower == 'vmxnet2' else __vm_net_adapter_vmxnet2 }}"
+    __vm_net_adapter_vmxnet3: "{{ __vm_net_adapter_vmxnet3|int + 1 if item.value.device_type | lower == 'vmxnet3' else __vm_net_adapter_vmxnet3 }}"
+    __vm_net_adapter_e1000: "{{ __vm_net_adapter_e1000|int + 1 if item.value.device_type | lower == 'e1000' else __vm_net_adapter_e1000 }}"
+    __vm_net_adapter_e1000e: "{{ __vm_net_adapter_e1000e|int + 1 if item.value.device_type | lower == 'e1000e' else __vm_net_adapter_e1000e }}"
+    __vm_net_adapter_mac_addr: "{{ __vm_net_adapter_mac_addr + [item.value.mac_addr] }}"
+  with_dict: "{{ vm_network_adapters }}"
+  no_log: true
+
+- name: Set fact of the dict of network adpater types and their number
+  ansible.builtin.set_fact:
+    vm_netadapter_num_dict:
+      VMXNET2: "{{ __vm_net_adapter_vmxnet2 }}"
+      VMXNET3: "{{ __vm_net_adapter_vmxnet3 }}"
+      E1000: "{{ __vm_net_adapter_e1000 }}"
+      E1000E: "{{ __vm_net_adapter_e1000e }}"
+      total: "{{ vm_netadapter_num }}"
+      MAC_ADDR: "{{ __vm_net_adapter_mac_addr }}"
+
+- name: Display vm_netadapter_num_dict
+  ansible.builtin.debug:
+    msg: "Get the number of each network adapter type dict and MAC address list: {{ vm_netadapter_num_dict }} "

@@ -50,9 +50,9 @@ docs
 files
 filter_plugins
 inventory
-library
 molecule
 playbooks
+plugins
 roles
 scripts
 tests

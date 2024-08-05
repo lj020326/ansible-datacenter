@@ -1,0 +1,35 @@
+---
+#- name: Install the required packages in Debian derivatives
+#  ansible.builtin.package:
+#    name: "{{ item }}"
+#    state: present
+#  loop: "{{ bootstrap_linux_network_pkgs }}"
+#  environment: "{{ env }}"
+#  when: bootstrap_linux_network_check_packages|bool
+
+- name: Install the required packages in Debian derivatives
+  ansible.builtin.package:
+    name: "{{ bootstrap_linux_network_pkgs }}"
+    state: present
+  environment: "{{ env }}"
+  when: bootstrap_linux_network_check_packages|bool
+
+- name: Make sure the include line is there in interfaces file
+  ansible.builtin.lineinfile:
+    regexp: '^source\ {{ net_path | regex_escape() }}/\*'
+    line: "source {{ net_path }}/*"
+    dest: /etc/network/interfaces
+    state: present
+    insertafter: EOF
+
+- name: Create the directory for interface cfg files
+  ansible.builtin.file:
+    path: "{{ net_path }}"
+    state: directory
+    mode: "0755"
+
+# Restart Network Interfaces (deconfigurate & reconfigurate interfaces)
+- name: Run restartscript.yml
+  ansible.builtin.include_tasks: restartscript.yml
+#  when: bootstrap_linux_network_allow_service_restart|bool and ansible_os_family == 'Debian'
+  when: bootstrap_linux_network_allow_service_restart|bool

@@ -1,0 +1,76 @@
+---
+
+- name: "Include OS-specific variables."
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - "default.yml"
+
+- name: "Installing Packages required by nfs"
+  ansible.builtin.package:
+    name: "{{ nfs_packages }}"
+    state: present
+
+### ref: http://www.tweaked.io/guide/nfs/
+### ref: https://cromwell-intl.com/open-source/performance-tuning/nfs.html
+#- name: Configure NFS to use more concurrent processes
+#  ansible.builtin.lineinfile:
+#    path: "{{ nfs_config_file }}"
+#    line: "RPCNFSDCOUNT=16"
+#    regexp: "^#RPCNFSDCOUNT=16"
+
+### ref: https://medium.com/@aloisbarreras_18569/automating-running-gitlab-on-aws-with-terraform-packer-and-ansible-bf1c8724ebea
+#- name: Configure NFS to use more resources
+#  ansible.builtin.copy:
+#    content: |
+#      sunrpc.tcp_slot_table_entries = 128
+#      sunrpc.tcp_max_slot_table_entries = 128
+#      net.core.rmem_default = 262144
+#      net.core.rmem_max = 16777216
+#      net.core.wmem_default = 262144
+#      net.core.wmem_max = 16777216
+#      net.ipv4.tcp_rmem = 4096 262144 16777216
+#      net.ipv4.tcp_wmem = 4096 262144 16777216
+#      net.ipv4.tcp_window_scaling = 1
+#      net.ipv4.tcp_syncookies = 0
+#      net.ipv4.tcp_timestamps = 0
+#      net.ipv4.tcp_sack = 0
+#      net.ipv4.ip_local_port_range = 1024 65000
+#      fs.inode-max = 128000
+#      fs.file-max = 64000
+#    dest: /etc/sysctl.d/30-nfs.conf
+
+## https://github.com/geerlingguy/ansible-role-nfs
+## ref: https://medium.com/@aloisbarreras_18569/automating-running-gitlab-on-aws-with-terraform-packer-and-ansible-bf1c8724ebea
+## ref: https://advishnuprasad.com/blog/2016/03/29/setup-nfs-service-and-client-using-ansible/
+## ref: https://docs.ansible.com/ansible/latest/modules/include_role_module.html
+## ref: https://github.com/oracle/oci-ansible-modules/blob/master/samples/file_storage/multiple_file_systems_with_mount_targets/sample.yaml
+- name: Setup and run nfs
+  ansible.builtin.include_role:
+    name: bootstrap_nfs
+#  notify: restart nfs
+
+- name: Allow nfs traffic through the firewall
+  when: firewalld_enabled | bool
+  tags: [ firewall-config-nfs ]
+  ansible.builtin.include_role:
+    name: bootstrap_linux_firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ nfs_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ nfs_firewalld_ports | d([]) }}"
+
+## ref: https://helpcenter.veeam.com/docs/agentforlinux/userguide/used_ports.html?ver=30
+- name: Allow veeam backup ports through the firewall
+  when:
+    - is_veeam_backup_server | bool
+    - firewalld_enabled | bool
+  tags: [ firewall-config-nfs ]
+  ansible.builtin.include_role:
+    name: bootstrap_linux_firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_ports: "{{ nfs_veeam_firewalld_ports | d([]) }}"

@@ -1,0 +1,40 @@
+---
+- name: Creating systemd service
+  ansible.builtin.template:
+    dest: /etc/systemd/system/stepca-test-ct.service
+    src: stepca_systemd_units/stepca-test-ct.service
+    mode: "0644"
+
+- name: Creating configuration file
+  ansible.builtin.template:
+    dest: '{{ install_root }}/config/ct-test-srv.json'
+    src: ct_config/ct-test-srv.json.j2
+    mode: "0644"
+
+- name: Generating log signing key
+  community.crypto.openssl_privatekey:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/log.key' }}"
+    type: ECC
+    curve: secp256r1
+  delegate_to: 127.0.0.1
+
+- name: Obtaining log signing public key
+  ansible.builtin.command:
+    cmd: openssl ec -in log.key -pubout -out log.pub
+    chdir: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog' }}"
+  creates: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/log.pub' }}"
+  delegate_to: 127.0.0.1
+
+#  - name: Obtaining log signing public key
+#    community.crypto.openssl_publickey:
+#      path: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/log.pub' }}"
+#      privatekey_path: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/log.key' }}"
+#    delegate_to: 127.0.0.1
+
+- name: Inserting signing public key information to stepca's ra.json
+  ansible.builtin.replace:
+    path: "{{ install_root + '/config/ra.json' }}"
+    after: uri
+    before: submitFinalCert
+    regexp: '@@TOBEREPLACED@@'
+    replace: "{{ lookup('file', secret + '/certificates/' + ansible_fqdn + '/ctlog/log.pub') | decap_pem }}"

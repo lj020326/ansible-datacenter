@@ -1,0 +1,168 @@
+## ref: https://doc.traefik.io/traefik/v3.0/migration/v2-to-v3/#docker-docker-swarm
+## ref: https://doc.traefik.io/traefik/v3.0/migration/v2-to-v3-details/#static-configuration-changes
+## ref: https://stackoverflow.com/questions/55414106/traefik-2-0-how-to-configure-traefik-frontend-rule-hostexample-com
+
+checkNewVersion: false
+sendAnonymousUsage: false
+
+## ref: https://doc.traefik.io/traefik/v3.0/migration/v2-to-v3/#docker-docker-swarm
+# static configuration
+core:
+  defaultRuleSyntax: v2
+
+## ref: https://github.com/traefik/traefik/issues/3906
+## ref: https://github.com/linuxserver/Heimdall/issues/96
+## ref: https://community.traefik.io/t/insecureskipverify-explanation/2195
+serversTransport:
+  insecureSkipVerify: true
+#  insecureSkipVerify: false
+#  rootCAs:
+#    - "/certs/{{ docker_stack__ssl_internal_root_cacert_file }}"
+#    - "/certs/{{ docker_stack__ssl_internal_cacert_file }}"
+
+log:
+  level: DEBUG # DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+#  filePath: /var/log/traefik.log
+#  format: json # json, common
+
+accessLog:
+#  filePath: /var/log/traefik-access.log
+  filePath: /traefik.log
+#  format: json # json, common
+  bufferingSize: 100 # Configuring a buffer of 100 lines
+  filters:
+    statusCodes: 400-499
+
+api:
+  dashboard: true
+  debug: true
+  insecure: true
+
+## ref: https://doc.traefik.io/traefik/operations/ping/#configuration-examples
+ping:
+  entryPoint: "ping"
+
+#pilot.token: $TRAEFIK_PILOT_TOKEN
+
+entryPoints:
+#  traefik:
+#    address: ":8080"
+
+  ssh:
+    address: ":{{ docker_stack__traefik_ssh }}"
+
+  ping:
+    address: ":8082"
+
+  http:
+    address: ":{{ docker_stack__traefik_http }}"
+
+  https:
+    address: ":{{ docker_stack__traefik_https }}"
+    forwardedHeaders:
+      trustedIPs:
+        - 192.168.0.0/16
+        - 172.0.0.0/8
+        - 10.0.0.0/8
+
+    http:
+      tls:
+        options: "mintls12@file"
+{% if docker_stack__enable_cert_resolver|d(False) %}
+        ## Add dns-cloudflare as default certresolver for all services.
+        ## Also enables TLS and no need to specify on individual services
+        certresolver: {{ __docker_stack__base__traefik_certresolver }}
+{% endif %}
+        domains:
+          - main: "{{ docker_stack__internal_domain }}"
+            sans: "*.{{ docker_stack__internal_domain }}"
+{% if docker_stack__setup_external_site|d(False) %}
+          - main: "{{ docker_stack__external_domain }}"
+            sans: "*.{{ docker_stack__external_domain }}"
+{% endif %}
+
+## ref: https://docs.traefik.io/v2.0/providers/docker
+## ref: https://docs.traefik.io/v2.0/reference/static-configuration/file/
+## ref: https://github.com/EugenMayer/docker-image-traefik/blob/feature/2.0/tiller/templates/traefik.toml.erb
+## ref: https://doc.traefik.io/traefik/v3.0/migration/v2-to-v3-details/#static-configuration-changes
+providers:
+{% if docker_stack__swarm_mode|bool %}
+  swarm:
+{% else %}
+  docker:
+{% endif %}
+    ## Use Docker Socket Proxy instead for improved security
+    endpoint: "tcp://socket-proxy:2375"
+#    endpoint: "unix:///var/run/docker.sock"
+#    domain: "{{ docker_stack__internal_domain }}"
+    defaultRule: "Host(`{{ docker_stack__internal_domain }}`)"
+    watch: true
+
+    ## Swarm Mode:
+    ##   In swarm mode this option must be enabled to allow traefik routing to containers
+    ##   in v3.0+ use `labels: ["traefik.docker.lbswarm=true"]`
+    ## ref: https://stackoverflow.com/questions/66536125/traefik-load-balance-across-three-node-docker-swarm
+    ## ref: https://doc.traefik.io/traefik/v3.0/routing/providers/swarm/#traefikdockerlbswarm
+#    useBindPortIP: true
+
+    # This will hide all docker containers that don't have explicitly
+    # set label to "enable"
+#    exposedByDefault: true
+    exposedByDefault: false
+
+    ## ref: https://docs.traefik.io/v2.0/providers/docker/
+    network: {{ docker_stack__traefik_proxy_network }}
+
+  file:
+    ## use a rules.toml if there are non-docker backend services
+    ## ref: https://www.smarthomebeginner.com/traefik-reverse-proxy-tutorial-for-docker/
+    ## ref: https://www.smarthomebeginner.com/traefik-reverse-proxy-tutorial-for-docker/#Proxying_Non-Docker_Host_System_Apps
+    directory: "/etc/traefik/rules/"
+    watch: true
+  rest:
+    insecure: true
+
+
+## ref: https://github.com/EugenMayer/docker-image-traefik/blob/feature/2.0/tiller/templates/traefik.toml.erb
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "admin@dettonville.org"
+      storage: "/etc/traefik/acme/{{ __docker_stack__base__traefik_certresolver_acme_file_prod }}"
+#      entryPoint: "https"
+#      acmeLogging: true
+      #create certificate when container is created
+#      onDemand: false
+#      onHostRule=true
+
+      ## prod server https://doc.traefik.io/traefik/v2.2/https/acme/#wildcard-domains
+      caServer: "https://acme-v02.api.letsencrypt.org/directory"
+      dnsChallenge:
+        provider: "cloudflare"
+        resolvers: 1.1.1.1:53,1.0.0.1:53,8.8.8.8:53
+        # To delay DNS check and reduce LE hitrate
+        delayBeforeCheck: 90
+
+  letsencrypt-qa:
+    acme:
+      email: "admin@dettonville.org"
+      storage: "/etc/traefik/acme/{{ __docker_stack__base__traefik_certresolver_acme_file_qa }}"
+#      acmeLogging: true
+
+      ## staging mode: https://github.com/containous/traefik/issues/3468
+      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      dnsChallenge:
+        provider: "cloudflare"
+        resolvers: 1.1.1.1:53,1.0.0.1:53,8.8.8.8:53
+        # To delay DNS check and reduce LE hitrate
+        delayBeforeCheck: 90
+
+
+#  dns-cloudflare:
+#    acme:
+#      email: $CLOUDFLARE_EMAIL
+#      storage: /acme.json
+#      dnsChallenge:
+#        provider: cloudflare
+#        resolvers: 1.1.1.1:53,1.0.0.1:53
+#        delayBeforeCheck: 90 # To delay DNS check and reduce LE hitrate

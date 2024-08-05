@@ -1,0 +1,27 @@
+---
+- name: Load variables for the target system
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - os/{{ ansible_distribution }}/{{ ansible_distribution_release }}.yml
+    - os/{{ ansible_distribution }}.yml
+    - os/{{ ansible_os_family }}_{{ ansible_architecture }}.yml
+    - os/{{ ansible_os_family }}.yml
+    - os/default.yml
+
+- name: Setup on Linux
+  when: ansible_system == 'Linux'
+  ansible.builtin.include_tasks: install/Linux.yml
+
+- name: Setup on macOS
+  when: ansible_os_family == 'Darwin'
+  ansible.builtin.include_tasks: install/Darwin.yml
+
+- name: Run setup.yml
+  ansible.builtin.import_tasks: setup.yml
+
+- name: Initialise shell
+  when: pyenv_init_shell|bool
+  ansible.builtin.include_tasks: shell/shell.yml
+
+- name: Run versions/python_versions.yml
+  ansible.builtin.import_tasks: versions/python_versions.yml

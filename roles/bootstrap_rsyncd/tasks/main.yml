@@ -1,0 +1,66 @@
+---
+- name: Install rsync if not present
+  ansible.builtin.package:
+    name: rsync
+    state: present
+  register: rsync_out
+  delegate_to: "{{ item }}"
+  loop:
+    - "{{ remote_host }}"
+    - "{{ source_host }}"
+
+- name: Set __rsync_dict
+  ansible.builtin.set_fact:
+    __rsync_dict: "{{ __rsync_dict | default([]) | union([{'status': item.changed, 'ip': item.item }]) }}"
+  loop: "{{ rsync_out.results }}"
+
+- name: Backup the rsyncd.conf
+  when: not item.status|bool
+  ansible.builtin.copy:
+    remote_src: true
+    src: /etc/rsyncd.conf
+    dest: /etc/rsyncd.conf.bkup
+    mode: "0644"
+  delegate_to: "{{ item.ip }}"
+  loop: "{{ __rsync_dict }}"
+
+- name: Start and enable the service
+  ansible.builtin.service:
+    name: rsyncd
+    state: started
+    enabled: true
+  delegate_to: "{{ item }}"
+  loop:
+    - "{{ remote_host }}"
+    - "{{ source_host }}"
+
+- name: Configure the /etc/rsync.conf file
+  ansible.builtin.template:
+    src: rsyncd.conf.j2
+    dest: /etc/rsyncd.conf
+    mode: "0644"
+  delegate_to: "{{ remote_host }}"
+
+- name: Restart rsyncd
+  ansible.builtin.service:
+    name: rsyncd
+    state: restarted
+  become: true
+  delegate_to: "{{ remote_host }}"
+
+- name: Run rsync # noqa: command-instead-of-module
+  changed_when: false
+  ansible.builtin.command: rsync -avz --delete-before {{ local_filesystem_path }} {{ remote_host }}::files
+  become: true
+  delegate_to: "{{ source_host }}"
+
+- name: Restore the backup of the rsyncd.conf
+  when: not item.status|bool
+  #  ansible.builtin.command: "mv /etc/rsyncd.conf.bkup /etc/rsyncd.conf"
+  ansible.builtin.copy:
+    remote_src: true
+    src: /etc/rsyncd.conf.bkup
+    dest: /etc/rsyncd.conf
+    mode: "0644"
+  delegate_to: "{{ item.ip }}"
+  loop: "{{ __rsync_dict }}"

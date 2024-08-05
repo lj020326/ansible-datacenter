@@ -1,0 +1,212 @@
+{{ ansible_managed | comment }}
+
+##########
+## ref: https://github.com/docker/compose/issues/11628
+## version is only informative since a long time ago now. You can use loose options and you don't need it, check the spec:
+## https://github.com/compose-spec/compose-spec/blob/master/spec.md#version-and-name-top-level-elements
+#version: "3.7"
+
+{% if __docker_stack__networks %}
+networks:
+{% if docker_stack__swarm_mode|d(False)|bool %}
+  {{ __docker_stack__networks | ansible.utils.remove_keys(target=['ipam_config','scope'])
+    | to_nice_yaml(indent=2) | indent(2) }}
+{% else %}
+  {{ __docker_stack__networks | ansible.utils.remove_keys(target=['driver','ipam_config','scope'])
+    | to_nice_yaml(indent=2) | indent(2) }}
+{% endif %}
+{% endif %}
+
+{% if __docker_stack__volumes %}
+volumes:
+  {{ __docker_stack__volumes | to_nice_yaml(indent=2) | indent(2) }}
+{% endif %}
+
+{% if docker_stack__swarm_mode|d(False)|bool %}
+{% if __docker_stack__secrets|d({})|length > 0 %}
+secrets:
+{% for _secret_name in __docker_stack__secrets.keys() %}
+  {{ _secret_name }}:
+    external: true
+{% endfor %}
+{% endif %}
+{% endif %}
+
+{% if docker_stack__configs %}
+configs:
+  {{ docker_stack__configs | to_nice_yaml(indent=2) | indent(2) }}
+{% endif %}
+
+services:
+{% for service_group in __docker_stack__service_groups %}
+{% if __docker_stack__service_group_configs_tpl[service_group.name]|d([])|length > 0 %}
+  ########################
+  ## {{ service_group.name | upper }} GROUP SERVICES
+{% for key, container in __docker_stack__service_group_configs_tpl[service_group.name].items() %}
+{% if (container.active | d(True)) %}
+  {{ container.service_name if container.service_name is defined else key }}:
+    image: {{ container.image }}
+{% if not docker_stack__swarm_mode|bool %}
+    container_name: {{ container.container_name | default(container.service_name)| default(key) }}
+{% if container.network_mode is defined %}
+    network_mode: {{ container.network_mode }}
+{% endif %}
+{% if container.restart is defined %}
+    restart: {{ container.restart }}
+{% endif %}
+{% if container.privileged is defined %}
+    privileged: {{ container.privileged }}
+{% endif %}
+{% if container.security_opt is defined %}
+    security_opt:
+{% for sec_opt in container.security_opt %}
+      - {{ sec_opt }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if ( container.environment is defined ) or ( container.include_global_env_vars is defined and container.include_global_env_vars) %}
+    environment:
+{% if container.include_global_env_vars | default(false) %}
+      ## global envs
+      {{ global_env_vars | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{% if container.environment is defined %}
+      ## app envs
+      {{ container.environment | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{%- endif %}
+{% if container.env_file is defined %}
+    env_file:
+      {{ container.env_file | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{% if container.mem_limit is defined %}
+    mem_limit: {{ container.mem_limit }}
+{% endif %}
+{% if container.hostname is defined %}
+    hostname: {{ container.hostname }}
+{% endif %}
+{% if container.extra_hosts is defined %}
+    extra_hosts:
+{% for host in container.extra_hosts %}
+      - {{ host }}
+{% endfor %}
+{% endif %}
+{% if container.shm_size is defined %}
+    shm_size: {{ container.shm_size }}
+{% endif %}
+{% if container.user is defined %}
+    user: {{ container.user }}
+{% endif %}
+{% if container.cap_add is defined %}
+    cap_add:
+{% for cap in container.cap_add %}
+      - {{ cap }}
+{% endfor %}
+{% endif %}
+{% if container.devices is defined %}
+    devices:
+{% for device in container.devices %}
+      - {{ device }}
+{% endfor %}
+{% endif %}
+{% if container.networks is defined %}
+    networks:
+{% for network in container.networks %}
+      - {{ network }}
+{% endfor %}
+{% endif %}
+{% if container.ports is defined %}
+{% set _port_list = [] %}
+{% for port in container.ports %}
+{% if port is mapping %}
+{% set _port_info = {} %}
+{% for port_key, port_value in port.items() %}
+{% if port_key in ['published', 'target'] %}
+{% set _ = _port_info.update({ port_key: (port_value|int) }) %}
+{% else %}
+{% set _ = _port_info.update({ port_key: port_value }) %}
+{% endif %}
+{% endfor %}
+{% set _ = _port_list.append(_port_info) %}
+{% else %}
+{% set _ = _port_list.append(port) %}
+{% endif %}
+{% endfor %}
+    ports:
+      {{ _port_list | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{% if container.depends_on is defined %}
+    depends_on:
+{% for dependent in container.depends_on %}
+      - {{ dependent }}
+{% endfor %}
+{% endif %}
+{% if not docker_stack__swarm_mode|bool %}
+{% if container.links is defined %}
+    links:
+{% for link in container.links %}
+      - {{ link }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if container.command is defined %}
+{% if container.command is string %}
+    command: {{ container.command }}
+{% else %}
+    command:
+      {{ container.command | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{% endif %}
+{% if container.entrypoint is defined %}
+    entrypoint: {{ container.entrypoint }}
+{% endif %}
+{% if container.dns is defined %}
+    dns:
+{% for dns_entry in container.dns %}
+      - {{ dns_entry }}
+{% endfor %}
+{% endif %}
+{% if docker_stack__swarm_mode|d(False)|bool %}
+{% if container.secrets is defined %}
+    secrets:
+{% for secret in container.secrets %}
+      - {{ secret }}
+{% endfor %}
+{%- endif %}
+{%- endif %}
+{% if not docker_stack__swarm_mode|bool %}
+{% if container.labels is defined %}
+    labels:
+      {{ container.labels | to_nice_yaml(indent=2) | indent(6) }}
+{%- endif %}
+{%- endif %}
+{% if docker_stack__swarm_mode|bool %}
+{% if container.deploy is defined %}
+    deploy:
+      {{ container.deploy | to_nice_yaml(indent=2) | indent(6) }}
+{%- if container.labels is defined %}
+      labels:
+{% if container.labels is mapping %}
+{% for label_name, label_value in container.labels.items() %}
+        - {{ label_name }}={{ label_value }}
+{% endfor %}
+{% else %}
+{% for label in container.labels %}
+        - {{ label }}
+{% endfor %}
+{%- endif %}
+{%- endif %}
+{%- endif %}
+{%- endif %}
+{% if container.volumes is defined %}
+    volumes:
+{% for volume in container.volumes %}
+      - {{ volume }}
+{% endfor %}
+{% endif %}
+
+{% endif %}
+{% endfor %}
+
+{% endif %}
+{% endfor %}

@@ -1,0 +1,126 @@
+---
+# Setup testing environment
+- name: env_setup
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../vars/test.yml') }}"
+  tasks:
+    - name: Run get_ansible_info.yml
+      ansible.builtin.include_tasks: get_ansible_info.yml
+
+    - name: Run set_default_variables.yml
+      ansible.builtin.include_tasks: set_default_variables.yml
+
+    # Create this test run log files path
+    - name: Run create_local_log_path.yml
+      ansible.builtin.include_tasks: create_local_log_path.yml
+
+    # Check and initialize variables for VM settings
+    - name: Run check_testing_vars.yml
+      ansible.builtin.include_tasks: check_testing_vars.yml
+
+    # Set hostname of Ansible module connecting
+    - name: Run ../common/set_vmware_module_hostname.yml
+      ansible.builtin.include_tasks: ../common/set_vmware_module_hostname.yml
+
+    # Check VM existence
+    - name: Run ../common/vm_check_exist.yml
+      ansible.builtin.include_tasks: ../common/vm_check_exist.yml
+
+    - name: Check VM '{{ vm_name }}' does not exist
+      when: new_vm is defined and new_vm | bool
+      ansible.builtin.assert:
+        that:
+          - not vm_exists
+        fail_msg: Cann't deploy VM as a VM with same name '{{ vm_name }}' already exists. Please provide a new vm_name.
+
+    - name: Check VM '{{ vm_name }}' exists
+      when: new_vm is undefined or not new_vm | bool
+      ansible.builtin.assert:
+        that:
+          - vm_exists
+        fail_msg: VM '{{ vm_name }}' doesn't exist. Please set new_vm to True to deploy the VM or provide an existing VM name.
+
+    # Get VM related info if testing on existing VM
+    - name: Run ../common/vm_get_vm_info.yml
+      when: vm_exists is defined and vm_exists
+      ansible.builtin.include_tasks: ../common/vm_get_vm_info.yml
+
+    - name: Set fact of the VM datastore path
+      ansible.builtin.set_fact:
+        vm_datastore_path: /vmfs/volumes/{{ datastore }}
+
+    - name: Display the datatore path of VM files
+      ansible.builtin.debug:
+        # Get vCenter and ESXi version info
+        var: vm_datastore_path
+
+    - name: Run ../common/vcenter_get_version_build.yml
+      when: vcenter_is_defined is defined and vcenter_is_defined
+      ansible.builtin.include_tasks: ../common/vcenter_get_version_build.yml
+
+    - name: Run ../common/esxi_get_version_build.yml
+      ansible.builtin.include_tasks: ../common/esxi_get_version_build.yml
+
+    # Get ESXi server model info
+    - name: Run ../common/esxi_get_model.yml
+      ansible.builtin.include_tasks: ../common/esxi_get_model.yml
+
+    - name: Get shell executable on ESXi server
+      when: esxi_shell is defined and esxi_shell
+      block:
+        - name: Get shell executable on ESXi server
+          ansible.builtin.raw: if [ -e {{ esxi_shell }} ]; then printf {{ esxi_shell }} ; else printf /bin/sh; fi
+          vars:
+            ansible_user: "{{ esxi_username }}"
+            ansible_password: "{{ esxi_password }}"
+            ansible_host_key_checking: false
+          delegate_to: "{{ esxi_hostname }}"
+          register: check_esxi_shell
+          changed_when: false
+
+        - name: Set ESXi server shell executable
+          ansible.builtin.set_fact:
+            esxi_shell_executable: "{{ check_esxi_shell.stdout }}"
+
+    - name: Set ESXi server shell executable
+      when: esxi_shell is undefined or not esxi_shell
+      ansible.builtin.set_fact:
+        esxi_shell_executable: /bin/sh
+
+    # Add esxi host into memory inventory
+    - name: Run ../common/add_host_in_memory_inventory.yml
+      ansible.builtin.include_tasks: ../common/add_host_in_memory_inventory.yml
+      vars:
+        add_host_in_memory_inventory_ip: "{{ esxi_hostname }}"
+        add_host_in_memory_inventory_gp: esxi
+        add_host_in_memory_inventory_user: "{{ esxi_username }}"
+        add_host_in_memory_inventory_pwd: "{{ esxi_password }}"
+        add_host_in_memory_inventory_python: /bin/python
+        add_host_in_memory_inventory_ssh_pipeline: true
+        add_host_in_memory_inventory_remote_tmp: "{{ vm_datastore_path }}"
+        add_host_in_memory_inventory_shell: "{{ esxi_shell_executable }}"
+
+    # Enable guest IP hack on ESXi host to get VM IP address when
+    # there is no VMware tools installed or VMware tools is not up
+    - name: Run ../common/esxi_enable_guest_ip_hack.yml
+      ansible.builtin.include_tasks: ../common/esxi_enable_guest_ip_hack.yml
+
+    # For existing VM
+    - name: Cleanup existing snapshots of existing VM if required
+      when: (new_vm is undefined) or (not new_vm | bool)
+      block:
+        - name: Not cleanup old snapshot by default
+          when: cleanup_old_snapshots is undefined
+          ansible.builtin.set_fact:
+            cleanup_old_snapshots: false
+
+        # Cleanup existing snapshots of existing VM if required
+        - name: Run ../common/vm_cleanup_snapshot.yml
+          when: cleanup_old_snapshots | bool
+          ansible.builtin.include_tasks: ../common/vm_cleanup_snapshot.yml
+
+        # Check VM settings
+        - name: Run check_vm_settings.yml
+          ansible.builtin.include_tasks: check_vm_settings.yml

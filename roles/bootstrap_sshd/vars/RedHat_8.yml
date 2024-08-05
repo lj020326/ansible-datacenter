@@ -1,0 +1,43 @@
+---
+__sshd_packages:
+  - openssh
+  - openssh-server
+__sshd_sftp_server: /usr/libexec/openssh/sftp-server
+__sshd_defaults:
+  HostKey:
+    - /etc/ssh/ssh_host_rsa_key
+    - /etc/ssh/ssh_host_ecdsa_key
+    - /etc/ssh/ssh_host_ed25519_key
+  SyslogFacility: AUTHPRIV
+  AuthorizedKeysFile: .ssh/authorized_keys
+  PasswordAuthentication: true
+  PermitRootLogin: true
+  ChallengeResponseAuthentication: false
+  GSSAPIAuthentication: true
+  GSSAPICleanupCredentials: false
+  # Note that UsePAM: no is not supported under RHEL/CentOS. See
+  # https://github.com/willshersystems/ansible-sshd/pull/51#issuecomment-287333218
+  UsePAM: true
+  X11Forwarding: true
+  PrintMotd: false
+  AcceptEnv:
+    - LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES
+    - LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
+    - LC_IDENTIFICATION LC_ALL LANGUAGE
+    - XMODIFIERS
+  Subsystem: "sftp {{ __sshd_sftp_server }}"
+__sshd_os_supported: true
+__sshd_sysconfig_supports_use_strong_rng: true
+__sshd_sysconfig_supports_crypto_policy: true
+__sshd_hostkey_group: ssh_keys
+__sshd_hostkey_mode: "0640"
+__sshd_hostkeys_nofips:
+  - /etc/ssh/ssh_host_ed25519_key
+
+__sshd_environment_file:
+  - /etc/crypto-policies/back-ends/opensshserver.config
+  - /etc/sysconfig/sshd
+__sshd_environment_variable: $OPTIONS $CRYPTO_POLICY
+__sshd_service_after: sshd-keygen.target
+__sshd_service_wants: sshd-keygen.target ssh-host-keys-migration.service
+__sshd_service_restart_timeout: 42s

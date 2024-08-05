@@ -1,0 +1,29 @@
+---
+
+- name: Determine if sysctl command found
+  ansible.builtin.command:
+    cmd: sysctl --version
+#    cmd: sysctl --version 2>&1 | head -1 | cut -d ' ' -f 4
+  register: __sysctl_version_result
+  check_mode: false
+  changed_when: false
+  ignore_errors: true
+#  failed_when: __sysctl_version_result.rc != 0 and __sysctl_version_result.rc != 127
+#  failed_when: __sysctl_version_result.rc != 0
+
+- name: Install sysctl
+  when:
+    - __sysctl_version_result is failed
+    - bootstrap_linux_core__systemd_sysctl_package is defined
+  ansible.builtin.package:
+    name: "{{ bootstrap_linux_core__systemd_sysctl_package }}"
+    state: present
+
+- name: Ensure sysctl
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: no
+    ignoreerrors: yes
+  loop: "{{ bootstrap_linux_core__sysctl_configs }}"

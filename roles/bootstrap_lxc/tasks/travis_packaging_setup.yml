@@ -1,0 +1,75 @@
+---
+- name: Install python3-apt systemwide
+  become: true
+  # After this task, the apt module can be used without problem.
+  block:
+  # This needs to be done using a command module because the apt module is
+  # broken in the Travis CI virtualenv by default.
+  # We also install sl here so that we can ensure an apt update is run at least
+  # once during the deployment of this role (b/c sl is not installed in Travis)
+    - name: Install python3-apt systemwide
+      ansible.builtin.shell: apt update && apt install -y sl python3-apt
+      args:
+        creates: /usr/games/sl
+        warn: false
+      retries: 3
+
+- name: Install python-apt into virtualenv
+  ansible.builtin.copy:
+    src: /usr/lib/python3/dist-packages/{{ item }}
+    dest: "{{ lookup('env', 'VIRTUAL_ENV') }}/lib/python3.6/site-packages/"
+    remote_src: true
+    mode: "0644"
+  with_items:
+    - apt
+    - aptsources
+    - apt_inst.cpython-36m-x86_64-linux-gnu.so
+    - apt_pkg.cpython-36m-x86_64-linux-gnu.so
+
+- name: Install needed packages
+  become: true
+  block:
+    - name: Install needed packages
+      ansible.builtin.apt:
+        name: "{{ travis_lxc_packages }}"
+        update_cache: true
+        cache_valid_time: 3600
+        state: latest
+      retries: 3
+
+    - name: Patch Fedora's LXC template for 28+ support
+      ansible.posix.patch:
+        src: fedora-28-support.patch
+        dest: /usr/share/lxc/templates/lxc-fedora
+
+    - name: Ensure Fedora LXC template is executable
+      ansible.builtin.file:
+        path: /usr/share/lxc/templates/lxc-fedora
+        mode: "0755"
+
+    - name: Patch Alpine's LXC template to not fail on mknod
+      ansible.posix.patch:
+        src: alpine-mknod.patch
+        dest: /usr/share/lxc/templates/lxc-alpine
+
+    - name: Ensure Alpine LXC template is executable
+      ansible.builtin.file:
+        path: /usr/share/lxc/templates/lxc-alpine
+        mode: "0755"
+
+- name: Install LXC Python library
+  ansible.builtin.pip:
+    name: "{{ 'https://github.com/lxc/python3-lxc/archive/python3-lxc-3.0.4.tar.gz' if ansible_python.version.major == 3 else 'lxc_python2' }}"
+    virtualenv: "{{ lookup('env', 'VIRTUAL_ENV') }}"
+  retries: 3
+
+- name: Identify Travis CI's local Ubuntu mirror
+  ansible.builtin.shell: |
+    set -o pipefail # <-- adding this will prevent surprises
+    apt-cache policy python | grep -m1 -oP "https?://.*?/ubuntu
+  changed_when: false
+  register: _travis_ubuntu_mirror_lookup
+
+- name: Set fact for which mirror to use for Ubuntu LXC containers
+  ansible.builtin.set_fact:
+    _travis_ubuntu_mirror: "{{ _travis_ubuntu_mirror_lookup.stdout if _travis_ubuntu_mirror_lookup.stdout != '' else 'http://mirror.math.princeton.edu/pub/ubuntu' }}"

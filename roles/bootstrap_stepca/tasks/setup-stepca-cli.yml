@@ -1,0 +1,103 @@
+---
+## ref: https://smallstep.com/docs/step-ca/installation
+## get_url: https://github.com/smallstep/cli/releases/download/v0.15.7/step_linux_0.15.7_amd64.deb
+## sudo dpkg -i step-cli_0.15.3_amd64.deb
+
+## ref: debops.rstudio_server
+- name: Create step source directory
+  ansible.builtin.file:
+    path: "{{ stepca__src }}"
+    state: directory
+    #    owner: "{{ stepca__user }}"
+    #    group: "{{ stepca__group }}"
+    mode: "0755"
+
+## Step cli
+- name: Download Step cli package
+  ansible.builtin.get_url:
+    url: "{{ stepca__cli_package_url }}"
+    dest: "{{ stepca__src }}/{{ stepca__cli_package_url | basename }}"
+    checksum: "{{ stepca__cli_package_checksum | d(omit) }}"
+    mode: "0644"
+  register: stepca__register_step_cli_package
+  until: stepca__register_step_cli_package is succeeded
+
+- name: Debian/Ubuntu install
+  when: ansible_os_family == "Debian"
+  block:
+    #    - name: "Debian/Ubuntu | Verify Step-ca Server package signature"
+    #      ansible.builtin.command: "dpkg-sig --verify {{ stepca__src }}/{{ stepca__cli_package_url | basename}}"
+    #      changed_when: False
+    #      check_mode: False
+
+    - name: Debian/Ubuntu | Install Step cli .deb package
+      ansible.builtin.apt:
+        deb: "{{ stepca__src }}/{{ stepca__cli_package_url | basename }}"
+        state: present
+      register: stepca__register_step_ca_deb
+      until: stepca__register_step_ca_deb is succeeded
+
+## ref: https://smallstep.com/docs/step-ca/installation
+- name: RedHat install
+  when: ansible_os_family == "RedHat"
+  block:
+    - name: Redhat | Uncompress step-cli binary # noqa: command-instead-of-module
+      changed_when: false
+      ansible.builtin.shell: tar -xzf {{ stepca__cli_package_url | basename }} --no-anchored --wildcards --strip-components=2 */bin/step
+      args:
+        chdir: "{{ stepca__src }}"
+        creates: "{{ stepca__src }}/step"
+
+    - name: Redhat | Ensure step executable
+      ansible.builtin.file:
+        path: "{{ stepca__src }}/step"
+        mode: "0755"
+
+    - name: RedHat | Create {{ stepca_cli_bin_dir }} if necessary
+      ansible.builtin.file:
+        path: "{{ stepca_cli_bin_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Redhat | Move step into place
+      #      changed_when: false
+      #      ansible.builtin.command: "mv {{ stepca__src }}/step {{ stepca_cli_bin_dir }}"
+      ansible.builtin.copy:
+        src: "{{ stepca__src }}/step"
+        dest: "{{ stepca_cli_bin_dir }}/"
+        remote_src: true
+        mode: preserve
+#        mode: "0755"
+
+##- name: Creating Step-ca service account
+##  ansible.builtin.user:
+##    name: "{{ stepca_svc_user }}"
+##    password: '*'
+##    shell: /sbin/nologin
+##    create_home: no
+##    system: yes
+#
+#- name: create step group
+#  ansible.builtin.group:
+#    name: step
+#    state: present
+#
+#- name: Creating Step-ca service account
+#  ansible.builtin.user:
+#    name: "{{ stepca_svc_user }}"
+#    groups: step
+#    password: '*'
+#    shell: /sbin/nologin
+#    append: yes
+#    state: present
+#    create_home: no
+#    system: yes
+
+## ref: https://smallstep.com/docs/step-ca/getting-started#initialize-your-certificate-authority
+- name: Bootstap step cli configuration
+  changed_when: false
+  ansible.builtin.command: step ca bootstrap --force --ca-url {{ stepca_host_url }} --fingerprint {{ stepca_root_ca_fingerprint }}
+
+- name: Install stepca-renew.service
+  when: stepca_install_service|d(True)|bool
+  ansible.builtin.include_tasks: setup-stepca-renew-service.yml

@@ -1,0 +1,148 @@
+---
+# Valid Guest file operation is: create_dir, delete_dir, fetch_file, copy_file
+# Common parameters for file operation:
+#   tools_ready_in_guest_file_ops: default value is true. Set it to false if
+# VMware tools is not running when do guest file operation, will wait for
+# VMware tools status is running.
+#
+- name: By default VMware tools status is running
+  when: tools_ready_in_guest_file_ops is undefined
+  ansible.builtin.set_fact:
+    tools_ready_in_guest_file_ops: true
+
+# Wait for VMware Tools in running status
+- name: Run vm_wait_vmtools_status.yml
+  when: not tools_ready_in_guest_file_ops
+  ansible.builtin.include_tasks: vm_wait_vmtools_status.yml
+  vars:
+    vm_wait_vmtools_running: true
+
+# Parameters for create_dir:
+# dir_path: The directory path to be created
+# recurse: Whether to create the directory path recursively or not
+- name: Create directory {{ dir_path }} in VM guest
+  when: operation == "create_dir"
+  # Parameters for delete_dir:
+  # dir_path: The directory path to be deleted
+  # recurse: Delete the directory path recursively or not
+  block:
+    - name: Create directory {{ dir_path }} in VM guest
+      community.vmware.vmware_guest_file_operation:
+        hostname: "{{ vsphere_host_name }}"
+        username: "{{ vsphere_host_user }}"
+        password: "{{ vsphere_host_user_password }}"
+        datacenter: "{{ vsphere_host_datacenter }}"
+        validate_certs: "{{ validate_certs | default(false) }}"
+        vm_id: "{{ vm_name }}"
+        vm_username: "{{ vm_username }}"
+        vm_password: "{{ vm_password }}"
+        directory:
+          path: "{{ dir_path }}"
+          operation: create
+          recurse: "{{ recurse }}"
+      register: create_dir_op
+      ignore_errors: true
+
+    - name: Print the result of create directory
+      when: enable_debug|d(False)|bool
+      ansible.builtin.debug:
+        var: create_dir_op
+
+    - name: Only ignore directory exists error
+      when:
+        - create_dir_op is defined
+        - not create_dir_op.changed
+        - ('msg' in create_dir_op) and (create_dir_op.msg.count('already exists') == 0)
+      ansible.builtin.fail:
+        msg: "Failed to create diretory: '{{ dir_path }}', due to {{ create_dir_op.msg }}"
+
+- name: Delete directory {{ dir_path }} in VM guest
+  when: operation == "delete_dir"
+  # Parameters for fetch_file:
+  # src_path: The source file path in guest
+  # dest_path: The dest file path on localhost
+  block:
+    - name: Delete directory {{ dir_path }} in VM guest
+      community.vmware.vmware_guest_file_operation:
+        hostname: "{{ vsphere_host_name }}"
+        username: "{{ vsphere_host_user }}"
+        password: "{{ vsphere_host_user_password }}"
+        datacenter: "{{ vsphere_host_datacenter }}"
+        validate_certs: "{{ validate_certs | default(false) }}"
+        vm_id: "{{ vm_name }}"
+        vm_username: "{{ vm_username }}"
+        vm_password: "{{ vm_password }}"
+        directory:
+          path: "{{ dir_path }}"
+          operation: delete
+          recurse: "{{ recurse }}"
+      register: delete_dir_op
+
+    - name: Print result of delete directory
+      when: enable_debug|d(False)|bool
+      ansible.builtin.debug:
+        var: delete_dir_op
+
+- name: Fetch file {{ src_path }} from VM guest
+  when: operation == "fetch_file"
+  # Parameters for copy_file:
+  # src_path: The source file path localhost
+  # dest_path: The dest file path in guest
+  # overwrite: If the dest file exists, overwrite it or not
+  block:
+    - name: Check If the destination base directory exist
+      ansible.builtin.stat:
+        path: "{{ dest_path | dirname }}"
+      ignore_errors: true
+      register: fetch_dir_stat
+
+    - name: Run create_directory.yml
+      ansible.builtin.include_tasks: create_directory.yml
+      vars:
+        dir_path: "{{ dest_path | dirname }}"
+        dir_mode: "0777"
+      when: not fetch_dir_stat.stat.exists
+
+    - name: Fetch file {{ src_path }} from VM guest
+      community.vmware.vmware_guest_file_operation:
+        hostname: "{{ vsphere_host_name }}"
+        username: "{{ vsphere_host_user }}"
+        password: "{{ vsphere_host_user_password }}"
+        datacenter: "{{ vsphere_host_datacenter }}"
+        validate_certs: "{{ validate_certs | default(false) }}"
+        vm_id: "{{ vm_name }}"
+        vm_username: "{{ vm_username }}"
+        vm_password: "{{ vm_password }}"
+        fetch:
+          src: "{{ src_path }}"
+          dest: "{{ dest_path }}"
+      register: fetch_file_op
+
+    - name: Print result of fetch file from Guest OS
+      ansible.builtin.debug:
+        var: fetch_file_op
+      when: enable_debug|d(False)|bool
+
+- name: Copy file {{ src_path }} to VM guest
+  when: operation == "copy_file"
+  block:
+    - name: Copy file {{ src_path }} to VM guest
+      community.vmware.vmware_guest_file_operation:
+        hostname: "{{ vsphere_host_name }}"
+        username: "{{ vsphere_host_user }}"
+        password: "{{ vsphere_host_user_password }}"
+        datacenter: "{{ vsphere_host_datacenter }}"
+        validate_certs: "{{ validate_certs | default(false) }}"
+        vm_id: "{{ vm_name }}"
+        vm_username: "{{ vm_username }}"
+        vm_password: "{{ vm_password }}"
+        ansible.builtin.copy:
+          src: "{{ src_path }}"
+          dest: "{{ dest_path }}"
+          overwrite: "{{ overwrite | default(true) }}"
+      register: copy_file_op
+
+    - name: Print result of copy file to Guest OS
+      when: enable_debug|d(False)|bool
+      ansible.builtin.debug:
+        var: copy_file_op

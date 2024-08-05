@@ -1,0 +1,50 @@
+---
+- name: Clean up temporary sudoers files
+  ansible.builtin.file:
+    path: "{{ rsyncd_temp_sudoers_file }}"
+    state: absent
+
+- name: Clean up SELinux state
+  when: __cleanup_selinux | d(false)
+  block:
+    - name: Remove active module
+      ansible.builtin.command: /usr/sbin/semodule -r local_rsync
+      changed_when: true
+
+    - name: Remove module file
+      ansible.builtin.file:
+        path: /tmp/local_rsync.cil
+        state: absent
+
+    - name: Reset rsync_full_access boolean
+      ansible.builtin.command: /usr/sbin/setsebool rsync_full_access {{ __rsync_boolean_previous }}
+      changed_when: true
+
+- name: Show rsync variables
+  ansible.builtin.debug:
+    msg: "__rsyncd_conf_backup_path: {{ __rsyncd_conf_backup_path | default('Not Defined') }}, __rsyncd_state: {{ __rsyncd_state | default('Not Defined') }}"
+
+# - name: Check for previous config
+#   ansible.builtin.stat:
+#     path: "{{ __rsyncd_conf_backup_path }}"
+#   register: backup_result
+
+- name: Restore rsyncd.conf to previous state
+  ansible.builtin.copy:
+    src: "{{ __rsyncd_conf_backup_path }}"
+    dest: /etc/rsyncd.conf
+    owner: root
+    group: root
+    mode: "0644"
+    remote_src: true
+  when:
+    - __rsyncd_conf_backup_path is defined
+    - __rsyncd_conf_backup_path|length > 0
+
+- name: Restore rsyncd service to previous state
+  ansible.builtin.service:
+    name: rsyncd.service
+    state: "{{ __rsyncd_state }}"
+  when:
+    - __rsyncd_state is defined
+    - __rsyncd_state|length > 0

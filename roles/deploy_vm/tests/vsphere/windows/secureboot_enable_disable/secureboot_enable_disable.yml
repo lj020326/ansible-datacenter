@@ -1,0 +1,51 @@
+---
+# Description:
+#   This test case is used for test enable and disable secure boot of VM
+# when VM firmware is EFI and VM hardware version >= 13. The test result
+# will be 'No Run' if VM firmware is BIOS or VM hardware version < 13.
+# Note: For Windows 10 guest OS, if there is non WHQL signed driver installed,
+# enable secure boot will cause OS BSOD.
+#
+- name: secureboot_enable_disable
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - name: Test enable and disable secure boot
+      block:
+        - name: Run ../setup/test_setup.yml
+          ansible.builtin.include_tasks: ../setup/test_setup.yml
+
+        # Get VM firmware info
+        - name: Run ../../common/vm_get_boot_info.yml
+          ansible.builtin.include_tasks: ../../common/vm_get_boot_info.yml
+
+        - name: Run ../../common/skip_test_case.yml
+          when: vm_hardware_version_num | int < 13
+          ansible.builtin.include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: Secure boot is not supported on VM of {{ guest_os_ansible_distribution }} {{ guest_os_ansible_distribution_ver }} with hardware version {{ vm_hardware_version_num
+              }}
+            skip_reason: Not Supported
+
+        - name: Run ../../common/skip_test_case.yml
+          when: vm_firmware is undefined or vm_firmware | lower != 'efi'
+          ansible.builtin.include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: "Skip test case due to VM firmware is not EFI: {{ vm_firmware | default('NA') }}"
+            skip_reason: Not Applicable
+
+        # Enable, disable secure boot test if VM uses EFI firmware
+        - name: Run change_secureboot_config.yml
+          ansible.builtin.include_tasks: change_secureboot_config.yml
+          vars:
+            change_secureboot: enable
+
+        - name: Run change_secureboot_config.yml
+          ansible.builtin.include_tasks: change_secureboot_config.yml
+          vars:
+            change_secureboot: disable
+      rescue:
+        - name: Run ../../common/test_rescue.yml
+          ansible.builtin.include_tasks: ../../common/test_rescue.yml

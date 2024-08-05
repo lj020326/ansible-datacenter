@@ -1,0 +1,124 @@
+---
+
+## ref: https://github.com/devgateway/ansible-ldap-auth
+
+- name: Install LDAP client packages
+  ansible.builtin.package:
+    name: "{{ __ldap_conf.packages }}"
+    state: present
+
+- name: Copy ldap.conf configuration file
+  ansible.builtin.template:
+    src: ldap.conf.j2
+    dest: "{{ __ldap_conf.ldap_conf_file }}"
+    backup: true
+    mode: "0644"
+
+- name: "Create link to ldap.conf"
+  ansible.builtin.file:
+    src: "{{ __ldap_conf.ldap_conf_file }}"
+    dest: '/etc/ldap.conf'
+    state: link
+    force: yes
+#  ignore_errors: true
+#  changed_when: False
+#  failed_when: False
+
+- name: "Setup ldap app config templates"
+  ansible.builtin.template:
+    backup: "{{ item.backup | default(True) }}"
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode | default('0664') }}"
+    owner: root
+    group: root
+  loop: "{{ __ldap_conf.ldap_config_tpls }}"
+  notify:
+    - restart nscd
+    - restart nslcd
+
+## ref: http://pig.made-it.com/ldap-openssh.html#29273
+- name: "Setup ldap ssh fetchSSHKeysFromLDAP"
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode | default('0755') }}"
+    owner: root
+    group: root
+  loop:
+    - { src: fetchSSHKeysFromLDAP.sh, dest: /usr/local/bin/fetchSSHKeysFromLDAP }
+
+## Do not overwrite sshd_config - it is set at the bootstrap_linux play
+## We instead override sshd setting in the group
+#- name: "Setup ldap ssh config templates"
+#  ansible.builtin.template:
+#    backup: "{{ item.backup | default(True) }}"
+#    src: "{{ item.src }}"
+#    dest: "{{ item.dest }}"
+#    mode: "{{ item.mode | default('0664') }}"
+#    owner: root
+#    group: root
+#  loop:
+##    - { src: "sshd_config.{{ ansible_distribution }}.conf.j2", dest: /etc/ssh/sshd_config }
+#    - { src: "sshd_config.{{ ansible_os_family }}.conf.j2", dest: /etc/ssh/sshd_config }
+#  notify:
+#    - Reload SSH daemon
+
+#- name: Setup nsswitch file
+#  ansible.builtin.template:
+#    src: nsswitch.conf.j2
+#    dest: /etc/nsswitch.conf
+#
+#- name: Nscd daemon configuration file
+#  ansible.builtin.template:
+#    src: nscd.conf.j2
+#    dest: /etc/nscd.conf
+#    owner: root
+#    group: root
+#    mode: "0644"
+#  notify:
+#    - restart nscd
+
+## reF: https://serverfault.com/questions/815538/long-delay-when-logging-in-with-centos7
+- name: Configure SSH to use PAM
+  ansible.builtin.lineinfile:
+    dest: /etc/ssh/sshd_config
+#    regexp: (?i)^\s*UsePAM\b
+#    insertafter: (?i)^#\s*UsePAM\b
+#    line: "UsePAM yes"
+    regexp: "{{ item.regexp }}"
+    insertafter: "{{ item.insertafter }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '(?i)^\s*UsePAM\b', insertafter: '(?i)^#\s*UsePAM\b', line: "UsePAM yes" }
+    - { regexp: '(?i)^\s*UseDNS\b', insertafter: '(?i)^#\s*UseDNS\b', line: "UseDNS no" }
+  notify: Validate SSH config
+
+#- name: "Enabled password auth in sshd config"
+#  ansible.builtin.lineinfile:
+#    path: /etc/ssh/sshd_config
+#    regexp: '(?i)^PasswordAuthentication.*no'
+#    line: 'PasswordAuthentication=yes'
+
+#- name: Configure SSH with LDAP public keys support
+#  ansible.builtin.lineinfile:
+#    dest: /etc/ssh/sshd_config
+#    regexp: (?i)^\s*{{ item.key }}\b
+#    insertafter: (?i)^#\s*{{ item.key }}\b
+#    line: "{{ item.key }} {{ item.value[ansible_os_family] }}"
+#  with_dict: "{{ bootstrap_ldap_client__sshd_config }}"
+#  notify: Validate SSH config
+
+- name: Enable NSLCD service
+  ansible.builtin.service:
+    name: nslcd
+    enabled: true
+    state: started
+
+- name: Run configure_pam.{{ ansible_os_family }}.yml
+  ansible.builtin.include_tasks: configure_pam.{{ ansible_os_family }}.yml
+
+- name: Clear NSCD passwd cache # noqa: ignore-errors
+  changed_when: false
+  ansible.builtin.command: nscd -i passwd
+  ignore_errors: true

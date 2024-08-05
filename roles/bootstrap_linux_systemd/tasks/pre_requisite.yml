@@ -1,0 +1,58 @@
+---
+
+- name: bootstrap_linux_systemd | Stat systemd path
+  ansible.builtin.stat:
+    path: /etc/systemd
+  register: systemd_stat
+
+- name: bootstrap_linux_systemd | Assert that systemd path exists
+  ansible.builtin.assert:
+    that:
+      - systemd_stat['stat']['exists'] == True
+    msg: /etc/systemd not exists, something wrong with this system.
+    quiet: true
+
+- name: bootstrap_linux_systemd | Assert that system manager is systemd
+  ansible.builtin.assert:
+    that:
+      - ansible_service_mgr == 'systemd'
+    msg: System manager is not systemd.
+    quiet: true
+
+- name: Run prereq.d/prereq_systemd_timedatectl.yml
+  when: bootstrap_linux_systemd__timesyncd | d([]) | length > 0
+  ansible.builtin.include_tasks:
+    file: prereq.d/prereq_systemd_timedatectl.yml
+
+- name: Run prereq.d/prereq_systemd_tmpfilesd.yml
+  when: bootstrap_linux_systemd__tmpfiles | d([]) | length > 0
+  ansible.builtin.include_tasks:
+    file: prereq.d/prereq_systemd_tmpfilesd.yml
+
+- name: Run prereq.d/prereq_systemd_modules_load.yml
+  when: bootstrap_linux_systemd__modules_load | d([]) | length > 0
+  ansible.builtin.include_tasks:
+    file: prereq.d/prereq_systemd_modules_load.yml
+
+- name: Run prereq.d/prereq_systemd_udev.yml
+  when: bootstrap_linux_systemd__udev | d([]) | length > 0
+  ansible.builtin.include_tasks:
+    file: prereq.d/prereq_systemd_udev.yml
+
+- name: Run prereq.d/prereq_systemd_resolved.yml
+  when:
+    - bootstrap_linux_systemd__resolved | d([]) | length > 0
+    - bootstrap_linux_systemd__resolved |
+      community.general.json_query(bootstrap_linux_systemd__resolved_make_link) is
+      defined
+    - bootstrap_linux_systemd__resolved |
+      community.general.json_query(bootstrap_linux_systemd__resolved_make_link) == 'true'
+  ansible.builtin.include_tasks:
+    file: prereq.d/prereq_systemd_resolved.yml
+  vars:
+    systemd_resolved_make_link: "[] | map(&make_link || 'false', @) | [0]"
+
+- name: Run prereq.d/prereq_systemd_networkd.yml
+  when: bootstrap_linux_systemd__networkd | d([]) | length > 0
+  ansible.builtin.include_tasks:
+    file: prereq.d/prereq_systemd_networkd.yml

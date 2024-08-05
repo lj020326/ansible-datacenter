@@ -1,0 +1,19 @@
+---
+- name: Run deploy_networkd_interfaces.yml
+  ansible.builtin.include_tasks:
+    file: deploy_networkd_interfaces.yml
+  loop: "{{ bootstrap_linux_systemd__networkd_interfaces | flatten(levels=1) }}"
+  loop_control:
+    loop_var: outer_item
+
+- name: bootstrap_linux_systemd | Enable systemd-networkd service
+  when:
+    - bootstrap_linux_systemd__networkd |
+       community.general.json_query(bootstrap_linux_systemd__networkd_enable) is defined
+    - bootstrap_linux_systemd__networkd |
+       community.general.json_query(bootstrap_linux_systemd__networkd_enable) == 'true'
+  ansible.builtin.systemd:
+    name: systemd-networkd
+    enabled: true
+  vars:
+    bootstrap_linux_systemd__networkd_enable: "[] | map(&enable || 'false', @) | [0]"

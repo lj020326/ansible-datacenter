@@ -1,0 +1,87 @@
+---
+- name: Ensure xorriso is installed
+  ansible.builtin.package:
+    name: xorriso
+    state: present
+
+## ref: https://github.com/yasensim/vsphere-lab-deploy/blob/master/playbooks/deployNestedESXi.yml
+- name: Deploy Nested ESXi VMs
+  nestedESXi:
+    vcenter: "{{ vsphere_deploy_dc__vcenter.hostname }}"
+    vcenter_user: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    vcenter_passwd: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    vmname: "{{ item.name }}"
+    #    cluster: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].hosting_cluster }}"
+    #    datastore: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].hosting_datastore }}"
+    #    vmnic_physical_portgroup_assignment: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].vmnic_physical_portgroup_assignment }}"
+    #    cpucount: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].cpu_cores }}"
+    #    memory: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].ram_in_gb }}"
+    #    disks: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].nested_hosts_disks }}"
+    cluster: "{{ item.mgmt_cluster | d(vsphere_deploy_dc_nested_clusters[item.cluster].hosting_cluster) }}"
+    datastore: "{{ vsphere_deploy_dc__vcenter.datastore | d(vsphere_deploy_dc_nested_clusters[item.cluster].hosting_datastore) }}"
+    vmnic_physical_portgroup_assignment: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].vmnic_physical_portgroup_assignment }}"
+    cpucount: "{{ item.cpu | d(vsphere_deploy_dc_nested_clusters[item.cluster].cpu_cores) }}"
+    memory: "{{ item.ram_in_gb | d(vsphere_deploy_dc_nested_clusters[item.cluster].ram_in_gb) }}"
+    disks: "{{ item.disks | d(vsphere_deploy_dc_nested_clusters[item.cluster].nested_hosts_disks) }}"
+    isopath: "{{ vsphere_deploy_dc_vcenter_iso_dir }}/{{ vsphere_deploy_dc_esx_custom_iso }}"
+    esxi_version: "{{ vsphere_deploy_dc_vsphere_version }}"
+  loop: "{{ __nested_hosts_list }}"
+  async: 7200
+  poll: 0
+  register: deployment
+
+- name: Wait 3 seconds before start checking wheter the hosts are ready
+  ansible.builtin.pause:
+    seconds: "3"
+- name: Result check for deployment
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  loop: "{{ deployment.results }}"
+
+- name: Create a mark if there is a new vESX to deploy
+  when: item.stat is not defined
+  ansible.builtin.file:
+    path: /tmp/newESXi
+    state: touch
+    owner: root
+    group: root
+    mode: "0555"
+  loop: "{{ job_result.results }}"
+
+- name: Get file stat for /tmp/newESXi
+  ansible.builtin.stat:
+    path: /tmp/newESXi
+  register: __newesxi_stat
+
+- name: Wait 10 minutes before start checking wheter the hosts are ready
+  when: __newesxi_stat.stat.exists|bool
+  ansible.builtin.pause:
+    minutes: "10"
+
+- name: Delete the temporary mark
+  ansible.builtin.file:
+    path: /tmp/newESXi
+    state: absent
+
+- name: Result check for deployment
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  loop: "{{ deployment.results }}"
+  retries: 20
+
+- name: Remove Nested vESXi CDROM
+  community.vmware.vmware_guest:
+    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
+    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
+    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    validate_certs: false
+    name: "{{ item.name }}"
+    cdrom:
+      - type: client
+        controller_number: 0
+        unit_number: 0
+        state: present
+  loop: "{{ __nested_hosts_list }}"

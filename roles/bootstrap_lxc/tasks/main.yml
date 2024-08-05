@@ -1,0 +1,283 @@
+---
+# tasks file for bootstrap_lxc
+- name: Identify python interpreter and merge container_config
+  ansible.builtin.set_fact:
+    ansible_python_interpreter: "{{ lookup('env', 'VIRTUAL_ENV') | default('/usr') }}/bin/python"
+    container_config: "{{ container_config }} + {{ travis_lxc_network_config }}"
+
+- name: Gather minimum subset of facts again with correct interpreter
+  ansible.builtin.setup:
+    gather_subset: min
+
+- name: Run validate_variables.yml
+  ansible.builtin.include_tasks: validate_variables.yml
+
+- name: Run travis_packaging_setup.yml
+  ansible.builtin.include_tasks: travis_packaging_setup.yml
+
+- name: Create SSH directory for current user
+  ansible.builtin.file:
+    path: ~{{ ansible_user_id }}/.ssh
+    state: directory
+    mode: "0700"
+
+- name: Generate local ssh-rsa key
+  ansible.builtin.command: ssh-keygen -t rsa -N '' -C '{{ ansible_user_id }}@{{ ansible_hostname }}-lxctest' -f ~{{ ansible_user_id }}/.ssh/id_rsa
+  args:
+    creates: ~{{ ansible_user_id }}/.ssh/id_rsa
+
+- name: Extract all cached container root filesystems
+  become: true
+  block:
+    - name: Extract all cached container root filesystems
+      ansible.builtin.shell: "[ -f {{ _rootfs_tarball }} ] && tar -C / -I pigz -xf {{ _rootfs_tarball }}"
+      async: 1800
+      poll: 0
+      changed_when: false
+      register: _cache_restore_jobs
+      args:
+        warn: false
+        creates: "{{ travis_lxc_profiles[item].rootfs }}"
+      loop: "{{ lxc_cache_profiles }}"
+      when: lxc_cache_enabled
+      vars:
+        _rootfs_tarball: "{{ lxc_cache_directory }}/{{ item }}.tar.gz"
+
+    - name: Wait until cached root filesystems have been extracted
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _cache_restore
+      ignore_errors: true
+      until: _cache_restore.finished
+      retries: 100
+      loop: "{{ _cache_restore_jobs.results }}"
+      when: lxc_cache_enabled and 'ansible_job_id' in item
+
+    - name: Prepare a single LXC container per profile as a base container
+      community.general.lxc_container:
+        name: "{{ item.prefix | default(_profile_data.prefix) }}base"
+        template: "{{ _template }}"
+        template_options: "\
+          --release {{ _release }}
+          {% if _template == 'debian' %}\
+          --mirror http://deb.debian.org/debian
+          {% elif _template == 'ubuntu' %}\
+          --mirror {{ _travis_ubuntu_mirror }}
+          {% endif %}\
+          {% if _template not in ['centos', 'alpine'] %}\
+          --packages {{ _packages | join(',') }}
+          {% elif _template == 'alpine' %}
+          {{ _packages | join(' ') }}
+          {% endif %}"
+        container_config: "{{ container_config }}"
+        state: stopped
+      environment: "{{ _profile_data.environment | default({}) }}"
+      register: _base_ct_jobs
+      async: 7200
+      poll: 0
+      changed_when: false
+      loop: "{{ test_profiles }}"
+      vars:
+        _template: "{{ item.profile.split('-').0 }}"
+        _release: "{{ item.profile.split('-').1 }}"
+        _profile_data: "{{ travis_lxc_profiles[item.profile] }}"
+        _packages: "{{ _profile_data.packages + additional_packages }}"
+
+    - name: Wait for base containers to finish bootstrapping
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _base_cts
+      until: _base_cts.finished
+      retries: 300
+      loop: "{{ _base_ct_jobs.results }}"
+
+    - name: Install packages in containers using CentOS template
+      community.general.lxc_container:
+        name: "{{ item.lxc_container.name }}"
+        container_command: "\
+          until (ip addr show eth0 up | grep -q 'inet '); do sleep 1; done;
+          yum install -y {{ _packages | join(' ') }}"
+      register: _post_bootstrap_jobs
+      async: 7200
+      poll: 0
+      changed_when: false
+      loop: "{{ _base_cts.results }}"
+      when:
+        - item is changed
+        - item.invocation.module_args.template == 'centos'
+      vars:
+        _packages: "{{ travis_lxc_profiles[item.item.item.profile].packages + additional_packages }}"
+
+    - name: Wait for package installations to complete in CentOS containers
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _post_bootstrap
+      until: _post_bootstrap.finished
+      retries: 300
+      loop: "{{ _post_bootstrap_jobs.results }}"
+      when: "'ansible_job_id' in item"
+
+    - name: Configure local user with sudo and prepare authorized_keys files
+      when: item is changed # noqa: no-handler
+      community.general.lxc_container:
+        name: "{{ item.lxc_container.name }}"
+        container_command: "\
+          useradd -m {{ ansible_user_id }} -p aikatsu -s /bin/bash;
+          printf '{{ ansible_user_id }} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/{{ ansible_user_id }};
+          mkdir -m 0700 /root/.ssh /home/{{ ansible_user_id }}/.ssh;
+          touch /root/.ssh/authorized_keys /home/{{ ansible_user_id }}/.ssh/authorized_keys;
+          chmod 0600 /root/.ssh/authorized_keys /home/{{ ansible_user_id }}/.ssh/authorized_keys;
+          chown -R {{ ansible_user_id }}: /home/{{ ansible_user_id }}/.ssh"
+      with_items: "{{ _base_cts.results }}"
+
+    # Ansible will throw the following warning:
+    # [WARNING]: Cannot set fs attributes on a non-existent symlink target.
+    # This must be ignored - the symlink points to a file that exists inside of
+    # the container, not localhost
+    - name: Enable SSH in Alpine
+      ansible.builtin.file:
+        src: /etc/init.d/sshd
+        dest: /var/lib/lxc/{{ item.lxc_container.name }}/rootfs/etc/runlevels/default/sshd
+        state: link
+        force: true
+      loop: "{{ _base_cts.results }}"
+      when: item.invocation.module_args.template == 'alpine'
+
+    # Here we're identifying if any files, excepting those that match rootfs_exclude
+    # in our profiles, have been modified since the environment was booted. If so,
+    # or if we don't find a cached tarball for the profile we're executing on,
+    # we'll create a compressed tarball using parallel gzip and setting all file
+    # modification times to the unix epoch of the rootfs (w/o excludes).
+    - name: Archive all container root filesystems
+      ansible.builtin.shell: |
+        set -o pipefail # <-- adding this will prevent surprises
+        modified_file_count=$(
+          find {{ _rootfs }} -newermt \"$(uptime -s)\" -type f
+            {% for path in _rootfs_exclude %}
+            -not -path \"{{ _rootfs }}{{ path }}\"
+            {% endfor %}
+          | wc -l);
+        [ $modified_file_count -gt 0 -o ! -f {{ _rootfs_tarball }} ] &&
+        tar --mtime=@0 -I pigz
+          {% for path in _rootfs_exclude %}
+          --exclude=\"{{ _rootfs }}{{ path }}\"
+          {% endfor %}
+          -cf {{ _rootfs_tarball }} {{ _rootfs }} &&
+        chown {{ ansible_user_id }}: {{ _rootfs_tarball }}
+      async: 1800
+      poll: 0
+      changed_when: false
+      register: _cache_save_jobs
+      args:
+        warn: false
+        creates: "{{ _rootfs_tarball }}"
+      loop: "{{ lxc_cache_profiles }}"
+      when: lxc_cache_enabled
+      vars:
+        _rootfs: "{{ travis_lxc_profiles[item].rootfs }}"
+        _rootfs_exclude: "{{ travis_lxc_profiles[item].rootfs_exclude }}"
+        _rootfs_tarball: "{{ lxc_cache_directory }}/{{ item }}.tar.gz"
+
+    - name: Wait for all root filesystem archivals to complete
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _cache_save
+      ignore_errors: true
+      until: _cache_save.finished
+      retries: 100
+      loop: "{{ _cache_save_jobs.results }}"
+      when: lxc_cache_enabled and 'ansible_job_id' in item
+
+    - name: Copy current user's public key into base containers
+      ansible.builtin.copy:
+        src: ~/.ssh/id_rsa.pub
+        dest: /var/lib/lxc/{{ item.0.lxc_container.name }}/rootfs{{ item.1 }}
+        mode: "0644"
+      loop: "{{ _base_cts.results | product(_authorized_keys_paths) | list }}"
+      vars:
+        _authorized_keys_paths:
+          - /root/.ssh/authorized_keys
+          - /home/{{ ansible_user_id }}/.ssh/authorized_keys
+
+    - name: Create all of our test LXC containers via cloning
+      community.general.lxc_container:
+        name: "{{ item.0.prefix | default(travis_lxc_profiles[item.0.profile].prefix) }}base"
+        clone_name: "{{ item.0.prefix | default(travis_lxc_profiles[item.0.profile].prefix) }}{{ item.1 }}"
+        clone_snapshot: "{{ True if lxc_use_overlayfs else False }}"
+        backing_store: "{{ 'overlayfs' if lxc_use_overlayfs else 'dir' }}"
+        state: stopped
+      register: _clone_jobs
+      async: 7200
+      poll: 0
+      changed_when: false
+      loop: "{{ test_profiles | product(test_host_suffixes) | list }}"
+
+    - name: Wait for all of the clone jobs to complete
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _clone
+      until: _clone.finished
+      retries: 300
+      loop: "{{ _clone_jobs.results }}"
+      when: "'ansible_job_id' in item"
+
+    - name: Start and wait for all test containers to come online
+      community.general.lxc_container:
+        name: "{{ item.invocation.module_args.clone_name }}"
+        state: started
+      register: _containers
+      until: _containers.lxc_container.ips
+      retries: 300
+      loop: "{{ _clone.results }}"
+
+    - name: Remove duplicate /dev/pts entries on CentOS 6
+      community.general.lxc_container:
+        name: "{{ item.invocation.module_args.clone_name }}"
+        container_command: |
+          until [[ $(grep -c '/dev/pts ' /etc/mtab) -lt 2 ]]; do
+            umount /dev/pts;
+          done
+      with_items: "{{ _clone.results }}"
+      when:
+        - item is changed
+        - item.item.item.0.profile == 'centos-6'
+
+    - name: Collect all LXC container host information into one list
+      ansible.builtin.set_fact:
+        lxc_hosts: "[\
+          {% for ct in (_containers.results | map(attribute='lxc_container') | list) %}\
+          {'name': '{{ ct.name }}', 'ip': '{{ ct.ips[0] }}'}\
+          {% if not loop.last %}, {% endif %}\
+          {% endfor %}\
+          ]"
+
+    - name: Populate Travis' /etc/hosts with every container's addresses
+      ansible.builtin.lineinfile:
+        dest: /etc/hosts
+        regexp: ^.* {{ item.name }}
+        line: "{{ item.ip }} {{ item.name }}.lxc {{ item.name }}"
+      loop: "{{ lxc_hosts }}"
+
+    - name: Populate every container's /etc/hosts with every container's addresses
+      ansible.builtin.template:
+        src: hosts.j2
+        dest: /var/lib/lxc/{{ item.name }}/{{ 'delta0' if lxc_use_overlayfs else 'rootfs' }}/etc/hosts
+        mode: "0644"
+      loop: "{{ lxc_hosts }}"
+
+- name: Collect SSH host keys from all containers
+  ansible.builtin.shell: ssh-keyscan {{ item.name }}.lxc {{ item.name }} > ~{{ ansible_user_id }}/.ssh/{{ item.name }}.pub
+  args:
+    creates: ~{{ ansible_user_id }}/.ssh/{{ item.name }}.pub
+  loop: "{{ lxc_hosts }}"
+
+- name: Add all containers to current user's known_hosts
+  ansible.builtin.blockinfile:
+    marker: "# {mark} {{ item.name }}"
+    content: "{{ lookup('file', '~' + ansible_user_id + '/.ssh/' + item.name + '.pub') }}"
+    dest: ~{{ ansible_user_id }}/.ssh/known_hosts
+    create: true
+    mode: "0644"
+  loop: "{{ lxc_hosts }}"
+
+# vim:ft=ansible:

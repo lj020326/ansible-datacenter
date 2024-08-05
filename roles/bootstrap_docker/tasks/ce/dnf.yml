@@ -1,0 +1,154 @@
+---
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Remove older Docker installations"
+  ansible.builtin.package:
+    name:
+      - docker
+      - docker-common
+      - docker-engine
+    state: absent
+
+# ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Remove conflicting runc/podman/buildah installations"
+  ansible.builtin.package:
+    name:
+      - runc
+      - podman
+      - buildah
+    state: absent
+
+## ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Remove conflicting container-tools installation"
+  ansible.builtin.dnf:
+    name: "@container-tools"
+    state: absent
+    autoremove: true
+  register: __dnf_remove_result
+  failed_when: __dnf_remove_result is failed and not ( __dnf_remove_result.msg | regex_search("No group container-tools available") )
+#  ignore_errors: yes
+
+## ref: https://github.com/ansible/ansible/issues/64852
+## ref: https://access.redhat.com/discussions/5895421 (See comment from Paul Roesler)
+#- name: "{{ __bootstrap_docker__log_prefix_dnf }} Disable conflicting module container-tools"
+#  ansible.builtin.shell:
+#    cmd: dnf -y module disable container-tools
+## ref: https://github.com/ansible/ansible/issues/64852
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Disable conflicting module container-tools"
+  community.general.ini_file:
+    path: /etc/dnf/modules.d/container-tools.module
+    section: container-tools
+    option: state
+    value: disabled
+    create: false
+    no_extra_spaces: true
+    mode: "0644"
+  register: __ini_file_update
+
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Add repository key"
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Add repository key"
+      ansible.builtin.rpm_key:
+        key: "{{ bootstrap_docker__ce_gpg_key }}"
+        state: present
+
+  rescue:
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Ensure curl is present (systems without SNI)."
+      ansible.builtin.package:
+        name: curl
+      register: task_result
+      until: task_result is success
+      retries: 10
+      delay: 2
+
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Download GPG key (systems without SNI)."
+      ansible.builtin.command: curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o /tmp/docker-gpg # noqa command-instead-of-module
+      changed_when: false
+
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Add Docker GPG key (systems without SNI)."
+      ansible.builtin.command: rpm --import /tmp/docker-gpg # noqa command-instead-of-module
+      changed_when: false
+
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Remove docker-gpg from tmp folder"
+      ansible.builtin.file:
+        path: /tmp/docker-gpg
+        state: absent
+
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Deploy repository"
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Deploy repository"
+      ansible.builtin.get_url:
+        url: "{{ bootstrap_docker__ce_repo_file_url }}"
+        dest: /etc/yum.repos.d/docker-ce.repo
+        owner: root
+        group: root
+        mode: "0644"
+  rescue:
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Install dnf-utils (systems without SNI)"
+      ansible.builtin.dnf:
+        name: dnf-plugins-core
+      register: task_result
+      until: task_result is success
+      retries: 10
+      delay: 2
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Deploy repository (systems without SNI)"
+      ansible.builtin.command: dnf config-manager --add-repo {{ bootstrap_docker__ce_repo_file_url }}
+      args:
+        creates: /etc/yum.repos.d/docker-ce.repo
+
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Enable edge repository"
+  ansible.builtin.yum_repository:
+    name: docker-ce-edge
+    description: Docker CE Edge - $basearch
+    baseurl: "{{ bootstrap_docker__ce_edge_repo_url }}"
+    gpgcheck: true
+    gpgkey: "{{ bootstrap_docker__ce_gpg_key }}"
+    enabled: true
+    file: docker-ce
+  when: bootstrap_docker__channel == "edge"
+
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Perform specific os tasks"
+  ansible.builtin.include_tasks: "{{ lookup('first_found', __file_params) }}"
+  vars:
+    __file_params:
+      files:
+        - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+        - "{{ ansible_distribution|lower }}.yml"
+        - "{{ ansible_distribution|lower }}.yml"
+        - default.yml
+      paths:
+        - tasks/ce/os
+#        - "{{ role_path }}/tasks/ce/os"
+
+#- name: "{{ __bootstrap_docker__log_prefix_dnf }} Perform specific os tasks"
+#  ansible.builtin.include_tasks: "{{ item }}"
+#  with_first_found:
+#    - paths:
+##        - "tasks/ce/os"
+#        - "{{ role_path }}/tasks/ce/os"
+#    - files:
+#      - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+#      - "{{ ansible_distribution|lower }}.yml"
+#      - "{{ ansible_distribution|lower }}.yml"
+#      - "default.yml"
+
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Configure containerd on RHEL 8."
+  when: ansible_distribution_major_version | int == 8
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Ensure container-selinux is installed."
+      ansible.builtin.package:
+        name: container-selinux
+        state: present
+
+    - name: "{{ __bootstrap_docker__log_prefix_dnf }} Ensure containerd.io is installed."
+      ansible.builtin.package:
+        name: containerd.io
+        state: present
+
+- name: "{{ __bootstrap_docker__log_prefix_dnf }} Install docker-ce"
+  ansible.builtin.package:
+    name: "{{ bootstrap_docker__packages }}"
+    state: present
+  notify: Docker | Restart Docker
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2

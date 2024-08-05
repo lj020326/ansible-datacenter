@@ -1,0 +1,124 @@
+---
+# tasks file for sbaerlocher.veeam-agent
+
+# Veeam Backup & Replication
+- name: Setup Veeam Backup & Replication Configuration
+  when:
+    - veeam_vbrserver.name is defined
+    #    - ansible_os_family == 'Linux'
+    - ansible_os_family in ['Debian','RedHat']
+  tags:
+    - configuration
+  # Veeam setup repo
+  block:
+    - name: check if veeam B&R exist
+      changed_when: false
+      ansible.builtin.command: veeamconfig vbrserver list
+      register: veeam_vbrserver_list
+
+    ## ref: https://helpcenter.veeam.com/docs/agentforlinux/userguide/manage_vbr_add.html?ver=40
+    - name: create veeam B&R
+      when: veeam_vbrserver.name not in veeam_vbrserver_list.stdout
+      changed_when: false
+      ansible.builtin.command: |
+        veeamconfig vbrserver add --name {{ veeam_vbrserver.name }} --address {{ veeam_vbrserver.endpoint }} \
+          --login {{ veeam_vbrserver.login }} --domain {{ veeam_vbrserver.domain }} \
+          --password {{ veeam_vbrserver.password }}
+      register: veeam_create_repository
+
+- name: Ensure veeam repo
+  when:
+    - veeam_repo.name is defined
+    - ansible_os_family in ['Debian','RedHat']
+  tags:
+    - configuration
+  block:
+    - name: check if veeam repo exist
+      changed_when: false
+      ansible.builtin.command: veeamconfig repository list
+      register: veeam_repository_list
+
+    ## ref: https://helpcenter.veeam.com/docs/agentforlinux/userguide/backup_repo_create_nfs.html?ver=40
+    - name: create veeam repo
+      when:
+        - veeam_repo.name not in veeam_repository_list.stdout
+        - veeam_repo.type is not defined
+      changed_when: false
+      ansible.builtin.command: |
+        veeamconfig repository create --name {{ veeam_repo.name }} --location {{ veeam_repo.path }}
+      register: veeam_create_repository
+
+    - name: create veeam repo
+      when:
+        - veeam_repo.name not in veeam_repository_list.stdout
+        - veeam_repo.type is defined
+      changed_when: false
+      ansible.builtin.command: |
+        veeamconfig repository create --name {{ veeam_repo.name }} --type {{ veeam_repo.type }} \
+          --location {{ veeam_repo.path }}
+      register: veeam_create_repository
+
+- name: Ensure veeam job
+  when: ansible_os_family in ['Debian','RedHat']
+  tags:
+    - configuration
+  block:
+    - name: load repository list
+      changed_when: false
+      ansible.builtin.command: veeamconfig repository list
+      register: veeam_repository_list
+
+    - name: load veeam repository name
+      ansible.builtin.set_fact:
+        veeam_repository_name: "{{ veeam_repository_list.stdout_lines.1.split(' ').0 | string }}"
+
+    - name: check if veeam job exist
+      when: ansible_os_family == 'Linux'
+      changed_when: false
+      ansible.builtin.command: veeamconfig job list
+      register: veeam_job_list
+
+    ## ref: https://helpcenter.veeam.com/docs/agentforlinux/userguide/backup_job_create_volume-level.html?ver=40
+    - name: create veeam job
+      when:
+        - veeam_job.name not in veeam_job_list.stdout
+        - veeam_job.backupallsystem|d(False)|bool
+        - veeam_job.objects is not defined
+      changed_when: false
+      ansible.builtin.command: |
+        veeamconfig job create {{ veeam_job.type }} --name {{ veeam_job.name }} --repoName {{ veeam_repo.name }} \
+          --maxPoints {{ veeam_job.restopoints }} --backupallsystem
+      register: veeam_create_job
+
+    - name: create veeam job
+      when:
+        - veeam_job.name not in veeam_job_list.stdout
+        - not veeam_job.backupallsystem|d(False)|bool
+        - veeam_job.objects is defined
+      changed_when: false
+      ansible.builtin.command: |
+        veeamconfig job create {{ veeam_job.type }} --name {{ veeam_job.name }} --repoName {{ veeam_repo.name }} \
+          --maxPoints {{ veeam_job.restopoints }} --objects {{ veeam_job.objects }}
+      register: veeam_create_job
+
+    - name: load veeam job info
+      changed_when: false
+      ansible.builtin.command: veeamconfig job info --name {{ veeam_job.name }}
+      register: veeam_job_info
+
+    - name: load veeam Job id
+      ansible.builtin.set_fact:
+        veeam_job_id: "{{ veeam_job_info.stdout_lines.1 | regex_replace('   ID: ', '') | string }}"
+
+    - name: check if veeam schedule exist
+      changed_when: false
+      ansible.builtin.shell: veeamconfig schedule show --jobId '{{ veeam_job_id }}' 2>/dev/null
+      register: veeam_schedule_show
+      ignore_errors: true # noqa: ignore-errors
+
+    - name: create veeam schedule
+      when: "'Run automatically: enabled' not in veeam_schedule_show.stdout"
+      changed_when: false
+      ansible.builtin.command: |
+        veeamconfig schedule set --jobId {{ veeam_job_id }} --at {{ veeam_job.at | default('20:00') }} --daily \
+          --weekdays-full {{ veeam_job.day | default('Sat') }}

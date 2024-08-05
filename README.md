@@ -14,7 +14,7 @@ The 'ansible' and 'vm template build' pipelines are both automated using the [pi
 
 ## Linux OS Platform Molecule Tests
 
-Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](molecule/default/converge.yml).  Molecule scenarios have been set up to include the overall platform provisioning/orchestration role converge playbook for [bootstrap-linux](./molecule/bootstrap-linux/converge.yml) as well as multiple key roles invoked within the `bootstrap-linux` orchestration role to allow/enable isolated/granular testing when and as needed.
+Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](molecule/default/converge.yml).  Molecule scenarios have been set up to include the overall platform provisioning/orchestration role converge playbook for [bootstrap_linux](./molecule/bootstrap_linux/converge.yml) as well as multiple key roles invoked within the `bootstrap_linux` orchestration role to allow/enable isolated/granular testing when and as needed.
 
 Further details on running molecule tests from this repo can be found in the 'Run molecule tests' section of the [molecule/README.md](tests/README.md).
 
@@ -112,11 +112,11 @@ ansible -i inventory/hosts.yml all -m ping -b -vvvv
 
 An ansible role is used to setup all docker stack instances.
 
-The `docker-stack` ansible role used to stand up the docker stack [can be found here](https://github.com/lj020326/ansible-datacenter/tree/main/roles/docker-stack).
+The `bootstrap_docker_stack` ansible role used to stand up the docker stack [can be found here](https://github.com/lj020326/ansible-datacenter/tree/main/roles/bootstrap_docker_stack).
 
-The [`docker-stack` ansible role](https://github.com/lj020326/ansible-datacenter/tree/main/roles/docker-stack) contains the [__jenkins config-as-code (jcac) yaml definition__](https://github.com/lj020326/ansible-datacenter/blob/main/roles/docker-stack/templates/jenkins_jcac/jenkins_casc.yml.j2) in template form used to setup the jenkins jcac instance.
+The [`bootstrap_docker_stack` ansible role](https://github.com/lj020326/ansible-datacenter/tree/main/roles/bootstrap_docker_stack) contains the [__jenkins config-as-code (jcac) yaml definition__](https://github.com/lj020326/ansible-datacenter/blob/main/roles/bootstrap_docker_stack/templates/jenkins_jcac/jenkins_casc.yml.j2) in template form used to setup the jenkins jcac instance.
 
-[The jcac definition can be found here](https://github.com/lj020326/ansible-datacenter/blob/main/roles/docker-stack/templates/jenkins_jcac/jenkins_casc.yml.j2).  
+[The jcac definition can be found here](https://github.com/lj020326/ansible-datacenter/blob/main/roles/bootstrap_docker_stack/templates/jenkins_jcac/jenkins_casc.yml.j2).  
 
 
 ### Setup pipeline automation library used by all jenkins jobs
@@ -217,9 +217,9 @@ $ git clone https://github.com/lj020326/ansible-datacenter.git
 $ cd ansible-datacenter
 $ export MOLECULE_DISTRO=redhat7-systemd-python
 $ molecule login
-$ molecule --debug test -s bootstrap-linux-package
+$ molecule --debug test -s bootstrap_linux_package
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule login
 $ molecule destroy
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule converge
@@ -278,7 +278,7 @@ $ ansible-playbook site.yml --tags docker-samba-node
 ### To configure samba client node
 
 ```shell
-$ ansible-playbook site.yml --tags samba-client
+$ ansible-playbook site.yml --tags bootstrap-samba-client
 ```
 
 ### To setup/configure linux users
@@ -592,7 +592,7 @@ The vm image build pipeline source is located here [here](https://github.com/lj0
 ansible-playbook site.yml --tags bootstrap-linux --limit admin02
 ```
 
-Bootstrap node network config *should not be necessary since this is mostly done in deploy-VM
+Bootstrap node network config *should not be necessary since this is mostly done in deploy-vm
 ```shell
 ansible-playbook site.yml --tags bootstrap-network --limit node01
 ```

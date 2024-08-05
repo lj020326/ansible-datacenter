@@ -1,0 +1,42 @@
+---
+- name: Unload nmi_watchdog
+  community.general.modprobe:
+    name: nmi_watchdog
+    state: absent
+
+- name: Attempt to unload softdog live
+  community.general.modprobe:
+    name: softdog
+    state: absent
+  ignore_errors: true
+  register: _pve_rmmod_softdog
+
+- name: Handle softdog if failed
+  when: _pve_rmmod_softdog is failed
+  block:
+    - name: Stop watchdog-mux
+      ansible.builtin.service:
+        name: watchdog-mux
+        state: stopped
+      notify:
+        - restart watchdog-mux
+
+    - name: Unload softdog
+      community.general.modprobe:
+        name: softdog
+        state: absent
+
+- name: Disable nmi_watchdog via GRUB config
+  ansible.builtin.lineinfile:
+    dest: /etc/default/grub
+    line: GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX nmi_watchdog=0"
+    insertafter: ^GRUB_CMDLINE_LINUX="
+  register: _pve_grub
+
+- name: Update GRUB configuration
+  when: _pve_grub is changed # noqa: no-handler
+  changed_when: false
+  ansible.builtin.command: update-grub
+  register: _pve_grub_update
+  failed_when: ('error' in _pve_grub_update.stderr)
+  tags: skiponlxc

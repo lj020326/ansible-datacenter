@@ -1,0 +1,25 @@
+---
+- name: "[LVM] - Remove lvm profile for autoextend"
+  ansible.builtin.file:
+    state: absent
+    path: /etc/lvm/profile/{{ bootstrap_docker__vgname }}-{{ bootstrap_docker__lvname }}.profile
+
+- name: "[LVM] - Retrieve pvname"
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail  
+      pvs | grep docker | awk '{print $1}'
+  changed_when: false
+  register: __docker_pvname
+
+- name: "[LVM] - Remove logical volume {{docker_lvname}}"
+  ansible.builtin.command: lvremove -y {{ bootstrap_docker__vgname }}/thinpool
+  changed_when: false
+
+- name: "[LVM] - Remove volume group {{ bootstrap_docker__vgname }}"
+  ansible.builtin.command: vgremove -y {{ bootstrap_docker__vgname }}
+  changed_when: false
+
+- name: "[LVM] - Remove physical volume {{ __docker_pvname.stdout }}"
+  ansible.builtin.command: pvremove -y {{ __docker_pvname.stdout }}
+  changed_when: false

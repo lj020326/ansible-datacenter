@@ -1,0 +1,149 @@
+---
+
+__docker_stack__artifactory_stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__artifactory_base_dir_default: "{{ __docker_stack__artifactory_stack_dir }}/artifactory"
+__docker_stack__artifactory_base_dir: "{{ docker_stack__artifactory_dir | d(__docker_stack__artifactory_base_dir_default) }}"
+
+__docker_stack__artifactory_host: "{{ docker_stack__artifactory_host | d(docker_stack__traefik_host) }}"
+
+__docker_stack__artifactory_http: "{{ docker_stack__artifactory_http | d('8081') }}"
+
+#__docker_stack__artifactory_image_default: "{{ docker_stack__registry_endpoint }}/artifactory-pro:latest"
+__docker_stack__artifactory_image_default: "docker.bintray.io/jfrog/artifactory-pro:5.4.4"
+__docker_stack__artifactory_image: "{{ docker_stack__artifactory_image | d(__docker_stack__artifactory_image_default) }}"
+
+__docker_stack__artifactory_ldap_host: "{{ docker_stack__artifactory_ldap_host | d(docker_stack__ldap_host)}}"
+__docker_stack__artifactory_ldap_uri: "{{ docker_stack__artifactory_ldap_uri | d(docker_stack__ldap_uri) | d(docker_stack__ldap_host) }}"
+__docker_stack__artifactory_ldap_base_dn: "{{ docker_stack__artifactory_ldap_base_dn | d(docker_stack__ldap_base_dn)}}"
+
+__docker_stack__artifactory_ldap_bind_user_dn_default: "cn=readonly,{{ __docker_stack__artifactory_ldap_base_dn
+  | d(docker_stack__ldap_user_base_dn) }}"
+__docker_stack__artifactory_ldap_bind_user_dn: "{{ docker_stack__artifactory_ldap_bind_user_dn
+  | d(docker_stack__ldap_bind_user_dn) | d(__docker_stack__artifactory_ldap_bind_user_dn_default) }}"
+__docker_stack__artifactory_ldap_bind_user_password: "{{ docker_stack__artifactory_ldap_bind_user_password
+  | d(docker_stack__ldap_bind_user_password) }}"
+
+#__docker_stack__artifactory_data_dir_default: /export/data/artifactory/osimages
+#__docker_stack__artifactory_data_dir_default: /export/data/artifactory
+__docker_stack__artifactory_data_dir_default: /data/datacenter/artifactory
+__docker_stack__artifactory_data_dir: "{{ docker_stack__artifactory_data_dir | d(__docker_stack__artifactory_data_dir_default) }}"
+
+__docker_stack__artifactory__config_dirs:
+  - path: "{{ __docker_stack__artifactory_base_dir }}"
+  - path: "{{ __docker_stack__artifactory_data_dir }}"
+  - path: "{{ __docker_stack__artifactory_data_dir }}/osimages"
+
+__docker_stack__artifactory__config_tpls: []
+
+
+#########
+## Credential vars
+__docker_stack__artifactory_cred_artifactory_admin_user_username: "{{ docker_stack__artifactory_cred_artifactory_admin_user_username | d('admin') }}"
+__docker_stack__artifactory_cred_artifactory_admin_user_password: "{{ docker_stack__artifactory_cred_artifactory_admin_user_password | d('CHANGEME123') }}"
+
+
+__docker_stack__artifactory__secrets:
+  - name: ldap_username
+    value: "{{ __docker_stack__artifactory_ldap_bind_user_dn }}"
+  - name: ldap_password
+    value: "{{ __docker_stack__artifactory_ldap_bind_user_password }}"
+  - name: artifactory_admin_username
+    value: "{{ __docker_stack__artifactory_cred_artifactory_admin_user_username }}"
+  - name: artifactory_admin_password
+    value: "{{ __docker_stack__artifactory_cred_artifactory_admin_user_password }}"
+
+
+__docker_stack__artifactory__firewalld_ports:
+  - "{{ __docker_stack__artifactory_agent_tcp_port }}/tcp"
+  - "{{ __docker_stack__artifactory_agent_ssh_port }}/tcp"
+
+#####################
+## merge all de-referenced app configs into single composite service config dict for tasks setup to use
+## TODO: instead of having this done in each app config, have a single merge/dereference
+## done by init-vars.yml using varname lookups
+#####################
+docker_stack__appspec__artifactory:
+  dirs: "{{ __docker_stack__artifactory__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__artifactory__config_files | d([]) }}"
+  templates: "{{ __docker_stack__artifactory__config_tpls | d([]) }}"
+  secrets: "{{ __docker_stack__artifactory__secrets | d({}) }}"
+  firewalld_services: "{{ __docker_stack__artifactory__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__artifactory__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__artifactory__networks | d({}) }}"
+  volumes: "{{ __docker_stack__artifactory__volumes | d({}) }}"
+  docker_services: "{{ __docker_stack__artifactory__services | d({}) }}"
+
+__docker_stack__artifactory__traefik_labels: "{{ docker_stack__artifactory__traefik_labels
+  | d(__docker_stack__artifactory__traefik_labels_default) }}"
+
+__docker_stack__artifactory__services:
+
+  ## ref: https://github.com/jfrog/artifactory-docker-examples/blob/master/swarm/artifactory-pro.yml
+  artifactory:
+    image: "{{ __docker_stack__artifactory_image }}"
+    container_name: artifactory
+    restart: "unless-stopped"
+    depends_on:
+      - postgresql-artifactory
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    networks:
+      - "{{ docker_stack__traefik_proxy_network }}"
+      - socket_proxy
+    ports:
+      - mode: host
+        protocol: tcp
+        published: "{{ __docker_stack__artifactory_http }}"
+        target: 8081
+#      command: "--httpsCertificate=/var/opt/jfrog/artifactory/cert --httpsPrivateKey=/var/opt/jfrog/artifactory/pk"
+    volumes:
+      - "{{ __docker_stack__artifactory_base_dir }}:/var/opt/jfrog/artifactory"
+      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+      - "{{ __docker_stack__ca_java_keystore }}:/var/opt/jfrog/artifactory/cacerts"
+      - "{{ __docker_stack__artifactory_data_dir }}:/data"
+      - "{{ __docker_stack__artifactory_vmware_data_dir }}:/vmware"
+    env_file:
+      - artifactory/artifactory.env
+    secrets:
+      - ldap_username
+      - ldap_password
+      - artifactory_admin_password
+      - artifactory_git_password
+    deploy:
+      #############
+      ## Set endpoint_mode to `dnsrr` for container to have local dns access
+      ## https://stackoverflow.com/questions/52665442/docker-swarm-host-cannot-resolve-hosts-on-other-nodes
+      ## https://docs.docker.com/compose/compose-file/compose-file-v3/#endpoint_mode
+      endpoint_mode: dnsrr
+      mode: replicated
+      placement:
+        constraints:
+          - node.hostname == {{ docker_stack__artifactory_host }}
+#          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+    labels: "{{ __docker_stack__artifactory__traefik_labels }}"
+
+  postgresql-artifactory:
+    image: docker.bintray.io/postgres:9.6.11
+    ports:
+      - 5432:5432
+    env_file:
+      - artifactory/artifactory.env
+    #volumes:
+    # - artifactory:/var/lib/postgresql/data
+    deploy:
+      endpoint_mode: dnsrr
+      mode: replicated
+      placement:
+        constraints:
+          - node.hostname == {{ docker_stack__artifactory_host }}
+#          - node.role != manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3

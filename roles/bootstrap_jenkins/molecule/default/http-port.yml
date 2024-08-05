@@ -1,0 +1,26 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+
+  vars:
+    jenkins_http_port: 8081
+
+  pre_tasks:
+    - name: Run debian-setup.yml
+      ansible.builtin.include_tasks: debian-setup.yml
+      when: ansible_os_family == 'Debian'
+
+  roles:
+    - geerlingguy.java
+    - bootstrap_jenkins
+
+  post_tasks:
+    - name: Ensure Jenkins is running on the specified port.
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ jenkins_http_port }}"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 1

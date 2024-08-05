@@ -1,0 +1,82 @@
+---
+
+- name: "Add a jenkins group"
+  ansible.builtin.group:
+    name: jenkins
+    state: present
+
+- name: "Add a jenkins user"
+  ansible.builtin.user:
+    name: jenkins
+    state: present
+
+- name: "Add jenkins user to jenkins user groups"
+  when: jenkins_swarm_agent__jenkins_user_groups|d([])|length>0
+  ansible.builtin.user:
+    name: jenkins
+    groups: "{{ jenkins_swarm_agent__jenkins_user_groups }}"
+    append: yes
+    state: present
+
+- name: "Create Swarm directory"
+  ansible.builtin.file:
+    path: "{{ jenkins_swarm_agent__path }}"
+    state: directory
+    mode: "0755"
+
+- name: "Ensure Jenkins Swarm Client config directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ jenkins_swarm_agent__systemd_path }}"
+    - "{{ jenkins_swarm_agent__path }}"
+    - "{{ jenkins_swarm_agent__remote_fs }}"
+
+- name: "Download the Jenkins Swarm Client"
+  ansible.builtin.get_url:
+    url: "{{ jenkins_swarm_agent__download_url }}"
+    dest: "{{ jenkins_swarm_agent__path }}"
+    owner: jenkins
+    group: jenkins
+    validate_certs: "{{ jenkins_swarm_agent__validate_certs }}"
+    mode: "0755"
+  notify:
+    - Restart Swarm Client service
+  register: swarm_jar
+
+- name: "Ensure {{ jenkins_swarm_agent__labels_file }} contains defined labels"
+#  when: jenkins_swarm_agent__labels|select()|d([])|length>0
+  ansible.builtin.template:
+    src: "swarm-labels.conf.j2"
+    dest: "{{ jenkins_swarm_agent__labels_file }}"
+    mode: "0755"
+    backup: true
+  notify: Restart Swarm Client service
+
+- name: "Ensure {{ jenkins_swarm_agent__password_file }} file exists"
+  when:
+    - jenkins_swarm_agent__password_file is defined
+    - jenkins_swarm_agent__password is defined
+  ansible.builtin.template:
+    src: "swarm-password.conf.j2"
+    dest: "{{ jenkins_swarm_agent__password_file }}"
+    mode: '0400'
+    backup: true
+  notify: Restart Swarm Client service
+
+#- name: Install jre package
+#  ansible.builtin.package:
+#    name: "{{ jenkins_swarm_agent__jre_packages }}"
+#    state: present
+
+- name: "Ensure Swarm Client service definition"
+  ansible.builtin.template:
+    src: "swarm-client.service.j2"
+    dest: "{{ jenkins_swarm_agent__systemd_service_dir }}/{{ jenkins_swarm_agent__service_name }}.service"
+    mode: "0644"
+    force: "{{ jenkins_swarm_agent__service_force_update | bool }}"
+  notify:
+    - Reload Systemd
+    - Restart Swarm Client service

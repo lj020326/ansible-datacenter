@@ -1,0 +1,35 @@
+---
+
+- name: Run bootstrap_docker_registry
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  roles:
+    - role: bootstrap_docker_registry
+
+- name: Test the registry
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Wait for registry to start
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ bootstrap_docker_registry__port }}"
+
+    - name: Get container state
+      ansible.builtin.command: "{% raw %}docker inspect --format='{{ .State.Running }}' registry{% endraw %}"
+      changed_when: true
+      register: container_state
+
+    - name: Should be running
+      ansible.builtin.assert:
+        that:
+          - container_state.stdout == 'true' 
+
+    - name: Authenticate each user 
+      community.docker.docker_login:
+        registry_url: "https://localhost:5000"
+        username: "{{ item.username }}"
+        password: "{{ item.password }}"
+      loop: "{{ bootstrap_docker_registry__users }}"

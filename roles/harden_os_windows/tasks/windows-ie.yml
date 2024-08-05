@@ -1,0 +1,114 @@
+---
+
+- name: IE 64-bit tab
+  ansible.windows.win_regedit:
+    key: HKLM:\Software\Policies\Microsoft\Internet Explorer\Main
+    value: Isolation64Bit
+    datatype: dword
+    data: 1
+
+- name: Run antimalware programs against ActiveX controls
+  ansible.windows.win_regedit:
+    key: HKLM:\Software\Policies\Microsoft\Windows\CurrentVersion\Internet Settings\Zones\3
+    value: "270C"
+    datatype: dword
+    data: 0
+
+- name: Disable IE add-ons
+  ansible.windows.win_regedit:
+    key: HKCU:\Software\Microsoft\Internet Explorer\Main
+    value: "Enable Browser Extensions"
+    datatype: string
+    data: "no"
+
+## https://www.stigviewer.com/stig/internet_explorer_8/2013-04-01/finding/V-15494
+- name: Turn off the Security Settings Check feature is not disabled
+  ansible.windows.win_regedit:
+    key: HKLM:\Software\Policies\Microsoft\Internet Explorer\Security Criteria
+    value: "DisableSecuritySettingsCheck"
+    datatype: dword
+    data: 0
+
+## https://community.spiceworks.com/topic/314789-how-do-i-allow-only-browsing-an-intranet-site-on-our-terminal-server
+- name: Configure Internet Proxy
+  when: harden_win_ie_proxy|bool
+  block:
+    - name: Configure Internet Proxy
+      ansible.windows.win_regedit:
+        key: HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings
+        value: "{{ item.v }}"
+        datatype: "{{ item.t }}"
+        data: "{{ item.d }}"
+      loop:
+        - { v: ProxyServer, t: string, d: "{{ harden_win_ie_proxy_url }}" }
+        - { v: ProxyOverride, t: string, d: "{{ harden_win_ie_proxy_override }}" }
+        - { v: ProxyEnable, t: dword, d: 1 }
+
+- name: Disable Internet Proxy
+  when: not harden_win_ie_proxy|bool
+  block:
+    - name: Disable Internet Proxy
+      ansible.windows.win_regedit:
+        key: HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings
+        value: "{{ item.v }}"
+        datatype: "{{ item.t }}"
+        data: "{{ item.d }}"
+      loop:
+        - { v: ProxyEnable, t: dword, d: 0 }
+
+## https://community.spiceworks.com/topic/314789-how-do-i-allow-only-browsing-an-intranet-site-on-our-terminal-server
+- name: Configure Internet Proxy
+  when: harden_win_ie_proxy|bool
+  block:
+    - name: Configure Internet Proxy
+      ansible.windows.win_regedit:
+        key: HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings
+        value: "{{ item.v }}"
+        datatype: "{{ item.t }}"
+        data: "{{ item.d }}"
+      loop:
+        - { v: ProxyServer, t: string, d: "{{ harden_win_ie_proxy_url }}" }
+        - { v: ProxyOverride, t: string, d: "{{ harden_win_ie_proxy_override }}" }
+        - { v: ProxyEnable, t: dword, d: 1 }
+
+- name: Disable Internet Proxy
+  when: not harden_win_ie_proxy|bool
+  block:
+    - name: Disable Internet Proxy
+      ansible.windows.win_regedit:
+        key: HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings
+        value: "{{ item.v }}"
+        datatype: "{{ item.t }}"
+        data: "{{ item.d }}"
+      loop:
+        - { v: ProxyEnable, t: dword, d: 0 }
+
+# https://support.microsoft.com/en-us/help/4586060/option-to-disable-jscript-execution
+- name: Disable JScript execution in Internet Explorer Internet Zone
+  ansible.windows.win_regedit:
+    key: "{{ item.k }}"
+    value: "{{ item.v }}"
+    datatype: "{{ item.t }}"
+    data: "{{ item.d }}"
+  loop:
+    - { k: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\Zones\3\140D',
+        v: "*",
+        t: dword,
+        d: 3
+    }
+    # Restrict JScript from executing scripts for emulated applications such as a 32-bit application running on a 64-bit device
+    - { k: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\Zones\3\140D',
+        v: "EnableJScriptMitigation",
+        t: dword,
+        d: 1
+    }
+    - { k: 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\MSXML30',
+        v: "EnableJScriptMitigation",
+        t: dword,
+        d: 1
+    }
+    - { k: 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\MSXML60',
+        v: "EnableJScriptMitigation",
+        t: dword,
+        d: 1
+    }

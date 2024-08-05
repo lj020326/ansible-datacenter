@@ -1,0 +1,48 @@
+---
+- name: Create snapshot '{{ snapshot_name }}' on '{{ vm_name }}'
+  community.vmware.vmware_guest_snapshot:
+    hostname: "{{ vsphere_host_name }}"
+    username: "{{ vsphere_host_user }}"
+    password: "{{ vsphere_host_user_password }}"
+    validate_certs: "{{ validate_certs | default(false) }}"
+    datacenter: "{{ vsphere_host_datacenter }}"
+    folder: "{{ vm_folder }}"
+    name: "{{ vm_name }}"
+    state: present
+    snapshot_name: "{{ snapshot_name }}"
+    quiesce: "{{ is_quiesce | default(false) }}"
+    memory_dump: "{{ dump_memory | default(true) }}"
+  ignore_errors: "{{ vm_take_snapshot_ignore_err | default(false) }}"
+  register: vm_take_snapshot_result
+
+- name: Display the result of taking snapshot
+  when: enable_debug|d(False)|bool
+  ansible.builtin.debug:
+    var: vm_take_snapshot_result
+
+- name: Check VM snapshot took is quiesced snapshot
+  when:
+    - "'failed' in vm_take_snapshot_result"
+    - not vm_take_snapshot_result.failed
+  block:
+    - name: Run vm_get_snapshot_facts.yml
+      ansible.builtin.include_tasks: vm_get_snapshot_facts.yml
+
+    - name: Check VM snapshot is taken and is the current one
+      ansible.builtin.assert:
+        that:
+          - vm_snapshot_facts is defined
+          - vm_snapshot_facts.guest_snapshots is defined
+          - vm_snapshot_facts.guest_snapshots.current_snapshot is defined
+          - vm_snapshot_facts.guest_snapshots.current_snapshot.name is defined
+          - vm_snapshot_facts.guest_snapshots.current_snapshot.name == snapshot_name
+        fail_msg: Failed to take snapshot '{{ snapshot_name }}' on VM '{{ vm_name }}'.
+        success_msg: Take snapshot '{{ snapshot_name }}' on VM '{{ vm_name }}' succeed.
+
+    - name: Check VM snapshot took is quiesced snapshot
+      when: is_quiesce | default(false) | bool
+      ansible.builtin.assert:
+        that:
+          - vm_snapshot_facts.guest_snapshots.current_snapshot.quiesced is defined
+          - vm_snapshot_facts.guest_snapshots.current_snapshot.quiesced | bool
+        fail_msg: Snapshot '{{ snapshot_name }}' quiesced status is false.

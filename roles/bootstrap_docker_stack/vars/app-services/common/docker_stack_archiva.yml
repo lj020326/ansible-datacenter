@@ -1,0 +1,68 @@
+---
+
+__docker_stack__archiva__http_port: "{{ docker_stack__archiva_http_port | d('4080') }}"
+__docker_stack__archiva__smtp_host: "{{ docker_stack__archiva_smtp_host | d('mail.example.int') }}"
+__docker_stack__archiva__traefik_labels: "{{ docker_stack__archiva__traefik_labels | d(__docker_stack__archiva__traefik_labels_default) }}"
+
+__docker_stack__archiva__config_dirs:
+  - { path: "{{ docker_stack__dir }}/archiva" }
+
+__docker_stack__archiva__firewalld_ports:
+  - "{{ docker_stack__archiva_http_port }}/tcp"
+
+#__docker_stack__archiva__config_tpls:
+#  - { src: "archiva/archiva.xml.j2", dest: "{{ docker_stack__dir }}/archiva/conf/archiva.xml" }
+
+#__docker_stack__archiva__networks:
+#  ## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
+#  net:
+#    external: false
+#    attachable: true
+
+__docker_stack__archiva__services:
+  ## ref: https://github.com/xetus-oss/docker-archiva
+  ## ref: https://github.com/xetus-oss/docker-archiva/blob/master/docker-compose.yaml
+  ## ref: https://github.com/xetus-oss/docker-archiva/blob/master/docker-compose.nginx-https.yaml
+  ## ref: https://github.com/xetus-oss/docker-archiva/blob/master/docker-compose.cacerts.yaml
+  archiva:
+    container_name: archiva
+    image: "xetusoss/archiva:latest"
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    environment:
+      PROXY_BASE_URL: "https://archiva.{{ docker_stack__internal_domain }}{{ docker_stack__traefik_https_suffix }}"
+      SMTP_HOST: "{{ __docker_stack__archiva__smtp_host }}"
+      SMTP_PORT: "25"
+#      restart: always
+    restart: "unless-stopped"
+    networks:
+      - "{{ docker_stack__traefik_proxy_network }}"
+      - net
+    volumes:
+      - "{{ docker_stack__dir }}/archiva:/archiva-data"
+#        - "{{ __docker_stack__ca_cert_bundle }}:/certs/ca-certificates.crt:ro"
+      - "{{ __docker_stack__ca_java_keystore }}:/etc/ssl/certs/java/cacerts"
+    ports:
+      - "{{ __docker_stack__archiva__http_port }}:8080"
+    labels: "{{ __docker_stack__archiva__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+#          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+
+
+docker_stack__appspec__archiva:
+  dirs: "{{ __docker_stack__archiva__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__archiva__config_files | d([]) }}"
+  templates: "{{ __docker_stack__archiva__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__archiva__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__archiva__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__archiva__networks | d({}) }}"
+  docker_services: "{{ __docker_stack__archiva__services | d({}) }}"

@@ -1,0 +1,316 @@
+---
+# defaults file for vcsa-deploy
+
+# Prereqs.yml variables
+vsphere_deploy_dc_vcenter_repo_dir: /opt/repo
+vsphere_deploy_dc_vcsa_iso: VMware-VCSA-all-6.7.0-9451876.iso
+vsphere_deploy_dc_esx_iso: VMware-VMvisor-Installer-6.5.0-4564106.x86_64.iso
+
+vsphere_deploy_iso_hash_seed: sldkfjlkenwq4tm;24togk34t
+
+vsphere_deploy_dc_vsphere_version: "6.5"
+vsphere_deploy_dc_esx_custom_iso: custom-esxi-{{ vsphere_deploy_dc_vsphere_version }}.iso
+#vsphere_deploy_dc_vcenter_iso_dir: "/ESXI-ISO"
+vsphere_deploy_dc_vcenter_iso_dir: /ISO-Repo/vmware/esxi
+
+#pyvmomi==6.7.3
+vsphere_deploy_dc_vcenter_python_pip_depends:
+  - pyVmomi
+
+vsphere_deploy_dc_vcenter_install_tmp_dir: /tmp
+
+vsphere_deploy_dc_vcenter_mount_dir: /mnt/VCSA
+
+vsphere_deploy_dc_ovftool: "{{ vsphere_deploy_dc_vcenter_mount_dir }}/vcsa/ovftool/lin64/ovftool"
+vsphere_deploy_dc_vcsa_ova: vcsa/VMware-vCenter-Server-Appliance-6.7.0.14000-9451876_OVF10.ova
+
+vsphere_deploy_dc_vcenter_appliance_type: embedded
+
+# deploy.yml and deploy_appliance.yml variables
+vsphere_deploy_dc_vcenter_network_ip_scheme: static
+vsphere_deploy_dc_vcenter_disk_mode: thin
+
+vsphere_deploy_dc_vcenter_appliance_name: vcenter
+vsphere_deploy_dc_vcenter_appliance_size: small
+
+vsphere_deploy_dc_vcenter_target_esxi_datastore: vsanDatastore
+vsphere_deploy_dc_vcenter_target_esxi_portgroup: Management
+
+vsphere_deploy_dc_vcenter_ssh_enable: true
+vsphere_deploy_dc_vcenter_time_tools_sync: false
+vsphere_deploy_dc_vcenter_net_addr_family: ipv4
+
+vsphere_deploy_dc_vcenter_site_name: Default-Site
+vsphere_deploy_dc_vcenter_sso_domain: vsphere.local
+vsphere_deploy_dc_vcenter_domain: example.int
+vsphere_deploy_dc_vcenter_cluster: Management
+
+vsphere_deploy_dc_vcenter_username: administrator@{{vsphere_deploy_dc_vcenter_sso_domain}}
+vsphere_deploy_dc_vcenter_password: VMware1!
+vsphere_deploy_dc_vcenter_fqdn: vcenter.example.int
+vsphere_deploy_dc_vcenter_ip: 192.168.0.25
+vsphere_deploy_dc_vcenter_netmask: 255.255.0.0
+vsphere_deploy_dc_vcenter_gateway: 192.168.0.1
+vsphere_deploy_dc_vcenter_net_prefix: "16"
+
+vsphere_deploy_dc_vcenter_datastore: datastore1
+vsphere_deploy_dc_vcenter_datacenter: dc-01
+#vsphere_deploy_dc_vcenter_network: "Infrastructure" # this portGroup will be created on the pESX with the vlan id specified in the vsphere_deploy_dc_vcenter_target_esx_host section
+vsphere_deploy_dc_vcenter_network: VM Network # this portGroup will be created on the pESX with the vlan id specified in the vsphere_deploy_dc_vcenter_target_esx_host section
+
+vsphere_deploy_dc_vcenter_mgt_portgroup_name: "{{ vsphere_deploy_dc_vcenter_network }}"
+vsphere_deploy_dc_vcenter_mgt_vlan_id: 0
+vsphere_deploy_dc_vcenter_mgt_vswitch: vSwitch0
+vsphere_deploy_dc_vcenter_mgt_network: Management Network # this portGroup will be created on the pESX with the vlan id specified in the
+
+## VSS => vmware standard switch setup
+#vsphere_deploy_dc_vcenter_nested_vss_portgroup_name: "AllVlansVSS"
+vsphere_deploy_dc_vcenter_nested_vss_portgroup_name: nested-trunk
+vsphere_deploy_dc_vcenter_nested_vss_vlan_id: 4095
+
+vsphere_deploy_dc_vcenter_dns_servers:
+  - 192.168.0.1
+
+vsphere_deploy_dc_vcenter_search_domains:
+  - subdomain.example.int
+  - example.int
+
+vsphere_deploy_dc_vcenter_ntp_servers:
+  - 132.163.97.1
+  - 132.163.96.1
+
+vsphere_deploy_dc_vcenter_target_esxi: 192.168.0.11
+vsphere_deploy_dc_vcenter_target_esxi_username: root
+vsphere_deploy_dc_vcenter_target_esxi_password: foobar
+
+vsphere_deploy_dc_vcenter_license: f600d-21ae3-5592b-249e0-cc341
+vsphere_deploy_dc_esxi_license: f600d-21ae3-5592b-249e0-cc341
+
+vsphere_deploy_dc_vsphere_licenses:
+  esx1.example.int: f600d-21ae3-5592b-249e0-cc341
+  esx2.example.int: f600d-21ae3-5592b-249e0-cc342
+
+## vsphere-lab-deploy
+
+# the vCenter appliance that need to be deployed
+vsphere_deploy_dc__vcenter:
+  name: "{{ vsphere_deploy_dc_vcenter_appliance_name }}"
+  fqdn: "{{ vsphere_deploy_dc_vcenter_fqdn }}"
+  hostname: "{{ vcenter_hostname }}"
+  #  ip: "{{ vsphere_deploy_dc_vcenter_ip }}" # vCenter ip address
+  network_type: dhcp
+  mask: "{{ vsphere_deploy_dc_vcenter_net_prefix }}"
+  gw: "{{ vsphere_deploy_dc_vcenter_gateway }}"
+  switch_name: "{{ vsphere_deploy_dc_vcenter_mgt_vswitch }}"
+  vlan: "{{ vsphere_deploy_dc_vcenter_mgt_vlan_id }}"
+  network: "{{ vsphere_deploy_dc_vcenter_network }}" # this portGroup will be created on the pESX with the vlan id specified in the vsphere_deploy_dc_vcenter_target_esx_host section
+  nested_vss_portgroup_name: "{{ vsphere_deploy_dc_vcenter_nested_vss_portgroup_name }}"
+  nested_vss_vlan_id: "{{ vsphere_deploy_dc_vcenter_nested_vss_vlan_id }}"
+  thin: "true"
+  username: "{{ vsphere_deploy_dc_vcenter_username }}"
+  password: "{{ vsphere_deploy_dc_vcenter_password }}"
+  datacenter: "{{ vsphere_deploy_dc_vcenter_datacenter }}"
+  datastore: "{{ vsphere_deploy_dc_vcenter_datastore }}" # Datastore name where the nested ESXi VMs will be deployed
+  domain: "{{ vsphere_deploy_dc_vcenter_sso_domain }}"
+  cluster: "{{ vsphere_deploy_dc_vcenter_cluster }}" # cluster where the vCenter VM will be deployed
+  site_name: "{{ vsphere_deploy_dc_vcenter_site_name }}"
+  license: "{{ vsphere_deploy_dc_vcenter_license }}"
+
+## if there is existing VC connected to the physical ESXi change the configuration here.
+## If there is no existing VC the config must be the same as the vcenter section above
+
+### This is the vCenter which will be the target for nested vCenters and ESXi hosts
+#vc_mng:
+#  name: "{{ vsphere_deploy_dc_vcenter_appliance_name }}"
+#  fqdn: "{{ vsphere_deploy_dc_vcenter_fqdn }}"
+#  hostname: "{{ vcenter_hostname }}"
+#  ip: "{{ vsphere_deploy_dc_vcenter_ip }}" # if you have existing VC already deployed and connected to the physical ESX put the ip address here, otherwise it must be the same as the parameters in vcenter section above
+#  mask: "{{ vsphere_deploy_dc_vcenter_net_prefix }}"
+#  gw: "{{ vsphere_deploy_dc_vcenter_gateway }}"
+#  network: "{{ vsphere_deploy_dc_vcenter_mgt_portgroup_name }}"
+#  username: "{{ vsphere_deploy_dc_vcenter_username }}"
+#  password: "{{ vsphere_deploy_dc_vcenter_password }}"
+#  datacenter: "{{ vsphere_deploy_dc_vcenter_datacenter }}"
+#  datastore: "{{ vsphere_deploy_dc_vcenter_datastore }}" # Datastore name where the nested ESXi VMs will be deployed
+#  domain: "{{ vsphere_deploy_dc_vcenter_domain }}"
+#  ntp: "{{vsphere_deploy_dc_vcenter_ntp_servers}}"
+#  cluster: "{{vsphere_deploy_dc_vcenter_cluster}}" # cluster where the vCenter VM will be deployed
+#  site_name: "{{ vsphere_deploy_dc_vcenter_site_name }}"
+
+#vc_mng: "{{ vcenter }}"
+
+vsphere_deploy_dc_vcenter_clusters: # You can add, remove or rename clusters in this section, you can specify to which cluster specific nested ESXi to be connected to
+  # Do not change ha and vsan to True untill I fix a bug. It is better to go and enable first vSAN and HA after the deployment is done
+  Management:
+    ha: false
+    drs: false
+    vsan: false
+  Compute:
+    ha: false
+    drs: true
+    vsan: true
+
+vsphere_deploy_dc_vcenter_folders:
+  - name: vm
+    type: vm
+
+## vsphere-lab-deploy-orig (yasen) - to setup/configure physical/hosting esx & vcenter
+
+## configuration for accessing the existing physical ESXi
+vsphere_deploy_dc_vcenter_physical_esx_hosts:
+  - hostname: esx01.example.int
+    vlan: "{{ vsphere_deploy_dc_vcenter_mgt_vlan_id }}"
+    switch_name: "{{ vsphere_deploy_dc_vcenter_mgt_vswitch }}"
+    cluster: "{{ vsphere_deploy_dc_vcenter_cluster }}"
+
+  - hostname: esx02.example.int
+    vlan: "{{ vsphere_deploy_dc_vcenter_mgt_vlan_id }}"
+    switch_name: "{{ vsphere_deploy_dc_vcenter_mgt_vswitch }}"
+    cluster: "{{ vsphere_deploy_dc_vcenter_cluster }}"
+
+vsphere_deploy_dc_vcenter_target_esx_host: "{{ vsphere_deploy_dc_vcenter_physical_esx_hosts[0] }}"
+
+## v2
+#hosting_vcenter: # This is the vCenter which will be the target for nested vCenters and ESXi hosts
+#  ip: "{{ vsphere_deploy_dc_vcenter_ip }}"
+#  username: "{{ vsphere_deploy_dc_vcenter_username }}"
+#  password: "{{ vsphere_deploy_dc_vcenter_password }}"
+#  datacenter: "{{ vsphere_deploy_dc_vcenter_datacenter }}" # Target for all VM deployment
+#  datastore: "{{ vsphere_deploy_dc_vcenter_datastore }}"
+
+# vMotion vlan and network, no need to be reachable, you can configure random values here
+vsphere_deploy_dc_vmotion_vlan: "1078"
+vsphere_deploy_dc_vmotion_mask: 255.255.255.0
+vsphere_deploy_dc_vmotion_gw: 172.16.122.250
+
+# vSAN  vlan and network, no need to be reachible, you can configure random values here
+vsphere_deploy_dc_vsan_vlan: "1079"
+vsphere_deploy_dc_vsan_mask: 255.255.255.0
+vsphere_deploy_dc_vsan_gw: 172.16.123.250
+
+vsphere_deploy_dc_vcenter_mgmt_vlan: "0"
+vsphere_deploy_dc_vcenter_external_vlan: "48"
+
+vsphere_deploy_dc_nested_vcenter: # the vCenter appliance that will be deployed
+  ip: 192.168.0.181 # vCenter ip address
+  mask: "24"
+  gw: 192.168.0.1
+  host_name: 192.168.0.181 # FQDN if there is working DNS server, otherwise put the ip as a name
+  thin: true
+  user: administrator@vsphere.local
+  password: VMware1!
+  datacenter: Lab # DC to create after deployment
+  ntp: time1.google.com
+  # Below are properties of parent cluster
+  network: Net1 # Parent port group where the vCenter VM will be deployed
+  cluster: Physical # Parent cluster where the vCenter VM will be deployed
+  domain_name: "{{ vsphere_deploy_dc_vcenter_domain }}"
+  site_name: "{{ vsphere_deploy_dc_vcenter_site_name }}"
+  ## Parent datastore where the vCenter VM will be deployed
+  datastore: "{{ vsphere_deploy_dc_vcenter_datastore }}"
+
+vsphere_deploy_dc_nested_esx_host_defaults:
+  domain: "{{ vsphere_deploy_dc_vcenter_domain }}"
+  mask: 255.255.255.224
+  gw: 10.114.209.225
+  dns_servers: "{{ vsphere_deploy_dc_vcenter_dns_servers }}"
+  mgmt_cluster: Management # the cluster where physical ESXi is connected to. The nested VMs will be deployed here
+  mgmt_portgroup: Management Network
+  cluster: Compute # the cluster where this specific nested ESXi need to be connected to
+  vlan: "{{ vsphere_deploy_dc_vcenter_external_vlan }}" # the external vlan id, need to have connectivity with the vCenter
+  mgmt_vlan: "{{ vsphere_deploy_dc_vcenter_mgmt_vlan }}" # VLAN ID used to tag VMK0
+  cpu: 8 # CPU count
+  ram: 65536 # memory
+  hdd: 180 # there is one HDD 8GB by default where the ESXi OS is installed. Additional one is SSD emulated drive configured half of the value here, and third HDD is according the value here
+
+vsphere_deploy_dc_nested_hosts:
+  - name: esxi1
+    #    fqdn: "esx1.{{ vsphere_deploy_dc_vcenter_domain }}"
+    ip: 10.114.209.231
+    vmotion_ip: 172.16.122.1
+    vsan_ip: 172.16.123.1 # even if you dont need vSAN put an IP address here otherwise the install will fail
+
+  - name: esxi2
+    #    fqdn: "esx2.{{ vsphere_deploy_dc_vcenter_domain }}"
+    ip: 10.114.209.232
+    mask: 255.255.255.224
+    vmotion_ip: 172.16.122.2
+    vsan_ip: 172.16.123.2 # even if you dont need vSAN put an IP address here otherwise the install will fail
+
+  - name: esxi3
+    #    fqdn: "esx3.{{ vsphere_deploy_dc_vcenter_domain }}"
+    ip: 10.114.209.233
+    vmotion_ip: 172.16.122.3
+    vsan_ip: 172.16.123.3 # even if you dont need vSAN put an IP address here otherwise the install will fail
+
+  - name: esxi4
+    #    fqdn: "esx4.{{ vsphere_deploy_dc_vcenter_domain }}"
+    ip: 10.114.209.234
+    vmotion_ip: 172.16.122.4
+    vsan_ip: 172.16.123.4 # even if you dont need vSAN put an IP address here otherwise the install will fail
+
+vsphere_deploy_dc_vcenter_esx_hosts: |
+  [
+    {% for host in groups['vmware_esx_host'] %}
+    {% if hostvars[host].vcenter_esxi_node_info is defined %}
+    {{ hostvars[host].vcenter_esxi_node_info | to_json(ensure_ascii=False) }},
+    {% endif %}
+    {% endfor %}
+  ]
+
+vsphere_deploy_dc_nested_clusters: # You can add, remove or rename clusters in this section
+  compute: # This name will by used in the nested vCenter
+    drs: true
+    # HA can only be enabled if there is are datastores accessible by all hosts.
+    ha:
+      enabled: true
+      ha_host_monitoring_enabled: disabled
+      #      admission_control_enabled: False
+      #      reservation_based_admission_control:
+      reservation_based_admission_control:
+        auto_compute_percentages: false
+        failover_level: 1
+        cpu_failover_resources_percent: 50
+        memory_failover_resources_percent: 50
+
+    # Settings below are assigned to each host in the cluster
+    vswitch0_port_group_name: net1
+    mgmt_vlan: 0 # VLAN ID used to tag VMK0
+    cpu_cores: 4 # CPU count
+    ram_in_gb: 16 # memory
+    # In order list of disks to assign to the nested host. All will be marked as SSD.
+    # Datastore names will be automatically be pre-pended with the hostname. E.g esx1
+    # The first disk will be ignored
+    nested_hosts_disks:
+      - size_gb: 30
+      - size_gb: 200
+        create_datastore_name: datastore # Omit to not create a datastore on the disk
+    # Below are properties of the hosting cluster
+    cluster: Physical # the cluster where physical ESXi is connected to. The nested VMs will be deployed here
+    datastore: NVME # Datastore target for nested ESXi VMs
+    vmnic_physical_portgroup_assignment: # In vmnic order, these port groups must exist on the physical host
+      - Nest
+      - TEP
+
+vsphere_deploy_dc_resource_pools:
+  - cluster_name: compute
+    resource_pool_name:
+      - PAS-AZ1
+      - PKS-AZ1
+
+vsphere_deploy_dc_vcenter_enable_vds: false
+
+vsphere_deploy_dc_distributed_switches:
+  - name: vds_overlay
+    mtu: 9000
+    hosts:
+      - esx1
+    switch_version: 7.0.0
+    uplink_quantity: 1
+    vmnics:
+      - vmnic1
+
+vsphere_deploy_dc_distributed_port_groups:
+  - name: tep_pg
+    switch_name: vds_overlay
+    vlan_id: "0"

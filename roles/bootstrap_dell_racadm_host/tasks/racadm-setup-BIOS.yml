@@ -1,0 +1,199 @@
+---
+- name: Add Dell System Update Repository_OSIndependent
+  connection: local
+  ansible.builtin.yum_repository:
+    name: dell-system-update_independent
+    description: dell-system-update_independent
+    file: dell_system_repos
+    baseurl: http://linux.dell.com/repo/hardware/dsu/os_independent/
+    gpgcheck: true
+    gpgkey: http://linux.dell.com/repo/hardware/dsu/public.key
+    enabled: true
+    exclude: dell-system-update*.i386
+    state: present
+
+- name: Add Dell System Update Repository_OSDependent
+  connection: local
+  ansible.builtin.yum_repository:
+    name: dell-system-update_dependent
+    description: dell-system-update_dependent
+    file: dell_system_repos
+    mirrorlist: http://linux.dell.com/repo/hardware/dsu/mirrors.cgi?osname=el$releasever&basearch=$basearch&native=1
+    gpgcheck: true
+    gpgkey: http://linux.dell.com/repo/hardware/dsu/public.key
+    enabled: true
+    state: present
+
+- name: Install Dell iDRAC and All server Utilities
+  connection: local
+  ansible.builtin.yum:
+    name: srvadmin-all
+    state: present
+
+- name: Install Dell iDRAC RACADM
+  connection: local
+  ansible.builtin.yum:
+    name: srvadmin-idracadm7
+    state: present
+
+- name: Check for any Scheduled Jobs
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue view
+  register: pre_jobqueue_status
+
+- name: debug | Check for any Scheduled Jobs
+  ansible.builtin.debug:
+    var: pre_jobqueue_status.stdout_lines
+
+- name: Reboot the iDRAC to complete the Scheduled jobs
+  changed_when: false
+  ansible.builtin.raw: racadm serveraction powercycle
+  register: reboot_status
+  failed_when: "'ERROR' in reboot_status.stdout or 'Invalid' in reboot_status.stdout"
+  when: pre_jobqueue_status.stdout.find("Scheduled") >=0 or pre_jobqueue_status.stdout.find("New") >=0
+
+- name: debug | Reboot iDrac to complete the Scheduled jobs
+  ansible.builtin.debug:
+    var: reboot_status.stdout_lines
+
+- name: Wait for all the jobs to be completed
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue view
+  register: pre_jobqueue_completion
+  until:
+    - pre_jobqueue_completion.stdout.find("Running") <= 0
+    - pre_jobqueue_completion.stdout.find("Scheduled") <= 0
+    - pre_jobqueue_completion.stdout.find("New") <= 0
+  retries: 20
+  delay: 30
+
+- name: debug | Wait for all the jobs to be completed
+  ansible.builtin.debug:
+    var: pre_jobqueue_completion.stdout_lines
+
+- name: Get Status of the Target
+  changed_when: false
+  ansible.builtin.raw: racadm get "{{ item.target }}"
+  loop:
+    - "{{ target_array }}"
+  register: target_status
+
+- name: debug | Target_set values
+  ansible.builtin.debug:
+    msg: "{{ target_array | map(attribute='target_set') | list }}"
+
+- name: debug | Get Status of the Target
+  ansible.builtin.debug:
+    msg: "{{ target_status.results | map(attribute='stdout_lines') | list }}"
+
+- name: Executing racadm set on the targets to have the expected value
+  changed_when: false
+  ansible.builtin.raw: racadm set "{{ item.0.target }}" "{{ item.0.value }}"
+  register: set_status
+  #failed_when: '"ERROR" in item.1.stdout or "Invalid" in item.1.stdout'
+  failed_when: '"ERROR" in set_status.stdout or "Invalid" in set_status.stdout'
+  when: "'Pending' in item.1.stdout_lines or ( (item.0.target_set ~ '=' ~ item.0.value) not in item.1.stdout_lines )"
+  with_together:
+    - "{{ target_array }}"
+    - "{{ target_status.results }}"
+
+- name: debug | Executing racadm set on the targets to have the expected value
+  ansible.builtin.debug:
+    msg: "{{ set_status.results | map(attribute='stdout') | list }}"
+
+- name: Creating a job for the new target change # noqa: no-handler
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue create "{{ item.0.job_target }}"
+  register: jobcreate_status
+  failed_when: '"ERROR" in jobcreate_status.stdout or "Invalid" in jobcreate_status.stdout'
+  when: item|changed
+  loop:
+    - "{{ set_status.results }}"
+
+- name: debug | Creating a job for the new target change
+  ansible.builtin.debug:
+    msg: "{{ jobcreate_status.results | map(attribute='stdout') | list }}"
+
+- name: Powercycle the server for the new job execution # noqa: no-handler
+  changed_when: false
+  ansible.builtin.raw: racadm serveraction powercycle
+  register: reboot_status
+  failed_when: '"ERROR" in reboot_status.stdout or "Invalid" in reboot_status.stdout'
+  when: item|changed
+  loop:
+    - "{{ jobcreate_status.results }}"
+
+- name: debug | Powercycle the server for the new job execution
+  ansible.builtin.debug:
+    msg: "{{ reboot_status.results|map(attribute='stdout')|list}}"
+###- ansible.builtin.debug: msg="{{reboot_status.results|selectattr("stdout","defined")|map(attribute="stdout")|list}}"
+
+- name: Wait for all the executed jobs to be completed
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue view
+  register: jobqueue_completion
+  until: jobqueue_completion.stdout.find("Running") <= 0 and jobqueue_completion.stdout.find("Scheduled") <= 0 and jobqueue_completion.stdout.find("New") <= 0
+  retries: 20
+  delay: 30
+  when: reboot_status.results | selectattr('stdout', 'defined') | map(attribute='stdout') | select('search', 'power operation') | list | length > 0
+
+- name: Get racadm Boot Sequence Status
+  changed_when: false
+  ansible.builtin.raw: racadm get BIOS.BiosBootSettings.BootSeq
+  register: get_bootseq_status
+  failed_when: '"ERROR" in get_bootseq_status.stdout or "Invalid" in get_bootseq_status.stdout'
+
+- name: debug | Get racadm Boot Sequence Status
+  ansible.builtin.debug:
+    var: get_bootseq_status.stdout_lines
+
+- name: Change Boot Sequence Status, If it doesn't match the required preset
+  changed_when: false
+  ansible.builtin.raw: racadm set BIOS.BiosBootSettings.BootSeq "HardDisk.List.1-1,NIC.Integrated.1-3-1"
+  register: set_bootseq_status
+  failed_when: '"ERROR" in set_bootseq_status.stdout or "BOOT016" in set_bootseq_status.stdout'
+  when: '"HardDisk.List.1-1,NIC.Integrated.1-3-1" not in get_bootseq_status.stdout or "Pending" in get_bootseq_status.stdout'
+
+- name: debug | Change Boot Sequence Status, If it doesn't match the required preset
+  ansible.builtin.debug:
+    var: set_bootseq_status.stdout_lines
+
+- name: Create a job for boot sequence change # noqa: no-handler
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue create BIOS.Setup.1-1
+  register: jobstatus_set_bootseq
+  failed_when: '"ERROR" in jobstatus_set_bootseq.stdout'
+  when: set_bootseq_status | changed
+
+- name: debug | Create a job for boot sequence change
+  ansible.builtin.debug:
+    var: jobstatus_set_bootseq.stdout_lines
+
+- name: Powercycle the server to execute changed Boot Sequence Job
+  changed_when: false
+  ansible.builtin.raw: racadm serveraction powercycle
+  register: reboot_status
+  failed_when: '"ERROR" in reboot_status.stdout'
+  when:
+    - jobstatus_set_bootseq | changed
+    - "'Successfully scheduled a job' in jobstatus_set_bootseq.stdout"
+
+- name: debug | Powercycle the server to execute changed Boot Sequence Job
+  ansible.builtin.debug:
+    var: reboot_status.stdout_lines
+
+- name: Wait for Boot Sequence Job Execution to be completed
+  when:
+    - reboot_status | changed
+    - "'power operation' in reboot_status.stdout"
+  changed_when: false
+  ansible.builtin.raw: racadm jobqueue view
+  register: jobqueue_completion
+  until: jobqueue_completion.stdout.find("Running") <= 0 and jobqueue_completion.stdout.find("Scheduled") <= 0 and jobqueue_completion.stdout.find("New") <= 0
+  retries: 20
+  delay: 30
+  ignore_errors: true
+
+- name: debug | Wait for Boot Sequence Job Execution to be completed
+  ansible.builtin.debug:
+    var: jobqueue_completion.stdout_lines

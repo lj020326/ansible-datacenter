@@ -1,0 +1,49 @@
+---
+- name: Include secrets
+  ansible.builtin.include_vars: ~/0/vault/secrets.yml
+
+- name: Set timezone to America/Denver
+  community.general.timezone:
+    name: America/Denver
+  notify: restart crond
+
+- name: ensure ntpdate isn't installed
+  ansible.builtin.package:
+    name: ntpdate
+    state: absent
+
+- name: Mask NTP service
+  ansible.builtin.systemd:
+    name: ntpd
+    enabled: false
+    masked: true
+    state: stopped
+  ignore_errors: true # noqa: ignore-errors
+
+- name: install chrony
+  ansible.builtin.package:
+    name: chrony
+    state: present
+
+- name: Ensure chronyd is active
+  ansible.builtin.service:
+    name: chronyd
+    state: started
+
+- name: install chrony.conf
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart chronyd
+
+- name: install chrony.keys
+  ansible.builtin.template:
+    src: chrony.keys.j2
+    dest: /etc/chrony.keys
+    owner: root
+    group: chrony
+    mode: "0640"
+  notify: restart chronyd

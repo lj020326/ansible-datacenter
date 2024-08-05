@@ -1,0 +1,45 @@
+---
+
+root_alias_email: "{{ docker_stack__email_from }}"
+#mailman_transport: lists.johnson.int
+
+bind_admin_password: "{{ vault__bind_admin_password | d('') }}"
+
+docker_stack__appspec_config_dirs:
+  - { path: "{{ docker_stack__dir }}/bind" }
+
+#__docker_stack__bind__networks:
+#  ## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
+#  net:
+#    external: false
+#    attachable: true
+
+__docker_stack__bind__services:
+  ## ref: https://github.com/sameersbn/docker-bind/blob/master/docker-compose.yml
+  ## ref: https://github.com/sameersbn/docker-bind/issues/74
+  ## ref: https://github.com/sameersbn/docker-bind/issues/65
+  ## ref: https://github.com/sameersbn/docker-bind/issues/3
+  bind:
+    container_name: "bind"
+#      image: sameersbn/bind:9.11.3-20190706
+    image: "sameersbn/bind:9.11.3-20190706"
+    restart: "unless-stopped"
+    networks:
+      - net
+    environment:
+      ROOT_PASSWORD: "{{ bind_admin_password }}"
+    ports:
+      - "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:53:53/udp"
+      - "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:53:53/tcp"
+      - "10010:10000/tcp"
+    volumes:
+      - "{{ docker_stack__dir }}/bind:/data"
+
+docker_stack__appspec__bind:
+  dirs: "{{ __docker_stack__bind__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__bind__config_files | d([]) }}"
+  templates: "{{ __docker_stack__bind__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__bind__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__bind__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__bind__networks | d({}) }}"
+  docker_services: "{{ __docker_stack__bind__services | d({}) }}"
