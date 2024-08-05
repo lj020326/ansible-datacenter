@@ -19,16 +19,16 @@
       register: report_inventory_facts_tempdir
 
     - name: "Set fact for report_inventory_facts_repo_dir"
-      set_fact:
+      ansible.builtin.set_fact:
         report_inventory_facts_repo_dir: "{{ report_inventory_facts_tempdir.path }}/report-inventory-facts"
 
     - name: "Set fact for report_inventory_facts_reports_dir"
-      set_fact:
+      ansible.builtin.set_fact:
 #        report_inventory_facts_reports_dir: "{{ report_inventory_facts_repo_dir }}/docs/servers/WINDOWS"
         report_inventory_facts_reports_dir: "{{ report_inventory_facts_repo_dir }}/inventory/{{ report_inventory_facts_inventory_source }}"
 
     - name: "Display primary role input variables"
-      debug:
+      ansible.builtin.debug:
         msg:
           - "report_inventory_facts_git_repo_url_scheme={{ report_inventory_facts_git_repo_url_scheme }}"
           - "report_inventory_facts_git_repo_url_cred={{ report_inventory_facts_git_repo_url_cred }}"
@@ -42,20 +42,20 @@
       block:
 
         - name: "Get_cert_repo | Ensure ssh dir exists at {{ report_inventory_facts_ssh_key_dir }}"
-          file:
+          ansible.builtin.file:
             path: "{{ report_inventory_facts_ssh_key_dir }}"
             state: directory
             mode: "0755"
 
         - name: "Get_cert_repo | Check if git private ssh key exist in {{ report_inventory_facts_git_ssh_private_keyfile }}"
-          stat:
+          ansible.builtin.stat:
             path: "{{ report_inventory_facts_git_ssh_private_keyfile }}"
           register: private_key
 
         ## ref: https://www.jeffgeerling.com/blog/2018/cloning-private-github-repositories-ansible-on-remote-server-through-ssh
         - name: "Get_cert_repo | Ensure git private key is present at {{ report_inventory_facts_git_ssh_private_keyfile }}"
     #      when: not (private_key.stat.exists | bool)
-          copy:
+          ansible.builtin.copy:
             content: "{{ report_inventory_facts_ssh_private_key }}"
             dest: "{{ report_inventory_facts_git_ssh_private_keyfile }}"
             mode: 0600
@@ -63,7 +63,7 @@
           no_log: yes
 
         - name: "Clone {{ report_inventory_facts_git_repo_url }} to {{ report_inventory_facts_repo_dir }}"
-          git:
+          ansible.builtin.git:
             repo: "{{ report_inventory_facts_git_repo_url_cred }}"
             dest: "{{ report_inventory_facts_repo_dir }}"
             version: "{{ report_inventory_facts_git_repo_branch }}"
@@ -83,7 +83,7 @@
 
     - name: "Clone {{ report_inventory_facts_git_repo_url }} to {{ report_inventory_facts_repo_dir }}"
       when: report_inventory_facts_git_repo_url_scheme=='http'
-      git:
+      ansible.builtin.git:
         repo: "{{ report_inventory_facts_git_repo_url_cred }}"
         dest: "{{ report_inventory_facts_repo_dir }}"
         version: "{{ report_inventory_facts_git_repo_branch }}"
@@ -111,15 +111,15 @@
       register: git_config_settings
 
     - name: Display git_config_settings
-      debug:
+      ansible.builtin.debug:
         var: git_config_settings
 
     - name: "Touch {{ report_inventory_facts_repo_dir }}/{{ report_inventory_facts_test_filename }}"
-      file:
+      ansible.builtin.file:
         path: "{{ report_inventory_facts_repo_dir }}/{{ report_inventory_facts_test_filename }}"
         state: touch
 
-    - set_fact:
+    - ansible.builtin.set_fact:
         git_commit_message: "ansible [{{ playbook_dir|basename }}] windows inventory report updated as of {{ ansible_date_time.iso8601 }}"
 
     ## ref: https://github.com/lvrfrc87/git-acp-ansible
@@ -137,7 +137,7 @@
       register: git_acp_result
 
     - name: "Display git_acp_result"
-      debug:
+      ansible.builtin.debug:
         var: git_acp_result
 
     - name: "Cleanup/Remove temporary build directory"

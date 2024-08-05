@@ -1,0 +1,53 @@
+---
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Display bootstrap_docker__swarm_remote_addrs"
+  ansible.builtin.debug:
+    var: bootstrap_docker__swarm_remote_addrs
+
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Retrieve swarm_join_token_worker token"
+  when: __swarm_join_token_worker is not defined
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Retrieve swarm_join_token_worker token"
+      ansible.builtin.command: docker swarm join-token worker
+      changed_when: false
+      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+      register: __swarm_token_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_token_result.stdout"
+      ansible.builtin.debug:
+        var: __swarm_token_result.stdout_lines | select('match', '^.*token .*')
+
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Set __swarm_join_token_worker"
+      ansible.builtin.set_fact:
+        __swarm_join_token_worker: "{{ __swarm_token_result.stdout_lines | select('match', '^.*token .*')
+          | map('regex_replace', '^.*token (.*) .*$', '\\1') | list | first }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_join_token_worker"
+  ansible.builtin.debug:
+    var: __swarm_join_token_worker
+
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Register host to swarm"
+  community.docker.docker_swarm:
+    state: join
+    advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+    join_token: "{{ __swarm_join_token_worker }}"
+    remote_addrs: "{{ bootstrap_docker__swarm_remote_addrs }}"
+  register: __swarm_join_worker
+
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_join_worker"
+  ansible.builtin.debug:
+    var: __swarm_join_worker
+
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Set worker node config"
+  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Set node role"
+      community.docker.docker_node:
+        hostname: "{{ ansible_hostname }}"
+        role: worker
+
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Set node labels"
+      when: bootstrap_docker__swarm_node_labels|d([])|length>0
+      community.docker.docker_node:
+        hostname: "{{ ansible_hostname }}"
+        labels: "{{ bootstrap_docker__swarm_node_labels }}"
+        labels_state: replace

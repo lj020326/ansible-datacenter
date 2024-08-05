@@ -1,0 +1,71 @@
+---
+- name: Display __fetch_iso_config
+  ansible.builtin.debug:
+    var: __fetch_iso_config
+
+- name: Stat OS distribution iso file for [{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}]
+  ansible.builtin.stat:
+    path: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
+  register: osimage_iso_dist
+
+- name: Fetch OS distribution iso
+  when: not osimage_iso_dist.stat.exists
+  block:
+    # Set a version for this new box.
+    - name: Fetch {{ __fetch_iso_config.iso_url }} to {{ fetch_os_images__osimage_dir }}
+      when: not __fetch_iso_config.iso_url.endswith('.jigdo')
+      ansible.builtin.get_url:
+        url: "{{ __fetch_iso_config.iso_url }}"
+        dest: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
+        tmp_dest: "{{ fetch_os_images__osimage_dir }}/"
+        checksum: "{{ __fetch_iso_config.iso_checksum | d(omit) }}"
+        validate_certs: false
+        mode: "0644"
+    #  register: fetch_image_info
+
+    - name: Fetch JIGDO iso
+      when: __fetch_iso_config.iso_url.endswith('.jigdo')
+      block:
+        - name: Create jigdo-lite settings
+          ansible.builtin.template:
+            src: jigdo-lite.conf.j2
+            dest: ~/.jigdo-lite
+            backup: true
+            mode: "0644"
+
+        ## ref: http://atterer.org/jigdo/jigdo-lite.html
+        ## ref: https://tldp.org/HOWTO/Debian-Jigdo/faq.html#WGETOPTIONS
+        ## ref: https://askubuntu.com/questions/1226707/how-to-throttle-jigdo-lites-download-rate
+        - name: Get JIGDO image for {{ __fetch_iso_config.name }}
+          changed_when: false
+          ansible.builtin.command: jigdo-lite --noask {{ __fetch_iso_config.iso_url }}
+          args:
+            chdir: "{{ fetch_os_images__osimage_dir }}"
+            creates: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
+          register: jigdo_status
+          failed_when: jigdo_status.rc not in [0,3]
+
+    ##############################
+    ## TODO: The following `copy` block requires that the vmware NFS iso share is locally mounted
+    ##      from a performance standpoint having the nfs share locally mounted in order to perform the iso copy
+    ##      saves considerable/valuable time not having to upload the image in a subsequent step/play
+    - name: Clone image to vmware iso storage
+      when: fetch_os_image__vmware_nfs_iso_locally_mounted|d(False)|bool
+      block:
+        - name: Ensure path exists for {{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}
+          ansible.builtin.file:
+            state: directory
+            path: "{{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}"
+            mode: "0755"
+
+        - name: Stat OS distribution iso file for {{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}/{{ __fetch_iso_config.iso_file }}
+          ansible.builtin.stat:
+            path: "{{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}/{{ __fetch_iso_config.iso_file }}"
+          register: __vmware_os_iso_dist
+
+        - name: Clone image to vmware iso storage
+          when: not __vmware_os_iso_dist.stat.exists
+          ansible.builtin.copy:
+            src: "{{ fetch_os_images__osimage_dir }}/{{ __fetch_iso_config.iso_file }}"
+            dest: "{{ fetch_os_images__vmware_images_dir }}/{{ __fetch_iso_config.name }}/{{ __fetch_iso_config.iso_file }}"
+            mode: "0644"

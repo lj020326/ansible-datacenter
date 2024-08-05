@@ -1,0 +1,69 @@
+---
+
+- name: "Stop-user-processes | Display __bootstrap_linux_user__list"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list
+
+- name: "Stop-user-processes | Assert ansible_user not in __bootstrap_linux_user__list"
+  ansible.builtin.assert:
+    that: __bootstrap_linux_user__list | selectattr('name','equalto', ansible_user) | list | length == 0
+
+- name: Load current passwd info
+  no_log: true
+  check_mode: false
+  ansible.builtin.getent:
+    database: passwd
+    split: ":"
+
+## ref: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
+## ref: https://unix.stackexchange.com/questions/85466/how-to-see-process-created-by-specific-user-in-unix-linux
+- name: "Stop-user-processes | Get running user processes"
+  when: getent_passwd[item.name][1] is defined
+  changed_when: false
+  ansible.builtin.shell: "ps -fu {{ item.name }} | awk '{print $2}' | tail -n +2"
+  loop: "{{ __bootstrap_linux_user__list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: running_processes
+  ignore_errors: yes
+
+- name: "Stop-user-processes | Display running_processes"
+  ansible.builtin.debug:
+    var: running_processes
+#    verbosity: 2
+
+- name: "Stop-user-processes | Set process_list"
+  ansible.builtin.set_fact:
+    process_list: "{{ running_processes.results | selectattr('stdout_lines', 'defined') | map(attribute='stdout_lines') | d([]) | list | flatten }}"
+
+- name: "Stop-user-processes | Display process_list"
+  ansible.builtin.debug:
+    var: process_list
+
+- name: Running processes block
+  when: process_list|d([]) | length>0
+  block:
+
+    - name: "Stop-user-processes | Kill running processes"
+      when: item|d('')|length>0
+      changed_when: false
+      ansible.builtin.command: "kill {{ item }}"
+      loop: "{{ process_list }}"
+      register: shell_cmd
+      failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )
+
+    - name: wait_for user processes to finish
+      ansible.builtin.wait_for:
+        path: "/proc/{{ item }}/status"
+        state: absent
+#      loop: "{{ running_processes.results | map(attribute='stdout_lines') | list }}"
+      loop: "{{ process_list }}"
+      ignore_errors: yes
+      register: killed_processes
+
+    - name: Force kill stuck processes
+      changed_when: false
+      ansible.builtin.command: "kill -9 {{ item }}"
+      loop: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
+      register: shell_cmd
+      failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )

@@ -1,0 +1,82 @@
+---
+- name: Basic validation of test_profiles role variable
+  ansible.builtin.assert:
+    that:
+      - test_profiles is defined
+      - test_profiles is iterable
+      - test_profiles is not string
+    msg: The variable 'test_profiles' must be a list of profiles. Please check the README.
+
+- name: Ensure that there is a profile key in each test_profile
+  ansible.builtin.assert:
+    that: _missing_profiles == []
+    msg: "The following test_profiles are missing the 'profile' key:
+      {% for index in _missing_profiles %}\
+      test_profiles[{{ index }}] == {{ test_profiles[index] | to_yaml | trim }}\
+      {% if not loop.last %}, {% endif %}\
+      {% endfor %}"
+  vars:
+    _missing_profiles: "\
+      [\
+      {% for test_profile in test_profiles %}\
+      {% if 'profile' not in test_profile %}\
+      {{ loop.index0 }}, \
+      {% endif %}\
+      {% endfor %}\
+      ]"
+
+- name: Ensure that the profiles in test_profiles are in the supported list
+  ansible.builtin.assert:
+    that: _invalid_profiles == []
+    msg: "The following profile(s) cannot be used: {{ _invalid_profiles | join(' ') }}. If you believe this is a mistake, please open an issue."
+  vars:
+    _invalid_profiles: "{{ (test_profiles | map(attribute='profile') | list) | difference(travis_lxc_profiles.keys()) }}"
+
+# Cache directories specified in .travis.yml are automatically created by Travis
+# so we use that to extrapolate whether or not to enable caching
+- name: Check for the existence of the LXC cache directory
+  ansible.builtin.stat:
+    path: "{{ lxc_cache_directory }}"
+  register: _cache_directory
+
+- name: Enable LXC caching if the LXC cache directory exists
+  ansible.builtin.set_fact:
+    lxc_cache_enabled: "{{ _cache_directory.stat.isdir is defined and _cache_directory.stat.isdir }}"
+
+- name: Ensure caching profiles are a subset of specified test profiles
+  when: lxc_cache_enabled
+  block:
+    - name: If left unspecified, set caching profiles to match test profiles
+      ansible.builtin.set_fact:
+        lxc_cache_profiles: "{{ test_profiles | map(attribute='profile') | list }}"
+      when: lxc_cache_profiles is not defined
+
+    - name: Ensure caching profiles are a subset of specified test profiles
+      ansible.builtin.assert:
+        that: _invalid_cache_profiles == []
+        msg: "The following cache profile(s) were specified but not present in test_profiles: {{ _invalid_cache_profiles | join(' ') }}"
+      vars:
+        _invalid_cache_profiles: "{{ lxc_cache_profiles | difference(test_profiles | map(attribute='profile') | list) }}"
+
+- name: Ensure that configured test_profiles won't result in conflicting container names
+  ansible.builtin.assert:
+    that: "\
+      {% set _found_prefixes = [] %}\
+      {% for test_profile in test_profiles %}\
+      {% if 'prefix' in test_profile %}\
+      {{ _found_prefixes.append(test_profile.prefix) }}\
+      {% else %}\
+      {{ _found_prefixes.append(test_profile.profile + '-') }}\
+      {% endif %}\
+      {% endfor %}\
+      {{ (_found_prefixes | unique | list | length) == ( _found_prefixes | list | length )}}"
+    msg: "There are duplicate prefixes specified in 'test_profiles'. Please ensure that you are not reusing prefix names for multiple profiles or using prefixes that conflict with profile names."
+
+# The following set_fact ensures that:
+# - if test_hosts_per_profile isn't specified, we default to 1
+# - if test_host_suffixes isn't specified, we generate a list of zero-padded
+#   number suffixes based on test_hosts_per_profile
+- name: Set test_host_suffixes to zero-padded numbers if left undefined
+  ansible.builtin.set_fact:
+    test_host_suffixes: "[{% for n in range(0, test_hosts_per_profile | default(1) | int) %}'{{ '%02d' | format(n+1) }}',{% endfor %}]"
+  when: test_host_suffixes is not defined

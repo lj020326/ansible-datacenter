@@ -1,0 +1,326 @@
+---
+- name: Assert running on windows machine
+  ansible.builtin.assert:
+    that: ansible_os_family == "Windows"
+
+# Include variables and define mandatory variables
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ ansible_distribution }}.yml"
+
+- name: Enable Remote Desktop
+  ansible.windows.win_regedit:
+    key: HKLM:\System\CurrentControlSet\Control\Terminal Server
+    value: fDenyTSConnections
+    data: 0
+    datatype: dword
+
+- name: Allow connections from computers running any version of Remote Desktop (less secure)
+  ansible.windows.win_regedit:
+    key: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+    value: UserAuthentication
+    data: 0
+    datatype: dword
+
+- name: Enable Firewall Inbound Rules Group
+  ansible.windows.win_shell: Enable-NetFirewallRule -DisplayGroup "{{ item }}"
+  loop:
+    - Remote Desktop
+    - Windows Remote Management
+
+- name: Use the plaintext WinRM transport and force it to use basic authentication
+  ansible.windows.win_shell: winrm set winrm/config/service '@{AllowUnencrypted="true"}'
+
+- name: Enable Administrator account
+  when: ansible_distribution is search("Microsoft Windows 10")
+  ansible.windows.win_user:
+    name: Administrator
+    account_disabled: false
+
+- name: Remove all current pagefiles
+  community.windows.win_pagefile:
+    remove_all: true
+    automatic: false
+    state: absent
+
+- name: Disable Hibernate Mode
+  when: ansible_distribution is search("Microsoft Windows 10")
+  ansible.windows.win_command: powercfg -h off
+  changed_when: false
+
+- name: Download BleachBit
+  ansible.windows.win_get_url:
+    url: "{{ bootstrap_windows_bleachbit_url }}"
+    dest: "%HOMEDRIVE%\\BleachBit-portable.zip"
+  register: result
+  until: result is succeeded
+
+- name: Download OpenSSH
+  ansible.windows.win_get_url:
+    url: "{{ bootstrap_windows_openssh_url }}"
+    dest: "%HOMEDRIVE%\\OpenSSH-portable.zip"
+  register: result
+  until: result is succeeded
+
+- name: Unzip downloaded OpenSSH
+  community.windows.win_unzip:
+    src: "%HOMEDRIVE%\\OpenSSH-portable.zip"
+    dest: "%HOMEDRIVE%\\"
+    delete_archive: true
+
+##
+## Moved to separate role bootstrap_windows_openssh
+##
+#- name: Install OpenSSH
+#  ansible.windows.win_shell: "C:\\OpenSSH-Win64\\install-sshd.ps1"
+#
+#- name: Set OpenSSH Service to automatic startup and ensure it is up
+#  ansible.windows.win_service:
+#    name: sshd
+#    start_mode: auto
+#    state: started
+#
+#- name: Enable Firewall for OpenSSH
+#  ansible.windows.win_shell: New-NetFirewallRule -DisplayName "ssh" -Direction Inbound -Action Allow -Protocol "TCP" -LocalPort "22"
+#
+#- name: Add ansible key
+#  ansible.windows.win_get_url:
+#    url: https://raw.githubusercontent.com/lj020326/vagrant/master/keys/vagrant.pub
+#    dest: "%PROGRAMDATA%\\ssh\\administrators_authorized_keys"
+#
+
+### ref: https://github.com/informatique-cdc/ansible-role-win_authorized_key
+#- name: Set authorized key for administrator
+#  win_authorized_key:
+#    user: "{{ bootstrap_windows_ansible_user }}"
+#    state: present
+#    key: "{{ bootstrap_windows_ssh_pub_authorized_key }}"
+##    path: c:/ProgramData/ssh/administrators_authorized_key
+#    path: "%PROGRAMDATA%\\ssh\\administrators_authorized_keys"
+#    manage_dir: False
+
+- name: Unzip downloaded BleachBit
+  community.windows.win_unzip:
+    src: "%HOMEDRIVE%\\BleachBit-portable.zip"
+    dest: "%HOMEDRIVE%\\"
+    delete_archive: true
+
+- name: Download UltraDefrag from {{ bootstrap_windows_ultradefrag_download_url }}
+  ansible.windows.win_get_url:
+    url: "{{ bootstrap_windows_ultradefrag_download_url }}"
+    dest: "%HOMEDRIVE%\\ultradefrag-portable.bin.amd64.zip"
+    follow_redirects: all
+  register: result
+  until: result is succeeded
+
+- name: Unzip downloaded Ultra Defrag
+  community.windows.win_unzip:
+    src: "%HOMEDRIVE%\\ultradefrag-portable.bin.amd64.zip"
+    dest: "%HOMEDRIVE%\\"
+    delete_archive: true
+
+- name: Install applications
+  chocolatey.chocolatey.win_chocolatey:
+    name: "{{ common_windows_packages }}"
+  register: result
+  until: result is succeeded
+
+- name: Install openssh
+  chocolatey.chocolatey.win_chocolatey:
+    name: openssh
+    params: /SSHServerFeature /KeyBasedAuthenticationFeature
+
+- name: Disable common authorized key file for administrators group in sshd_config
+  community.windows.win_lineinfile:
+    path: "%ProgramData%\\ssh\\sshd_config"
+    regexp: AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys
+    line: "# AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys"
+
+- name: Firewall rule to allow SSH on TCP port 22
+  community.windows.win_firewall_rule:
+    name: OpenSSH
+    localport: 22
+    action: allow
+    direction: in
+    protocol: tcp
+
+- name: Set Desktop Solid Color
+  ansible.windows.win_regedit:
+    path: HKCU:\Control Panel\Colors
+    name: Background
+    data: 74 84 89
+
+- name: Disable Logon Background Image
+  ansible.windows.win_regedit:
+    path: HKLM:\Software\Policies\Microsoft\Windows\System
+    name: DisableLogonBackgroundImage
+    data: 1
+    type: dword
+
+- name: Start NTP service (w32time)
+  ansible.windows.win_service:
+    name: w32time
+    state: started
+    start_mode: auto
+
+- name: Configure NTP
+  ansible.windows.win_command: w32tm /config /manualpeerlist:"{{ bootstrap_windows_ntp_servers[0] }}" /reliable:yes /update
+  changed_when: false
+
+- name: Remove all current pagefiles
+  community.windows.win_pagefile:
+    remove_all: true
+    automatic: false
+    state: absent
+
+- name: Disable Hibernate Mode
+  when: ansible_distribution is search("Microsoft Windows 10")
+  ansible.windows.win_command: powercfg -h off
+  changed_when: false
+
+- name: Disable Secure Logon using Registry (Ctrl+Alt+Del sequence for logging)
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: DisableCAD
+    data: 1
+    type: dword
+
+- name: Enable Administrator account
+  when: ansible_distribution is search("Microsoft Windows 10")
+  ansible.windows.win_user:
+    name: Administrator
+    account_disabled: false
+
+- name: Enable Remote Desktop
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server
+    name: fDenyTSConnections
+    data: 0
+    type: dword
+
+- name: Allow connections from computers running any version of Remote Desktop (less secure)
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+    name: UserAuthentication
+    data: 0
+    type: dword
+
+# Can't use ansible module because of: https://github.com/ansible/ansible/issues/32478
+- name: Enable Firewall Inbound Rules Group
+  ansible.windows.win_shell: Enable-NetFirewallRule -DisplayGroup "{{ item }}"
+  changed_when: false
+  loop:
+    - Remote Desktop
+    - Windows Remote Management
+
+- name: Use the plaintext WinRM transport and force it to use basic authentication
+  ansible.windows.win_shell: winrm set winrm/config/service '@{AllowUnencrypted="true"}'
+
+# Can't use ansible module because of: https://github.com/ansible/ansible/issues/32478
+- name: Allow ICMP
+  ansible.windows.win_shell: Set-NetFirewallRule -DisplayName "File and Printer Sharing (Echo Request - ICMPv4-In)" -enabled True
+  changed_when: false
+
+- name: Show file extensions in Explorer
+  ansible.windows.win_regedit:
+    path: HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced
+    name: HideFileExt
+    data: 0
+    type: dword
+
+- name: Show hidden files
+  ansible.windows.win_regedit:
+    path: HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced
+    name: "{{ item }}"
+    data: 1
+    type: dword
+  loop:
+    - Hidden
+    - SuperHidden
+
+- name: Enable QuickEdit mode
+  when: ansible_distribution is search("Microsoft Windows Server 2012")
+  ansible.windows.win_regedit:
+    path: HKCU:\Console
+    name: QuickEdit
+    data: 1
+    type: dword
+
+- name: Enable telnet
+  when: ansible_distribution is not search("Microsoft Windows 10")
+  ansible.windows.win_feature:
+    name: telnet-client
+
+- name: Put PuTTY link to desktop
+  ansible.windows.win_copy:
+    src: "%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\PuTTY (64-bit)\\PuTTY.lnk"
+    dest: "%PUBLIC%\\Desktop\\"
+    remote_src: true
+
+- name: Configure PuTTY
+  ansible.windows.win_regedit:
+    path: "{{ bootstrap_windows_putty_regedit.path }}"
+    name: "{{ item.name }}"
+    data: "{{ item.data }}"
+    type: "{{ item.type | d(dword) }}"
+  loop: "{{ bootstrap_windows_putty_regedit.configs }}"
+
+- name: Configure WinSCP
+  ansible.windows.win_copy:
+    src: WinSCP.ini
+    dest: "%PROGRAMFILES(x86)%\\WinSCP\\WinSCP.ini"
+
+- name: Enable allowGlobalConfirmation for Chocolatey
+  chocolatey.chocolatey.win_chocolatey_feature:
+    name: allowGlobalConfirmation
+
+- name: Put Doublecmd link to desktop
+  ansible.windows.win_copy:
+    src: "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Double Commander\\Double Commander.lnk"
+    dest: "%PUBLIC%\\Desktop\\"
+    remote_src: true
+
+- name: Create config directory for Doublecmd
+  ansible.windows.win_file:
+    path: "%APPDATA%\\doublecmd"
+    state: directory
+
+- name: Upload Doublecmd configuration file
+  ansible.windows.win_copy:
+    src: doublecmd.xml
+    dest: "%APPDATA%\\doublecmd\\doublecmd.xml"
+
+- name: Add choco upgrade scheduled task
+  community.windows.win_scheduled_task:
+    name: choco upgrade
+    description: Chocolatey update task - updates all apps installed by Chocolatey
+    actions:
+      - path: choco.exe
+        arguments: upgrade all -y
+    triggers:
+      - type: daily
+        start_boundary: "2017-10-09T01:00:00"
+    run_level: highest
+    username: SYSTEM
+
+- name: Upload bginfo config file
+  ansible.windows.win_copy:
+    src: bginfo.bgi
+    dest: "%PROGRAMDATA%\\bginfo.bgi"
+
+- name: Start bginfo after login
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+    name: bginfo
+    data: C:\ProgramData\chocolatey\bin\bginfo.exe C:\ProgramData\bginfo.bgi /silent /timer:0 /nolicprompt
+
+- name: Install windows-updates
+  when: bootstrap_windows_install_windows_updates
+  ansible.builtin.include_tasks: install-windows-updates.yml
+
+- name: Install vdagent and virtio drivers
+  when: bootstrap_windows_install_virtio_drivers
+  ansible.builtin.include_tasks: install-virtio-drivers.yml
+
+- name: Install vdagent and virtio drivers
+  when: bootstrap_windows_install_vdagent
+  ansible.builtin.include_tasks: install-vdagent.yml

@@ -1,0 +1,67 @@
+---
+## TODO: config journald
+## ref: https://gist.github.com/wabouhamad/e0c2cb8937ecbf15870b34f3d669a8f3
+## ref: https://github.com/stuvusIT/systemd-journald
+
+- name: configure rsyslog
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - rsyslog
+
+- name: Enable journald persistence
+  community.general.ini_file:
+    dest: "/etc/systemd/journald.conf"
+    section: Journal
+    option: Storage
+    value: "persistent"
+    no_extra_spaces: yes
+    mode: "0644"
+  notify: Restart journald
+
+- name: remove journald rate limit burst limit
+  community.general.ini_file:
+    dest: "/etc/systemd/journald.conf"
+    section: Journal
+    option: RateLimitBurst
+    value: "0"
+    no_extra_spaces: yes
+    mode: "0644"
+  notify: Restart journald
+
+- name: remove journald rate limit interval
+  community.general.ini_file:
+    dest: "/etc/systemd/journald.conf"
+    section: Journal
+    option: RateLimitIntervalSec
+    value: "0"
+    no_extra_spaces: yes
+    mode: "0644"
+  notify: Restart journald
+
+- name: remove journald SystemMaxUse
+  community.general.ini_file:
+    dest: "/etc/systemd/journald.conf"
+    section: Journal
+    option: SystemMaxUse
+    value: "200M"
+    no_extra_spaces: yes
+    mode: "0644"
+  notify: Restart journald
+
+- name: Create /var/log/journal
+  ansible.builtin.file:
+    path: /var/log/journal
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart journald
+
+#- name: Clean up yum cache
+#  ansible.builtin.command: yum clean all
+#
+#- name: Remove all yum cache directories
+#  ansible.builtin.command: rm -rf /var/cache/yum/*

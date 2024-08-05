@@ -1,0 +1,51 @@
+---
+- name: Ensure a user for FOG
+  ansible.builtin.user:
+    name: "{{ fog_user }}"
+    shell: /bin/bash
+    group: sudo
+    append: yes
+    createhome: yes
+
+- name: Ensure a path for FOG
+  ansible.builtin.file:
+    path: "/home/{{ fog_user}}/fog"
+    owner: "{{ fog_user }}"
+    state: directory
+    mode: "0755"
+
+- name: Write temp settings/answer file for FOG
+  ansible.builtin.template:
+    src: temp_settings.j2
+    dest: "/home/{{ fog_user }}/temp_settings"
+    owner: "{{ fog_user }}"
+    mode: "0644"
+
+# Unattended upgrades (of mysql specifically) will break FOG
+# https://forums.fogproject.org/topic/10006/ubuntu-is-fog-s-enemy
+- name: Make sure unattended-upgrades is not installed
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: absent
+  when: ansible_os_family == "Debian"
+
+- name: Check if FOG is already installed
+  ansible.builtin.stat:
+    path: /opt/fog
+  register: fog_path_found
+
+- name: Run install and update
+  when:
+    - not fog_path_found.stat.exists
+    - fog_force == "yes"
+  block:
+    - name: Run install.yml
+      ansible.builtin.import_tasks: install.yml
+
+    - name: Run update.yml
+      ansible.builtin.import_tasks: update.yml
+
+- name: Clean up temp settings/answer file for FOG
+  ansible.builtin.file:
+    path: "/home/{{ fog_user }}/temp_settings"
+    state: absent

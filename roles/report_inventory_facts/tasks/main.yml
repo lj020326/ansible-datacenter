@@ -1,0 +1,59 @@
+---
+# Gather Ansible Facts About Host #
+- name: Gather Ansible Facts About Host
+  ansible.builtin.setup:
+    gather_subset:
+      - all
+
+- name: Display ansible_facts
+  ansible.builtin.debug:
+    var: ansible_facts
+#    verbosity: 1
+
+## ref: https://github.com/automateyournetwork/WindowsFacts/blob/master/playbooks/WindowsFacts.yml
+# Set Reportable Facts #
+- name: Set Reportable Common Host Facts
+  ansible.builtin.set_fact:
+    report_inventory_list_facts_flattened: "{{ report_inventory_list_facts_flattened_common }}"
+
+- name: Set Reportable Windows Host Facts
+  when: ansible_os_family|d('')|lower in ['windows']
+  ansible.builtin.set_fact:
+    report_inventory_list_facts_flattened: "{{ report_inventory_list_facts_flattened | combine(report_inventory_list_facts_flattened_windows) }}"
+
+- name: Set Reportable Linux Host Facts
+  when: ansible_os_family|d('')|lower in ['debian', 'redhat']
+  ansible.builtin.set_fact:
+    report_inventory_list_facts_flattened: "{{ report_inventory_list_facts_flattened | combine(report_inventory_list_facts_flattened_linux) }}"
+
+- name: Display report_inventory_list_facts_flattened
+  ansible.builtin.debug:
+    var: report_inventory_list_facts_flattened
+
+#- name: Run PowerShell script with parameters
+#  ansible.windows.win_shell: |
+#      (Get-WmiObject win32_volume | Select-Object SystemName,Name, BlockSize, Capacity, FreeSpace, DriveLetter , @{Name="CapacityGB";Expression={[math]::round($_.Capacity/1GB,2)}}, @{Name="FreeSpaceGB";Expression={[math]::round($_.FreeSpace/1GB,2)}} , @{Name="FreeSpacePercent";Expression={[math]::round(($_.FreeSpace/($_.Capacity*1.00))*100.00,2)}} , @{Name="Date";Expression={$(Get-Date -f s)}}| Sort-Object Name | Convertto-JSON -Compress).Replace('\\"','"')
+#  register: output
+#- ansible.builtin.debug:
+#    var: output
+#- ansible.builtin.debug:
+#    msg: "{{ (item.CapacityGB|round|int }} GiB is the P drive and the Memory is {{ ansible_facts.ansible_memory_mb.real.total}} MB for server {{ansible_hostname}}"
+
+- name: Update inventory report repo
+  delegate_to: localhost
+  become: false
+  connection: local
+  run_once: true
+  block:
+    - name: Update inventory reports repo
+      ansible.builtin.include_tasks: update-reports-repo.yml
+#
+#  always:
+#
+#    - name: "cleanup report_inventory_facts_tempdir"
+#      when:
+#        - report_inventory_facts_cleanup_tempdir|d(True)|bool
+#        - __report_inventory_facts_tempdir.path is defined
+#      ansible.builtin.file:
+#        state: absent
+#        path: __report_inventory_facts_tempdir.path

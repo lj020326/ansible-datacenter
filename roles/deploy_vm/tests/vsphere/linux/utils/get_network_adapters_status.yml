@@ -1,0 +1,36 @@
+---
+# Get network adapter status
+- name: Initialize the fact of network adapters status in guest
+  ansible.builtin.set_fact:
+    guest_network_adapters: []
+    guest_network_adapters_status: []
+
+- name: Run ../../common/get_system_info.yml
+  ansible.builtin.include_tasks: ../../common/get_system_info.yml
+  vars:
+    filter: ansible_*
+
+- name: Get guest network adapters info
+  when:
+    - guest_system_info is defined
+    - guest_system_info.ansible_interfaces is defined
+    - guest_system_info.ansible_interfaces | length >= 1
+  block:
+    - name: Set the fact of network adapters in guest
+      ansible.builtin.set_fact:
+        guest_network_adapters: "{{ guest_system_info.ansible_interfaces | reject('match', '^(lo|docker|virbr)') }}"
+
+    - name: Get network adapters status
+      when: guest_system_info['ansible_%s'|format(item.replace('-', '_'))].type == "ether"
+      ansible.builtin.set_fact:
+        guest_network_adapters_status: "{{ guest_network_adapters_status | union([guest_system_info['ansible_%s'|format(item.replace('-', '_'))] | dict2items | rejectattr('key',
+          'equalto', 'features') | items2dict ])  }}"
+      loop: "{{ guest_network_adapters }}"
+
+    - name: Update the fact of network adapters in guest
+      ansible.builtin.set_fact:
+        guest_network_adapters: "{{ guest_network_adapters_status | map(attribute='device') | list }}"
+
+- name: Print guest OS network adapters status
+  ansible.builtin.debug:
+    var: guest_network_adapters_status

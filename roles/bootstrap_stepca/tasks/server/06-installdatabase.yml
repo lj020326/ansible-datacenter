@@ -1,0 +1,125 @@
+---
+- name: Installing mariadb server
+  ansible.builtin.apt:
+    name:
+      - mariadb-server
+      - python-pymysql
+    state: present
+
+- name: Setting database max connections
+  ansible.builtin.lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: ^(?#)max_connections
+    line: "max_connections\t= 10000"
+    state: present
+
+- name: Setting MariaDB binlog_format
+  ansible.builtin.lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    insertafter: ^#log_bin
+    line: "binlog_format\t= MIXED"
+    state: present
+
+- name: Ensuring mariadb is started
+  ansible.builtin.systemd:
+    name: mariadb
+    enabled: true
+    state: started
+
+- name: Installing goose database migration tool
+  changed_when: false
+  ansible.builtin.command:
+    cmd: go get github.com/pressly/goose/cmd/goose
+  register: __result
+  until: __result.rc == 0
+  environment:
+    GOPATH: /usr/local/share/go
+    PATH: /usr/local/share/go/bin:{{ ansible_env.PATH }}
+
+- name: Removing anonymous user
+  community.mysql.mysql_user:
+    name: ""
+    host_all: true
+    login_unix_socket: "{{ db_login_socket }}"
+    state: absent
+
+- name: Removing test database
+  community.mysql.mysql_db:
+    name: test
+    login_unix_socket: "{{ db_login_socket }}"
+    state: absent
+
+- name: Adding CA database
+  community.mysql.mysql_db:
+    name: "{{ ca_database_name }}"
+    login_unix_socket: "{{ db_login_socket }}"
+    state: present
+
+- name: Adding CT log database
+  community.mysql.mysql_db:
+    name: "{{ ctlog_database_name }}"
+    login_unix_socket: "{{ db_login_socket }}"
+    state: present
+  register: __ctlog_database_stat
+  when: stepca_ca_server
+
+- name: Initializing/upgrading CA database
+  changed_when: false
+  ansible.builtin.command:
+    cmd: goose -dir={{ src_root }}/sa/{{ item }}/migrations mysql "root@unix({{ db_login_socket }})/{{ ca_database_name }}" up
+  environment:
+    GOPATH: /usr/local/share/go
+    PATH: /usr/local/share/go/bin:{{ ansible_env.PATH }}
+  loop:
+    - _db
+    - _db-next
+
+- name: Initializing CT log database
+  community.mysql.mysql_db:
+    name: "{{ ctlog_database_name }}"
+    target: "{{ trillian_src_root + '/storage/mysql/schema/storage.sql' }}"
+    login_unix_socket: "{{ db_login_socket }}"
+    state: import
+  when: stepca_ca_server and __ctlog_database_stat.changed
+
+- name: Adding CA database users
+  community.mysql.mysql_user:
+    name: "{{ item }}"
+    password: "{{ lookup('password', secret + '/credentials/' + ansible_fqdn + '/database/atpki/' + item + ' length=20') }}"
+    host: 127.0.0.1
+    login_unix_socket: "{{ db_login_socket }}"
+    state: present
+  loop: "{{ app_conf.values() | rejectattr('db_user', 'undefined') | map(attribute='db_user') | list }}"
+
+- name: Adding CT log database users
+  community.mysql.mysql_user:
+    name: "{{ trillian_log_db_user }}"
+    password: "{{ lookup('password', secret + '/credentials/' + ansible_fqdn + '/database/atpki/' + trillian_log_db_user + ' length=20') }}"
+    host: 127.0.0.1
+    priv: "{{ ctlog_database_name }}.*:ALL"
+    login_unix_socket: "{{ db_login_socket }}"
+    state: present
+  when: stepca_ca_server
+
+- name: Assigning CA database privileges
+  block:
+    - name: Transferring CA database privilege file
+      ansible.builtin.template:
+        dest: /tmp/sa_users.sql
+        src: stepca_users.sql.j2
+        mode: u=rw,go-rwx
+
+    - name: Applying CA database privilege
+      community.mysql.mysql_db:
+        name: "{{ ca_database_name }}"
+        target: /tmp/sa_users.sql
+        state: import
+        login_unix_socket: "{{ db_login_socket }}"
+
+- name: Installing database URL files
+  ansible.builtin.template:
+    dest: "{{ install_root }}/config/dburl/{{ item | basename }}"
+    src: "{{ item }}"
+    mode: "0644"
+  with_fileglob:
+    - ../templates/stepca_config/dburl/*

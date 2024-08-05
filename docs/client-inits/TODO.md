@@ -97,5 +97,5 @@ Configure pipeline to use Ansible to run terraform deployments.
 
 ## 7) add chef inspec tests to VM provisioning pipeline
 
-See [ansible inspec role to run inspec tests for target here](https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md)
+See [ansible inspec role to run inspec tests for target here](https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible_role_inspec/README.md)
 

@@ -1,0 +1,34 @@
+---
+# Add or update custom configure item for VM
+# Parameters:
+#   vm_advanced_settings: a key-value pair list to be set for VM
+#
+- name: Set custom configue values for VM
+  community.vmware.vmware_guest:
+    hostname: "{{ vsphere_host_name }}"
+    username: "{{ vsphere_host_user }}"
+    password: "{{ vsphere_host_user_password }}"
+    validate_certs: "{{ validate_certs | default(false) }}"
+    datacenter: "{{ vsphere_host_datacenter }}"
+    folder: "{{ vm_folder }}"
+    name: "{{ vm_name }}"
+    advanced_settings: "{{ vm_advanced_settings }}"
+  register: vm_extra_config_set_result
+
+# Check VM extra config after VM power on
+- name: Run vm_set_power_state.yml
+  ansible.builtin.include_tasks: vm_set_power_state.yml
+  vars:
+    vm_power_state_set: powered-on
+
+- name: Run vm_get_extra_config.yml
+  ansible.builtin.include_tasks: vm_get_extra_config.yml
+
+- name: Check VM custom configure values are set successfully
+  ansible.builtin.assert:
+    that:
+      - vm_extra_item.key in vm_extra_config
+      - vm_extra_config[vm_extra_item.key] == vm_extra_item.value
+  loop: "{{ vm_advanced_settings }}"
+  loop_control:
+    loop_var: vm_extra_item

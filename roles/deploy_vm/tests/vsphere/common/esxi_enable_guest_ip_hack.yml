@@ -1,0 +1,32 @@
+---
+# Enable guest IP hack on ESXi host
+- name: Enable GuestIPHack on ESXi host '{{ esxi_hostname }}'
+  changed_when: false
+  ansible.builtin.command: esxcli system settings advanced set -o /Net/GuestIPHack -i 1
+  delegate_to: "{{ esxi_hostname }}"
+  register: esxcli_output
+
+- name: Display the esxcli command result
+  when: enable_debug|d(False)|bool
+  ansible.builtin.debug:
+    var: esxcli_output
+
+- name: Get GuestIPHack option value on ESXi host
+  ansible.builtin.shell: |
+    set -o pipefail # <-- adding this will prevent surprises
+    esxcli system settings advanced list -o /Net/GuestIPHack | grep 'Int Value' | awk 'NR==1 {print $3}'
+  delegate_to: "{{ esxi_hostname }}"
+  changed_when: false
+  register: esxcli_output2
+
+- name: Display the esxcli command result
+  when: enable_debug|d(False)|bool
+  ansible.builtin.debug:
+    var: esxcli_output2
+
+- name: Check GuestIPHack enabled on ESXi host
+  ansible.builtin.assert:
+    that:
+      - esxcli_output2.stdout_lines[0] == '1'
+    fail_msg: Enable GuestIPHack on ESXi host failed, got value '{{ esxcli_output2.stdout_lines[0] }}', expected '1'.
+    success_msg: Enable GuestIPHack on ESXi host succeed

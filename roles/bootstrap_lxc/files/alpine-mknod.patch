@@ -1,0 +1,33 @@
+--- a/usr/share/lxc/templates/lxc-alpine
++++ b/usr/share/lxc/templates/lxc-alpine
+@@ -278,10 +278,15 @@
+	mkdir -p -m 755 dev/pts
+	mkdir -p -m 1777 dev/shm
+
+-	mknod -m 666 dev/zero c 1 5
+-	mknod -m 666 dev/full c 1 7
+-	mknod -m 666 dev/random c 1 8
+-	mknod -m 666 dev/urandom c 1 9
++	OLDIFS=$IFS
++	IFS=':';
++	for node in 5:zero 7:full 8:random 9:urandom; do
++		set -- $node
++		if [ ! -e dev/$2 ]; then
++			mknod -m 666 dev/$2 c 1 $1
++		fi
++	done
++	IFS=$OLDIFS
+
+	local i; for i in $(seq 0 4); do
+		mknod -m 620 dev/tty$i c 4 $i
+@@ -290,7 +295,9 @@
+
+	mknod -m 666 dev/tty c 5 0
+	chown 0:5 dev/tty  # root:tty
+-	mknod -m 620 dev/console c 5 1
++	if [ ! -e dev/console ]; then
++		mknod -m 620 dev/console c 5 1
++	fi
+	mknod -m 666 dev/ptmx c 5 2
+	chown 0:5 dev/ptmx  # root:tty
+ }

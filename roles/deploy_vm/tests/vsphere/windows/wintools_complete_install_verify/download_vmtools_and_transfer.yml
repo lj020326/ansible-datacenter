@@ -1,0 +1,30 @@
+---
+# Download VMware tools from specified URL and transfer to ESXi host datastore
+- name: Set fact of VMware tools ISO file name
+  ansible.builtin.set_fact:
+    win_vmtools_iso_download: "{{ vmtools_url_path.split('/')[-1] }}"
+- name: Set fact of the VMware tools ISO path on ESXi host datatore
+  ansible.builtin.set_fact:
+    vmtools_iso_path: "[{{ datastore }}] {{ win_vmtools_iso_download }}"
+
+- name: Download VMware tools ISO file
+  ansible.builtin.get_url:
+    url: "{{ vmtools_url_path }}"
+    dest: "{{ local_cache }}/{{ win_vmtools_iso_download }}"
+    validate_certs: false
+    use_proxy: "{{ use_localhost_proxy | default(false) }}"
+  environment:
+    HTTPS_PROXY: "{{ http_proxy_localhost | default(omit) }}"
+    HTTP_PROXY: "{{ http_proxy_localhost | default(omit) }}"
+    FTP_PROXY: "{{ http_proxy_localhost | default(omit) }}"
+
+# Copy downloaded VMware tools ISO file to ESXi host
+- name: Run ../../common/esxi_upload_datastore_file.yml
+  ansible.builtin.include_tasks: ../../common/esxi_upload_datastore_file.yml
+  vars:
+    src_file_path: "{{ local_cache }}/{{ win_vmtools_iso_download }}"
+    dest_file_path: "{{ win_vmtools_iso_download }}"
+    upload_file_timeout: 900
+
+- ansible.builtin.debug:
+    msg: "VMware tools ISO file is uploaded to ESXi host: {{ vmtools_iso_path }}"

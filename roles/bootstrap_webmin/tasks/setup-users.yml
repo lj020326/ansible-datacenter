@@ -1,0 +1,57 @@
+---
+- name: Webmin | Create {{ bootstrap_webmin__user_group }} group
+  ansible.builtin.group:
+    name: "{{ bootstrap_webmin__user_group }}"
+    gid: "{{ bootstrap_webmin__user_gid | d(omit) }}"
+    system: true
+    state: present
+
+## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
+- name: Webmin | Create webmin users
+  ansible.builtin.user:
+    name: "{{ item.username }}"
+    password: "{{ item.password|d(omit) | password_hash('sha512',65534 | random(seed=bootstrap_webmin__user_hash_seed) | string) }}"
+    uid: "{{ item.uid | d(omit) }}"
+    group: "{{ bootstrap_webmin__user_group }}"
+    update_password: on_create
+    state: present
+    createhome: true
+    shell: "{{ bootstrap_webmin__user_shell | d(omit) }}"
+    groups: "{{ bootstrap_webmin__user_groups[ansible_distribution] | join(',') }}"
+    append: true
+    home: "{{ bootstrap_docker__user_home | d(omit) }}"
+  loop: "{{ bootstrap_webmin__users }}"
+  register: __bootstrap_webmin__user_result
+
+- name: Webmin | Display __bootstrap_webmin__user_result
+  ansible.builtin.debug:
+    var: __bootstrap_webmin__user_result
+    verbosity: 2
+
+- name: Webmin | Ensure /etc/webmin/miniserv.users
+  ansible.builtin.template:
+    src: miniserv.users.ini.j2
+    dest: /etc/webmin/miniserv.users
+    mode: "0600"
+    backup: true
+
+- name: Webmin | Ensure /etc/webmin/webmin.acl
+  ansible.builtin.template:
+    src: webmin.acl.ini.j2
+    dest: /etc/webmin/webmin.acl
+    mode: "0600"
+    backup: true
+
+- name: Webmin | Set webmin user passwords
+  environment:
+    PERL_MM_USE_DEFAULT: "{{ bootstrap_webmin__perl_mm_use_default }}"
+  #  no_log: yes
+  ansible.builtin.command: "{{ bootstrap_webmin__base_dir }}/changepass.pl /etc/webmin {{ item.username }} '{{ item.password }}'"
+  loop: "{{ bootstrap_webmin__users }}"
+  register: __set_webmin_user_passwords_result
+  changed_when: false
+
+- name: Webmin | Display __set_webmin_user_passwords_result
+  ansible.builtin.debug:
+    var: __set_webmin_user_passwords_result
+    verbosity: 1

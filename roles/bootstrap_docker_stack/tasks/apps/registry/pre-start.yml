@@ -1,0 +1,34 @@
+---
+
+- name: "Docker Stack | registry | pre-start | Install htpasswd deps with pip"
+  ansible.builtin.pip:
+    name: passlib[bcrypt]
+
+- name: "Docker Stack | registry | pre-start | Display docker registry vars"
+  ansible.builtin.debug:
+    msg: 
+      - "__docker_stack__registry__enable_auth: {{ __docker_stack__registry__enable_auth }}"
+      - "__docker_stack__registry__auth_path: {{ __docker_stack__registry__auth_path }}"
+      - "__docker_stack__registry__auth_file: {{ __docker_stack__registry__auth_file }}"
+      # - "__docker_stack__registry__users: {{ __docker_stack__registry__users | to_nice_json }}"
+      - "__docker_stack__registry__env: {{ __docker_stack__registry__env | to_nice_json }}"
+
+- name: "Docker Stack | registry | pre-start | Remove registry, if it exists"
+  community.docker.docker_container:
+    name: "{{ __docker_stack__registry__container_name }}"
+    container_default_behavior: compatibility
+#    container_default_behavior: no_defaults
+    state: absent
+
+- name: "Docker Stack | registry | pre-start | Configure {{ __docker_stack__registry__auth_file }} users file"
+  when: __docker_stack__registry__enable_auth | bool
+  no_log: yes
+  community.general.htpasswd:
+    path: "{{ __docker_stack__registry__auth_path }}/{{ __docker_stack__registry__auth_file }}"
+    name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    owner: "root"
+    group: "root"
+    mode: "0600"
+    crypt_scheme: "bcrypt"
+  loop: "{{ __docker_stack__registry__users }}"

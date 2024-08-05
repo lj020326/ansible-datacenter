@@ -1,0 +1,64 @@
+---
+- name: Configure Project[s]
+  openstack.cloud.project:
+    cloud: "{{ openstack_admin_cloud_name }}"
+    endpoint_type: public
+    state: present
+    name: "{{ item.name }}"
+    description: "{{ item.description }}"
+    domain_id: "{{ item.domain_id }}"
+    enabled: true
+  loop: "{{ openstack_cloud_projects }}"
+
+## ref: https://arrfab.net/posts/2017/Oct/11/using-ansible-openstack-modules-on-centos-7/
+- name: Configure Project User[s]
+  openstack.cloud.identity_user:
+    cloud: "{{ openstack_admin_cloud_name }}"
+    default_project: "{{ item.0.name }}"
+    domain: "{{ item.0.domain_id }}"
+    name: "{{ item.1.login }}"
+    email: "{{ item.1.email }}"
+    password: "{{ item.1.password }}"
+  with_subelements:
+    - "{{ openstack_cloud_projects }}"
+    - users
+#  no_log: True
+
+## ref: https://stackoverflow.com/questions/31685125/is-it-possible-to-map-multiple-attributes-using-jinja-ansible
+## ref: https://ansibledaily.com/process-complex-variables-with-set_fact-and-with_items/
+- name: Set os_project_groups
+  ansible.builtin.set_fact:
+    os_project_groups: "{{ os_project_groups|default([])|union(['group-'+item.0.name+'-'+ item.1.role|default('member') ]) }}"
+  loop: "{{ openstack_cloud_projects|subelements('users', { 'skip_missing': true }) }}"
+  register: os_project_groups
+
+- name: Display os project groups
+  ansible.builtin.debug:
+    msg: "{{ os_project_groups }}"
+
+- name: Create project access groups
+  openstack.cloud.identity_group:
+    cloud: "{{ openstack_admin_cloud_name }}"
+    state: present
+    name: "{{ item }}"
+  loop: "{{ os_project_groups }}"
+  register: group_result
+
+- name: Display group_result
+  ansible.builtin.debug:
+    var: group_result
+
+- name: Add the user to the project group
+  openstack.cloud.group_assignment:
+    cloud: "{{ openstack_admin_cloud_name }}"
+    user: "{{ item.1.login }}"
+    group: "group-{{ item.0.name }}-{{ item.1.role|default('member') }}"
+  loop: "{{ openstack_cloud_projects|subelements('users') }}"
+
+- name: Add user roles to project access group
+  openstack.cloud.role_assignment:
+    cloud: "{{ openstack_admin_cloud_name }}"
+    group: "group-{{ item.0.name }}-{{ item.1.role|default('member') }}"
+    project: "{{ item.0.name }}"
+    role: "{{ item.1.role|default('member') }}"
+  loop: "{{ openstack_cloud_projects|subelements('users') }}"

@@ -1,0 +1,48 @@
+---
+- name: Generating private key
+  community.crypto.openssl_privatekey:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/' + item + '.key' }}"
+    type: RSA
+    size: 2048
+  delegate_to: 127.0.0.1
+
+- name: Generating certificate request
+  community.crypto.openssl_csr:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/' + item + '.csr' }}"
+    privatekey_path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/' + item + '.key' }}"
+    common_name: "{{ item + '.' + ansible_fqdn }}"
+    basic_constraints:
+      - CA:FALSE
+    basic_constraints_critical: true
+    key_usage:
+      - digitalSignature
+    key_usage_critical: true
+    extended_key_usage:
+      - serverAuth
+      - clientAuth
+    extended_key_usage_critical: false
+  delegate_to: 127.0.0.1
+
+- name: Signing certificate
+  community.crypto.x509_certificate:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/' + item + '.crt' }}"
+    provider: ownca
+    csr_path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/' + item + '.csr' }}"
+    ownca_not_after: +1095d
+    ownca_path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.crt' }}"
+    ownca_privatekey_path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.key' }}"
+  delegate_to: 127.0.0.1
+
+- name: Copying gRPC leaf certificates
+  block:
+    - name: Copying gRPC leaf certificates
+      ansible.builtin.copy:
+        src: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/' + item + '.crt' }}"
+        dest: "{{ install_root + '/certs/grpc/' + item + '.crt' }}"
+        mode: "0644"
+
+    - name: Copying gRPC leaf certificate keys
+      ansible.builtin.copy:
+        src: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/' + item + '.key' }}"
+        dest: "{{ install_root + '/certs/grpc/' + item + '.key' }}"
+        mode: u=rw,go-uwx

@@ -1,0 +1,97 @@
+---
+
+#######################################################
+#  Apply CloudStack specific settings to my.cnf
+#
+#- name: "Create /etc/my.cnf"
+#  ansible.builtin.copy:
+#    src: my.cnf
+#    dest: /etc/my.cnf
+#  tags:
+#    - mysql
+
+- name: "Create /etc/my.cnf"
+  ansible.builtin.template:
+    src: my.cnf.j2
+    dest: /etc/my.cnf
+    mode: "0644"
+  tags:
+    - mysql
+
+- name: Create .my.cnf
+  ansible.builtin.template:
+    src: "client.my.cnf.j2"
+    dest: "/root/.my.cnf"
+    owner: root
+    group: root
+    mode: "0600"
+  tags:
+    - mysql
+
+#######################################################
+# Start MySQL
+#
+- name: Start/enable the MySQL daemon
+  ansible.builtin.systemd:
+    enabled: true
+    state: started
+    name: mysql
+  tags:
+    - mysql
+
+## ref: https://dba.stackexchange.com/questions/102066/ansible-how-to-change-mysql-server-root-password-by-reprovisioning-the-server/102100
+## If .my.cnf already exists, this will cause an mysql-root-password update.
+- name: Secure MySQL installation / change root user password
+  community.mysql.mysql_user:
+    name: "{{ CSMySQL.RootUsername | mandatory }}"
+    password: "{{ CSMySQL.RootPassword | mandatory }}"
+    priv: "*.*:ALL,GRANT"
+    host: "{{ item }}"
+    check_implicit_admin: true
+    state: present
+  loop:
+    - "{{ ansible_hostname }}"
+    - "{{ ansible_fqdn }}"
+    - 127.0.0.1
+    - ::1
+    - localhost
+#  ignore_errors: yes
+  tags:
+    - mysql
+    - securemysql
+
+- name: "Restart mysqld service"
+  ansible.builtin.service:
+    name: mysqld
+    state: restarted
+
+- name: Add cloud user
+  community.mysql.mysql_user:
+    login_user: "{{ CSMySQL.RootUsername }}"
+    login_password: "{{ CSMySQL.RootPassword }}"
+    name: "{{ CSMySQL.CloudDBUser }}"
+    password: "{{ CSMySQL.CloudDBPass }}"
+    host: "{{ item }}"
+    state: present
+  loop: "{{ CSMySQL.ClientHosts }}"
+  tags:
+    - mysql
+
+## ref: https://cloudstack-installation.readthedocs.io/en/4.3/installation.html
+- name: Add cloud user to sudoers list
+  ansible.builtin.lineinfile:
+    dest: /etc/sudoers
+    regexp: "Defaults:{{ CSMySQL.CloudDBUser }}"
+    line: "Defaults:{{ CSMySQL.CloudDBUser }} !requiretty"
+    state: present
+  tags:
+    - mysql
+
+## ref: https://stackoverflow.com/questions/27971117/how-can-i-have-ansible-execute-a-task-only-when-my-database-is-created
+- name: check if DB exists
+  changed_when: false
+  ansible.builtin.shell: mysql -e 'SHOW DATABASES;' | grep cloud
+  register: dbstatus
+  ignore_errors: True
+  tags:
+    - mysql

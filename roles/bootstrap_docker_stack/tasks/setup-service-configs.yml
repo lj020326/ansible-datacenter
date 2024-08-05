@@ -1,0 +1,93 @@
+---
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Display docker_stack__service_templates"
+  ansible.builtin.debug:
+    var: docker_stack__service_templates
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__port_mode"
+  ansible.builtin.debug:
+    var: __docker_stack__port_mode
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Install docker stack service templates"
+  ansible.builtin.template:
+    backup: "{{ item.backup | default(True) }}"
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+#    force: "{{ docker_stack__overwrite_configs }}"
+    mode: "{{ item.mode | default('0664') }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+  loop: "{{ docker_stack__service_templates }}"
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Install docker stack proxy service templates"
+  when: __docker_stack__proxy_services | length > 0
+  ansible.builtin.template:
+    backup: "{{ item.backup | default(True) }}"
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+#    force: "{{ docker_stack__overwrite_configs }}"
+    mode: "{{ item.mode | default('0664') }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+  loop: "{{ docker_stack__proxy_service_templates }}"
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__secrets.keys()"
+  when: __docker_stack__secrets | d({}) | length > 0
+  ansible.builtin.debug:
+    var: __docker_stack__secrets.keys()|list
+
+#- name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__secrets"
+#  ansible.builtin.debug:
+#     var: __docker_stack__secrets
+##     verbosity: 2
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Create docker secrets for stack if necessary"
+#  no_log: yes
+  when:
+    - docker_stack__swarm_mode|d(False)|bool
+    - docker_stack__swarm_manager|d(False)|bool
+    - __docker_stack__secrets | d({}) | length > 0
+  community.docker.docker_secret:
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    labels: "{{ item.labels | d(omit) }}"
+    state: present
+#    force: yes
+  loop: "{{ __docker_stack__secrets.values() }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: __configure_docker_secrets
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__networks"
+  ansible.builtin.debug:
+    var: __docker_stack__networks
+#      verbosity: 1
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Create external docker networks for swarm if necessary"
+  when:
+    - docker_stack__swarm_mode|d(False)|bool
+    - docker_stack__swarm_manager|d(False)|bool
+    - item.value.external|d(False)|bool
+  community.docker.docker_network:
+    name: "{{ item.key }}"
+    attachable: "{{ item.value.attachable | d(omit) }}"
+    driver: "{{ item.value.driver | d(omit) }}"
+#    internal: "{{ (not item.value.external) | d(omit) }}"
+    ipam_config: "{{ item.value.ipam_config | d(omit) }}"
+#    scope: "{{ item.value.scope | d('swarm' if item.value.attachable|d(False)|bool else omit) }}"
+    scope: "{{ item.value.scope 
+      | d('swarm' if (docker_stack__swarm_mode|d(False)) else 'local') }}"
+  with_dict: "{{ __docker_stack__networks }}"
+  register: __configure_docker_networks
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Create external docker networks for stack if necessary"
+  when:
+    - not docker_stack__swarm_mode|d(False)|bool
+    - item.value.external|d(False)|bool
+  community.docker.docker_network:
+    name: "{{ item.key }}"
+    attachable: "{{ item.value.attachable | d(omit) }}"
+#    internal: "{{ (not item.value.external) | d(omit) }}"
+    ipam_config: "{{ item.value.ipam_config | d(omit) }}"
+  with_dict: "{{ __docker_stack__networks }}"
+  register: __configure_docker_networks

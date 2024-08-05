@@ -1,0 +1,51 @@
+# Copyright 2015 VMware, Inc.  All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 OR GPL-3.0-only
+---
+- name: Install prerequisites
+  become: true
+  ansible.builtin.package:
+    name: unzip
+    state: present
+
+- name: Check zip file stats
+  ansible.builtin.stat:
+    path: "{{ ovftool_download_dir }}/{{ ovftool_bundle_file }}"
+    get_checksum: true
+    checksum_algorithm: md5
+  register: ovfzip_stat
+
+- name: Download
+  when: not ovfzip_stat.stat.exists or (ovfzip_stat.stat.checksum != ovftool_bundle_file_md5)
+  ansible.builtin.get_url:
+    url: "{{ ovftool_bundle_file_url }}"
+    dest: "{{ ovftool_download_dir }}"
+    mode: "0644"
+  register: dload
+
+- name: Check binary stats
+  ansible.builtin.stat:
+    path: "{{ ovf_dir }}/ovftool/ovftool"
+  register: ovf_stat
+
+#- name: Make bundle executable
+#  ansible.builtin.file:
+#    mode: "0755"
+#    path: "{{ ovftool_download_dir }}/{{ ovftool_bundle_file }}"
+
+## ref: https://communities.vmware.com/t5/VMware-Workstation-Pro/VMWare-Tools-download-install-fails-on-Linux-host/td-p/986934
+- name: Create libncurses link
+  when: ansible_distribution == "Ubuntu"
+  ansible.builtin.file:
+    state: link
+    src: /lib/x86_64-linux-gnu/libncursesw.so.6
+    dest: /lib/x86_64-linux-gnu/libncursesw.so.5
+
+- name: Install OVFtool
+  when: dload.changed or (not ovf_stat.stat.exists)
+  changed_when: false
+  #  ansible.builtin.command: "{{ ovftool_download_dir }}/{{ ovftool_bundle_file }} --eulas-agreed --required --console"
+  ansible.builtin.command: bash {{ ovftool_download_dir }}/{{ ovftool_bundle_file }} --eulas-agreed --required --console
+
+- name: Test that it operates
+  changed_when: false
+  ansible.builtin.command: ovftool --help

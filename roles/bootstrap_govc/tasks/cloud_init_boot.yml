@@ -1,0 +1,115 @@
+---
+
+- name: Push cloud init seed to vcenter datastore
+  block:
+    - name: Push cloud init seed to vcenter datastore
+      ansible.builtin.command: "govc datastore.upload seed.iso {{ inventory_hostname }}/config.iso"
+      changed_when: false
+      args:
+        chdir: '{{ seed_iso_base }}/{{ inventory_hostname }}'
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+
+    - name: Insert cloud-init cdrom into vm
+      changed_when: false
+      ansible.builtin.command: |
+        govc device.cdrom.insert \
+          -vm /{{ hostvars[esx_hostname]['esx_datacenter'] }}/vm/{{ inventory_hostname }} \
+          -device {{ esx_cdrom_device }} \
+          {{ inventory_hostname }}/config.iso
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+
+    - name: Mount the cloud-init cdrom on the vm
+      ansible.builtin.command: |
+        govc device.connect \
+          -vm /{{ hostvars[esx_hostname]['esx_datacenter'] }}/vm/{{ inventory_hostname }} {{ esx_cdrom_device }}
+      changed_when: false
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+
+    - name: Power on vm
+      ansible.builtin.command: "govc vm.power -on {{ inventory_hostname }}"
+      changed_when: false
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+
+    - name: Wait for vm boot
+      ansible.builtin.command: "govc vm.info -waitip {{ inventory_hostname }}"
+      changed_when: false
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+#
+#    - name: Reboot vm to establish new settings
+#      ansible.builtin.command: "govc vm.power -r {{ inventory_hostname }}"
+#      changed_when: false
+#      environment:
+#        GOVC_HOST: "{{ bootstrap_govc__host }}"
+#        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+#        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+#        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+#        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+#        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+
+  rescue:
+    - name: Poweroff vm
+      ansible.builtin.command: "govc vm.power -off {{ inventory_hostname }}"
+      changed_when: false
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+
+    - name: Disconnect the cloud-init cdrom on the vm
+      ansible.builtin.command: "govc device.disconnect -vm /{{ hostvars[esx_hostname]['esx_datacenter'] }}/vm/{{ inventory_hostname }} {{ esx_cdrom_device }}"
+      changed_when: false
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"
+
+    - name: Eject cloud-init cdrom from vm
+      ansible.builtin.command: |
+        govc device.cdrom.eject \
+          -vm /{{ hostvars[esx_hostname]['esx_datacenter'] }}/vm/{{ inventory_hostname }} \
+          -device {{ esx_cdrom_device }} \
+          {{ inventory_hostname }}/config.iso
+      changed_when: false
+      environment:
+        GOVC_HOST: "{{ bootstrap_govc__host }}"
+        GOVC_URL: "https://{{ bootstrap_govc__host }}/sdk"
+        GOVC_USERNAME: "{{ bootstrap_govc__username }}"
+        GOVC_PASSWORD: "{{ bootstrap_govc__password }}"
+        GOVC_INSECURE: "{{ bootstrap_govc__insecure }}"
+        GOVC_DATASTORE: "{{ bootstrap_govc__datastore }}"

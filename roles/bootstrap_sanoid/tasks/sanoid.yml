@@ -1,0 +1,65 @@
+---
+- name: check whether sanoid is installed
+  ansible.builtin.command: dpkg-query -W '{{ sanoid_apt_package_name }}'
+  ignore_errors: true
+  register: is_installed
+  changed_when: is_installed.rc != 0
+
+- name: install sanoid?
+  ansible.builtin.set_fact:
+    install_sanoid: "{{ sanoid_build_from_source is true or is_installed is failed }}"
+
+- name: build sanoid | clone git repo
+  ansible.builtin.git: # noqa: latest[git]
+    repo: https://github.com/IronicBadger/docker-sanoid-builder.git
+    dest: /tmp/sanoid
+    force: true
+  when: sanoid_build_from_source
+
+## build
+
+- name: build sanoid | make build script executable
+  ansible.builtin.file:
+    path: /tmp/sanoid/build.sh
+    mode: "0775"
+  when: install_sanoid
+
+- name: build sanoid | build .deb package
+  changed_when: false
+  ansible.builtin.shell: cd /tmp/sanoid && ./build.sh
+  when: install_sanoid
+
+- name: install dependencies for sanoid
+  ansible.builtin.apt:
+    name: libcapture-tiny-perl
+    state: present
+  when: install_sanoid
+
+- name: build sanoid | install built .deb
+  ansible.builtin.apt:
+    deb: /tmp/sanoid/sanoid_2.0.3_all.deb
+    install_recommends: true
+    state: present
+  when: install_sanoid
+
+- name: ensure sanoid is installed
+  ansible.builtin.apt:
+    name: sanoid
+    state: present
+
+#######
+
+- name: create target dir for sanoid config
+  ansible.builtin.file:
+    path: /etc/sanoid
+    state: directory
+    mode: "0755"
+
+- name: configure sanoid
+  ansible.builtin.copy:
+    #src: sanoid/sanoid.conf
+    src: sanoid/{{ sanoid_config_source }}
+    dest: /etc/sanoid/sanoid.conf
+    owner: root
+    group: root
+    mode: "0644"

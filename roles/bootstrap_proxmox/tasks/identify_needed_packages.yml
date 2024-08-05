@@ -1,0 +1,27 @@
+---
+- name: Stage packages needed for base PVE installation
+  ansible.builtin.set_fact:
+    _pve_install_packages:
+      - proxmox-ve
+      - open-iscsi
+      - ksm-control-daemon
+      - systemd-sysv
+
+- name: Stage patch package if we need to patch the subscription message
+  when: "'pve-no-subscription' in pve_repository_line"
+  ansible.builtin.set_fact:
+    _pve_install_packages: "{{ _pve_install_packages | union(['patch']) }}"
+
+- name: Stage ZFS packages if ZFS is enabled
+  when: pve_zfs_enabled | bool
+  ansible.builtin.set_fact:
+    _pve_install_packages: "{{ _pve_install_packages | union(['zfsutils-linux', 'zfs-initramfs', 'zfs-zed']) }}"
+
+- name: Stage Ceph packages if Ceph is enabled
+  when: pve_ceph_enabled | bool
+  ansible.builtin.set_fact:
+    _pve_install_packages: "{{ _pve_install_packages | union(['ceph', 'ceph-common', 'ceph-mds', 'ceph-fuse', 'gdisk']) }}"
+
+- name: Stage any extra packages the user has specified
+  ansible.builtin.set_fact:
+    _pve_install_packages: "{{ _pve_install_packages | union(pve_extra_packages) }}"

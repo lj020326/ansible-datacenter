@@ -1,0 +1,57 @@
+---
+
+- name: Display hostnames
+  ansible.builtin.debug:
+    msg:
+      - "internal_domain={{ internal_domain }}"
+      - "bootstrap_linux_core__hostname_internal_domain={{ bootstrap_linux_core__hostname_internal_domain }}"
+      - "bootstrap_linux_core__hostname_name_short={{ bootstrap_linux_core__hostname_name_short }}"
+      - "bootstrap_linux_core__hostname_name_full={{ bootstrap_linux_core__hostname_name_full }}"
+
+## Resolves potential dbus issue
+## ref: https://unix.stackexchange.com/questions/560859/hostnamectl-shows-error-failed-to-create-bus-connection-no-such-file-or-direc
+- name: "Hostname | Ensure dbus.socket is initialized"
+  ansible.builtin.systemd:
+    name: dbus.socket
+    state: started
+    enabled: yes
+
+## https://github.com/insspb/ansible-role-hostname/blob/master/tasks/main.yml
+- name: "Hostname | Setting up hostname"
+  become: True
+  ansible.builtin.hostname:
+    name: "{{ bootstrap_linux_core__hostname_name_short }}"
+  register: __hostname_update_results
+  until: __hostname_update_results is not failed
+  retries: 3
+  delay: 5
+
+#- name: Hostname | Update the IPv4 part of hosts file
+#  become: True
+#  ansible.builtin.lineinfile:
+#    dest: "{{ bootstrap_linux_core__hostname_hosts_file_location }}"
+#    regexp: "^127.0.0.1"
+#    line: "127.0.0.1{{ '\t' }}{{ bootstrap_linux_core__hostname_name_full }}{% if bootstrap_linux_core__hostname_name_full != bootstrap_linux_core__hostname_name_short %}{{ '\t' }}{{ bootstrap_linux_core__hostname_name_short }}{{ '\t' }}{% endif %}localhost localhost.localdomain localhost4 localhost4.localdomain4"
+#    state: present
+#    backup: "{{ bootstrap_linux_core__hostname_hosts_backup }}"
+#
+#- name: Hostname | Update the IPv6 part of hosts file
+#  become: True
+#  ansible.builtin.lineinfile:
+#    dest: "{{ bootstrap_linux_core__hostname_hosts_file_location }}"
+#    regexp: "^::1"
+#    line: "::1{{ '\t\t' }}{{ bootstrap_linux_core__hostname_name_full }}{% if bootstrap_linux_core__hostname_name_full != bootstrap_linux_core__hostname_name_short %}{{ '\t' }}{{ bootstrap_linux_core__hostname_name_short }}{% endif %}{{ '\t' }}localhost localhost.localdomain localhost6 localhost4.localdomain6 ip6-localhost ip6-loopback"
+#    state: present
+
+- name: 'Hostname | Configure hosts file.'
+  become: yes
+  when: bootstrap_linux_core__init_hosts_file|d(True)|bool
+  ansible.builtin.template:
+    force: yes
+    src: '{{ bootstrap_linux_core__hostname_hosts_template }}'
+    dest: '/etc/hosts'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+    backup: "{{ bootstrap_linux_core__hostname_hosts_backup }}"
+#  when: 'hostname | default(None) != None and bootstrap_linux_core__hostname_hosts | default(None) != None'

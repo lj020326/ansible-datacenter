@@ -1,0 +1,52 @@
+---
+- name: Include OS-specific variables.
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - default.yml
+
+- name: Include overrides specific to Fedora.
+  when:
+    - ansible_os_family == 'RedHat'
+    - ansible_distribution == "Fedora"
+  ansible.builtin.include_vars: Fedora.yml
+
+- name: Ensure NFS utilities are installed.
+  ansible.builtin.package:
+    name: "{{ bootstrap_nfs__packages }}"
+    state: present
+
+- name: Ensure rpcbind is running as configured.
+  when:
+    - ansible_os_family == 'RedHat'
+    - bootstrap_nfs__rpcbind_enabled|bool
+  ansible.builtin.service:
+    name: rpcbind
+    state: "{{ bootstrap_nfs__rpcbind_state }}"
+    enabled: "{{ bootstrap_nfs__rpcbind_enabled }}"
+
+- name: Ensure directories to export exist
+  ansible.builtin.file:
+    path: "{{ item.strip().split()[0] }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ bootstrap_nfs__exports }}"
+
+- name: Copy exports file.
+  ansible.builtin.template:
+    src: exports.j2
+    dest: /etc/exports
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nfs
+
+- name: Ensure nfs is running.
+  when: bootstrap_nfs__exports|length
+  ansible.builtin.service:
+    name: "{{ bootstrap_nfs__server_daemon }}"
+    state: started
+    enabled: true

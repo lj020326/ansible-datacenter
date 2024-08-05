@@ -1,0 +1,181 @@
+---
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Create Docker configuration directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/docker
+    - /etc/systemd/system/docker.service.d
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Display bootstrap_docker__options"
+  ansible.builtin.set_fact:
+    var: bootstrap_docker__options
+#    verbosity: 1
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Set the Docker configuration"
+  when: item.value | string | length > 0
+  ansible.builtin.set_fact:
+    bootstrap_docker__config: "{{ bootstrap_docker__config | d({}) | combine({ item.key: item.value }) }}"
+  with_dict: "{{ bootstrap_docker__options }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Combine LVM options into Docker configuration"
+  when: bootstrap_docker__setup_lvm|bool
+  ansible.builtin.set_fact:
+    bootstrap_docker__config: "{{ bootstrap_docker__config | d({}) | combine(bootstrap_lvm_options, recursive=True) }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Display bootstrap_docker__config"
+  ansible.builtin.debug:
+    var: bootstrap_docker__config
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Deploy /etc/docker/daemon.json"
+  when: bootstrap_docker__config|d({}) != {}
+  ansible.builtin.copy:
+    content: "{{ bootstrap_docker__config | to_nice_json }}\n"
+    dest: /etc/docker/daemon.json
+    mode: "0755"
+    backup: true
+  notify: Docker | Restart Docker
+
+# - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Deploy /etc/docker/daemon.json"
+#   ansible.builtin.template:
+#     src: docker_config.j2
+#     dest: /etc/docker/daemon.json
+#     backup: true
+#   notify: Docker | Restart Docker
+
+#########
+## ADDITIONAL CONFIG OPTIONS
+#########
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Display bootstrap_docker__daemon_flags"
+  ansible.builtin.debug:
+    var: bootstrap_docker__daemon_flags
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Configure Docker daemon options (flags)"
+  when: bootstrap_docker__daemon_flags|d([]) | count > 0
+  ansible.builtin.template:
+    src: etc/systemd/system/docker.service.d/options.conf.j2
+    dest: /etc/systemd/system/docker.service.d/options.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  register: bootstrap_docker__register_daemon_flags
+  notify: Docker | Restart Docker
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Configure Docker daemon environment variables"
+  when: bootstrap_docker__daemon_environment is defined and bootstrap_docker__daemon_environment | count > 0
+  ansible.builtin.template:
+    src: etc/systemd/system/docker.service.d/environment.conf.j2
+    dest: /etc/systemd/system/docker.service.d/environment.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  register: bootstrap_docker__register_daemon_environment
+  notify: Docker | Restart Docker
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Configure custom systemd unit file override"
+  when: bootstrap_docker__systemd_override | d()
+  ansible.builtin.template:
+    src: etc/systemd/system/docker.service.d/custom.conf.j2
+    dest: /etc/systemd/system/docker.service.d/custom.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  register: bootstrap_docker__register_custom_override
+  notify: Docker | Restart Docker
+
+#- name: {{ __bootstrap_docker__log_prefix_deploy_config }} Override docker service for zfs dependencies
+#  ansible.builtin.include_tasks: docker-zfs-override.yml
+#  when: bootstrap_docker__zfs_override
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Reload systemd daemon"
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: (bootstrap_docker__register_daemon_flags | d() and
+         bootstrap_docker__register_daemon_flags is changed)
+         or (bootstrap_docker__register_daemon_environment | d() and
+         bootstrap_docker__register_daemon_environment is changed)
+         or (bootstrap_docker__register_custom_override | d() and
+         bootstrap_docker__register_custom_override is changed)
+  notify: Docker | Restart Docker
+
+#- name: {{ __bootstrap_docker__log_prefix_deploy_config }} Restart Docker now to make sure `docker login` works
+#  ansible.builtin.meta: "flush_handlers"
+#
+#- name: {{ __bootstrap_docker__log_prefix_deploy_config }} Manage Docker registry login credentials
+#  community.docker.docker_login:
+#    registry_url: "{{ item.registry_url | d(omit) }}"
+#    username: "{{ item.username }}"
+#    password: "{{ item.password }}"
+#    email: "{{ item.email | d(omit) }}"
+#    reauthorize: "{{ item.reauthorize | d(omit) }}"
+#    config_path: "{{ item.config_path | d((ansible_env.PWD | d('/root')) + '/.docker/config.json') }}"
+#    state: "{{ item.state | d('present') }}"
+#  loop: "{{ bootstrap_docker__registries }}"
+#  when: item.username | d() and item.password | d()
+#  vars:
+#    ansible_python_interpreter: "{{ '/usr/bin/env python-docker' if bootstrap_docker__pip_virtualenv | d() else ansible_python.executable }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Ensure script dirs exist"
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    mode: "{{ item.mode | default(omit) }}"
+    recurse: "{{ item.recurse | default( omit ) }}"
+  loop: "{{ bootstrap_docker__script_dirs }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Install docker admin/utility scripts"
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest |  d(bootstrap_docker__script_dir) }}"
+    force: "{{ item.force | default('true') }}"
+    backup: true
+    mode: "{{ item.mode | default('0770') }}"
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+  loop: "{{ bootstrap_docker__scripts }}"
+
+###########
+## Following block moved to dedicated bootstrap_linux_cron role with inventory as config
+#- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Setup Docker related cron jobs"
+#  when: bootstrap_docker__enable_cron_jobs|bool
+#  block:
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Display bootstrap_docker__cron_jobs"
+#      ansible.builtin.debug:
+#        var: bootstrap_docker__cron_jobs
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Remove Docker related cron jobs"
+#      when:
+#        - item.state | d("present") == "absent"
+#        - item.name | d() and item.job | d()
+#        - item.schedule | d() and item.cron_file | d()
+#      ansible.builtin.file:
+#        path: "/etc/cron.d/{{ item.cron_file }}"
+#        state: absent
+#      loop: "{{ bootstrap_docker__cron_jobs }}"
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Create Docker related cron jobs"
+#      when:
+#        - item.state | d("present") != "absent"
+#        - item.name | d() and item.job | d()
+#        - item.schedule | d() and item.cron_file | d()
+#      ansible.builtin.cron:
+#        name: "{{ item.name }}"
+#        job: "{{ item.job }}"
+#        minute: "{{ item.schedule[0] }}"
+#        hour: "{{ item.schedule[1] }}"
+#        day: "{{ item.schedule[2] }}"
+#        month: "{{ item.schedule[3] }}"
+#        weekday: "{{ item.schedule[4] }}"
+#        cron_file: "{{ item.cron_file }}"
+#        user: "{{ item.user | d('root') }}"
+#      loop: "{{ bootstrap_docker__cron_jobs }}"

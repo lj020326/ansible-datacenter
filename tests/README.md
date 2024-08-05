@@ -307,7 +307,7 @@ $ tests/molecule_exec.sh ubuntu2204 --debug converge
 
 ```shell
 runme.sh deploy-cacerts.yml -l admin01
-runme.sh bootstrap-ansible.yml -l admin01
+runme.sh bootstrap_ansible.yml -l admin01
 runme.sh bootstrap-docker-stack -l admin03
 runme.sh bootstrap-docker-stack.yml -l admin01
 runme.sh bootstrap-docker-stack.yml -l admin02

@@ -1,0 +1,26 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+
+  vars:
+    jenkins_url_prefix: /jenkins
+
+  pre_tasks:
+    - name: Run debian-setup.yml
+      ansible.builtin.include_tasks: debian-setup.yml
+      when: ansible_os_family == 'Debian'
+
+  roles:
+    - geerlingguy.java
+    - bootstrap_jenkins
+
+  post_tasks:
+    - name: Ensure Jenkins is running with the specified prefix.
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:8080{{ jenkins_url_prefix }}"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 1

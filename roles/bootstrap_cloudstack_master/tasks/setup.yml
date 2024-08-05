@@ -1,0 +1,441 @@
+---
+
+#########################################################################################
+##
+## ref: https://blog.sonstebo.com/2015/01/22/apache-cloudstack-ansible-playbook/
+## ref: https://github.com/dagsonstebo/CloudStack-Ansible-Playbook/blob/master/cloudstack.yml
+## ref: https://github.com/shapeblue/cloudstack-ansible
+##		forks with helpful/recent updates:
+##		-> https://github.com/LeoTaoSH/cloudstack-ansible
+##		-> https://github.com/pykiki/cloudstack-ansible
+##
+#########################################################################################
+
+#######################################################
+# Configure NTP
+#
+- name: Install NTP
+  ansible.builtin.package:
+    name: ntp
+    state: present
+  tags:
+    - ntp
+    - base
+
+- name: Configure NTP file
+  ansible.builtin.template:
+    src: templates/ntp.conf.j2
+    dest: /etc/ntp.conf
+    mode: "0644"
+  notify: restart ntp
+  tags:
+    - ntp
+    - base
+
+- name: Start the NTP daemon
+  ansible.builtin.service:
+    name: ntpd
+    state: started
+    enabled: true
+  tags:
+    - ntp
+    - base
+
+#######################################################
+# Configure SElinux settings
+#
+- name: Set SELinux to permissive
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+  tags:
+    - selinux
+    - base
+
+#######################################################
+#  Configure MySQL yum repo
+#
+- name: Configure MySQL repo
+  ansible.builtin.template:
+    src: mysql.repo.j2
+    dest: /etc/yum.repos.d/mysql-community.repo
+    mode: "0644"
+
+#######################################################
+#  Configure CloudStack yum repo
+#
+- name: Configure CloudStack repo
+  ansible.builtin.template:
+    src: templates/cloudstack.repo.j2
+    dest: /etc/yum.repos.d/cloudstack.repo
+    mode: "0644"
+  tags:
+    - base
+    - yumrepo
+
+#######################################################
+# setup utility scripts
+#
+- name: Install utility cloudstack script files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/opt/scripts/{{ item | basename }}"
+    mode: "0644"
+  with_fileglob:
+    - "files/scripts/cloudstack/*"
+
+- name: "Create /opt/scripts/.env"
+  ansible.builtin.template:
+    src: "scripts/.env.j2"
+    dest: /opt/scripts/.env
+    mode: "0644"
+
+- name: Install python dependencies for cloudstack db/management scripts
+  ansible.builtin.pip:
+    name: dnspython
+
+#######################################################
+#  Install cloudstack dependent packages:
+#  MySQL, mysql-python, etc
+#
+- name: "Install cloudstack dependent packages"
+  ansible.builtin.package:
+    name: "{{ cloudstack_dependent_packages }}"
+    state: present
+#    state: latest
+  tags:
+    - epelrepo
+    - base
+    - mysql
+
+- name: configure firewall for cloudstack node
+  when: cloudstack_firewalld_enabled | default(True) | bool
+  tags: [ firewall-config-cloudstack ]
+  ansible.builtin.include_role:
+    name: bootstrap_linux_firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ cloudstack_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ cloudstack_firewalld_ports | d([]) }}"
+
+#######################################################
+# Install vhd-util on management server
+#
+- name: Download vhd-util for Xenserver hypervisors
+  ansible.builtin.get_url:
+    url: "{{ CMConfig.VhdUtilURL }}"
+    dest: "{{ item }}"
+    mode: "0755"
+    timeout: 20
+  loop:
+    - /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/
+#    - /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/xenserver60/
+#    - /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/xenserver62/
+#    - /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/xenserver65/
+  tags:
+    - csmanagement
+    - csmanagementadd
+
+- name: Copy vhd-util for Xenserver hypervisors
+  ansible.builtin.copy:
+    remote_src: true
+    src: "/usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/vhd-util"
+    dest: "{{ item }}"
+    mode: "0755"
+  loop:
+    - /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/xenserver60/
+    - /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/xenserver62/
+    - /usr/share/cloudstack-common/scripts/vm/hypervisor/xenserver/xenserver65/
+  tags:
+    - csmanagement
+    - csmanagementadd
+
+#######################################################
+#  Install and setup Cloudstack Database
+#
+- name: Install and setup Cloudstack Database
+  ansible.builtin.include_tasks: ./setupdb.yml
+
+#######################################################
+#  Install cloudstack packages
+#  and MySQL
+#  and (required for cloudmonkey), vim
+#
+- name: "Install cloudstack packages"
+  ansible.builtin.package:
+    name: "{{ cloudstack_packages }}"
+    state: present
+#    state: latest
+  tags:
+    - csmanagementadd
+
+- name: "Stop cloudstack services" # noqa: ignore-errors
+  ansible.builtin.service:
+    enabled: yes
+    name: "{{ item }}"
+    state: stopped
+  loop:
+    - cloudstack-management
+    - cloudstack-agent
+  ignore_errors: yes
+
+#######################################################
+#  Apply CloudStack log settings
+#
+- name: "Create link /etc/cloudstack/management/commons-logging.properties -> /etc/cloudstack/management/logging.properties"
+  ansible.builtin.file:
+    src: /etc/cloudstack/management/commons-logging.properties
+    dest: /etc/cloudstack/management/logging.properties
+    state: link
+  tags:
+    - cmlogconfig
+
+- name: "Update /etc/logrotate.d/cloudstack-catalina"
+  ansible.builtin.template:
+    src: cloudstack-catalina.json.j2
+    dest: /etc/logrotate.d/cloudstack-catalina
+    mode: "0644"
+  tags:
+    - cmlogconfig
+
+#
+#- name: "Allow logging from cloud user"
+#  ansible.builtin.file:
+#    path: /var/log/cloudstack
+#    state: directory
+#    mode: "0755"
+#    recurse: true
+#    owner: "{{ CSMySQL.CloudDBUser }}"
+#    group: "{{ CSMySQL.CloudDBUser }}"
+
+
+#######################################################
+# Configure CloudStack DB
+# ref: https://blog.sonstebo.com/2015/01/22/apache-cloudstack-ansible-playbook/
+#
+- name: "Run cloudstack-setup-databases"
+  when: dbstatus.rc != 0
+  changed_when: false
+  ansible.builtin.shell: >-
+    cloudstack-setup-databases {{ CSMySQL.CloudDBUser }}:{{ CSMySQL.CloudDBPass | mandatory }}@localhost
+    --deploy-as=root:{{ CSMySQL.RootPassword }}
+    -m {{ CSMySQL.RootPassword }}
+    -k {{ CSMySQL.CloudDBPass }} > /root/cs_dbinstall.out 2>&1
+  register: db_created
+  tags:
+    - mysql
+
+- name: "Display cloudstack-setup-databases output" # noqa: no-handler
+  when: db_created.changed
+  ansible.builtin.debug:
+    msg: "{{ db_created.stdout }}"
+  tags:
+    - mysql
+
+- name: "Display cloudstack-setup-databases errors" # noqa: no-handler
+  when: db_created.changed
+  ansible.builtin.debug:
+    msg: "{{ db_created.stderr }}"
+  tags:
+    - mysql
+
+- name: "Run cloudstack-setup-management"
+  when: dbstatus.rc != 0
+  changed_when: false
+  ansible.builtin.shell: "cloudstack-setup-management >> /root/cs_mgmt_install.out 2>&1"
+  register: dbsetup_status
+  tags:
+    - mysql
+
+- name: "Run cloudstack-setup-management output"
+  tags:
+    - mysql
+  when:
+    - dbstatus.rc != 0
+    - dbsetup_status.rc != 0
+  ansible.builtin.debug:
+    msg: "{{ dbsetup_status.stdout }}"
+
+- name: "Run cloudstack-setup-management error"
+  tags:
+    - mysql
+  when:
+    - dbstatus.rc != 0
+    - dbsetup_status.rc != 0
+  ansible.builtin.debug:
+    msg: "{{ dbsetup_status.stderr }}"
+
+#######################################################
+# Configure storage
+# ref: http://docs.cloudstack.apache.org/projects/archived-cloudstack-installation/en/4.11/storage_setup.html#network-configuration-for-storage
+#
+# Mount secondary NFS share and install system VM
+# template. Check size of mounted folder before
+# installation to ensure previous data not being
+# overwritten.
+#
+## Small-Scale Setup
+#  In a small-scale setup, a single NFS server can function as both primary and secondary storage.
+#  The NFS server must export two separate shares, one for primary storage and the other for secondary storage.
+#  This could be a VM or physical host running an NFS service on a Linux OS or a virtual software appliance.
+#  Disk and network performance are still important in a small scale setup to get a good experience when deploying, running or snapshotting VMs.
+#
+#  ref: http://docs.cloudstack.apache.org/projects/archived-cloudstack-installation/en/4.11/storage_setup.html#small-scale-setup
+#
+- name: Mount NFS storage
+  when: cloudstack_mount_nfs_share|bool
+  tags:
+    - secstorage
+    - nfs
+  block:
+    - name: Mount NFS primary storage
+      ansible.posix.mount:
+        name: "{{ CMConfig.PrimaryMount }}"
+        src: "{{ CMConfig.NFSHost }}:{{ CMConfig.NFSPrimaryShare}}"
+        fstype: nfs
+        state: mounted
+
+    - name: Mount NFS secondary storage
+      ansible.posix.mount:
+        name: "{{ CMConfig.SecondaryMount }}"
+        src: "{{ CMConfig.NFSHost }}:{{ CMConfig.NFSSecondaryShare}}"
+        fstype: nfs
+        state: mounted
+
+## if setting up local nfs share
+- name: "Create /etc/exports"
+  when: cloudstack_setup_nfs_share|bool
+  tags:
+    - nfs
+    - secstorage
+  block:
+    ## Using the Management Server as the NFS Server
+    ## ref: https://cloudstack-installation.readthedocs.io/en/4.3/installation.html
+    - name: "Create /etc/exports"
+      ansible.builtin.copy:
+        src: exports
+        dest: /etc/exports
+        mode: "0644"
+
+    ## ref: https://cloudstack-installation.readthedocs.io/en/4.3/installation.html
+    - name: "Run exportfs -a"
+      changed_when: false
+      ansible.builtin.command: "exportfs -a"
+
+    - name: "Create /etc/sysconfig/nfs"
+      ansible.builtin.copy:
+        src: sysconfig-nfs
+        dest: /etc/sysconfig/nfs
+        mode: "0644"
+
+#######################################################
+# Download and install CS system VM templates
+#
+## ref: http://docs.cloudstack.apache.org/projects/archived-cloudstack-getting-started/en/latest/ansible.html
+- name: Create template file directory if not exists
+  tags:
+    - secstorage
+  block:
+    - name: Create template file directory if not exists
+      ansible.builtin.file:
+        path: "{{ CMConfig.SecondaryMount }}/template"
+        state: directory
+        mode: "0755"
+
+  #  ## ref: https://blog.sonstebo.com/2015/01/22/apache-cloudstack-ansible-playbook/
+  #  - name: Check size of mounted secondary storage template folder
+  #    ansible.builtin.shell: du {{ CMConfig.SecondaryMount }}/template/ --max-depth=0 | awk '{print $1}'
+  #    register: TemplateFolderSize
+
+    - name: "Seed secondary storage"
+      changed_when: false
+#      ansible.builtin.command: "{{ system_cs_script_dir }}/cloud-install-sys-tmplt -m {{ CMConfig.SecondaryMount }} -u {{ item.url }} -h {{ item.hypervisor }} -F"
+      ansible.builtin.command: >-
+        {{ system_cs_script_dir }}/cloud-install-sys-tmplt
+        -m {{ CMConfig.SecondaryMount }} -u {{ item.url }} -h {{ item.hypervisor_tmpl }}
+        -o localhost -r {{ CSMySQL.CloudDBUser }} -d {{ CSMySQL.CloudDBPass }}
+  #    when: TemplateFolderSize.stdout|int < 1024
+      loop: "{{ VMSystemTemplates }}"
+  #    ignore_errors: yes
+      register: shell_cmd
+      failed_when: shell_cmd.rc >= 0 and "Data already exists at destination" not in shell_cmd.stdout
+
+    - name: Print seed results info
+      ansible.builtin.debug:
+        var: shell_cmd
+
+    ## ref: http://docs.cloudstack.apache.org/projects/cloudstack-installation/en/latest/management-server/_systemvm.html
+    - name: Unmount NFS secondary storage after seeding
+      ansible.posix.mount:
+        name: "{{ CMConfig.SecondaryMount }}"
+        src: "{{ CMConfig.NFSHost }}:{{ CMConfig.NFSSecondaryShare}}"
+        fstype: nfs
+        state: unmounted
+
+  #  - name: Remove {{ CMConfig.SecondaryMount }}
+  #    ansible.builtin.file:
+  #      state: absent
+  #      path: "{{ CMConfig.SecondaryMount }}"
+
+
+## ref: https://cloudstack-installation.readthedocs.io/en/4.3/installation.html
+- name: "Create /etc/idmapd.conf"
+  ansible.builtin.template:
+    src: idmapd.conf.j2
+    dest: /etc/idmapd.conf
+    mode: "0644"
+  tags:
+    - nfs
+    - secstorage
+
+- name: "Start rpcbind"
+  ansible.builtin.systemd:
+    enabled: true
+    state: started
+    name: rpcbind
+  tags:
+    - nfs
+    - secstorage
+
+- name: "Start nfs"
+  ansible.builtin.systemd:
+    enabled: true
+    state: started
+    name: nfs
+  tags:
+    - nfs
+    - secstorage
+
+- name: "Enable and start cloudstack-management Service"
+  ansible.builtin.service:
+    enabled: yes
+    name: cloudstack-management
+    state: started
+
+#######################################################
+# Install cloudmonkey
+#######################################################
+- name: Install CloudMonkey
+  block:
+    #- name: Install CloudMonkey
+    #  ansible.builtin.pip:
+    #    name: cloudmonkey
+    #  tags:
+    #    - csmanagementadd
+    #    - cloudmonkey
+
+    ## cloudmonkey v6+ is distributed using snapd
+    ## need snapd running to install cloudmonkey(>=6)
+    ## ref: https://snapcraft.io/install/cloudmonkey/centos
+    ## ref: https://computingforgeeks.com/install-snapd-snap-applications-centos-7/
+    - name: Make sure snapd is running
+  #    ansible.builtin.systemd:
+      ansible.builtin.service:
+        state: started
+        name: snapd
+
+    ## cloudmonkey v6 now golang based and distributed via snap
+    - name: Install cloudmonkey
+      community.general.snap:
+        name:
+          - cloudmonkey

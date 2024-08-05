@@ -1,0 +1,27 @@
+---
+
+- name: Allow nginx ports through the firewall
+  when: firewalld_enabled | bool
+  tags: [ firewall-config-nginx ]
+  ansible.builtin.include_role:
+    name: bootstrap_linux_firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_ports: "{{ nginx_firewalld_ports | d([]) }}"
+
+- name: Install nginx systemd unit file
+  ansible.builtin.template:
+    src: "config-openresty.service.j2"
+    dest: "/etc/systemd/system/openresty.service"
+    mode: "0644"
+
+- name: enable service openresty and ensure it is not masked
+  ansible.builtin.systemd:
+    name: openresty
+    enabled: yes
+    masked: no
+
+- name: Make sure openresty service is running
+  ansible.builtin.systemd:
+    name: openresty
+    state: started

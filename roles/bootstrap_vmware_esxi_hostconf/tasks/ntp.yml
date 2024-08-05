@@ -1,0 +1,51 @@
+---
+# required vars: esx_ntp_servers
+
+# could use random element from list of servers, like {{ esx_ntp_servers | random }}
+- name: (ntp) update ntp config file
+  ansible.builtin.template:
+    src: ntp.conf.j2
+    dest: /etc/ntp.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart ntpd
+
+- name: (ntp) check ntp client ruleset state
+  ansible.builtin.command: esxcli network firewall ruleset list --ruleset-id=ntpClient
+  register: ntp_ruleset_state
+  changed_when: false
+  check_mode: false
+
+- name: (ntp) enable ntp client through firewall
+  when: ntp_ruleset_state.stdout.find("false") != -1
+  changed_when: false
+  ansible.builtin.command: esxcli network firewall ruleset set --ruleset-id=ntpClient --enabled=true
+  notify: restart ntpd
+
+# "service" is not implemented for esxi; "ntpd is running"/"ntpd is not running"
+- name: (ntp) check ntp service state
+  ansible.builtin.command: /etc/init.d/ntpd status
+  register: ntp_service_state
+  failed_when: ntp_service_state.rc > 3
+  check_mode: false
+  changed_when: false
+
+# notify handler (actually start service) if not yet running
+- name: (ntp) set time if ntp is not running
+  when: ntp_service_state.rc != 0
+  changed_when: false
+  ansible.builtin.command: ntpd -g -q
+  notify: restart ntpd
+
+- name: (ntp) check ntp autostart # noqa: command-instead-of-module
+  ansible.builtin.command: chkconfig ntpd
+  register: ntpd_autostart_state
+  failed_when: false
+  check_mode: false
+  changed_when: false
+
+- name: (ntp) enable ntpd autostart # noqa: command-instead-of-module
+  when: ntpd_autostart_state.rc != 0
+  changed_when: false
+  ansible.builtin.command: chkconfig ntpd on

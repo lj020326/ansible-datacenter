@@ -192,10 +192,10 @@ $ cd ansible-datacenter
 $ export MOLECULE_DISTRO=redhat7-systemd-python
 $ molecule create
 $ molecule login
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package
-$ molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package
+$ molecule --debug test -s bootstrap_linux_package
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
+$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
 $ MOLECULE_DISTRO=redhat8-systemd-python molecule login
 $ molecule destroy
 $ MOLECULE_DISTRO=centos7-systemd-python molecule converge --destroy never
@@ -213,13 +213,13 @@ Testing with scenarios:
 ```shell
 $ tests/molecule_exec.sh centos7 converge
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap-pip
+$ tests/molecule_exec.sh centos7 converge -s bootstrap_pip
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap-linux
+$ tests/molecule_exec.sh centos7 converge -s bootstrap_linux
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap-linux-package
+$ tests/molecule_exec.sh centos7 converge -s bootstrap_linux_package
 $ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge -s bootstrap-pip
+$ tests/molecule_exec.sh centos8 --debug converge -s bootstrap_pip
 $ molecule destroy
 $ tests/molecule_exec.sh centos8 --debug converge
 $ molecule destroy

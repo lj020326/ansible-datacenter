@@ -1,0 +1,55 @@
+---
+- name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Remove older Docker installations"
+  ansible.builtin.package:
+    name:
+      - docker
+      - docker-common
+      - docker-engine
+    state: absent
+
+# ref: https://unix.stackexchange.com/questions/611228/getting-series-of-file-conflicts-like-runc-and-containerd-when-trying-to-install
+- name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Remove conflicting runc/podman/buildah installations"
+  ansible.builtin.package:
+    name:
+      - runc
+      - podman
+      - buildah
+    state: absent
+
+- name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Check if external docker repo config exists at /etc/yum.repos.d/docker-ce.repo"
+  ansible.builtin.stat:
+    path: /etc/yum.repos.d/docker-ce.repo
+  register: __repo_result
+
+- name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Remove external docker repo if exists."
+  when: __repo_result.stat.exists
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Remove packages from prior repos if already exists"
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: absent
+        autoremove: true
+      loop:
+        - container-selinux
+        - containerd.io
+        - docker-ce
+
+    - name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Remove external docker repo."
+      ansible.builtin.file:
+        name: /etc/yum.repos.d/docker-ce.repo
+        state: absent
+
+- name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Install the RedHat RHSM Docker repository"
+  community.general.rhsm_repository:
+    name: "{{ bootstrap_docker__rhsm_channel }}"
+    state: enabled
+
+- name: "{{ __bootstrap_docker__log_prefix_yum_rhsm }} Install docker-ce"
+  ansible.builtin.package:
+    name: "{{ bootstrap_docker__packages }}"
+    state: present
+  notify: Docker | Restart Docker
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2

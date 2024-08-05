@@ -1,0 +1,77 @@
+---
+
+- name: "Init-vars | Display key parameters for {{ role_name }}"
+  ansible.builtin.debug:
+    var: bootstrap_linux_user__list
+
+- name: "Init-vars | Set role var prefixes"
+  ansible.builtin.set_fact:
+    role_list_var_prefix: "{{ role_name | replace('-','_') }}_list__"
+
+- name: "Init-vars | Set role var prefixes"
+  ansible.builtin.set_fact:
+    role_list_var_regex: "^{{ role_list_var_prefix }}"
+
+- name: "Init-vars | Show variables with '{{ role_list_var_prefix }}' prefix"
+  ansible.builtin.debug:
+#    msg: "{{ lookup('varnames', '^bootstrap_linux_user__list__', wantlist=True) }}"
+    msg: "{{ lookup('varnames', role_list_var_regex, wantlist=True) }}"
+
+- name: "Init-vars | Initialize __bootstrap_linux_user__list_merged with bootstrap_linux_user__list"
+  ansible.builtin.set_fact:
+    __bootstrap_linux_user__list_merged: "{{ bootstrap_linux_user__list|d([]) }}"
+
+- name: "Init-vars | Combine additive/role-specific lists from bootstrap_linux_user__list__* vars into merged list"
+  ansible.builtin.set_fact:
+    __bootstrap_linux_user__list_merged: "{{ __bootstrap_linux_user__list_merged|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', role_list_var_regex, wantlist=True) }}"
+#  loop: "{{ lookup('varnames','^bootstrap_linux_user__list__', wantlist=True) }}"
+
+- name: "Init-vars | Display __bootstrap_linux_user__list_merged"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list_merged
+
+- name: "Initialize __bootstrap_linux_user__dict"
+  ansible.builtin.set_fact:
+    __bootstrap_linux_user__dict: "{{ _bootstrap_linux_user__dict_yaml | from_yaml }}"
+  vars:
+    _bootstrap_linux_user__dict_yaml: |-
+      {% set _user_result_dict = {} %}
+      {% if __bootstrap_linux_user__list_merged is defined %}
+        {% for _user_info in __bootstrap_linux_user__list_merged %}
+          {% set _user_account_info = {} %}
+          {% if _user_info is string %}
+            {% set _ = _user_account_info.update({'name': _user_info }) %}
+          {% elif _user_info is mapping %}
+            {% set _ = _user_account_info.update(_user_info) %}
+          {% endif %}
+          {% if _user_account_info.name is defined %}
+          {% set _ = _user_result_dict.update({ _user_account_info.name: _user_account_info }) %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+      {{ _user_result_dict }}
+
+- name: "Display __bootstrap_linux_user__dict"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__dict
+
+## ref: https://devops.stackexchange.com/questions/11481/doing-map-and-filter-of-a-list-of-dictionaries-in-ansible
+## possible alternative to custom filter:
+## https://gist.github.com/halberom/9bfe009c9a3df5d64c7bb505a7700430
+- name: "Initialize __bootstrap_linux_user__list"
+  ansible.builtin.set_fact:
+    __bootstrap_linux_user__list: "{{ __bootstrap_linux_user__dict.values() 
+      | rejectattr('name', 'equalto', 'root') | list | add_homedir | list }}"
+
+- name: "Display __bootstrap_linux_user__list"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list
+
+#- name: "Initialize __all_bootstrap_linux_user__list"
+#  ansible.builtin.set_fact:
+#    __all_bootstrap_linux_user__list: "{{ __bootstrap_linux_user__list + [bootstrap_linux_root_user] }}"
+#
+#- name: "Display __all_bootstrap_linux_user__list"
+#  ansible.builtin.debug:
+#    var: __all_bootstrap_linux_user__list

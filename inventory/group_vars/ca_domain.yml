@@ -3,10 +3,10 @@
 ldap_domain_sid_root: "{{ vault__ldap_domain_sid_root }}"
 
 ca_root_domain: "{{ internal_root_domain }}"
-#ca_subdomain: "{{ dc_environment|d('') | upper }}"
-ca_subdomain: "{{ internal_subdomain|d('') }}"
-ca_domain: "{{ ca_root_domain if ca_subdomain|d('')|length==0 else ca_subdomain + '.' + ca_root_domain }}"
-#ca_domain: "{{ internal_domain }}"
+# ca_subdomain: "{{ dc_environment|d('') | upper }}"
+ca_subdomain: "{{ internal_subdomain | d('') }}"
+ca_domain: "{{ ca_root_domain if ca_subdomain | d('') | length == 0 else ca_subdomain + '.' + ca_root_domain }}"
+# ca_domain: "{{ internal_domain }}"
 
 ca_root_cn: "ca-root"
 
@@ -15,16 +15,16 @@ stepca_svc_user: step
 ca_common_name: "{{ hostname_name_full }}"
 ca_signer_common_name: "ca.{{ ca_domain }}"
 ca_signer_domain_name: "{{ ca_domain }}"
-#ca_signer_domain_name: "{{ ('.').join(ca_signer_common_name.split('.')[1::]) }}"
-ca_signerName: "{{ 'ca.' + ('.').join(ca_signer_domain_name.split('.')[1::]) if ca_signer_domain_name.split('.')|count>2 else ca_root_cn }}"
+# ca_signer_domain_name: "{{ ('.').join(ca_signer_common_name.split('.')[1::]) }}"
+ca_signerName: "{{ 'ca.' + ('.').join(ca_signer_domain_name.split('.')[1::]) if ca_signer_domain_name.split('.')|count>2 else ca_root_cn }}" # noqa: jinja[spacing] yaml[line-length] var-naming[pattern]
 ca_country: US
 ca_state: "New Jersey"
 ca_locality: "Trenton"
 ca_organization: "Example Internal"
-ca_organizationalUnit: "Research & Technology"
+ca_organizationalUnit: "Research & Technology" # noqa: var-naming[pattern]
 ca_email: "admin@{{ ca_signer_domain_name }}"
-#ca_csr_profile: "domain"
-#ca_csr_profile: "intermediate_ca"
+# ca_csr_profile: "domain"
+# ca_csr_profile: "intermediate_ca"
 
 ca_cert_info:
   commonName: "{{ ca_signer_common_name }}"
@@ -47,24 +47,25 @@ stepca_hostname_full: "{{ hostname_name_full }}"
 
 ca_domains_hosted: []
 
-#stepca_host_url: "https://stepca.admin.{{ service_route_internal_root_domain }}/"
+# stepca_host_url: "https://stepca.admin.{{ service_route_internal_root_domain }}/"
 stepca_host_url: "https://stepca.admin.dettonville.int/"
 stepca_root_ca_fingerprint: "{{ vault__stepca_root_ca_fingerprint }}"
 
 stepca_acme_http_challenge_proxy_port: 80
 
-#cacert_keystore_inventory_host_default: control01
+# cacert_keystore_inventory_host_default: control01
 cacert_keystore_inventory_host_default: vcontrol01
 cacert_keystore_inventory_host: "{{ groups['ca_keystore'][0] | d(cacert_keystore_inventory_host_default) }}"
 
-#cacert_keystore_host: "{{ cacert_keystore_inventory_host }}"
-#cacert_keystore_host: "{{ hostvars[groups['ca_keystore'][0]]['ansible_host'] | d(cacert_keystore_inventory_host_default) }}"
+# cacert_keystore_host: "{{ cacert_keystore_inventory_host }}"
+# cacert_keystore_host: "{{ hostvars[groups['ca_keystore'][0]]['ansible_host'] | d(cacert_keystore_inventory_host_default) }}"
 cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_host]['ansible_host'] }}"
-#cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_host]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) }}"
+# cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_host]['ansible_default_ipv4']['address'] | d(hostvars[host]['ansible_all_ipv4_addresses'][0]) }}"
 cacerts_keystore_dir: /etc/ssl/private
 
 bootstrap_certs__keystore_host: "{{ cacert_keystore_host }}"
 bootstrap_certs__ca_key_dir: "{{ cacerts_keystore_dir }}"
+bootstrap_linux_caroot__keystore_host: "{{ cacert_keystore_host }}"
 
 cacert_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
 # where to deploy the finalized cert files to on the ansible control node
@@ -98,7 +99,7 @@ ca_intermediate_certs_config:
 #    ca_csr_profile: "intermediate_ca"
 
 ca_internal_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain']) | select('defined') | unique }}"
-#ca_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain', 'docker_stack__internal_domain']) | select('defined') | unique }}"
+# ca_domains_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['internal_domain', 'docker_stack__internal_domain']) | select('defined') | unique }}"
 ca_routes_dynamic: "{{ groups['ca_domain'] | map('extract', hostvars, ['ca_service_route']) | select('defined') | unique | d([]) }}"
 
 ca_domains_dynamic: "{{ ca_internal_domains_dynamic|d([]) + ca_routes_dynamic|d([]) }}"
@@ -116,10 +117,10 @@ ca_intermediate_certs_list_dynamic: |
     {% endfor %}
   ]
 
-#ca_intermediate_certs_list: "{{ ca_intermediate_certs_list_static + ca_intermediate_certs_list_dynamic }}"
+# ca_intermediate_certs_list: "{{ ca_intermediate_certs_list_static + ca_intermediate_certs_list_dynamic }}"
 ca_intermediate_certs_list: "{{ ca_intermediate_certs_config.values() | d([]) | list + ca_intermediate_certs_list_dynamic }}"
 
-#stepca_root_list: "{{ ca_intermediate_certs_list_static }}"
+# stepca_root_list: "{{ ca_intermediate_certs_list_static }}"
 
 ca_service_routes_list: |
   [
@@ -172,7 +173,7 @@ deploy_cacerts__ca_domain: "{{ ca_domain }}"
 
 deploy_cacerts__ca_provisioner: "acme"
 
-#deploy_cacerts__ca_service_routes_list: "{{ ca_service_routes_list }}"
+# deploy_cacerts__ca_service_routes_list: "{{ ca_service_routes_list }}"
 deploy_cacerts__ca_service_routes_list: |
   {% set _hosted_ca_service_route_list = [] %}
   {% for _ca_service_route in ca_service_routes_list %}
@@ -182,7 +183,7 @@ deploy_cacerts__ca_service_routes_list: |
   {% endfor %}
   {{ _hosted_ca_service_route_list }}
 
-#deploy_cacerts__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
+# deploy_cacerts__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
 deploy_cacerts__ca_intermediate_certs_list: |
   {% set _hosted_ca_intermediate_certs_list = [] %}
   {% for _ca_certinfo in ca_intermediate_certs_list %}

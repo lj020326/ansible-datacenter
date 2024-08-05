@@ -40,7 +40,7 @@
           changed_when: no
 
         - name: display ping test results
-          debug:
+          ansible.builtin.debug:
             msg:
               - "ping_test={{ ping_test | to_nice_json }}"
               - "winping_test={{ winping_test | to_nice_json }}"
@@ -50,7 +50,7 @@
           delegate_to: localhost
           when:
             - not item.skipped|d(false)
-          set_fact:
+          ansible.builtin.set_fact:
             ping_failed: "{{ item.unreachable|d(item.failed)|d(true) }}"
           loop:
             - "{{ ping_test }}"
@@ -70,7 +70,7 @@
               changed_when: no
 
             - name: "Setting ping_failed"
-              set_fact:
+              ansible.builtin.set_fact:
                 ping_failed: "{{ ping_cli_test.failed }}"
 
           rescue:
@@ -85,17 +85,17 @@
                   ignore_errors: true
 
                 - name: display test results
-                  debug:
+                  ansible.builtin.debug:
                     msg:
                       - "ping_cli_test={{ ping_cli_test | to_nice_json }}"
                       - "bash_connectivity_test={{ bash_connectivity_test | to_nice_json }}"
 
                 - name: "Setting ping_failed[2]"
-                  set_fact:
+                  ansible.builtin.set_fact:
                     ping_failed: "{{ bash_connectivity_test.unreachable|d(bash_connectivity_test.failed)|d(true) }}"
 
     - name: Display ping_failed
-      debug:
+      ansible.builtin.debug:
         var: ping_failed
 
     ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-unreachable-host-handling.md
@@ -105,12 +105,12 @@
 
         - name: "Set unreachable_hosts"
           when: hostvars[item].ping_failed|d(true)
-          set_fact:
+          ansible.builtin.set_fact:
             unreachable_hosts: "{{ unreachable_hosts|d([]) + [item] }}"
           loop: "{{ ansible_play_hosts_all }}"
 
         - name: "Display pre-check connection info"
-          debug:
+          ansible.builtin.debug:
             msg:
               - "ansible_play_hosts_all={{ ansible_play_hosts_all }}"
               - "ansible_play_hosts={{ ansible_play_hosts }}"
@@ -118,8 +118,7 @@
 
         - name: "Add unreachable_hosts to group 'node_offline'"
           when: unreachable_hosts|d([])|length>0
-          add_host:
+          ansible.builtin.add_host:
             name: "{{ item }}"
             groups: node_offline
           loop: "{{ unreachable_hosts }}"
-

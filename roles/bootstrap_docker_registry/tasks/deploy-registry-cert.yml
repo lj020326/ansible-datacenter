@@ -1,0 +1,40 @@
+---
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy }} Display bootstrap_docker_registry__keystore_cert_host"
+  ansible.builtin.debug:
+    var: bootstrap_docker_registry__keystore_cert_host
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy }} Set certpath vars"
+  ansible.builtin.set_fact:
+    __docker_registry_remote_certpath: "{{ bootstrap_docker_registry__keystore_cert_base_dir }}/{{ __docker_registry_info.host }}/{{ __docker_registry_info.host }}.chain.pem"
+    __docker_registry_certdir: "/etc/docker/certs.d/{{ __docker_registry_info.endpoint }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy }} Set certpath vars"
+  ansible.builtin.set_fact:
+    __docker_registry_certpath: "{{ __docker_registry_certdir }}/ca.crt"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy }} Display __docker_registry_remote_certpath"
+  ansible.builtin.debug:
+    var: __docker_registry_remote_certpath
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy }} Ensure {{ __docker_registry_certdir }} exists"
+  ansible.builtin.file:
+    path: "{{ __docker_registry_certdir }}"
+    state: directory
+    mode: "0755"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy }} Slurp up {{ __docker_registry_remote_certpath }}"
+  delegate_to: "{{ bootstrap_docker_registry__keystore_cert_host }}"
+  ansible.builtin.slurp:
+    src: "{{ __docker_registry_remote_certpath }}"
+  register: __slurped_cert
+
+## ref: https://codeblog.dotsandbrackets.com/private-registry-swarm/
+- name: "{{ __bootstrap_docker__log_prefix_deploy }} Copy slurped registry cert content to {{ __docker_registry_certpath }}"
+  ansible.builtin.copy:
+    content: "{{ __slurped_cert.content | b64decode }}"
+    dest: "{{ __docker_registry_certpath }}"
+    backup: true
+#    owner: 'root'
+#    group: 'root'
+    mode: "0644"

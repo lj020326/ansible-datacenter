@@ -1,0 +1,26 @@
+---
+- name: bootstrap_linux_systemd | Deploy resolved.conf
+  ansible.builtin.template:
+    src: systemd_resolved.j2
+    dest: /etc/systemd/resolved.conf
+    group: root
+    owner: root
+    mode: "0644"
+    force: true
+  notify:
+    - Restart systemd-resolved
+
+- name: flush_handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: bootstrap_linux_systemd | Enable systemd-resolved service
+  when:
+    - bootstrap_linux_systemd__resolved |
+       community.general.json_query(bootstrap_linux_systemd__resolved_enable) is defined
+    - bootstrap_linux_systemd__resolved |
+       community.general.json_query(bootstrap_linux_systemd__resolved_enable) == 'true'
+  vars:
+    bootstrap_linux_systemd__resolved_enable: "[] | map(&enable || 'false', @) | [0]"
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: true

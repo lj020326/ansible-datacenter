@@ -1,0 +1,164 @@
+---
+
+## ref: https://github.com/realtarget/traefik2-docker-stack/blob/master/gitlab/docker-compose.yml
+## ref: https://blog.ramjee.uk/docker-desktop-gitlab-and-kubernetes/
+
+__docker_stack__gitlab__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+
+__docker_stack__gitlab__http_port: "{{ docker_stack__gitlab_http_port | d('3000') }}"
+__docker_stack__gitlab__ssh_port: "{{ docker_stack__gitlab_ssh_port | d(docker_stack__traefik_ssh) }}"
+#__docker_stack__gitlab__smtp_port: "{{ docker_stack__gitlab_smtp_port | d('587') }}"
+__docker_stack__gitlab__smtp_port: "{{ docker_stack__gitlab_smtp_port | d('25') }}"
+
+__docker_stack__gitlab__smtp_address: "{{ docker_stack__gitlab_smtp_address | d('smtp.example.int') }}"
+#__docker_stack__gitlab__smtp_user_name: "gitlab@{{ docker_stack__internal_domain }}"
+#__docker_stack__gitlab__smtp_password: "EMAILPASSWORD"
+__docker_stack__gitlab__smtp_user_name: "{{ docker_stack__gitlab_user_name | d() }}"
+__docker_stack__gitlab__smtp_password: "{{ docker_stack__gitlab_smtp_password | d() }}"
+__docker_stack__gitlab__smtp_authentication: "{{ docker_stack__gitlab_smtp_authentication | d('plain') }}"
+
+__docker_stack__gitlab__postgres_port: "{{ docker_stack__postgres_port | d('5432') }}"
+__docker_stack__gitlab__postgres_user: "{{ docker_stack__gitlab_postgres_user | d('gitlab') }}"
+__docker_stack__gitlab__postgres_password: "{{ docker_stack__gitlab_postgres_password | d('password') }}"
+
+__docker_stack__gitlab__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+
+__docker_stack__gitlab__root_url: "https://gitlab.{{ __docker_stack__gitlab__domain }}{{ docker_stack__traefik_https_suffix }}/"
+
+#__docker_stack__gitlab__lfs_jwt_secret: "{{ docker_stack__gitlab_lfs_jwt_secret | d('00000000001111111111') }}"
+#__docker_stack__gitlab__secret_key: "{{ docker_stack__gitlab_secret_key | d('00000000001111111111') }}"
+#__docker_stack__gitlab__internal_token: "{{ docker_stack__gitlab_internal_token | d('00000000001111111111') }}"
+#__docker_stack__gitlab__oauth_jwt_secret: "{{ docker_stack__gitlab_oauth_jwt_secret | d('00000000001111111111') }}"
+
+
+__docker_stack__gitlab__omnibus_config: |
+    external_url "{{ __docker_stack__gitlab__root_url }}"
+    nginx['listen_https'] = false
+    nginx['listen_port'] = 80
+    gitlab_rails['smtp_enable'] = true
+    gitlab_rails['smtp_tls'] = false
+    gitlab_rails['smtp_openssl_verify_mode'] = 'none'
+    gitlab_rails['smtp_enable_starttls_auto'] = false
+    gitlab_rails['smtp_ssl'] = false
+    gitlab_rails['smtp_force_ssl'] = false
+    gitlab_rails['smtp_address'] = "{{ __docker_stack__gitlab__smtp_address }}"
+    gitlab_rails['smtp_port'] = "{{ __docker_stack__gitlab__smtp_port }}"
+    gitlab_rails['smtp_user_name'] = "{{ __docker_stack__gitlab__smtp_user_name }}"
+    gitlab_rails['smtp_password'] = "{{ __docker_stack__gitlab__smtp_password }}"
+    gitlab_rails['smtp_domain'] = "{{ docker_stack__internal_domain }}"
+    gitlab_rails['smtp_authentication'] = "{{ __docker_stack__gitlab__smtp_authentication }}"
+    gitlab_rails['smtp_enable_starttls_auto'] = true
+    gitlab_rails['gitlab_shell_ssh_port'] = "{{ __docker_stack__gitlab__ssh_port }}"
+#    ## https://github.com/geerlingguy/ansible-role-gitlab
+#    ## LDAP Configuration.
+#    gitlab_ldap_enabled = "false"
+#    gitlab_ldap_host = "example.com"
+#    gitlab_ldap_port = "389"
+#    gitlab_ldap_uid = "sAMAccountName"
+#    gitlab_ldap_method = "plain"
+#    gitlab_ldap_bind_dn = "CN=Username,CN=Users,DC=example,DC=com"
+#    gitlab_ldap_password = "password"
+#    gitlab_ldap_base = "DC=example,DC=com"
+
+
+
+__docker_stack__gitlab__config_dirs:
+  - { path: "{{ __docker_stack__gitlab__stack_dir }}/gitlab" }
+  - { path: "{{ __docker_stack__gitlab__stack_dir }}/gitlab/config" }
+  - { path: "{{ __docker_stack__gitlab__stack_dir }}/gitlab/logs" }
+  - { path: "{{ __docker_stack__gitlab__stack_dir }}/gitlab/data" }
+
+#__docker_stack__gitlab__config_tpls:
+#  - { src: 'gitlab/app.ini.j2', dest: "{{ __docker_stack__gitlab__stack_dir }}/gitlab/config/app.ini" }
+
+__docker_stack__gitlab__firewalld_ports:
+  - "{{ __docker_stack__gitlab__ssh_port }}/tcp"
+  - "{{ __docker_stack__gitlab__http_port }}/tcp"
+
+
+docker_stack__appspec__gitlab:
+  dirs: "{{ __docker_stack__gitlab__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__gitlab__config_files | d([]) }}"
+  templates: "{{ __docker_stack__gitlab__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__gitlab__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__gitlab__firewalld_ports | d([]) }}"
+  docker_services: "{{ __docker_stack__gitlab__services | d({}) }}"
+
+#jinja2: lstrip_blocks: True
+
+__docker_stack__gitlab__traefik_labels: "{{ docker_stack__gitlab__traefik_labels
+  | d(__docker_stack__gitlab__traefik_labels_default) }}"
+
+## ref: https://github.com/realtarget/traefik2-docker-stack/blob/master/gitlab/docker-compose.yml
+## ref: https://blog.ramjee.uk/docker-desktop-gitlab-and-kubernetes/
+## ref: https://docs.gitlab.com/omnibus/settings/smtp.html#smtp-without-ssl
+__docker_stack__gitlab__services:
+  # The GitLab container itself
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    privileged: true
+    hostname: 'gitlab.{{ docker_stack__internal_domain }}'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |-
+        external_url {{ __docker_stack__gitlab__root_url }}
+        nginx['listen_https'] = false
+        nginx['listen_port'] = 80
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_tls'] = false
+        gitlab_rails['smtp_openssl_verify_mode'] = 'none'
+        gitlab_rails['smtp_enable_starttls_auto'] = false
+        gitlab_rails['smtp_ssl'] = false
+        gitlab_rails['smtp_force_ssl'] = false
+        gitlab_rails['smtp_address'] = "{{ __docker_stack__gitlab__smtp_address }}"
+        gitlab_rails['smtp_port'] = "{{ __docker_stack__gitlab__smtp_port }}"
+        gitlab_rails['smtp_user_name'] = "{{ __docker_stack__gitlab__smtp_user_name }}"
+        gitlab_rails['smtp_password'] = "{{ __docker_stack__gitlab__smtp_password }}"
+        gitlab_rails['smtp_domain'] = "{{ docker_stack__internal_domain }}"
+        gitlab_rails['smtp_authentication'] = "{{ __docker_stack__gitlab__smtp_authentication }}"
+        gitlab_rails['smtp_enable_starttls_auto'] = true
+        gitlab_rails['gitlab_shell_ssh_port'] = "{{ __docker_stack__gitlab__ssh_port }}"
+
+#      GITLAB_OMNIBUS_CONFIG: "{{ __docker_stack__gitlab__omnibus_config }}"
+#        ## https://github.com/geerlingguy/ansible-role-gitlab
+#        ## LDAP Configuration.
+#        gitlab_ldap_enabled = "false"
+#        gitlab_ldap_host = "example.com"
+#        gitlab_ldap_port = "389"
+#        gitlab_ldap_uid = "sAMAccountName"
+#        gitlab_ldap_method = "plain"
+#        gitlab_ldap_bind_dn = "CN=Username,CN=Users,DC=example,DC=com"
+#        gitlab_ldap_password = "password"
+#        gitlab_ldap_base = "DC=example,DC=com"
+    volumes:
+#      - gitlab-config:/etc/gitlab
+#      - gitlab-logs:/var/log/gitlab
+#      - gitlab-data:/var/opt/gitlab
+      - "{{ __docker_stack__gitlab__stack_dir }}/gitlab/config:/etc/gitlab"
+      - "{{ __docker_stack__gitlab__stack_dir }}/gitlab/logs:/var/log/gitlab"
+      - "{{ __docker_stack__gitlab__stack_dir }}/gitlab/data:/var/opt/gitlab"
+    networks:
+      - "{{ docker_stack__traefik_proxy_network }}"
+    ports:
+      - "{{ __docker_stack__gitlab__ssh_port }}:22"
+    labels: "{{ __docker_stack__gitlab__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+#          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+
+#  ## ref: https://docs.gitlab.com/omnibus/docker/
+#  ## ref: https://blog.ramjee.uk/docker-desktop-gitlab-and-kubernetes/
+#  gitlab-runner:
+#    image: gitlab/gitlab-runner:alpine
+#    deploy:
+#      mode: replicated
+#      replicas: 4

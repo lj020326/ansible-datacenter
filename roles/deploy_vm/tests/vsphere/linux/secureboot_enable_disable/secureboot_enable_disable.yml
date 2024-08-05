@@ -1,0 +1,110 @@
+---
+# Description:
+#   This test case is used for check VM secure boot can be enabled
+# and disabled successfully when VM firmware is UEFI and VM hardware
+# version >= 13. After secure boot enabled below line will be added
+# into vmx file:
+#   uefi.secureBoot.enabled = "TRUE"
+# Note: This test case will not check if target guest OS supports
+# secure boot before enable it, please refer to VMware KB article for
+# secure boot support matrix.
+#
+- name: secureboot_enable_disable
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ testing_vars_file | default('../../vars/test.yml') }}"
+  tasks:
+    - name: Test case block
+      block:
+        - name: Run ../setup/test_setup.yml
+          ansible.builtin.include_tasks: ../setup/test_setup.yml
+
+        - name: Run ../../common/vm_get_boot_info.yml
+          ansible.builtin.include_tasks: ../../common/vm_get_boot_info.yml
+
+        - name: Run ../../common/skip_test_case.yml
+          ansible.builtin.include_tasks: ../../common/skip_test_case.yml
+          vars:
+            skip_msg: Secure boot is not applicable for VM with {{ vm_firmware }} firmware
+            skip_reason: Not Applicable
+          when: vm_firmware | lower != "efi"
+
+        - name: Check secure boot is supported or not
+          ansible.builtin.include_tasks: check_secureboot_support_status.yml
+
+        - name: Initialize test result variables
+          ansible.builtin.set_fact:
+            secureboot_enabled_pass: false
+            secureboot_disabled_pass: false
+
+        - name: Run ../utils/shutdown.yml
+          ansible.builtin.include_tasks: ../utils/shutdown.yml
+
+        # Enable secureboot when secureboot is not enabled
+        - name: Run ../../common/vm_set_boot_options.yml
+          ansible.builtin.include_tasks: ../../common/vm_set_boot_options.yml
+          vars:
+            secure_boot_enabled_set: true
+          when: not vm_secureboot_enabled
+
+        - name: Run ../../common/vm_set_power_state.yml
+          ansible.builtin.include_tasks: ../../common/vm_set_power_state.yml
+          vars:
+            vm_power_state_set: powered-on
+
+        - name: Run ../../common/update_inventory.yml
+          ansible.builtin.include_tasks: ../../common/update_inventory.yml
+
+        - name: Run ../../common/vm_wait_log_msg.yml
+          ansible.builtin.include_tasks: ../../common/vm_wait_log_msg.yml
+          vars:
+            vm_wait_log_name: vmware.log
+            vm_wait_log_msg: Image APPROVED
+            vm_wait_log_retries: 1
+            vm_wait_log_ignore_errors: true
+
+        - name: Run ../utils/get_system_firmware.yml
+          ansible.builtin.include_tasks: ../utils/get_system_firmware.yml
+
+        - name: Set fact of secure boot enable test result
+          ansible.builtin.set_fact:
+            secureboot_enabled_pass: true
+          when:
+            - vm_wait_log_msg_success | bool
+            - guest_firmware == "EFI"
+
+        # Disable secureboot
+        - name: Run ../utils/shutdown.yml
+          ansible.builtin.include_tasks: ../utils/shutdown.yml
+
+        - name: Run ../../common/vm_set_boot_options.yml
+          ansible.builtin.include_tasks: ../../common/vm_set_boot_options.yml
+          vars:
+            secure_boot_enabled_set: false
+
+        - name: Run ../../common/vm_set_power_state.yml
+          ansible.builtin.include_tasks: ../../common/vm_set_power_state.yml
+          vars:
+            vm_power_state_set: powered-on
+
+        - name: Run ../../common/update_inventory.yml
+          ansible.builtin.include_tasks: ../../common/update_inventory.yml
+
+        - name: Run ../utils/get_system_firmware.yml
+          ansible.builtin.include_tasks: ../utils/get_system_firmware.yml
+
+        - name: Set fact of secure boot disable test result
+          ansible.builtin.set_fact:
+            secureboot_disabled_pass: true
+          when: guest_firmware == "EFI"
+
+        - name: Check secure boot enable and disable test results
+          ansible.builtin.assert:
+            that:
+              - secureboot_enabled_pass and secureboot_disabled_pass
+            fail_msg: "Enable secureboot result: {{ secureboot_enabled_pass }}, disable secureboot result: {{ secureboot_disabled_pass }}"
+            success_msg: "Enable secureboot result: {{ secureboot_enabled_pass }}, disable secureboot result: {{ secureboot_disabled_pass }}"
+      rescue:
+        - name: Run ../../common/test_rescue.yml
+          ansible.builtin.include_tasks: ../../common/test_rescue.yml

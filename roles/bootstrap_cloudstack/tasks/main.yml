@@ -1,0 +1,127 @@
+---
+### https://sysadminonline.net/deploy-cloudstack-management-server-using-ansible-part-iii-kvm-setup/
+- name: Set OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+# Setup/install OS specific tasks.
+- name: Run "setup-{{ ansible_os_family }}.yml"
+  ansible.builtin.include_tasks: "setup-{{ ansible_os_family }}.yml"
+
+#- name: Update Cloudstack Related System Packages
+#  tags:
+#    - package
+#    - cloudstack
+#  ansible.builtin.package:
+#    name: '*'
+#    state: latest
+#    update_cache: yes
+
+- name: Installing Common Cloudstack Virtualization Packages
+  tags:
+    - package
+    - cloudstack
+  ansible.builtin.package:
+    name: '{{ cloudstack_common_packages }}'
+    state: present
+#    update_cache: yes
+
+#- name: "Configuring libvirt qemu.conf"
+#  tags:
+#    - package
+#    - cloudstack
+#  ansible.builtin.lineinfile:
+#    path: /etc/libvirt/qemu.conf
+#    line: 'vnc_listen="0.0.0.0"'
+#
+#- name: "Configuring libvirt.conf"
+#  tags:
+#    - package
+#    - cloudstack
+#  ansible.builtin.lineinfile:
+#    path: /etc/libvirt/libvirtd.conf
+#    line: "{{ item }}"
+#  loop:
+#    - listen_tls = 0
+#    - listen_tcp = 1
+#    - tcp_port = "{{ libvirt_port }}"
+#    - auth_tcp = "none"
+#    - mdns_adv = 0
+#
+#- ansible.builtin.lineinfile:
+#    path: '/etc/sysconfig/libvirtd'
+#    line: 'LIBVIRTD_ARGS="--listen"'
+
+#######################################################
+## 2 different parts of KVM to configure, libvirt, and QEMU.
+## ref: http://docs.cloudstack.apache.org/en/latest/installguide/hypervisor/kvm.html#install-and-configure-libvirt
+## ref: https://cloudstack-installation.readthedocs.io/en/latest/qig.html#kvm-configuration
+- name: "Update parts of KVM to configure: libvirt and QEMU"
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+#      force: "{{ overwrite_configs }}"
+    mode: "{{ item.mode | default(omit) }}"
+#    mode: "{{ item.mode | default('0664') }}"
+  loop:
+    - { src: 'qemu.conf.j2', dest: "/etc/libvirt/qemu.conf" }
+    - { src: 'libvirtd.conf.j2', dest: "/etc/libvirt/libvirtd.conf" }
+    - { src: 'sysconfig-libvirtd.conf.j2', dest: "/etc/sysconfig/libvirtd" }
+  tags:
+    - nfs
+    - secstorage
+
+- name: "Create libvirt pki cert directories"
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - { path: "{{ libvirt_cert_dir }}" }
+    - { path: "{{ libvirt_cert_dir }}/private" }
+
+## setup certs for libvirt
+## ref: https://www.certdepot.net/rhel7-deal-kvm-certificate-expiration/
+## ref: https://libvirt.org/tlscerts.html
+- name: "Copy certs to {{ pki_cert_dir }} for importing"
+  ansible.builtin.copy:
+    remote_src: true
+    group: "qemu"
+    mode: "{{ item.mode | default('0440') }}"
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    force: "{{ item.force | default('true') }}"
+  loop:
+    - { src: "{{ ssl_cert_dir }}/ca.pem", dest: "{{ pki_cacert_dir }}/cacert.pem" }
+    - { src: "{{ ssl_cert_dir }}/{{ hostname_name_full }}.pem", dest: "{{ libvirt_cert_dir }}/servercert.pem" }
+    - { src: "{{ ssl_certkey_dir }}/{{ hostname_name_full }}-key.pem", dest: "{{ libvirt_cert_dir }}/private/serverkey.pem" }
+  register: trust_ca_cacertinstalled
+
+- name: Mount NFS secondary storage
+  ansible.posix.mount:
+    name: "{{ CMConfig.SecondaryMount }}"
+    src: "{{ CMConfig.NFSHost }}:{{ CMConfig.NFSSecondaryShare}}"
+    fstype: nfs
+    state: mounted
+  tags:
+    - secstorage
+    - nfs
+
+- name: Restart libvirtd
+  ansible.builtin.service:
+    state: restarted
+    enabled: yes
+    name: libvirtd
+
+- name: configure firewall for cloudstack node
+  when: cloudstack_common_firewalld_enabled | default(True) | bool
+  tags: [ firewall-config-cloudstack ]
+  ansible.builtin.include_role:
+    name: bootstrap_linux_firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ cloudstack_common_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ cloudstack_common_firewalld_ports | d([]) }}"

@@ -1,0 +1,17 @@
+---
+# Get raw disk number in Windows guest OS
+- name: Run win_execute_cmd.yml
+  ansible.builtin.include_tasks: win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: (get-disk | where-object -FilterScript {$_.PartitionStyle -eq 'RAW'}).Number
+
+- name: Set fact of the raw disk number got in Window guest OS
+  ansible.builtin.set_fact:
+    win_raw_disk_num: "{{ win_powershell_cmd_output.stdout_lines[0] if win_powershell_cmd_output.stdout_lines | length != 0 else '' }}"
+
+- name: Check get raw disk
+  ansible.builtin.assert:
+    that:
+      - win_raw_disk_num|d('')|length > 0
+    fail_msg: Not get raw disk in Windows guest OS.
+    success_msg: "Get raw disk number in Windows guest OS: {{ win_raw_disk_num }}."

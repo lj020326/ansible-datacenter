@@ -1,0 +1,65 @@
+---
+
+## ref: https://jfearn.fedorapeople.org/fdocs/en-US/Fedora_Draft_Documentation/0.1/html/System_Administrators_Guide/sect-Checking_if_chrony_is_synchronized.html
+## ref: https://unix.stackexchange.com/questions/554509/chrony-synchronitation
+## ref: https://stackoverflow.com/questions/65951206/time-is-not-getting-synchronized-in-chrony-setup
+- name: Run chronyc tracking
+  changed_when: false
+  ansible.builtin.command: chronyc tracking
+  register: __chronyc_tracking_results
+
+- name: Display __chronyc_tracking_results
+  ansible.builtin.debug:
+    var: __chronyc_tracking_results
+
+- name: Check chronyc tracking results
+  ansible.builtin.assert:
+    that:
+      - __chronyc_tracking_results.rc == 0
+
+- name: Check chronyc tracking results are normal
+  ignore_errors: true # noqa: ignore-errors
+  ansible.builtin.assert:
+    that:
+      - (__chronyc_tracking_results.stdout_lines | select('match', "Leap status.*Normal") | list | count) == 1
+
+- name: Run chronyc sources
+  changed_when: false
+  ansible.builtin.command: chronyc sources
+  register: __chronyc_sources_results
+
+- name: Display __chronyc_sources_results
+  ansible.builtin.debug:
+    var: __chronyc_sources_results
+
+- name: Check chronyc tracking results
+  ansible.builtin.assert:
+    that:
+      - __chronyc_sources_results.rc == 0
+
+- name: Set __ntp_server_found
+  when: __chronyc_sources_results.stdout_lines | select('search', item) | list | length == 1
+  ansible.builtin.set_fact:
+    __ntp_server_found: true
+  loop: "{{ __bootstrap_ntp__servers }}"
+
+- name: Check chronyc sources include a defined ntp server
+  ignore_errors: true # noqa: ignore-errors
+  failed_when: false
+  ansible.builtin.assert:
+    that: __ntp_server_found|d(False)|bool
+
+#- name: "Run chronyc accheck on all servers in __bootstrap_ntp__servers"
+#  ansible.builtin.command: "chronyc accheck {{ item }}"
+#  loop: "{{ __bootstrap_ntp__servers }}"
+#  register: __chronyc_accheck_results
+#
+#- name: "Display __chronyc_accheck_results"
+#  ansible.builtin.debug:
+#    var: __chronyc_accheck_results
+#
+#- name: "Check chronyc accheck results"
+#  ignore_errors: yes
+#  ansible.builtin.assert:
+#    that:
+#      - __chronyc_accheck_results is not failed

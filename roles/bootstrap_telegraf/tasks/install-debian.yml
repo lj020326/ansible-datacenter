@@ -1,0 +1,55 @@
+---
+- name: Install any necessary dependencies [Debian/Ubuntu]
+  ansible.builtin.apt:
+    name:
+      - python3-apt
+      - apt-transport-https
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: apt_result
+  until: apt_result is success
+  retries: 2
+  delay: 5
+
+- name: Install Telegraf packages [Debian/Ubuntu]
+  when: telegraf_install_url|d('')|length == 0
+  block:
+    - name: Import InfluxData GPG signing key [Debian/Ubuntu]
+      ansible.builtin.apt_key:
+        url: "{{ telegraf_influxdata_base_url }}/influxdb.key"
+        state: present
+
+    - name: Add InfluxData repository [Debian/Ubuntu]
+      ansible.builtin.apt_repository:
+        repo: deb {{ telegraf_influxdata_base_url }}/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} {{ telegraf_install_version }}
+        state: present
+
+    - name: Install Telegraf packages [Debian/Ubuntu]
+      ansible.builtin.apt:
+        name: telegraf
+        state: latest
+        update_cache: true
+        cache_valid_time: 3600
+      register: apt_result
+      until: apt_result is success
+      retries: 2
+      delay: 5
+
+- name: Download Telegraf package via URL [Debian/Ubuntu]
+  when: telegraf_install_url|d('')|length > 0
+  block:
+    - name: Download Telegraf package via URL [Debian/Ubuntu]
+      ansible.builtin.get_url:
+        url: "{{ telegraf_install_url }}"
+        dest: /tmp/telegraf-ansible-download.deb
+        mode: "0644"
+
+    - name: Install downloaded Telegraf package [Debian/Ubuntu]
+      ansible.builtin.apt:
+        deb: /tmp/telegraf-ansible-download.deb
+        state: present
+      register: apt_result
+      until: apt_result is success
+      retries: 2
+      delay: 5

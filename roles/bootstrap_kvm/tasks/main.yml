@@ -1,0 +1,70 @@
+---
+
+- name: Run set_facts.yml
+  ansible.builtin.include_tasks: set_facts.yml
+
+- name: Run hw_virtualization_check.yml
+  ansible.builtin.include_tasks: hw_virtualization_check.yml
+  tags:
+    - config_vms
+
+- name: Run "install_packages_{{ ansible_os_family | lower }}.yml"
+  ansible.builtin.include_tasks: "install_packages_{{ ansible_os_family | lower }}.yml"
+  when: ansible_os_family in ["Debian", "RedHat"]
+
+- name: Run config_kvm.yml
+  ansible.builtin.include_tasks: config_kvm.yml
+  tags:
+    - config_kvm
+  when: kvm_config
+
+- name: Run users.yml
+  ansible.builtin.include_tasks: users.yml
+  tags:
+    - config_users
+  when:
+    - kvm_config_users
+    - kvm_users is defined
+
+- name: Run config_ssh.yml
+  ansible.builtin.include_tasks: config_ssh.yml
+  tags:
+    - config_ssh
+  when:
+    - kvm_allow_root_ssh is defined
+    - kvm_allow_root_ssh
+
+- name: Run config_virtual_networks.yml
+  ansible.builtin.include_tasks: config_virtual_networks.yml
+  tags:
+    - config_virtual_networks
+  when:
+    - kvm_config_virtual_networks
+    - kvm_virtual_networks is defined
+
+- name: Run config_storage_pools.yml
+  ansible.builtin.include_tasks: config_storage_pools.yml
+  tags:
+    - config_storage_pools
+  when:
+    - kvm_config_storage_pools
+    - kvm_storage_pools is defined
+
+- name: Run config_vms.yml
+  ansible.builtin.include_tasks: config_vms.yml
+  tags:
+    - config_vms
+  when:
+    - kvm_manage_vms is defined
+    - kvm_manage_vms
+    - kvm_vms is defined
+
+- name: Run system_tweaks.yml
+  ansible.builtin.include_tasks: system_tweaks.yml
+  when: kvm_enable_system_tweaks
+
+- name: Run apparmor.yml
+  ansible.builtin.include_tasks: apparmor.yml
+  when:
+    - kvm_disable_apparmor
+    - ansible_os_family == "Debian"

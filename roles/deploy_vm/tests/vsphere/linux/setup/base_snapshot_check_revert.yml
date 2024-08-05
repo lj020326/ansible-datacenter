@@ -1,0 +1,26 @@
+---
+- name: Get base snapshot existence status on existing VM
+  when: base_snapshot_exists is undefined
+  block:
+    # Get base snapshot existence status on existing VM
+    - name: Run ../../common/vm_check_snapshot_exist.yml
+      when: >
+        (new_vm is undefined) or
+        (not new_vm | bool)
+      ansible.builtin.include_tasks: ../../common/vm_check_snapshot_exist.yml
+      vars:
+        snapshot_name: "{{ base_snapshot_name }}"
+
+    - name: Set fact of variable 'base_snapshot_exists'
+      ansible.builtin.set_fact:
+        base_snapshot_exists: "{{ snapshot_exist | default(false) }}"
+
+- name: Display base snapshot existence status
+  ansible.builtin.debug:
+    msg: "Display base snapshot existence status: {{ base_snapshot_exists }}"
+
+- name: Run ../../common/vm_revert_snapshot.yml
+  when: base_snapshot_exists | bool
+  ansible.builtin.include_tasks: ../../common/vm_revert_snapshot.yml
+  vars:
+    snapshot_name: "{{ base_snapshot_name }}"

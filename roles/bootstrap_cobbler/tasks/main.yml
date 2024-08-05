@@ -1,0 +1,296 @@
+---
+# tasks file for bootstrap_cobbler
+# ref: https://github.com/rbicker/ansible-cobbler/blob/master/tasks/main.yml
+- name: Set OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+- name: ensure required packages are installed
+  ansible.builtin.package:
+    name: "{{ cobbler_packages[ansible_os_family] }}"
+    state: present
+
+- name: ensure bind is installed
+  ansible.builtin.package:
+    name: "{{ bind_packages[ansible_os_family] }}"
+    state: present
+  when: cobbler_manage_dns | bool
+
+- name: ensure dhcp is installed
+  ansible.builtin.package:
+    name: dhcp
+    state: present
+  when: cobbler_manage_dhcp | bool
+
+- name: RedHat | Ensure httpd is setup
+  when: ansible_os_family == "RedHat"
+  block:
+    - name: ensure httpd can talk to cobblerd (selinux)
+      ansible.posix.seboolean:
+        name: httpd_can_network_connect
+        state: yes
+        persistent: yes
+
+    - name: ensure httpd service is enabled
+      ansible.builtin.service:
+        name: httpd
+        enabled: yes
+        state: started
+
+    - name: ensure xinetd service is enabled and started
+      ansible.builtin.service:
+        name: xinetd
+        enabled: yes
+        state: started
+
+    - name: ensure named-chroot is enabled and started
+      ansible.builtin.service:
+        name: named-chroot
+        enabled: yes
+        state: started
+      when: cobbler_manage_dns | bool
+
+    - name: ensure dhcpd
+      ansible.builtin.service:
+        name: dhcpd
+        enabled: yes
+      when: cobbler_manage_dhcp | bool
+
+    - name: ensure cobbler services is enabled and started
+      ansible.builtin.service:
+        name: cobblerd
+        enabled: yes
+        state: started
+      notify: restart apache
+
+- name: copy modern django urls
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode | d('0755') }}"
+  loop:
+    - {src: 'urls.py', dest: "/usr/share/cobbler/web/urls.py"}
+    - {src: 'cobbler_web/urls.py', dest: "/usr/share/cobbler/web/cobbler_web/urls.py"}
+
+- name: update modern django settings/urls
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - {src: 'settings.py.j2', dest: "/usr/share/cobbler/web/settings.py"}
+
+- name: ensure cobbler templates are present
+  ansible.builtin.template:
+    src: "{{ item }}.template"
+    dest: "/etc/cobbler/{{ item }}.template"
+    mode: "0644"
+  loop:
+    - dhcp
+    - dnsmasq
+    - named
+    - rsync
+    - secondary
+    - tftpd
+    - zone
+  notify: restart cobblerd
+  when: cobbler_templates_force | bool
+
+- name: ensure server is set in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "server: {{ ansible_default_ipv4.address }}"
+    regexp: "^server:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+
+- name: ensure next_server is set in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "next_server: {{ ansible_default_ipv4.address }}"
+    regexp: "^next_server:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+
+- name: ensure default_password_crypted is set in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "default_password_crypted: {{ cobbler_default_password_crypted }}"
+    regexp: "^default_password_crypted:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+
+- name: ensure pxe_just_once is enabled in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "pxe_just_once: {{ cobbler_pxe_just_once }}"
+    regexp: "^pxe_just_once:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+
+- name: ensure authn_configfile is set in /etc/cobbler/modules.conf for cobbler web
+  ansible.builtin.lineinfile:
+    line: "module = authn_configfile"
+    regexp: "^module = authn"
+    insertafter: "[authentication]"
+    dest: /etc/cobbler/modules.conf
+  notify:
+    - restart cobblerd
+    - restart apache
+
+- name: ensure authz_allowall is set in /etc/cobbler/modules.conf for cobbler web
+  ansible.builtin.lineinfile:
+    line: "module = authz_allowall"
+    regexp: "^module = authz"
+    insertafter: "[authorization]"
+    dest: /etc/cobbler/modules.conf
+  notify:
+    - restart cobblerd
+    - restart apache
+
+- name: ensure cobbler web password is set
+  ansible.builtin.copy:
+    content: cobbler:Cobbler:{{ cobbler_web_password_crypted }}
+    dest: /etc/cobbler/users.digest
+    mode: "0600"
+  notify:
+    - restart cobblerd
+    - restart apache
+
+- name: ensure dhcp management is enabled in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "manage_dhcp: {{ cobbler_manage_dhcp }}"
+    regexp: "^manage_dhcp:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+
+- name: ensure dns management is enabled in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "manage_dns: {{ cobbler_manage_dns }}"
+    regexp: "^manage_dns:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+  register: cobbler_dns_enabled
+
+- name: ensure /etc/secondary.conf exists with se type cobbler_var_lib_t # noqa: no-handler
+  ansible.builtin.file:
+    state: touch
+    setype: cobbler_var_lib_t
+    path: /etc/secondary.conf
+    mode: "0644"
+  when: cobbler_dns_enabled.changed
+
+- name: ensure dns forward zones are set in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "manage_forward_zones: {{ cobbler_manage_forward_zones }}"
+    regexp: "^manage_forward_zones:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+  when: cobbler_manage_dns | bool
+
+- name: ensure dns reverse zones are set in /etc/cobbler/settings
+  ansible.builtin.lineinfile:
+    line: "manage_reverse_zones: {{ cobbler_manage_reverse_zones }}"
+    regexp: "^manage_reverse_zones:"
+    dest: /etc/cobbler/settings
+  notify: restart cobblerd
+  when: cobbler_manage_dns | bool
+
+- name: ensure di_dists directive is set in /etc/debmirror.conf
+  ansible.builtin.lineinfile:
+    line: "@di_dists=\"dists\";"
+    regexp: "@di_dists="
+    dest: /etc/debmirror.conf
+
+- name: ensure di_archs directive is set in /etc/debmirror.conf
+  ansible.builtin.lineinfile:
+    line: "@di_archs=\"arches\";"
+    regexp: "@di_archs="
+    dest: /etc/debmirror.conf
+
+- name: ensure cobbler profile folder exists in /var/www/cobbler/ks_mirror/
+  ansible.builtin.file:
+    path: "/var/www/cobbler/ks_mirror/{{ item.name }}-{{ item.arch }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ cobbler_profiles }}"
+  register: cobbler_profiles_folders
+
+- name: ensure folder for iso files exist
+  ansible.builtin.file:
+    path: "{{ cobbler_isos_path }}"
+    state: directory
+    mode: "0755"
+
+- name: ensure iso mount path exists
+  ansible.builtin.file:
+    path: "{{ cobbler_isos_mount_path }}"
+    state: directory
+    mode: "0755"
+
+- name: ensure iso files are present # noqa: no-handler
+  when: item.changed|bool
+  ansible.builtin.get_url:
+    url: "{{ item.item.url }}"
+    dest: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
+    mode: "0644"
+  loop: "{{ cobbler_profiles_folders.results }}"
+
+- name: ensure isos are mounted # noqa: no-handler
+  when: item.changed|bool
+  ansible.posix.mount:
+    src: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
+    path: "{{ cobbler_isos_mount_path }}/{{ item.item.name }}"
+    opts: ro
+    fstype: iso9660
+    state: mounted
+  loop: "{{ cobbler_profiles_folders.results }}"
+
+- name: ensure distros are imported # noqa: no-handler
+  when: item.changed|bool
+  changed_when: false
+  ansible.builtin.shell: "cobbler profile list --name={{ item.item.name }}-{{ item.item.arch }} || cobbler import --name={{item.item.name}} --arch={{ item.item.arch }} --path={{ cobbler_isos_mount_path }}/{{ item.item.name }}"
+  loop: "{{ cobbler_profiles_folders.results }}"
+
+- name: ensure kickstart template is copied to cobbler server
+  ansible.builtin.template:
+    src: "{{ item.kickstart }}.ks.j2"
+    dest: "{{ cobbler_kickstart_path }}/{{ item.kickstart }}.ks"
+    mode: "0644"
+  when: item.kickstart is defined
+  register: cobbler_profile_kickstarts
+  loop: "{{ cobbler_profiles }}"
+
+- name: ensure kickstart option is set # noqa: no-handler
+  when: item.changed|bool
+  changed_when: false
+  ansible.builtin.command: |
+    cobbler profile edit --name={{item.item.name}}-{{ item.item.arch }} \
+      --kickstart={{ cobbler_kickstart_path }}/{{ item.item.kickstart }}.ks
+  loop: "{{ cobbler_profile_kickstarts.results }}"
+  notify: cobbler sync
+
+- name: ensure isos are unmounted after import # noqa: no-handler
+  when: item.changed|bool
+  ansible.posix.mount:
+    path: "{{ cobbler_isos_mount_path }}/{{ item.item.name }}"
+    state: unmounted
+  loop: "{{ cobbler_profiles_folders.results }}"
+
+- name: ensure isos are deleted after import
+  when:
+    - cobbler_isos_delete|bool
+    - item.changed|bool
+  ansible.builtin.file:
+    path: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
+    state: absent
+  loop: "{{ cobbler_profiles_folders.results }}"
+
+- name: configure firewall for cobbler node
+  when: firewalld_enabled | default(True) | bool
+  tags: [ firewall-config-cobbler ]
+  ansible.builtin.include_role:
+    name: bootstrap_linux_firewalld
+  vars:
+    firewalld_action: configure
+    firewalld_services: "{{ cobbler_firewalld_services | d([]) }}"
+    firewalld_ports: "{{ cobbler_firewalld_ports | d([]) }}"

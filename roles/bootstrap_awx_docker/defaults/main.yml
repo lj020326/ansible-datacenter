@@ -1,0 +1,229 @@
+---
+
+awx_docker_registry: registry.example.int:5000
+awx_docker_registry_username: registryuser
+awx_docker_registry_password: password
+
+#awx_version: "{{ lookup('file', playbook_dir + '/../VERSION') }}"
+#awx_web_image: "awx_web"
+#awx_task_image: "awx_task"
+
+awx_version: 20.1.0
+awx_web_image: awx
+awx_task_image: awx
+
+awx_web_docker_actual_image: "{{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_web_image }}:{{ awx_version }}"
+awx_task_docker_actual_image: "{{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_task_image }}:{{ awx_version }}"
+
+awx_inventory_dir: ~/.awx
+
+awx_redis_image: redis
+
+#awx_postgresql_version: "10"
+awx_postgresql_version: "14.2"
+awx_postgresql_image: postgres:{{awx_postgresql_version}}
+
+awx_memcached_image: memcached
+awx_memcached_version: alpine
+awx_memcached_hostname: memcached
+awx_memcached_port: "11211"
+
+awx_compose_start_containers: true
+
+## awx_image_build
+
+## inventory vars
+
+# Remove these lines if you want to run a local image build
+# Otherwise the setup playbook will install the official Ansible images. Versions may
+# be selected based on: latest, 1, 1.0, 1.0.0, 1.0.0.123
+# by default the base will be used to search for ansible/awx_web and ansible/awx_task
+#awx_dockerhub_base: ansible
+
+# Openshift Install
+# Will need to set -e openshift_password=developer -e docker_registry_password=$(oc whoami -t)
+#           or set -e openshift_token=TOKEN
+# awx_openshift_host: 127.0.0.1:8443
+# awx_openshift_project: awx
+# awx_openshift_user: developer
+# awx_openshift_skip_tls_verify: False
+# awx_openshift_pg_emptydir: True
+
+# Kubernetes Install
+# awx_kubernetes_context: test-cluster
+# awx_kubernetes_namespace: awx
+# Optional Kubernetes Variables
+# awx_pg_image_registry: docker.io
+# awx_pg_serviceaccount: awx
+# awx_pg_volume_capacity: 5
+# awx_pg_persistence_storageClass: StorageClassName
+# awx_pg_cpu_limit: 1000
+# awx_pg_mem_limit: 2
+
+# Kubernetes Ingress Configuration
+# You can use the variables below to configure Kubernetes Ingress
+# Set hostname
+# awx_kubernetes_ingress_hostname: awx.example.org
+# Add annotations. The example below shows an annotation to be used with Traefik but other Ingress controllers are also supported
+# awx_kubernetes_ingress_annotations: {'kubernetes.io/ingress.class': 'traefik', 'traefik.ingress.kubernetes.io/redirect-entry-point': 'https'}
+# Specify a secret for TLS termination
+# awx_kubernetes_ingress_tls_secret: awx-cert
+
+# Kubernetes and Openshift Install Resource Requests
+# These are the request and limit values for a pod's container for task/web/redis/memcached/management.
+# The total amount of requested resources for a pod is the sum of all
+# resources requested by all containers in the pod
+# A cpu_request of 1500 is 1.5 cores for the container to start out with.
+# A cpu_limit defines the maximum cores that that container can reserve.
+# A mem_request of 2 is for 2 gigabytes of memory for the container
+# A mem_limit defines the maximum memory that that container can reserve.
+# Default values for these entries can be found in ./roles/kubernetes/defaults/main.yml
+# awx_task_cpu_request: 1500
+# awx_task_mem_request: 2
+# awx_task_cpu_limit: 2000
+# awx_task_mem_limit: 4
+# awx_web_cpu_limit: 1000
+# awx_web_mem_limit: 2
+# awx_redis_cpu_limit: 1000
+# awx_redis_mem_limit: 3
+# awx_memcached_cpu_limit: 1000
+# awx_memcached_mem_limit: 2
+# awx_management_cpu_limit: 2000
+# awx_management_mem_limit: 2
+
+# Common Docker parameters
+awx_task_hostname: awx
+awx_web_hostname: awxweb
+awx_postgres_data_dir: ~/.awx/pgdocker
+awx_host_port: 80
+awx_host_port_ssl: 443
+#awx_ssl_certificate:
+awx_docker_compose_dir: ~/.awx/awxcompose
+
+awx_container_prefix: awx
+
+# Required for Openshift when building the image on your own
+# Optional for Openshift if using Dockerhub or another prebuilt registry
+# Required for Docker Compose Install if building the image on your own
+# Optional for Docker Compose Install if using Dockerhub or another prebuilt registry
+# Define if you want the image pushed to a registry. The container definition will also use these images
+# awx_docker_registry: 172.30.1.1:5000
+# awx_docker_registry_repository: awx
+# awx_docker_registry_username: developer
+awx_docker_registry_repository: awx
+
+# Set awx_pg_hostname if you have an external postgres server, otherwise
+# a new postgres service will be created
+# awx_pg_hostname: postgresql
+awx_pg_username: awx
+# awx_pg_password should be random 10 character alphanumeric string, when postgresql is running on kubernetes
+# NB: it's a limitation of the "official" postgres helm chart
+awx_pg_password: pgpass
+awx_pg_database: awx
+awx_pg_port: 5432
+#awx_pg_sslmode: require
+
+### ref: https://debugthis.dev/posts/2020/04/setting-up-ansible-awx-using-a-docker-environment-part-2-the-docker-compose-approach/
+#awx_rabbitmq_image: "ansible/awx_rabbitmq:3.7.4"
+#awx_rabbitmq_username: guest
+#awx_rabbitmq_password: awxpass
+#awx_rabbitmq_host: rabbitmq
+#awx_rabbitmq_port: 5672
+#awx_rabbitmq_vhost: "awx"
+#awx_rabbitmq_erlang_cookie: cookiemonster
+
+# The following variable is only required when using the provided
+# containerized postgres deployment on OpenShift
+# awx_pg_admin_password: postgrespass
+
+# Use a local distribution build container image for building the AWX package
+# This is helpful if you don't want to bother installing the build-time dependencies as
+# it is taken care of already.
+# NOTE: IMPORTANT: If you are running a mininshift install, using this container might not work
+#                  if you are using certain drivers like KVM where the source tree can't be mapped
+#                  into the build container.
+#                  Thus this setting must be set to False which will trigger a local build. To view the
+#                  typical dependencies that you might need to install see:
+#                  installer/image_build/files/Dockerfile.sdist
+# awx_use_container_for_build: true
+
+# This will create or update a default admin (superuser) account in AWX, if not provided
+# then these default values are used
+awx_admin_user: admin
+awx_admin_password: password
+
+# Whether or not to create preload data for demonstration purposes
+awx_create_preload_data: true
+
+# AWX Secret key
+# It's *very* important that this stay the same between upgrades or you will lose the ability to decrypt
+# your credentials
+awx_secret_key: awxsecret
+
+# Build AWX with official logos
+# Requires cloning awx-logos repo as a sibling of this project.
+# Review the trademark guidelines at https://github.com/ansible/awx-logos/blob/master/TRADEMARKS.md
+# awx_official: false
+
+# Proxy
+#awx_http_proxy: http://proxy:3128
+#awx_https_proxy: http://proxy:3128
+#awx_no_proxy: mycorp.org
+
+# Container networking configuration
+# Set the awx_task and awx_web containers' search domain(s)
+#awx_container_search_domains: example.com,ansible.com
+# Alternate DNS servers
+#awx_alternate_dns_servers: "10.1.2.3,10.2.3.4"
+
+# AWX project data folder. If you need access to the location where AWX stores the projects
+# it manages from the docker host, you can set this to turn it into a volume for the container.
+#awx_project_data_dir: /var/lib/awx/projects
+
+# AWX custom virtual environment folder. Only usable for local install.
+#awx_custom_venv_dir: /opt/my-envs/
+
+# CA Trust directory. If you need to provide custom CA certificates, supplying
+# this variable causes this directory on the host to be bind mounted over
+# /etc/pki/ca-trust in the awx_task and awx_web containers.
+#awx_ca_trust_dir: /etc/pki/ca-trust/source/anchors
+
+# Include /etc/nginx/awx_extra.conf
+# Note the use of glob pattern for nginx
+# which makes include "optional" - i.e. not fail
+# if file is absent
+#awx_extra_nginx_include="/etc/nginx/awx_extra[.]conf"
+
+awx_container_config_templates:
+  - file: environment.sh
+    mode: "0600"
+  - file: credentials.py
+    mode: "0600"
+  - file: docker-compose.yml
+    mode: "0600"
+  - file: nginx.conf
+    mode: "0600"
+  - file: redis.conf
+    mode: "0664"
+#  - file: settings.py
+#    mode: "0664"
+
+awx_web_volumes:
+  - supervisor-socket:/var/run/supervisor
+  - rsyslog-socket:/var/run/awx-rsyslog/
+  - rsyslog-config:/var/lib/awx/rsyslog/
+  - "{{ awx_docker_compose_dir }}/SECRET_KEY:/etc/tower/SECRET_KEY"
+  - "{{ awx_docker_compose_dir }}/environment.sh:/etc/tower/conf.d/environment.sh"
+  - "{{ awx_docker_compose_dir }}/credentials.py:/etc/tower/conf.d/credentials.py"
+  #      - "{{ awx_docker_compose_dir }}/settings.py:/etc/tower/conf.d/settings.py"
+  - "{{ awx_docker_compose_dir }}/nginx.conf:/etc/nginx/nginx.conf:ro"
+  - "{{ awx_docker_compose_dir }}/redis_socket:/var/run/redis/:rw"
+
+awx_task_volumes:
+  - supervisor-socket:/var/run/supervisor
+  - rsyslog-socket:/var/run/awx-rsyslog/
+  - rsyslog-config:/var/lib/awx/rsyslog/
+  - "{{ awx_docker_compose_dir }}/SECRET_KEY:/etc/tower/SECRET_KEY"
+  - "{{ awx_docker_compose_dir }}/environment.sh:/etc/tower/conf.d/environment.sh"
+  - "{{ awx_docker_compose_dir }}/credentials.py:/etc/tower/conf.d/credentials.py"
+  - "{{ awx_docker_compose_dir }}/redis_socket:/var/run/redis/:rw"

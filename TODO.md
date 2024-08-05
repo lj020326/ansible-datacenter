@@ -1,5 +1,5 @@
 
-# ANSIBLE DATACENTER TODO - 2022 Goals
+# ANSIBLE DATACENTER TODO
 
 ## Datacenter Client Applications
 
@@ -41,7 +41,7 @@ The demo PoC's should prove following CICD / SDLC pipeline/workflows:
   * merge PR into 'release' branch
     * test/run using the release branch in QA AWX environment
 
-### Setup Ansible Automation Platform (AAP)
+### Setup Ansible Automation Platform (AWX + Collection Hub e.g., PAH)
 
 Implement ansible bootstrap play to set up multi-stage environment
 
@@ -81,6 +81,7 @@ Similar methods not using ansible to set up for reference:
     * Creating a custom Docker image to install Kubernetes in Docker, referred to as ‘kind’, on the host with Docker
     * Note about kind: [kind](https://sigs.k8s.io/kind) is a tool for running local Kubernetes clusters using Docker container “nodes”.  
       * kind was primarily designed for testing Kubernetes itself, but may be used for local development or CI.
+
   * Openshift / AWX Series by ayakoubo covers: 
     1) installing tower into vsphere using template 
     2) setting up tower resources to support openshift deployment
@@ -98,8 +99,6 @@ Redhat Ansible Automation Platform download(s)/blog(s)
 * https://www.ansible.com/blog/fun-with-private-automation-hub-part-1
 
 
-
-
 ### Setup AWX integration with conjur
 
 * [Setup Conjur Dev Env](https://www.conjur.org/get-started/quick-start/oss-environment/)
@@ -109,6 +108,11 @@ Redhat Ansible Automation Platform download(s)/blog(s)
 * https://github.com/cyberark/ansible-conjur-collection/blob/main/plugins/lookup/conjur_variable.py
 * https://github.com/infamousjoeg/instruqt/blob/22654a6ae7681846ae516489c5594935456fea33/tracks/conjur.org/secure-ansible-automation/09-secure-playbook/solve-host01#L13-L17
 
+
+### Setup collection CICD using github
+
+Reference repos that implement test automation and automation documentation generation/publishing:
+- https://github.com/willshersystems/ansible-sshd
 
 ### Setup DEV, QA and PROD AWX clusters
 
@@ -162,7 +166,7 @@ Add functionality to deploy-vm role to support automated deployment for VM appli
 
 ### Ansible Role to run chef inspec tests on target hosts
 
-* [ansible-role-inspec](https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible-role-inspec/README.md)
+* [ansible_role_inspec](https://github.com/lj020326/ansible-datacenter/blob/9156de347d04e4ab2a1df10310b8c0ddf4ea183c/roles/ansible_role_inspec/README.md)
 * https://www.digitalocean.com/community/tutorials/how-to-test-your-ansible-deployment-with-inspec-and-kitchen
 * https://www.chef.io/blog/compliance-with-inspec-any-node-any-time-anywhere
 * https://www.stackovercloud.com/2019/11/19/how-to-test-your-ansible-deployment-with-inspec-and-kitchen/

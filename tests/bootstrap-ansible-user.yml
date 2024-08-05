@@ -1,0 +1,49 @@
+---
+
+- name: "Display bootstrap user info"
+  hosts: all,!node_offline
+  become: false
+  gather_facts: false
+  tags:
+    - bootstrap-ansible-user
+    - bootstrap-ansible
+  tasks:
+    - name: "Display bootstrap_user"
+      ansible.builtin.debug:
+        var: bootstrap_user
+
+    - name: "Display bootstrap_ansible_user"
+      ansible.builtin.debug:
+        var: bootstrap_ansible_user
+
+    - name: "Display bootstrap_user_password"
+      ansible.builtin.debug:
+        var: bootstrap_user_password
+        verbosity: 1
+
+    - name: "Display ansible_user"
+      ansible.builtin.debug:
+        var: ansible_user
+
+- name: "Bootstrap linux ansible user"
+  hosts: os_linux,!node_offline
+  gather_facts: false
+  become: true
+  remote_user: "{{ bootstrap_user }}"
+  vars:
+#    ansible_ssh_user: "{{ bootstrap_user }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_ssh_common_args: |
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null \
+      -o PreferredAuthentications=password \
+      -o PubkeyAuthentication=no
+#    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tags:
+    - bootstrap-ansible-user
+    - bootstrap-ansible
+  roles:
+    - role: bootstrap_linux_user
+      bootstrap_linux_user__list:
+        - "{{ bootstrap_ansible_user | d('ansible') }}"

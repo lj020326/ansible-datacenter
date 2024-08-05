@@ -1,0 +1,57 @@
+---
+- name: bootstrap_linux_systemd | Make networkd directory
+  ansible.builtin.file:
+    path: /etc/systemd/network
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: bootstrap_linux_systemd | Set facts about networkd
+  ansible.builtin.set_fact:
+    systemd_networkd_networkd:
+      "{{ bootstrap_linux_systemd__networkd |
+      community.general.json_query('[].networkd[]') }}"
+    systemd_networkd_interfaces:
+      "{{ bootstrap_linux_systemd__networkd |
+      community.general.json_query('[].interfaces[].interface') }}"
+
+- name: bootstrap_linux_systemd | Find exists networkd configuration files
+  ansible.builtin.find:
+    paths: /etc/systemd/network
+    recurse: "no"
+    file_type: file
+    patterns: (.*).(network|netdev|link)
+    exclude: 99-default.link
+    use_regex: "true"
+  register: networkd_find_result
+  when:
+    - bootstrap_linux_systemd__networkd | community.general.json_query(networkd_drop_exists) is defined
+    - bootstrap_linux_systemd__networkd | community.general.json_query(networkd_drop_exists) == 'true'
+  vars:
+    networkd_drop_exists: "[] | map(&drop_exists || 'false', @) | [0]"
+
+- name: bootstrap_linux_systemd | Delete exists networkd configuration files
+  ansible.builtin.file:
+    path: "{{ item['path'] }}"
+    state: absent
+  loop: "{{ networkd_find_result['files'] | flatten(levels=1) }}"
+  loop_control:
+    label: "{{ item['path'] }}"
+  when:
+    - networkd_find_result['files'] is defined
+
+- name: bootstrap_linux_systemd | Stat default networkd link settings
+  ansible.builtin.stat:
+    path: /etc/systemd/network/99-default.link
+  register: systemd_default_link_stat
+
+- name: bootstrap_linux_systemd | Mask default networkd link
+  when:
+    - not systemd_default_link_stat['stat']['exists']
+  ansible.builtin.file:
+    path: /etc/systemd/network/99-default.link
+    owner: root
+    group: root
+    mode: "0644"
+    state: touch

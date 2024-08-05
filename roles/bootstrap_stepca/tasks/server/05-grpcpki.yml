@@ -1,0 +1,72 @@
+---
+- name: Checking CA existence
+  ansible.builtin.stat:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.crt' }}"
+  register: grpc_root_path
+
+- name: Getting CA validity
+  community.crypto.x509_certificate_info:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.crt' }}"
+    valid_at:
+      three_months: +90d
+  register: grpc_root_info
+  when: grpc_root_path.stat.exists
+
+- name: Generating gRPC root CA
+  delegate_to: 127.0.0.1
+  block:
+    - name: Generating gRPC root CA private key
+      when: (not grpc_root_path.stat.exists) or (grpc_root_info is defined and not grpc_root_path.valid_at.three_months)
+      community.crypto.openssl_privatekey:
+        path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.key' }}"
+        type: RSA
+        size: 2048
+      register: __grpc_root_key
+
+    - name: Generating gRPC root CA csr
+      when: __grpc_root_key.changed # noqa: no-handler
+      community.crypto.openssl_csr:
+        path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.csr' }}"
+        privatekey_path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.key' }}"
+        common_name: Automatic PKI components gRPC CA
+        basic_constraints:
+          - CA:TRUE
+          - pathlen:0
+        basic_constraints_critical: yes
+        key_usage:
+          - digitalSignature
+          - keyCertSign
+        key_usage_critical: yes
+        use_common_name_for_san: no
+
+    - name: Generating gRPC root CA signed certificate
+      when: __grpc_root_key.changed # noqa: no-handler
+      community.crypto.x509_certificate:
+        path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.crt' }}"
+        provider: selfsigned
+        privatekey_path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.key' }}"
+        csr_path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.csr' }}"
+
+- name: Copying gRPC root CA certificates
+  ansible.builtin.copy:
+    src: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/ca.crt' }}"
+    dest: "{{ install_root + '/certs/grpc/ca.crt' }}"
+    mode: "0644"
+
+- name: Checking leaf certificates existence
+  ansible.builtin.stat:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/stepca-ca.crt' }}"
+  register: leaf_cert_path
+
+- name: Getting leaf certificates validity
+  when: leaf_cert_path.stat.exists
+  community.crypto.x509_certificate_info:
+    path: "{{ secret + '/certificates/' + ansible_fqdn + '/grpc/stepca-ca.crt' }}"
+    valid_at:
+      three_months: +90d
+  register: leaf_cert_info
+
+- name: Generating gRPC leaf certificates # noqa: no-handler
+  when: __grpc_root_key.changed or (not leaf_cert_path.stat.exists) or (leaf_cert_info is defined and not leaf_cert_info.valid_at.three_months)
+  ansible.builtin.include_tasks: 05-1-grpcpki-leaf.yml
+  loop: "{{ stepca_apps[:-4] }}"

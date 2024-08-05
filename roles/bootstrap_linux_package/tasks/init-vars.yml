@@ -1,0 +1,162 @@
+---
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __os_dist"
+  ansible.builtin.set_fact:
+    __os_dist: "{{ ansible_distribution | lower }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include {{ ansible_pkg_mgr }} specific variables"
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_pkg_mgr }}.yml"
+      skip: true
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include {{ __os_dist }} specific variables"
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ __os_dist }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - "default.yml"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include rhsm/{{ __os_dist }} specific variables if defined"
+  when: bootstrap_linux_package__redhat_use_rhsm | bool
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "rhsm/{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml"
+        - "rhsm/{{ __os_dist }}.yml"
+        - "rhsm/{{ ansible_os_family | lower }}.yml"
+        - "rhsm/default.yml"
+      skip: true
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set {{ role_name }} var prefix"
+  ansible.builtin.set_fact:
+    role_var_prefix: "{{ role_name | replace('-','_') }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set {{ role_name }} list var prefixes"
+  ansible.builtin.set_fact:
+    role_package_list_var_prefix: "{{ role_var_prefix }}__package_list__"
+    role_npm_list_var_prefix: "{{ role_var_prefix }}__npm_list__"
+    role_snap_list_var_prefix: "{{ role_var_prefix }}__snap_list__"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set {{ role_name }} var regex's"
+  ansible.builtin.set_fact:
+    role_package_list_var_regex: "^{{ role_package_list_var_prefix }}"
+    role_npm_list_var_regex: "^{{ role_npm_list_var_prefix }}"
+    role_snap_list_var_regex: "^{{ role_snap_list_var_prefix }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Initialize bootstrap_linux_package__package_list"
+  when: bootstrap_linux_package__exclude_list|d([])|length>0
+  ansible.builtin.set_fact:
+    __bootstrap_linux_package__exclude_pattern: "{{ '(' + bootstrap_linux_package__exclude_list | join('|') + ')' }}"
+#    __bootstrap_linux_package__exclude_pattern: "{{ '^(?!(%s)).*' | format(bootstrap_linux_package__exclude_list | join('|')) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display key parameters for {{ role_name }}"
+  block:
+    - name: Display bootstrap_linux_package__package_list
+      ansible.builtin.debug:
+        var: bootstrap_linux_package__package_list
+
+    - name: Display bootstrap_linux_package__state
+      ansible.builtin.debug:
+        var: bootstrap_linux_package__state
+
+    - name: Display bootstrap_linux_package__update_cache
+      ansible.builtin.debug:
+        var: bootstrap_linux_package__update_cache
+
+    - name: Display bootstrap_linux_package__exclude_list
+      ansible.builtin.debug:
+        var: bootstrap_linux_package__exclude_list
+
+    - name: Display __bootstrap_linux_package__exclude_pattern
+      ansible.builtin.debug:
+        var: __bootstrap_linux_package__exclude_pattern
+
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Show variables with '{{ role_package_list_var_prefix }}' prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', role_package_list_var_regex, wantlist=True) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Coalesce lists from {{ role_package_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __bootstrap_linux_package__package_list: "{{ __bootstrap_linux_package__package_list|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', role_package_list_var_regex, wantlist=True) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__package_list (pre-Exclusion)"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__package_list
+
+#- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Exclude packages from __bootstrap_linux_package__package_list if exclusions defined"
+#  when: __bootstrap_linux_package__exclude_pattern is defined
+#  ansible.builtin.set_fact:
+#    __bootstrap_linux_package__package_list: "{{ __bootstrap_linux_package__package_list|d([])
+#      + [(item is mapping) | ternary( item.apt|d(item.name), item)]
+#      | reject('match', __bootstrap_linux_package__exclude_pattern) }}"
+#
+#- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__package_list"
+#  ansible.builtin.debug:
+#    var: __bootstrap_linux_package__package_list
+#
+#- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Init __bootstrap_linux_package__state_map"
+#  ansible.builtin.set_fact:
+#    __bootstrap_linux_package__package_list_present: []
+#    __bootstrap_linux_package__package_list_latest: []
+#    __bootstrap_linux_package__package_list_absent: []
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __bootstrap_linux_package__package_list_by_priority"
+  when: item not in bootstrap_linux_package__exclude_list|d([])
+  ansible.builtin.set_fact:
+    __bootstrap_linux_package__package_list_by_priority: "{{ __bootstrap_linux_package__package_list_by_priority | d({})
+      | combine({ (item.priority | default(bootstrap_linux_package__priority_default)|int): {
+                    item.state | default(bootstrap_linux_package__state): {
+                        ((item is mapping) | ternary( item.apt|d(item.name), item)): {}
+                      }
+                    }
+                  }, recursive=True) }}"
+  loop: "{{ __bootstrap_linux_package__package_list }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__package_list_by_priority"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__package_list_by_priority
+
+#- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __bootstrap_linux_package__package_list_present"
+#  when: item not in bootstrap_linux_package__exclude_list|d([])
+#  ansible.builtin.set_fact:
+#    __bootstrap_linux_package__package_list_present: "{{ __bootstrap_linux_package__package_list_present | d([]) }}"
+#  loop: "{{ __bootstrap_linux_package__package_list_by_priority.present.keys() | d([]) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display bootstrap_linux_package__npm_list"
+  ansible.builtin.debug:
+    var: bootstrap_linux_package__npm_list
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Show variables with '{{ role_npm_list_var_prefix }}' prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', role_npm_list_var_regex, wantlist=True) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Coalesce lists from {{ role_npm_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __bootstrap_linux_package__npm_list: "{{ __bootstrap_linux_package__npm_list|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', role_npm_list_var_regex, wantlist=True) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__npm_list"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__npm_list
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display bootstrap_linux_package__snap_list"
+  ansible.builtin.debug:
+    var: bootstrap_linux_package__snap_list
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Show variables with '{{ role_snap_list_var_prefix }}' prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', role_snap_list_var_regex, wantlist=True) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Coalesce lists from {{ role_snap_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __bootstrap_linux_package__snap_list: "{{ __bootstrap_linux_package__snap_list|d([]) + lookup('vars', item)|d([]) | sort | unique }}"
+  loop: "{{ lookup('varnames', role_snap_list_var_regex, wantlist=True) }}"
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__snap_list"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__snap_list

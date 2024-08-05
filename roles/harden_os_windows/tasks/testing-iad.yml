@@ -1,0 +1,62 @@
+---
+
+# https://github.com/iadgov/Secure-Host-Baseline
+- name: IAD | retrieve Secure-Host-Baseline
+  ansible.windows.win_command: >
+    git.exe clone https://github.com/iadgov/Secure-Host-Baseline.git "{{ harden_win_temp_dir }}\\Secure-Host-Baseline"
+  args:
+    creates: "{{ harden_win_temp_dir }}\\Secure-Host-Baseline"
+#  ansible.builtin.git:
+#    repo: https://github.com/iadgov/Secure-Host-Baseline.git
+#    dest: "{{ harden_win_temp_dir }}/Secure-Host-Baseline"
+#       version: HEAD
+#  become: yes
+#  become_user: _test
+# OR download
+#  win_url:
+#    src: https://github.com/iadgov/Secure-Host-Baseline/archive/master.zip
+#    dest: "{{ harden_win_temp_dir }}/Secure-Host-Baseline-master.zip"
+
+# - name: Unsure file is unblocked
+#   ansible.windows.win_shell: "Unblock-File -Path '.\Secure-Host-Baseline-master.zip'"
+#   args:
+#     chdir: "{{ harden_win_temp_dir }}"
+
+# - name: Unarchive file
+#   community.windows.win_unzip:
+#     src: "{{ harden_win_temp_dir }}/Secure-Host-Baseline-master.zip"
+#     dest: "{{ harden_win_temp_dir }}/Secure-Host-Baseline"
+
+- name: IAD | Apply policies
+  ansible.windows.win_shell: "{{ item }}"
+  loop:
+    - Import-Module -Name .\\Secure-Host-Baseline\\Scripts\\GroupPolicy.psm1
+    - "Invoke-ApplySecureHostBaseline -Path \"{{ harden_win_temp_dir }}\\Secure-Host-Baseline\"
+        -PolicyNames AppLocker,Chrome,Windows -PolicyMode Audit"
+  args:
+    chdir: "{{ harden_win_temp_dir }}"
+  when: harden_win_testing_iad_apply
+
+- name: IAD | upload audit template
+  ansible.windows.win_template:
+    src: iad-audit-policies.ps1.j2
+    dest: "{{ harden_win_temp_dir }}\\Secure-Host-Baseline\\Compliance\\Scripts\\iad-audit-policies.ps1"
+
+- name: IAD | Audit policies
+  ansible.windows.win_shell: .\iad-audit-policies.ps1
+  args:
+    chdir: "{{ harden_win_temp_dir }}\\Secure-Host-Baseline\\Compliance\\Scripts"
+  register: iadresults
+  changed_when: false
+  ignore_errors: true
+- name: Debug | iadresults
+  ansible.builtin.debug:
+    var: iadresults
+- name: IAD | save audit results to file
+  ansible.windows.win_copy:
+    content: "{{ iadresults.stdout }}"
+    dest: "{{ harden_win_log_dir }}\\iad-log.txt"
+- name: IAD | count
+  ansible.windows.win_shell: "(get-content \"{{ harden_win_log_dir }}\\iad-log.txt\" | select-string -pattern \"{{ item }}\").length"
+  changed_when: false
+  loop: ['PASSED', 'WARNING', 'FAILED']

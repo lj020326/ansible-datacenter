@@ -1,0 +1,27 @@
+---
+- name: Setup
+  ansible.builtin.include_tasks: setup.yml
+
+- name: Create a temporary directory for backup files
+  ansible.builtin.tempfile:
+    state: directory
+  register: __sshd_test_backup
+  changed_when: false
+  when:
+    - sshd_test_backup_skip is not defined
+
+- name: Backup files
+  ansible.builtin.shell: |
+    if set -o | grep pipefail 2>&1 /dev/null ; then
+      set -o pipefail
+    fi
+    set -eu
+    if test -f {{ item }}; then
+      mkdir -p {{ __sshd_test_backup.path }}/$(dirname {{ item }})
+      cp -a {{ item }} {{ __sshd_test_backup.path }}/$(dirname {{ item }})
+    fi
+  changed_when: false
+  loop: "{{ __sshd_test_backup_files | d([]) }}"
+  when:
+    - __sshd_test_backup is defined
+    - __sshd_test_backup.path is defined

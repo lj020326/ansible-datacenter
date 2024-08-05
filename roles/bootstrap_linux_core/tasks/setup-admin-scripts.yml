@@ -1,0 +1,51 @@
+---
+
+- name: "{{ __bootstrap_linux_core__log_prefix_scripts }} Ensure admin script and admin dirs exist"
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    mode: "{{ item.mode | default(omit) }}"
+    recurse: "{{ item.recurse | default( omit ) }}"
+  loop: "{{ bootstrap_linux_core__admin_script_dirs }}"
+
+## ref: http://www.mydailytutorials.com/ansible-template-module-examples/
+- name: "{{ __bootstrap_linux_core__log_prefix_scripts }} Install admin scripts"
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    force: "{{ item.force | default('true') }}"
+    ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html
+    mode: "{{ item.mode | default('0755') }}"
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    backup: "{{ item.backup | default( omit ) }}"
+  loop: "{{ bootstrap_linux_core__admin_scripts }}"
+
+## ref: http://www.mydailytutorials.com/ansible-template-module-examples/
+- name: "{{ __bootstrap_linux_core__log_prefix_scripts }} Install admin script configs"
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+#    force: "{{ item.force | default('true') }}"
+    ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html
+    mode: "{{ item.mode | default('0755') }}"
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    backup: "{{ item.backup | default( omit ) }}"
+  loop: "{{ bootstrap_linux_core__admin_script_config_tpls }}"
+
+- name: "Display bootstrap_linux_core__admin_cron_list"
+  ansible.builtin.debug:
+    var: bootstrap_linux_core__admin_cron_list
+
+- name: "{{ __bootstrap_linux_core__log_prefix_scripts }} Create backup cron jobs"
+  when: bootstrap_linux_core__admin_cron_list|d([])| count>0
+  ansible.builtin.cron:
+    name: "{{ item.name }}"
+    special_time: "{{ item.special_time | default(omit) }}"
+    minute: "{{ item.minute | default(omit) }}"
+    hour: "{{ item.hour | default(omit) }}"
+    job: "{{ item.job }}"
+  loop: "{{ bootstrap_linux_core__admin_cron_list }}"

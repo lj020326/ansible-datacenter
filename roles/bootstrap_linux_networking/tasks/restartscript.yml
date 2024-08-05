@@ -1,0 +1,24 @@
+---
+# Restart interfaces to load new configuration
+#
+# We had a lot of problems with lost connectivity, therefore we changed the
+# role to use a script for network reconfiguration.
+# Tested on Debian Jessie / Ubuntu 14.04 LTS and with Ethernet, Bonding Interfaces
+
+- name: Create a restart script
+  ansible.builtin.template:
+    src: restartscript.j2
+    dest: /etc/network/restart.sh
+    mode: "0755"
+
+# Execute configuration change
+- name: Execute Network Restart
+  changed_when: false
+  ansible.builtin.shell: |
+    set -o pipefail # <-- adding this will prevent surprises
+    bash /etc/network/restart.sh | true
+
+- name: Cleanup Network Restart script
+  ansible.builtin.file:
+    path: /etc/network/restart.sh
+    state: absent

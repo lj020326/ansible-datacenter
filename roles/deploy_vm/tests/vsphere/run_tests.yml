@@ -1,0 +1,30 @@
+---
+# Main playbook for launching guest OS setup / validation testing on vSphere
+- name: Run playbook for launching guest OS setup / validation testing on vSphere
+  hosts: localhost
+  tasks:
+    - name: Set facts of the current main playbook directory and cache directory
+      ansible.builtin.set_fact:
+        main_playbook_path: "{{ playbook_dir }}"
+        local_cache: "{{ playbook_dir }}/cache"
+
+    - name: Display the directory info
+      ansible.builtin.debug:
+        msg:
+          - "Current main playbook directory: {{ main_playbook_path }}"
+          - "Local cache directory: {{ local_cache }}"
+
+    - name: Run common/create_directory.yml
+      ansible.builtin.include_tasks: common/create_directory.yml
+      vars:
+        dir_path: "{{ local_cache }}"
+        dir_mode: "0777"
+
+- name: Prepare testing environment
+  ansible.builtin.import_playbook: env_setup/env_setup.yml
+
+- name: Execute test case one by one
+  ansible.builtin.import_playbook: "{{ testing_testcase_file | default('linux/gosv_testcase_list.yml') }}"
+
+- name: Cleanup testing environment
+  ansible.builtin.import_playbook: env_setup/env_cleanup.yml

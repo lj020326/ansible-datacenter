@@ -1,0 +1,77 @@
+---
+# tasks file for SolrCloud
+# installation instructions taken from: https://cwiki.apache.org/confluence/display/solr/Taking+Solr+to+Production
+- name: SolrCloud | Installing required libs
+  ansible.builtin.package:
+    name: "{{ solr_required_libs }}"
+    state: present
+    cache_valid_time: 3600
+    update_cache: true
+  until: solr_installed_required_libs is succeeded
+  register: solr_installed_required_libs
+
+- name: SolrCloud | Ensure solr group
+  ansible.builtin.group:
+    name: "{{ solr_group }}"
+
+- name: SolrCloud | Ensure solr user
+  ansible.builtin.user:
+    name: "{{ solr_user }}"
+    group: "{{ solr_group }}"
+    home: /bin/false
+    createhome: true
+
+- name: SolrCloud | Ensure solr dirs exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ solr_user }}"
+    group: "{{ solr_group }}"
+    mode: "0755"
+  loop:
+    - "{{ solr_log_dir }}"
+    - "{{ solr_data_dir }}"
+    - "{{ solr_collections_config_tmp_dir }}"
+
+- name: SolrCloud | Check if service is running
+  ansible.builtin.command: systemctl status solr.service
+  ignore_errors: true
+  changed_when: false
+  register: service_solrcloud_status
+
+- name: SolrCloud | Check installed version
+  when: service_solrcloud_status is success
+  ansible.builtin.uri:
+    url: http://localhost:{{ solr_port }}/solr/admin/info/system?wt=xml
+    return_content: true
+  register: solrcloud_check
+  changed_when: false
+  ignore_errors: true
+
+- name: SolrCloud | Download SolrCloud binaries
+  when: >-
+    service_solrcloud_status.rc > 0 or
+    service_solrcloud_status is success and
+      (solrcloud_check is failed or solr_version not in solrcloud_check.content)
+  ansible.builtin.get_url:
+    url: "{{ solr_cloud_url }}"
+    dest: /tmp/{{ solr_cloud_package }}
+    mode: "0644"
+
+- name: SolrCloud | Extract SolrCloud installation script in the current directory # noqa: command-instead-of-module
+  when:
+    - service_solrcloud_status.rc > 0 or service_solrcloud_status is success
+    - solrcloud_check is failed or solr_version not in solrcloud_check.content
+  changed_when: false
+  ansible.builtin.command: |
+    tar xzf /tmp/{{ solr_cloud_package }} {{ solr_cloud_build_name }}/bin/install_solr_service.sh --strip-components=2
+  args:
+    chdir: /tmp
+
+- name: SolrCloud | Execute SolrCloud installation script
+  when:
+    - service_solrcloud_status.rc > 0 or service_solrcloud_status is success
+    - solrcloud_check is failed or solr_version not in solrcloud_check.content
+  changed_when: false
+  ansible.builtin.command: |
+    /tmp/install_solr_service.sh /tmp/{{ solr_cloud_package }} -f -u {{ solr_user }} -n

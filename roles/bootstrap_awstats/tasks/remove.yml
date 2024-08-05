@@ -1,0 +1,35 @@
+---
+
+- name: awstats | Remove apache awstats for monitoring
+  ansible.builtin.package:
+    name: "{{ awstats_packages }}"
+    state: absent
+
+- name: awstats | Remove apache awstats for monitoring configuration
+  ansible.builtin.file:
+    path: "{{ awstats_conf_path }}/{{ awstats_conf_file }}"
+    state: absent
+
+- name: apache | Remove apache awstats vhosts configuration.
+  ansible.builtin.file:
+    path: "{{ apache_conf_path }}/sites-available/awstats.conf"
+    state: absent
+  notify: restart apache
+
+- name: apache | Disable the awstats site # noqa: ignore-errors
+  changed_when: false
+  ansible.builtin.command: a2dissite awstats
+  ignore_errors: yes
+  notify: restart apache
+
+- name: Removes awstats cron from under /etc/cron.d
+  ansible.builtin.cron:
+    name: "awstats"
+    cron_file: "awstats"
+    state: absent
+    user: root
+
+- name: Removes awstats cron file from under /etc/cron.d
+  ansible.builtin.file:
+    path: "/etc/cron.d/awstats"
+    state: absent

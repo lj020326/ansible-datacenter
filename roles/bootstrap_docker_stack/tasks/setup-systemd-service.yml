@@ -1,0 +1,26 @@
+---
+
+## ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
+- name: "{{ __docker_stack__log_prefix__setup_systemd_service }} Setup systemd service for docker-compose"
+  ansible.builtin.include_role:
+    name: bootstrap_systemd_service
+  vars:
+    bootstrap_systemd_service__name: "docker-compose-{{ docker_stack__dir | replace('/','-') }}" # noqa: var-naming[pattern]
+    bootstrap_systemd_service__force_update: yes
+    bootstrap_systemd_service__envs:
+      - "PATH=$PATH:/usr/local/bin"
+    bootstrap_systemd_service__Unit_Description: "Docker Compose Service for {{ docker_stack__dir }}" # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Unit_Requires: docker.service # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Unit_Wants: network.target # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Unit_After: docker.service # noqa: var-naming[pattern]
+#    bootstrap_systemd_service__Service_Restart: always # noqa: var-naming[pattern]
+#    bootstrap_systemd_service__Service_Restart: on-success # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Service_Restart: on-abort # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Service_User: "{{ docker_stack__user_username }}" # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Service_Group: docker # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Service_ExecStartPre: # noqa: var-naming[pattern]
+      - docker-compose -f down
+    bootstrap_systemd_service__Service_ExecStart: docker-compose up # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Service_ExecStop: docker-compose down # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Service_WorkingDirectory: "{{ docker_stack__dir }}" # noqa: var-naming[pattern]
+    bootstrap_systemd_service__Install_WantedBy: multi-user.target # noqa: var-naming[pattern]

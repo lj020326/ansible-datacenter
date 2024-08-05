@@ -1,0 +1,45 @@
+---
+# Get auto Admin logon value after gosc
+- name: Run ../utils/win_execute_cmd.yml
+  ansible.builtin.include_tasks: ../utils/win_execute_cmd.yml
+  vars:
+    win_powershell_cmd: (get-itemproperty -path 'HKLM:\software\microsoft\Windows NT\CurrentVersion\Winlogon').AutoAdminLogon
+- name: Set fact of the Admin auto logon
+  ansible.builtin.set_fact:
+    auto_admin_logon: "{{ win_powershell_cmd_output.stdout_lines[0] }}"
+- ansible.builtin.debug:
+    msg: "Get auto Admin logon enabled value: {{ auto_admin_logon }}"
+  when: enable_debug|d(False)|bool
+
+- name: Get auto admin logon count value after GOSC
+  ansible.windows.win_shell: (get-itemproperty -path 'HKLM:\software\microsoft\Windows NT\CurrentVersion\Winlogon').AutoLogonCount
+  register: get_auto_logon_count
+  delegate_to: "{{ vm_guest_ip }}"
+  until:
+    - get_auto_logon_count.stdout_lines | length != 0
+    - get_auto_logon_count.stdout_lines[0] | int == customize_autologon_count | int - 1
+  retries: 100
+  delay: 3
+  ignore_errors: true
+
+- name: Check auto admin logon count value after GOSC
+  ansible.builtin.assert:
+    that:
+      - get_auto_logon_count is defined
+      - get_auto_logon_count.stdout_lines | length != 0
+      - get_auto_logon_count.stdout_lines[0] | int == customize_autologon_count | int - 1
+    fail_msg: >-
+      Auto admin logon count value after GOSC is still incorrect after 300 seconds.
+      Current auto admin logon count value is '{{ get_auto_logon_count.stdout_lines[0] | int | default("") }}',
+      not expected '{{ customize_autologon_count | int - 1 }}'.
+
+- ansible.builtin.debug:
+    msg: "Get remain auto logon count: {{ get_auto_logon_count.stdout_lines[0] }}"
+  when: enable_debug|d(False)|bool
+
+- name: Check auto admin logon enabled and count is accurate
+  ansible.builtin.assert:
+    that:
+      - "{{ auto_admin_logon | int == 1 }}"
+    success_msg: Auto Admin logon is enabled and customized auto logon count is accurate.
+    fail_msg: Auto Admin logon is not enabled.

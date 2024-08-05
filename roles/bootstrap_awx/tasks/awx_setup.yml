@@ -1,7 +1,6 @@
 ---
-
 - name: Ensure /root/cert-manager folder exists
-  file:
+  ansible.builtin.file:
     path: /root/cert-manager
     state: directory
     mode: "0755"
@@ -9,77 +8,84 @@
     group: root
 
 - name: Download cmctl
-  get_url:
+  ansible.builtin.get_url:
     url: https://github.com/cert-manager/cert-manager/releases/download/v1.10.1/cmctl-linux-amd64.tar.gz
     dest: /root/cert-manager/
     checksum: sha256:c0996ec98b87c8ee2854162da25238c4e74092c3ab156710619423f794eb1aa6
+    mode: "0644"
 
 - name: Extract cmctl
-  unarchive:
+  ansible.builtin.unarchive:
     src: /root/cert-manager/cmctl-linux-amd64.tar.gz
     dest: /root/cert-manager
-    remote_src: yes
+    remote_src: true
 
 - name: Install cmctl
   ansible.builtin.copy:
     src: /root/cert-manager/cmctl
     dest: /usr/local/bin
-    remote_src: yes
+    remote_src: true
     mode: "0755"
 
 - name: Git clone awx-operator 1.1.0 (AWX 21.9.0)
-  git:
-    repo: 'https://github.com/ansible/awx-operator.git'
+  ansible.builtin.git:
+    repo: https://github.com/ansible/awx-operator.git
     dest: /root/awx-operator/
     version: 1.1.0
-    force: yes
+    force: true
 
 - name: Deploy awx-operator to K3s
+  changed_when: false
   ansible.builtin.shell: |
-      export 'NAMESPACE=awx' && make deploy --directory=/root/awx-operator/
+    export 'NAMESPACE=awx' && make deploy --directory=/root/awx-operator/
 
 - name: Extract awx-on-k3s-1.1.0.tar.xz repo
-  unarchive:
-    src: '{{ role_path }}/repos/awx-on-k3s-1.1.0.tar.xz'
+  ansible.builtin.unarchive:
+    src: "{{ role_path }}/repos/awx-on-k3s-1.1.0.tar.xz"
     dest: /root/
+    extra_opts:
+      - --no-same-owner # <- Does not transfer the owner and group for the file.
 
 - name: Template namespace.yaml
   ansible.builtin.template:
-    src: '{{ role_path }}/templates/namespace.yaml'
+    src: "{{ role_path }}/templates/namespace.yaml"
     dest: /root/awx-on-k3s-1.1.0/base/namespace.yaml
     owner: root
     group: root
-    mode: '0640'
+    mode: "0640"
 
 - name: Template base/awx.yml
   ansible.builtin.template:
-    src: '{{ role_path }}/templates/awx.yaml.j2'
+    src: "{{ role_path }}/templates/awx.yaml.j2"
     dest: /root/awx-on-k3s-1.1.0/base/awx.yaml
     owner: root
     group: root
-    mode: '0640'
-    
+    mode: "0640"
+
 - name: Template base/kustomization.yml
   ansible.builtin.template:
-    src: '{{ role_path }}/templates/kustomization.yaml.j2'
+    src: "{{ role_path }}/templates/kustomization.yaml.j2"
     dest: /root/awx-on-k3s-1.1.0/base/kustomization.yaml
     owner: root
     group: root
-    mode: '0640'
+    mode: "0640"
 
 - name: Download cert-manager.yaml manifest
-  get_url:
+  ansible.builtin.get_url:
     url: https://github.com/cert-manager/cert-manager/releases/download/v1.10.1/cert-manager.yaml
     dest: /root/cert-manager/
     checksum: sha256:be169fc5333a80c5c4e272f1603ab65361636e27ed513a1ae2c701f93893c0fc
+    mode: "0644"
 
 - name: Apply cert-manager.yaml manifest
+  changed_when: false
   ansible.builtin.command: |
-      kubectl apply -f /root/cert-manager/cert-manager.yaml
+    kubectl apply -f /root/cert-manager/cert-manager.yaml
 
 - name: Check the cert-manager API until it's ready (max 10min)
+  changed_when: false
   ansible.builtin.command: |
-      cmctl check api --kubeconfig /etc/rancher/k3s/k3s.yaml
+    cmctl check api --kubeconfig /etc/rancher/k3s/k3s.yaml
   register: result
   until: result.stdout.find("The cert-manager API is ready") != -1
   retries: 20
@@ -87,27 +93,29 @@
 
 - name: Template issuer.yaml
   ansible.builtin.template:
-    src: '{{ role_path }}/templates/issuer.yaml.j2'
+    src: "{{ role_path }}/templates/issuer.yaml.j2"
     dest: /root/awx-on-k3s-1.1.0/acme/issuer.yaml
     owner: root
     group: root
-    mode: '0640'
+    mode: "0640"
 
 - name: Deploy the issuer
+  changed_when: false
   ansible.builtin.command: |
-      kubectl apply -k /root/awx-on-k3s-1.1.0/acme
+    kubectl apply -k /root/awx-on-k3s-1.1.0/acme
 
 - name: Copy base/middleware.yaml
   ansible.builtin.template:
-    src: '{{ role_path }}/templates/middleware.yaml'
+    src: "{{ role_path }}/templates/middleware.yaml"
     dest: /root/awx-on-k3s-1.1.0/base/middleware.yaml
     owner: root
     group: root
-    mode: '0640'
+    mode: "0640"
 
 - name: Apply middleware.yaml to redirect HTTP to HTTPS
+  changed_when: false
   ansible.builtin.command: |
-      kubectl -n default apply -f /root/awx-on-k3s-1.1.0/base/middleware.yaml
+    kubectl -n default apply -f /root/awx-on-k3s-1.1.0/base/middleware.yaml
 
 - name: Prepare Persistent Volume directories (1/2)
   ansible.builtin.file:
@@ -116,7 +124,7 @@
     recurse: true
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
 
 - name: Prepare Persistent Volume directories (2/2)
   ansible.builtin.file:
@@ -125,15 +133,17 @@
     recurse: true
     owner: 1000
     group: root
-    mode: '0755'
+    mode: "0755"
 
 - name: Deploy AWX/Automation Controller onto K3s
+  changed_when: false
   ansible.builtin.command: |
-      kubectl apply -k /root/awx-on-k3s-1.1.0/base
+    kubectl apply -k /root/awx-on-k3s-1.1.0/base
 
 - name: Check if AWX/Automation Controller is deployed (max 10min)
+  changed_when: false
   ansible.builtin.command: |
-      kubectl -n awx logs --tail=10 deployments/awx-operator-controller-manager -c awx-manager
+    kubectl -n awx logs --tail=10 deployments/awx-operator-controller-manager -c awx-manager
   register: result
   until: result.stdout.find("failed=0") != -1
   failed_when: result.stdout.find("failed=1") != -1
@@ -141,5 +151,6 @@
   delay: 30
 
 - name: Deploy the required AWX/Automation Controller Operator objects in the awx namespace.
+  changed_when: false
   ansible.builtin.command: |
-      kubectl -n awx get awx,all,ingress,secrets
+    kubectl -n awx get awx,all,ingress,secrets

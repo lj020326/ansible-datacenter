@@ -1,0 +1,25 @@
+---
+- name: Check for kernel update
+  when: pve_reboot_on_kernel_update | bool
+  collect_kernel_info:
+    lookup_packages: false
+  register: _pve_kernel_update
+
+- name: Reboot for kernel update
+  when:
+    - pve_reboot_on_kernel_update | bool
+    - _pve_kernel_update.new_kernel_exists
+  ansible.builtin.reboot:
+    msg: PVE kernel update detected by Ansible
+
+- name: Collect kernel package information
+  collect_kernel_info:
+  register: _pve_kernel
+
+- name: Remove old Debian/PVE kernels
+  when:
+    - pve_remove_old_kernels | bool
+  ansible.builtin.apt:
+    name: "{{ ['linux-image-amd64'] + _pve_kernel.old_packages }}"
+    state: absent
+    purge: true

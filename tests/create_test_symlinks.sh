@@ -13,14 +13,18 @@ ln -sf ../site.yml
 echo "==> Set up collections symlink"
 ln -sf ../collections
 
-echo "==> Set up functionality symlinks (library/roles/vars)"
-ln -sf ../library
+echo "==> Set up functionality symlinks (library/filter_plugins)"
+#ln -sf ../library
+ln -sf ../filter_plugins
+ln -sf ../plugins
+
+echo "==> Set up roles and vars symlinks (roles/vars)"
 ln -sf ../roles
 ln -sf ../vars
 
 echo "==> Set up resource/other symlinks (molecule/files/etc)"
 ln -sf ../molecule
-ln -sf ../files
+#ln -sf ../files
 
 echo "==> Set up inventory symlink"
 #ln -sf ../inventory/dev inventory

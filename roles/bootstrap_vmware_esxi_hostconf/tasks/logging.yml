@@ -1,0 +1,49 @@
+---
+- name: (logging) get loghost settings
+  ansible.builtin.shell: |
+    set -o pipefail # <-- adding this will prevent surprises
+    esxcli system syslog config get | awk '/^   Remote Host:/ {print $3}'
+  register: loghost_res
+  changed_when: false
+  check_mode: false
+
+- name: (logging) set loghost name
+  when: loghost_res.stdout != ("udp://" + esx_syslog_host)
+  changed_when: false
+  ansible.builtin.command: esxcli system syslog config set --loghost udp://{{ esx_syslog_host }}
+  notify: reload syslog config
+
+- name: (logging) check syslog client ruleset state
+  ansible.builtin.command: esxcli network firewall ruleset list --ruleset-id=syslog
+  register: syslog_ruleset_state
+  changed_when: false
+  check_mode: false
+
+- name: (logging) enable syslog client through firewall
+  when: syslog_ruleset_state.stdout.find("false") != -1
+  changed_when: false
+  ansible.builtin.command: esxcli network firewall ruleset set --ruleset-id=syslog --enabled=true
+
+- name: (logging) set vpxa logging level to info
+  ansible.builtin.lineinfile:
+    dest: /etc/vmware/vpxa/vpxa.cfg
+    insertafter: '^  <log>'
+    regexp: '^    <level>.*</level>$'
+    line: "    <level>info</level>"
+  notify: restart vpxa
+
+- name: (logging) set rhttpproxy logging level to info
+  ansible.builtin.lineinfile:
+    dest: /etc/vmware/rhttpproxy/config.xml
+    insertafter: '^      <!-- default log level -->'
+    regexp: '^      <level>.*</level>$'
+    line: "      <level>info</level>"
+  notify: restart rhttpproxy
+
+- name: (logging) set hostd logging level to info
+  ansible.builtin.lineinfile:
+    dest: /etc/vmware/hostd/config.xml
+    insertafter: '^      <!-- default log level -->'
+    regexp: '^      <level>.*</level>$'
+    line: "      <level>info</level>"
+  notify: restart hostd

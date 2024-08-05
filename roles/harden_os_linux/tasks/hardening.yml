@@ -1,0 +1,153 @@
+---
+#******************************************************************************
+# Role: linux-hardening
+# File: tasks/main.yml
+#******************************************************************************
+
+# Include Variables Files
+#******************************************************************************
+#- name: Set OS family dependent variables
+#  ansible.builtin.include_vars: '{{ ansible_facts.os_family }}.yml'
+##  tags: always
+
+- name: Set OS dependent variables
+  #  ansible.builtin.include_vars: '{{ item }}'
+  ansible.builtin.include_vars:
+    file: "{{ item }}"
+    name: os_vars
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+      skip: true
+#  tags: always
+
+# we only override variables with our default, if they have not been specified already
+# by default the lookup functions finds all varnames containing the string, therefore
+# we add ^ and $ to denote start and end of string, so this returns only exact maches
+- name: Set OS dependent variables, if not already defined by user
+  ansible.builtin.set_fact:
+    "{{ item.key }}": "{{ item.value }}" # noqa var-naming[no-jinja]
+  when: not lookup('varnames', '^' + item.key + '$')
+  with_dict: "{{ os_vars }}"
+
+- name: Harden auditd
+  when: harden_linux_os__auditd_enabled | bool
+  ansible.builtin.import_tasks: auditd.yml
+  tags: auditd
+
+- name: Harden limits
+  when: harden_linux_os__limits_enabled | bool
+  ansible.builtin.import_tasks: limits.yml
+  tags: limits
+
+- name: Harden login_defs
+  when: harden_linux_os__login_defs_enabled | bool
+  ansible.builtin.import_tasks: login_defs.yml
+  tags: login_defs
+
+- name: Harden access
+  when: harden_linux_os__access_enabled | bool
+  ansible.builtin.import_tasks: minimize_access.yml
+  tags: minimize_access
+
+- name: Harden modprobe
+  when: harden_linux_os__modprobe_enabled | bool
+  ansible.builtin.import_tasks: modprobe.yml
+  tags: modprobe
+
+- name: Harden profile
+  when: harden_linux_os__profile_enabled | bool
+  ansible.builtin.import_tasks: profile.yml
+  tags: profile
+
+- name: Harden securetty
+  when: harden_linux_os__securetty_enabled | bool
+  ansible.builtin.import_tasks: securetty.yml
+  tags: securetty
+
+- name: Harden suid_sgid
+  when: harden_linux_os__security_suid_sgid_enforce  | bool
+  ansible.builtin.import_tasks: suid_sgid.yml
+  tags: suid_sgid
+
+- name: Harden user accounts
+  when: harden_linux_os__user_accounts_enabled | bool
+  ansible.builtin.import_tasks: user_accounts.yml
+  tags: user_accounts
+
+- name: Harden rhosts
+  when: harden_linux_os__rhosts_enabled | bool
+  ansible.builtin.import_tasks: rhosts.yml
+  tags: rhosts
+
+- name: Harden yum
+  when:
+    - harden_linux_os__package_agent_enabled | bool
+    - ansible_facts.os_family == 'RedHat'
+  ansible.builtin.import_tasks: yum.yml
+  tags: yum
+
+- name: Harden apt
+  when:
+    - harden_linux_os__package_agent_enabled | bool
+    - ansible_facts.distribution in ['Debian', 'Ubuntu']
+  ansible.builtin.import_tasks: apt.yml
+  tags: apt
+
+- name: Harden selinux
+  when:
+    - harden_linux_os__selinux_enabled | bool
+    - ansible_facts.selinux.status == 'enabled'
+  ansible.builtin.import_tasks: selinux.yml
+  tags: selinux
+
+# Include the individual tasks files
+#******************************************************************************
+- name: Harden hostname
+  ansible.builtin.import_tasks: hostname.yml
+  when: harden_linux_os__hostname_enabled | bool
+
+- name: Secure boot
+  ansible.builtin.import_tasks: secure_boot.yml
+  when: harden_linux_os__boot_enabled | bool
+
+- name: Harden ssh
+  ansible.builtin.import_tasks: ssh_settings.yml
+  when: harden_linux_os__ssh_enabled | bool
+
+- name: Harden pam
+  ansible.builtin.import_tasks: pam.yml
+  when: harden_linux_os__pam_enabled | bool
+  tags: pam
+
+- name: Harden account settings
+  ansible.builtin.import_tasks: account_settings.yml
+  when: harden_linux_os__account_settings_enabled | bool
+
+- name: Harden misc settings
+  ansible.builtin.import_tasks: misc.yml
+  when: harden_linux_os__misc_enabled | bool
+
+- name: Harden ntp
+  ansible.builtin.import_tasks: ntp.yml
+  when: harden_linux_os__ntp_enabled | bool
+
+- name: Harden cron
+  ansible.builtin.import_tasks: cron.yml
+  when: harden_linux_os__cron_enabled | bool
+
+- name: Harden core dumps
+  ansible.builtin.import_tasks: core_dumps.yml
+  when: harden_linux_os__core_dumps_enabled | bool
+
+- name: Harden sysctl
+  ansible.builtin.import_tasks: sysctl.yml
+  when: harden_linux_os__sysctl_enabled | bool
+  tags: harden-sysctl
+
+- name: Harden kernel modules
+  ansible.builtin.import_tasks: kernel_modules.yml
+  when: harden_linux_os__kernel_enabled | bool

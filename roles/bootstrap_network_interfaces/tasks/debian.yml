@@ -1,0 +1,101 @@
+---
+- name: debian | Installing Pre-Req Packages
+  when: config_install_lldp | bool
+  ansible.builtin.apt:
+    name: [lldpd]
+    state: present
+  register: result
+  until: result is successful
+
+- name: debian | Installing bridge-utils
+  when: config_network_bridges | bool
+  ansible.builtin.apt:
+    name: [bridge-utils]
+    state: present
+  register: result
+  until: result is successful
+
+- name: debian | Installing Bonding Packages
+  when: config_network_bonds | bool
+  ansible.builtin.apt:
+    name: [ifenslave]
+    state: present
+  register: result
+  until: result is successful
+
+- name: debian | Installing VLAN Packages
+  when: config_network_vlans | bool
+  ansible.builtin.apt:
+    name: [vlan]
+    state: present
+  register: result
+  until: result is successful
+
+- name: debian | Configuring Defined Interfaces
+  when: config_network_interfaces | bool
+  ansible.builtin.template:
+    src: "{{ config_interface_template }}"
+    dest: /etc/network/interfaces
+    owner: root
+    group: root
+    mode: u=rw,g=r,o=r
+  register: config_interface
+
+- name: debian | Restarting Network Interfaces
+  when:
+    - enable_configured_interfaces_after_defining or item['enable']
+    - item['configure']
+    - config_interface['changed']
+  changed_when: false
+  ansible.builtin.shell: bash -c "ifdown {{ item.name }} --force && ifup {{ item.name }} --force"
+  loop: "{{ network_interfaces }}"
+
+- name: debian | Restarting Network VLANs
+  when:
+    - config_network_vlans
+    - enable_configured_interfaces_after_defining or item['enable']
+    - item['configure']
+    - config_interface['changed']
+  changed_when: false
+  ansible.builtin.shell: bash -c "ifdown {{ item.name }} --force && ifup {{ item.name }} --force"
+  loop: "{{ network_vlans }}"
+
+- name: debian | Restarting Network Bridges
+  when:
+    - config_network_bridges
+    - enable_configured_interfaces_after_defining or item['enable']
+    - item['configure']
+    - config_interface['changed']
+  changed_when: false
+  ansible.builtin.shell: bash -c "ifdown {{ item.name }} --force && ifup {{ item.name }} --force"
+  loop: "{{ network_bridges }}"
+
+- name: debian | Restarting OVS Bridges
+  when:
+    - config_ovs_bridges
+    - enable_configured_interfaces_after_defining or item['enable']
+    - item['configure']
+    - config_interface['changed']
+  changed_when: false
+  ansible.builtin.shell: bash -c "ifdown {{ item.name }} --force && ifup {{ item.name }} --force"
+  loop: "{{ ovs_bridges }}"
+
+- name: debian | Restarting OVS Bonds
+  when:
+    - config_ovs_bonds
+    - enable_configured_interfaces_after_defining or item['enable']
+    - item['configure']
+    - config_interface['changed']
+  changed_when: false
+  ansible.builtin.shell: bash -c "ifdown {{ item.name }} --force && ifup {{ item.name }} --force"
+  loop: "{{ ovs_bonds }}"
+
+- name: debian | Restarting OVS Interfaces
+  when:
+    - config_ovs_interfaces
+    - enable_configured_interfaces_after_defining or item['enable']
+    - item['configure']
+    - config_interface['changed']
+  changed_when: false
+  ansible.builtin.shell: bash -c "ifdown {{ item.name }} --force && ifup {{ item.name }} --force"
+  loop: "{{ ovs_interfaces }}"

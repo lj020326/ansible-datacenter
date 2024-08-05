@@ -1,0 +1,41 @@
+---
+
+- name: awstats | Install apache awstats for monitoring
+  ansible.builtin.package:
+    name: "{{ awstats_packages }}"
+    state: present
+
+# cpan -i Geo::IP
+
+## deploy awstats for reporting smtp stats
+## ref: http://prolinuxhub.com/deploy-awstats-on-centos-7-to-report-smtp-traffic/
+
+- name: awstats | Add apache awstats for monitoring configuration
+  ansible.builtin.template:
+    src: "awstats.conf.j2"
+    dest: "{{ awstats_conf_path }}/{{ awstats_conf_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+#  notify: restart apache
+
+- name: apache | Enable some required modules (rewrite)
+  changed_when: false
+  ansible.builtin.command: a2enmod rewrite vhost_alias cgi
+
+- name: apache | Add apache awstats vhosts configuration.
+  ansible.builtin.template:
+    src: "apache-awstats.conf.j2"
+    dest: "{{ apache_conf_path }}/sites-available/awstats.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  when: apache_create_vhosts|bool
+  notify: restart apache
+
+- name: apache | Enable the awstats site # noqa: ignore-errors
+  changed_when: false
+  ansible.builtin.command: a2ensite awstats
+  ignore_errors: yes
+  when: apache_create_vhosts|bool
+  notify: restart apache

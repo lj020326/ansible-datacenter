@@ -1,0 +1,119 @@
+---
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Remove old repo lxc-docker"
+  ansible.builtin.apt:
+    name:
+      - docker
+      - docker-engine
+      - docker-io
+    state: absent
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Install Prerequisites for APT"
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - gnupg2
+    state: present
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure key absent from system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
+  ansible.builtin.file:
+    name: "{{ bootstrap_docker__apt_system_keyring_dir }}/docker.gpg"
+    state: absent
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure key absent from system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
+  ansible.builtin.get_url:
+    url: "{{ bootstrap_docker__ce_gpg_key }}"
+    dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+    mode: "0644"
+    force: true
+
+#- name: "{{ __bootstrap_docker__log_prefix_apt }} Add repository key"
+#  block:
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure key absent from system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
+#      ansible.builtin.file:
+#        name: "{{ bootstrap_docker__apt_system_keyring_dir }}/docker.gpg"
+#        state: absent
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Add Docker GPG Key"
+#      ansible.builtin.apt_key:
+#        id: "{{ bootstrap_docker__ce_gpg_key_id }}"
+#        url: "{{ bootstrap_docker__ce_gpg_key }}"
+#        dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+#        validate_certs: "{{ bootstrap_docker__ce_gpg_key_validate_certs }}"
+#
+##    ## ref: https://github.com/ansible/ansible/issues/78063
+##    ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/linux-package/ansible-how-to-fix-aptkey-deprecated-debianubuntu.md
+##    - name: "{{ __bootstrap_docker__log_prefix_apt }} Add Docker GPG Key"
+##      ansible.builtin.get_url:
+##        url: "{{ bootstrap_docker__ce_gpg_key }}"
+##        dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+##        mode: '0644'
+##        force: true
+#  rescue:
+#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure curl is present (systems without SNI)."
+#      ansible.builtin.package: name=curl
+#
+#    ## ref: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-22-04
+#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Download GPG key (systems without SNI)."
+#      ansible.builtin.shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o {{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+##      ansible.builtin.shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo gpg --dearmor -o {{ bootstrap_docker__apt_keyring_dir }}/docker.gpg"
+##      ansible.builtin.shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo apt-key add -"
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Remove existing Docker repository"
+  ansible.builtin.apt_repository:
+    repo: "{{ item.url }}"
+    filename: "{{ item.filename | d(omit) }}"
+    state: absent
+  loop:
+    #    - url: "{{ bootstrap_docker__apt_repo_url }}"
+    - url: "{{ bootstrap_docker__apt_repo_url }}"
+      filename: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Configure Docker repository"
+  ansible.builtin.apt_repository:
+    repo: "{{ bootstrap_docker__apt_repo_url }}"
+    filename: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}"
+    state: present
+  register: task_result
+  until: task_result is success
+  retries: 5
+  delay: 5
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Enable Edge repository"
+  when: bootstrap_docker__channel == "edge"
+  ansible.builtin.apt_repository:
+    repo: "{{ bootstrap_docker__apt_repo_url_edge }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Perform specific os tasks"
+  ansible.builtin.include_tasks: "{{ lookup('first_found', __file_params) }}"
+  vars:
+    __file_params:
+      files:
+        - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
+        - "{{ ansible_distribution|lower }}.yml"
+        - "{{ ansible_distribution|lower }}.yml"
+        - default.yml
+      paths:
+        - tasks/ce/os
+#        - "{{ role_path }}/tasks/ce/os"
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Install docker-ce"
+  ansible.builtin.package:
+    name: "{{ bootstrap_docker__packages }}"
+    state: present
+  notify: Docker | Restart Docker
+  register: task_result
+  until: task_result is success
+  retries: 5
+  delay: 5

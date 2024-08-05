@@ -1,0 +1,31 @@
+---
+- name: Load ZFS module live
+  community.general.modprobe:
+    name: zfs
+    params: "{{ pve_zfs_options | default(omit) }}"
+    state: present
+  tags: skiponlxc
+
+- name: Load ZFS module on init
+  ansible.builtin.copy:
+    content: zfs
+    dest: /etc/modules-load.d/zfs.conf
+    mode: "0644"
+
+- name: Copy ZFS modprobe configuration
+  when:
+    - pve_zfs_options is defined
+    - pve_zfs_options | bool
+  ansible.builtin.copy:
+    content: options zfs {{ pve_zfs_options }}
+    dest: /etc/modprobe.d/zfs.conf
+    mode: "0644"
+
+- name: Configure email address for ZFS event daemon notifications
+  when: pve_zfs_zed_email is defined
+  ansible.builtin.lineinfile:
+    dest: /etc/zfs/zed.d/zed.rc
+    line: ZED_EMAIL_ADDR="{{ pve_zfs_zed_email }}"
+    regexp: ^#?ZED_EMAIL_ADDR=
+  notify:
+    - restart zfs-zed

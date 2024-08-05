@@ -1,0 +1,67 @@
+---
+- name: Setup step-ca server
+  ansible.builtin.include_tasks: server/02-stepca-server.yml
+
+- name: Configuring stepca
+  ansible.builtin.include_tasks: server/02-stepcaconfigs.yml
+
+- name: Installing Stepca systemd services
+  ansible.builtin.include_tasks: server/03-stepcasystemd.yml
+
+- name: Organizing issuring CA files
+  ansible.builtin.include_tasks: server/04-cafiles.yml
+
+- name: Generating gRPC PKI
+  ansible.builtin.include_tasks: server/05-grpcpki.yml
+
+- name: Installing databases
+  ansible.builtin.include_tasks: server/06-installdatabase.yml
+
+#- name: Setting up Certificate Transparency log server
+#  ansible.builtin.include_tasks: server/07-ctlogconfigs.yml
+
+- name: Fixing CA server permissions - chown
+  ansible.builtin.file:
+    path: "{{ install_root }}"
+    state: directory
+    recurse: true
+    owner: "{{ ca_svc_user }}"
+    group: "{{ ca_svc_user }}"
+
+- name: Fixing CA server permissions - protecting certs
+  ansible.builtin.file:
+    path: "{{ install_root }}/certs"
+    state: directory
+    recurse: true
+    mode: ug=rwx,o-rwx
+
+- name: Fixing CT log server permissions - chown
+  ansible.builtin.file:
+    path: "{{ ct_install_root }}"
+    state: directory
+    recurse: true
+    owner: "{{ ct_svc_user }}"
+    group: "{{ ct_svc_user }}"
+  when: stepca_ca_server
+
+#- name: Fixing CT log server permissions - protecting private key
+#  ansible.builtin.file:
+#    path: '{{ ct_install_root }}/signing_keys'
+#    state: directory
+#    recurse: yes
+#    mode: ug=rwx,o-rwx
+#  when: stepca_ca_server
+#
+#- name: Starting CT log services
+#  ansible.builtin.systemd:
+#    name: "{{ item }}"
+#    enabled: yes
+#    state: started
+#  loop: "{{ ctlog_services if stepca_ca_server else ['stepca-test-ct'] }}"
+
+- name: Starting stepca services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: "{{ stepca_services }}"

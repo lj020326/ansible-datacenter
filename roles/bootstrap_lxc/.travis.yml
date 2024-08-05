@@ -1,0 +1,45 @@
+---
+language: python
+dist: bionic
+cache:
+  directories:
+    - $HOME/lxc
+  pip: true
+matrix:
+  fast_finish: true
+  include:
+    # FIXME: Ansible 2.10.x went through major refactoring of how the codebase is
+    # managed, which breaks our ansible git version tests.
+    # https://groups.google.com/forum/#!msg/ansible-project/eXsoOKEd0Mk/XTgbnPWbCAAJ
+    #    - python: '3.6'
+    #      env: ANSIBLE_GIT_VERSION='devel' # 2.11.x development branch
+    - env: ANSIBLE_VERSION='~=2.10.0'
+    - env: ANSIBLE_VERSION='~=2.9.0'
+    - env: ANSIBLE_VERSION='~=2.8.0'
+# Install expect here since it's just a normal utility and it's needed for
+# reading any playbook errors easily
+addons:
+  apt:
+    packages:
+      - expect
+install:
+  - ls -lh $HOME/lxc
+  - if [ "$ANSIBLE_GIT_VERSION" ]; then pip install "https://github.com/ansible/ansible/archive/${ANSIBLE_GIT_VERSION}.tar.gz";
+    else pip install "ansible${ANSIBLE_VERSION}"; fi
+  - ansible --version
+  - git archive --format tar.gz HEAD > bootstrap_lxc.tar.gz && ansible-galaxy install
+    bootstrap_lxc.tar.gz,$(git rev-parse HEAD),bootstrap_lxc && rm bootstrap_lxc.tar.gz
+before_script: cd tests/
+script:
+  - ansible-playbook -i inventory deploy.yml --syntax-check
+  - ANSIBLE_DISPLAY_SKIPPED_HOSTS=no ansible-playbook -i inventory deploy.yml
+  - 'ANSIBLE_STDOUT_CALLBACK=debug ANSIBLE_DISPLAY_SKIPPED_HOSTS=no ANSIBLE_DISPLAY_OK_HOSTS=no
+    unbuffer ansible-playbook -vvi inventory deploy.yml &>play.log; printf "Idempotence: ";
+    grep -A1 "PLAY RECAP" play.log | grep -qP "changed=0 .*failed=0 .*"
+    && (echo "PASS"; exit 0) || (echo "FAIL"; cat play.log; exit 1)'
+  - ANSIBLE_STDOUT_CALLBACK=debug ansible-playbook -i inventory -v test.yml
+notifications:
+  webhooks:
+    urls:
+      - https://galaxy.ansible.com/api/v1/notifications/
+      - https://t2d.idolactiviti.es/notify

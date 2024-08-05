@@ -1,0 +1,55 @@
+---
+
+- name: "{{ __bootstrap_linux_package__log_prefix_yum_rhel }} Disable subscription manager updates"
+  when: ansible_pkg_mgr == 'dnf'
+  changed_when: false
+  ansible.builtin.command: "dnf --disableplugin subscription-manager update -y"
+  register: __shell_result_disable_subscription_mgr
+  failed_when:
+    - __shell_result_disable_subscription_mgr is failed
+    - not ( __shell_result_disable_subscription_mgr.stderr | regex_search("There are no enabled repositories in .*") )
+
+- name: "{{ __bootstrap_linux_package__log_prefix_yum_rhel }} Disable subscription-manager.conf pluginconf"
+  when: ansible_pkg_mgr == 'yum'
+  ansible.builtin.lineinfile:
+    dest: "/etc/yum/pluginconf.d/subscription-manager.conf"
+    backrefs: no
+    regexp: '^enabled=1'
+    line: 'enabled=0'
+    backup: true
+
+- name: "{{ __bootstrap_linux_package__log_prefix_yum_rhel }} Setup yum repos"
+  when: bootstrap_linux_package__setup_yum_repos
+  block:
+    - name: "{{ __bootstrap_linux_package__log_prefix_yum_rhel }} Setup yum repos"
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        backup: true
+        mode: "0644"
+      loop: "{{ bootstrap_linux_package__yum_repo_list }}"
+
+    - name: "{{ __bootstrap_linux_package__log_prefix_yum_rhel }} Fetch RPM-GPG-KEY-CentOS-Official"
+      ansible.builtin.get_url:
+        url: "{{ bootstrap_linux_package__centos_gpg_key_url }}"
+        dest: "{{ bootstrap_linux_package__centos_gpg_rpm_key }}"
+        mode: "0644"
+        force: true
+
+- name: "{{ __bootstrap_linux_package__log_prefix_yum_rhel }} Update yum repo and cache"
+  when: ansible_pkg_mgr=='yum'
+  ansible.builtin.yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+#    allowerasing: yes
+#    nobest: yes
+
+- name: "{{ __bootstrap_linux_package__log_prefix_yum_rhel }} Update yum repo and cache"
+  when: ansible_pkg_mgr=='dnf'
+  ansible.builtin.dnf:
+    name: '*'
+    state: latest
+    update_cache: yes
+    allowerasing: yes
+#    nobest: yes

@@ -1,0 +1,167 @@
+---
+
+- name: "Display role input vars"
+  ansible.builtin.debug:
+    var: "{{ item }}"
+  loop:
+    - docker_stack__firewalld_enabled
+    - ansible_python_interpreter
+
+- name: "Setup role facts"
+  ansible.builtin.include_tasks: init-vars.yml
+
+- name: "Setup app VAR INIT configs defined in tasks/apps/[__container_service_name]/init-vars.yml"
+  when:
+    - docker_stack__action == 'setup'
+    - (role_path + '/tasks/apps/' + (__container_service_name|replace('-','_')) + '/init-vars.yml') is file
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ 
+    (__container_service_name|replace('-','_')) }}/init-vars.yml"
+  loop: "{{ __docker_stack__app_services }}"
+  loop_control:
+    loop_var: __container_service_name
+
+- name: "Display docker_stack__firewalld_enabled"
+  ansible.builtin.debug:
+    var: docker_stack__firewalld_enabled
+
+- name: "Setup firewalld config"
+  when: docker_stack__firewalld_enabled | default(True) | bool
+  ansible.builtin.include_tasks: setup-firewalld.yml
+
+- name: "Display docker_stack__action"
+  ansible.builtin.debug:
+    var: docker_stack__action
+
+- name: "Setup app PRE-SETUP configs defined in tasks/apps/[__container_service_name]/pre-setup.yml"
+  when:
+    - docker_stack__action == 'setup'
+    - (role_path + '/tasks/apps/' + (__container_service_name|replace('-','_')) + '/pre-setup.yml') is file
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ __container_service_name }}/pre-setup.yml"
+  loop: "{{ __docker_stack__app_services }}"
+  loop_control:
+    loop_var: __container_service_name
+
+- name: "Setup docker app dirs and configs"
+  when: docker_stack__action == 'setup'
+  ansible.builtin.include_tasks: setup-app-configs.yml
+
+- name: "Setup self-signed certs"
+  when:
+    - docker_stack__action == 'setup'
+    - docker_stack__enable_selfsigned_certs
+  ansible.builtin.include_tasks: setup-selfsigned-cert.yml
+
+- name: "Setup ca certs"
+  when:
+    - docker_stack__action == 'setup'
+    - docker_stack__enable_cacerts
+  ansible.builtin.include_tasks: setup-cacerts.yml
+
+- name: "Setup admin scripts"
+  when:
+    - docker_stack__action == 'setup'
+    - docker_stack__setup_admin_scripts
+  ansible.builtin.include_tasks: setup-admin-scripts.yml
+
+- name: "Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml"
+  when:
+    - docker_stack__action == 'setup'
+    - (role_path + '/tasks/apps/' + (__container_service_name|replace('-','_')) + '/pre-start.yml') is file
+#    - __app_config_task_map[__container_service_name].pre_start|d(False)
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ 
+    (__container_service_name|replace('-','_')) }}/pre-start.yml"
+  loop: "{{ __docker_stack__app_services }}"
+  loop_control:
+    loop_var: __container_service_name
+
+#######################
+## the following plays utilize the `community.docker` modules
+## the `community.docker` modules require the target host python interpreter environment to be configured
+## with the docker python library.
+##
+## the python interpreter environment and docker lib dependency is expected to be already prepared in a prior task
+## by the 'bootstrap_pip' role and the `ansible_python_interpreter` var should be set by playbook var for the play
+#######################
+- name: "Setup docker stack services"
+  when: docker_stack__action == 'setup'
+  block:
+
+    - name: "Setup docker stack services"
+      ansible.builtin.include_tasks: setup-service-configs.yml
+
+  rescue:
+    - name: "Init __restart_docker_service"
+      ansible.builtin.set_fact:
+        __restart_docker_service: no
+
+    - name: "Display docker stack config results"
+      when:
+        - item is defined
+        - item.failed|d(False)
+      ansible.builtin.debug:
+        var: "{{ item }}"
+      loop:
+        - __configure_docker_secrets
+        - __configure_docker_networks
+
+    - name: "Set __restart_docker_service if secrets config failed"
+      when:
+        - item.failed|d(False)
+        - item.msg | regex_search('secret .* is in use by the following service')
+      loop: "{{ __configure_docker_secrets.results | d([]) }}"
+      ansible.builtin.set_fact:
+        __restart_docker_service: yes
+
+    - name: "Set __restart_docker_service if network config failed"
+      when:
+        - item.failed|d(False)
+        - (item.msg | regex_search('Failed to program NAT chain'))
+          or (item.msg | regex_search('No such container'))
+          or (item.msg | regex_search('.* network .* is in use by service'))
+          or (item.msg | regex_search('.* cannot program address .* in sandbox interface because it conflicts with existing route'))
+          or (item.msg | regex_search("INVALID_ZONE .* docker"))
+      loop: "{{ __configure_docker_networks.results | d([]) }}"
+      ansible.builtin.set_fact:
+        __restart_docker_service: yes
+
+    - name: "Display __restart_docker_service"
+      ansible.builtin.debug:
+        var: __restart_docker_service
+
+    - name: "Re-emit failure"
+      when: not __restart_docker_service|d(False)
+      vars:
+        failed_task:
+          result: '{{ ansible_failed_result }}'
+      ansible.builtin.fail:
+        msg: '{{ failed_task }}'
+
+    - name: "Handle docker service exception by stopping services"
+      when: __restart_docker_service
+      block:
+        - name: "{{ __log_prefix_local }} Restart docker daemon"
+          ansible.builtin.include_tasks: restart-docker-daemon.yml
+
+        - name: "Setup docker stack services"
+          ansible.builtin.include_tasks: setup-service-configs.yml
+
+- name: "Run compose action"
+  when: not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool
+  ansible.builtin.include_tasks: run-compose-action.yml
+
+- name: "Setup container configs"
+  when:
+    - docker_stack__action == 'setup'
+    - __docker_stack__container_config_list|d([])|length > 0
+  ansible.builtin.include_tasks: setup-container-configs.yml
+  loop: "{{ __docker_stack__container_config_list }}"
+  loop_control:
+    loop_var: container_setup_info
+
+## ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
+- name: "Setup systemd service to start docker services"
+  when:
+    - docker_stack__action == 'setup'
+    - docker_stack__setup_systemd_service|bool
+    - not docker_stack__swarm_mode|d(False)
+  ansible.builtin.include_tasks: setup-systemd-service.yml
