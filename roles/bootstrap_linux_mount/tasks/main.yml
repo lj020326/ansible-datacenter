@@ -1,14 +1,13 @@
 ---
-
-- name: "Include {{ ansible_distribution }} specific variables"
+- name: Include {{ ansible_distribution }} specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
     - "{{ ansible_distribution|lower }}.yml"
     - "{{ ansible_os_family|lower }}.yml"
-    - "default.yml"
+    - default.yml
 
-- name: "Display key parameters for {{ role_name }}"
+- name: Display key parameters for {{ role_name }}
   block:
     - name: Display bootstrap_linux_mount__list
       ansible.builtin.debug:
@@ -18,21 +17,20 @@
       ansible.builtin.debug:
         var: bootstrap_linux_mount__state
 
-
-- name: "Show variables with 'bootstrap_linux_mount__list__' in their names"
+- name: Show variables with 'bootstrap_linux_mount__list__' in their names
   ansible.builtin.debug:
     msg: "{{ lookup('varnames', '^bootstrap_linux_mount__list__', wantlist=True) }}"
 
-- name: "Init __bootstrap_linux_mount__list"
+- name: Init __bootstrap_linux_mount__list
   ansible.builtin.set_fact:
     __bootstrap_linux_mount__list: "{{ bootstrap_linux_mount__list|d([]) }}"
 
-- name: "Combine bootstrap_linux_mount__list__* vars into merged list"
+- name: Combine bootstrap_linux_mount__list__* vars into merged list
   ansible.builtin.set_fact:
     __bootstrap_linux_mount__list: "{{ __bootstrap_linux_mount__list|d([]) + lookup('vars', item)|d([]) }}"
   loop: "{{ lookup('varnames','^bootstrap_linux_mount__list__', wantlist=True) }}"
 
-- name: "Display __bootstrap_linux_mount__list"
+- name: Display __bootstrap_linux_mount__list
   ansible.builtin.debug:
     var: __bootstrap_linux_mount__list
 
@@ -42,7 +40,7 @@
 ## ref: https://stackoverflow.com/questions/25977410/adding-an-fstab-option-using-ansible
 ## ref: https://medium.com/@rohansadale/mounting-and-un-mounting-a-volume-in-ansible-37ebf64e3334
 ##
-- name: "Add node mounts to fstab"
+- name: Add node mounts to fstab
   when:
     - __bootstrap_linux_mount__list|d([])|length > 0
   ansible.posix.mount:
@@ -61,7 +59,7 @@
     - not ( mount_results.msg | regex_search("umount.* target is busy") )
 
 ## ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
-- name: "Configure nfs systemd service"
+- name: Configure nfs systemd service
   when: bootstrap_linux_mount__systemd_service_config|d({})|length > 0
   ansible.builtin.include_role:
     name: bootstrap_systemd_service

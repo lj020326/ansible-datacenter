@@ -1,5 +1,4 @@
 ---
-
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __os_dist"
   ansible.builtin.set_fact:
     __os_dist: "{{ ansible_distribution | lower }}"
@@ -17,17 +16,17 @@
     - "{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml"
     - "{{ __os_dist }}.yml"
     - "{{ ansible_os_family | lower }}.yml"
-    - "default.yml"
+    - default.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include rhsm/{{ __os_dist }} specific variables if defined"
   when: bootstrap_linux_package__redhat_use_rhsm | bool
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - files:
-        - "rhsm/{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml"
-        - "rhsm/{{ __os_dist }}.yml"
-        - "rhsm/{{ ansible_os_family | lower }}.yml"
-        - "rhsm/default.yml"
+        - rhsm/{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml
+        - rhsm/{{ __os_dist }}.yml
+        - rhsm/{{ ansible_os_family | lower }}.yml
+        - rhsm/default.yml
       skip: true
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set {{ role_name }} var prefix"
@@ -42,9 +41,9 @@
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set {{ role_name }} var regex's"
   ansible.builtin.set_fact:
-    role_package_list_var_regex: "^{{ role_package_list_var_prefix }}"
-    role_npm_list_var_regex: "^{{ role_npm_list_var_prefix }}"
-    role_snap_list_var_regex: "^{{ role_snap_list_var_prefix }}"
+    role_package_list_var_regex: ^{{ role_package_list_var_prefix }}
+    role_npm_list_var_regex: ^{{ role_npm_list_var_prefix }}
+    role_snap_list_var_regex: ^{{ role_snap_list_var_prefix }}
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Initialize bootstrap_linux_package__package_list"
   when: bootstrap_linux_package__exclude_list|d([])|length>0
@@ -73,7 +72,6 @@
     - name: Display __bootstrap_linux_package__exclude_pattern
       ansible.builtin.debug:
         var: __bootstrap_linux_package__exclude_pattern
-
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Show variables with '{{ role_package_list_var_prefix }}' prefix"
   ansible.builtin.debug:
@@ -108,13 +106,8 @@
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __bootstrap_linux_package__package_list_by_priority"
   when: item not in bootstrap_linux_package__exclude_list|d([])
   ansible.builtin.set_fact:
-    __bootstrap_linux_package__package_list_by_priority: "{{ __bootstrap_linux_package__package_list_by_priority | d({})
-      | combine({ (item.priority | default(bootstrap_linux_package__priority_default)|int): {
-                    item.state | default(bootstrap_linux_package__state): {
-                        ((item is mapping) | ternary( item.apt|d(item.name), item)): {}
-                      }
-                    }
-                  }, recursive=True) }}"
+    __bootstrap_linux_package__package_list_by_priority: "{{ __bootstrap_linux_package__package_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_linux_package__priority_default)|int):
+      { item.state | default(bootstrap_linux_package__state): { ((item is mapping) | ternary( item.apt|d(item.name), item)): {} } } }, recursive=True) }}"
   loop: "{{ __bootstrap_linux_package__package_list }}"
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__package_list_by_priority"

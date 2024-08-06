@@ -1,23 +1,22 @@
 ---
-
 - name: Set fact git_ssh_pvt_key
-  become: no
+  become: false
   ansible.builtin.set_fact:
     git_ssh_pvt_key: "{{ docker_builder_image__git_ssh_private_keyfile }}"
 
 - name: Display git_ssh_pvt_key
   ansible.builtin.debug:
     msg:
-      - "docker_builder_image__git_ssh_private_keyfile={{ docker_builder_image__git_ssh_private_keyfile }}"
-      - "git_ssh_pvt_key={{ git_ssh_pvt_key }}"
+      - docker_builder_image__git_ssh_private_keyfile={{ docker_builder_image__git_ssh_private_keyfile }}
+      - git_ssh_pvt_key={{ git_ssh_pvt_key }}
 
 ## Build source and upload image to local registry
 ## ref: https://github.com/wangsha/docker-build-image/blob/master/tasks/docker_private_registry.yml
-- name: "Get {{ __docker_builder_image__image_config.image_name }} source code"
-  become: yes
+- name: Get {{ __docker_builder_image__image_config.image_name }} source code
+  become: true
   ansible.builtin.git:
     repo: "{{ __docker_builder_image__image_config.source_repo }}"
-    accept_hostkey: yes
+    accept_hostkey: true
     dest: "{{ __docker_builder_image__image_config.source_directory }}"
     version: "{{ __docker_builder_image__image_config.version }}"
     key_file: "{{ docker_builder_image__git_ssh_private_keyfile }}"
@@ -27,7 +26,7 @@
 #    depth: 1
 
 ## ref: https://oak-tree.tech/blog/devops-ansible-git-ssh-timeout
-- name: "Add submodules for {{ __docker_builder_image__image_config.image_name }}" # noqa: command-instead-of-module
+- name: Add submodules for {{ __docker_builder_image__image_config.image_name }} # noqa: command-instead-of-module
   when: __docker_builder_image__image_config.git_submodules | default(false) |bool
   ansible.builtin.command: git submodule update --init --recursive --depth 50
   args:
@@ -44,78 +43,74 @@
 #    tag: "{{ __docker_builder_image__image_config.image_tag }}"
 #    ignoreerrors: yes
 
-- name: "Building image using docker-compose"
-#  when: "'build_with_compose' in __docker_builder_image__image_config and __docker_builder_image__image_config.build_with_compose|bool == True"
+- name: Building image using docker-compose
+  #  when: "'build_with_compose' in __docker_builder_image__image_config and __docker_builder_image__image_config.build_with_compose|bool == True"
   when: "'docker_compose' in __docker_builder_image__image_config"
   block:
-
-    - name: "Set the docker compose template"
+    - name: Set the docker compose template
       ansible.builtin.set_fact:
         docker_compose_tpl: "{{ __docker_builder_image__image_config.docker_compose }}"
       when: "'docker_compose' in __docker_builder_image__image_config"
 
     ## ref: http://www.mydailytutorials.com/ansible-template-module-examples/
-    - name: "Install docker-compose template"
+    - name: Install docker-compose template
       when: "'docker_compose' in __docker_builder_image__image_config"
       ansible.builtin.template:
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
-#        owner: "{{ docker_user_username }}"
-#        group: "{{ docker_user_group }}"
+        #        owner: "{{ docker_user_username }}"
+        #        group: "{{ docker_user_group }}"
         mode: "{{ item.mode | d('0644') }}"
       loop:
-        - src: "docker-compose.yml.j2"
+        - src: docker-compose.yml.j2
           dest: "{{ __docker_builder_image__image_config.build_directory }}/{{docker_builder_image__image_compose_file }}"
 
-    - name: "Build docker_compose image {{ __docker_builder_image__image_config.image_name }}"
-#      when: "'compose_file' in __docker_builder_image__image_config"
+    - name: Build docker_compose image {{ __docker_builder_image__image_config.image_name }}
+      #      when: "'compose_file' in __docker_builder_image__image_config"
       community.docker.docker_compose:
         project_src: "{{ __docker_builder_image__image_config.build_directory }}"
-        build: yes
-        restarted: no
-#        files: [ "{{ __docker_builder_image__image_config.compose_file | default(omit) }}" ]
-        files: [ "{{ docker_builder_image__image_compose_file }}" ]
+        build: true
+        restarted: false
+        #        files: [ "{{ __docker_builder_image__image_config.compose_file | default(omit) }}" ]
+        files: ["{{ docker_builder_image__image_compose_file }}"]
 
-#      register: output
-#
-#    - name: "**** docker-compose output"
-#      ansible.builtin.debug:
-#        var: output
+    #      register: output
+    #
+    #    - name: "**** docker-compose output"
+    #      ansible.builtin.debug:
+    #        var: output
 
-    - name: "Tag and push docker image to {{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}:{{ __docker_builder_image__image_config.image_tag }}"
+    - name: Tag and push docker image to {{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}:{{ __docker_builder_image__image_config.image_tag
+        }}
       community.docker.docker_image:
-        push: yes
+        push: true
         name: "{{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}"
         state: present
         source: local
-        force_tag: yes
+        force_tag: true
         repository: "{{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}"
         tag: "{{ __docker_builder_image__image_config.image_tag }}"
 
-
-- name: "Build docker image {{ 
-    docker_builder_image__registry }}/{{ 
-    __docker_builder_image__image_config.image_name }}:{{ __docker_builder_image__image_config.image_tag }}"
-#  when: "'build_with_compose' not in __docker_builder_image__image_config or not __docker_builder_image__image_config.build_with_compose|bool"
+- name: Build docker image {{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}:{{ __docker_builder_image__image_config.image_tag
+    }}
+  #  when: "'build_with_compose' not in __docker_builder_image__image_config or not __docker_builder_image__image_config.build_with_compose|bool"
   when: "'docker_compose' not in __docker_builder_image__image_config"
   community.docker.docker_image:
     name: "{{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}"
     state: present
     source: build
-    force_source: yes
-    force_tag: yes
+    force_source: true
+    force_tag: true
     repository: "{{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}"
     tag: "{{ __docker_builder_image__image_config.image_tag }}"
-    push: yes
+    push: true
     build:
-      pull: yes
+      pull: true
       path: "{{ __docker_builder_image__image_config.build_directory | d(omit) }}"
       dockerfile: "{{ __docker_builder_image__image_config.dockerfile | d(omit) }}"
 
-- name: "push docker image {{ docker_builder_image__registry }}/{{ 
-    __docker_builder_image__image_config.image_name }}:{{ 
-    __docker_builder_image__image_config.image_tag }} to {{ docker_registry }}"
-  ansible.builtin.command: "docker push {{ 
-    docker_builder_image__registry }}/{{ 
-    __docker_builder_image__image_config.image_name }}:{{ __docker_builder_image__image_config.image_tag }}"
+- name: push docker image {{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}:{{ __docker_builder_image__image_config.image_tag
+    }} to {{ docker_registry }}
+  ansible.builtin.command: docker push {{ docker_builder_image__registry }}/{{ __docker_builder_image__image_config.image_name }}:{{ __docker_builder_image__image_config.image_tag
+    }}
   changed_when: false

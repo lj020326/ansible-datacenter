@@ -1,6 +1,6 @@
 ---
 
-__docker_stack__netbootxyz__image: "linuxserver/netbootxyz:latest"
+__docker_stack__netbootxyz__image: linuxserver/netbootxyz:latest
 
 __docker_stack__netbootxyz__root_dir: "{{ docker_stack__netbootxyz_root_dir | d(docker_stack__dir + '/netbootxyz') }}"
 __docker_stack__netbootxyz__config_dir: "{{ docker_stack__netbootxyz_config_dir | d( __docker_stack__netbootxyz__root_dir + '/config') }}"
@@ -28,7 +28,6 @@ docker_stack__vm_images:
   opensuse_15.1_jeos:
     qcow2: https://download.opensuse.org/distribution/leap/15.1/jeos/openSUSE-Leap-15.1-JeOS.x86_64-15.1.0-OpenStack-Cloud-Current.qcow2
 
-
 __docker_stack__netbootxyz__config_dirs:
   - { path: "{{ __docker_stack__netbootxyz__root_dir }}/netbootxyz" }
   - { path: "{{ __docker_stack__netbootxyz__config_dir }}" }
@@ -38,14 +37,14 @@ __docker_stack__netbootxyz__config_dirs:
 #__docker_stack__netbootxyz__config_tpls:
 
 __docker_stack__netbootxyz__config_files:
-  - { src: "{{ __docker_stack__ca_cert_bundle }}", dest: "{{ __docker_stack__netbootxyz__assets_dir }}/cacerts/ca-bundle.crt", remote_src: yes }
-  - { src: "{{ __docker_stack__ca_cert_bundle }}", dest: "{{ __docker_stack__netbootxyz__assets_dir }}/cacerts/cacert.pem", remote_src: yes }
+  - { src: "{{ __docker_stack__ca_cert_bundle }}", dest: "{{ __docker_stack__netbootxyz__assets_dir }}/cacerts/ca-bundle.crt", remote_src: true }
+  - { src: "{{ __docker_stack__ca_cert_bundle }}", dest: "{{ __docker_stack__netbootxyz__assets_dir }}/cacerts/cacert.pem", remote_src: true }
 
 __docker_stack__netbootxyz__firewalld_ports:
-  - "67/udp"
-  - "68/udp"
-  - "69/tcp"
-  - "25151/tcp" ## cobbler
+  - 67/udp
+  - 68/udp
+  - 69/tcp
+  - 25151/tcp ## cobbler
 
 docker_stack__appspec__netbootxyz:
   dirs: "{{ __docker_stack__netbootxyz__config_dirs | d([]) }}"
@@ -55,27 +54,25 @@ docker_stack__appspec__netbootxyz:
   firewalld_ports: "{{ __docker_stack__netbootxyz__firewalld_ports | d([]) }}"
   docker_services: "{{ __docker_stack__netbootxyz__services | d({}) }}"
 
-
-__docker_stack__netbootxyz__traefik_labels: "{{ docker_stack__netbootxyz__traefik_labels
-  | d(__docker_stack__netbootxyz__traefik_labels_default) }}"
+__docker_stack__netbootxyz__traefik_labels: "{{ docker_stack__netbootxyz__traefik_labels | d(__docker_stack__netbootxyz__traefik_labels_default) }}"
 
 __docker_stack__netbootxyz__services:
   ## ref: https://blog.linuxserver.io/2019/12/16/netboot-xyz-docker-network-boot-server-pxe/
   netbootxyz:
-    container_name: "netbootxyz"
+    container_name: netbootxyz
     image: "{{ __docker_stack__netbootxyz__image }}"
-#    privileged: true
+    #    privileged: true
     ports:
-      - "69:69/udp"  ## TFTP server for serving IPXE boot files and menus
-      - "9080:80/tcp"  ## NGINX server for hosting custom netboot.xyz assets locally
-      - "3000:3000"  ## netboot.xyz web application for customizing local menus and pulling in remote assets
-    restart: "unless-stopped"
+      - 69:69/udp ## TFTP server for serving IPXE boot files and menus
+      - 9080:80/tcp ## NGINX server for hosting custom netboot.xyz assets locally
+      - 3000:3000 ## netboot.xyz web application for customizing local menus and pulling in remote assets
+    restart: unless-stopped
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
     volumes:
-      - "/etc/localtime:/etc/localtime:ro"
-#        - "{{ docker_stack__dir }}/netbootxyz:/config"
+      - /etc/localtime:/etc/localtime:ro
+      #        - "{{ docker_stack__dir }}/netbootxyz:/config"
       - "{{ __docker_stack__netbootxyz__config_dir }}:/config"
       - "{{ __docker_stack__netbootxyz__assets_dir }}:/assets"
     environment:

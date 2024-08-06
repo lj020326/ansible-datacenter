@@ -1,47 +1,45 @@
 ---
-
-- name: "Gather facts for all hosts to apply OS specific group vars for them"
+- name: Gather facts for all hosts to apply OS specific group vars for them
   tags: always
   hosts: ansible_localhost
   roles:
     - role: apply_common_groups
 
-- name: "Apply host to vm_template group(s)"
+- name: Apply host to vm_template group(s)
   tags: always
   hosts: ansible_localhost
   tasks:
+    - name: Set vm_template_group
+      ansible.builtin.set_fact:
+        vm_template_group: vm_template_{{ dc_os_family_shortname }}
 
-  - name: "Set vm_template_group"
-    ansible.builtin.set_fact:
-      vm_template_group: "vm_template_{{ dc_os_family_shortname }}"
+    - name: Display vm_template_group
+      ansible.builtin.debug:
+        var: vm_template_group
 
-  - name: "Display vm_template_group"
-    ansible.builtin.debug:
-      var: vm_template_group
+    - name: Apply group {{ vm_template_group }} to hosts
+      changed_when: false
+      ansible.builtin.group_by:
+        key: "{{ vm_template_group }}"
 
-  - name: "Apply group {{ vm_template_group }} to hosts"
-    changed_when: no
-    ansible.builtin.group_by:
-      key: "{{ vm_template_group }}"
+    - name: Display group_names
+      ansible.builtin.debug:
+        var: group_names | d([])
 
-  - name: "Display group_names"
-    ansible.builtin.debug:
-      var: group_names | d([])
-
-- name: "Bootstrap linux OS on vm template"
-#  hosts: os_linux
+- name: Bootstrap linux OS on vm template
+  #  hosts: os_linux
   hosts: vm_template_linux
   tags: vm-template
   connection: local
-  become: yes
+  become: true
   roles:
     - role: bootstrap_linux
 
-- name: "Bootstrap windows OS on vm template"
-#  hosts: os_windows
+- name: Bootstrap windows OS on vm template
+  #  hosts: os_windows
   hosts: vm_template_windows
   tags: vm-template
   connection: local
-  become: yes
+  become: true
   roles:
     - role: bootstrap_windows

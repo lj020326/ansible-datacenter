@@ -13,40 +13,39 @@
 #  ansible.builtin.import_tasks: install_el.yml
 #  when: ansible_facts.os_family == 'RedHat'
 
-- name: "Get installed inspec version."
+- name: Get installed inspec version.
   ansible.builtin.command: inspec version
-  ignore_errors: yes
+  ignore_errors: true
   changed_when: false
   failed_when: false
   check_mode: false
   register: bootstrap_inspec__installed_version
 
-- name: "Display bootstrap_inspec__installed_version"
+- name: Display bootstrap_inspec__installed_version
   ansible.builtin.debug:
     var: bootstrap_inspec__installed_version
 
 - name: Force inspec install if the version numbers do not match.
   when:
-    - (bootstrap_inspec__install_from_source_force_update | bool) or
-      (bootstrap_inspec__installed_version.rc != 0) or
-      (bootstrap_inspec__installed_version.stdout is version(bootstrap_inspec__version, operator="!="))
+    - (bootstrap_inspec__install_from_source_force_update | bool) or (bootstrap_inspec__installed_version.rc != 0) or (bootstrap_inspec__installed_version.stdout
+      is version(bootstrap_inspec__version, operator="!="))
   ansible.builtin.set_fact:
     bootstrap_inspec__reinstall_from_source: true
 
-- name: "Display bootstrap_inspec__reinstall_from_source"
+- name: Display bootstrap_inspec__reinstall_from_source
   ansible.builtin.debug:
     var: bootstrap_inspec__reinstall_from_source
 
-- name: "Downloading and installing inspec"
+- name: Downloading and installing inspec
   when: bootstrap_inspec__reinstall_from_source | bool
   block:
-    - name: "Downloading and installing inspec" # noqa: command-instead-of-module
+    - name: Downloading and installing inspec # noqa: command-instead-of-module
       changed_when: false
       ansible.builtin.shell: |
         set -o pipefail # <-- adding this will prevent surprises
         curl https://omnitruck.chef.io/install.sh | bash -s -- -P inspec
       register: bootstrap_inspec__install_result
 
-    - name: "Display bootstrap_inspec__install_result"
+    - name: Display bootstrap_inspec__install_result
       ansible.builtin.debug:
         var: bootstrap_inspec__install_result

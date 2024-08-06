@@ -1,0 +1,30 @@
+---
+- name: Gather facts for hosts to apply OS specific group vars for them
+  hosts: all
+  connection: local
+  roles:
+    ## https://github.com/ansible-community/molecule/issues/816#issuecomment-696411525
+    - role: apply_common_groups
+#      changed_when: "'molecule-idempotence-notest' not in ansible_skip_tags"
+
+- name: Bootstrap linux
+  #  hosts: molecule_docker_linux
+  hosts: all
+  connection: local
+  become: true
+  pre_tasks:
+    - name: Wait for systemd to complete initialization. # noqa command-instead-of-module
+      ansible.builtin.command: systemctl is-system-running
+      register: systemctl_status
+      until: >
+        'running' in systemctl_status.stdout or
+        'starting' in systemctl_status.stdout or
+        'degraded' in systemctl_status.stdout
+      retries: 5
+      delay: 5
+      when: ansible_service_mgr == 'systemd'
+      changed_when: false
+      failed_when: systemctl_status.rc > 1
+
+  roles:
+    - role: bootstrap_linux

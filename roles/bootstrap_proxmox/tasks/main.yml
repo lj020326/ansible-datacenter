@@ -31,13 +31,7 @@
   ansible.builtin.blockinfile:
     dest: /etc/hosts
     marker: "# {mark} ANSIBLE MANAGED: Proxmox Cluster Hosts"
-    content: "\
-      {% for host in groups[pve_group] %}\
-        {{ hostvars[host].pve_cluster_addr0 }}
-        {{ hostvars[host].ansible_fqdn }}
-        {{ hostvars[host].ansible_hostname }}
-
-
+    content: "{% for host in groups[pve_group] %}{{ hostvars[host].pve_cluster_addr0 }} {{ hostvars[host].ansible_fqdn }} {{ hostvars[host].ansible_hostname }}\n\n
       {% endfor %}"
 
 - name: Remove conflicting lines in hosts files
@@ -50,28 +44,14 @@
     # above, then we match against different IPs (e.g. NOT 10.0.3.17) that have
     # the hostname/fqdn we inserted a record for previously, taking care also to
     # detect word boundaries (\b wasn't working for some reason)
-    regexp: "\
-      ^(?!\
-        {{ _correct_line | regex_escape() }}\
-      )\
-      {# Ignore lines starting with the current cluster host #}\
-      (?!{{ _correct_ip | regex_escape() }})\
-      {# Match an IPv4/v6 address at the start #}\
-      [0-9a-f:.]\
-      {# Match any hostnames, surrounded by whitespace #}\
-      +(\\s+.*)?\\s\
-      (\
-        {{ _match_hosts | map('regex_escape') | join('|') }}\
-      )\
-      (\\s+.*|\\s*)$"
+    regexp: "^(?!{{ _correct_line | regex_escape() }}){# Ignore lines starting with the current cluster host #}(?!{{ _correct_ip | regex_escape() }}){# Match
+      an IPv4/v6 address at the start #}[0-9a-f:.]{# Match any hostnames, surrounded by whitespace #}+(\\s+.*)?\\s({{ _match_hosts | map('regex_escape') | join('|')
+      }})(\\s+.*|\\s*)$"
     state: absent
     backup: true
   loop: "{{ groups[pve_group] }}"
   vars:
-    _correct_line: "\
-      {{ hostvars[item].pve_cluster_addr0 }}
-      {{ hostvars[item].ansible_fqdn }}
-      {{ hostvars[item].ansible_hostname }}"
+    _correct_line: "{{ hostvars[item].pve_cluster_addr0 }} {{ hostvars[item].ansible_fqdn }} {{ hostvars[item].ansible_hostname }}"
     _correct_ip: "{{ hostvars[item].pve_cluster_addr0 }}"
     _match_hosts: >-
       [

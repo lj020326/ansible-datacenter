@@ -1,4 +1,4 @@
-
+---
 ##################################################################################
 #
 # Dell PowerEdge R620 servers: Configure the RAID-1 using first two disks 
@@ -11,87 +11,124 @@
 #
 ##################################################################################
 
-- gather_facts: false
-  name: RAID-1 Configuration on Dell Power Edge R620 servers
+- name: RAID-1 Configuration on Dell Power Edge R620 servers
+  gather_facts: false
   hosts: idrac_hosts
   user: root
-  become: yes
-
+  become: true
   tasks:
-
     - name: Reset RAID Controller
-      raw: racadm raid resetconfig:RAID.Integrated.1-1
+      ansible.builtin.raw: racadm raid resetconfig:RAID.Integrated.1-1
+      changed_when: false
       register: raidreset_status
 
-    - debug: var=raidreset_status
+    - name: Display raidreset_status
+      ansible.builtin.debug:
+        var: raidreset_status
 
     - name: Create a Job RAID Controller Reset
-      raw: racadm jobqueue create RAID.Integrated.1-1
+      ansible.builtin.raw: racadm jobqueue create RAID.Integrated.1-1
+      changed_when: false
       register: raidreset_job
-      failed_when: '"ERROR" in raidreset_status.stdout'
+      failed_when: "'ERROR' in raidreset_status.stdout"
       #failed_when: "'STOR023' in 'raidreset_job'"
 
-    - debug: var=raidreset_job
+    - name: Display raidreset_job
+      ansible.builtin.debug:
+        var: raidreset_job
 
     - name: Powercycle the server to execute the job for RAID Controller Reset
-      raw: racadm serveraction powercycle
+      when: raidreset_job|d('')|length>0
+      ansible.builtin.raw: racadm serveraction powercycle
+      changed_when: false
       register: raidreset_reboot
-      when: raidreset_job != ''
-      #failed_when: '"ERROR" in raidreset_job.stdout_lines'
+      #failed_when: "'ERROR' in raidreset_job.stdout_lines"
 
-    - debug: var=raidreset_reboot
+    - name: Display raidreset_reboot
+      ansible.builtin.debug:
+        var: raidreset_reboot
 
     - name: Wait for RAID Reset job to be completed
-      raw: racadm jobqueue view
+      when: "'Server power operation successful' in raidreset_reboot.stdout_lines"
+      ansible.builtin.raw: racadm jobqueue view
+      changed_when: false
       register: raidreset_jobstatus
       until: raidreset_jobstatus.stdout.find("Running") <= 0 and raidreset_jobstatus.stdout.find("Scheduled") <= 0 and raidreset_jobstatus.stdout.find("New") <= 0
       retries: 20
       delay: 30
-      when: '"Server power operation successful" in raidreset_reboot.stdout_lines'
 
-    - debug: var=raidreset_jobstatus
+    - name: Display raidreset_jobstatus
+      ansible.builtin.debug:
+        var: raidreset_jobstatus
 
     - name: Checking whether RAID reset deleted all the Virtual Disks
-      raw: racadm raid get vdisks
+      ansible.builtin.raw: racadm raid get vdisks
+      changed_when: false
       register: vdisks_status
-    
-    - debug: var=vdisks_status  
+
+    - name: Display vdisks_status
+      ansible.builtin.debug:
+        var: vdisks_status
 
     - name: Setup Hardware RAID-1 across first two disks
-      raw: racadm raid createvd:RAID.Integrated.1-1 -rl r1 -wp wt -rp nra -dcp default -ss 64k -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1
+      ansible.builtin.raw: |
+        racadm raid createvd:RAID.Integrated.1-1 -rl r1 -wp wt -rp nra -dcp default -ss 64k \
+          -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1
+      changed_when: false
       register: vdisk_raid1_status
-      failed_when: '"Disk.Virtual" in vdisks_status.stdout'
-      #failed_when: '"Disk.Virtual.0:RAID.Integrated.1-1" in vdisks_status.stdout_lines' 
+      failed_when: "'Disk.Virtual' in vdisks_status.stdout"
+      #failed_when: "'Disk.Virtual.0:RAID.Integrated.1-1' in vdisks_status.stdout_lines"
 
-    - debug: var=vdisk_raid1_status
+    - name: Display vdisk_raid1_status
+      ansible.builtin.debug:
+        var: vdisk_raid1_status
 
-    - name: Create a job for RAID-1 configuration 
-      raw: racadm jobqueue create RAID.Integrated.1-1
+    - name: Create a job for RAID-1 configuration
+      ansible.builtin.raw: racadm jobqueue create RAID.Integrated.1-1
+      changed_when: false
       register: vdisk_raid1_job
-      failed_when: '"ERROR" in vdisk_raid1_job.stdout'
+      failed_when: "'ERROR' in vdisk_raid1_job.stdout"
 
-    - debug: var=vdisk_raid1_job
+    - name: Display vdisk_raid1_job
+      ansible.builtin.debug:
+        var: vdisk_raid1_job
 
     - name: Powercycle the server to execute RAID-1 configuration
-      raw: racadm serveraction powercycle
+      when: vdisk_raid1_job|d('')|length>0
+      ansible.builtin.raw: racadm serveraction powercycle
+      changed_when: false
       register: raid1_reboot
-      when: vdisk_raid1_job != ''
-      #failed_when: '"ERROR" in raid1_reboot.stdout'
+      #failed_when: "'ERROR' in raid1_reboot.stdout"
 
-    - debug: var=raid1_reboot
+    - name: Display raid1_reboot
+      ansible.builtin.debug:
+        var: raid1_reboot
 
     - name: Wait for RAID-1 job to be completed
-      raw: racadm jobqueue view
+      ansible.builtin.raw: racadm jobqueue view
+      changed_when: false
       register: vdisk_raid1_jobstatus
-      until: vdisk_raid1_jobstatus.stdout.find("Running") <= 0 and vdisk_raid1_jobstatus.stdout.find("Scheduled") <= 0 and vdisk_raid1_jobstatus.stdout.find("New") <= 0
+      until:
+        - vdisk_raid1_jobstatus.stdout.find("Running") <= 0
+        - vdisk_raid1_jobstatus.stdout.find("Scheduled") <= 0
+        - vdisk_raid1_jobstatus.stdout.find("New") <= 0
       retries: 20
       delay: 30
-      when: '"Server power operation successful" in raid1_reboot.stdout'
+      when: "'Server power operation successful' in raid1_reboot.stdout"
 
-    - debug: var=vdisk_raid1_jobstatus
+    - name: Display vdisk_raid1_jobstatus
+      ansible.builtin.debug:
+        var: vdisk_raid1_jobstatus
+
+    - name: sleep for 30 seconds and continue with play
+      ansible.builtin.wait_for:
+        timeout: "30"
 
     - name: Clear All the Jobs
-      raw: racadm jobqueue delete --all
+      ansible.builtin.raw: racadm jobqueue delete --all
+      changed_when: false
       register: result_jobqueue
 
-    - debug: var=result_jobqueue
+    - name: Display result_jobqueue
+      ansible.builtin.debug:
+        var: result_jobqueue

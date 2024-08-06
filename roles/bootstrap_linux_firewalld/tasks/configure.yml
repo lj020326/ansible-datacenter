@@ -1,5 +1,4 @@
 ---
-
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} If action==configure, assert service is running"
   when:
     - firewalld_enabled | bool
@@ -7,7 +6,7 @@
   block:
     - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Restart firewalld"
       when: firewalld_enabled | bool
-      ignore_errors: yes
+      ignore_errors: true
       ansible.builtin.service:
         name: firewalld
         state: started
@@ -16,7 +15,7 @@
     - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Assert firewalld service is running"
       ansible.builtin.assert:
         that: not __firewalld_service_status.failed
-        fail_msg: "firewalld_action is set to `configure` but the firewalld service is not running"
+        fail_msg: firewalld_action is set to `configure` but the firewalld service is not running
 
   rescue:
     - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Initialize firewalld config"
@@ -30,18 +29,17 @@
       ansible.builtin.service:
         name: firewalld
         state: restarted
-        enabled: yes
-
+        enabled: true
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure firewalld configuration directory"
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    recurse: yes
+    recurse: true
   loop:
-    - path: "/etc/firewalld/services"
-    - path: "/etc/firewalld/zones"
-    - path: "/etc/firewalld/ipsets"
+    - path: /etc/firewalld/services
+    - path: /etc/firewalld/zones
+    - path: /etc/firewalld/ipsets
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure firewalld custom services"
   when: item.custom|d(false)|bool
@@ -82,7 +80,7 @@
     - firewalld_zones_force_reset|bool
     - item|replace('.xml','') not in __firewalld_zones.values() | list |map(attribute='name')|list
   ansible.builtin.file:
-    path: "/etc/firewalld/zones/{{ item }}"
+    path: /etc/firewalld/zones/{{ item }}
     state: absent
   loop: "{{ get_firewalld_zones.stdout_lines }}"
   notify: Reload firewalld
@@ -143,7 +141,7 @@
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Remove unmanaged ipsets in /etc/firewalld/ipsets"
   ansible.builtin.file:
-    path: "/etc/firewalld/ipsets/{{ item }}"
+    path: /etc/firewalld/ipsets/{{ item }}
     state: absent
   loop: "{{ get_firewalld_ipsets.stdout_lines }}"
   notify: Reload firewalld
@@ -162,11 +160,11 @@
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Disable firewalld" # noqa: ignore-errors
   when: not firewalld_enabled | bool
-  ignore_errors: yes
+  ignore_errors: true
   ansible.builtin.service:
     name: firewalld
     state: stopped
-    enabled: no
+    enabled: false
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Restart firewalld"
   when: firewalld_enabled | bool
@@ -192,7 +190,7 @@
     service: "{{ item.1.name }}"
     permanent: true
     state: enabled
-    immediate: yes
+    immediate: true
   register: firewalld_result
   failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
   with_nested:
@@ -228,11 +226,11 @@
     - __firewalld_zones.values() | list |d([])|flatten|count>0
     - __firewalld_ports|d([])|flatten|count>0
   ansible.posix.firewalld:
-#    zone: "{{ firewalld_default_zone }}"
+    #    zone: "{{ firewalld_default_zone }}"
     port: "{{ item }}"
     permanent: true
     state: enabled
-    immediate: yes
+    immediate: true
   register: firewalld_result
   failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
   loop: "{{ __firewalld_ports|flatten }}"
@@ -249,7 +247,7 @@
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Remove unmanaged services in /etc/firewalld/services"
   when: item|replace('.xml','') not in __firewalld_services|map(attribute='name')|list
   ansible.builtin.file:
-    path: "/etc/firewalld/services/{{ item }}"
+    path: /etc/firewalld/services/{{ item }}
     state: absent
   loop: "{{ get_firewalld_services.stdout_lines }}"
   notify: Reload firewalld

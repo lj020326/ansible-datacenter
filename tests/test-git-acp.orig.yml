@@ -5,12 +5,17 @@
   hosts: localhost
 #  gather_facts: false
   vars_files:
-    - vars/test-git-acp.yml
+    - test-git-acp.yml
     - vars/vault.yml
   tasks:
 
-    - debug: var=ansible_date_time
-    - debug: msg="the current date is {{ ansible_date_time.date }}"
+    - name: Display ansible_date_time
+      ansible.builtin.debug:
+        var: ansible_date_time
+
+    - name: Display ansible_date_time.date
+      ansible.builtin.debug:
+        msg: "the current date is {{ ansible_date_time.date }}"
 
     - name: "Create temporary build directory"
       ansible.builtin.tempfile:
@@ -58,7 +63,7 @@
           ansible.builtin.copy:
             content: "{{ report_inventory_facts_ssh_private_key }}"
             dest: "{{ report_inventory_facts_git_ssh_private_keyfile }}"
-            mode: 0600
+            mode: "0600"
             backup: yes
           no_log: yes
 
@@ -75,7 +80,7 @@
           register: gitclone
 
         - name: "Configure git configs for core.sshCommand"
-          git_config:
+          community.general.git_config:
             scope: local
             repo: "{{ report_inventory_facts_repo_dir }}"
             name: core.sshCommand
@@ -92,7 +97,7 @@
       register: gitclone
 
     - name: "Configure git configs"
-      git_config:
+      community.general.git_config:
         scope: local
         repo: "{{ report_inventory_facts_repo_dir }}"
         name: "{{ item.name }}"
@@ -104,7 +109,7 @@
           value: "{{ report_inventory_facts_git_email }}"
 
     - name: "List git config settings for {{ report_inventory_facts_repo_dir }}"
-      git_config:
+      community.general.git_config:
         list_all: yes
         scope: local
         repo: "{{ report_inventory_facts_repo_dir }}"
@@ -118,8 +123,10 @@
       ansible.builtin.file:
         path: "{{ report_inventory_facts_repo_dir }}/{{ report_inventory_facts_test_filename }}"
         state: touch
+        mode: "0644"
 
-    - ansible.builtin.set_fact:
+    - name: Set git_commit_message
+      ansible.builtin.set_fact:
         git_commit_message: "ansible [{{ playbook_dir|basename }}] windows inventory report updated as of {{ ansible_date_time.iso8601 }}"
 
     ## ref: https://github.com/lvrfrc87/git-acp-ansible

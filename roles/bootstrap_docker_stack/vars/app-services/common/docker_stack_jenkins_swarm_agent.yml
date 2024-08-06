@@ -34,10 +34,10 @@ __docker_stack__jenkins_agent__name: "{{ docker_stack__jenkins_agent__name | d('
 __docker_stack__jenkins_agent__data_dir: "{{ docker_stack__jenkins_agent__data_dir | d('/data/datacenter/jenkins') }}"
 __docker_stack__jenkins_agent__vmware_data_dir_default: /data/datacenter/vmware
 
-__docker_stack__jenkins_agent__vmware_data_dir: "{{ docker_stack__jenkins_agent__vmware_data_dir  | 
-  d(docker_stack__jenkins__vmware_data_dir) | d(__docker_stack__jenkins_agent__vmware_data_dir_default) }}"
+__docker_stack__jenkins_agent__vmware_data_dir: "{{ docker_stack__jenkins_agent__vmware_data_dir  | d(docker_stack__jenkins__vmware_data_dir) | d(__docker_stack__jenkins_agent__vmware_data_dir_default)
+  }}"
 
-__docker_stack__jenkins_agent__swarm_image_default: "registry.example.int:5000/jenkins-swarm-agent:latest"
+__docker_stack__jenkins_agent__swarm_image_default: registry.example.int:5000/jenkins-swarm-agent:latest
 __docker_stack__jenkins_agent__swarm_image: "{{ docker_stack__jenkins_agent__swarm_image | d(__docker_stack__jenkins_agent__swarm_image_default) }}"
 __docker_stack__jenkins_agent__swarm_username: "{{ docker_stack__jenkins_agent__swarm_username | d('sa_swarm_agent') }}"
 __docker_stack__jenkins_agent__swarm_password: "{{ docker_stack__jenkins_agent__swarm_password | d('swarm-password') }}"
@@ -48,13 +48,12 @@ __docker_stack__jenkins_agent__config_dirs:
   - { path: "{{ __docker_stack__jenkins_agent__base_dir }}/jenkins_home" }
 
 __docker_stack__jenkins_agent__config_tpls:
-  - { src: 'jenkins/config-agent-group.conf.j2', dest: "{{ __docker_stack__jenkins_agent__base_dir }}/group" }
-  - { src: 'jenkins/config-agent-passwd.conf.j2', dest: "{{ __docker_stack__jenkins_agent__base_dir }}/passwd" }
+  - { src: jenkins/config-agent-group.conf.j2, dest: "{{ __docker_stack__jenkins_agent__base_dir }}/group" }
+  - { src: jenkins/config-agent-passwd.conf.j2, dest: "{{ __docker_stack__jenkins_agent__base_dir }}/passwd" }
 
 __docker_stack__jenkins_agent__firewalld_ports:
   - "{{ __docker_stack__jenkins_agent__tcp_port }}/tcp"
   - "{{ __docker_stack__jenkins_agent__ssh_port }}/tcp"
-
 
 docker_stack__appspec__jenkins_agent:
   dirs: "{{ __docker_stack__jenkins_agent__config_dirs | d([]) }}"
@@ -66,40 +65,40 @@ docker_stack__appspec__jenkins_agent:
   volumes: "{{ __docker_stack__jenkins_agent__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__jenkins_agent__services | d({}) }}"
 
-
 __docker_stack__jenkins_agent__services:
   ## JENKINS SWARM AGENT
   ## ref: https://hourperday.wordpress.com/2017/05/17/how-to-cicd-with-chef-cookbooks-and-jenkins-part-three/
   jenkins-worker-01:
-    active: no
+    active: false
     container_name: jenkins-worker-01
     image: "{{ __docker_stack__jenkins_agent__swarm_image }}"
     privileged: true
     environment:
       TZ: "{{ docker_stack__timezone }}"
-      JAVA_OPTS: "-Djavax.net.ssl.trustStore=/var/lib/jenkins/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
-      COMMAND_OPTIONS: "-master {{ __docker_stack__jenkins_agent__jenkins_url }} -username {{ __docker_stack__jenkins_agent__swarm_username }} -password {{ __docker_stack__jenkins_agent__swarm_password }} -executors {{ __docker_stack__jenkins_agent__swarm_num_executors }}"
-#      DOCKER_HOST: tcp://socket-proxy:2375
+      JAVA_OPTS: -Djavax.net.ssl.trustStore=/var/lib/jenkins/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+      COMMAND_OPTIONS: -master {{ __docker_stack__jenkins_agent__jenkins_url }} -username {{ __docker_stack__jenkins_agent__swarm_username }} -password {{ __docker_stack__jenkins_agent__swarm_password
+        }} -executors {{ __docker_stack__jenkins_agent__swarm_num_executors }}
+      #      DOCKER_HOST: tcp://socket-proxy:2375
       gid: "{{ docker_stack__user_gid }}"
       uid: "{{ docker_stack__user_uid }}"
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - socket_proxy
-#    ports:
-#      - "{{ __docker_stack__jenkins_agent__ssh_port }}:4444/tcp"
+    #    ports:
+    #      - "{{ __docker_stack__jenkins_agent__ssh_port }}:4444/tcp"
     restart: unless-stopped
     depends_on:
       - jenkins
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - /var/run/docker.sock:/var/run/docker.sock
       - "{{ __docker_stack__jenkins_agent__base_dir }}/passwd:/etc/passwd:ro"
       - "{{ __docker_stack__jenkins_agent__base_dir }}/group:/etc/group:ro"
       - "{{ __docker_stack__jenkins_agent__base_dir }}/jenkins_home:/home/jenkins"
-#      - "{{ __docker_stack__jenkins_agent__base_dir }}/jenkins_home:/var/jenkins_home"
+      #      - "{{ __docker_stack__jenkins_agent__base_dir }}/jenkins_home:/var/jenkins_home"
       - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
       - "{{ __docker_stack__ca_java_keystore }}:/var/lib/jenkins/cacerts"
-#        - /etc/pki/ca-trust/extracted/java/cacerts:/home/jenkins/.cacerts
-#        - /export/data/jenkins/osimages:/data
+      #        - /etc/pki/ca-trust/extracted/java/cacerts:/home/jenkins/.cacerts
+      #        - /export/data/jenkins/osimages:/data
       - "{{ __docker_stack__jenkins_agent__data_dir }}:/data"
       - "{{ __docker_stack__jenkins_agent__vmware_data_dir }}:/vmware"
     deploy:

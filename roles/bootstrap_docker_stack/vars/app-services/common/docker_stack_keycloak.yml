@@ -4,7 +4,7 @@ __docker_stack__keycloak__stack_dir: "{{ docker_stack__dir | d('/home/user/docke
 
 #__docker_stack__keycloak__image: "jboss/keycloak"
 #__docker_stack__keycloak__image: "jboss/keycloak:11.0.3"
-__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:11.0.3"
+__docker_stack__keycloak__image: quay.io/keycloak/keycloak:11.0.3
 #__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:12.0.4"
 #__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:13.0.1"
 #__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:13.0.1"
@@ -46,11 +46,8 @@ __docker_stack__keycloak__config_dirs:
 ##    driver: overlay
 #    external: false
 #    attachable: true
-
-
 __docker_stack__keycloak__volumes:
   keycloak_data: {}
-
 docker_stack__appspec__keycloak:
   dirs: "{{ __docker_stack__keycloak__config_dirs | d([]) }}"
   files: "{{ __docker_stack__keycloak__config_files | d([]) }}"
@@ -61,8 +58,7 @@ docker_stack__appspec__keycloak:
   volumes: "{{ __docker_stack__keycloak__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__keycloak__services | d({}) }}"
 
-__docker_stack__keycloak__traefik_labels: "{{ docker_stack__keycloak__traefik_labels
-  | d(__docker_stack__keycloak__traefik_labels_default) }}"
+__docker_stack__keycloak__traefik_labels: "{{ docker_stack__keycloak__traefik_labels | d(__docker_stack__keycloak__traefik_labels_default) }}"
 
 __docker_stack__keycloak__services:
   ## ref: https://blog.exceptionerror.io/2018/08/29/openldap-keycloak-and-docker/
@@ -70,13 +66,13 @@ __docker_stack__keycloak__services:
   ## ref: https://github.com/jboss-dockerfiles/keycloak/tree/master/docker-compose-examples
   ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
   keycloak:
-    container_name: "keycloak"
+    container_name: keycloak
     image: "{{ __docker_stack__keycloak__image }}"
     depends_on:
       - postgres
     links:
       - postgres
-    restart: "unless-stopped"
+    restart: unless-stopped
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
@@ -89,16 +85,16 @@ __docker_stack__keycloak__services:
       KEYCLOAK_USER: "{{ __docker_stack__keycloak__user }}"
       KEYCLOAK_PASSWORD: "{{ __docker_stack__keycloak__password }}"
       KEYCLOAK_LOGLEVEL: DEBUG
-      PROXY_ADDRESS_FORWARDING: 'true'
+      PROXY_ADDRESS_FORWARDING: "true"
       #JDBC_PARAMS: "ssl=true"
     ports:
       - 8081:8080
     volumes:
       - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/themes:/opt/jboss/keycloak/themes/custome/:rw"
-#        - {{ __docker_stack__keycloak__stack_dir }}/keycloak/data:/data
+      #        - {{ __docker_stack__keycloak__stack_dir }}/keycloak/data:/data
       - keycloak_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/"]
+      test: [CMD, curl, -f, http://localhost:8080/auth/]
       interval: 5s
       timeout: 2s
       retries: 15
@@ -106,7 +102,7 @@ __docker_stack__keycloak__services:
       mode: replicated
       placement:
         constraints:
-          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+          - node.hostname == {{ __docker_stack__base__traefik_host }}
       replicas: 1
       restart_policy:
         condition: on-failure

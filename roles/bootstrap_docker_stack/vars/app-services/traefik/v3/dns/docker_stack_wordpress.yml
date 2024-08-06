@@ -22,24 +22,23 @@ __docker_stack__wordpress__services:
       MYSQL_DATABASE: wordpressdb
       MYSQL_USER: "{{ __docker_stack__wordpress__db_user }}"
       MYSQL_PASSWORD: "{{ __docker_stack__wordpress__db_password }}"
-      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
     volumes:
       # Persist the database on disk
-#      - "./db:/var/lib/mysql"
+      #      - "./db:/var/lib/mysql"
       - "{{ docker_stack__dir }}/wordpress/db:/var/lib/mysql"
 
-#  wordpress-redis:
-#    image: redis:6
-#    restart: always
-#    ports:
-#      - "6379:6379"
-#    networks:
-#      - net
-#    # launch Redis in cache mode with :
-#    #  - max memory up to 50% of your RAM if needed (--maxmemory 512mb)
-#    #  - deleting oldest data when max memory is reached (--maxmemory-policy allkeys-lru)
-#    entrypoint: redis-server --maxmemory 512mb -maxmemory-policy allkeys-lru
-
+  #  wordpress-redis:
+  #    image: redis:6
+  #    restart: always
+  #    ports:
+  #      - "6379:6379"
+  #    networks:
+  #      - net
+  #    # launch Redis in cache mode with :
+  #    #  - max memory up to 50% of your RAM if needed (--maxmemory 512mb)
+  #    #  - deleting oldest data when max memory is reached (--maxmemory-policy allkeys-lru)
+  #    entrypoint: redis-server --maxmemory 512mb -maxmemory-policy allkeys-lru
 
   ## ref: https://medium.com/@thibaut.deveraux/a-docker-compose-file-to-install-wordpress-with-a-traefik-reverse-proxy-an-ssl-certificate-and-a-e878c2a03a17
   ## ref: https://serverfault.com/questions/987673/traefik-wordpress-redirecting
@@ -52,48 +51,47 @@ __docker_stack__wordpress__services:
   wordpress:
     container_name: wordpress
     image: "{{ __docker_stack__wordpress__app_image }}"
-    restart: "unless-stopped"
-#    depends_on:
-#      - mariadb
+    restart: unless-stopped
+    #    depends_on:
+    #      - mariadb
     depends_on:
       - wordpress-db
-#      - wordpress-redis
+    #      - wordpress-redis
     links:
       - wordpress-db:db
-#    ports:
-#      - "{{ __docker_stack__wordpress__http_port }}:80"
+    #    ports:
+    #      - "{{ __docker_stack__wordpress__http_port }}:80"
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
     environment:
       TZ: "{{ docker_stack__timezone }}"
       # Connect wordpress to the database
-      WORDPRESS_DB_HOST: "db:{{ __docker_stack__wordpress__mysql_port }}"
+      WORDPRESS_DB_HOST: db:{{ __docker_stack__wordpress__mysql_port }}
       WORDPRESS_DB_USER: "{{ __docker_stack__wordpress__db_user }}"
       WORDPRESS_DB_PASSWORD: "{{ __docker_stack__wordpress__db_password }}"
       WORDPRESS_DB_NAME: wordpressdb
       WORDPRESS_CONFIG_EXTRA: |
-              define('WP_SITEURL', '{{ __docker_stack__wordpress__siteurl }}');
-              define('WP_HOME','{{ __docker_stack__wordpress__siteurl }}');
+        define('WP_SITEURL', '{{ __docker_stack__wordpress__siteurl }}');
+        define('WP_HOME','{{ __docker_stack__wordpress__siteurl }}');
     volumes:
       - "{{ docker_stack__dir }}/wordpress/passwd:/etc/passwd:ro"
       - "{{ docker_stack__dir }}/wordpress/group:/etc/group:ro"
       - "{{ docker_stack__dir }}/wordpress/html:/var/www/html"
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.wordpress_insecure.entrypoints=http"
-      - "traefik.http.routers.wordpress_insecure.rule=Host(`{{ __docker_stack__wordpress__host }}`)"
-      - "traefik.http.routers.wordpress_insecure.middlewares=https-only@file"
-      - "traefik.http.routers.wordpress.entrypoints=https"
-      - "traefik.http.routers.wordpress.rule=Host(`{{ __docker_stack__wordpress__host }}`)"
-#      - "traefik.http.routers.wordpress.middlewares=sslheaders@file"
-#      - "traefik.http.routers.wordpress.middlewares=chain-no-auth@file"
-      - "traefik.http.routers.wordpress.middlewares=secured-noauth@file"
+      - traefik.enable=true
+      - traefik.http.routers.wordpress_insecure.entrypoints=http
+      - traefik.http.routers.wordpress_insecure.rule=Host(`{{ __docker_stack__wordpress__host }}`)
+      - traefik.http.routers.wordpress_insecure.middlewares=https-only@file
+      - traefik.http.routers.wordpress.entrypoints=https
+      - traefik.http.routers.wordpress.rule=Host(`{{ __docker_stack__wordpress__host }}`)
+      #      - "traefik.http.routers.wordpress.middlewares=sslheaders@file"
+      #      - "traefik.http.routers.wordpress.middlewares=chain-no-auth@file"
+      - traefik.http.routers.wordpress.middlewares=secured-noauth@file
       ## ref: https://serverfault.com/questions/987673/traefik-wordpress-redirecting
 ##      - "traefik.http.services.wordpress.loadbalancer.server.port=80"
 #      - "traefik.http.services.wordpress.loadbalancer.server.port=443"
 #      - "traefik.http.services.wordpress.loadbalancer.server.scheme=https"
-
 
 docker_stack__appspec__wordpress:
   dirs: "{{ __docker_stack__wordpress__config_dirs | d([]) }}"

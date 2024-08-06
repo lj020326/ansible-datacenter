@@ -1,5 +1,4 @@
 ---
-
 #####################
 ## IMPORTANT NOTES:
 ##
@@ -29,7 +28,7 @@
 ## in a single site.yml
 ##
 
-- name: "Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'"
+- name: Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'
   hosts: all,!ansible_localhost,!node_offline
   tags: always
   ignore_unreachable: true
@@ -43,53 +42,46 @@
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
-- name: "Apply common groups and vars"
+- name: Apply common groups and vars
   hosts: all,!ansible_localhost,!node_offline
   tags: always
-#  gather_facts: false
+  #  gather_facts: false
   roles:
     - role: apply_common_groups
-      gather_facts: true
       when:
         - not apply_common_groups_exclude|d(False)|bool
         - inventory_hostname in ansible_play_hosts
 
-- name: "Display apply_common_groups derived group vars"
+- name: Display apply_common_groups derived group vars
   hosts: os_linux,os_windows,!node_offline
   tags:
     - always
     - display-common-vars
     - display-network-vars
   tasks:
-
-    - name: "Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups"
+    - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
         msg:
-          - "dc_machine_type={{ dc_machine_type|d('') }}"
-          - "dc_os_family={{ dc_os_family|d('') }}"
-          - "dc_os_family_shortname={{ dc_os_family_shortname|d('') }}"
-          - "dc_os_distribution={{ dc_os_distribution|d('') }}"
-          - "dc_os_dist_version={{ dc_os_dist_version|d('') }}"
+          - dc_machine_type={{ dc_machine_type|d('') }}
+          - dc_os_family={{ dc_os_family|d('') }}
+          - dc_os_family_shortname={{ dc_os_family_shortname|d('') }}
+          - dc_os_distribution={{ dc_os_distribution|d('') }}
+          - dc_os_dist_version={{ dc_os_dist_version|d('') }}
 #          - "dc_network_site={{ dc_network_site|d('') }}"
 #          - "dc_network_location={{ dc_network_location|d('') }}"
 #          - "dc_network_segment={{ dc_network_segment|d('') }}"
 
-- name: "Display controller vars"
+- name: Display controller vars
   hosts: ansible_localhost
   tags:
     - display-controller-vars
   tasks:
-    - name: "Display controller vars - excluding sensitive and/or global scope keys 
-             (e.g., '.*token.*', '.*password.*', '.*private_key.*', etc)"
+    - name: Display controller vars - excluding sensitive and/or global scope keys (e.g., '.*token.*', '.*password.*', '.*private_key.*', etc)
       ansible.builtin.debug:
-        var: vars | dict2items 
-              | rejectattr('key', 'match', '.*vault.*') 
-              | rejectattr('key', 'match', '.*token.*') 
-              | rejectattr('key', 'match', '.*password.*') 
-              | rejectattr('key', 'match', '.*private_key.*') 
-              | list | items2dict
+        var: vars | dict2items | rejectattr('key', 'match', '.*vault.*') | rejectattr('key', 'match', '.*token.*') | rejectattr('key', 'match', '.*password.*') |
+          rejectattr('key', 'match', '.*private_key.*') | list | items2dict
 
-- name: "Display controller environment variables"
+- name: Display controller environment variables
   hosts: ansible_localhost
   tags:
     - display-ansible-env
@@ -97,14 +89,10 @@
     - debug-envvars
     - debug-env-vars
   tasks:
-    - name: "Display ansible_env - excluding sensitive and/or global scope keys 
-             (e.g., '.*TOKEN.*', '.*PASSWORD.*', '.*PRIVATE_KEY.*', etc)"
+    - name: Display ansible_env - excluding sensitive and/or global scope keys (e.g., '.*TOKEN.*', '.*PASSWORD.*', '.*PRIVATE_KEY.*', etc)
       ansible.builtin.debug:
-        var: ansible_env | dict2items 
-              | rejectattr('key', 'match', '.*TOKEN.*') 
-              | rejectattr('key', 'match', '.*PASSWORD.*') 
-              | rejectattr('key', 'match', '.*PRIVATE_KEY.*') 
-              | list | items2dict
+        var: ansible_env | dict2items | rejectattr('key', 'match', '.*TOKEN.*') | rejectattr('key', 'match', '.*PASSWORD.*') | rejectattr('key', 'match', '.*PRIVATE_KEY.*')
+          | list | items2dict
 
 #    ## Debugging purposes: print all environment variables
 #    ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
@@ -114,7 +102,7 @@
 #          ansible.builtin.debug:
 #            var: environment
 
-- name: "Display hostvars"
+- name: Display hostvars
   hosts: all,!node_offline
   become: false
   gather_facts: true
@@ -124,22 +112,16 @@
     - display-hostvars
   tasks:
     ## ref: https://stackoverflow.com/questions/53264221/in-ansible-how-to-filter-a-dictionary-based-on-regex-pattern-on-the-keys
-    - name: "Display host variables - excluding sensitive and/or global scope keys 
-             (e.g., `.*vault.*`, '.*private_key.*', 'groups', '.*password.*', etc)"
+    - name: Display host variables - excluding sensitive and/or global scope keys (e.g., `.*vault.*`, '.*private_key.*', 'groups', '.*password.*', etc)
       ansible.builtin.debug:
-        var: hostvars[inventory_hostname] | dict2items 
-              | rejectattr('key', 'match', '.*vault.*') 
-              | rejectattr('key', 'match', '.*password.*') 
-              | rejectattr('key', 'match', '.*private_key.*') 
-              | rejectattr('key', 'match', 'groups') 
-              | rejectattr('key', 'match', 'dcc_network_global_config') 
-              | list | items2dict
+        var: hostvars[inventory_hostname] | dict2items | rejectattr('key', 'match', '.*vault.*') | rejectattr('key', 'match', '.*password.*') | rejectattr('key',
+          'match', '.*private_key.*') | rejectattr('key', 'match', 'groups') | rejectattr('key', 'match', 'dcc_network_global_config') | list | items2dict
 
-- name: "Display cert info"
+- name: Display cert info
   hosts: all,!ansible_localhost,!node_offline
   ignore_unreachable: true
   ignore_errors: true
-#  gather_facts: false
+  #  gather_facts: false
   tags:
     - bootstrap-cacerts
     - bootstrap-signing-certs
@@ -158,7 +140,7 @@
         - ca_internal_domains_dynamic
         - ca_routes_dynamic
 
-- name: "Display bind info"
+- name: Display bind info
   hosts: bind_master,!node_offline
   tags:
     - bootstrap-bind
@@ -166,19 +148,17 @@
   ignore_unreachable: true
   ignore_errors: true
   tasks:
-
-    - name: "Print domain vars"
+    - name: Print domain vars
       when: inventory_hostname in groups['bind_master'] or inventory_hostname in groups['bind_slave']
       ansible.builtin.debug:
         var: "{{ item }}"
       loop:
-          - bind_zone_hosts_dynamic
-
+        - bind_zone_hosts_dynamic
 
 ##
 ## Deploy VMs
 ##
-- name: "Deploy Virtual Machines"
+- name: Deploy Virtual Machines
   hosts: vmware_control_node
   tags:
     - bootstrap-vm
@@ -200,8 +180,8 @@
   roles:
     - role: fetch_linux_os_configs
 
-- name: "Report inventory facts"
-#  hosts: os_windows,!node_offline
+- name: Report inventory facts
+  #  hosts: os_windows,!node_offline
   hosts: os_windows,os_linux,!node_offline
   gather_facts: false
   tags:
@@ -214,7 +194,7 @@
 ##
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
-- name: "Bootstrap linux firewall"
+- name: Bootstrap linux firewall
   hosts: os_linux,!node_offline
   become: true
   tags:
@@ -226,7 +206,7 @@
       firewalld_action: install
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
-- name: "Configure linux firewall"
+- name: Configure linux firewall
   hosts: os_linux,!node_offline
   become: true
   tags:
@@ -236,7 +216,7 @@
     - role: bootstrap_linux_firewalld
       firewalld_action: configure
 
-- name: "Bootstrap linux packages"
+- name: Bootstrap linux packages
   hosts: os_linux,!node_offline
   become: true
   tags:
@@ -248,7 +228,7 @@
 ##
 ## bootstrap logrotate
 ##
-- name: "Bootstrap logrotate"
+- name: Bootstrap logrotate
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-logrotate
@@ -260,7 +240,7 @@
 ##
 ## bootstrap mounts
 ##
-- name: "Bootstrap mounts"
+- name: Bootstrap mounts
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-mounts
@@ -269,7 +249,7 @@
   roles:
     - role: bootstrap_linux_mount
 
-- name: "Bootstrap linux ntp"
+- name: Bootstrap linux ntp
   hosts: os_linux,!node_offline
   become: true
   tags:
@@ -278,7 +258,7 @@
   roles:
     - role: bootstrap_ntp
 
-- name: "Bootstrap nfs services"
+- name: Bootstrap nfs services
   hosts: os_linux,!node_offline
   become: true
   tags:
@@ -289,7 +269,7 @@
     - role: bootstrap_linux_firewalld
       firewalld_action: configure
 
-- name: "Bootstrap linux crons"
+- name: Bootstrap linux crons
   hosts: os_linux,!node_offline
   become: true
   tags:
@@ -298,7 +278,7 @@
   roles:
     - role: bootstrap_linux_cron
 
-- name: "Bootstrap webmin"
+- name: Bootstrap webmin
   hosts: os_linux,!node_offline
   become: true
   tags:
@@ -309,7 +289,7 @@
 
 ## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
 ## ref: https://github.com/nathancurry/homelab.ansible/tree/master
-- name: "Configure nameservers"
+- name: Configure nameservers
   hosts: nameserver,!node_offline
   become: true
   tags:
@@ -318,15 +298,15 @@
     - bind-node
     - deploy-vm
   roles:
-#    - role: chronyclient
+    #    - role: chronyclient
     - role: bootstrap_bind
-#    - role: ansible-role-dhcp
+    #    - role: ansible-role-dhcp
     - role: bootstrap_linux_firewalld
       firewalld_action: configure
-      tags: [ 'firewall-config-nameserver' ]
+      tags: [firewall-config-nameserver]
 
 
-- name: "Bootstrap kvm hosts"
+- name: Bootstrap kvm hosts
   hosts: kvm_host,!node_offline
   gather_facts: false
   become: true
@@ -334,7 +314,6 @@
     - bootstrap-kvm
   roles:
     - role: bootstrap_kvm
-
 
 ##
 ## make sure this is running as bootstrap user
@@ -344,7 +323,7 @@
 ## ref: https://stackoverflow.com/questions/41771725/ansible-2-1-2-playbook-pass-ssh-password-and-sudo-password-as-command-line-args
 ## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
 ##
-- name: "Display bootstrap user info"
+- name: Display bootstrap user info
   hosts: all,!node_offline
   become: false
   gather_facts: false
@@ -352,30 +331,30 @@
     - bootstrap-ansible-user
     - bootstrap-ansible
   tasks:
-    - name: "Display bootstrap_user"
+    - name: Display bootstrap_user
       ansible.builtin.debug:
         var: bootstrap_user
 
-    - name: "Display ansible_user"
+    - name: Display ansible_user
       ansible.builtin.debug:
         var: ansible_user
 
-    - name: "Display bootstrap_user_password"
+    - name: Display bootstrap_user_password
       ansible.builtin.debug:
         var: bootstrap_user_password
         verbosity: 1
 
-    - name: "Display ansible_user"
+    - name: Display ansible_user
       ansible.builtin.debug:
         var: ansible_user
 
-- name: "Bootstrap linux ansible user"
+- name: Bootstrap linux ansible user
   hosts: os_linux,!node_offline
   gather_facts: false
   become: true
   remote_user: "{{ bootstrap_user }}"
   vars:
-#    ansible_ssh_user: "{{ bootstrap_user }}"
+    #    ansible_ssh_user: "{{ bootstrap_user }}"
     ansible_user: "{{ bootstrap_user }}"
     ansible_password: "{{ bootstrap_user_password }}"
     ansible_ssh_common_args: |
@@ -383,7 +362,7 @@
       -o UserKnownHostsFile=/dev/null \
       -o PreferredAuthentications=password \
       -o PubkeyAuthentication=no
-#    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  #    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
   tags:
     - bootstrap-ansible-user
     - bootstrap-ansible
@@ -391,16 +370,16 @@
     - role: bootstrap_linux_user
       bootstrap_linux_user__list: "[ {{ bootstrap_ansible_user }} ]"
 
-- name: "Bootstrap linux users"
+- name: Bootstrap linux users
   hosts: os_linux,!node_offline
   gather_facts: true
   become: true
   remote_user: "{{ bootstrap_user }}"
   vars:
-#    ansible_ssh_user: "{{ bootstrap_user }}"
+    #    ansible_ssh_user: "{{ bootstrap_user }}"
     ansible_user: "{{ bootstrap_user }}"
     ansible_password: "{{ bootstrap_user_password }}"
-    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   tags:
     - bootstrap-linux
     - bootstrap-linux-user
@@ -411,16 +390,16 @@
 ##
 ## Bootstrap linux plays
 ##
-- name: "Bootstrap linux to new deployed vm instance"
+- name: Bootstrap linux to new deployed vm instance
   hosts: vmware_new_vm_linux
-#  gather_facts: false
+  #  gather_facts: false
   tags: deploy-vm
   become: true
   roles:
     - role: apply_common_groups
     - role: bootstrap_linux
 
-- name: "Bootstrap linux"
+- name: Bootstrap linux
   hosts: os_linux,!node_offline
   gather_facts: false
   tags:
@@ -431,7 +410,7 @@
   roles:
     - role: bootstrap_linux
 
-- name: "Bootstrap linux core"
+- name: Bootstrap linux core
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-linux-core
@@ -439,32 +418,30 @@
   roles:
     - role: bootstrap_linux_core
 
-
 ##
 ## Bootstrap windows plays
 ##
-- name: "Bootstrap windows to new deployed vm instance"
+- name: Bootstrap windows to new deployed vm instance
   hosts: vmware_new_vm_windows
   tags: deploy-vm
   become: true
   roles:
     - role: bootstrap_windows
 
-- name: "Bootstrap windows"
+- name: Bootstrap windows
   hosts: os_windows,!node_offline
-#  hosts: windows,!node_offline
+  #  hosts: windows,!node_offline
   tags:
     - bootstrap-windows
     - bootstrap-windows-user
     - bootstrap-node
-#  become: true
-#  become_method: runas
+  #  become: true
+  #  become_method: runas
   roles:
     - role: bootstrap_windows
 
-
 ## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
-- name: "Bootstrap CI/CD node"
+- name: Bootstrap CI/CD node
   hosts: cicd_node,!node_offline,!ansible_localhost
   tags:
     - bootstrap
@@ -482,13 +459,13 @@
     - role: bootstrap_ansible
     - role: bootstrap_packer
     - role: bootstrap_nodejs
-#    - role: bootstrap_jenkins_swarm_agent
+    #    - role: bootstrap_jenkins_swarm_agent
     - role: bootstrap_jenkins_agent
     - role: bootstrap_inspec
     - role: bootstrap_govc
     - role: bootstrap_ovftool
 
-- name: "Bootstrap Jenkins Agents"
+- name: Bootstrap Jenkins Agents
   hosts: jenkins_agent,!node_offline
   tags:
     - bootstrap-jenkins-agent
@@ -503,7 +480,7 @@
     - role: bootstrap_inspec
     - role: bootstrap_packer
 
-- name: "Bootstrap iscsi clients"
+- name: Bootstrap iscsi clients
   hosts: iscsi_client,!node_offline
   tags:
     - bootstrap
@@ -514,7 +491,7 @@
   roles:
     - role: bootstrap_iscsi_client
 
-- name: "Bootstrap ntp servers"
+- name: Bootstrap ntp servers
   hosts: ntp_server,!node_offline
   tags:
     - bootstrap-ntp
@@ -523,7 +500,7 @@
   roles:
     - role: bootstrap_ntp
 
-- name: "Bootstrap ntp clients"
+- name: Bootstrap ntp clients
   hosts: ntp_network,!ntp_server,!node_offline
   tags:
     - bootstrap-ntp
@@ -532,10 +509,9 @@
   roles:
     - role: bootstrap_ntp
 
-
 ## ref: https://blog.ktz.me/combining-zfs-with-other-filesystems-using-mergerfs/
 ## ref: https://selfhostedhome.com/combining-different-sized-drives-with-mergerfs-and-snapraid/
-- name: "Setup mergerfs nodes"
+- name: Setup mergerfs nodes
   hosts: mergerfs,!node_offline
   tags:
     - mergerfs
@@ -544,13 +520,13 @@
   roles:
     - role: bootstrap_snapraid
     - role: bootstrap_hddtemp
-#    - role: bootstrap_telegraf
+      #    - role: bootstrap_telegraf
       ignore_errors: true
-#    - role: sanoid
-#    - role: syncoid
+    #    - role: sanoid
+    #    - role: syncoid
     - role: bootstrap_mergerfs
 
-- name: "Install veeam-agent"
+- name: Install veeam-agent
   hosts: veeam_agent,!node_offline
   become: true
   tags:
@@ -562,19 +538,19 @@
     - role: bootstrap_veeam_agent
     - role: bootstrap_linux_firewalld
       firewalld_action: configure
-      tags: [ 'firewall-config-veeamagent' ]
+      tags: [firewall-config-veeamagent]
 
-- name: "Configure veeam-agent jobs"
+- name: Configure veeam-agent jobs
   hosts: veeam_agent,!node_offline
   become: true
   tags:
     - config-veeam-agent
-#    - bootstrap-veeam
-#    - bootstrap-veeam-agent
+  #    - bootstrap-veeam
+  #    - bootstrap-veeam-agent
   roles:
     - role: bootstrap_veeam_agent_config
 
-- name: "Bootstrap postfix server"
+- name: Bootstrap postfix server
   hosts: postfix_server,!node_offline
   tags:
     - bootstrap-postfix
@@ -583,7 +559,7 @@
   roles:
     - role: bootstrap_postfix
 
-- name: "Bootstrap postfix client"
+- name: Bootstrap postfix client
   hosts: postfix_network,!postfix_server,!node_offline
   tags:
     - bootstrap-postfix
@@ -592,7 +568,7 @@
   roles:
     - role: bootstrap_postfix
 
-- name: "Bootstrap sshd"
+- name: Bootstrap sshd
   hosts: os_linux,!node_offline
   gather_facts: false
   tags:
@@ -602,7 +578,7 @@
   roles:
     - role: bootstrap_sshd
 
-- name: "Bootstrap ldap client"
+- name: Bootstrap ldap client
   hosts: ldap_client,!node_offline
   tags:
     - bootstrap-ldap-client
@@ -610,7 +586,7 @@
   roles:
     - role: bootstrap_ldap_client
 
-- name: "Bootstrap ansible node"
+- name: Bootstrap ansible node
   hosts: ansible_controller,!node_offline
   tags:
     - bootstrap
@@ -622,7 +598,7 @@
     - role: bootstrap_ansible
     - role: bootstrap_linux_locale
 
-- name: "Bootstrap pip"
+- name: Bootstrap pip
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-pip
@@ -631,12 +607,12 @@
     - role: bootstrap_pip
 
 ## setup step-ca pki, create CA certs and install CA certs
-- name: "Configure Step-ca cli for step clients"
+- name: Configure Step-ca cli for step clients
   hosts: step_ca_cli,!node_offline
   tags:
     - bootstrap-stepca
     - bootstrap-stepca-cli
-#    - bootstrap-caroot
+  #    - bootstrap-caroot
   roles:
     - role: bootstrap_stepca
 
@@ -644,7 +620,7 @@
 ##
 ## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
 ## ref: https://github.com/shelleg/ansible-role-ca/
-- name: "Setup ca_root and cacerts"
+- name: Setup ca_root and cacerts
   hosts: ca_keystore,!node_offline
   gather_facts: false
   tags:
@@ -664,12 +640,12 @@
     - role: bootstrap_certs
       tags: [cacerts-create]
 
-- name: "Deploy CA certs to cert_node"
+- name: Deploy CA certs to cert_node
   hosts: os_linux,!node_offline
   gather_facts: false
   tags:
     - bootstrap-node
-#    - bootstrap-docker-stack
+    #    - bootstrap-docker-stack
     - cacerts
     - cacerts-distribute
     - cacerts-deploy
@@ -679,13 +655,12 @@
   roles:
     - role: deploy_cacerts
 
-
 ## possibly need to install docker_service dependencies first
 ## ref: https://github.com/avinetworks/ansible-role-docker
 ## ref: https://github.com/suzuki-shunsuke/ansible-docker_service-dep/blob/master/tasks/main.yml
 ## ref: https://github.com/ansible/ansible/issues/29510
 ## ref: https://github.com/nickjj/ansible-docker
-- name: "Bootstrap docker nodes"
+- name: Bootstrap docker nodes
   hosts: docker,!node_offline
   tags:
     - bootstrap
@@ -699,7 +674,7 @@
     - role: bootstrap_pip
     - role: bootstrap_docker
 
-- name: "Bootstrap docker nodes"
+- name: Bootstrap docker nodes
   hosts: docker,!node_offline
   tags:
     - bootstrap-docker-swarm
@@ -707,9 +682,9 @@
   become: true
   roles:
     - role: bootstrap_docker
-      bootstrap_docker__actions: ['setup-swarm']
+      bootstrap_docker__actions: [setup-swarm]
 
-- name: "Deploy docker registry certs"
+- name: Deploy docker registry certs
   hosts: docker,!node_offline
   tags:
     - deploy-docker-registry-certs
@@ -719,13 +694,13 @@
   become: true
   roles:
     - role: bootstrap_docker_registry
-      bootstrap_docker_registry__actions: ['deploy-certs']
+      bootstrap_docker_registry__actions: [deploy-certs]
 
 ###########################
 # docker_registry install #
 ###########################
 
-- name: "Create, tag and push docker images (ldap, jenkins, etc) to registry"
+- name: Create, tag and push docker images (ldap, jenkins, etc) to registry
   hosts: docker_image_builder,!node_offline
   tags:
     - bootstrap
@@ -742,25 +717,25 @@
 ##############
 ## bootstrap docker stack nodes
 ##############
-- name: "Bootstrap docker stack node"
+- name: Bootstrap docker stack node
   hosts: docker_stack,!node_offline
   tags:
     - bootstrap-docker-stack
     - docker-stack
   become: true
-#  vars:
-#    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #  vars:
+  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
-- name: "Bootstrap docker control plane node"
+- name: Bootstrap docker control plane node
   hosts: docker_stack_control,!node_offline
   tags:
     - bootstrap-control-node
     - docker-control-node
   become: true
-#  vars:
-#    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #  vars:
+  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
@@ -770,35 +745,35 @@
     - bootstrap-admin-node
     - docker-admin-node
   become: true
-#  vars:
-#    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #  vars:
+  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
-- name: "Bootstrap docker media node"
+- name: Bootstrap docker media node
   hosts: docker_stack_media,!node_offline
   tags:
     - bootstrap-media-node
     - docker-media-node
   become: true
-#  vars:
-#    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #  vars:
+  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
-- name: "Bootstrap docker ml node"
+- name: Bootstrap docker ml node
   hosts: docker_stack_ml,!node_offline
   tags:
     - bootstrap-ml-node
     - docker-ml-node
   become: true
-#  vars:
-#    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #  vars:
+  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
 ## ref: https://github.com/lae/ansible-role-proxmox
-- name: "Deploy ProxMox Cluster"
+- name: Deploy ProxMox Cluster
   hosts: proxmox,!node_offline
   tags:
     - bootstrap-proxmox
@@ -808,7 +783,7 @@
       pve_group: proxmox
 #      pve_reboot_on_kernel_update: true
 
-- name: "Fetch OS images"
+- name: Fetch OS images
   hosts: ansible_localhost
   gather_facts: false
   tags:
@@ -816,7 +791,7 @@
   roles:
     - role: fetch_os_images
 
-- name: "Bootstrap VMware ESXi servers"
+- name: Bootstrap VMware ESXi servers
   hosts: vmware_physical_esx_host,!node_offline
   tags:
     - bootstrap-vmware-esxi
@@ -833,7 +808,7 @@
 ########################
 ## VSPHERE DC Setup role
 ########################
-- name: "Deploy VSphere Datacenter"
+- name: Deploy VSphere Datacenter
   hosts: vsphere_control_node
   tags:
     - deploy-vsphere-dc
@@ -843,7 +818,7 @@
   roles:
     - role: bootstrap_vsphere_dc
 
-- name: "VMware Upgrade ESXi servers"
+- name: VMware Upgrade ESXi servers
   hosts: vmware_physical_esx_host,!node_offline
   tags:
     - vmware-upgrade-esxi
@@ -851,18 +826,18 @@
   roles:
     - role: vmware_upgrade_esxi
 
-- name: "VMware Remount VM Datastores"
+- name: VMware Remount VM Datastores
   hosts: vmware_control_node
   become: true
   tags:
     - vmware-remount-datastores
   roles:
-#    - role: vmware_remount_datastores
+    #    - role: vmware_remount_datastores
     - role: bootstrap_vmware_datastores
       vars:
         vmware_unmount_datastores_first: true
 
-- name: "VMware Mount VM Datastores"
+- name: VMware Mount VM Datastores
   hosts: vmware_control_node
   become: true
   tags:
@@ -870,8 +845,7 @@
   roles:
     - role: bootstrap_vmware_datastores
 
-
-- name: "Bootstrap Openstack"
+- name: Bootstrap Openstack
   hosts: openstack_kolla_node,!node_offline
   tags:
     - bootstrap
@@ -881,7 +855,7 @@
     - name: Configure openstack deploy node
       role: bootstrap_openstack
 
-- name: "Bootstrap k8s cluster"
+- name: Bootstrap k8s cluster
   hosts: k8s_cluster,!node_offline
   tags:
     - bootstrap
@@ -890,10 +864,10 @@
   roles:
     - role: bootstrap_linux_firewalld
       firewalld_action: configure
-      tags: [ firewall-config-k8s ]
+      tags: [firewall-config-k8s]
 
 ## must first run the kolla-ansible (bootstrap-servers|prechecks|deploy)
-- name: "Bootstrap Openstack Cloud"
+- name: Bootstrap Openstack Cloud
   hosts: openstack_kolla_node,!node_offline
   tags:
     - bootstrap-openstack-cloud
@@ -902,7 +876,6 @@
   vars:
     ansible_python_interpreter: "{{ ansible_openstack_python_interpreter }}"
   roles:
-
     - name: Configure openstack client
       tags:
         - bootstrap-openstack-osclient
@@ -915,7 +888,6 @@
       tags:
         - bootstrap-openstack-cloud
       role: bootstrap_openstack_cloud
-
 
 ## bootstrap_fog
 ## ref: https://github.com/ceph/ceph-cm-ansible/tree/master/roles/bootstrap-fog
@@ -932,7 +904,7 @@
 #      default: "no"
 #      private: false
 
-- name: "Setup nginx"
+- name: Setup nginx
   hosts: nginx_service,!node_offline
   tags:
     - nginx-service
@@ -940,16 +912,14 @@
   roles:
     - role: bootstrap_nginx_service
 
-
 - name: Bootstrap iDRAC Automation
   hosts: dell_idrac_hosts,!node_offline
-#  connection: local
+  #  connection: local
   tags:
     - bootstrap-dell-idrac-hosts
     - bootstrap-idrac-hosts
     - bootstrap-idrac
     - dell-idrac-hosts
-  strategy: free
   user: root
   become: true
   gather_facts: false
@@ -962,24 +932,24 @@
   tags:
     - dell-idrac-get-host-info
   connection: local
-  gather_facts: False
+  gather_facts: false
   tasks:
     - name: Get hardware inventory
-#      dellemc_get_system_inventory:
+      #      dellemc_get_system_inventory:
       dellemc.openmanage.idrac_system_info:
-        idrac_ip:  "{{ idrac_ip }}"
-        idrac_port: '443'
-        idrac_user:  "{{ idrac_user }}"
-        idrac_password:  "{{ idrac_password }}"
+        idrac_ip: "{{ idrac_ip }}"
+        idrac_port: "443"
+        idrac_user: "{{ idrac_user }}"
+        idrac_password: "{{ idrac_password }}"
 
     ## ref: https://github.com/dell/dellemc-openmanage-ansible-modules/blob/collections/playbooks/idrac/idrac_lifecycle_controller_status_info.yml
     - name: Check LC Ready Status
-#      dellemc_get_lcstatus:
+      #      dellemc_get_lcstatus:
       dellemc.openmanage.idrac_lifecycle_controller_status_info:
-        idrac_ip:   "{{ idrac_ip }}"
-        idrac_port: '443'
+        idrac_ip: "{{ idrac_ip }}"
+        idrac_port: "443"
         idrac_user: "{{ idrac_user }}"
-        idrac_password:  "{{ idrac_password }}"
+        idrac_password: "{{ idrac_password }}"
 
 ## ref: https://github.com/jonas-werner/ansible-playbooks/blob/master/set_ntp_values.yml
 - name: Change iDRAC NTP Attributes
@@ -987,20 +957,19 @@
   tags:
     - dell-idrac-config-ntp
   connection: local
-  gather_facts: False
+  gather_facts: false
   vars:
-#    ntpserver1: "1.jp.pool.ntp.org"
-#    ntpserver1: "192.168.0.1"
+    #    ntpserver1: "1.jp.pool.ntp.org"
+    #    ntpserver1: "192.168.0.1"
     ntpserver1: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
   tasks:
-
     - name: Enable NTP and set NTP server and Time zone attributes in iDRAC
-      idrac_redfish_config:
+      community.general.idrac_redfish_config:
         category: Manager
         command: SetManagerAttributes
         resource_id: iDRAC.Embedded.1
         manager_attributes:
-          NTPConfigGroup.1.NTPEnable: "Enabled"
+          NTPConfigGroup.1.NTPEnable: Enabled
           NTPConfigGroup.1.NTP1: "{{ ntpserver1 }}"
         baseuri: "{{ idrac_ip }}"
         username: "{{ idrac_user }}"
@@ -1018,7 +987,7 @@
     - bootstrap-tower-resources
   gather_facts: false
   environment:
-    CONTROLLER_VERIFY_SSL: false
+    CONTROLLER_VERIFY_SSL: "false"
   roles:
     - role: bootstrap_tower_resources
 
@@ -1029,7 +998,7 @@
     - remove-tower-resources
   gather_facts: false
   environment:
-    CONTROLLER_VERIFY_SSL: false
+    CONTROLLER_VERIFY_SSL: "false"
   roles:
     - role: bootstrap_tower_resources
       vars:
@@ -1045,4 +1014,3 @@
       awx.awx.export:
         all: true
 #        teams: "TEST - Test Team 1"
-

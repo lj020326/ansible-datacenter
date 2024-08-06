@@ -1,5 +1,4 @@
 ---
-
 - name: "{{ __docker_stack__log_prefix__run_compose }} Init __docker_stack__compose_state to present"
   ansible.builtin.set_fact:
     __docker_stack__compose_state: present
@@ -12,24 +11,24 @@
 - name: "{{ __docker_stack__log_prefix__run_compose }} Set __docker_stack__compose_restarted"
   when: docker_stack__action == 'restart'
   ansible.builtin.set_fact:
-    __docker_stack__compose_restarted: yes
+    __docker_stack__compose_restarted: true
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Set __docker_stack__compose_stopped"
   when: docker_stack__action == 'stop'
   ansible.builtin.set_fact:
-    __docker_stack__compose_stopped: yes
+    __docker_stack__compose_stopped: true
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Login to docker docker-registry"
   when: docker_stack__registry_login | d(False)
   ansible.builtin.debug:
     msg:
-      - "docker_stack__registry_login={{ docker_stack__registry_login }}"
-      - "docker_stack__action={{ docker_stack__action }}"
-      - "docker_stack__registry_endpoint={{ docker_stack__registry_endpoint }}"
-      - "docker_stack__registry_username={{ docker_stack__registry_username }}"
+      - docker_stack__registry_login={{ docker_stack__registry_login }}
+      - docker_stack__action={{ docker_stack__action }}
+      - docker_stack__registry_endpoint={{ docker_stack__registry_endpoint }}
+      - docker_stack__registry_username={{ docker_stack__registry_username }}
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Login to docker docker-registry"
-#  ignore_errors: yes
+  #  ignore_errors: yes
   when:
     - docker_stack__registry_login | bool
     - docker_stack__action in ['setup','start','restart','up']
@@ -38,9 +37,9 @@
     username: "{{ docker_stack__registry_username }}"
     password: "{{ docker_stack__registry_password }}"
     tls_hostname: "{{ docker_stack__registry_endpoint | split(':') | first }}"
-#    ca_cert: ""
-    debug: yes
-    tls: yes
+    #    ca_cert: ""
+    debug: true
+    tls: true
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Display compose args"
   ansible.builtin.debug:
@@ -64,7 +63,7 @@
         state: "{{ __docker_stack__compose_state }}"
         restarted: "{{ __docker_stack__compose_restarted | d(omit) }}"
         stopped: "{{ __docker_stack__compose_stopped | d(omit) }}"
-    #    services: "{{ __docker_stack__app_services | d(omit) }}"
+      #    services: "{{ __docker_stack__app_services | d(omit) }}"
       register: __compose_result
       retries: 4
       delay: 30
@@ -78,7 +77,7 @@
         prune: "{{ docker_stack__compose_stack_prune }}"
         state: "{{ __docker_stack__compose_state }}"
         resolve_image: "{{ docker_stack__compose_stack_resolve_image }}"
-        with_registry_auth: yes
+        with_registry_auth: true
       register: __compose_result
       retries: 4
       delay: 30
@@ -92,11 +91,11 @@
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Init __restart_docker"
       ansible.builtin.set_fact:
-        __restart_docker: no
+        __restart_docker: false
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Set __restart_docker"
       ansible.builtin.set_fact:
-#        __restart_docker: "{{ (__compose_result.msg | regex_search("INVALID_ZONE .* docker")) }}"
+        #        __restart_docker: "{{ (__compose_result.msg | regex_search("INVALID_ZONE .* docker")) }}"
         __restart_docker: "{{ (__compose_result.msg | regex_search('Failed to program NAT chain')) }}"
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Display __restart_docker"
@@ -107,9 +106,9 @@
       when: not __restart_docker
       vars:
         failed_task:
-          result: '{{ ansible_failed_result }}'
+          result: "{{ ansible_failed_result }}"
       ansible.builtin.fail:
-        msg: '{{ failed_task }}'
+        msg: "{{ failed_task }}"
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Handle docker service exception"
       when: __restart_docker
@@ -126,7 +125,7 @@
             state: "{{ __docker_stack__compose_state }}"
             restarted: "{{ __docker_stack__compose_restarted | d(omit) }}"
             stopped: "{{ __docker_stack__compose_stopped | d(omit) }}"
-        #    services: "{{ __docker_stack__app_services | d(omit) }}"
+          #    services: "{{ __docker_stack__app_services | d(omit) }}"
           register: __compose_result
           retries: 3
           delay: 20

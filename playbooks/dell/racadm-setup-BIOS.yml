@@ -1,232 +1,251 @@
---- # Base iDRAC config for Dell PowerEdge R620, R630 and R730xd servers. 
-- gather_facts: false
-  name: Basic iDRAC configuration
+---
+# Base iDRAC config for Dell PowerEdge R620, R630 and R730xd servers. 
+- name: Basic iDRAC configuration
+  gather_facts: false
   hosts: idrac_hosts
   become_user: root
-  become: yes
+  become: true
   vars:
-    target_array:
-      - { target: 'BIOS.SysProfileSettings.SysProfile', job_target: 'Bios.Setup.1-1', target_set: 'SysProfile', value: 'PerfOptimized' }
-      - { target: 'bios.biosbootsettings.BootMode', job_target: 'Bios.Setup.1-1', target_set: 'BootMode', value: 'Bios' }
-      - { target: 'nic.nicconfig.1.LegacyBootProto', job_target: 'NIC.Integrated.1-1-1', target_set: 'LegacyBootProto', value: 'NONE' }
-      - { target: 'nic.nicconfig.3.LegacyBootProto', job_target: 'NIC.Integrated.1-3-1', target_set: 'LegacyBootProto', value: 'PXE' }
+    bootstrap_dell_racadm_host__config_list:
+      - target: BIOS.SysProfileSettings.SysProfile
+        job_target: Bios.Setup.1-1
+        target_set: SysProfile
+        value: PerfOptimized
+      - target: bios.biosbootsettings.BootMode
+        job_target: Bios.Setup.1-1
+        target_set: BootMode
+        value: Bios
+      - target: nic.nicconfig.1.LegacyBootProto
+        job_target: NIC.Integrated.1-1-1
+        target_set: LegacyBootProto
+        value: NONE
+      - target: nic.nicconfig.3.LegacyBootProto
+        job_target: NIC.Integrated.1-3-1
+        target_set: LegacyBootProto
+        value: PXE
   tasks:
-
     - name: Add Dell System Update Repository_OSIndependent
       connection: local
-      yum_repository:
+      ansible.builtin.yum_repository:
         name: dell-system-update_independent
         description: dell-system-update_independent
         file: dell_system_repos
         baseurl: http://linux.dell.com/repo/hardware/dsu/os_independent/
-        gpgcheck: yes
+        gpgcheck: true
         gpgkey: http://linux.dell.com/repo/hardware/dsu/public.key
-        enabled: yes
+        enabled: true
         exclude: dell-system-update*.i386
         state: present
 
-
     - name: Add Dell System Update Repository_OSDependent
       connection: local
-      yum_repository:
+      ansible.builtin.yum_repository:
         name: dell-system-update_dependent
         description: dell-system-update_dependent
         file: dell_system_repos
         mirrorlist: http://linux.dell.com/repo/hardware/dsu/mirrors.cgi?osname=el$releasever&basearch=$basearch&native=1
-        gpgcheck: yes
+        gpgcheck: true
         gpgkey: http://linux.dell.com/repo/hardware/dsu/public.key
-        enabled: yes
+        enabled: true
         state: present
-
 
     - name: Install Dell iDRAC and All server Utilities
       connection: local
-      yum:
+      ansible.builtin.yum:
         name: srvadmin-all
         state: present
 
-
     - name: Install Dell iDRAC RACADM
       connection: local
-      yum:
+      ansible.builtin.yum:
         name: srvadmin-idracadm7
         state: present
 
-#    - name: Check for any Scheduled Jobs
-#      raw: racadm jobqueue view
-#      register: pre_jobqueue_status
-#    - name: debug - Check for any Scheduled Jobs
-#      debug: var=pre_jobqueue_status.stdout_lines
-#
-#    - name: Reboot the iDRAC to complete the Scheduled jobs
-#      raw: racadm serveraction powercycle
-#      register: reboot_status
-#      failed_when: "'ERROR' in reboot_status.stdout or 'Invalid' in reboot_status.stdout"       
-#      when: 'pre_jobqueue_status.stdout != "" and (pre_jobqueue_status.stdout.find("Scheduled") >=0 or pre_jobqueue_status.stdout.find("New") >=0)' 
-#    - name: debug - Reboot the iDRAC to complete the Scheduled jobs
-#      debug: var=reboot_status.stdout
-#
-#    - name: Wait for all the jobs to be completed
-#      raw: racadm jobqueue view
-#      register: pre_jobqueue_completion
-#      until: pre_jobqueue_completion.stdout.find("Running") <= 0 and pre_jobqueue_completion.stdout.find("Scheduled") <= 0 and pre_jobqueue_completion.stdout.find("New") <= 0
-#      retries: 20
-#      delay: 30
-#    - name: debug - Wait for all the jobs to be completed 
-#      debug: var=pre_jobqueue_completion.stdout_lines
-#
+    #    - name: Check for any Scheduled Jobs
+    #      raw: racadm jobqueue view
+    #      register: pre_jobqueue_status
+    #    - name: debug - Check for any Scheduled Jobs
+    #      debug: var=pre_jobqueue_status.stdout_lines
+    #
+    #    - name: Reboot the iDRAC to complete the Scheduled jobs
+    #      raw: racadm serveraction powercycle
+    #      register: reboot_status
+    #      failed_when: "'ERROR' in reboot_status.stdout or 'Invalid' in reboot_status.stdout"       
+    #      when: 'pre_jobqueue_status.stdout != "" and (pre_jobqueue_status.stdout.find("Scheduled") >=0 or pre_jobqueue_status.stdout.find("New") >=0)' 
+    #    - name: debug - Reboot the iDRAC to complete the Scheduled jobs
+    #      debug: var=reboot_status.stdout
+    #
+    #    - name: Wait for all the jobs to be completed
+    #      raw: racadm jobqueue view
+    #      register: pre_jobqueue_completion
+    #      until: pre_jobqueue_completion.stdout.find("Running") <= 0 and pre_jobqueue_completion.stdout.find("Scheduled") <= 0 and pre_jobqueue_completion.stdout.find("New") <= 0
+    #      retries: 20
+    #      delay: 30
+    #    - name: debug - Wait for all the jobs to be completed 
+    #      debug: var=pre_jobqueue_completion.stdout_lines
+    #
     - name: Get Status of the Target
-      raw: racadm get "{{ item.target }}"
-      with_items:
-        - "{{ target_array }}"
+      ansible.builtin.raw: racadm get "{{ item.target }}"
+      changed_when: false
+      loop: "{{ bootstrap_dell_racadm_host__config_list }}"
       register: target_status
 
-#    - debug: msg="{{ target_array | map(attribute='target_set') | list }}""<-->""{{ target_status.results | map(attribute='stdout') | list }}"
-    - debug: msg="{{ target_array | map(attribute='target_set') | list }}"
-    - debug: msg="{{ target_status.results | map(attribute='stdout_lines') | list }}"
+    - name: Display bootstrap_dell_racadm_host__config_list
+#      ansible.builtin.debug: msg="{{ bootstrap_dell_racadm_host__config_list | map(attribute='target_set') | list }}""<-->""{{ target_status.results | map(attribute='stdout') | list }}"
+      ansible.builtin.debug:
+        msg: "{{ bootstrap_dell_racadm_host__config_list | map(attribute='target_set') | list }}"
 
-    #- debug: var=item.stdout_lines
-    #  with_items:
-    #    - "{{ target_status.results }}"
-    #- meta: end_play
-
-    #- debug:
-        #var: item.0.target_set,item.1.stdout_lines 
-        #msg: "{{item.0|map(attribute='target_set')}}{{item.1|map(attribute='stdout_lines')}}"
-    #  with_together:
-    #    - "{{ target_array }}"
-    #    - "{{ target_status.results }}"
-
-    #- meta: end_play
+    - name: Display target_status.results
+      ansible.builtin.debug:
+        msg: "{{ target_status.results | map(attribute='stdout_lines') | list }}"
 
     - name: Executing the racadm set on the targets to have the expected value
-      raw: racadm set "{{ item.0.target }}" "{{ item.0.value }}"
-      #when: '("Pending" in {{item.1.stdout_lines}}) or ({{item.0.target_set}}"="{{item.0.value}} not in {{item.1.stdout_lines}})'
-      #failed_when: '"ERROR" in item.1.stdout or "Invalid" in item.1.stdout'
-      failed_when: '"ERROR" in set_status.stdout or "Invalid" in set_status.stdout'
       when: "'Pending' in item.1.stdout_lines or ( (item.0.target_set ~ '=' ~ item.0.value) not in item.1.stdout_lines )"
+      ansible.builtin.raw: racadm set "{{ item.0.target }}" "{{ item.0.value }}"
+      changed_when: false
+      failed_when: '"ERROR" in set_status.stdout or "Invalid" in set_status.stdout'
       with_together:
-        - "{{ target_array }}"
+        - "{{ bootstrap_dell_racadm_host__config_list }}"
         - "{{ target_status.results }}"
       register: set_status
-   
-    - debug:
-        msg="{{ set_status.results | map(attribute='stdout') | list }}"
 
-
-#    - debug:
-#        msg: "{{ item.1.stdout }}"
-#      when: item.1.changed  == true
-##      changed_when: true
-## '"{{ item.changed == true }}"'
-#      failed_when: '"ERROR" in "{{ item.1.item }}"'
-##      with_items: "{{ set_status.results }}" 
-#      with_together:
-#        - "{{ target_array }}"
-#        - "{{ set_status.results }}"
-
+    - name: Display set_status.results
+      ansible.builtin.debug:
+        msg: "{{ set_status.results | map(attribute='stdout') | list }}"
 
     - name: Creating a job for the new target change
+      when: item.1.changed | bool # noqa: no-handler
       #connection: local
       #shell: /bin/echo 'racadm jobqueue create "{{ item.0.job_target }}"'
-      raw: racadm jobqueue create "{{ item.0.job_target }}"
+      ansible.builtin.raw: racadm jobqueue create "{{ item.0.job_target }}"
+      changed_when: false
       register: jobcreate_status
-      when: item.1.changed == true
       failed_when: '"ERROR" in "{{ item.1.item }}"'
       with_together:
-        - "{{ target_array }}"
+        - "{{ bootstrap_dell_racadm_host__config_list }}"
         - "{{ set_status.results }}"
 
-    - meta: end_play
+    - name: end_play
+      ansible.builtin.meta: end_play
 
-    - debug:
+    - name: Display jobcreate_status.results
+      ansible.builtin.debug:
         msg: "{{ item.1.item }}"
-      when: item.1.changed  == True
-#      failed_when: '"ERROR" in "{{ item.1.item }}"'
+      when: item.1.changed | bool # noqa: no-handler
+      #      failed_when: '"ERROR" in "{{ item.1.item }}"'
       with_together:
-        - "{{ target_array }}"
+        - "{{ bootstrap_dell_racadm_host__config_list }}"
         - "{{ jobcreate_status.results }}"
 
-
     - name: Powercycle the server for the new job execution
+      when: item.1.changed | bool # noqa: no-handler
       #connection: local
       #shell: /bin/echo 'racadm serveraction powercycle'
-      raw: racadm serveraction powercycle
-      when: item.1.changed  == True
+      ansible.builtin.raw: racadm serveraction powercycle
+      changed_when: false
       with_together:
-        - "{{ target_array }}"
+        - "{{ bootstrap_dell_racadm_host__config_list }}"
         - "{{ jobcreate_status.results }}"
       register: reboot_status
 
-    - debug: var=reboot_status.results.stdout 
-      #when: '"serveraction"
+    - name: Display reboot_status.results.stdout
+      ansible.builtin.debug:
+        var: reboot_status.results.stdout
 
-    - debug: msg="{{ reboot_status.results|map(attribute='stdout')|list }}"
-
+    - name: Display reboot_status.results
+      ansible.builtin.debug:
+        msg: "\"{{ reboot_status.results | map(attribute='stdout') | list }}\""
 
     - name: Wait for all the jobs to be completed
-      raw: racadm jobqueue view
+      ansible.builtin.raw: racadm jobqueue view
+      changed_when: false
       register: jobqueue_completion
       until: jobqueue_completion.stdout.find("Running") <= 0 and jobqueue_completion.stdout.find("Scheduled") <= 0 and jobqueue_completion.stdout.find("New") <= 0
       #until: jobqueue_completion.stdout_lines.find("Percent") >= 0 and jobqueue_completion.stdout_lines.find("Completed") >= 0 and jobqueue_completion.stdout_lines.find("Scheduled") <= 0
       retries: 20
       delay: 30
-      when: '"Server power operation successful" in "{{ reboot_status.results|map(attribute="stdout")|list }}"'
-      #with_items:
-      #  - "{{ reboot_status.results }}"
+      when: "'Server power operation successful' in reboot_status.results|map(attribute='stdout')|list"
+      #loop: "{{ reboot_status.results }}"
 
-    - debug: var=jobqueue_completion
-
+    - name: Display jobqueue_completion
+      ansible.builtin.debug:
+        var: jobqueue_completion
 
     - name: Clear All the Jobs
-      raw: racadm jobqueue delete --all
+      ansible.builtin.raw: racadm jobqueue delete --all
+      changed_when: false
       register: result_jobqueue
 
-    - debug: var=result_jobqueue
+    - name: Display result_jobqueue
+      ansible.builtin.debug:
+        var: result_jobqueue
 
     - name: racadm Boot Sequence Status
-      raw: racadm get BIOS.BiosBootSettings.BootSeq
+      ansible.builtin.raw: racadm get BIOS.BiosBootSettings.BootSeq
+      changed_when: false
       register: get_bootseq_status
 
-    - debug: var=get_bootseq_status
+    - name: Display get_bootseq_status
+      ansible.builtin.debug:
+        var: get_bootseq_status
 
     - name: Change Boot Sequence Status, If it doesn't match the required preset
-      raw: racadm set BIOS.BiosBootSettings.BootSeq "HardDisk.List.1-1,NIC.Integrated.1-3-1"
+      when: >
+        'HardDisk.List.1-1,NIC.Integrated.1-3-1' not in get_bootseq_status.stdout 
+        or 'Pending' in get_bootseq_status.stdout
+      ansible.builtin.raw: racadm set BIOS.BiosBootSettings.BootSeq "HardDisk.List.1-1,NIC.Integrated.1-3-1"
+      changed_when: false
       register: set_bootseq_status
-      failed_when: '"ERROR" in set_bootseq_status.stdout or "BOOT016" in set_bootseq_status.stdout'
-      when: '"HardDisk.List.1-1,NIC.Integrated.1-3-1" not in get_bootseq_status.stdout or "Pending" in get_bootseq_status.stdout'
+      failed_when: "'ERROR' in set_bootseq_status.stdout or 'BOOT016' in set_bootseq_status.stdout"
 
-    - debug: var=set_bootseq_status
-
+    - name: Display set_bootseq_status
+      ansible.builtin.debug:
+        var: set_bootseq_status
 
     - name: Create a job for boot sequence change
-      raw: racadm jobqueue create BIOS.Setup.1-1
+      when: set_bootseq_status | changed
+      ansible.builtin.raw: racadm jobqueue create BIOS.Setup.1-1
+      changed_when: false
       register: jobstatus_set_bootseq
       failed_when: '"ERROR" in jobstatus_set_bootseq.stdout'
-      when: set_bootseq_status | changed
 
-    - debug: var=jobstatus_set_bootseq
-#    - meta: end_play
+    - name: Display jobstatus_set_bootseq
+      ansible.builtin.debug:
+        var: jobstatus_set_bootseq
+
     - name: Powercycle the server for the Boot Sequence Job Execution
-      raw: racadm serveraction powercycle
+      when:
+        - jobstatus_set_bootseq | changed
+        - "'Successfully scheduled a job' in jobstatus_set_bootseq.stdout"
+      ansible.builtin.raw: racadm serveraction powercycle
+      changed_when: false
       register: reboot_status
       failed_when: '"ERROR" in reboot_status.stdout'
-      when: '(jobstatus_set_bootseq | changed) and "Successfully scheduled a job" in jobstatus_set_bootseq.stdout'
 
-    - debug: var=reboot_status
+    - name: Display reboot_status
+      ansible.builtin.debug:
+        var: reboot_status
 
     - name: Wait for Boot Sequence Job to be completed
-      raw: racadm jobqueue view
+      when:
+        - reboot_status | changed
+        - "'Server power operation successful' in reboot_status.stdout"
+      ansible.builtin.raw: racadm jobqueue view
+      changed_when: false
       register: jobqueue_completion
       until: jobqueue_completion.stdout.find("Running") <= 0 and jobqueue_completion.stdout.find("Scheduled") <= 0 and jobqueue_completion.stdout.find("New") <= 0
       retries: 20
       delay: 30
-      when: '(reboot_status | changed) and "Server power operation successful" in reboot_status.stdout'
 
-    - debug: var=jobqueue_completion
+    - name: Display jobqueue_completion
+      ansible.builtin.debug:
+        var: jobqueue_completion
 
     - name: Clear All the Jobs
-      raw: racadm jobqueue delete --all
+      ansible.builtin.raw: racadm jobqueue delete --all
+      changed_when: false
       register: result_jobqueue
 
-    - debug: var=result_jobqueue
+    - name: Display result_jobqueue
+      ansible.builtin.debug:
+        var: result_jobqueue

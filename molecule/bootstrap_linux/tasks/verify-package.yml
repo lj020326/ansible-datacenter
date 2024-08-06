@@ -1,0 +1,37 @@
+---
+- name: Set __relative_role_vars_path for bootstrap-linux-package
+  ansible.builtin.set_fact:
+    __relative_role_vars_path: ../../roles/bootstrap-linux-package/vars
+
+- name: Include ntp OS-specific variables.
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_os_family }}.yml"
+    - "{{ __relative_role_vars_path }}/default.yml"
+
+- name: Init __bootstrap_linux_package__package_list
+  ansible.builtin.set_fact:
+    __bootstrap_linux_package__package_list: "{{ bootstrap_linux_package_list|d(bootstrap_linux_package_list_default)|d([]) }}"
+
+- name: Display __bootstrap_linux_package__package_list
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__package_list
+
+- name: Check package status
+  ansible.builtin.package:
+    name: "{{ __bootstrap_linux_package__package_list }}"
+    #    state: "installed"
+    state: present
+  check_mode: true
+  register: pkg_status
+
+- name: Display pkg_status
+  ansible.builtin.debug:
+    var: pkg_status
+
+- name: Check packages are installed
+  ansible.builtin.assert:
+    that:
+      - not pkg_status.changed
