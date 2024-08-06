@@ -9,7 +9,7 @@
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Get vm instance facts to use for post-poweron vm configuration operations
   ansible.builtin.set_fact:
-    __deploy_vm_hostvar_ip: "{{ hostvars[__vm_info.name]['ansible_default_ipv4']['address'] | d(hostvars[__vm_info.name]['ansible_all_ipv4_addresses'][0]) | d('')
+    __deploy_vm__hostvar_ip: "{{ hostvars[__vm_info.name]['ansible_default_ipv4']['address'] | d(hostvars[__vm_info.name]['ansible_all_ipv4_addresses'][0]) | d('')
       }}"
     __deploy_vm__vm_ansible_user: "{{ hostvars[__vm_info.name]['ansible_user'] | d(ansible_user) }}"
     __deploy_vm__vm_ansible_password: "{{ hostvars[__vm_info.name]['ansible_password'] | d(ansible_password__linux) }}"
@@ -17,16 +17,16 @@
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Display __deploy_vm_* vars
   ansible.builtin.debug:
     msg:
-      - __deploy_vm_hostvar_ip={{ __deploy_vm_hostvar_ip }}
+      - __deploy_vm__hostvar_ip={{ __deploy_vm__hostvar_ip }}
 #      - "__deploy_vm__vm_ansible_user={{ __deploy_vm__vm_ansible_user }}"
 #      - "__deploy_vm__vm_ansible_password={{ __deploy_vm__vm_ansible_password }}"
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Change virtual machine's boot order and related parameters
   community.vmware.vmware_guest_boot_manager:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
+    validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
     name: "{{ __vm_info.name }}"
     boot_delay: 2000
     #    enter_bios_setup: True
@@ -34,20 +34,21 @@
     boot_retry_delay: 22300
     boot_firmware: bios
     secure_boot_enabled: false
-    boot_order:
-      - floppy
-      - cdrom
-      - ethernet
-      - disk
+    boot_order: "{{ __vm_info.boot_order | d(omit) }}"
+#    boot_order:
+#      - floppy
+#      - cdrom
+#      - disk
+#      - ethernet
   register: __config_vm
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Power on Virtual Machine
   when: __deploy_vmware_vm_info_by_name[__vm_info.name].power_state != "poweredOn"
   community.vmware.vmware_guest:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
+    validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
     datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
     name: "{{ __vm_info.name }}"
     state: poweredon
@@ -55,10 +56,10 @@
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Gather VM info for {{ __vm_info.name }}
   community.vmware.vmware_guest_info:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
+    validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
     datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
     schema: vsphere
     uuid: "{{ __deploy_vmware_vm_info_by_name[__vm_info.name].uuid }}"
@@ -89,35 +90,35 @@
   block:
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Set powerstate of a virtual machine to poweredoff
       community.vmware.vmware_guest:
-        hostname: "{{ deploy_vm_vcenter_hostname }}"
-        username: "{{ deploy_vm_vcenter_username }}"
-        password: "{{ deploy_vm_vcenter_password }}"
-        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+        hostname: "{{ deploy_vm__vcenter_hostname }}"
+        username: "{{ deploy_vm__vcenter_username }}"
+        password: "{{ deploy_vm__vcenter_password }}"
+        validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
         name: "{{ __vm_info.name }}"
         state: poweredoff
 
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Unregister VM
       changed_when: false
       ansible.builtin.command: govc vm.unregister {{ __vm_info.name }}
-      environment: "{{ deploy_vm_govc_environment }}"
+      environment: "{{ deploy_vm__govc_environment }}"
 
     ## ref: https://opensourcelibs.com/lib/govc
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Create directory {{ __vm_info.datastore_folder }} on VM datastore {{ __vm_info.datastore }}
       changed_when: false
       ansible.builtin.command: govc datastore.mkdir -p -ds={{ __vm_info.datastore }} {{ __vm_info.datastore_folder }}
-      environment: "{{ deploy_vm_govc_environment }}"
+      environment: "{{ deploy_vm__govc_environment }}"
 
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Move VM datastore folder to {{ __vm_info.datastore_folder }}
       changed_when: false
       ansible.builtin.command: govc datastore.mv -f -ds={{ __vm_info.datastore }} {{ __vm_info.name }} {{ __vm_info.datastore_folder }}/{{ __vm_info.name }}
-      environment: "{{ deploy_vm_govc_environment }}"
+      environment: "{{ deploy_vm__govc_environment }}"
 
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Register VM
       changed_when: false
       ansible.builtin.command: |
         govc vm.register -template=false -ds={{ __vm_info.datastore }} -folder={{ __vm_info.folder }} \
           -host={{ __vm_info.host }} {{ __vm_info.datastore_folder }}/{{ __vm_info.name }}/{{ __vm_info.name }}.vmx
-      environment: "{{ deploy_vm_govc_environment }}"
+      environment: "{{ deploy_vm__govc_environment }}"
 
     ## ref: https://docs.openshift.com/container-platform/3.6/install_config/configuring_vsphere.html#vsphere-enabling
     ## ref: https://docs.vmware.com/en/VMware-Workstation-Pro/16.0/com.vmware.ws.using.doc/GUID-E601BE81-59B5-4B6C-BD96-2E1F41CBBDB2.html
@@ -126,7 +127,7 @@
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Update VM UUID action to keep
       changed_when: false
       ansible.builtin.command: govc vm.change -e='uuid.action=keep' -vm={{ __vm_info.name }}
-      environment: "{{ deploy_vm_govc_environment }}"
+      environment: "{{ deploy_vm__govc_environment }}"
 
     #    ## ref: https://www.suse.com/support/kb/doc/?id=000016951
     #    ## ref: https://ubuntuforums.org/showthread.php?t=2441797
@@ -134,10 +135,10 @@
     #    ## ref: https://github.com/ansible/ansible/issues/64291
     #    - name: "Config-vm-vmware-linux[{{ __vm_info.name }}] | Set disk.EnableUUID"
     #      community.vmware.vmware_guest:
-    #        hostname: "{{ deploy_vm_vcenter_hostname }}"
-    #        username: "{{ deploy_vm_vcenter_username }}"
-    #        password: "{{ deploy_vm_vcenter_password }}"
-    #        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+    #        hostname: "{{ deploy_vm__vcenter_hostname }}"
+    #        username: "{{ deploy_vm__vcenter_username }}"
+    #        password: "{{ deploy_vm__vcenter_password }}"
+    #        validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
     #        name: "{{ __vm_info.name }}"
     #        customvalues:
     #          - key: 'disk.EnableUUID'
@@ -146,10 +147,10 @@
 
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Set powerstate of a virtual machine to poweredon
       community.vmware.vmware_guest:
-        hostname: "{{ deploy_vm_vcenter_hostname }}"
-        username: "{{ deploy_vm_vcenter_username }}"
-        password: "{{ deploy_vm_vcenter_password }}"
-        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+        hostname: "{{ deploy_vm__vcenter_hostname }}"
+        username: "{{ deploy_vm__vcenter_username }}"
+        password: "{{ deploy_vm__vcenter_password }}"
+        validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
         name: "{{ __vm_info.name }}"
         state: poweredon
         wait_for_ip_address: true
@@ -167,10 +168,10 @@
 #- name: "Config-vm-vmware-linux[{{ __vm_info.name }}] | Add disk to virtual machine"
 #  when: vm_info.disk is defined
 #  vmware_guest_disk:
-#    hostname: "{{ deploy_vm_vcenter_hostname }}"
-#    username: "{{ deploy_vm_vcenter_username }}"
-#    password: "{{ deploy_vm_vcenter_password }}"
-#    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+#    hostname: "{{ deploy_vm__vcenter_hostname }}"
+#    username: "{{ deploy_vm__vcenter_username }}"
+#    password: "{{ deploy_vm__vcenter_password }}"
+#    validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
 #    name: "{{ __vm_info.name }}"
 #    state: poweredon
 #    wait_for_ip_address: yes
@@ -196,37 +197,37 @@
   block:
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Create working directory on Ansible Controller
       ansible.builtin.file:
-        path: "{{ deploy_vm_workdir }}"
+        path: "{{ deploy_vm__workdir }}"
         state: directory
         mode: "0755"
 
-    - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Copy network configuration file to working directory at {{ deploy_vm_workdir }}
+    - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Copy network configuration file to working directory at {{ deploy_vm__workdir }}
       ansible.builtin.template:
         src: netplan.static.yml.j2
-        dest: "{{ deploy_vm_workdir }}/00-installer-config.yaml"
+        dest: "{{ deploy_vm__workdir }}/00-installer-config.yaml"
         mode: "0644"
 
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Copy network configuration file to Ubuntu VM
       community.vmware.vmware_guest_file_operation:
-        hostname: "{{ deploy_vm_vcenter_hostname }}"
-        username: "{{ deploy_vm_vcenter_username }}"
-        password: "{{ deploy_vm_vcenter_password }}"
-        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+        hostname: "{{ deploy_vm__vcenter_hostname }}"
+        username: "{{ deploy_vm__vcenter_username }}"
+        password: "{{ deploy_vm__vcenter_password }}"
+        validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
         vm_id: "{{ __vm_info.name }}"
         #        vm_id: "{{ __vm_info.uuid }}"
         #        vm_id_type: "uuid"
         vm_username: "{{ __deploy_vm__vm_ansible_user }}"
         vm_password: "{{ __deploy_vm__vm_ansible_password }}"
         ansible.builtin.copy:
-          src: "{{ deploy_vm_workdir }}/00-installer-config.yaml"
+          src: "{{ deploy_vm__workdir }}/00-installer-config.yaml"
           dest: /home/{{ __deploy_vm__vm_ansible_user }}/00-installer-config.yaml
 
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Move network configuration file to right location on Ubuntu VM
       community.vmware.vmware_vm_shell:
-        hostname: "{{ deploy_vm_vcenter_hostname }}"
-        username: "{{ deploy_vm_vcenter_username }}"
-        password: "{{ deploy_vm_vcenter_password }}"
-        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+        hostname: "{{ deploy_vm__vcenter_hostname }}"
+        username: "{{ deploy_vm__vcenter_username }}"
+        password: "{{ deploy_vm__vcenter_password }}"
+        validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
         vm_id: "{{ __vm_info.name }}"
         vm_username: "{{ __deploy_vm__vm_ansible_user }}"
         vm_password: "{{ __deploy_vm__vm_ansible_password }}"
@@ -239,7 +240,7 @@
 
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Delete working directory on Ansible controller
       ansible.builtin.file:
-        path: "{{ deploy_vm_workdir }}"
+        path: "{{ deploy_vm__workdir }}"
         state: absent
 
 ## in both DHCP and static IP cases, it should be expected that the DNS entry for the vm has been created.
@@ -262,21 +263,21 @@
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Add tags to new virtual machines
   #  when: __vm_info.vm_tags|d([])|length>0
   community.vmware.vmware_tag_manager:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
-    tag_names: "{{ __vm_info.deploy_vm_tags }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
+    validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
+    tag_names: "{{ __vm_info.vm_tags }}"
     object_name: "{{ __vm_info.name }}"
     object_type: VirtualMachine
     state: add
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Wait for VMware tools to become available by name
   community.vmware.vmware_guest_tools_wait:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
+    validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
     uuid: "{{ __deploy_vmware_vm_info_by_name[__vm_info.name].uuid }}"
   #    name: "{{ __vm_info.name }}"
   #    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
@@ -305,10 +306,10 @@
     - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Rescue | Restart Virtual Machine if still not responding
       when: __deploy_vmware_vm_info_by_name[__vm_info.name].power_state != "poweredOn"
       community.vmware.vmware_guest:
-        hostname: "{{ deploy_vm_vcenter_hostname }}"
-        username: "{{ deploy_vm_vcenter_username }}"
-        password: "{{ deploy_vm_vcenter_password }}"
-        validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+        hostname: "{{ deploy_vm__vcenter_hostname }}"
+        username: "{{ deploy_vm__vcenter_username }}"
+        password: "{{ deploy_vm__vcenter_password }}"
+        validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
         datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
         name: "{{ __vm_info.name }}"
         state: restarted
