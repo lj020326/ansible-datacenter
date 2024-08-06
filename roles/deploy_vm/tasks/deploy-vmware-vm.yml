@@ -5,9 +5,9 @@
 
 - name: Bootstrap category related to new VMs
   community.vmware.vmware_category:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
     validate_certs: false
     category_name: vm_new_machine
     category_description: Category for newly created VMs prior to bootstrap OS plays
@@ -21,9 +21,9 @@
 
 - name: Initialize all tags related to new VMs
   community.vmware.vmware_tag:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
     validate_certs: false
     category_id: "{{ vm_category_results.category_results.category_id }}"
     tag_name: "{{ item.tag_name }}"
@@ -33,9 +33,9 @@
 
 - name: Set __deploy_vm__vmware_vm_facts_initial
   community.vmware.vmware_vm_info:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
     validate_certs: false
     vm_type: vm
   register: __deploy_vm__vmware_vm_facts_initial
@@ -44,21 +44,21 @@
   ansible.builtin.debug:
     var: deploy_vm__vmware_vm_defaults
 
-- name: Display deploy_vm_vmware_vm_list
+- name: Display deploy_vm__vmware_vm_list
   ansible.builtin.debug:
-    var: deploy_vm_vmware_vm_list
+    var: deploy_vm__vmware_vm_list
 
 - name: Set __deploy_vm__vmware_vm_info
   ansible.builtin.set_fact:
     __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info | d({}) | combine( { item: deploy_vm__vmware_vm_defaults } ) | combine( { item: hostvars[item].deploy_vm__vmware_vm_config
       | d({}) }, recursive=True ) }}"
-  loop: "{{ deploy_vm_vmware_vm_list }}"
+  loop: "{{ deploy_vm__vmware_vm_list }}"
 
 - name: Set static node IP on __deploy_vm__vmware_vm_info fact
   ansible.builtin.set_fact:
     __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
   when: hostvars[item].bind_ipv4_address is defined
-  loop: "{{ deploy_vm_vmware_vm_list }}"
+  loop: "{{ deploy_vm__vmware_vm_list }}"
 
 - name: Display __deploy_vm__vmware_vm_info
   ansible.builtin.debug:
@@ -89,10 +89,10 @@
 
 - name: Clone from Template and Customize Virtual Machine
   community.vmware.vmware_guest:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
-    validate_certs: "{{ deploy_vm_vcenter_validate_certs }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
+    validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
     datacenter: "{{ item.datacenter | d(__deploy_vm__vmware_datacenter) }}"
     cluster: "{{ item.cluster | d(omit) }}"
     esxi_hostname: "{{ item.host if item.cluster is not defined else omit }}"
@@ -101,7 +101,7 @@
     #    state: poweredon
     #    state: poweredoff
     state: present
-    template: "{{ deploy_vm_template_info[item.template_id].name }}"
+    template: "{{ deploy_vm__template_info[item.template_id].name }}"
     hardware: "{{ item.hardware }}"
     disk: "{{ item.disks }}"
     notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
@@ -118,23 +118,23 @@
   loop: "{{ __deploy_vm__vmware_vm_list }}"
   loop_control:
     label: "{{ item.name }}"
-  register: __deploy_vm_job_start
+  register: __deploy_vm__job_start
   when: __deploy_vm__vmware_vm_facts_initial_by_name[item.name] is not defined
   ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
   async: 2000
   #  poll: 10
   poll: 0
 
-- name: Display __deploy_vm_job_start
+- name: Display __deploy_vm__job_start
   ansible.builtin.debug:
-    var: __deploy_vm_job_start
+    var: __deploy_vm__job_start
     verbosity: 1
 
-- name: Display __deploy_vm_job_start (not skipped)
+- name: Display __deploy_vm__job_start (not skipped)
   when: not item.skipped|d(false)|bool
   ansible.builtin.debug:
     var: item
-  loop: "{{ __deploy_vm_job_start.results }}"
+  loop: "{{ __deploy_vm__job_start.results }}"
   loop_control:
     label: "{{ item.item.name }}"
 
@@ -144,47 +144,47 @@
 - name: Wait for VM creation to finish
   ansible.builtin.async_status:
     jid: "{{ item.ansible_job_id }}"
-  loop: "{{ __deploy_vm_job_start.results }}"
+  loop: "{{ __deploy_vm__job_start.results }}"
   loop_control:
     label: "{{ item.item.name }}"
   when: item.ansible_job_id is defined
-  register: __deploy_vm_job
-  until: __deploy_vm_job.finished
+  register: __deploy_vm__job
+  until: __deploy_vm__job.finished
   # Check every 5 seconds. Adjust as you like.
-  delay: "{{ deploy_vm_create_async_delay }}"
+  delay: "{{ deploy_vm__create_async_delay }}"
   # Retry up to 10 times. Adjust as needed.
-  retries: "{{ deploy_vm_create_async_retries }}"
+  retries: "{{ deploy_vm__create_async_retries }}"
 
-- name: Initialize __deploy_vm_job_results
+- name: Initialize __deploy_vm__job_results
   ansible.builtin.set_fact:
-    __deploy_vm_job_results: "{{ __deploy_vm_job.results | selectattr('changed','defined') | selectattr('changed', 'equalto', true) }}"
+    __deploy_vm__job_results: "{{ __deploy_vm__job.results | selectattr('changed','defined') | selectattr('changed', 'equalto', true) }}"
 
-- name: Display __deploy_vm_job_results
+- name: Display __deploy_vm__job_results
   ansible.builtin.debug:
-    var: __deploy_vm_job_results
+    var: __deploy_vm__job_results
     verbosity: 2
 
-- name: Initialize __deploy_vm_new_vm
+- name: Initialize __deploy_vm__new_vm
   ansible.builtin.set_fact:
-    __deploy_vm_new_vm: {}
+    __deploy_vm__new_vm: {}
 
-- name: Set __deploy_vm_new_vm
+- name: Set __deploy_vm__new_vm
   ansible.builtin.set_fact:
-    __deploy_vm_new_vm: "{{ __deploy_vm_new_vm|d({}) | combine( { item.item.item.name: item } ) }}"
-  loop: "{{ __deploy_vm_job_results }}"
+    __deploy_vm__new_vm: "{{ __deploy_vm__new_vm|d({}) | combine( { item.item.item.name: item } ) }}"
+  loop: "{{ __deploy_vm__job_results }}"
   loop_control:
     label: "{{ item.item.item.name }}"
 
-- name: Display __deploy_vm_new_vm
+- name: Display __deploy_vm__new_vm
   ansible.builtin.debug:
-    var: __deploy_vm_new_vm
+    var: __deploy_vm__new_vm
 #    verbosity: 1
 
 - name: Set __deploy_vm__vmware_vm_facts
   community.vmware.vmware_vm_info:
-    hostname: "{{ deploy_vm_vcenter_hostname }}"
-    username: "{{ deploy_vm_vcenter_username }}"
-    password: "{{ deploy_vm_vcenter_password }}"
+    hostname: "{{ deploy_vm__vcenter_hostname }}"
+    username: "{{ deploy_vm__vcenter_username }}"
+    password: "{{ deploy_vm__vcenter_password }}"
     validate_certs: false
     vm_type: vm
   register: __deploy_vm__vmware_vm_facts
@@ -199,7 +199,7 @@
 - name: Configure new VMs
   when:
     - __vm_info.os_flavor=='linux'
-    - __deploy_vm_new_vm[__vm_info.name] is defined or __deploy_vmware_vm_info_by_name[__vm_info.name].power_state != "poweredOn"
+    - __deploy_vm__new_vm[__vm_info.name] is defined or __deploy_vmware_vm_info_by_name[__vm_info.name].power_state != "poweredOn"
   ansible.builtin.include_tasks: config-vmware-vm-linux.yml
   loop: "{{ __deploy_vm__vmware_vm_list }}"
   loop_control:
