@@ -14,11 +14,7 @@
     #  from them like {'name': 'alex', 'descr': 'his description'}, convert list of those records
     #  to dict keyed by name (alt: replace "to_dict()" by "list" to get a list of records)
     # reslut is structured like 'esxi_local_users' from group_vars (keyed by name)
-    users: "{{ users_list_res.stdout_lines
-               | map('trim')
-               | map('split', None, 1)
-               | map('record', ['name', 'desc'])
-               | to_dict('name') }}"
+    users: "{{ users_list_res.stdout_lines | map('trim') | map('split', None, 1) | map('record', ['name', 'desc']) | to_dict('name') }}"
 
 # Security.PasswordQualityControl cannot be set with esxcli; default is crazy in 6.5
 # or keep just one line in /etc/pam.d/passwd (remove "use_authtok")
@@ -26,8 +22,8 @@
 - name: (users) allow any 8-char passwords
   ansible.builtin.lineinfile:
     dest: /etc/pam.d/passwd
-    regexp: '^password +requisite.*pam_passwdqc'
-    line: 'password   requisite    /lib/security/$ISA/pam_passwdqc.so retry=3 min=8,8,8,8,8'
+    regexp: ^password +requisite.*pam_passwdqc
+    line: password   requisite    /lib/security/$ISA/pam_passwdqc.so retry=3 min=8,8,8,8,8
 
 - name: (users) add missed users
   when: item.key not in users
@@ -100,7 +96,7 @@
   changed_when: false
   ansible.builtin.command: |
     esxcli system settings advanced set -o /UserVars/ESXiShellInteractiveTimeOut -i {{ esx_ssh_timeout }}
-  # explicitly converting to int
+# explicitly converting to int
 
 - name: (users) check ssh client ruleset state
   ansible.builtin.command: esxcli network firewall ruleset list --ruleset-id=sshClient

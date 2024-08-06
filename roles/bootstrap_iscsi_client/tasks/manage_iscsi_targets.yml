@@ -8,27 +8,27 @@
 - name: Install required iSCSI packages
   ansible.builtin.package:
     name: "{{ iscsi__system_info[ansible_os_family].packages }}"
-#    name:  '{{ iscsi__packages }}'
-#    install_recommends: False
+    #    name:  '{{ iscsi__packages }}'
+    #    install_recommends: False
     state: present
   register: iscsi__register_packages
   until: iscsi__register_packages is succeeded
 
 - name: Configure iSCSI Initiator IQN
   ansible.builtin.lineinfile:
-    dest:   '/etc/iscsi/initiatorname.iscsi'
-    regexp: '^InitiatorName=iqn'
-    line:   'InitiatorName={{ iscsi__initiator_name }}'
-    state:  'present'
+    dest: /etc/iscsi/initiatorname.iscsi
+    regexp: ^InitiatorName=iqn
+    line: InitiatorName={{ iscsi__initiator_name }}
+    state: present
   register: iscsi__register_initiatorname
 
 - name: Configure iSCSI discovery authentication
   ansible.builtin.lineinfile:
-    dest:    '/etc/iscsi/iscsid.conf'
-    regexp:  '{{ (item.key | replace(".","\.")) + "\s=\s" }}'
-    line:    '{{ item.key + " = " + item.value }}'
-    state:   'present'
-  with_dict: '{{ iscsi__default_options }}'
+    dest: /etc/iscsi/iscsid.conf
+    regexp: '{{ (item.key | replace(".","\.")) + "\s=\s" }}'
+    line: '{{ item.key + " = " + item.value }}'
+    state: present
+  with_dict: "{{ iscsi__default_options }}"
   when: item|d(False) and item.value
 #  no_log: True
 
@@ -47,28 +47,27 @@
 
 - name: Generate iSCSI interface configuration
   changed_when: false
-  ansible.builtin.shell: iscsiadm -m iface -I {{ item }} -o new ;
-         iscsiadm -m iface -I {{ item }} --op=update -n iface.net_ifacename -v {{ item }}
+  ansible.builtin.shell: iscsiadm -m iface -I {{ item }} -o new ; iscsiadm -m iface -I {{ item }} --op=update -n iface.net_ifacename -v {{ item }}
   args:
-    creates: '/etc/iscsi/ifaces/{{ item }}'
-  loop: '{{ iscsi__interfaces }}'
+    creates: /etc/iscsi/ifaces/{{ item }}
+  loop: "{{ iscsi__interfaces }}"
   when: (iscsi__interfaces|d(False) and item in ansible_interfaces)
 
 - name: Printing related variables
   ansible.builtin.debug:
     msg: "{{ item.key }}={{ item.value }}"
   loop:
-    - { key: "iscsi__portals", value: "{{ iscsi__portals }}" }
-    - { key: "iscsi__interfaces", value: "{{ iscsi__interfaces }}" }
+    - { key: iscsi__portals, value: "{{ iscsi__portals }}" }
+    - { key: iscsi__interfaces, value: "{{ iscsi__interfaces }}" }
 #    - { key: "ansible_local.iscsi", value: "{{ ansible_local.iscsi }}" }
 #    - { key: "ansible_local", value: "{{ ansible_local }}" }
 
 - name: Discover iSCSI targets on portals
   community.general.open_iscsi:
-    discover: True
-    portal:   '{{ item }}'
+    discover: true
+    portal: "{{ item }}"
     port: "3260"
-  loop: '{{ iscsi__portals }}'
+  loop: "{{ iscsi__portals }}"
   register: iscsi__register_discover_targets
   when: iscsi__portals|d(False)
 
@@ -90,33 +89,33 @@
 
 - name: Log in to specified iSCSI targets
   community.general.open_iscsi:
-    target:    '{{ item.target }}'
-    login:     '{{ False if (not item.login|d(True)) else True }}'
+    target: "{{ item.target }}"
+    login: "{{ False if (not item.login|d(True)) else True }}"
     node_auth: '{{ "CHAP" if (item.auth|d(False)) else omit }}'
-    node_user: '{{ item.auth_username if (item.auth|d(False)) else omit }}'
-    node_pass: '{{ item.auth_password if (item.auth|d(False)) else omit }}'
-    auto_node_startup: '{{ False if (not item.auto|d(True)) else True }}'
-    port: '{{ item.port if (item.port|d(False)) else omit }}'
-  loop: '{{ iscsi__targets }}'
+    node_user: "{{ item.auth_username if (item.auth|d(False)) else omit }}"
+    node_pass: "{{ item.auth_password if (item.auth|d(False)) else omit }}"
+    auto_node_startup: "{{ False if (not item.auto|d(True)) else True }}"
+    port: "{{ item.port if (item.port|d(False)) else omit }}"
+  loop: "{{ iscsi__targets }}"
   register: iscsi__register_targets
   when: iscsi__targets|d()
 #  no_log: True
 
 - name: Make sure that local facts directory exists
   ansible.builtin.file:
-    dest:  '/etc/ansible/facts.d'
-    state: 'directory'
-    owner: 'root'
-    group: 'root'
-    mode:  '0755'
+    dest: /etc/ansible/facts.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
 
 - name: Save iSCSI facts
   ansible.builtin.template:
-    src:   'etc/ansible/facts.d/iscsi.fact.j2'
-    dest:  '/etc/ansible/facts.d/iscsi.fact'
-    owner: 'root'
-    group: 'root'
-    mode:  '0644'
+    src: etc/ansible/facts.d/iscsi.fact.j2
+    dest: /etc/ansible/facts.d/iscsi.fact
+    owner: root
+    group: root
+    mode: "0644"
 
 #- name: Printing related variables
 #  ansible.builtin.debug:

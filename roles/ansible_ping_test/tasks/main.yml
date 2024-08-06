@@ -1,26 +1,24 @@
 ---
-
 ## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
-- name: "Ping test via module"
+- name: Ping test via module
   when: inventory_hostname in ansible_play_hosts_all
   block:
-
     ##############
     ## DO NOT hardcode group_names values from inventory here
     ##   best practice for role development - do not hardcode inventory specific variable states in roles
     ##   instead, use module input vars set by the invoker to determine the ping module
     ##############
-    - name: "Ping test via module ping"
+    - name: Ping test via module ping
       when: ping_test__module=='ping'
-#      when: group_names | intersect(['linux','os_linux','vmware_vsphere']) | list | length>0
+      #      when: group_names | intersect(['linux','os_linux','vmware_vsphere']) | list | length>0
       action: ansible.builtin.ping
       register: ping_test
       failed_when: false
       changed_when: false
 
-    - name: "Ping test via module win_ping"
+    - name: Ping test via module win_ping
       when: ping_test__module=='win_ping'
-#      when: group_names | intersect(['windows','os_windows']) | list | length>0
+      #      when: group_names | intersect(['windows','os_windows']) | list | length>0
       action: ansible.windows.win_ping
       register: winping_test
       failed_when: false
@@ -29,10 +27,10 @@
     ## https://docs.ansible.com/ansible/latest/network/user_guide/platform_index.html#settings-by-platform
     ## https://github.com/ansible/ansible/blob/devel/docs/docsite/rst/network/user_guide/platform_index.rst
     ## https://www.reddit.com/r/ansible/comments/9dn5ff/possible_values_for_ansible_network_os/
-    - name: "Ping test via module net_ping"
+    - name: Ping test via module net_ping
       delegate_to: localhost
       when: ping_test__module=='net_ping'
-#      when: group_names | intersect(['network_switch']) | list | length>0
+      #      when: group_names | intersect(['network_switch']) | list | length>0
       ansible.netcommon.net_ping:
         dest: "{{ ansible_host }}"
       register: netping_test
@@ -42,12 +40,12 @@
     - name: display ping test results
       ansible.builtin.debug:
         msg:
-          - "ping_test={{ ping_test | to_nice_json }}"
-          - "winping_test={{ winping_test | to_nice_json }}"
-          - "netping_test={{ netping_test | to_nice_json }}"
+          - ping_test={{ ping_test | to_nice_json }}
+          - winping_test={{ winping_test | to_nice_json }}
+          - netping_test={{ netping_test | to_nice_json }}
 
-    - name: "Setting ping_failed[1]"
-##      delegate_to: localhost
+    - name: Setting ping_failed[1]
+      ##      delegate_to: localhost
       connection: local
       when:
         - not item.skipped|d(false)
@@ -59,15 +57,14 @@
         - "{{ netping_test }}"
 
   rescue:
-
     - name: ping test via CLI
       delegate_to: localhost
-      become: yes
-      ansible.builtin.command: "ping -c 1 -w 2 {{ ansible_host }}"
+      become: true
+      ansible.builtin.command: ping -c 1 -w 2 {{ ansible_host }}
       register: ping_cli_test
       changed_when: false
 
-    - name: "Setting ping_failed"
+    - name: Setting ping_failed
       ansible.builtin.set_fact:
         ping_failed: "{{ ping_cli_test.failed }}"
 
@@ -80,32 +77,31 @@
     var: ping_failed
 
 ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-unreachable-host-handling.md
-- name: "Preliminary pre-check connection test host info"
+- name: Preliminary pre-check connection test host info
   run_once: true
   connection: local
   delegate_to: localhost
   block:
-
-    - name: "Set unreachable_hosts"
+    - name: Set unreachable_hosts
       when: hostvars[item].ping_failed|d(true)
       ansible.builtin.set_fact:
         unreachable_hosts: "{{ unreachable_hosts|d([]) + [item] }}"
       loop: "{{ ansible_play_hosts_all }}"
 
-    - name: "Display pre-check connection info"
+    - name: Display pre-check connection info
       ansible.builtin.debug:
         msg:
-          - "ansible_play_hosts_all={{ ansible_play_hosts_all }}"
-          - "ansible_play_hosts={{ ansible_play_hosts }}"
-          - "unreachable_hosts={{ unreachable_hosts|d([]) }}"
+          - ansible_play_hosts_all={{ ansible_play_hosts_all }}
+          - ansible_play_hosts={{ ansible_play_hosts }}
+          - unreachable_hosts={{ unreachable_hosts|d([]) }}
 
-    - name: "Add unreachable_hosts to group 'node_offline'"
+    - name: Add unreachable_hosts to group 'node_offline'
       when: unreachable_hosts|d([])|length>0
       ansible.builtin.add_host:
         name: "{{ item }}"
         groups: node_offline
       loop: "{{ unreachable_hosts }}"
 
-    - name: "Display nodes in groups['node_offline']"
+    - name: Display nodes in groups['node_offline']
       ansible.builtin.debug:
         var: groups['node_offline']

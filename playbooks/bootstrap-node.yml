@@ -1,32 +1,32 @@
 ---
-
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
-- name: "Gather facts for all hosts to apply OS specific group vars for them"
+- name: Gather facts for all hosts to apply OS specific group vars for them
   tags: always
-#  hosts: all
+  #  hosts: all
   hosts: compute_node
-  become: yes
-#  become_method: sudo
-#  become_user: root
+  become: true
+  #  become_method: sudo
+  #  become_user: root
   remote_user: "{{ bootstrap_user }}"
   vars_files:
     - vars/vault.yml
   tasks:
     - name: Classify hosts depending on their OS distribution
-      group_by:
+      ansible.builtin.group_by:
         key: os_{{ ansible_facts['distribution'] }}
+
     - name: Print env var debug information
-      debug:
+      ansible.builtin.debug:
         var: ansible_python_interpreter
       tags: debug_ansible_env
 
 ## Debugging purposes: print all internal variables
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print all internal variables"
-#  hosts: localhost
-#  hosts: all
+  #  hosts: localhost
+  #  hosts: all
   hosts: compute_node
   tags:
     - debug-env-vars
@@ -37,48 +37,47 @@
           Environment Variables ("environment"):
           --------------------------------
           {{ environment | to_nice_json }}
-      debug:
+      ansible.builtin.debug:
         msg: "{{ msg.split('\n') }}"
       tags: debug_info
 
-- name: "Bootstrap node"
+- name: Bootstrap node
   hosts: compute_node
   tags:
     - bootstrap
     - bootstrap-node
-  become: True
-#  become_method: sudo
+  become: true
+  #  become_method: sudo
   vars_files:
     - vars/vault.yml
   roles:
-    - role: network
-      tags: [ bootstrap-node-core, bootstrap-node-network ]
-    - role: bootstrap-nfs-service
-      tags: [ bootstrap-node-core, bootstrap-node-nfs ]
-    - role: samba-client
-      tags: [ bootstrap-node-core, samba-client ]
-    - role: bootstrap-ldap-client
-      tags: [ bootstrap-node-core, ldap-client ]
-    - role: bootstrap-node
-      tags: [ bootstrap-node-core, bootstrap-node-machine ]
-    - role: common-packages
-      tags: [ bootstrap-node-core ]
-    - role: bootstrap-ntp
-      tags: [ bootstrap-node-core ]
-    - role: ansible-postfix
-      tags: [ bootstrap-node-core, bootstrap-node-postfix, bootstrap-node-mail ]
-    - role: geerlingguy.java
-      tags: [ bootstrap-node-common, bootstrap-java ]
-#    - role: zlib
-#      tags: [ bootstrap-node-common ]
-#    - role: bootstrap-python3
-#      tags: [ bootstrap-node-common ]
-#    - role: pip
-#      tags: [ bootstrap-node-common ]
-    - role: geerlingguy.pip
-      tags: [ bootstrap-node-common ]
-    - role: webmin
-      tags: [ bootstrap-node-common , webmin]
+    - role: bootstrap_network_interfaces
+      tags: [bootstrap-node-core, bootstrap-node-network]
+    - role: bootstrap_nfs_service
+      tags: [bootstrap-node-core, bootstrap-node-nfs]
+    - role: bootstrap_samba_client
+      tags: [bootstrap-node-core, samba-client]
+    - role: bootstrap_ldap_client
+      tags: [bootstrap-node-core, ldap-client]
+    - role: bootstrap_linux
+      tags: [bootstrap-node-core, bootstrap-node-machine]
+    - role: bootstrap_linux_package
+      tags: [bootstrap-node-core]
+    - role: bootstrap_ntp
+      tags: [bootstrap-node-core]
+    - role: bootstrap_postfix
+      tags: [bootstrap-node-core, bootstrap-node-postfix, bootstrap-node-mail]
+    - role: bootstrap_java
+      tags: [bootstrap-node-common, bootstrap-java]
+    #    - role: bootstrap_zlib
+    #      tags: [ bootstrap-node-common ]
+    #    - role: bootstrap_python3
+    #      tags: [ bootstrap-node-common ]
+    #    - role: bootstrap_pip
+    #      tags: [ bootstrap-node-common ]
+    - role: bootstrap_pip
+      tags: [bootstrap-node-common]
+    - role: bootstrap_webmin
+      tags: [bootstrap-node-common, webmin]
     - role: harden_os_linux
-      tags: [ bootstrap-node-core, bootstrap-node-os ]
-
+      tags: [bootstrap-node-core, bootstrap-node-os]

@@ -1,28 +1,26 @@
 ---
-
-- name: "Caroot | Set caroot facts"
+- name: Caroot | Set caroot facts
   ansible.builtin.set_fact:
     __bootstrap_certs__keystore_cert_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ bootstrap_certs__ca_root.domainName }}"
     __bootstrap_certs__ca_cert: "{{ bootstrap_certs__ca_root.domainName }}.pem"
     __bootstrap_certs__ca_key: "{{ bootstrap_certs__ca_root.domainName }}-key.pem"
 
-- name: "Caroot | Display ca info"
+- name: Caroot | Display ca info
   ansible.builtin.debug:
     msg:
-      - "bootstrap_certs__ca_root={{ bootstrap_certs__ca_root | to_nice_json }}"
-      - "bootstrap_certs__ca_root_names={{ bootstrap_certs__ca_root_names | to_nice_json }}"
-      - "__bootstrap_certs__keystore_cert_dir={{ __bootstrap_certs__keystore_cert_dir }}"
-      - "__bootstrap_certs__ca_cert={{ __bootstrap_certs__ca_cert }}"
-      - "__bootstrap_certs__ca_key={{ __bootstrap_certs__ca_key }}"
+      - bootstrap_certs__ca_root={{ bootstrap_certs__ca_root | to_nice_json }}
+      - bootstrap_certs__ca_root_names={{ bootstrap_certs__ca_root_names | to_nice_json }}
+      - __bootstrap_certs__keystore_cert_dir={{ __bootstrap_certs__keystore_cert_dir }}
+      - __bootstrap_certs__ca_cert={{ __bootstrap_certs__ca_cert }}
+      - __bootstrap_certs__ca_key={{ __bootstrap_certs__ca_key }}
 
-- name: "Create_caroot | Perform cacert validations"
+- name: Create_caroot | Perform cacert validations
   ansible.builtin.include_tasks: validate_cacerts.yml
 
-- name: "Create_caroot | Create intermediate certificate authority key pair and CSR"
+- name: Create_caroot | Create intermediate certificate authority key pair and CSR
   when: _ca_missing_or_invalid_cert|bool or not _ca_key_exists|bool or bootstrap_certs__ca_force_create|bool
   block:
-
-    - name: "Caroot | Create domain configuration directories"
+    - name: Caroot | Create domain configuration directories
       ansible.builtin.file:
         path: "{{ __bootstrap_certs__keystore_cert_dir }}"
         state: directory
@@ -30,15 +28,15 @@
         group: root
         mode: "0755"
 
-    - name: "Caroot | Create CA CSR json"
+    - name: Caroot | Create CA CSR json
       ansible.builtin.template:
-        src: "ca/ca-root-csr.json.j2"
+        src: ca/ca-root-csr.json.j2
         dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ bootstrap_certs__ca_root.commonName }}.json"
         mode: "0600"
 
     ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
     ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
-    - name: "Caroot | Create certificate authority key pair and CSR"
+    - name: Caroot | Create certificate authority key pair and CSR
       changed_when: false
       ansible.builtin.shell: |
         set -o pipefail # <-- adding this will prevent surprises
@@ -48,7 +46,7 @@
         chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
     #    creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ bootstrap_certs__pki_caroot_key }}"
 
-    - name: "Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+    - name: Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
       ansible.builtin.file:
         dest: "{{ item.dest }}"
         mode: "{{ item.mode }}"
@@ -58,19 +56,18 @@
         - dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
           mode: "644"
 
-
 ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
-- name: "Caroot | Get ca root certificate info"
+- name: Caroot | Get ca root certificate info
   community.crypto.x509_certificate_info:
-#    path: /etc/ssl/crt/ansible.com.crt
+    #    path: /etc/ssl/crt/ansible.com.crt
     path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
   register: cacert_result
 
-- name: "Caroot | Display ca root cert info"
+- name: Caroot | Display ca root cert info
   ansible.builtin.debug:
     var: cacert_result
 
-- name: "Caroot | Assert CA root cert info is valid"
+- name: Caroot | Assert CA root cert info is valid
   ansible.builtin.assert:
     that:
       # issuer and issuer_strict

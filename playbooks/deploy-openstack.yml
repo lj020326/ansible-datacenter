@@ -1,32 +1,31 @@
 ---
-
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
-- name: "Gather facts for all hosts to apply OS specific group vars for them"
+- name: Gather facts for all hosts to apply OS specific group vars for them
   tags: always
-#  hosts: all
+  #  hosts: all
   hosts: compute_node
-  become: yes
-#  become_method: sudo
-#  become_user: root
+  become: true
+  #  become_method: sudo
+  #  become_user: root
   remote_user: "{{ bootstrap_user }}"
   vars_files:
     - vars/vault.yml
   tasks:
     - name: Classify hosts depending on their OS distribution
-      group_by:
+      ansible.builtin.group_by:
         key: os_{{ ansible_facts['distribution'] }}
     - name: Print env var debug information
-      debug:
+      ansible.builtin.debug:
         var: ansible_python_interpreter
       tags: debug_ansible_env
 
 ## Debugging purposes: print all internal variables
 ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 - name: "Debug: Print all internal variables"
-#  hosts: localhost
-#  hosts: all
+  #  hosts: localhost
+  #  hosts: all
   hosts: compute_node
   tags:
     - debug-env-vars
@@ -37,50 +36,47 @@
           Environment Variables ("environment"):
           --------------------------------
           {{ environment | to_nice_json }}
-      debug:
+      ansible.builtin.debug:
         msg: "{{ msg.split('\n') }}"
       tags: debug_info
 
-
-- name: "Bootstrap openstack"
+- name: Bootstrap openstack
   hosts:
     - openstack_kolla_node
   tags:
     - bootstrap
     - bootstrap-openstack
-  become: True
-#  become_method: sudo
+  become: true
+  #  become_method: sudo
   vars_files:
     - vars/vault.yml
   roles:
     - name: Configure openstack deploy node
-      role: bootstrap-openstack
+      role: bootstrap_openstack
 
 ## must first run the kolla-ansible (bootstrap-servers|prechecks|deploy)
-- name: "Bootstrap openstack cloud"
+- name: Bootstrap openstack cloud
   hosts:
     - openstack_kolla_node
   tags:
     - bootstrap-openstack-cloud
     - openstack-cloud
-  become: True
-#  become_method: sudo
+  become: true
+  #  become_method: sudo
   vars_files:
     - vars/vault.yml
   vars:
     ansible_python_interpreter: "{{ ansible_openstack_python_interpreter }}"
   roles:
-
     - name: Configure openstack client
       tags:
         - bootstrap-openstack-osclient
         - openstack-osclient
-      role: openstack-osclient
+      role: bootstrap_osclient
       vars:
         openstack_cloud_name: "{{ openstack_admin_cloud_name | default(omit) }}"
 
     - name: Configure openstack environment
-      role: openstack-config-cloud
+      role: bootstrap_openstack_cloud
       tags:
-        - openstack-cloud-config
-
+        - bootstrap_openstack_config

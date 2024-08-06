@@ -1,12 +1,10 @@
 ---
-
 - name: Ensuring directories for secret materials exist
   block:
-
     - name: Set secret
       when: secret is not defined
       ansible.builtin.set_fact:
-#        secret: "{{ (inventory_dir + '/../secrets/') | realpath }}"
+        #        secret: "{{ (inventory_dir + '/../secrets/') | realpath }}"
         secret: "{{ (playbook_dir + '/secrets/') | realpath }}"
 
     - name: Ensure secret directories
@@ -16,7 +14,7 @@
         mode: "0755"
       loop:
         - credentials
-        - 'certificates/{{ ansible_fqdn }}/issuing'
+        - certificates/{{ ansible_fqdn }}/issuing
       delegate_to: localhost
 
 - name: Checking if issuing CA materials exist
@@ -30,13 +28,13 @@
   ansible.builtin.fail:
     msg: Issuing CA material does not exist!
 
-- name: "Installing golang"
+- name: Installing golang
   ansible.builtin.package:
     name: "{{ stepca_golang_package }}"
 #    default_release: testing
 
 - name: Stopping services that could be running
-  ignore_errors: yes # noqa: ignore-errors
+  ignore_errors: true # noqa: ignore-errors
   block:
     - name: Ensure running services are stopped
       ansible.builtin.systemd:
@@ -55,33 +53,33 @@
     url: "{{ stepca__step_ca_deb_url }}"
     dest: "{{ stepca__src + '/' + stepca__step_ca_deb_url | basename }}"
     mode: "0644"
-#    checksum: "{{ stepca__step_ca_deb_checksum }}"
-#  become: True
-#  become_user: "{{ stepca__user }}"
+  #    checksum: "{{ stepca__step_ca_deb_checksum }}"
+  #  become: True
+  #  become_user: "{{ stepca__user }}"
   register: stepca__register_step_ca_package
   until: stepca__register_step_ca_package is succeeded
 
 - name: Verify Step-ca Server package signature
   ansible.builtin.command: dpkg-sig --verify {{ stepca__src + '/' + (stepca__step_ca_deb_url | basename) }}
-#  become: True
-#  become_user: "{{ stepca__user }}"
-  changed_when: False
-  check_mode: False
+  #  become: True
+  #  become_user: "{{ stepca__user }}"
+  changed_when: false
+  check_mode: false
 
 - name: Install Step-ca Server .deb package
   ansible.builtin.apt:
     deb: "{{ stepca__src }}/{{ stepca__step_ca_deb_url | basename }}"
-    state: 'present'
+    state: present
   register: stepca__register_step_ca_deb
   until: stepca__register_step_ca_deb is succeeded
 
 - name: Creating Step-ca service account
   ansible.builtin.user:
     name: "{{ ca_svc_user }}"
-    password: '*'
+    password: "*"
     shell: /sbin/nologin
-    create_home: no
-    system: yes
+    create_home: false
+    system: true
 
 - name: Creating installation directories
   ansible.builtin.file:
@@ -89,13 +87,13 @@
     state: directory
     mode: "0755"
   loop:
-    - '{{ install_root }}/config'
-    - '{{ install_root }}/config/dburl'
-    - '{{ install_root }}/certs/web'
-    - '{{ install_root }}/certs/grpc'
-    - '{{ ct_install_root }}/config'
-    - '{{ ct_install_root }}/signing_keys'
-    - '{{ trillian_install_root }}/config'
+    - "{{ install_root }}/config"
+    - "{{ install_root }}/config/dburl"
+    - "{{ install_root }}/certs/web"
+    - "{{ install_root }}/certs/grpc"
+    - "{{ ct_install_root }}/config"
+    - "{{ ct_install_root }}/signing_keys"
+    - "{{ trillian_install_root }}/config"
 
 - name: Moving Step-ca binaries
   ansible.builtin.copy:

@@ -1,9 +1,9 @@
 ---
 
-docker_stack__fog_rootdir: "/export/data/fog"
+docker_stack__fog_rootdir: /export/data/fog
 docker_stack__fog_image_dir: "{{ docker_stack__fog_rootdir }}/images"
 
-docker_stack__mysql_fog_password: "password"
+docker_stack__mysql_fog_password: password
 
 docker_stack__appspec_config_dirs:
   - { path: "{{ docker_stack__dir }}/fog" }
@@ -12,40 +12,40 @@ docker_stack__appspec_config_dirs:
   - { path: "{{ docker_stack__fog_image_dir }}" }
 
 docker_stack__appspec_config_tpls:
-  - { src: 'fog/fogsettings.conf.j2', dest: "{{ docker_stack__dir }}/fog/config/.fogsettings", backup: yes }
+  - { src: fog/fogsettings.conf.j2, dest: "{{ docker_stack__dir }}/fog/config/.fogsettings", backup: true }
 
 docker_stack__firewalld_appspec_ports:
-  - "67/udp"
-  - "68/udp"
-  - "69/tcp"
-  - "25151/tcp" ## cobbler
+  - 67/udp
+  - 68/udp
+  - 69/tcp
+  - 25151/tcp ## cobbler
 
 docker_stack__fog_image: "{{ docker_stack__registry_endpoint }}/fog:latest"
 
 docker_stack__appspec_services:
 
-#    fog-db:
-#      environment:
-#        MYSQL_USER: root
-#        MYSQL_PASSWORD: password
-#        MYSQL_DATABASE: fog
-#        MYSQL_ROOT_PASSWORD: password
-#      image: mariadb
-#      restart: always
-#      volumes:
-#        - ./storage/fog/database:/var/lib/mysql
-#        - ./storage/fog/config/fog.sql:/docker-entrypoint-initdb.d/fog.sql
+  #    fog-db:
+  #      environment:
+  #        MYSQL_USER: root
+  #        MYSQL_PASSWORD: password
+  #        MYSQL_DATABASE: fog
+  #        MYSQL_ROOT_PASSWORD: password
+  #      image: mariadb
+  #      restart: always
+  #      volumes:
+  #        - ./storage/fog/database:/var/lib/mysql
+  #        - ./storage/fog/config/fog.sql:/docker-entrypoint-initdb.d/fog.sql
   fog:
-    container_name: "fog"
-#    image: {{ docker_stack__registry_endpoint }}/fog:latest
+    container_name: fog
+    #    image: {{ docker_stack__registry_endpoint }}/fog:latest
     image: "{{ docker_stack__fog_image }}"
     privileged: true
     ports:
-      - "69:69/udp"  ## TFTP server for serving IPXE boot files and menus
-      - "9080:80/tcp"  ## NGINX server for hosting custom netboot.xyz assets locally
-      - "9443:443/tcp"  ## cobbler web application for customizing local menus and pulling in remote assets
-      - "25151:25151"
-    restart: "unless-stopped"
+      - 69:69/udp ## TFTP server for serving IPXE boot files and menus
+      - 9080:80/tcp ## NGINX server for hosting custom netboot.xyz assets locally
+      - 9443:443/tcp ## cobbler web application for customizing local menus and pulling in remote assets
+      - 25151:25151
+    restart: unless-stopped
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
@@ -55,25 +55,24 @@ docker_stack__appspec_services:
       - mariadb:db
     tty: true
     volumes:
-#         - ./storage/fog/images:/images
-#         - ./storage/fog/config/.fogsettings:/opt/fog/.fogsettings
+      #         - ./storage/fog/images:/images
+      #         - ./storage/fog/config/.fogsettings:/opt/fog/.fogsettings
       - "{{ docker_stack__fog_image_dir }}:/images"
       - "{{ docker_stack__dir }}/fog/config/.fogsettings:/opt/fog/.fogsettings"
     labels:
-      - "traefik.enable=true"
-      - "traefik.backend=fog"
-      - "traefik.frontend.rule=Host:fog.{{ docker_stack__internal_domain }}"
-      - "traefik.port=80"
-      - "traefik.docker.network={{ docker_stack__traefik_proxy_network }}"
-      - "traefik.frontend.headers.SSLRedirect=true"
-      - "traefik.frontend.headers.STSSeconds=315360000"
-      - "traefik.frontend.headers.browserXSSFilter=true"
-      - "traefik.frontend.headers.contentTypeNosniff=true"
-      - "traefik.frontend.headers.forceSTSHeader=true"
-      - "traefik.frontend.headers.STSIncludeSubdomains=true"
-      - "traefik.frontend.headers.STSPreload=true"
-      - "traefik.frontend.headers.frameDeny=true"
-
+      - traefik.enable=true
+      - traefik.backend=fog
+      - traefik.frontend.rule=Host:fog.{{ docker_stack__internal_domain }}
+      - traefik.port=80
+      - traefik.docker.network={{ docker_stack__traefik_proxy_network }}
+      - traefik.frontend.headers.SSLRedirect=true
+      - traefik.frontend.headers.STSSeconds=315360000
+      - traefik.frontend.headers.browserXSSFilter=true
+      - traefik.frontend.headers.contentTypeNosniff=true
+      - traefik.frontend.headers.forceSTSHeader=true
+      - traefik.frontend.headers.STSIncludeSubdomains=true
+      - traefik.frontend.headers.STSPreload=true
+      - traefik.frontend.headers.frameDeny=true
 
 docker_stack__appspec__fog:
   dirs: "{{ __docker_stack__fog__config_dirs | d([]) }}"

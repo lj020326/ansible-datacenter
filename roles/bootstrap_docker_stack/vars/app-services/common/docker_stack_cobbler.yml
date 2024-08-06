@@ -2,7 +2,7 @@
 
 ## cobbler settings
 #docker_stack__cobbler_rootdir: "{{ docker_stack__dir }}/cobbler"
-docker_stack__cobbler_rootdir: "/export/data/cobbler"
+docker_stack__cobbler_rootdir: /export/data/cobbler
 #docker_stack__cobbler_etcdir: "{{ docker_stack__cobbler_rootdir }}/etc"
 docker_stack__cobbler_etcdir: "{{ docker_stack__cobbler_rootdir }}/etc"
 docker_stack__cobbler_webdir: "{{ docker_stack__cobbler_rootdir }}/var/www/cobbler"
@@ -22,7 +22,7 @@ docker_stack__cobbler_next_server: "{{ hostvars[inventory_hostname]['ansible_def
 #docker_stack__cobbler_next_server: 192.168.122.230
 
 #docker_stack__cobbler_server: 192.168.122.230
-docker_stack__cobbler_server: "127.0.0.1"
+docker_stack__cobbler_server: 127.0.0.1
 #docker_stack__cobbler_server: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
 docker_stack__cobbler3_server: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
 
@@ -34,7 +34,7 @@ docker_stack__cobbler_subnet_full: "{{ gateway_ipv4_subnet_1_2 }}.20.0"
 
 #docker_stack__cobbler_routers: "{{ gateway_ipv4_subnet_1_2 }}.10.1"
 docker_stack__cobbler_routers: "{{ gateway_ipv4_subnet_1_2 }}.20.1"
-docker_stack__cobbler_nameservers: "8.8.8.8,1.1.1.1"
+docker_stack__cobbler_nameservers: 8.8.8.8,1.1.1.1
 #docker_stack__cobbler_dhcp_range: "{{ gateway_ipv4_subnet_1_2 }}.10.50 {{ gateway_ipv4_subnet_1_2 }}.10.100"
 docker_stack__cobbler_dhcp_range: "{{ gateway_ipv4_subnet_1_2 }}.20.50 {{ gateway_ipv4_subnet_1_2 }}.20.100"
 
@@ -63,45 +63,45 @@ __docker_stack__cobbler__config_dirs:
 
 __docker_stack__cobbler__config_tpls:
   ## ref: https://github.com/ContainerSolutions/docker-cobbler/blob/master/etc/cobbler/settings
-#    - { src: 'cobbler/config-cobbler-settings.yml.j2', dest: "{{ docker_stack__dir }}/cobbler/etc/settings"}
-#    - { src: 'cobbler/config-cobbler-dhcp.template.j2', dest: "{{ docker_stack__dir }}/cobbler/etc/dhcp.template"}
-#    - { src: 'cobbler/config-cobbler-passwd.conf.j2', dest: "{{ docker_stack__dir }}/cobbler/passwd" }
-#    - { src: 'cobbler/config-cobbler-users.conf.j2', dest: "{{ docker_stack__dir }}/cobbler/etc/users.conf" }
-  - { src: 'cobbler/settings.yml.j2', dest: "{{ docker_stack__cobbler_etcdir }}/settings", backup: yes }
+  #    - { src: 'cobbler/config-cobbler-settings.yml.j2', dest: "{{ docker_stack__dir }}/cobbler/etc/settings"}
+  #    - { src: 'cobbler/config-cobbler-dhcp.template.j2', dest: "{{ docker_stack__dir }}/cobbler/etc/dhcp.template"}
+  #    - { src: 'cobbler/config-cobbler-passwd.conf.j2', dest: "{{ docker_stack__dir }}/cobbler/passwd" }
+  #    - { src: 'cobbler/config-cobbler-users.conf.j2', dest: "{{ docker_stack__dir }}/cobbler/etc/users.conf" }
+  - { src: cobbler/settings.yml.j2, dest: "{{ docker_stack__cobbler_etcdir }}/settings", backup: true }
 
 #__docker_stack__cobbler__config_files:
 #  - { src: 'files/cobbler/distro_signatures.json', mode: '0644', dest: "{{ docker_stack__dir }}/cobbler/etc/distro_signatures.json"}
 
 __docker_stack__cobbler__firewalld_ports:
-  - "67/udp"
-  - "68/udp"
-  - "69/tcp"
-  - "25151/tcp" ## cobbler
+  - 67/udp
+  - 68/udp
+  - 69/tcp
+  - 25151/tcp ## cobbler
 
 docker_stack__cobbler_image: "{{ docker_stack__registry_endpoint }}/cobbler:latest"
-docker_stack__cobbler3_image: "urosorozel/cobbler:latest"
+docker_stack__cobbler3_image: urosorozel/cobbler:latest
 
 __docker_stack__cobbler__services:
   ## ref: https://bitsanddragons.wordpress.com/2018/05/17/a-docker-cobbler-server-on-centos-7/
   ## ref: https://github.com/ContainerSolutions/docker-cobbler
   ## ref: https://blog.container-solutions.com/cobbler-in-a-docker-container
   cobbler:
-    container_name: "cobbler"
-#    image: {{ docker_stack__registry_endpoint }}/cobbler:latest
+    container_name: cobbler
+    #    image: {{ docker_stack__registry_endpoint }}/cobbler:latest
     image: "{{ docker_stack__cobbler_image }}"
     privileged: true
     ports:
-      - "69:69/udp"  ## TFTP server for serving IPXE boot files and menus
-      - "9080:80/tcp"  ## NGINX server for hosting custom netboot.xyz assets locally
-      - "9443:443/tcp"  ## cobbler web application for customizing local menus and pulling in remote assets
-      - "25151:25151"
-    restart: "unless-stopped"
+      - 69:69/udp ## TFTP server for serving IPXE boot files and menus
+      - 9080:80/tcp ## NGINX server for hosting custom netboot.xyz assets locally
+      - 9443:443/tcp ## cobbler web application for customizing local menus and pulling in remote assets
+      - 25151:25151
+    restart: unless-stopped
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
-#      - "{{ docker_stack__dir }}/cobbler/settings.py:/usr/share/cobbler/web/settings.py"
+      #      - "{{ docker_stack__dir }}/cobbler/settings.py:/usr/share/cobbler/web/settings.py"
       - "{{ docker_stack__cobbler_etcdir }}/settings:/etc/cobbler/settings"
       - "{{ docker_stack__cobbler_etcdir }}/dhcp.template:/etc/cobbler/dhcp.template"
       - "{{ docker_stack__cobbler_webdir }}/images:/var/www/cobbler/images"
@@ -117,9 +117,9 @@ __docker_stack__cobbler__services:
       DEFAULT_ROOT_PASSWD: "{{ docker_stack__cobbler_root_password }}"
       HOST_IP_ADDR: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
       HOST_HTTP_PORT: 80
-#      HOST_HTTP_PORT: 9080
-#      HOST_HTTP_PORT: 9443
-#      HOST_HTTP_PORT: 8443
+      #      HOST_HTTP_PORT: 9080
+      #      HOST_HTTP_PORT: 9443
+      #      HOST_HTTP_PORT: 8443
       COBBLER_WEB_USER: "{{ docker_stack__cobbler_web_uid }}"
       COBBLER_WEB_PASSWD: "{{ docker_stack__cobbler_web_password }}"
       COBBLER_WEB_REALM: "{{ docker_stack__cobbler_web_realm }}"
@@ -127,23 +127,22 @@ __docker_stack__cobbler__services:
       COBBLER_KEYBOARD: us
       COBBLER_TZ: "{{ docker_stack__timezone }}"
     labels:
-      - "traefik.enable=true"
-      - "traefik.backend=cobbler"
-      - "traefik.frontend.rule=Host:cobbler.{{ docker_stack__internal_domain }}"
-#      - "traefik.port=80"
-      - "traefik.port=443"
-      - "traefik.protocol=https"
-      - "traefik.docker.network={{ docker_stack__traefik_proxy_network }}"
-      - "traefik.frontend.headers.SSLRedirect=true"
-      - "traefik.frontend.headers.STSSeconds=315360000"
-      - "traefik.frontend.headers.browserXSSFilter=true"
-      - "traefik.frontend.headers.contentTypeNosniff=true"
-      - "traefik.frontend.headers.forceSTSHeader=true"
-#      - "traefik.frontend.headers.SSLHost={{ docker_stack__external_domain }}"
-      - "traefik.frontend.headers.STSIncludeSubdomains=true"
-      - "traefik.frontend.headers.STSPreload=true"
-      - "traefik.frontend.headers.frameDeny=true"
-
+      - traefik.enable=true
+      - traefik.backend=cobbler
+      - traefik.frontend.rule=Host:cobbler.{{ docker_stack__internal_domain }}
+      #      - "traefik.port=80"
+      - traefik.port=443
+      - traefik.protocol=https
+      - traefik.docker.network={{ docker_stack__traefik_proxy_network }}
+      - traefik.frontend.headers.SSLRedirect=true
+      - traefik.frontend.headers.STSSeconds=315360000
+      - traefik.frontend.headers.browserXSSFilter=true
+      - traefik.frontend.headers.contentTypeNosniff=true
+      - traefik.frontend.headers.forceSTSHeader=true
+      #      - "traefik.frontend.headers.SSLHost={{ docker_stack__external_domain }}"
+      - traefik.frontend.headers.STSIncludeSubdomains=true
+      - traefik.frontend.headers.STSPreload=true
+      - traefik.frontend.headers.frameDeny=true
 
 docker_stack__appspec__cobbler:
   dirs: "{{ __docker_stack__cobbler__config_dirs | d([]) }}"

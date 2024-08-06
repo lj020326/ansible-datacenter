@@ -1,9 +1,7 @@
 ---
-
-- name: "Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__cert_node }}] | Set __log_prefix_subtask"
+- name: Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__cert_node }}] | Set __log_prefix_subtask
   ansible.builtin.set_fact:
-    __log_prefix_subtask: "Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__ca_cert_cn
-      | d(__bootstrap_certs__cert_node) }}] |"
+    __log_prefix_subtask: Create CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__ca_cert_cn | d(__bootstrap_certs__cert_node) }}] |
 
 - name: "{{ __log_prefix_subtask }} Get common CA cert facts"
   ansible.builtin.include_tasks: get_cert_facts.yml
@@ -31,20 +29,20 @@
 - name: "{{ __log_prefix_subtask }} Create config json"
   when: bootstrap_certs__ca_cert_type == "intermediate-ca"
   ansible.builtin.template:
-#    backup: true
+    #    backup: true
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: "0644"
   loop:
-    - src: "ca/ca-config.json.j2"
+    - src: ca/ca-config.json.j2
       dest: "{{ bootstrap_certs__cacerts_base_dir }}/ca-config.json"
-    - src: "ca/ca-cacert-csr.json.j2"
+    - src: ca/ca-cacert-csr.json.j2
       dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_info.commonName }}.json"
 
 - name: "{{ __log_prefix_subtask }} Generating server csr config file [{{ __bootstrap_certs__ca_cert_cn }}.json]"
   when: bootstrap_certs__ca_cert_type != "intermediate-ca"
   ansible.builtin.template:
-    src: "ca/ca-cert-csr.json.j2"
+    src: ca/ca-cert-csr.json.j2
     dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_cn }}.json"
     mode: "0644"
 
@@ -54,7 +52,6 @@
 - name: "{{ __log_prefix_subtask }} Create signed certificate authority key pair and CSR"
   when: _ca_missing_or_invalid_cert|bool or not _ca_key_exists|bool or bootstrap_certs__ca_force_create|bool
   block:
-
     - name: "{{ __log_prefix_subtask }} Generating signed server certificate {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
       changed_when: false
       ansible.builtin.shell: |
@@ -68,9 +65,9 @@
           | cfssljson -bare {{ __bootstrap_certs__ca_cert_cn }}
       args:
         chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
-#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+    #        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
 
-    - name: "Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+    - name: Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
       ansible.builtin.file:
         dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
         mode: "644"
@@ -83,7 +80,7 @@
           {{ bootstrap_certs__ca_root_cacerts_dir }}/{{ bootstrap_certs__ca_root_cert }} > {{ __bootstrap_certs__ca_cert_chain }}
       args:
         chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
-#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+    #        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
 
     - name: "{{ __log_prefix_subtask }} Create server cert chain pem file for non-root signer [{{ __bootstrap_certs__ca_cert_chain }}]"
       changed_when: false
@@ -94,13 +91,12 @@
           > {{ __bootstrap_certs__ca_cert_chain }}
       args:
         chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
-#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+    #        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
 
-    - name: "Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
+    - name: Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}
       ansible.builtin.file:
         dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
         mode: "644"
-
 
 - name: "{{ __log_prefix_subtask }} Get cert chain info for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_chain }}"
   changed_when: false
@@ -115,20 +111,19 @@
   ansible.builtin.debug:
     var: ca_chain_info.stdout_lines
 
-  ## ref: https://www.tailored.cloud/devops/how-to-filter-and-map-lists-in-ansible/
+## ref: https://www.tailored.cloud/devops/how-to-filter-and-map-lists-in-ansible/
 - name: "{{ __log_prefix_subtask }} Get cert chain issuer info"
   vars:
-#    regexp: 'value=\"([^issuer]+)'
-#    regexp: '^issuer'
-    regexp: '^subject'
+    #    regexp: 'value=\"([^issuer]+)'
+    #    regexp: '^issuer'
+    regexp: ^subject
   ansible.builtin.set_fact:
-#    ca_cert_issuers: "{{ ca_chain_info.stdout.split('\n') | select('match', regexp) | unique }}"
+    #    ca_cert_issuers: "{{ ca_chain_info.stdout.split('\n') | select('match', regexp) | unique }}"
     ca_cert_issuers: "{{ ca_chain_info.stdout_lines | select('match', regexp) | list | unique }}"
 
-- name: "Display cert chain issuers"
+- name: Display cert chain issuers
   ansible.builtin.debug:
     var: ca_cert_issuers
-
 
 ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
 - name: "{{ __log_prefix_subtask }} Get ca certificate info"
@@ -162,7 +157,6 @@
 - name: "{{ __log_prefix_subtask }} Perform intermediate cert validations"
   when: not __bootstrap_certs__ca_signer_is_root|bool
   block:
-
     - name: "{{ __log_prefix_subtask }} Validate server and intermediate cert chain"
       changed_when: false
       ansible.builtin.command: >-

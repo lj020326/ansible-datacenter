@@ -9,19 +9,17 @@ __docker_stack__artifactory_host: "{{ docker_stack__artifactory_host | d(docker_
 __docker_stack__artifactory_http: "{{ docker_stack__artifactory_http | d('8081') }}"
 
 #__docker_stack__artifactory_image_default: "{{ docker_stack__registry_endpoint }}/artifactory-pro:latest"
-__docker_stack__artifactory_image_default: "docker.bintray.io/jfrog/artifactory-pro:5.4.4"
+__docker_stack__artifactory_image_default: docker.bintray.io/jfrog/artifactory-pro:5.4.4
 __docker_stack__artifactory_image: "{{ docker_stack__artifactory_image | d(__docker_stack__artifactory_image_default) }}"
 
 __docker_stack__artifactory_ldap_host: "{{ docker_stack__artifactory_ldap_host | d(docker_stack__ldap_host)}}"
 __docker_stack__artifactory_ldap_uri: "{{ docker_stack__artifactory_ldap_uri | d(docker_stack__ldap_uri) | d(docker_stack__ldap_host) }}"
 __docker_stack__artifactory_ldap_base_dn: "{{ docker_stack__artifactory_ldap_base_dn | d(docker_stack__ldap_base_dn)}}"
 
-__docker_stack__artifactory_ldap_bind_user_dn_default: "cn=readonly,{{ __docker_stack__artifactory_ldap_base_dn
-  | d(docker_stack__ldap_user_base_dn) }}"
-__docker_stack__artifactory_ldap_bind_user_dn: "{{ docker_stack__artifactory_ldap_bind_user_dn
-  | d(docker_stack__ldap_bind_user_dn) | d(__docker_stack__artifactory_ldap_bind_user_dn_default) }}"
-__docker_stack__artifactory_ldap_bind_user_password: "{{ docker_stack__artifactory_ldap_bind_user_password
-  | d(docker_stack__ldap_bind_user_password) }}"
+__docker_stack__artifactory_ldap_bind_user_dn_default: cn=readonly,{{ __docker_stack__artifactory_ldap_base_dn | d(docker_stack__ldap_user_base_dn) }}
+__docker_stack__artifactory_ldap_bind_user_dn: "{{ docker_stack__artifactory_ldap_bind_user_dn | d(docker_stack__ldap_bind_user_dn) | d(__docker_stack__artifactory_ldap_bind_user_dn_default)
+  }}"
+__docker_stack__artifactory_ldap_bind_user_password: "{{ docker_stack__artifactory_ldap_bind_user_password | d(docker_stack__ldap_bind_user_password) }}"
 
 #__docker_stack__artifactory_data_dir_default: /export/data/artifactory/osimages
 #__docker_stack__artifactory_data_dir_default: /export/data/artifactory
@@ -34,13 +32,10 @@ __docker_stack__artifactory__config_dirs:
   - path: "{{ __docker_stack__artifactory_data_dir }}/osimages"
 
 __docker_stack__artifactory__config_tpls: []
-
-
 #########
 ## Credential vars
 __docker_stack__artifactory_cred_artifactory_admin_user_username: "{{ docker_stack__artifactory_cred_artifactory_admin_user_username | d('admin') }}"
 __docker_stack__artifactory_cred_artifactory_admin_user_password: "{{ docker_stack__artifactory_cred_artifactory_admin_user_password | d('CHANGEME123') }}"
-
 
 __docker_stack__artifactory__secrets:
   - name: ldap_username
@@ -51,7 +46,6 @@ __docker_stack__artifactory__secrets:
     value: "{{ __docker_stack__artifactory_cred_artifactory_admin_user_username }}"
   - name: artifactory_admin_password
     value: "{{ __docker_stack__artifactory_cred_artifactory_admin_user_password }}"
-
 
 __docker_stack__artifactory__firewalld_ports:
   - "{{ __docker_stack__artifactory_agent_tcp_port }}/tcp"
@@ -73,8 +67,7 @@ docker_stack__appspec__artifactory:
   volumes: "{{ __docker_stack__artifactory__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__artifactory__services | d({}) }}"
 
-__docker_stack__artifactory__traefik_labels: "{{ docker_stack__artifactory__traefik_labels
-  | d(__docker_stack__artifactory__traefik_labels_default) }}"
+__docker_stack__artifactory__traefik_labels: "{{ docker_stack__artifactory__traefik_labels | d(__docker_stack__artifactory__traefik_labels_default) }}"
 
 __docker_stack__artifactory__services:
 
@@ -82,7 +75,7 @@ __docker_stack__artifactory__services:
   artifactory:
     image: "{{ __docker_stack__artifactory_image }}"
     container_name: artifactory
-    restart: "unless-stopped"
+    restart: unless-stopped
     depends_on:
       - postgresql-artifactory
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
@@ -94,7 +87,7 @@ __docker_stack__artifactory__services:
         protocol: tcp
         published: "{{ __docker_stack__artifactory_http }}"
         target: 8081
-#      command: "--httpsCertificate=/var/opt/jfrog/artifactory/cert --httpsPrivateKey=/var/opt/jfrog/artifactory/pk"
+    #      command: "--httpsCertificate=/var/opt/jfrog/artifactory/cert --httpsPrivateKey=/var/opt/jfrog/artifactory/pk"
     volumes:
       - "{{ __docker_stack__artifactory_base_dir }}:/var/opt/jfrog/artifactory"
       - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
@@ -118,7 +111,7 @@ __docker_stack__artifactory__services:
       placement:
         constraints:
           - node.hostname == {{ docker_stack__artifactory_host }}
-#          - node.role == manager
+      #          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -141,7 +134,7 @@ __docker_stack__artifactory__services:
       placement:
         constraints:
           - node.hostname == {{ docker_stack__artifactory_host }}
-#          - node.role != manager
+      #          - node.role != manager
       replicas: 1
       restart_policy:
         condition: on-failure

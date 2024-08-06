@@ -11,7 +11,7 @@ __docker_stack__gitea__postgres_password: "{{ docker_stack__gitea_postgres_passw
 
 __docker_stack__gitea__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
 
-__docker_stack__gitea__root_url: "https://gitea.{{ __docker_stack__gitea__domain }}{{ docker_stack__traefik_https_suffix }}/"
+__docker_stack__gitea__root_url: https://gitea.{{ __docker_stack__gitea__domain }}{{ docker_stack__traefik_https_suffix }}/
 
 __docker_stack__gitea__lfs_jwt_secret: "{{ docker_stack__gitea_lfs_jwt_secret | d('00000000001111111111') }}"
 __docker_stack__gitea__secret_key: "{{ docker_stack__gitea_secret_key | d('00000000001111111111') }}"
@@ -23,13 +23,12 @@ __docker_stack__gitea__config_dirs:
   - path: "{{ __docker_stack__gitea__stack_dir }}/gitea/gitea/conf"
 
 __docker_stack__gitea__config_tpls:
-  - src: 'gitea/app.ini.j2'
+  - src: gitea/app.ini.j2
     dest: "{{ __docker_stack__gitea__stack_dir }}/gitea/gitea/conf/app.ini"
 
 __docker_stack__gitea__firewalld_ports:
   - "{{ __docker_stack__gitea__ssh_port }}/tcp"
   - "{{ __docker_stack__gitea__http_port }}/tcp"
-
 
 docker_stack__appspec__gitea:
   dirs: "{{ __docker_stack__gitea__config_dirs | d([]) }}"
@@ -45,38 +44,36 @@ __docker_stack__gitea__environment_default:
   ROOT_URL: "{{ __docker_stack__gitea__root_url }}"
   DOMAIN: "{{ __docker_stack__gitea__domain }}"
   SSH_DOMAIN: "{{ __docker_stack__gitea__endpoint }}"
-  DB_TYPE: "postgres"
-  DB_HOST: "postgres:{{ __docker_stack__gitea__postgres_port }}"
+  DB_TYPE: postgres
+  DB_HOST: postgres:{{ __docker_stack__gitea__postgres_port }}
   DB_NAME: "{{ __docker_stack__gitea__postgres_user }}"
   DB_USER: "{{ __docker_stack__gitea__postgres_user }}"
   DB_PASSWD: "{{ __docker_stack__gitea__postgres_password }}"
   ## ref: https://github.com/go-gitea/gitea/issues/5475#issuecomment-446467498
   GIT_SSL_NO_VERIFY: "true"
 
-__docker_stack__gitea__environment: "{{ docker_stack__gitea__environment
-  | d(__docker_stack__gitea__environment_default) }}"
+__docker_stack__gitea__environment: "{{ docker_stack__gitea__environment | d(__docker_stack__gitea__environment_default) }}"
 
-__docker_stack__gitea__traefik_labels: "{{ docker_stack__gitea__traefik_labels
-  | d(__docker_stack__gitea__traefik_labels_default) }}"
+__docker_stack__gitea__traefik_labels: "{{ docker_stack__gitea__traefik_labels | d(__docker_stack__gitea__traefik_labels_default) }}"
 
 __docker_stack__gitea__services:
   ## ref: https://docs.gitea.io/en-us/install-with-docker/
   ## ref: https://git.habd.as/comfusion/high-tea/src/branch/master/docker-compose.yml
   gitea:
     container_name: gitea
-#      image: gitea/gitea:1.6
-    image: "gitea/gitea:latest"
+    #      image: gitea/gitea:1.6
+    image: gitea/gitea:latest
     depends_on:
       - postgres
     environment: "{{ __docker_stack__gitea__environment }}"
-#      restart: always
-    restart: "unless-stopped"
+    #      restart: always
+    restart: unless-stopped
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
     volumes:
       - "{{ __docker_stack__gitea__stack_dir }}/gitea:/data"
-#      - "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem:/etc/ssl/certs/ca-certificates.crt:ro"
+      #      - "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem:/etc/ssl/certs/ca-certificates.crt:ro"
       - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
@@ -88,8 +85,8 @@ __docker_stack__gitea__services:
       mode: replicated
       placement:
         constraints:
-          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-#          - node.role == manager
+          - node.hostname == {{ __docker_stack__base__traefik_host }}
+      #          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

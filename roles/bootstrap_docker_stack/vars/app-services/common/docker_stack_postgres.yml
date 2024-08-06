@@ -19,7 +19,7 @@ __docker_stack__pgadmin__config_default:
 ## reF: https://www.pgadmin.org/docs/pgadmin4/5.0/enabling_ldap_authentication.html
 __docker_stack__pgadmin__ldap_config_default:
   PGADMIN_CONFIG_LDAP_SERVER_URI: "{{ docker_stack__pgadmin_config_ldap_server_uri | d('') }}"
-  PGADMIN_CONFIG_LDAP_USERNAME_ATTRIBUTE: "uid"
+  PGADMIN_CONFIG_LDAP_USERNAME_ATTRIBUTE: uid
   PGADMIN_CONFIG_LDAP_BASE_DN: "{{ docker_stack__pgadmin_config_ldap_base_dn | d('') }}"
   PGADMIN_CONFIG_LDAP_SEARCH_BASE_DN: "{{ docker_stack__pgadmin_config_ldap_search_base_dn | d('') }}"
   PGADMIN_CONFIG_LDAP_SEARCH_FILTER: "{{ docker_stack__pgadmin_config_ldap_search_filter | d('(cn=*)') }}"
@@ -35,7 +35,7 @@ __docker_stack__postgres__config_dirs:
   - { path: "{{ docker_stack__dir }}/postgres" }
   - { path: "{{ docker_stack__dir }}/postgres/multiple-dbs" }
   - { path: "{{ docker_stack__dir }}/postgres/config" }
-  - { path: "{{ docker_stack__dir }}/postgres/data", mode: "0750"}
+  - { path: "{{ docker_stack__dir }}/postgres/data", mode: "0750" }
   - { path: "{{ docker_stack__dir }}/pgadmin" }
   - { path: "{{ docker_stack__dir }}/pgadmin/data" }
   - { path: "{{ docker_stack__dir }}/pgadmin/config" }
@@ -43,16 +43,18 @@ __docker_stack__postgres__config_dirs:
   - { path: "{{ docker_stack__dir }}/pgadmin/log/pgadmin" }
 
 __docker_stack__postgres__config_tpls:
-  - { src: 'postgres/config-passwd.conf.j2', dest: "{{ docker_stack__dir }}/postgres/passwd" }
-  - { src: 'postgres/config-group.conf.j2', dest: "{{ docker_stack__dir }}/postgres/group" }
-  - { src: 'pgadmin/config-passwd.conf.j2', dest: "{{ docker_stack__dir }}/pgadmin/passwd" }
-  - { src: 'pgadmin/config-group.conf.j2', dest: "{{ docker_stack__dir }}/pgadmin/group" }
+  - { src: postgres/config-passwd.conf.j2, dest: "{{ docker_stack__dir }}/postgres/passwd" }
+  - { src: postgres/config-group.conf.j2, dest: "{{ docker_stack__dir }}/postgres/group" }
+  - { src: pgadmin/config-passwd.conf.j2, dest: "{{ docker_stack__dir }}/pgadmin/passwd" }
+  - { src: pgadmin/config-group.conf.j2, dest: "{{ docker_stack__dir }}/pgadmin/group" }
 
 __docker_stack__postgres__firewalld_ports:
   - "{{ __docker_stack__postgres__port }}/tcp"
 
 __docker_stack__postgres__config_files:
-  - { src: 'files/postgres/create-multiple-pg-databases.sh', mode: '0755', dest: "{{ docker_stack__dir }}/postgres/multiple-dbs/create-multiple-pg-databases.sh" }
+  - src: files/postgres/create-multiple-pg-databases.sh
+    mode: "0755"
+    dest: "{{ docker_stack__dir }}/postgres/multiple-dbs/create-multiple-pg-databases.sh"
 
 docker_stack__appspec__postgres:
   dirs: "{{ __docker_stack__postgres__config_dirs | d([]) }}"
@@ -62,8 +64,8 @@ docker_stack__appspec__postgres:
   firewalld_ports: "{{ __docker_stack__postgres__firewalld_ports | d([]) }}"
   docker_services: "{{ __docker_stack__postgres__services | d({}) }}"
 
-__docker_stack__postgres_pgadmin__traefik_labels: "{{ docker_stack__postgres_pgadmin__traefik_labels
-  | d(__docker_stack__postgres_pgadmin__traefik_labels_default) }}"
+__docker_stack__postgres_pgadmin__traefik_labels: "{{ docker_stack__postgres_pgadmin__traefik_labels | d(__docker_stack__postgres_pgadmin__traefik_labels_default)
+  }}"
 
 __docker_stack__postgres__services:
   ## ID management stack per:
@@ -71,11 +73,11 @@ __docker_stack__postgres__services:
   ## ref: https://hub.docker.com/_/postgres
   postgres:
     container_name: postgres
-#      image: postgres
-    image: "postgres:11"
+    #      image: postgres
+    image: postgres:11
     ports:
       - "{{ __docker_stack__postgres__port }}:5432"
-    restart: "unless-stopped"
+    restart: unless-stopped
     networks:
       - net
     volumes:
@@ -84,16 +86,17 @@ __docker_stack__postgres__services:
       - "{{ docker_stack__dir }}/postgres/multiple-dbs:/docker-entrypoint-initdb.d"
       - "{{ docker_stack__dir }}/postgres/config:/config"
       - "{{ docker_stack__dir }}/postgres/data:/var/lib/postgresql/data"
-#        - postgres_data:/var/lib/postgresql/data
+    #        - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__postgres__databases | join(':') }}"
       POSTGRES_USER: "{{ __docker_stack__postgres__user }}"
       POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
-#      healthcheck:
-#        test: "exit 0"
+    #      healthcheck:
+    #        test: "exit 0"
     ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
     healthcheck:
-      test: 'PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?'
+      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select
+        1" ; [ "0" -eq "$$?" ]; echo $$?
       interval: 30s
       timeout: 10s
       retries: 3
@@ -101,8 +104,8 @@ __docker_stack__postgres__services:
       mode: replicated
       placement:
         constraints:
-          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-#          - node.role == manager
+          - node.hostname == {{ __docker_stack__base__traefik_host }}
+      #          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -117,8 +120,8 @@ __docker_stack__postgres__services:
   ## ref: https://www.bojankomazec.com/2020/02/running-pgadmin-in-docker-container.html
   pgadmin:
     container_name: pgadmin
-#    image: "dpage/pgadmin4"
-    image: "dpage/pgadmin4:5.0"
+    #    image: "dpage/pgadmin4"
+    image: dpage/pgadmin4:5.0
     links:
       - postgres
     depends_on:
@@ -126,26 +129,26 @@ __docker_stack__postgres__services:
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     environment: "{{ __docker_stack__pgadmin__config }}"
     volumes:
-#         - pgadmin:/root/.pgadmin
-#      - "{{ docker_stack__dir }}/pgadmin:/root/.pgadmin"
+      #         - pgadmin:/root/.pgadmin
+      #      - "{{ docker_stack__dir }}/pgadmin:/root/.pgadmin"
       - "{{ docker_stack__dir }}/pgadmin/passwd:/etc/passwd:ro"
       - "{{ docker_stack__dir }}/pgadmin/group:/etc/group:ro"
-#      - "{{ docker_stack__dir }}/pgadmin/config/servers.json:/pgadmin4/servers.json"
+      #      - "{{ docker_stack__dir }}/pgadmin/config/servers.json:/pgadmin4/servers.json"
       - "{{ docker_stack__dir }}/pgadmin/data:/var/lib/pgadmin"
       - "{{ docker_stack__dir }}/pgadmin/log/pgadmin:/var/log/pgadmin"
     ports:
       - "{{ __docker_stack__postgres__pgadmin_port }}:80"
-    restart: "unless-stopped"
+    restart: unless-stopped
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
     labels: "{{ __docker_stack__postgres_pgadmin__traefik_labels }}"
     deploy:
       mode: replicated
-#      placement:
-#        constraints:
-#          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-##          - node.role == manager
+      #      placement:
+      #        constraints:
+      #          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+      ##          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

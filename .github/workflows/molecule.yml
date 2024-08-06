@@ -1,0 +1,101 @@
+name: Molecule Tests
+
+## ref: https://github.com/marketplace/actions/ansible-molecule
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+
+jobs:
+
+  run-molecule-tests:
+    name: Molecule
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      ## ref: https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+      max-parallel: 4
+#      max-parallel: 2
+
+      matrix:
+        include:
+          - distro: centos7
+            image: centos7-systemd-python
+          - distro: centos8
+            image: centos8-systemd-python
+          - distro: redhat7
+            image: redhat7-systemd-python
+          - distro: redhat8
+            image: redhat8-systemd-python
+          - distro: debian9
+            image: debian9-systemd-python
+          - distro: debian10
+            image: debian10-systemd-python
+          - distro: ubuntu1804
+            image: ubuntu1804-systemd-python
+          - distro: ubuntu2004
+            image: ubuntu2004-systemd-python
+          - distro: ubuntu2204
+            image: ubuntu2204-systemd-python
+
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@v4
+        with:
+          path: "${{ github.repository }}"
+
+      - name: Set up Python 3.
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      ## ref: https://molecule.readthedocs.io/installation/#pip
+      ## ref: https://github.com/ansible-community/molecule-plugins
+      - name: Install control node dependencies
+        run: |
+          python3 -m pip install --upgrade setuptools
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements.molecule.txt
+        working-directory: "${{ github.repository }}"
+
+      ## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/.github/workflows/molecule.yml
+      - name: Run Molecule tests for ${{ matrix.distro }} for scenario bootstrap-linux
+#        run: molecule --debug test -s bootstrap-linux
+        run: molecule test -s bootstrap-linux
+        env:
+          PY_COLORS: '1'
+          ANSIBLE_FORCE_COLOR: '1'
+#          MOLECULE_DISTRO: ${{ matrix.distro }}
+          MOLECULE_DISTRO: ${{ matrix.image }}
+          MOLECULE_DOCKER_COMMAND: ${{ matrix.command || '/lib/systemd/systemd' }}
+#          ## ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
+#          MOLECULE_DOCKER_GROUP: ${{ matrix.inventory_group || 'molecule_docker_linux_github' }}
+        working-directory: "${{ github.repository }}"
+
+#      - name: Run Molecule tests for ${{ matrix.distro }} for scenario bootstrap-docker
+#        run: molecule test -s bootstrap-linux-package
+#        env:
+#          PY_COLORS: '1'
+#          ANSIBLE_FORCE_COLOR: '1'
+#          MOLECULE_DISTRO: ${{ matrix.distro }}
+#          MOLECULE_IMAGE: ${{ matrix.image }}
+#          MOLECULE_DOCKER_COMMAND: ${{ matrix.command || '/lib/systemd/systemd' }}
+#          MOLECULE_DOCKER_GROUP: ${{ matrix.inventory_group || 'molecule_docker_linux_github' }}
+#        working-directory: "${{ github.repository }}"
+
+#      - name: Run Molecule tests for ${{ matrix.distro }} for scenario bootstrap-docker
+#        run: molecule test -s bootstrap-docker
+#        env:
+#          PY_COLORS: '1'
+#          ANSIBLE_FORCE_COLOR: '1'
+#          MOLECULE_DISTRO: ${{ matrix.distro }}
+#          MOLECULE_IMAGE: ${{ matrix.image }}
+#          MOLECULE_DOCKER_COMMAND: ${{ matrix.command || '/lib/systemd/systemd' }}
+#          MOLECULE_DOCKER_GROUP: ${{ matrix.inventory_group || 'molecule_docker_linux_github' }}
+#        working-directory: "${{ github.repository }}"

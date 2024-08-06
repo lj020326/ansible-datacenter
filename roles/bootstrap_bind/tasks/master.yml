@@ -1,7 +1,6 @@
 # roles/bind/tasks/master.yml
 # Set up a BIND master server
 ---
-
 #- name: display bind_zone_hosts_dynamic
 #  ansible.builtin.debug: var=bind_zone_hosts_dynamic
 
@@ -19,7 +18,7 @@
 
 - name: Set bind_domain_group
   ansible.builtin.set_fact:
-    bind_domain_group: "ca_domain_{{ '_'.join( bind_zone_name.split('.')|reverse ) }}"
+    bind_domain_group: ca_domain_{{ '_'.join( bind_zone_name.split('.')|reverse ) }}
 
 - name: Display bind_domain_group
   ansible.builtin.debug:
@@ -30,12 +29,12 @@
     var: groups[bind_domain_group]
 
 - name: Read forward zone hashes
-  ansible.builtin.shell: 'grep -s "^; Hash:" {{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.view }}_{% endif %}{{ item.name }} || true'
+  ansible.builtin.shell: grep -s "^; Hash:" {{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.view }}_{% endif %}{{ item.name }} || true
   changed_when: false
   check_mode: false
   register: forward_hashes_temp
-#  loop:
-#    - "{{ bind_zone_domains }}"
+  #  loop:
+  #    - "{{ bind_zone_domains }}"
   loop: "{{ bind_zone_domains }}"
   run_once: true
   loop_control:
@@ -52,7 +51,8 @@
 
 - name: Read reverse ipv4 zone hashes
   run_once: true
-  ansible.builtin.shell: "grep -s \"^; Hash:\" {{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ ('.'.join(item.1.replace(item.1+'.','').split('.')[::-1])) }}.in-addr.arpa || true"
+  ansible.builtin.shell: grep -s "^; Hash:" {{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ ('.'.join(item.1.replace(item.1+'.','').split('.')[::-1]))
+    }}.in-addr.arpa || true
   changed_when: false
   check_mode: false
   register: reverse_hashes_temp
@@ -81,7 +81,8 @@
 #    var: reverse_hashes
 
 - name: Read reverse ipv6 zone hashes
-  ansible.builtin.shell: "grep -s \"^; Hash:\" {{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ (item.1 | ansible.utils.ipaddr('revdns'))[-(9+(item.1|regex_replace('^.*/','')|int)//2):-1] }} || true"
+  ansible.builtin.shell: grep -s "^; Hash:" {{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ (item.1 | ansible.utils.ipaddr('revdns'))[-(9+(item.1|regex_replace('^.*/','')|int)//2):-1]
+    }} || true
   changed_when: false
   check_mode: false
   register: reverse_hashes_ipv6_temp
@@ -110,9 +111,9 @@
     dest: "{{ bind_config }}"
     owner: "{{ bind_owner }}"
     group: "{{ bind_group }}"
-    mode: '0640'
+    mode: "0640"
     setype: named_conf_t
-    validate: 'named-checkconf %s'
+    validate: named-checkconf %s
     backup: "{{ bind_backup_conf }}"
   notify: reload bind
   tags: bind
@@ -125,7 +126,7 @@
     group: "{{ bind_group }}"
     mode: "{{ bind_zone_file_mode }}"
     setype: named_zone_t
-    validate: 'named-checkzone -d {{ item.name }} %s'
+    validate: named-checkzone -d {{ item.name }} %s
     backup: "{{ bind_backup_conf }}"
   loop: "{{ bind_zone_domains }}"
   loop_control:
@@ -136,12 +137,13 @@
 - name: Master | Create reverse lookup zone file
   ansible.builtin.template:
     src: reverse_zone.j2
-    dest: "{{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ ('.'.join(item.1.replace(item.1+'.','').split('.')[::-1])) }}.in-addr.arpa"
+    dest: "{{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ ('.'.join(item.1.replace(item.1+'.','').split('.')[::-1]))
+      }}.in-addr.arpa"
     owner: "{{ bind_owner }}"
     group: "{{ bind_group }}"
     mode: "{{ bind_zone_file_mode }}"
     setype: named_zone_t
-    validate: "named-checkzone {{ ('.'.join(item.1.replace(item.1+'.','').split('.')[::-1])) }}.in-addr.arpa %s"
+    validate: named-checkzone {{ ('.'.join(item.1.replace(item.1+'.','').split('.')[::-1])) }}.in-addr.arpa %s
     backup: "{{ bind_backup_conf }}"
   with_subelements:
     - "{{ bind_zone_domains }}"
@@ -156,12 +158,13 @@
 - name: Master | Create reverse IPv6 lookup zone file
   ansible.builtin.template:
     src: reverse_zone_ipv6.j2
-    dest: "{{bind_zone_dir}}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ (item.1 | ansible.utils.ipaddr('revdns'))[-(9+(item.1|regex_replace('^.*/','')|int)//2):-1] }}"
+    dest: "{{bind_zone_dir}}/{% if bind_enable_views is sameas true %}{{ item.0.view }}_{% endif %}{{ (item.1 | ansible.utils.ipaddr('revdns'))[-(9+(item.1|regex_replace('^.*/','')|int)//2):-1]
+      }}"
     owner: "{{ bind_owner }}"
     group: "{{ bind_group }}"
     mode: "{{ bind_zone_file_mode }}"
     setype: named_zone_t
-    validate: "named-checkzone {{ (item.1 | ansible.utils.ipaddr('revdns'))[-(9+(item.1|regex_replace('^.*/','')|int)//2):] }} %s"
+    validate: named-checkzone {{ (item.1 | ansible.utils.ipaddr('revdns'))[-(9+(item.1|regex_replace('^.*/','')|int)//2):] }} %s
     backup: "{{ bind_backup_conf }}"
   with_subelements:
     - "{{ bind_zone_domains }}"

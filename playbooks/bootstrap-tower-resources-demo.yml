@@ -4,59 +4,55 @@
 - name: Playbook for Using a Variety of Tower Modules
   hosts: localhost
   gather_facts: false
-  collections:
-    - awx.awx
-
   tasks:
+    - name: Create a new organization
+      awx.awx.organization:
+        name: New Org
+        description: test org
+        state: present
 
-  - name: Create a new organization
-    tower_organization:
-      name: "New Org"
-      description: "test org"
-      state: present
+    - name: Create an Inventory
+      awx.awx.inventory:
+        name: New Inventory
+        description: test inv
+        organization: New Org
+        state: present
 
-  - name: Create an Inventory
-    tower_inventory:
-      name: "New Inventory"
-      description: "test inv"
-      organization: "New Org"
-      state: present
+    - name: Create a Host
+      awx.awx.host:
+        name: New Host
+        inventory: New Inventory
+        state: present
+        variables:
+          foo: bar
 
-  - name: Create a Host
-    tower_host:
-      name: "New Host"
-      inventory: "New Inventory"
-      state: present
-      variables:
-        foo: bar
+    - name: Create a Project
+      awx.awx.project:
+        name: New Project
+        organization: New Org
+        scm_type: git
+        scm_url: https://github.com/ansible/test-playbooks.git
 
-  - name: Create a Project
-    tower_project:
-      name: "New Project"
-      organization: "New Org"
-      scm_type: git
-      scm_url: https://github.com/ansible/test-playbooks.git
+    - name: Create a Team
+      awx.awx.team:
+        name: Test Team
+        description: test team
+        organization: New Org
+        state: present
+        validate_certs: false
 
-  - name: Create a Team
-    tower_team:
-      name: "Test Team"
-      description: "test team"
-      organization: "New Org"
-      state: present
-      validate_certs: false
+    - name: Create a Job Template
+      awx.awx.job_template:
+        name: Job Template to Launch
+        project: New Project
+        inventory: New Inventory
+        playbook: debug.yml
+        ask_extra_vars: true
 
-  - name: Create a Job Template
-    tower_job_template:
-      name: "Job Template to Launch"
-      project: "New Project"
-      inventory: "New Inventory"
-      playbook: debug.yml
-      ask_extra_vars: yes
-
-  - name: Launch the Job Template (w/ extra_vars)!
-    tower_job_launch:
-      job_template: "Job Template to Launch"
-      extra_vars:
-        var1: My First Variable
-        var2: My Second Variable
-        var3: My Third Variable
+    - name: Launch the Job Template (w/ extra_vars)!
+      awx.awx.job_launch:
+        job_template: Job Template to Launch
+        extra_vars:
+          var1: My First Variable
+          var2: My Second Variable
+          var3: My Third Variable

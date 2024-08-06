@@ -22,7 +22,8 @@ __docker_stack__registry__common_name: "{{ docker_stack__registry_service_common
 #__docker_stack__registry__backend_fqdn: "{{ docker_stack__registry_endpoint | d('registry.example.int') }}"
 #__docker_stack__registry__backend_fqdn: "{{ docker_stack__registry_endpoint | d(__docker_stack__registry__domain) }}"
 __docker_stack__registry__backend_fqdn: "{{ __docker_stack__registry__fqdn }}"
-__docker_stack__registry__backend_endpoint: "{{ docker_stack__registry_backend_endpoint | d(__docker_stack__registry__backend_fqdn + ':' + __docker_stack__registry__host_port) }}"
+__docker_stack__registry__backend_endpoint: "{{ docker_stack__registry_backend_endpoint | d(__docker_stack__registry__backend_fqdn + ':' + __docker_stack__registry__host_port)
+  }}"
 
 __docker_stack__registry__frontend_fqdn: "{{ docker_stack__registry_frontend_fqdn | d('registry.' + __docker_stack__registry__domain) }}"
 #__docker_stack__registry__frontend_fqdn: "{{ docker_stack__registry_frontend_fqdn | d(__docker_stack__registry__backend_fqdn) }}"
@@ -47,7 +48,6 @@ __docker_stack__registry__certkey: "{{ docker_stack__registry_key_file | d(__doc
 __docker_stack__registry__host_cert_path: "{{ docker_stack__registry_host_cert_path | d(__docker_stack__registry__cert_path) }}"
 __docker_stack__registry__host_auth_path: "{{ docker_stack__registry_host_auth_path | d(__docker_stack__registry__auth_path) }}"
 
-
 __docker_stack__registry__enable_auth: "{{ docker_stack__registry_enable_auth | default(false) | bool }}"
 
 __docker_stack__registry__users_default:
@@ -57,22 +57,20 @@ __docker_stack__registry__users_default:
     password: testpassword2
 
 __docker_stack__registry__users: "{{ docker_stack__registry_users | d(__docker_stack__registry__users_default) }}"
-__docker_stack__registry__container_name: "registry"
+__docker_stack__registry__container_name: registry
 
 __docker_stack__registry__env_default:
-  REGISTRY_HTTP_TLS_CERTIFICATE: "/certs/{{ __docker_stack__registry__cert }}"
-  REGISTRY_HTTP_TLS_KEY: "/certs/{{ __docker_stack__registry__certkey }}"
+  REGISTRY_HTTP_TLS_CERTIFICATE: /certs/{{ __docker_stack__registry__cert }}
+  REGISTRY_HTTP_TLS_KEY: /certs/{{ __docker_stack__registry__certkey }}
 
 __docker_stack__registry__env_auth_default:
   REGISTRY_AUTH: htpasswd
-  REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
-  REGISTRY_AUTH_HTPASSWD_PATH: "/auth/{{ __docker_stack__registry__auth_file }}"
+  REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+  REGISTRY_AUTH_HTPASSWD_PATH: /auth/{{ __docker_stack__registry__auth_file }}
 
 __docker_stack__registry__env_auth: "{{ __docker_stack__registry__env_auth_default if __docker_stack__registry__enable_auth else {} }}"
 
 __docker_stack__registry__env: "{{ docker_stack__registry_env | d(__docker_stack__registry__env_default) | combine(__docker_stack__registry__env_auth) }}"
-
-
 
 __docker_stack__registry__config_dirs:
   - { path: "{{ __docker_stack__registry__data_path }}" }
@@ -96,13 +94,12 @@ __docker_stack__registry__config_files:
     remote_src: true
 
 __docker_stack__registry__config_tpls:
-#  - { src: "registry/config-registry.yml.j2", dest: "{{ __docker_stack__registry__config_path }}/config.yml", mode: "0664" }
-  - { src: "registry/config-registry.yml.j2", dest: "{{ __docker_stack__registry__config_path }}/config.yml" }
+  #  - { src: "registry/config-registry.yml.j2", dest: "{{ __docker_stack__registry__config_path }}/config.yml", mode: "0664" }
+  - { src: registry/config-registry.yml.j2, dest: "{{ __docker_stack__registry__config_path }}/config.yml" }
 
 __docker_stack__registry__firewalld_ports:
-  - "8443/tcp"
-  - "8080/tcp"
-
+  - 8443/tcp
+  - 8080/tcp
 
 docker_stack__appspec__registry:
   dirs: "{{ __docker_stack__registry__config_dirs | d([]) }}"
@@ -113,7 +110,6 @@ docker_stack__appspec__registry:
   networks: "{{ __docker_stack__registry__networks | d({}) }}"
   volumes: "{{ __docker_stack__registry__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__registry__services | d({}) }}"
-
 
 __docker_stack__registry__traefik_labels: "{{ docker_stack__registry__traefik_labels | d(__docker_stack__registry__traefik_labels_default) }}"
 
@@ -137,8 +133,8 @@ __docker_stack__registry__services:
       mode: replicated
       placement:
         constraints:
-          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-#          - node.role == manager
+          - node.hostname == {{ __docker_stack__base__traefik_host }}
+      #          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -147,10 +143,10 @@ __docker_stack__registry__services:
         window: 120s
 
   registry-frontend:
-#      hostname: registry-frontend
+    #      hostname: registry-frontend
     container_name: registry-frontend
     restart: unless-stopped
-#    image: productionwentdown/docker-registry-frontend-static
+    #    image: productionwentdown/docker-registry-frontend-static
     image: konradkleine/docker-registry-frontend:v2
     links:
       - "{{__docker_stack__registry__container_name}}:registry"
@@ -159,8 +155,8 @@ __docker_stack__registry__services:
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
       - net
-#      ports:
-#        - "{{ __docker_stack__registry__frontend_port }}:443"
+    #      ports:
+    #        - "{{ __docker_stack__registry__frontend_port }}:443"
     volumes:
       - "{{ __docker_stack__registry__cert_path }}/{{ __docker_stack__registry__cert }}:/etc/apache2/server.crt:ro"
       - "{{ __docker_stack__registry__cert_path }}/{{ __docker_stack__registry__certkey }}:/etc/apache2/server.key:ro"
@@ -175,10 +171,10 @@ __docker_stack__registry__services:
     labels: "{{ __docker_stack__registry__traefik_labels }}"
     deploy:
       mode: replicated
-#      placement:
-#        constraints:
-#          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-##          - node.role == manager
+      #      placement:
+      #        constraints:
+      #          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
+      ##          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

@@ -1,30 +1,29 @@
 ---
-
-- name: "Add a jenkins group"
+- name: Add a jenkins group
   ansible.builtin.group:
     name: jenkins
     state: present
 
-- name: "Add a jenkins user"
+- name: Add a jenkins user
   ansible.builtin.user:
     name: jenkins
     state: present
 
-- name: "Add jenkins user to jenkins user groups"
+- name: Add jenkins user to jenkins user groups
   when: jenkins_agent__jenkins_user_groups|d([])|length>0
   ansible.builtin.user:
     name: jenkins
     groups: "{{ jenkins_agent__jenkins_user_groups }}"
-    append: yes
+    append: true
     state: present
 
-- name: "Create Jenkins-Agent directory"
+- name: Create Jenkins-Agent directory
   ansible.builtin.file:
     path: "{{ jenkins_agent__path }}"
     state: directory
     mode: "0755"
 
-- name: "Ensure Jenkins Agent config directories exist"
+- name: Ensure Jenkins Agent config directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -35,7 +34,7 @@
     - "{{ jenkins_agent__work_dir }}"
     - "{{ jenkins_agent__remoting_dir }}"
 
-- name: "Download the Jenkins Agent"
+- name: Download the Jenkins Agent
   ansible.builtin.get_url:
     url: "{{ jenkins_agent__download_url }}"
     dest: "{{ jenkins_agent__path }}"
@@ -47,14 +46,14 @@
     - Restart Jenkins Agent service
   register: jenkins_agent_jar
 
-- name: "Ensure {{ jenkins_agent__password_file }} file exists"
+- name: Ensure {{ jenkins_agent__password_file }} file exists
   when:
     - jenkins_agent__password_file is defined
     - jenkins_agent__password is defined
   ansible.builtin.template:
-    src: "jenkins-agent-password.conf.j2"
+    src: jenkins-agent-password.conf.j2
     dest: "{{ jenkins_agent__password_file }}"
-    mode: '0400'
+    mode: "0400"
     backup: true
   notify: Restart Jenkins Agent service
 
@@ -63,9 +62,9 @@
 #    name: "{{ jenkins_agent__jre_packages }}"
 #    state: present
 
-- name: "Ensure Jenkins Agent service definition"
+- name: Ensure Jenkins Agent service definition
   ansible.builtin.template:
-    src: "jenkins-agent.service.j2"
+    src: jenkins-agent.service.j2
     dest: "{{ jenkins_agent__systemd_service_dir }}/{{ jenkins_agent__service_name }}.service"
     mode: "0644"
     force: "{{ jenkins_agent__service_force_update | bool }}"
