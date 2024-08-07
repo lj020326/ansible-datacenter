@@ -61,8 +61,8 @@ options:
     description: The name or address of the host running the KDC
     type: str
     required: yes
-  on_master:
-    description: Whether the configuration is done on the master or not
+  on_controller:
+    description: Whether the configuration is done on the controller or not
     type: bool
     required: no
     default: no
@@ -114,7 +114,7 @@ def main():
             realm=dict(required=True, type='str'),
             hostname=dict(required=True, type='str'),
             kdc=dict(required=True, type='str'),
-            on_master=dict(required=False, type='bool', default=False),
+            on_controller=dict(required=False, type='bool', default=False),
         ),
         supports_check_mode=False,
     )

@@ -7,15 +7,15 @@ In the next paragraphs, we will outline the Trunk-Based Development process and 
 
 ## The Trunk-Based Development (TBD) Strategy in the real world
 
-Many organizations are now working with (or migrating to) TBD. As from [https://trunkbaseddevelopment.com/,](https://trunkbaseddevelopment.com/) this model aims to reduce the effort on merging procedures, focusing on maintaining a constant buildable "master/main" branch. Due to its simplicity, it integrates seamlessly with CI/CD pipelines.
+Many organizations are now working with (or migrating to) TBD. As from [https://trunkbaseddevelopment.com/,](https://trunkbaseddevelopment.com/) this model aims to reduce the effort on merging procedures, focusing on maintaining a constant buildable "main/master" branch. Due to its simplicity, it integrates seamlessly with CI/CD pipelines.
 
-Having an everlasting deployable master branch offers additional benefits. First, it promotes shared responsibility, where all developers are committed to maintain a stable trunk. Second, as the merging process become more challenging, developers commit smaller changes more frequently, delivering faster features and bug-fixes. On the other hand, as risk rises when commits are made straight into master, TBD often requires experienced developers to support this strategy.
+Having an everlasting deployable main branch offers additional benefits. First, it promotes shared responsibility, where all developers are committed to maintain a stable trunk. Second, as the merging process become more challenging, developers commit smaller changes more frequently, delivering faster features and bug-fixes. On the other hand, as risk rises when commits are made straight into main, TBD often requires experienced developers to support this strategy.
 
-In my organization, every commit (and push) to the master branch is considered a "good to go" build. This means that whenever an image is built, it suffices to say that it has already passed all tests and are ready for production.
+In my organization, every commit (and push) to the main branch is considered a "good to go" build. This means that whenever an image is built, it suffices to say that it has already passed all tests and are ready for production.
 
-In this pipeline project, it has been considered, along with the master branch, feature branches, which can be short or long-lived. It is up to the developer to decide for it, provided that the longer the life of a feature-branch, the more challenging the merge process will be.
+In this pipeline project, it has been considered, along with the main branch, feature branches, which can be short or long-lived. It is up to the developer to decide for it, provided that the longer the life of a feature-branch, the more challenging the merge process will be.
 
-Meanwhile, the validation process with our clients is done either in a feature branch, before merging with the master branch, or in staging, leveraging toggle features, which can be enabled or disabled by configuration. This aligns with the devops idea of "fail fast", which encourages the team to fix faster and improve the system.
+Meanwhile, the validation process with our clients is done either in a feature branch, before merging with the main branch, or in staging, leveraging toggle features, which can be enabled or disabled by configuration. This aligns with the devops idea of "fail fast", which encourages the team to fix faster and improve the system.
 
 The picture below outlines the actual TBD pipeline in my organization:
 
@@ -68,7 +68,7 @@ Let’s take a second look into the pipeline, now with our tools in place:
 
 Pic.3: Our tool choice for the TBD process
 
-First, let’s consider a commit in the master branch and a push to **Gitea** for a random repo. This is the default path/flow to production in the automated pipeline.
+First, let’s consider a commit in the main branch and a push to **Gitea** for a random repo. This is the default path/flow to production in the automated pipeline.
 
 -   **Gitea** is configured to send webhooks to **Drone** that triggers the pipeline process. This configuration is easy and can be done by creating an OAuth Application in **Gitea** ([https://docs.drone.io/server/provider/gitea/](https://docs.drone.io/server/provider/gitea/)). By default, **Gitea** will send webhook events for branch or tag creation, pull requests and pushes, but this can be also configured.
 -   Push: **Drone server** will receive this event and will call the **drone-config** service (another container from a boilerplate project) to retrieve the proper centralized drone.yaml file, which is also versioned in a git repo. It is possible to write a logic for this step, in case you have different pipelines for different repos.
@@ -76,12 +76,12 @@ First, let’s consider a commit in the master branch and a push to **Gitea** fo
 
 ![](./img/1_-dGhUhnzaUS3WiDR9btcTw.png)
 
-Pic. 4: Print from a master-branch build in the Drone Server UI
+Pic. 4: Print from a main-branch build in the Drone Server UI
 
 -   **Unit Test**: Drone will execute the unit tests defined in the repo.
--   **Build and Push**: Drone will call the build plugin to build the image, tag it with a combination of the build’s number, the branch and 8 digits from the commit’s hash(ex: _3-master-93d62a1_). This enables traceability for the image in production. This tagged image is then pushed to Harbor to become available for the next steps.
+-   **Build and Push**: Drone will call the build plugin to build the image, tag it with a combination of the build’s number, the branch and 8 digits from the commit’s hash(ex: _3-main-93d62a1_). This enables traceability for the image in production. This tagged image is then pushed to Harbor to become available for the next steps.
 -   **Security Test**: While in **Harbor**, Clair (our choice for security scan) will inspect the image for vulnerabilities. We’ve set an auto-scan on push and set a rule to prevent vulnerable images with low severity and above to be pulled. This constraint will force the pipeline to fail in further steps in case of vulnerabilities.
--   **Helm**: The next step is to build and publish the **helm chart** which will be used for deployment. We used the helm package and helm push commands in a custom docker image to execute this step. As one of our principles is to reduce complexity and redundancies in configuration, we maintain only one repo for templating all helm charts. The developer only needs to describe the specific configs for that service in a **values.yaml** file inside the project and the script will blend it with the unified template to generate the final chart. Our chart versioning policy is to match the minor version of a chart (ex: 0.1.4) with each image build (ex: 4-master-abcdefgh).
+-   **Helm**: The next step is to build and publish the **helm chart** which will be used for deployment. We used the helm package and helm push commands in a custom docker image to execute this step. As one of our principles is to reduce complexity and redundancies in configuration, we maintain only one repo for templating all helm charts. The developer only needs to describe the specific configs for that service in a **values.yaml** file inside the project and the script will blend it with the unified template to generate the final chart. Our chart versioning policy is to match the minor version of a chart (ex: 0.1.4) with each image build (ex: 4-main-abcdefgh).
 -   **Deploy Test Environments**: In this step, drone invokes the drone-helm3 plugin to deploy the **helm chart** on each environment. This plugin can be configured to set values during the deploy. This is quite useful for setting specific URLs for ingress according to the environment.
 -   **Deploy Staging and Production**: Despite the name, Drone will only configure the **Argo-cd** application to sync the new available **helm chart**. **Argo** will, then, be the one that actually deploys and enforces configuration on **kubernetes** staging and production environments. What **Drone** does is to check if the **Argo** application already exists (in case of a new repo) and creates it otherwise. It sets some **helm** values just like the last step and sets staging deployment as auto-sync and production as manual sync.
 -   **Authorization**: This is **not** a **Drone** step. The authorization occurs when the Release Manager approves the deployment in production and manually sync all "out-of-sync" repos in **Argo-cd**. In **Argo**, it is possible not only to sync specific **kubernetes** objects but also check the history of all deployments and execute rollbacks for previously working releases.
@@ -92,7 +92,7 @@ This is how it looks in Argo-cd UI:
 
 Pic 5: Images (Helm Charts) ready for sync
 
-Now, let’s describe the **feature-branch pipeline**. It will also start in **Gitea**, but now triggered by a push in a **non-master** branch:
+Now, let’s describe the **feature-branch pipeline**. It will also start in **Gitea**, but now triggered by a push in a **non-main** branch:
 
 -   **Push**: It is possible to configure conditions in Drone pipelines. In our case, whenever the commit is on a branch with "feature-\*" name pattern, the alternative pipeline will be executed. This means that we don’t need to specify another drone.yaml. Rather, we can reuse common steps and execute others when the branch condition is satisfied. The image below shows those new steps:
 
@@ -100,7 +100,7 @@ Now, let’s describe the **feature-branch pipeline**. It will also start in **G
 
 Pic. 6: Pipeline for a push in a feature-branch
 
--   **Unit Test, build, push, sec test and helm**: Nothing new or special here, except that images are now tagged with the name of the **feature-branch** instead of "master"(Ex: 5-myfeature-fedcba99). This will also make it easier to find the **production-to-be** microservice among all others in the development cluster.
+-   **Unit Test, build, push, sec test and helm**: Nothing new or special here, except that images are now tagged with the name of the **feature-branch** instead of "main"(Ex: 5-myfeature-fedcba99). This will also make it easier to find the **production-to-be** microservice among all others in the development cluster.
 -   **Create k8s cluster**: This is probably the most interesting step in the hole pipeline. In order to test and validate the new feature, we automatically create a temporary **kubernetes** cluster that will live until the feature branch exists. This will not only create a standalone and isolated environment for testing but also curb unnecessary resources consumption (specially useful in the pay-as-you-go public cloud model). For this automation, **drone** will call the ansible plugin to execute this step.
 
 This **ansible-**playbook can be quite extensive and can be found in [https://github.com/alexismaior-ansible/play-create-rancher-cluster-per-branch](https://github.com/alexismaior-ansible/play-create-rancher-cluster-per-branch). The overall steps executed by this playbook are:

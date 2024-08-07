@@ -174,8 +174,8 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:59  ├── ansible_controller.yml -> ../../group_vars/ansible_controller.yml
 11:46:59  ├── backup_server.yml -> ../../group_vars/backup_server.yml
 11:46:59  ├── baremetal.yml -> ../../group_vars/baremetal.yml
-11:46:59  ├── bind_master.yml -> ../../group_vars/bind_master.yml
-11:46:59  ├── bind_slave.yml -> ../../group_vars/bind_slave.yml
+11:46:59  ├── bind_controller.yml -> ../../group_vars/bind_controller.yml
+11:46:59  ├── bind_replica.yml -> ../../group_vars/bind_replica.yml
 11:46:59  ├── ca_domain_int_dettonville.yml -> ../../group_vars/ca_domain_int_dettonville.yml
 11:46:59  ├── ca_domain_int_johnson.yml -> ../../group_vars/ca_domain_int_johnson.yml
 11:46:59  ├── ca_domain.yml -> ../../group_vars/ca_domain.yml
@@ -184,12 +184,12 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:59  ├── chef_inspec.yml -> ../../group_vars/chef_inspec.yml
 11:46:59  ├── cicd_node.yml -> ../../group_vars/cicd_node.yml
 11:46:59  ├── cloudstack_cluster.yml -> ../../group_vars/cloudstack_cluster.yml
-11:46:59  ├── cloudstack_master.yml -> ../../group_vars/cloudstack_master.yml
+11:46:59  ├── cloudstack_controller.yml -> ../../group_vars/cloudstack_controller.yml
 11:46:59  ├── dell_idrac_hosts.yml -> ../../group_vars/dell_idrac_hosts.yml
 11:46:59  ├── deploy_vm_node.yml -> ../../group_vars/deploy_vm_node.yml
 11:46:59  ├── deploy_vsphere_dc.yml -> ../../group_vars/deploy_vsphere_dc.yml
-11:46:59  ├── dhcp_master.yml -> ../../group_vars/dhcp_master.yml
-11:46:59  ├── dhcp_slave.yml -> ../../group_vars/dhcp_slave.yml
+11:46:59  ├── dhcp_primary.yml -> ../../group_vars/dhcp_primary.yml
+11:46:59  ├── dhcp_replica.yml -> ../../group_vars/dhcp_replica.yml
 11:46:59  ├── docker_stack_admin.yml -> ../../group_vars/docker_stack_admin.yml
 11:46:59  ├── docker_awx_node.yml -> ../../group_vars/docker_awx_node.yml
 11:46:59  ├── docker_cobbler_node.yml -> ../../group_vars/docker_cobbler_node.yml
@@ -205,9 +205,9 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:46:59  ├── fog_server.yml -> ../../group_vars/fog_server.yml
 11:46:59  ├── iscsi_client.yml -> ../../group_vars/iscsi_client.yml
 11:46:59  ├── jenkins_agent.yml -> ../../group_vars/jenkins_agent.yml
-11:46:59  ├── jenkins_master.yml -> ../../group_vars/jenkins_master.yml
+11:46:59  ├── jenkins_controller.yml -> ../../group_vars/jenkins_controller.yml
 11:46:59  ├── k8s_cluster.yml -> ../../group_vars/k8s_cluster.yml
-11:46:59  ├── kube_master.yml -> ../../group_vars/kube_master.yml
+11:46:59  ├── kube_controller.yml -> ../../group_vars/kube_controller.yml
 11:46:59  ├── kube_node.yml -> ../../group_vars/kube_node.yml
 11:46:59  ├── ldap_client.yml -> ../../group_vars/ldap_client.yml
 11:46:59  ├── linux_ip_dhcp.yml -> ../../group_vars/linux_ip_dhcp.yml
@@ -1707,7 +1707,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 11:50:42  TASK [****-os-hardening : gather files from which to remove suids/sgids and remove system white-listed files | os-06] ***
 11:50:42  ok: [vmu20-01]
 11:50:42  
-11:50:42  TASK [****-os-hardening : remove suid/sgid bit from all binaries except in system and user whitelist | os-06] ***
+11:50:42  TASK [****-os-hardening : remove suid/sgid bit from all binaries except in system and user allowlist | os-06] ***
 11:50:43  
 11:50:43  TASK [****-os-hardening : get UID_MIN from login.defs] **********************
 11:50:43  skipping: [vmu20-01]

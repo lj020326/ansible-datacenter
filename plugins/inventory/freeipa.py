@@ -47,7 +47,7 @@ options:
       that have all the roles are returned.
     type: list
     elements: str
-    choices: ["IPA master", "CA server", "KRA server", "DNS server",
+    choices: ["IPA controller", "CA server", "KRA server", "DNS server",
               "AD trust controller", "AD trust agent"]
     required: false
   inventory_group:

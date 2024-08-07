@@ -121,7 +121,7 @@ With the last one running some one-off tasks that help you ensure that a certain
 
 Tags become hard to manage, especially when used in abundance inside roles. Tags in the role tasks combined with [dynamic includes or static imports](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#tag-inheritance) lead to hard to grok flows and if using third party roles, you need to start using [include with apply](https://docs.ansible.com/ansible/latest/modules/include_role_module.html#parameter-apply) and it’s just going to end in tears. 
 
-Create explicit playbooks and roles with explicit and separated task files and keep your sanity for the years to come. Grouping sets of tasks inside a role to separate task files adds reusability too. You can execute a set of tasks multiple times with different variables.
+Create explicit playbooks and roles with explicit and separated task files and keep your confidence for the years to come. Grouping sets of tasks inside a role to separate task files adds reusability too. You can execute a set of tasks multiple times with different variables.
 
 As an example, here’s a task file from the `iptables` role used in a few different ways:
 

@@ -169,4 +169,4 @@ Now I can power it on, and wait. Once the VMware tools are responding, I can use
     wait_for_process: true
 ```
 
-One more reboot and the VM is ready for advanced configuration by another playbook. In the [complete playbook](https://github.com/lj020326/ansible-datacenter/playbooks/blob/master/deploy-windows-vm.yml) and the corresponding [example vars file](https://github.com/lj020326/ansible-datacenter/playbooks/vars/blob/master/deploy-windows-vm.yml), there are a few extra steps I take to capture and later restore the state of the TSM & TSM-SSH services since most people don’t leave those enabled.
+One more reboot and the VM is ready for advanced configuration by another playbook. In the [complete playbook](https://github.com/lj020326/ansible-datacenter/playbooks/blob/main/deploy-windows-vm.yml) and the corresponding [example vars file](https://github.com/lj020326/ansible-datacenter/playbooks/vars/blob/main/deploy-windows-vm.yml), there are a few extra steps I take to capture and later restore the state of the TSM & TSM-SSH services since most people don’t leave those enabled.

@@ -236,7 +236,7 @@ vmlnxtestd2s1 | SUCCESS => {
 
 ## Run molecule tests
 
-The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/master/systemd).
+The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/main/systemd).
 
 ```shell
 $ git clone https://github.com/lj020326/ansible-datacenter.git

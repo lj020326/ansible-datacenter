@@ -108,7 +108,7 @@ options:
     type: str
     required: no
   ip_addresses:
-    description: List of Master Server IP Addresses
+    description: List of Controller Server IP Addresses
     type: list
     elements: str
     required: no
@@ -119,8 +119,8 @@ options:
     type: bool
     required: no
     default: no
-  on_master:
-    description: Whether the configuration is done on the master or not
+  on_controller:
+    description: Whether the configuration is done on the controller or not
     type: bool
     required: no
     default: no
@@ -327,7 +327,7 @@ def main():
             ip_addresses=dict(required=False, type='list', elements='str',
                               default=None),
             all_ip_addresses=dict(required=False, type='bool', default=False),
-            on_master=dict(required=False, type='bool', default=False),
+            on_controller=dict(required=False, type='bool', default=False),
             # sssd
             enable_dns_updates=dict(required=False, type='bool',
                                     default=False),
@@ -355,7 +355,7 @@ def main():
     options.firefox_dir = module.params.get('firefox_dir')
     options.ip_addresses = module.params.get('ip_addresses')
     options.all_ip_addresses = module.params.get('all_ip_addresses')
-    options.on_master = module.params.get('on_master')
+    options.on_controller = module.params.get('on_controller')
     options.enable_dns_updates = module.params.get('enable_dns_updates')
 
     # Get domain from first server if domain is not set, but if there are
@@ -537,7 +537,7 @@ def main():
 
         selinux_works = tasks.check_selinux_status()
 
-        # if is_ipa_client_installed(fstore, on_master=options.on_master):
+        # if is_ipa_client_installed(fstore, on_controller=options.on_controller):
         #     logger.error("IPA client is already configured on this system.")
         #     logger.info(
         #       "If you want to reinstall the IPA client, uninstall it first "
@@ -567,7 +567,7 @@ def main():
         #     options.principal is None and
         #     options.keytab is None and
         #     options.prompt_password is False and
-        #     not options.on_master
+        #     not options.on_controller
         # ):
         #     raise ScriptError(
         #         "One of password / principal / keytab is required.",
@@ -867,7 +867,7 @@ def main():
 
         # Do not ask for time source
         # if options.conf_ntp:
-        #     if not options.on_master and not options.unattended and not (
+        #     if not options.on_controller and not options.unattended and not (
         #             options.ntp_servers or options.ntp_pool):
         #         options.ntp_servers, options.ntp_pool = \
         #             timeconf.get_time_source()
@@ -903,7 +903,7 @@ def main():
         logger.info("BaseDN: %s", cli_basedn)
         logger.debug("BaseDN source: %s", cli_basedn_source)
 
-        if not options.on_master:
+        if not options.on_controller:
             if options.ntp_servers:
                 for server in options.ntp_servers:
                     logger.info("NTP server: %s", server)
@@ -943,7 +943,7 @@ def main():
     # client._install
 
     # May not happen in here at this time
-    # if not options.on_master:
+    # if not options.on_controller:
     #     # Try removing old principals from the keytab
     #     purge_host_keytab(cli_realm)
 

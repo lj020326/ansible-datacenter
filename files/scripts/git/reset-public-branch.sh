@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-GIT_DEFAULT_BRANCH=master
+GIT_DEFAULT_BRANCH=main
 
 ## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
 # exit when any command fails
@@ -34,8 +34,8 @@ git add -A
 echo "Commit the changes:"
 git commit -am "Initial commit"
 
-#echo "Merge master changes to public branch:"
-#git merge master
+#echo "Merge main changes to public branch:"
+#git merge main
 
 echo "Delete the old branch:"
 git branch -D public

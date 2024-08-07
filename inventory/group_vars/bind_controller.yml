@@ -1,0 +1,170 @@
+---
+
+## ref: https://github.com/bertvv/ansible-role-bind
+## ref: https://devhub.io/repos/bertvv-ansible-role-bind
+## ref: https://github.com/bertvv/ansible-role-bind/blob/vagrant-tests/test.yml
+## ref: https://github.com/bertvv/ansible-role-bind/blob/docker-tests/test.yml
+
+## ref: https://www.zytrax.com/books/dns/ch7/controls.html
+bind_acls:
+#  - name: acl1
+  - name: rndc-users
+    match_list:
+      - "{{ gateway_ipv4_network_cidr }}"
+      - "127.0.0.0/8"
+      - "172.0.0.0/8"
+      - "localhost"
+      - "localnets"
+
+bind_listen_ipv4:
+  - any
+
+# bind_listen_ipv4:
+#  - 127.0.0.1
+#  - "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+
+# bind_listen_ipv6:
+#  - any
+
+# bind_recursion: yes
+bind_recursion: no
+
+bind_allow_query:
+  - "{{ gateway_ipv4_network_cidr }}"
+  - "127.0.0.0/8"
+  - "172.0.0.0/8"
+  - "localhost"
+  - "localnets"
+
+bind_forwarders:
+#  - '8.8.8.8'
+#  - '8.8.4.4'
+#  - '192.168.0.1'
+  - "{{ gateway_ipv4_subnet_1_2 }}.0.1"
+
+## ref: https://www.zytrax.com/books/dns/ch7/controls.html
+bind_controls:
+#  - { inet: 127.0.0.1, port: 993, allow_list: ["localhost"], key_list: "rndckey" }
+#  - inet: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+#    port: 953
+  - inet: "*"
+    allow_list: ["rndc-users"]
+    key_list: ["rndc-key"]
+
+bind_zone_name: dettonville.int
+
+bind_enable_rndc_controls: yes
+
+## ref: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux_openstack_platform/7/html/dns-as-a-service_guide/install_and_configure_bind9
+bind_allow_new_zones: yes
+
+# bind_zone_primary_server_ip: '{{ hostvars["ns_controller"]["ansible_host"] }}'
+# bind_zone_primary_server_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+
+## ref: https://lab.enough.community/main/infrastructure/commit/b53c38dd71000f65e648d0c0c87347b3dc51a055
+# bind_zone_hosts_dynamic: |
+#  [
+#    {% for host in groups['ca_domain_'+bind_zone_name|replace('.', '_')] %}
+#    {% if hostvars[host].ansible_host is defined %}
+#    {
+#      'name': "{{ host }}",
+#      'ip': "{{ hostvars[host]['ansible_host'] }}",
+#    {% if hostvars[host].bind_aliases is defined %}
+#      'aliases': ["{{ hostvars[host]['bind_aliases'] | default([]) | join(',') }}"]
+#    {% endif %}
+#    },
+#    {% endif %}
+#    {% endfor %}
+#  ]
+
+## ref: https://lab.enough.community/main/infrastructure/-/blob/b53c38dd71000f65e648d0c0c87347b3dc51a055/molecule/bind/bind-playbook.yml
+## ref: https://lab.enough.community/main/infrastructure/commit/b53c38dd71000f65e648d0c0c87347b3dc51a055
+## ref: https://medium.com/opsops/ansible-default-ipv4-is-not-what-you-think-edb8ab154b10
+bind_zone_hosts_dynamic: |
+  [
+    {% for host in groups['ca_domain_'+('_'.join( bind_zone_name.split('.')|reverse ))] %}
+    {% if hostvars[host].bind_ipv4_address is defined %}
+    {
+      'name': "{{ host }}",
+      'ip': "{{ hostvars[host]['bind_ipv4_address'] }}",
+    {% if hostvars[host].bind_aliases is defined %}
+      'aliases': {{ (hostvars[host].bind_aliases | d([])) | to_json(ensure_ascii=False) }}
+    {% endif %}
+    },
+    {% endif %}
+    {% endfor %}
+  ]
+
+# bind_zone_hosts_dynamic: |
+#  [
+#    {% for host in groups['ca_domain_'+('_'.join( reversed(bind_zone_name.split('.')) ))] %}
+#    {% for host in groups['ca_domain_'+bind_zone_name|replace('.', '_')] %}
+#    {% if hostvars[host].ansible_host is defined %}
+#    {
+#      'name': "{{ host }}",
+#      'ip': "{{ hostvars[host]['ansible_host'] }}",
+#    {% if hostvars[host].bind_aliases is defined %}
+#      'aliases': {{ (hostvars[host].bind_aliases | d([])) | to_json(ensure_ascii=False) }}
+#    {% endif %}
+#    },
+#    {% endif %}
+#    {% endfor %}
+#  ]
+
+# bind_zone_hosts_static: []
+bind_zone_hosts_static:
+#  - name: "{{ inventory_hostname }}"
+#    ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+#    aliases:
+#      - 'ns1'
+#  - name: srv001
+#    ip: 192.0.2.1
+#    ipv6: '2001:db9::1'
+#    aliases:
+#      - www
+#  - name: srv002
+#    ip: 192.0.2.2
+#    ipv6: '2001:db9::2'
+#  - name: mail001
+#    ip: 192.0.2.10
+#    ipv6: '2001:db9::3'
+  - name: '@'
+    ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+
+
+bind_zone_hosts: "{{ bind_zone_hosts_dynamic + bind_zone_hosts_static }}"
+# bind_zone_hosts: "{{ bind_zone_hosts_static }}"
+
+bind_zone_domains:
+  - name: "dettonville.int"
+    hostmaster_email: "hostmaster"
+    networks:
+      - "10"
+      - "192.168"
+#      - 192.168.0
+#      - 192.168.10
+#      - 192.168.11
+#      - 192.168.20
+#      - 192.168.30
+#      - 192.168.209
+##    name_servers:
+##      - ns1
+#    delegate:
+#      - zone: johnson.int
+#        dns: "{{ gateway_ipv4 }}"
+    hosts: "{{ bind_zone_hosts }}"
+    allow_update:
+      - 'key "rndc-key"'
+
+## firewall
+firewalld_enabled: yes
+
+# firewalld_services__bind:
+#  - name: bind
+
+# bind_firewalld_ports:
+firewalld_ports__bind:
+  - "53/udp"
+  - "53/tcp"
+  - "953/udp"
+  - "953/tcp"

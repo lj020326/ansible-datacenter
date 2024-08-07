@@ -2,16 +2,18 @@
 # Create any virtual BMC interfaces
 - name: Create virtual BMC
   when:
-    - hostvars[item]['inventory_hostname'] not in groups['kvmhost']
-    - hostvars[item]['virt_infra_state'] | default(virt_infra_state) != "undefined"
-    - hostvars[item]['virt_infra_vbmc_port'] is defined and hostvars[item]['virt_infra_vbmc_port']
-    - hostvars[groups["kvmhost"][0]].virt_infra_vbmc is defined and hostvars[groups["kvmhost"][0]].virt_infra_vbmc or virt_infra_vbmc
-    - hostvars[groups["kvmhost"][0]].result_vbmc_list.stdout is defined and hostvars[item]['inventory_hostname'] not in hostvars[groups["kvmhost"][0]].result_vbmc_list.stdout
+    - not bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[item]['bootstrap_kvm_infra__state'] | default(bootstrap_kvm_infra__state) != "undefined"
+    - hostvars[item]['bootstrap_kvm_infra__vbmc_port'] is defined and hostvars[item]['bootstrap_kvm_infra__vbmc_port']
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__vbmc is defined
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__vbmc or bootstrap_kvm_infra__vbmc
+    - hostvars[bootstrap_kvm_infra__kvm_host].result_vbmc_list.stdout is defined
+    - hostvars[item]['inventory_hostname'] not in hostvars[bootstrap_kvm_infra__kvm_host].result_vbmc_list.stdout
   changed_when: false
   ansible.builtin.shell: >
     vbmc add {{ hostvars[item]['inventory_hostname'] }}
-    --libvirt-uri {{ hostvars[groups['kvmhost'][0]].virt_infra_host_libvirt_url | default(virt_infra_host_libvirt_url) }}
-    --port {{ hostvars[item]['virt_infra_vbmc_port'] }}
+    --libvirt-uri {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_libvirt_url | default(bootstrap_kvm_infra__host_libvirt_url) }}
+    --port {{ hostvars[item]['bootstrap_kvm_infra__vbmc_port'] }}
     --username {{ hostvars[item]['vbmc_user'] | default('admin') }}
     --password {{ hostvars[item]['vbmc_password'] | default('password') }}
   args:
@@ -21,7 +23,7 @@
   retries: 10
   delay: 2
   until: result_vbmc_create is succeeded
-  delegate_to: "{{ groups['kvmhost'][0] }}"
+  delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
   loop: "{{ play_hosts }}"
   run_once: true
   notify:
@@ -38,11 +40,11 @@
   until: result_vbmc_start is succeeded
   changed_when: false
   when:
-    - hostvars[item]['inventory_hostname'] not in groups['kvmhost']
-    - hostvars[item]['virt_infra_state'] | default(virt_infra_state) != "undefined"
-    - hostvars[item]['virt_infra_vbmc_port'] is defined and hostvars[item]['virt_infra_vbmc_port']
-    - hostvars[groups["kvmhost"][0]].virt_infra_vbmc is defined and hostvars[groups["kvmhost"][0]].virt_infra_vbmc or virt_infra_vbmc
-  delegate_to: "{{ groups['kvmhost'][0] }}"
+    - not bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[item]['bootstrap_kvm_infra__state'] | default(bootstrap_kvm_infra__state) != "undefined"
+    - hostvars[item]['bootstrap_kvm_infra__vbmc_port'] is defined and hostvars[item]['bootstrap_kvm_infra__vbmc_port']
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__vbmc is defined and hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__vbmc or bootstrap_kvm_infra__vbmc
+  delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
   loop: "{{ play_hosts }}"
 
 - name: flush_handlers

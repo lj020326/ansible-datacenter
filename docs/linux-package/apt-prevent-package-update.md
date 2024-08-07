@@ -13,7 +13,7 @@ In this tutorial, I’ll show you both GUI and terminal methods to disable certa
 
 ## Method 1: Prevent package update using apt-mark command
 
-Ubuntu’s package manager, apt has plenty of useful utilities for almost every aspect of package management. One of the [apt commands](https://itsfoss.com/apt-command-guide/) is apt-mark that you can use to blacklist or whitelist certain packages from the system updates.
+Ubuntu’s package manager, apt has plenty of useful utilities for almost every aspect of package management. One of the [apt commands](https://itsfoss.com/apt-command-guide/) is apt-mark that you can use to block or allow certain packages from the system updates.
 
 To **hold** a package and thus prevent apt from making changes to it, you can use the apt-mark command with hold option.
 

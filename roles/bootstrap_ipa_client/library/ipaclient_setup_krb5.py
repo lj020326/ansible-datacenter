@@ -1,26 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# Authors:
-#   Thomas Woerner <twoerner@redhat.com>
-#
-# Based on ipa-client-install code
-#
-# Copyright (C) 2018-2022  Red Hat
-# see file 'COPYING' for use and warranty information
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 from __future__ import (absolute_import, division, print_function)
 
 __metaclass__ = type
@@ -115,7 +94,7 @@ def main():
             client_domain=dict(required=False, type='str', default=None),
             sssd=dict(required=False, type='bool', default=False),
             force=dict(required=False, type='bool', default=False),
-            # on_master=dict(required=False, type='bool', default=False),
+            # on_controller=dict(required=False, type='bool', default=False),
         ),
         supports_check_mode=False,
     )
@@ -133,12 +112,12 @@ def main():
     client_domain = module.params.get('client_domain')
     sssd = module.params.get('sssd')
     force = module.params.get('force')
-    # on_master = module.params.get('on_master')
+    # on_controller = module.params.get('on_controller')
 
     fstore = sysrestore.FileStore(paths.IPA_CLIENT_SYSRESTORE)
 
-    # if options.on_master:
-    #     # If on master assume kerberos is already configured properly.
+    # if options.on_controller:
+    #     # If on controller assume kerberos is already configured properly.
     #     # Get the host TGT.
     #     try:
     #         kinit_keytab(host_principal, paths.KRB5_KEYTAB, CCACHE_FILE,

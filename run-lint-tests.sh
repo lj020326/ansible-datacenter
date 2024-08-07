@@ -17,6 +17,7 @@ TEST_CASE_CONFIGS="
 validate_ansiblelint
 validate_yamllint
 validate_kicslint
+validate_inclusivity
 "
 
 LOG_ERROR=0
@@ -182,6 +183,32 @@ function validate_kicslint() {
   return "${RETURN_STATUS}"
 }
 
+function validate_inclusivity() {
+  local LOG_PREFIX="validate_inclusivity():"
+
+  logInfo ""
+  logInfo "#######################################################"
+  eval "woke version"
+  logInfo "${LOG_PREFIX} Validate inclusive language lint"
+  local TEST_COMMAND="woke -c .inclusivity.yml --exit-1-on-failure ."
+  eval "${TEST_COMMAND} > /dev/null 2>&1"
+  local RETURN_STATUS=$?
+
+  if [[ $RETURN_STATUS -eq 0 ]]; then
+    logInfo "${LOG_PREFIX} SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+  else
+    logInfo "${LOG_PREFIX} There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    logInfo "${LOG_PREFIX} ${TEST_COMMAND}"
+    eval "${TEST_COMMAND}"
+  fi
+
+  logInfo "#######################################################"
+  logInfo "${LOG_PREFIX} RETURN_STATUS=${RETURN_STATUS}"
+  logInfo ""
+
+  return "${RETURN_STATUS}"
+}
+
 function run_test_case() {
   local TEST_CASE_ID=$1
   local TEST_FUNCTION=$2
@@ -321,7 +348,7 @@ function isInstalled() {
 
 
 function install_jq() {
-  local LOG_PREFIX="==> install_jq():"
+  local LOG_PREFIX="install_jq():"
   local OS="${1}"
   local PACKAGE_NAME="jq"
 
@@ -350,22 +377,36 @@ function install_jq() {
 
 # ref: https://formulae.brew.sh/formula/kics
 function install_kics() {
-  local LOG_PREFIX="==> install_kics():"
+  local LOG_PREFIX="install_kics():"
   local OS="${1}"
-  local VERSION="v4.40.5"
-  local BINARY="yq_linux_amd64"
 
-  logInfo "${LOG_PREFIX} Installing yq (golang) (https://github.com/mikefarah/yq#install)"
+  logInfo "${LOG_PREFIX} Installing kics (https://formulae.brew.sh/formula/kics)"
 
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
     ## ref: https://formulae.brew.sh/formula/kics
     logInfo "${LOG_PREFIX} Installing kics for MacOS using brew"
     brew install kics
   else
-    logInfo "${LOG_PREFIX} Kics install not support on platform "
+    logInfo "${LOG_PREFIX} Kics install not supported on platform ${OS}"
   fi
 }
 
+## ref: https://github.com/get-woke/woke/#install-woke
+## ref: https://docs.getwoke.tech/installation/
+function install_woke() {
+  local LOG_PREFIX="install_woke():"
+  local OS="${1}"
+
+  logInfo "${LOG_PREFIX} Installing woke (https://docs.getwoke.tech/installation/)"
+
+  if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
+    ## ref: https://docs.getwoke.tech/installation/
+    logInfo "${LOG_PREFIX} Installing woke for MacOS using brew"
+    brew install get-woke/tap/woke
+  else
+    logInfo "${LOG_PREFIX} woke install not supported on platform ${OS}"
+  fi
+}
 
 function install_ansiblelint() {
   local LOG_PREFIX="install_ansiblelint():"
@@ -448,8 +489,6 @@ function usage() {
 
 function main() {
 
-  checkRequiredCommands ansible-inventory yamllint
-
   while getopts "L:r:dlpvhk" opt; do
       case "${opt}" in
           L) setLogLevel "${OPTARG}" ;;
@@ -477,7 +516,11 @@ function main() {
   logDebug "Ensure kics present/installed"
   ensure_tool kics
 
-  checkRequiredCommands ansible-lint yamllint kics
+  ## ref: https://github.com/get-woke/woke/
+  logDebug "Ensure woke present/installed"
+  ensure_tool woke
+
+  checkRequiredCommands ansible-inventory ansible-lint yamllint kics woke
 
   TEST_CASES=("ALL")
   if [ $# -gt 0 ]; then

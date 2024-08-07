@@ -15,7 +15,7 @@ usage() {
   echo "" 1>&2
   echo "  Examples:" 1>&2
   echo "     ${SCRIPT_NAME} -y public" 1>&2
-  echo "     ${SCRIPT_NAME} master" 1>&2
+  echo "     ${SCRIPT_NAME} main" 1>&2
   echo "" 1>&2
   exit ${retcode}
 }

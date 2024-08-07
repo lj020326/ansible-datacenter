@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# ref: https://github.com/yasensim/vsphere-lab-deploy/blob/master/library/clear_vsan_errors.py
+# ref: https://github.com/lj020326/vsphere-lab-deploy/blob/main/library/clear_vsan_errors.py
 
 from __future__ import print_function
 import logging

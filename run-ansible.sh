@@ -44,12 +44,12 @@ usage() {
   echo "" 1>&2
   echo "  Examples:" 1>&2
   echo "     ${0} ansible -m ping all"
-  echo "     ${0} -r REMOTE_HOST ansible -i inventory/dev/hosts.ini -m ping"
-  echo "     ${0} -R ansible -i inventory/dev/hosts.ini -m ping"
-  echo "     ${0} ansible -i inventory/dev/hosts.ini all -m ping"
-  echo "     ${0} ansible -i inventory/dev/hosts.ini openstack -m ping"
-  echo "     ${0} ansible windows -i inventory/dev/hosts.ini -m win_ping"
-  echo "     ${0} ansible -i inventory/dev/hosts.ini all -m ping"
+  echo "     ${0} -r REMOTE_HOST ansible -i inventory/DEV/hosts.ini -m ping"
+  echo "     ${0} -R ansible -i inventory/DEV/hosts.ini -m ping"
+  echo "     ${0} ansible -i inventory/DEV/hosts.ini all -m ping"
+  echo "     ${0} ansible -i inventory/DEV/hosts.ini openstack -m ping"
+  echo "     ${0} ansible windows -i inventory/DEV/hosts.ini -m win_ping"
+  echo "     ${0} ansible -i inventory/DEV/hosts.ini all -m ping"
   echo "     ${0} ansible-playbook site.yml --tags bootstrap-node --limit admin2"
   echo "     ${0} ansible-playbook site.yml --tags bootstrap-node-network --limit node01"
   echo "     ${0} ansible-playbook site.yml --tags bootstrap-node-mounts --limit media"

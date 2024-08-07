@@ -52,8 +52,8 @@ options:
     type: bool
     required: no
     default: no
-  on_master:
-    description: Whether the configuration is done on the master or not
+  on_controller:
+    description: Whether the configuration is done on the controller or not
     type: bool
     required: no
     default: no
@@ -93,7 +93,7 @@ def main():
             ntp_pool=dict(required=False, type='str', default=None),
             no_ntp=dict(required=False, type='bool', default=False),
             # force_ntpd=dict(required=False, type='bool', default=False),
-            on_master=dict(required=False, type='bool', default=False),
+            on_controller=dict(required=False, type='bool', default=False),
             # additional
             servers=dict(required=False, type='list', elements='str',
                          default=None),
@@ -110,7 +110,7 @@ def main():
     options.ntp_pool = module.params.get('ntp_pool')
     options.no_ntp = module.params.get('no_ntp')
     # options.force_ntpd = module.params.get('force_ntpd')
-    options.on_master = module.params.get('on_master')
+    options.on_controller = module.params.get('on_controller')
     cli_server = module.params.get('servers')
     cli_domain = module.params.get('domain')
 
@@ -132,18 +132,18 @@ def main():
                                        fstore, statestore)
             else:
                 synced_ntp = sync_time(options, fstore, statestore)
-        elif options.on_master:
-            # If we're on master skipping the time sync here because it was
+        elif options.on_controller:
+            # If we're on controller skipping the time sync here because it was
             # done in ipa-server-install
             logger.info(
                 "Skipping attempt to configure and synchronize time with"
-                " chrony server as it has been already done on master.")
+                " chrony server as it has been already done on controller.")
         else:
             logger.info("Skipping chrony configuration")
 
     else:
         ntp_srv_servers = []
-        if not options.on_master and options.conf_ntp:
+        if not options.on_controller and options.conf_ntp:
             # Attempt to sync time with IPA server.
             # If we're skipping NTP configuration, we also skip the time sync
             # here.

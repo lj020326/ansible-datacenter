@@ -7,20 +7,20 @@
 
 - name: Install required iSCSI packages
   ansible.builtin.package:
-    name: "{{ iscsi__system_info[ansible_os_family].packages }}"
-    #    name:  '{{ iscsi__packages }}'
+    name: "{{ bootstrap_iscsi_client__system_info[ansible_os_family].packages }}"
+    #    name:  '{{ bootstrap_iscsi_client__packages }}'
     #    install_recommends: False
     state: present
-  register: iscsi__register_packages
-  until: iscsi__register_packages is succeeded
+  register: __iscsi__register_packages
+  until: __iscsi__register_packages is succeeded
 
 - name: Configure iSCSI Initiator IQN
   ansible.builtin.lineinfile:
     dest: /etc/iscsi/initiatorname.iscsi
     regexp: ^InitiatorName=iqn
-    line: InitiatorName={{ iscsi__initiator_name }}
+    line: InitiatorName={{ bootstrap_iscsi_client__initiator_name }}
     state: present
-  register: iscsi__register_initiatorname
+  register: __iscsi__register_initiatorname
 
 - name: Configure iSCSI discovery authentication
   ansible.builtin.lineinfile:
@@ -28,7 +28,7 @@
     regexp: '{{ (item.key | replace(".","\.")) + "\s=\s" }}'
     line: '{{ item.key + " = " + item.value }}'
     state: present
-  with_dict: "{{ iscsi__default_options }}"
+  with_dict: "{{ bootstrap_iscsi_client__default_options }}"
   when: item|d(False) and item.value
 #  no_log: True
 
@@ -41,24 +41,27 @@
 
 - name: Restart iSCSI service if initial configuration changed
   ansible.builtin.service:
-    name: "{{ iscsi__system_info[ansible_os_family].service_name }}"
+    name: "{{ bootstrap_iscsi_client__system_info[ansible_os_family].service_name }}"
     state: restarted
-  when: iscsi__enabled|d() and iscsi__register_initiatorname|d() and iscsi__register_initiatorname is changed
+  when:
+    - bootstrap_iscsi_client__enabled|bool
+    - __iscsi__register_initiatorname is defined
+    - __iscsi__register_initiatorname is changed
 
 - name: Generate iSCSI interface configuration
   changed_when: false
   ansible.builtin.shell: iscsiadm -m iface -I {{ item }} -o new ; iscsiadm -m iface -I {{ item }} --op=update -n iface.net_ifacename -v {{ item }}
   args:
     creates: /etc/iscsi/ifaces/{{ item }}
-  loop: "{{ iscsi__interfaces }}"
-  when: (iscsi__interfaces|d(False) and item in ansible_interfaces)
+  loop: "{{ bootstrap_iscsi_client__interfaces }}"
+  when: (bootstrap_iscsi_client__interfaces|d(False) and item in ansible_interfaces)
 
 - name: Printing related variables
   ansible.builtin.debug:
     msg: "{{ item.key }}={{ item.value }}"
   loop:
-    - { key: iscsi__portals, value: "{{ iscsi__portals }}" }
-    - { key: iscsi__interfaces, value: "{{ iscsi__interfaces }}" }
+    - { key: bootstrap_iscsi_client__portals, value: "{{ bootstrap_iscsi_client__portals }}" }
+    - { key: bootstrap_iscsi_client__interfaces, value: "{{ bootstrap_iscsi_client__interfaces }}" }
 #    - { key: "ansible_local.iscsi", value: "{{ ansible_local.iscsi }}" }
 #    - { key: "ansible_local", value: "{{ ansible_local }}" }
 
@@ -67,9 +70,9 @@
     discover: true
     portal: "{{ item }}"
     port: "3260"
-  loop: "{{ iscsi__portals }}"
-  register: iscsi__register_discover_targets
-  when: iscsi__portals|d(False)
+  loop: "{{ bootstrap_iscsi_client__portals }}"
+  register: __iscsi__register_discover_targets
+  when: bootstrap_iscsi_client__portals|d(False)
 
 #- name: "Debian specific setup"
 #  when: ansible_os_family == 'Debian'
@@ -79,11 +82,11 @@
 #        discover: True
 #        portal:   '{{ item }}'
 #        port: "3260"
-#      loop: '{{ iscsi__portals }}'
-#      register: iscsi__register_discover_targets
-#    #  when: (iscsi__portals and (ansible_local.iscsi.discovered_portals is undefined or
+#      loop: '{{ bootstrap_iscsi_client__portals }}'
+#      register: __iscsi__register_discover_targets
+#    #  when: (bootstrap_iscsi_client__portals and (ansible_local.iscsi.discovered_portals is undefined or
 #    #          item not in ansible_local.iscsi.discovered_portals))
-#      when: (iscsi__portals|d(False) and (ansible_local|d() and ansible_local.iscsi|d() and
+#      when: (bootstrap_iscsi_client__portals|d(False) and (ansible_local|d() and ansible_local.iscsi|d() and
 #             ansible_local.iscsi.discovered_portals is undefined or
 #             (item not in ansible_local.iscsi.discovered_portals)))
 
@@ -96,9 +99,9 @@
     node_pass: "{{ item.auth_password if (item.auth|d(False)) else omit }}"
     auto_node_startup: "{{ False if (not item.auto|d(True)) else True }}"
     port: "{{ item.port if (item.port|d(False)) else omit }}"
-  loop: "{{ iscsi__targets }}"
-  register: iscsi__register_targets
-  when: iscsi__targets|d()
+  loop: "{{ bootstrap_iscsi_client__targets }}"
+  register: __iscsi__register_targets
+  when: bootstrap_iscsi_client__targets|d()
 #  no_log: True
 
 - name: Make sure that local facts directory exists
@@ -121,7 +124,7 @@
 #  ansible.builtin.debug:
 #    msg: "{{ item.key }}={{ item.value }}"
 #  loop:
-#    - { key: "iscsi__register_targets", value: "{{ iscsi__register_targets }}" }
+#    - { key: "iscsi__register_targets", value: "{{ bootstrap_iscsi_client__register_targets }}" }
 #    - { key: "ansible_local", value: "{{ ansible_local }}" }
 #    - { key: "ansible_local.tags|d()", value: "{{ ansible_local.tags|d() }}" }
 

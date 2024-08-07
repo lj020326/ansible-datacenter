@@ -3,8 +3,8 @@
 
 ## Description
 
-This role allows to configure a new IPA server that is a replica of the server. Once it has been created it is an exact copy of the original IPA server and is an equal  master.
-Changes made to any master are automatically replicated to other masters.
+This role allows to configure a new IPA server that is a replica of the server. Once it has been created it is an exact copy of the original IPA server and is an equal controller.
+Changes made to any controller are automatically replicated to other controllers.
 
 This can be done in different ways using auto-discovery of the servers, domain and other settings or by specifying them.
 
@@ -178,16 +178,16 @@ This will deploy the replicas defined in the inventory file.
 
 Variable | Description | Required
 -------- | ----------- | --------
-`ipaservers` | This group with the IPA master full qualified hostnames. (list of strings) | mostly
+`ipaservers` | This group with the IPA controller full qualified hostnames. (list of strings) | mostly
 `ipareplicas` | Group of IPA replica hostnames. (list of strings) | yes
 `ipaadmin_password` | The password for the IPA admin user (string) | mostly
-`ipareplica_ip_addresses` | The list of master server IP addresses. (list of strings) | no
+`ipareplica_ip_addresses` | The list of controller server IP addresses. (list of strings) | no
 `ipareplica_domain` | The primary DNS domain of an existing IPA deployment. (string) | no
 `ipaserver_realm` | The Kerberos realm of an existing IPA deployment. (string) | no
 `ipaserver_hostname` | Fully qualified name of the server. (string) | no
 `ipaadmin_principal` | The authorized kerberos principal used to join the IPA realm. (string) | no
 `ipareplica_no_host_dns` | Do not use DNS for hostname lookup during installation. (bool, default: false) | no
-`ipareplica_skip_conncheck` | Skip connection check to remote master. (bool, default: false) | no
+`ipareplica_skip_conncheck` | Skip connection check to remote controller. (bool, default: false) | no
 `ipareplica_pki_config_override` | Path to ini file with config overrides. This is only usable with recent FreeIPA versions. (string) | no
 `ipareplica_mem_check` | Checking for minimum required memory for the deployment.  This is only usable with recent FreeIPA versions (4.8.10+) else ignored. (bool, default: yes) | no
 
@@ -240,7 +240,7 @@ Variable | Description | Required
 
 Variable | Description | Required
 -------- | ----------- | --------
-~~`ipareplica_skip_schema_check`~~ | ~~Skip check for updated CA DS schema on the remote master. (bool, default: false)~~ | ~~no~~
+~~`ipareplica_skip_schema_check`~~ | ~~Skip check for updated CA DS schema on the remote controller. (bool, default: false)~~ | ~~no~~
 
 ## DNS Variables
 
@@ -262,7 +262,7 @@ Variable | Description | Required
 Variable | Description | Required
 -------- | ----------- | --------
 ~~`ipareplica_add_sids`~~ | ~~Add SIDs for existing users and groups as the final step. (bool, default: false)~~ | ~~no~~
-~~`ipareplica_add_agents`~~ | ~~Add IPA masters to a list of hosts allowed to serve information about users from trusted forests. (bool, default: false)~~ | ~~no~~
+~~`ipareplica_add_agents`~~ | ~~Add IPA controllers to a list of hosts allowed to serve information about users from trusted forests. (bool, default: false)~~ | ~~no~~
 `ipareplica_enable_compat`| Enables support for trusted domains users for old clients through Schema Compatibility plugin. (bool, default: false) | no
 `ipareplica_netbios_name` | The NetBIOS name for the IPA domain. (string) | no
 `ipareplica_rid_base` | First RID value of the local domain. (integer) | no
@@ -301,5 +301,5 @@ Thomas Woerner
 
 ## Reference
 
-- https://github.com/freeipa/ansible-freeipa/tree/master
+- https://github.com/lj020326/ansible-freeipa
 - 

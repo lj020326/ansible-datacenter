@@ -13,10 +13,10 @@
     block: |-
       {{ hostvars[item]['vm_ip'] }} {{ hostvars[item]['inventory_hostname'] }}
   become: true
-  delegate_to: "{{ groups['kvmhost'][0] }}"
+  delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
   when:
     - hostvars[item]['vm_ip'] is defined and hostvars[item]['vm_ip']
-    - hostvars[item]['virt_infra_state'] | default(virt_infra_state) == "running"
+    - hostvars[item]['bootstrap_kvm_infra__state'] | default(bootstrap_kvm_infra__state) == "running"
   loop: "{{ play_hosts }}"
   run_once: true
 
@@ -30,20 +30,20 @@
     block: |-
       Host {{ hostvars[item]['vm_ip'] }} {{ hostvars[item]['inventory_hostname'] }}
         Hostname  {{ hostvars[item]['vm_ip'] }}
-        User {{ hostvars[item]['virt_infra_user'] | default(lookup('env', 'USER' )) }}
-      {% if hostvars[item]['virt_infra_ssh_keys'] is not defined %}
-      {% if hostvars[groups['kvmhost'][0]].result_ssh_key_list.files is defined and hostvars[groups['kvmhost'][0]].result_ssh_key_list.files %}
-      {% for file in hostvars[groups['kvmhost'][0]].result_ssh_key_list.files %}
+        User {{ hostvars[item]['bootstrap_kvm_infra__user'] | default(lookup('env', 'USER' )) }}
+      {% if hostvars[item]['bootstrap_kvm_infra__ssh_keys'] is not defined %}
+      {% if hostvars[bootstrap_kvm_infra__kvm_host].result_ssh_key_list.files is defined and hostvars[bootstrap_kvm_infra__kvm_host].result_ssh_key_list.files %}
+      {% for file in hostvars[bootstrap_kvm_infra__kvm_host].result_ssh_key_list.files %}
       {{ "  IdentityFile " + file.path.split('.pub')[0] }}
       {% endfor %}
-      {% elif hostvars[groups['kvmhost'][0]].result_ssh_key_gen.filename is defined and hostvars[groups['kvmhost'][0]].result_ssh_key_gen.filename %}
-      {{ "  IdentityFile " + hostvars[groups['kvmhost'][0]].result_ssh_key_gen.filename.split('.pub')[0] }}
+      {% elif hostvars[bootstrap_kvm_infra__kvm_host].result_ssh_key_gen.filename is defined and hostvars[bootstrap_kvm_infra__kvm_host].result_ssh_key_gen.filename %}
+      {{ "  IdentityFile " + hostvars[bootstrap_kvm_infra__kvm_host].result_ssh_key_gen.filename.split('.pub')[0] }}
       {% endif %}
       {% endif %}
   become: false
-  delegate_to: "{{ groups['kvmhost'][0] }}"
+  delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
   when:
     - hostvars[item]['vm_ip'] is defined and hostvars[item]['vm_ip']
-    - hostvars[item]['virt_infra_state'] | default(virt_infra_state) == "running"
+    - hostvars[item]['bootstrap_kvm_infra__state'] | default(bootstrap_kvm_infra__state) == "running"
   loop: "{{ play_hosts }}"
   run_once: true

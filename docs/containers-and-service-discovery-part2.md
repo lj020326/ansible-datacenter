@@ -140,7 +140,7 @@ Gravity Sync is an excellent project, and [incredibly easy to install](https://g
 
 One issue I found was that when I [automated the sync](https://github.com/vmstan/gravity-sync/wiki/Installing#automation) it caused an outage on the network whilst PiHole restarted. I logged in to the _secondary_ PiHole server and configured it to update once a day at 0100hrs by [editing the crontab](https://github.com/vmstan/gravity-sync/wiki/Installing#adjusting-automation) as suggested, and now my changes are kept in sync without any disruption during the day.
 
-You can confirm that the sync is working by adding a site to the whitelist within the UI on the _primary_ PiHole system, and then running `./gravity-sync.sh` on the secondary - once the script has finished running then the change should show up in the UI on the _secondary_ PiHole system.
+You can confirm that the sync is working by adding a site to the allowlist within the UI on the _primary_ PiHole system, and then running `./gravity-sync.sh` on the secondary - once the script has finished running then the change should show up in the UI on the _secondary_ PiHole system.
 
 #### PiHole Exporter
 

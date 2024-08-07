@@ -77,8 +77,8 @@ options:
     description: Create home directories for users on their first login
     type: bool
     required: no
-  on_master:
-    description: Whether the configuration is done on the master or not
+  on_controller:
+    description: Whether the configuration is done on the controller or not
     type: bool
     required: no
   dnsok:
@@ -100,7 +100,7 @@ options:
     required: no
     default: no
   ip_addresses:
-    description: List of Master Server IP Addresses
+    description: List of Controller Server IP Addresses
     type: list
     elements: str
     required: no
@@ -209,7 +209,7 @@ def main():
             subject_base=dict(required=True, type='str'),
             ca_enabled=dict(required=True, type='bool'),
             mkhomedir=dict(required=False, type='bool'),
-            on_master=dict(required=False, type='bool'),
+            on_controller=dict(required=False, type='bool'),
             dnsok=dict(required=False, type='bool', default=False),
 
             enable_dns_updates=dict(required=False, type='bool'),
@@ -246,7 +246,7 @@ def main():
     subject_base = module.params.get('subject_base')
     ca_enabled = module.params.get('ca_enabled')
     options.mkhomedir = module.params.get('mkhomedir')
-    options.on_master = module.params.get('on_master')
+    options.on_controller = module.params.get('on_controller')
     dnsok = module.params.get('dnsok')
 
     fstore = sysrestore.FileStore(paths.IPA_CLIENT_SYSRESTORE)
@@ -368,7 +368,7 @@ def main():
         # store
         tasks.insert_ca_certs_into_systemwide_ca_store(ca_certs)
 
-        if not options.on_master:
+        if not options.on_controller:
             client_dns(cli_server[0], hostname, options)
 
         if hasattr(paths, "SSH_CONFIG_DIR"):
@@ -521,7 +521,7 @@ def main():
                 logger.info("Failed to configure /etc/openldap/ldap.conf")
 
             # Check that nss is working properly
-            if not options.on_master:
+            if not options.on_controller:
                 user = options.principal
                 if user is None:
                     user = "admin@%s" % cli_domain

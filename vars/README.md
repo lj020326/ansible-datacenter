@@ -272,7 +272,7 @@ vault__docker_stack_auth_google_client_secret: "zzzGJ9hkEy816z_iiIJJATnW"
 ## or
 ## ref: https://www.browserling.com/tools/random-string
 vault__docker_stack_auth_oauth_secret: "vR4gjuw58Zwhresu"
-vault__docker_stack_auth_whitelist:
+vault__docker_stack_auth_allowlist:
   - "lee.james.johnson@gmail.com"
 
 ## openssl rand -hex 32

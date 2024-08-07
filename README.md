@@ -207,7 +207,7 @@ Once the pipeline is configured with the repo, jenkins will scan the repo branch
 ```
 echo "foobarpass" > ~/.vault_pass
 chmod 600 ~/.vault_pass
-ansible-playbook report-windows-facts.yml -i inventory/dev/hosts.yml -t untagged,report-windows-facts --vault-password-file ~/.vault_pass
+ansible-playbook report-windows-facts.yml -i inventory/DEV/hosts.yml -t untagged,report-windows-facts --vault-password-file ~/.vault_pass
 ```
 
 ## Run molecule tests
@@ -301,15 +301,15 @@ Using the run-ansible.sh script to automatically first install all dependencies 
 A [run-ansible.sh script](run-ansible.sh) is available that will upon execution always (1) check and create a virtualenv named 'venv' if not already exists, (2) install [pip library requirements](./requirements.txt), (3) install [collection requirements](collections/requirements.yml), (4) install [role requirements](roles/requirements.yml) and (5) run the command specified.  It also checks in the latest code via git Add/Commit/Push (ACP) before the steps just mentioned.  Finally, it also allows specification of a control/jump host to run the playbook via ssh wrapper.  
 
 ```shell
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-ansible-user -l control01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-ansible-user -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-docker-stack -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-linux -l control01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-linux -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-mounts -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-registry -l media01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-user -l control01
-run-ansible.sh ansible-playbook -i inventory/prod/hosts.yml site.yml --tags bootstrap-user -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l control01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-docker-stack -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-linux -l control01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-linux -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-mounts -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-registry -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-user -l control01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-user -l media01
 
 ```
 
@@ -383,7 +383,7 @@ kolla-ansible -i inventory/hosts-openstack.ini prechecks
 kolla-ansible -i inventory/hosts-openstack.ini deploy
 
 ## running post-deploy creates the /etc/kolla/openrc.sh
-## ref: https://github.com/openstack/kolla-ansible/blob/master/ansible/post-deploy.yml
+## ref: https://github.com/lj020326/kolla-ansible/blob/main/ansible/post-deploy.yml
 kolla-ansible -i inventory/hosts-openstack.ini post-deploy
 
 ## setup osclient configs if necessary
@@ -465,16 +465,16 @@ ansible-config dump |grep DEFAULT_MODULE_PATH
 ansible-inventory --graph output -i inventory/
 ansible-inventory --graph output -i inventory/ ntp
 ansible-inventory --graph output -i inventory/ ntp_server
-ansible-inventory --graph output -i inventory/dev/
-ansible-inventory --graph output -i inventory/prod/ ntp
+ansible-inventory --graph output -i inventory/DEV/
+ansible-inventory --graph output -i inventory/PROD/ ntp
 ansible-inventory -i inventory/ --graph ntp
-ansible-inventory -i inventory/dev/ --graph ntp
-ansible-inventory -i inventory/test/ --graph output
-ansible-inventory -i inventory/prod/ --graph output group
-ansible-inventory -i inventory/prod/ --graph output ntp
-ansible-inventory -i inventory/prod/ --list ntp
-ansible-inventory -i inventory/prod/ntp.yml --graph output
-ansible-inventory -i inventory/dev/site1.yml --graph output
+ansible-inventory -i inventory/DEV/ --graph ntp
+ansible-inventory -i inventory/QA/ --graph output
+ansible-inventory -i inventory/PROD/ --graph output group
+ansible-inventory -i inventory/PROD/ --graph output ntp
+ansible-inventory -i inventory/PROD/ --list ntp
+ansible-inventory -i inventory/PROD/ntp.yml --graph output
+ansible-inventory -i inventory/DEV/site1.yml --graph output
 
 ansible-playbook -i ./inventory display-ntp-servers.yml 
 ansible-playbook -i ./inventory/ display-ntp-servers.yml
@@ -484,9 +484,9 @@ ansible-playbook -i ./inventory/internal display-ntp-servers.yml
 ansible-playbook -i ./inventory/internal display-ntp-servers.yml 
 
 ansible all -m debug -a var=groups['ca_domain']
-ansible -i inventory/dev/hosts.yml  windows -m debug -a var=ansible_port
-ansible -i inventory/dev/hosts.yml  windows -m debug -a var=ansible_winrm_transport
-ansible -i inventory/dev/hosts.yml  windows -m debug -a var=ansible_host,ansible_port
+ansible -i inventory/DEV/hosts.yml  windows -m debug -a var=ansible_port
+ansible -i inventory/DEV/hosts.yml  windows -m debug -a var=ansible_winrm_transport
+ansible -i inventory/DEV/hosts.yml  windows -m debug -a var=ansible_host,ansible_port
 ```
 
 
@@ -632,39 +632,39 @@ ansible-playbook site.yml --tags upgrade-vmware-esxi
 Example inventory checks
 ```shell
 ansible -v all --list-hosts
-ansible -i ./inventory/prod/hosts.yml -m debug -a var=cacert_keystore_host admin03
-ansible -i ./inventory/prod/hosts.yml -m debug -a var=jenkins_swam_agent_master admin01
-ansible -i ./inventory/prod/hosts.yml -m debug -a var=jenkins_swarm_agent_labels admin01
-ansible -i ./inventory/prod/hosts.yml -m debug -a var=jenkins_swarm_agent_master admin01
+ansible -i ./inventory/PROD/hosts.yml -m debug -a var=cacert_keystore_host admin03
+ansible -i ./inventory/PROD/hosts.yml -m debug -a var=jenkins_swarm_agent_controller admin01
+ansible -i ./inventory/PROD/hosts.yml -m debug -a var=jenkins_swarm_agent_labels admin01
+ansible -i ./inventory/PROD/hosts.yml -m debug -a var=jenkins_swarm_agent_controller admin01
 ansible -i inventory/ -m debug -a var=service_route_internal_root_domain vcontrol01
 ansible -i inventory/ -m debug -a var=ca_domain vcontrol01
 ansible -i inventory/ -m debug -a var=service_route_internal_root_domain vcontrol01
 ansible -i inventory/hosts.yml -m debug -a var=ca_domain vcontrol01
 ansible -i inventory/hosts.yml -m debug -a var=group_names admin01
 ansible -i inventory/hosts.yml -m debug -a var=internal_root_domain vcontrol01
-ansible -i inventory/hosts.yml -m debug -a var=jenkins_swam_agent_master admin01
+ansible -i inventory/hosts.yml -m debug -a var=jenkins_swarm_agent_controller admin01
 ansible -i inventory/hosts.yml -m debug -a var=service_route_internal_root_domain vcontrol01
-ansible -i inventory/prod/ -m debug -a var=ansible_host vcenter7
-ansible -i inventory/prod/ -m debug -a var=bootstrap_docker__script_dirs admin03
-ansible -i inventory/prod/ -m debug -a var=bootstrap_docker__swarm_managers admin03
-ansible -i inventory/prod/ -m debug -a var=bootstrap_docker__swarm_remote_addrs admin03
-ansible -i inventory/prod/ -m debug -a var=ca_domain admin01
-ansible -i inventory/prod/ -m debug -a var=ca_domain vcontrol01
-ansible -i inventory/prod/ -m debug -a var=docker_stack_internal_domain admin03
-ansible -i inventory/prod/ -m debug -a var=docker_stack_internal_root_domain admin03
-ansible -i inventory/prod/ -m debug -a var=group_names admin01
-ansible -i inventory/prod/ -m debug -a var=group_names vcenter7
-ansible -i inventory/prod/ -m debug -a var=group_names vcontrol01
-ansible -i inventory/prod/ -m debug -a var=internal_domain vcenter7
-ansible -i inventory/prod/ -m debug -a var=internal_domain vcontrol01
-ansible -i inventory/prod/ -m debug -a var=internal_root_domain vcenter7
-ansible -i inventory/prod/ -m debug -a var=internal_subdomain vcontrol01
-ansible -i inventory/prod/ -m debug -a var=service_route_internal_root_domain admin01
-ansible -i inventory/prod/hosts.yml -m debug -a var=jenkins_swam_agent_master admin01
+ansible -i inventory/PROD/ -m debug -a var=ansible_host vcenter7
+ansible -i inventory/PROD/ -m debug -a var=bootstrap_docker__script_dirs admin03
+ansible -i inventory/PROD/ -m debug -a var=bootstrap_docker__swarm_managers admin03
+ansible -i inventory/PROD/ -m debug -a var=bootstrap_docker__swarm_remote_addrs admin03
+ansible -i inventory/PROD/ -m debug -a var=ca_domain admin01
+ansible -i inventory/PROD/ -m debug -a var=ca_domain vcontrol01
+ansible -i inventory/PROD/ -m debug -a var=docker_stack_internal_domain admin03
+ansible -i inventory/PROD/ -m debug -a var=docker_stack_internal_root_domain admin03
+ansible -i inventory/PROD/ -m debug -a var=group_names admin01
+ansible -i inventory/PROD/ -m debug -a var=group_names vcenter7
+ansible -i inventory/PROD/ -m debug -a var=group_names vcontrol01
+ansible -i inventory/PROD/ -m debug -a var=internal_domain vcenter7
+ansible -i inventory/PROD/ -m debug -a var=internal_domain vcontrol01
+ansible -i inventory/PROD/ -m debug -a var=internal_root_domain vcenter7
+ansible -i inventory/PROD/ -m debug -a var=internal_subdomain vcontrol01
+ansible -i inventory/PROD/ -m debug -a var=service_route_internal_root_domain admin01
+ansible -i inventory/PROD/hosts.yml -m debug -a var=jenkins_swarm_agent_controller admin01
 ansible-inventory --help
 ansible-inventory -h
-ansible-inventory -i ./inventory/prod/hosts.yml --graph 
-ansible-inventory -i inventory/Prod/ --graph vmware_vcenter
+ansible-inventory -i ./inventory/PROD/hosts.yml --graph 
+ansible-inventory -i inventory/PROD/ --graph vmware_vcenter
 ```
 
 Example test playbook runs

@@ -127,7 +127,7 @@ generation, non-Chef related presentation, and audit are available in Chef Vault
 
 Read more:
 - https://www.chef.io/blog/2016/01/21/chef-vault-what-is-it-and-what-can-it-do-for-you/
-- https://github.com/chef/chef-vault/blob/master/THEORY.md
+- https://github.com/chef/chef-vault/blob/main/THEORY.md
 
 ### Citadel
 A Chef cookbook that retrieves secrets as files from an AWS S3 bucket and relies on AWS IAM policies to
@@ -183,7 +183,7 @@ Conjur offers a Summon plugin to present secrets as environment variables.
 
 Reading the developer docs for plugins, I'm guessing the implementation is in Ruby as well. The server
 documentation lists Postgres and Nginx as other services within the container. It is possible to run
-multiple appliances in a master-follower setup, but it is unclear if automated failover is included in
+multiple appliances in a primary-replica setup, but it is unclear if automated failover is included in
 the base setup or must be done externally. The main Conjur website has been completely taken over by
 marketing and sales gobbledygook; the developer documentation is a much more useful source of information.
 
@@ -214,7 +214,7 @@ probably NaCl. There is only one secret key for a particular EJSON file, and tha
 the secrets. A decrypted file is the only supported secret presentation, in plaintext JSON.
 
 In the "introduction" Shopify blog post, they mention that the production usage re-encrypts all secrets
-with a single infrastructure wide "master key" when building containers; the master key is temporarily
+with a single infrastructure wide "primary key" when building containers; the primary key is temporarily
 given to the container to decrypt the secrets. With secrets baked into containers and a single key, this
 is a relatively inflexible and not particularly secure usage model. Nevertheless, it is effective at
 keeping plaintext secrets out of repos while retaining a tight link between secrets and their projects and
