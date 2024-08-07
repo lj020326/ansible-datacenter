@@ -1,12 +1,12 @@
 ---
-
 - name: Reset Kubernetes component
-  shell: "kubeadm reset --force --cri-socket=/var/run/{{ container_runtime }}/{{ container_runtime }}.sock"
+  ansible.builtin.command: kubeadm reset --force --cri-socket=/var/run/{{ container_runtime }}/{{ container_runtime }}.sock
+  changed_when: false
   register: reset_cluster
 
 - name: Init Kubernetes cluster
   when: reset_cluster is succeeded
-  shell: |
+  ansible.builtin.shell: |
     kubeadm init --service-cidr {{ service_cidr }} \
                  --kubernetes-version {{ kube_version }} \
                  --pod-network-cidr {{ pod_network_cidr }} \
@@ -15,33 +15,36 @@
                  --cri-socket=/var/run/{{ container_runtime }}/{{ container_runtime }}.sock \
                  {{ kubeadm_opts }} \
                  {{ init_opts }}
+  changed_when: false
   register: init_cluster
   # See: https://github.com/jetstack/cert-manager/issues/2640 with using kubeadm + calico + cert-manager
   environment:
-    no_proxy: "$no_proxy,.svc,.svc.cluster.local"
+    no_proxy: $no_proxy,.svc,.svc.cluster.local
 
 - name: Create Kubernetes config directory
-  file:
-    path: ".kube/"
+  ansible.builtin.file:
+    path: .kube/
     state: directory
+    mode: "0755"
 
 - name: Copy admin.conf to Home directory
   when: init_cluster is succeeded
-  copy:
+  ansible.builtin.copy:
     src: "{{ kubeadmin_config }}"
-    dest: ".kube/config"
+    dest: .kube/config
     owner: "{{ ansible_user | default(ansible_user_id) }}"
     group: "{{ ansible_user | default(ansible_user_id) }}"
-    mode: 0755
+    mode: "0644"
     remote_src: true
 
 - name: Deploy kubernetes dashboard into cluster
   when: init_cluster is succeeded and enable_dashboard
-  command: |
+  ansible.builtin.command: |
     kubectl --kubeconfig={{ kubeadmin_config }} \
         apply -f {{ bootstrap_kubernetes__helm_chart_url_dashboard }}
+  changed_when: false
   register: create_result
   until: create_result.rc == 0
   retries: 5
   delay: 2
-  ignore_errors: true
+  ignore_errors: true # noqa: ignore-errors
