@@ -328,7 +328,7 @@ $ molecule create
 Skipping, dependency is disabled.
 --> Scenario: 'default'
 --> Action: 'create'
---> Sanity checks: 'docker'
+--> Confidence checks: 'docker'
     
     PLAY [Create] ******************************************************************
     
@@ -396,7 +396,7 @@ Skipping, instances already created.
 Skipping, prepare playbook not configured.
 --> Scenario: 'default'
 --> Action: 'converge'
---> Sanity checks: 'docker'
+--> Confidence checks: 'docker'
     
     PLAY [Converge] ****************************************************************
     
@@ -460,7 +460,7 @@ $ molecule verify
 --> Scenario: 'default'
 --> Action: 'verify'
 --> Running Ansible Verifier
---> Sanity checks: 'docker'
+--> Confidence checks: 'docker'
     
     PLAY [Verify] ******************************************************************
     
@@ -525,7 +525,7 @@ $ molecule verify
 --> Scenario: 'default'
 --> Action: 'verify'
 --> Running Ansible Verifier
---> Sanity checks: 'docker'
+--> Confidence checks: 'docker'
     
     PLAY [Verify] ******************************************************************
     

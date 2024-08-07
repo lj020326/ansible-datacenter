@@ -459,7 +459,7 @@ INFO     Lint is disabled.
 INFO     Running default > cleanup
 WARNING  Skipping, cleanup playbook not configured.
 INFO     Running default > destroy
-INFO     Sanity checks: 'docker'
+INFO     Confidence checks: 'docker'
 
 PLAY [Destroy] *******************************************************************************************************************************************************************************************
 

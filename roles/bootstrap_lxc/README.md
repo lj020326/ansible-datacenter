@@ -161,7 +161,7 @@ You can drop pretty much anything in `tests/ansible.cfg`.
 
 ```ini
 [defaults]
-callback_whitelist=profile_tasks
+callbacks_enabled=profile_tasks
 forks=20
 internal_poll_interval = 0.001
 ```

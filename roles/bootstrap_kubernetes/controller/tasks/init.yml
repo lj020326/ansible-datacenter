@@ -1,0 +1,47 @@
+---
+
+- name: Reset Kubernetes component
+  shell: "kubeadm reset --force --cri-socket=/var/run/{{ container_runtime }}/{{ container_runtime }}.sock"
+  register: reset_cluster
+
+- name: Init Kubernetes cluster
+  when: reset_cluster is succeeded
+  shell: |
+    kubeadm init --service-cidr {{ service_cidr }} \
+                 --kubernetes-version {{ kube_version }} \
+                 --pod-network-cidr {{ pod_network_cidr }} \
+                 --token {{ token }} \
+                 --apiserver-advertise-address {{ bootstrap_kubernetes__controller_ip }} \
+                 --cri-socket=/var/run/{{ container_runtime }}/{{ container_runtime }}.sock \
+                 {{ kubeadm_opts }} \
+                 {{ init_opts }}
+  register: init_cluster
+  # See: https://github.com/jetstack/cert-manager/issues/2640 with using kubeadm + calico + cert-manager
+  environment:
+    no_proxy: "$no_proxy,.svc,.svc.cluster.local"
+
+- name: Create Kubernetes config directory
+  file:
+    path: ".kube/"
+    state: directory
+
+- name: Copy admin.conf to Home directory
+  when: init_cluster is succeeded
+  copy:
+    src: "{{ kubeadmin_config }}"
+    dest: ".kube/config"
+    owner: "{{ ansible_user | default(ansible_user_id) }}"
+    group: "{{ ansible_user | default(ansible_user_id) }}"
+    mode: 0755
+    remote_src: true
+
+- name: Deploy kubernetes dashboard into cluster
+  when: init_cluster is succeeded and enable_dashboard
+  command: |
+    kubectl --kubeconfig={{ kubeadmin_config }} \
+        apply -f {{ bootstrap_kubernetes__helm_chart_url_dashboard }}
+  register: create_result
+  until: create_result.rc == 0
+  retries: 5
+  delay: 2
+  ignore_errors: true

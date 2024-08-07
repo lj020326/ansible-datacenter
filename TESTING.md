@@ -11,7 +11,7 @@ In the project tests directory, create a symbolic link to the 'tower-inventory' 
 
 ```shell
 $ cd ~/repos/ansible/ansible-datacenter/tests
-$ ln -s ../../tower-inventory/develop inventory
+$ ln -s ../../tower-inventory/DEVelop inventory
 ```
 
 ### Create symbolic links to the internal develop branch collections
@@ -137,7 +137,7 @@ Whenever making updates/additions to the inventory
 
 ### 1) Check that the correct hosts appear for the test group
 
-Test machine group defined in 'inventory/TEST/testgroup.yml':
+Test machine group defined in 'inventory/QA/testgroup.yml':
 ```shell
 ansible-inventory -i inventory/ --graph --yaml testgroup_lnx
 @testgroup_lnx:
@@ -184,7 +184,7 @@ vmlnxtestd2s1 | SUCCESS => {
 
 ## Run molecule tests
 
-The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/master/systemd).
+The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/main/systemd).
 
 ```shell
 $ git clone https://github.com/lj020326/ansible-datacenter.git

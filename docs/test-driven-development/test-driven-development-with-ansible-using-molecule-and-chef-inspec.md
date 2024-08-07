@@ -280,7 +280,7 @@ min_ansible_version: 1.2
   # Galaxy will use this branch. During import Galaxy will access files on
   # this branch. If travis integration is cofigured, only notification for this
   # branch will be accepted. Otherwise, in all cases, the repo's default branch
-  # (usually master) will be used.
+  # (usually main) will be used.
   #github_branch:
 #
   # Below are all platforms currently available. Just uncomment

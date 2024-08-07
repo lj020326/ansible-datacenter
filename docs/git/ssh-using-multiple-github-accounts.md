@@ -176,7 +176,7 @@ $ touch index.html
 $ echo "Hello World" >> index.html
 $ git add .
 $ git commit -m 'Add index file'
-$ git push origin master
+$ git push origin main
 ```
 
 In this case, you have cloned the project using your personal git configuration which is the default. The same method can be used for your work-related projects. Bear in mind that all work projects need to be in the`work` directory for the `work` git configuration you have set up to work correctly.

@@ -36,7 +36,7 @@
 - name: Install - DNS resolver configuration
   when:
     - ipaclient_configure_dns_resolver | bool
-    - not ipaclient_on_master | bool
+    - not ipaclient_on_controller | bool
   block:
     - name: Install - Fail on missing ipaclient_domain and ipaserver_domain
       when:
@@ -75,7 +75,7 @@
     firefox_dir: "{{ ipaclient_firefox_dir | default(omit) }}"
     ip_addresses: "{{ ipaclient_ip_addresses | default(omit) }}"
     all_ip_addresses: "{{ ipaclient_all_ip_addresses }}"
-    on_master: "{{ ipaclient_on_master }}"
+    on_controller: "{{ ipaclient_on_controller }}"
     ### sssd ###
     enable_dns_updates: "{{ ipassd_enable_dns_updates | default(ipasssd_enable_dns_updates) }}"
   register: result_ipaclient_test
@@ -97,7 +97,7 @@
         ntp_pool: "{{ result_ipaclient_test.ntp_pool | default(omit) }}"
         no_ntp: "{{ ipaclient_no_ntp }}"
         # force_ntpd: "{{ ipaclient_force_ntpd }}"
-        on_master: "{{ ipaclient_on_master }}"
+        on_controller: "{{ ipaclient_on_controller }}"
         ### additional ###
         servers: "{{ result_ipaclient_test.servers }}"
         domain: "{{ result_ipaclient_test.domain }}"
@@ -107,10 +107,10 @@
       ansible.builtin.set_fact:
         ipaclient_use_otp: "yes"
 
-    - name: Install - Disable One-Time Password for on_master
+    - name: Install - Disable One-Time Password for on_controller
       when:
         - ipaclient_use_otp | bool
-        - ipaclient_on_master | bool
+        - ipaclient_on_controller | bool
       ansible.builtin.set_fact:
         ipaclient_use_otp: "no"
 
@@ -206,10 +206,10 @@
         ipaadmin_password: "{{ ipaclient_otp }}"
 
     - name: Install - Check keytab, principal and keytab
-      when: not ipaclient_on_master | bool
+      when: not ipaclient_on_controller | bool
       block:
         # This block is executed only when
-        # not (not ipaclient_on_master | bool and
+        # not (not ipaclient_on_controller | bool and
         #      not result_ipaclient_join.changed and
         #      not ipaclient_allow_repair | bool and
         #      (result_ipaclient_test_keytab.krb5_keytab_ok or
@@ -235,7 +235,7 @@
     - name: Install - From host keytab, purge {{ result_ipaclient_test.realm }}
       when:
         - ipaclient_use_otp | bool or ipaclient_force_join | bool
-        - not ipaclient_on_master | bool
+        - not ipaclient_on_controller | bool
       changed_when: false
       ansible.builtin.command: >
         /usr/sbin/ipa-rmkeytab
@@ -250,7 +250,7 @@
       failed_when: result_ipa_rmkeytab.rc != 0 and result_ipa_rmkeytab.rc != 3 and result_ipa_rmkeytab.rc != 5 and result_ipa_rmkeytab.rc != 7
 
     - name: Install - Backup and set hostname
-      when: not ipaclient_on_master | bool
+      when: not ipaclient_on_controller | bool
       ipaclient_set_hostname:
         hostname: "{{ result_ipaclient_test.hostname }}"
 
@@ -265,7 +265,7 @@
 
     - name: Install - Join IPA
       when:
-        - not ipaclient_on_master | bool
+        - not ipaclient_on_controller | bool
         - not result_ipaclient_test_keytab.krb5_keytab_ok or ipaclient_force_join
       ipaclient_join:
         servers: "{{ result_ipaclient_test.servers }}"
@@ -284,7 +284,7 @@
 
     - name: Install - Allow repair checks
       when:
-        - not ipaclient_on_master | bool
+        - not ipaclient_on_controller | bool
         - not result_ipaclient_join.changed
         - not ipaclient_allow_repair | bool
         - (result_ipaclient_test_keytab.krb5_keytab_ok or (result_ipaclient_join.already_joined is defined and result_ipaclient_join.already_joined))
@@ -308,7 +308,7 @@
               The ca.crt file is missing, please enable allow_repair to fix this.
 
     - name: Install - Configuration
-      when: not (not ipaclient_on_master | bool and
+      when: not (not ipaclient_on_controller | bool and
             not result_ipaclient_join.changed and
             not ipaclient_allow_repair | bool
                 and (result_ipaclient_test_keytab.krb5_keytab_ok
@@ -316,7 +316,7 @@
                 and result_ipaclient_join.already_joined)))
       block:
         - name: Install - Configure IPA default.conf
-          when: not ipaclient_on_master | bool
+          when: not ipaclient_on_controller | bool
           ipaclient_ipa_conf:
             servers: "{{ result_ipaclient_test.servers }}"
             domain: "{{ result_ipaclient_test.domain }}"
@@ -330,7 +330,7 @@
             domain: "{{ result_ipaclient_test.domain }}"
             realm: "{{ result_ipaclient_test.realm }}"
             hostname: "{{ result_ipaclient_test.hostname }}"
-            on_master: "{{ ipaclient_on_master }}"
+            on_controller: "{{ ipaclient_on_controller }}"
             no_ssh: "{{ ipaclient_no_ssh }}"
             no_sshd: "{{ ipaclient_no_sshd }}"
             no_sudo: "{{ ipaclient_no_sudo }}"
@@ -352,7 +352,7 @@
 
         - name: Install - Fix IPA ca
           when:
-            - not ipaclient_on_master | bool
+            - not ipaclient_on_controller | bool
             - result_ipaclient_test_keytab.krb5_keytab_ok
             - not result_ipaclient_test_keytab.ca_crt_exists
           ipaclient_fix_ca:
@@ -373,7 +373,7 @@
             principal: "{{ ipaadmin_principal | default(omit) }}"
             mkhomedir: "{{ ipaclient_mkhomedir }}"
             ca_enabled: "{{ result_ipaclient_api.ca_enabled }}"
-            on_master: "{{ ipaclient_on_master }}"
+            on_controller: "{{ ipaclient_on_controller }}"
             dnsok: "{{ result_ipaclient_test.dnsok }}"
             enable_dns_updates: "{{ ipassd_enable_dns_updates | default(ipasssd_enable_dns_updates) }}"
             all_ip_addresses: "{{ ipaclient_all_ip_addresses }}"
@@ -425,7 +425,7 @@
             state: absent
 
         - name: Install - Configure krb5 for IPA realm
-          when: not ipaclient_on_master | bool
+          when: not ipaclient_on_controller | bool
           ipaclient_setup_krb5:
             realm: "{{ result_ipaclient_test.realm }}"
             domain: "{{ result_ipaclient_test.domain }}"
@@ -436,10 +436,10 @@
             hostname: "{{ result_ipaclient_test.hostname }}"
             sssd: "{{ result_ipaclient_test.sssd }}"
             force: "{{ ipaclient_force }}"
-          # on_master: "{{ ipaclient_on_master }}"
+          # on_controller: "{{ ipaclient_on_controller }}"
 
         - name: Install - Configure certmonger
-          when: not ipaclient_on_master | bool
+          when: not ipaclient_on_controller | bool
           ipaclient_setup_certmonger:
             realm: "{{ result_ipaclient_test.realm }}"
             hostname: "{{ result_ipaclient_test.hostname }}"

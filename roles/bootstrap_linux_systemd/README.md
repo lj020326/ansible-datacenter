@@ -498,8 +498,8 @@ systemd_networkd:
     user: ''
 # Group to grant access to the /dev/net/tun device.
     group: ''
-  - interface: 'dummy0'
-    type: 'dummy'
+  - interface: 'placeholder0'
+    type: 'placeholder'
     bridge:
 # The name of bridge.
     - name: 'br1'
@@ -518,8 +518,8 @@ systemd_networkd:
         pvid: '42'
       - vlan: '100-200'
       - egress_untagged: '300-400'
-  - interface: 'dummy1'
-    type: 'dummy'
+  - interface: 'placeholder1'
+    type: 'placeholder'
     bridge:
     - name: 'br1'
 # A boolean. Controls whether the bridge should flood traffic for which an FDB
@@ -551,8 +551,8 @@ systemd_networkd:
 # 0 to 63. Networkd does not set any default meaning the kernel default value
 # of 32 is used.
       priority: ''
-  - interface: 'dummy2'
-    type: 'dummy'
+  - interface: 'placeholder2'
+    type: 'placeholder'
     macvlans:
     - name: 'macvlan2'
       mode: 'bridge'
@@ -1389,10 +1389,10 @@ systemd_networkd:
 # route.
         multi_path_route:
         - gateway: '149.10.124.59'
-          iface: 'dummy98'
+          iface: 'placeholder98'
           weight: '10'
         - gateway: '149.10.124.60'
-          iface: 'dummy98'
+          iface: 'placeholder98'
           weight: '5'
     - name: 'vlan6'
       vlan_id: '6'

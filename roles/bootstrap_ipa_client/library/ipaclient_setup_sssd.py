@@ -55,8 +55,8 @@ options:
     description: Fully qualified name of this host
     type: str
     required: yes
-  on_master:
-    description: Whether the configuration is done on the master or not
+  on_controller:
+    description: Whether the configuration is done on the controller or not
     type: bool
     required: no
   no_ssh:
@@ -131,7 +131,7 @@ def main():
             domain=dict(required=True, type='str'),
             realm=dict(required=True, type='str'),
             hostname=dict(required=True, type='str'),
-            on_master=dict(required=False, type='bool'),
+            on_controller=dict(required=False, type='bool'),
             no_ssh=dict(required=False, type='bool'),
             no_sshd=dict(required=False, type='bool'),
             no_sudo=dict(required=False, type='bool'),
@@ -156,7 +156,7 @@ def main():
     cli_domain = module.params.get('domain')
     cli_realm = module.params.get('realm')
     hostname = module.params.get('hostname')
-    options.on_master = module.params.get('on_master')
+    options.on_controller = module.params.get('on_controller')
 
     options.no_ssh = module.params.get('no_ssh')
     options.conf_ssh = not options.no_ssh

@@ -48,11 +48,6 @@ get_main_branch() {
         echo main
         return 0
     fi
-    br=$(git branch --list master)
-    if [ -n "$br" ]; then
-        echo master
-        return 0
-    fi
     echo UNKNOWN
     return 1
 }

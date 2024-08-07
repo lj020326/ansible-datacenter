@@ -5,7 +5,7 @@
 
 ## Run molecule tests
 
-The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/master/systemd).
+The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/main/systemd).
 
 ```shell
 $ git clone https://github.com/lj020326/ansible-datacenter.git
@@ -31,7 +31,7 @@ If you get the 'Unable to contact the Docker daemon' result when running molecul
 ```shell
 $ MOLECULE_DISTRO=centos8-systemd-python molecule --debug converge -s bootstrap_linux
 ...
-INFO     Sanity checks: 'docker'
+INFO     Confidence checks: 'docker'
 CRITICAL Unable to contact the Docker daemon. Please refer to https://docs.docker.com/config/daemon/ for managing the daemon
 $ 
 $ telnet localhost 2375

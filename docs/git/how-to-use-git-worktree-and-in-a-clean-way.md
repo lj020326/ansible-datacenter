@@ -107,7 +107,7 @@ Now it is time to create the 2 worktrees:
 
 ```
 $ git worktree add new-feature
-$ git worktree add hotfix master
+$ git worktree add hotfix main
 ```
 
 At this stage our directory looks like:

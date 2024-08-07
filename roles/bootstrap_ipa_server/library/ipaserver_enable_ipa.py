@@ -119,7 +119,7 @@ def main():
 
         if not options.setup_dns:
             # After DNS and AD trust are configured and services are
-            # enabled, create a dummy instance to dump DNS configuration.
+            # enabled, create a placeholder instance to dump DNS configuration.
             bind = bindinstance.BindInstance(fstore)
             bind.create_file_with_system_records()
 

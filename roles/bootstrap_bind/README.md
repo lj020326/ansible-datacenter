@@ -48,7 +48,7 @@ Variables are not required, unless specified.
 | `bind_listen_ipv6`           | `['::1']`            | A list of the IPv6 address of the network interface(s) to listen on                                                          |
 | `bind_log`                   | `data/named.run`     | Path to the log file                                                                                                         |
 | `bind_other_logs`            | -                    | A list of logging channels to configure, with a separate dict for each domain, with relevant details                         |
-| `bind_masters`               | `[]`                 | A list of master servers for zone transfers or slaves servers to be notified with `also-notify`. See example below.          |
+| `bind_controllers`               | `[]`                 | A list of master servers for zone transfers or slaves servers to be notified with `also-notify`. See example below.          |
 | `bind_query_log`             | -                    | When defined (e.g. `data/query.log`), this will turn on the query log                                                        |
 | `bind_recursion`             | `false`              | Determines whether requests for which the DNS server is not authoritative should be forwarded†.                              |
 | `bind_rrset_order`           | `random`             | Defines order for DNS round robin (either `random` or `cyclic`)                                                              |
@@ -69,7 +69,7 @@ Variables are not required, unless specified.
 | ` - allow_query`             | `[]`                 | A list of IPs or ACLs allowed to query the zones in the view.                                                                |
 | ` - allow_transfer`          | `[]`                 | A list of IPs or ACLs allowed to do zone transfers from the zones in the view.                                               |
 | ` - allow_notify`            | `[]`                 | A list of IPs or ACLs allowed to send NOTIFY messages to zones in the view.                                                  |
-| ` - also_notify`             | `[]`                 | A list of IPs or masters/slaves defined in `bind_masters` that will receive NOTIFY messages from zones in the view.          |
+| ` - also_notify`             | `[]`                 | A list of IPs or controllers/slaves defined in `bind_controllers` that will receive NOTIFY messages from zones in the view.          |
 | ` - include_files`           | `[]`                 | A list of files that will be included in the named.conf configuration for a specific view.                                   |
 | ` - match_clients`           | `[]`                 | A list of IPs or ACLs of client source IP addresses that can send messages to the view.                                      |
 | ` - match_destination`       | `[]`                 | A list of IPs or ACLs of server destination IP addresses that can receive messages for the view.                             |
@@ -87,7 +87,7 @@ Variables are not required, unless specified.
 | `- hosts`                    | `[]`                 | Host definitions. See below this table for examples.                                                                         |
 | `- ipv6_networks`            | `[]`                 | A list of the IPv6 networks that are part of the domain, in CIDR notation (e.g. 2001:db8::/48)                               |
 | `- mail_servers`             | `[]`                 | A list of dicts (with fields `name` and `preference`) specifying the mail servers for this domain.                           |
-| ` - masters`                 | `[]`                 | A list of masters to use for zone transfers. Must be defined in `bind_masters`. Overrides `bind_zone_master_server_ip`       |
+| ` - controllers`                 | `[]`                 | A list of controllers to use for zone transfers. Must be defined in `bind_controllers`. Overrides `bind_zone_primary_server_ip`       |
 | `- name_servers`             | `[ansible_hostname]` | A list of the DNS servers for this domain.                                                                                   |
 | `- name`                     | `example.com`        | The domain name                                                                                                              |
 | `- networks`                 | `['10.0.2']`         | A list of the networks that are part of the domain                                                                           |
@@ -97,7 +97,7 @@ Variables are not required, unless specified.
 | `- naptr`                    | `[]`                 | A list of dicts with fields `name`, `order`, `pref`, `flags`, `service`, `regex` and `replacement` specifying NAPTR records. |
 | `- view`                     | -                    | The view this zone will exist in. View must be defined in `bind_views`. Same zone can be in multiple views. Examples below.  |
 | `bind_zone_file_mode`        | 0640                 | The file permissions for the main config file (named.conf)                                                                   |
-| `bind_zone_master_server_ip` | -                    | **(Required)** The IP address of the master DNS server.                                                                      |
+| `bind_zone_primary_server_ip` | -                    | **(Required)** The IP address of the master DNS server.                                                                      |
 | `bind_zone_minimum_ttl`      | `1D`                 | Minimum TTL field in the SOA record.                                                                                         |
 | `bind_zone_time_to_expire`   | `1W`                 | Time to expire field in the SOA record.                                                                                      |
 | `bind_zone_time_to_refresh`  | `1D`                 | Time to refresh field in the SOA record.                                                                                     |
@@ -108,7 +108,7 @@ Variables are not required, unless specified.
 
 ### Minimal variables for a working zone
 
-Even though only variable `bind_zone_master_server_ip` is required for the role to run without errors, this is not sufficient to get a working zone. In order to set up an authoritative name server that is available to clients, you should also at least define the following variables:
+Even though only variable `bind_zone_primary_server_ip` is required for the role to run without errors, this is not sufficient to get a working zone. In order to set up an authoritative name server that is available to clients, you should also at least define the following variables:
 
 | Variable                     | Master | Slave |
 | :---                         | :---:  | :---: |
@@ -176,7 +176,7 @@ bind_zone_domains:
 ```Yaml
     bind_listen_ipv4: ['any']
     bind_allow_query: ['any']
-    bind_zone_master_server_ip: 192.168.111.222
+    bind_zone_primary_server_ip: 192.168.111.222
     bind_zone_domains:
       - name: example.com
 ```
@@ -287,18 +287,18 @@ The `server` statement defines characteristics to be associated with a remote na
 `bogus` is used to prevent queries being sent to remote servers with bad data.
 
 
-### Masters list
+### Controllers list
 
-A masters list can be used in two different ways.  First, it can be used with the masters statement in a slave zone to define a list of master servers and the TSIG keys needed to transfer a zone file. Second, it can be used with the also-notify statement to define a list of slave servers with the TSIG keys needed to notify after an update.  Masters lists are defined like this:
+A controllers list can be used in two different ways.  First, it can be used with the masters statement in a slave zone to define a list of master servers and the TSIG keys needed to transfer a zone file. Second, it can be used with the also-notify statement to define a list of slave servers with the TSIG keys needed to notify after an update.  Controllers lists are defined like this:
 
 ```Yaml
-bind_masters:
-  - name: EXTERNAL_MASTERS
+bind_controllers:
+  - name: EXTERNAL_CONTROLLERS
     master_list:
       - address: 200.100.230.160
         tsig_key: external.example.com
 
-  - name: INTERNAL_MASTERS
+  - name: INTERNAL_CONTROLLERS
     master_list:
       - address: 192.168.8230.160
 
@@ -314,7 +314,7 @@ bind_masters:
         tsig_key: external.example.com
 ```
 
-In the example above, the first two masters lists are masters a slave server will get zone tranfers from along with a TSIG key, if needed.  The third master is a list of slaves for a cloud DNS service that will be notified after an update.
+In the example above, the first two controllers lists ensure the slave servers will get zone transfers from along with a TSIG key, if needed.  The third master is a list of slaves for a cloud DNS service that will be notified after an update.
 
 ### View definitions
 
@@ -373,7 +373,7 @@ bind_views:
     recursion: false
 ```
 
-Above are two common views, internal and external.  The external view controls access with TSIG keys defined previously as ACLs.  It also notifies the Akamai cloud DNS servers by its masters name after any zone changes.  The internal view controls access using TSIG keys and IP addresses and sends notifies by IP.  Each view has its own TSIG key.  [NIST recommends using HMAC-SHA256 as the TSIG algorithm](https://csrc.nist.gov/publications/detail/sp/800-81/2/final)
+Above are two common views, internal and external.  The external view controls access with TSIG keys defined previously as ACLs.  It also notifies the Akamai cloud DNS servers by its controllers name after any zone changes.  The internal view controls access using TSIG keys and IP addresses and sends notifies by IP.  Each view has its own TSIG key.  [NIST recommends using HMAC-SHA256 as the TSIG algorithm](https://csrc.nist.gov/publications/detail/sp/800-81/2/final)
 
 For more information on configuring views, read: [Understanding views in BIND 9, by example](https://kb.isc.org/docs/aa-00851) 
 
@@ -381,7 +381,7 @@ For more information on configuring DNS securely, read NIST Special Publication 
 
 ### Minimal variables for a working zone with views
 
-Even though only variable `bind_zone_master_server_ip` is required for the role to run without errors, this is not sufficient to get a working zone. In order to set up an authoritative name server that is available to clients, you should also at least define the following variables:
+Even though only variable `bind_zone_primary_server_ip` is required for the role to run without errors, this is not sufficient to get a working zone. In order to set up an authoritative name server that is available to clients, you should also at least define the following variables:
 
 | Variable                     | Master | Slave |
 | :---                         | :---:  | :---: |
@@ -394,13 +394,13 @@ Even though only variable `bind_zone_master_server_ip` is required for the role 
 | `bind_listen_ipv4`           | V      | V     |
 | `bind_allow_query`           | V      | V     |
 
-### Domain definitions for master with view and masters list defined.
+### Domain definitions for master with view and controllers list defined.
 
 ```Yaml
 bind_zone_domains:
   - name: example.com
     view: EXTERNAL
-    masters: EXTERNAL_MASTER
+    controllers: EXTERNAL_MASTER
     hosts:
       - name: pub01
         ip: 192.0.2.1
@@ -432,14 +432,14 @@ bind_zone_domains:
         target: dc001
 ```
 
-This domain is configured for the EXTERNAL view.  It will use the masters configuration named EXTERNAL_MASTERS instead of the bind_zone_master_server_ip value.
+This domain is configured for the EXTERNAL view.  It will use the controllers configuration named EXTERNAL_CONTROLLERS instead of the bind_zone_primary_server_ip value.
 
-### Domain definition for slave with view and masters defined. 
+### Domain definition for slave with view and controllers defined. 
 
 ```Yaml
 bind_zone_domains: [
-  { name: example.com, view: EXTERNAL, masters: EXTERNAL_MASTERS },
-  { name: test.com, view: EXTERNAL, masters: EXTERNAL_MASTERS },
+  { name: example.com, view: EXTERNAL, controllers: EXTERNAL_CONTROLLERS },
+  { name: test.com, view: EXTERNAL, controllers: EXTERNAL_CONTROLLERS },
   { name: example.com, view: INTERNAL },
   { name: test.com, view: INTERNAL }
 ]
@@ -454,9 +454,9 @@ group_vars/all/external_forward_zones.yaml:
 ```Yaml
 ---
 external_forward_zones: [
-  { name: example.com, view: External, masters: EXTERNAL_MASTERS },
-  { name: example.net, view: External, masters: EXTERNAL_MASTERS },
-  { name: example.org, view: External, masters: EXTERNAL_MASTERS }
+  { name: example.com, view: External, controllers: EXTERNAL_CONTROLLERS },
+  { name: example.net, view: External, controllers: EXTERNAL_CONTROLLERS },
+  { name: example.org, view: External, controllers: EXTERNAL_CONTROLLERS }
 ]
 ```
 
@@ -465,9 +465,9 @@ group_vars/all/external_reverse_zones.yaml:
 ```Yaml
 ---
 external_reverse_zones: [
-  { name: 16.24.85.in-addr.arpa, view: External, masters: EXTERNAL_MASTERS },
-  { name: 17.24.85.in-addr.arpa, view: External, masters: EXTERNAL_MASTERS },
-  { name: 18.24.85.in-addr.arpa, view: External, masters: EXTERNAL_MASTERS }
+  { name: 16.24.85.in-addr.arpa, view: External, controllers: EXTERNAL_CONTROLLERS },
+  { name: 17.24.85.in-addr.arpa, view: External, controllers: EXTERNAL_CONTROLLERS },
+  { name: 18.24.85.in-addr.arpa, view: External, controllers: EXTERNAL_CONTROLLERS }
 ]
 ```
 
@@ -476,9 +476,9 @@ group_vars/all/internal_forward_zones.yaml:
 ```Yaml
 ---
 internal_forward_zones: [
-  { name: internal.com, view: Internal, masters: INTERNAL_MASTERS },
-  { name: internal.net, view: Internal, masters: INTERNAL_MASTERS },
-  { name: intenral.org, view: Internal, masters: INTERNAL_MASTERS }
+  { name: internal.com, view: Internal, controllers: INTERNAL_CONTROLLERS },
+  { name: internal.net, view: Internal, controllers: INTERNAL_CONTROLLERS },
+  { name: intenral.org, view: Internal, controllers: INTERNAL_CONTROLLERS }
 ]
 ```
 
@@ -487,9 +487,9 @@ group_vars/all/internal_reverse_zones.yaml:
 ```Yaml
 ---
 internal_reverse_zones: [
-  { name: 8.24.10.in-addr.arpa, view: Internal, masters: INTERNAL_MASTERS },
-  { name: 9.24.10.in-addr.arpa, view: Internal, masters: INTERNAL_MASTERS },
-  { name: 10.24.10.in-addr.arpa, view: Internal, masters: INTERNAL_MASTERS }
+  { name: 8.24.10.in-addr.arpa, view: Internal, controllers: INTERNAL_CONTROLLERS },
+  { name: 9.24.10.in-addr.arpa, view: Internal, controllers: INTERNAL_CONTROLLERS },
+  { name: 10.24.10.in-addr.arpa, view: Internal, controllers: INTERNAL_CONTROLLERS }
 ]
 ```
 

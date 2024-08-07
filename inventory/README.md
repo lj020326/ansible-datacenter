@@ -2,7 +2,7 @@
 # Tower inventory repository
 
 ## Table of Contents
-* [Sanity Checks](#sanity-checks)
+* [Confidence Checks](#confidence-checks)
   * [1 - Check that the correct hosts appear for the group](#1---check-that-the-correct-hosts-appear-for-the-group)
     * [Check correct hosts appear in the test hosts/groups](#check-correct-hosts-appear-in-the-test-hostsgroups)
     * [Check the host variable values are correctly set](#check-the-host-variable-values-are-correctly-set)
@@ -16,9 +16,9 @@
     * [Get groups for a host](#get-groups-for-a-host)
   * [Get info for all hosts in a specified inventory](#get-info-for-all-hosts-in-a-specified-inventory)
 
-## Sanity Checks 
+## Confidence Checks 
 
-Perform the following CLI based sanity checks whenever making updates/additions to the inventory to confirm the inventory changes are correctly set.
+Perform the following CLI based confidence checks whenever making updates/additions to the inventory to confirm the inventory changes are correctly set.
 
 ### 1 - Check that the correct hosts appear for the group 
 

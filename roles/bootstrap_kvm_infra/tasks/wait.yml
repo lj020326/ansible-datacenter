@@ -5,7 +5,7 @@
 #    timeout: 600
 #  when:
 #    - inventory_hostname not in groups['kvmhost']
-#    - virt_infra_state == "running"
+#    - bootstrap_kvm_infra__state == "running"
 #
 
 - name: Wait for guests to be contactable via SSH
@@ -16,18 +16,18 @@
     timeout: 600
   when:
     - inventory_hostname not in groups['kvmhost']
-    - virt_infra_state == "running"
-  delegate_to: "{{ groups['kvmhost'][0] }}"
+    - bootstrap_kvm_infra__state == "running"
+  delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
 
 - name: Get guest SSH fingerprints
   when:
     - inventory_hostname not in groups['kvmhost']
-    - virt_infra_state == "running"
+    - bootstrap_kvm_infra__state == "running"
   changed_when: false
   ansible.builtin.shell: |
     set -o pipefail # <-- adding this will prevent surprises
     ssh-keyscan {{ inventory_hostname }} {{ vm_ip }} | sort
-  delegate_to: "{{ groups['kvmhost'][0] }}"
+  delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
   register: result_keyscan
 
 - name: Add guest fingerprint to SSH known_hosts
@@ -40,10 +40,10 @@
     block: |-
       {{ hostvars[item]['result_keyscan']['stdout'] }}
   become: false
-  delegate_to: "{{ groups['kvmhost'][0] }}"
+  delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
   when:
     - hostvars[item]['result_keyscan']['stdout'] is defined and hostvars[item]['result_keyscan']['stdout']
-    - hostvars[item]['virt_infra_state'] | default(virt_infra_state) == "running"
+    - hostvars[item]['bootstrap_kvm_infra__state'] | default(bootstrap_kvm_infra__state) == "running"
   loop: "{{ play_hosts }}"
   run_once: true
 
@@ -52,4 +52,4 @@
     path: /etc/cloud/cloud-init.disabled
   when:
     - inventory_hostname not in groups['kvmhost']
-    - virt_infra_state == "running"
+    - bootstrap_kvm_infra__state == "running"

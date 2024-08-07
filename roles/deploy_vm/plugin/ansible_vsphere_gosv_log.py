@@ -188,7 +188,7 @@ class CallbackModule(CallbackBase):
     CALLBACK_NAME = 'ansible_vsphere_gosv_log'
     CALLBACK_TYPE = 'notification'
     CALLBACK_VERSION = 2.0
-    CALLBACK_NEEDS_WHITELIST = False
+    CALLBACK_NEEDS_ALLOWLIST = False
 
     def __init__(self):
         super(CallbackModule, self).__init__()

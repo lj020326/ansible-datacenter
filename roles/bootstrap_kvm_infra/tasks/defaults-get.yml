@@ -1,7 +1,7 @@
 ---
 # Use the KVM host to get defaults for VMs, unless overridden in inventory
 - name: Get details of KVM host
-  when: inventory_hostname in groups['kvmhost']
+  when: bootstrap_kvm_infra__is_kvm_host|bool
   ansible.builtin.setup:
 
 # Use SSH keys on KVM host to use as defaults for cloud-init
@@ -13,8 +13,8 @@
   register: result_ssh_key_list
   changed_when: false
   when:
-    - inventory_hostname in groups['kvmhost']
-    - hostvars[groups['kvmhost'][0]].virt_infra_ssh_keys is not defined
+    - bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__ssh_keys is not defined
 
 - name: Read public SSH keys on KVM host if none specified
   ansible.builtin.command: "cat {{ item.path }}"
@@ -22,22 +22,22 @@
   loop: "{{ result_ssh_key_list.files }}"
   changed_when: false
   when:
-    - inventory_hostname in groups['kvmhost']
-    - hostvars[groups['kvmhost'][0]].virt_infra_ssh_keys is not defined
+    - bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__ssh_keys is not defined
 
 - name: Set SSH keys as KVM host default for cloud-init
   ansible.builtin.set_fact:
-    virt_infra_ssh_keys: "{{ virt_infra_ssh_keys + [ item.stdout ] }}"
+    bootstrap_kvm_infra__ssh_keys: "{{ bootstrap_kvm_infra__ssh_keys + [ item.stdout ] }}"
   loop: "{{ result_ssh_keys.results }}"
   when:
-    - inventory_hostname in groups['kvmhost']
-    - hostvars[groups['kvmhost'][0]].virt_infra_ssh_keys is not defined
+    - bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__ssh_keys is not defined
 
 # If no SSH keys found or specified, we create one, which requires ~/.ssh dir to exist
 - name: Ensure SSH dir exists if no SSH keys found or specified
   when:
-    - inventory_hostname in groups['kvmhost']
-    - hostvars[groups['kvmhost'][0]].virt_infra_ssh_keys is not defined
+    - bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__ssh_keys is not defined
     - result_ssh_key_list.files | length == 0
   ansible.builtin.file:
     path: "{{ lookup('env','HOME') }}/.ssh"
@@ -46,27 +46,27 @@
 
 - name: Create SSH keypair if none found or specified
   community.crypto.openssh_keypair:
-    path: "{{ lookup('env','HOME') }}/.ssh/id_{{ virt_infra_ssh_key_type | default('rsa') }}-virt-infra-ansible"
-    size: "{{ virt_infra_ssh_key_size }}"
-    type: "{{ virt_infra_ssh_key_type }}"
+    path: "{{ lookup('env','HOME') }}/.ssh/id_{{ bootstrap_kvm_infra__ssh_key_type | default('rsa') }}-virt-infra-ansible"
+    size: "{{ bootstrap_kvm_infra__ssh_key_size }}"
+    type: "{{ bootstrap_kvm_infra__ssh_key_type }}"
     state: present
   register: result_ssh_key_gen
   when:
-    - inventory_hostname in groups['kvmhost']
-    - hostvars[groups['kvmhost'][0]].virt_infra_ssh_keys is not defined
+    - bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__ssh_keys is not defined
     - result_ssh_key_list.files | length == 0
 
 - name: Set created SSH key as KVM host default for cloud-init
   ansible.builtin.set_fact:
-    virt_infra_ssh_keys: "{{ virt_infra_ssh_keys + [ result_ssh_key_gen.public_key ] }}"
+    bootstrap_kvm_infra__ssh_keys: "{{ bootstrap_kvm_infra__ssh_keys + [ result_ssh_key_gen.public_key ] }}"
   when:
-    - inventory_hostname in groups['kvmhost']
-    - hostvars[groups['kvmhost'][0]].virt_infra_ssh_keys is not defined
+    - bootstrap_kvm_infra__is_kvm_host|bool
+    - hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__ssh_keys is not defined
     - result_ssh_key_gen.public_key is defined and result_ssh_key_gen.public_key
 
 # Get timezone from KVM host to use as defaults for cloud-init
 # This is only used if no timezone is specified
-# Unfortunately can't use date from "{{ hostvars[groups['kvmhost'][0]].ansible_date_time.tz }}"
+# Unfortunately can't use date from "{{ hostvars[bootstrap_kvm_infra__kvm_host].ansible_date_time.tz }}"
 # as it's an achronym which can't be resolved to country/city for cloud-init
 # Due to Ubuntu Bionic, can't use 'timedatectl -p Timezone --value show'
 - name: Get timezone from KVM host for cloud-init
@@ -77,12 +77,12 @@
   changed_when: false
   ignore_errors: true
   when:
-    - inventory_hostname in groups['kvmhost']
+    - bootstrap_kvm_infra__is_kvm_host|bool
   args:
     executable: /bin/bash
 
 - name: Store timezone from KVM host
   ansible.builtin.set_fact:
-    virt_infra_timezone: "{{ result_timezone.stdout }}"
+    bootstrap_kvm_infra__timezone: "{{ result_timezone.stdout }}"
   when:
-    - inventory_hostname in groups['kvmhost']
+    - bootstrap_kvm_infra__is_kvm_host|bool

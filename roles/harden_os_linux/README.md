@@ -64,9 +64,9 @@ If you're using Docker / Kubernetes+Docker you'll need to override the ipv4 ip f
 | `harden_linux__os_security_kernel_enable_module_loading`| true | true if you want to allowed to change kernel modules once the system is running (eg `modprobe`, `rmmod`)|
 | `harden_linux__os_security_kernel_enable_core_dump`| false | kernel is crashing or otherwise misbehaving and a kernel core dump is created |
 | `harden_linux__os_security_suid_sgid_enforce`| true | true if you want to reduce SUID/SGID bits. There is already a list of items which are searched for configured, but you can also add your own|
-| `harden_linux__os_security_suid_sgid_blacklist`| [] | a list of paths which should have their SUID/SGID bits removed|
-| `harden_linux__os_security_suid_sgid_whitelist`| [] | a list of paths which should not have their SUID/SGID bits altered|
-| `harden_linux__os_security_suid_sgid_remove_from_unknown`| false | true if you want to remove SUID/SGID bits from any file, that is not explicitly configured in a `blacklist`. This will make every Ansible-run search through the mounted filesystems looking for SUID/SGID bits that are not configured in the default and user blacklist. If it finds an SUID/SGID bit, it will be removed, unless this file is in your `whitelist`.|
+| `harden_linux__os_security_suid_sgid_blocklist`| [] | a list of paths which should have their SUID/SGID bits removed|
+| `harden_linux__os_security_suid_sgid_allowlist`| [] | a list of paths which should not have their SUID/SGID bits altered|
+| `harden_linux__os_security_suid_sgid_remove_from_unknown`| false | true if you want to remove SUID/SGID bits from any file, that is not explicitly configured in a `blocklist`. This will make every Ansible-run search through the mounted filesystems looking for SUID/SGID bits that are not configured in the default and user blocklist. If it finds an SUID/SGID bit, it will be removed, unless this file is in your `allowlist`.|
 | `harden_linux__os_security_packages_clean`| true | removes packages with known issues. See section packages.|
 | `harden_linux__os_selinux_state` | enforcing | Set the SELinux state, can be either disabled, permissive, or enforcing. |
 | `harden_linux__os_selinux_policy` | targeted | Set the SELinux polixy. |
@@ -105,7 +105,7 @@ We disable the following filesystems, because they're most likely not used:
  * "udf"
  * "vfat" # only if uefi is not in use
 
-To prevent some of the filesystems from being disabled, add them to the `harden_linux__os_filesystem_whitelist` variable.
+To prevent some of the filesystems from being disabled, add them to the `harden_linux__os_filesystem_allowlist` variable.
 
 ## Installation
 
