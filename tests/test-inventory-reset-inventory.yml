@@ -1,0 +1,97 @@
+---
+- name: reset-test-inventory | TEST update-inventory-role | Update hosts in repo inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  vars_files:
+    - test-vault.yml
+    - test-vars.yml
+  tasks:
+    - name: reset-test-inventory | Create and set __create_temp_dir__test_temp_dir
+      ansible.builtin.include_tasks: tasks/create-test-temp-dir.yml
+
+    - name: reset-test-inventory | Set additional test vars
+      ansible.builtin.set_fact:
+        __test_git_ssh_private_keyfile: "{{ deploy_key_location|d('') }}"
+        __test_git_ssh_private_keydir: "{{ __create_temp_dir__test_temp_dir }}"
+        __test_inventory_test_base_dir: "{{ __create_temp_dir__test_temp_dir }}/test"
+        __test_inventory_git_repo_url: "{{ test_inventory_git_repo_url }}"
+        __test_inventory_git_repo_branch: "{{ test_inventory_git_repo_branch }}"
+        __test_inventory_root_dir: "{{ test_inventory_dir }}"
+        __test_inventory_start_data_dir: "{{ test_inventory_start_data_dir }}"
+        __test_inventory_jira_id: "{{ test_inventory_jira_id }}"
+        __test_inventory_cleanup_tempdir: true
+
+    - name: reset-test-inventory | Setup test aap inventory env
+      when: __test_git_ssh_private_keyfile|d('')|length==0
+      ansible.builtin.include_tasks: tasks/source-ssh-key-from-vault.yml
+
+    - name: reset-test-inventory | Display __test_git_ssh_private_keyfile
+      ansible.builtin.debug:
+        var: __test_git_ssh_private_keyfile
+
+    - name: reset-test-inventory | Set __test_git_ssh_params
+      ansible.builtin.set_fact:
+        __test_git_ssh_params:
+          accept_hostkey: true
+          key_file: "{{ __test_git_ssh_private_keyfile }}"
+
+    - name: reset-test-inventory | Display __test_git_ssh_params
+      ansible.builtin.debug:
+        var: __test_git_ssh_params
+
+    - name: reset-test-inventory | Clone into {{ __test_inventory_test_base_dir }}
+      git_acp:
+        action: clone
+        url: "{{ __test_inventory_git_repo_url }}"
+        branch: "{{ __test_inventory_git_repo_branch }}"
+        ssh_params: "{{ __test_git_ssh_params }}"
+        path: "{{ __test_inventory_test_base_dir }}"
+      register: __test_inventory_git_pull_result
+
+    - name: reset-test-inventory | Display __test_inventory_git_pull_result
+      ansible.builtin.debug:
+        var: __test_inventory_git_pull_result
+
+    - name: reset-test-inventory | Reset test dir {{ __test_inventory_root_dir }}
+      ansible.builtin.file:
+        path: "{{ __test_inventory_test_base_dir }}/{{ __test_inventory_root_dir }}"
+        state: absent
+
+    - name: reset-test-inventory | Ensure __test_inventory_root_dir directory exists
+      ansible.builtin.file:
+        path: "{{ __test_inventory_test_base_dir }}/{{ __test_inventory_root_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: reset-test-inventory | Create test case starting data
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ __test_inventory_test_base_dir }}/{{ __test_inventory_start_data_dir }}/"
+        dest: "{{ __test_inventory_test_base_dir }}/{{ __test_inventory_root_dir }}/"
+        mode: "0755"
+
+    - name: reset-test-inventory | Set __test_inventory_git_comment
+      ansible.builtin.set_fact:
+        __test_inventory_git_comment: "{{ __test_inventory_jira_id }} - Reset test file to start"
+
+    - name: reset-test-inventory | Git PACP update
+      git_acp:
+        url: "{{ __test_inventory_git_repo_url }}"
+        branch: "{{ __test_inventory_git_repo_branch }}"
+        comment: "{{ __test_inventory_git_comment }}"
+        ssh_params: "{{ __test_git_ssh_params }}"
+        path: "{{ __test_inventory_test_base_dir }}"
+      register: __test_inventory_git_acp_result
+
+    - name: reset-test-inventory | Display __test_inventory_git_acp_result
+      ansible.builtin.debug:
+        var: __test_inventory_git_acp_result
+        verbosity: 1
+
+    - name: reset-test-inventory | Cleanup temp dir at {{ __create_temp_dir__test_temp_dir }}
+      when: __test_inventory_cleanup_tempdir|d(True)|bool
+      ansible.builtin.file:
+        path: "{{ __create_temp_dir__test_temp_dir }}"
+        state: absent

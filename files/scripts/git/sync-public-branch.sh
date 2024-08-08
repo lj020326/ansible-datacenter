@@ -15,8 +15,6 @@ function gitcommitpush() {
   git add -A || true && \
   echo "Committing changes:" && \
   git commit -am "group updates to public branch" || true && \
-  echo "Pushing branch '${LOCAL_BRANCH}' to remote origin branch '${LOCAL_BRANCH}':" && \
-  git push -f origin ${LOCAL_BRANCH} || true && \
   echo "Pushing branch '${LOCAL_BRANCH}' to remote '${REMOTE}' branch '${REMOTE_BRANCH}':" && \
   git push -f -u ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH} || true
 }
