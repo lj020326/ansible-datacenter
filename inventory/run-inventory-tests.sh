@@ -29,7 +29,6 @@ INVENTORY_YML_LIST+=("xenv_hosts.yml")
 INVENTORY_YML_LIST+=("xenv_groups.yml")
 
 TEST_CASE_CONFIGS="
-validate_yamllint
 validate_file_extensions
 validate_yml_sortorder
 validate_xenv_group_hierarchy
@@ -143,31 +142,6 @@ function validate_file_extensions() {
   logInfo ""
 
   return "${ERROR_COUNT}"
-}
-
-function validate_yamllint() {
-  local LOG_PREFIX="validate_yamllint():"
-
-  logInfo ""
-  logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} Validate yamllint"
-  local TEST_COMMAND="yamllint ."
-  eval "${TEST_COMMAND} > /dev/null 2>&1"
-  local RETURN_STATUS=$?
-
-  if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "${LOG_PREFIX} SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
-  else
-    logInfo "${LOG_PREFIX} There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-    logInfo "${LOG_PREFIX} ${TEST_COMMAND}"
-    eval "${TEST_COMMAND}"
-  fi
-
-  logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} RETURN_STATUS=${RETURN_STATUS}"
-  logInfo ""
-
-  return "${RETURN_STATUS}"
 }
 
 function validate_child_inventories() {

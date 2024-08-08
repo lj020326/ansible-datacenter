@@ -1,77 +1,82 @@
 ---
-- name: TEST add_host_to_repo | Add hosts to repo inventory
+- name: Reset aap test inventory
+  ansible.builtin.import_playbook: test-inventory-reset-inventory.yml
+
+- name: Run tests to Update hosts in repo inventory
   hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
   vars_files:
-    - vars/vault.yml
+    - test-vault.yml
+    - test-vars.yml
   tasks:
-    - name: Create temporary test directory
-      ansible.builtin.tempfile:
-        state: directory
-        suffix: .test
-      register: __report_inventory_facts_tempdir
-
-    - name: Set fact for report_inventory_facts_reports_dir
-      ansible.builtin.set_fact:
-        __inventory_repo_scheme: ssh
-        __inventory_repo_url: ssh://git@gitea.admin.dettonville.int:2222/infra/report-inventory-facts.git
-        __inventory_repo_branch: main
-        __inventory_file_start: test/inventory.start/site1.yml
-        __inventory_file: test/inventory/site1.yml
-        __report_inventory_facts_git_ssh_private_keyfile: ansible_repo.key
-        __report_inventory_facts_git_ssh_private_keydir: "{{ __report_inventory_facts_tempdir.path }}"
-
-    - name: Display primary role input variables
+    - name: Display play/controller variable information
       ansible.builtin.debug:
-        var: __report_inventory_facts_git_ssh_private_keydir
+        msg:
+          ## BEGIN ansible special/magic variables
+          ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_vars_facts.html#discovering-variables-facts-and-magic-variables
+          - ansible_run_tags={{ ansible_run_tags | d([]) }}
+          - ansible_limit={{ ansible_limit | d('') }}
+          - ansible_inventory_sources={{ ansible_inventory_sources | d('') }}
+          - ansible_version={{ ansible_version | d('') }}
+          - ansible_config_file={{ ansible_config_file | d('') }}
+          - discovered_interpreter_python={{ discovered_interpreter_python | d('') }}
+          - ansible_python_interpreter={{ ansible_python_interpreter | d('') }}
+          - ansible_playbook_python={{ ansible_playbook_python | d('') }}
+          - ansible_python_version={{ ansible_python_version | d('') }}
+          - ansible_pip_interpreter={{ ansible_pip_interpreter | d('') }}
 
-    - name: Check if git private ssh key exist in {{ __report_inventory_facts_git_ssh_private_keydir }}
-      ansible.builtin.stat:
-        path: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ __report_inventory_facts_git_ssh_private_keyfile }}"
-      register: private_key
+    - name: Create test tmp dir
+      ansible.builtin.include_tasks: tasks/create-test-temp-dir.yml
 
-    - name: Ensure git private key is present at {{ __report_inventory_facts_git_ssh_private_keydir }}/{{ __report_inventory_facts_git_ssh_private_keyfile }}
-      #      when: not (private_key.stat.exists | bool)
-      ansible.builtin.copy:
-        content: "{{ report_inventory_facts_git_ssh_private_key }}"
-        dest: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ __report_inventory_facts_git_ssh_private_keyfile }}"
-        mode: "0600"
-        backup: true
-      no_log: true
+    - name: Set test vars
+      ansible.builtin.set_fact:
+        __test_git_ssh_private_keyfile: "{{ deploy_key_location|d('') }}"
+        __test_git_ssh_private_keydir: "{{ __create_temp_dir__test_temp_dir }}"
+        __test_inventory_git_repo_url: "{{ test_inventory_git_repo_url }}"
+        __test_inventory_git_repo_branch: "{{ test_inventory_git_repo_branch }}"
+        __test_inventory_jira_id: "{{ test_inventory_jira_id }}"
+        __test_inventory_dir: "{{ test_inventory_dir }}"
+        __test_inventory_file: "{{ test_inventory_file }}"
 
-    - name: TEST {{ __test_id }} | Update hosts in inventory file at {{ __inventory_file_path }}
-      dettonville.inventory.update_hosts:
-        remove_repo_dir: false
-        inventory_repo_scheme: "{{ __inventory_repo_scheme }}"
-        inventory_repo_url: "{{ __inventory_repo_url }}"
-        inventory_repo_branch: "{{ __inventory_repo_branch }}"
-        inventory_file: "{{ __inventory_file_path }}"
-        host_list: "{{ test_host_list }}"
-        state: "{{ test_host_state | d(omit) }}"
-        ssh_params:
+    - name: Setup test aap inventory env
+      when: __test_git_ssh_private_keyfile|d('')|length==0
+      ansible.builtin.include_tasks: tasks/source-ssh-key-from-vault.yml
+
+    - name: Display __test_git_ssh_private_keyfile
+      ansible.builtin.debug:
+        var: __test_git_ssh_private_keyfile
+
+    - name: Set __test_git_ssh_params
+      ansible.builtin.set_fact:
+        __test_git_ssh_params:
           accept_hostkey: true
-          key_file: "{{ __inventory_git_ssh_private_keydir }}/{{ __inventory_git_ssh_private_keyfile }}"
-      register: update_inventory_repo_result
+          key_file: "{{ __test_git_ssh_private_keyfile }}"
 
-    - name: TEST add_host_to_repo | Add hosts to inventory file at {{ __inventory_file }}
-      add_hosts_to_repo:
-        inventory_repo_scheme: "{{ __inventory_repo_scheme }}"
-        inventory_repo_url: "{{ __inventory_repo_url }}"
-        inventory_repo_branch: "{{ __inventory_repo_branch }}"
-        inventory_file: "{{ __inventory_file }}"
-        ssh_params:
-          accept_newhostkey: true
-          key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ __report_inventory_facts_git_ssh_private_keyfile }}"
-        add_host_list:
-          - hostname: vmlnx123-q1-s1.example.int
-            hostvars:
+    - name: Set __test_host_list
+      ansible.builtin.set_fact:
+        __test_host_list:
+          - host_name: admin01-q1-internal-s1.example.int
+            host_vars:
               provisioning_data:
                 jira_id: DCC-12345
-                infra_group: MIDWA
+                infra_group: DCC
             groups:
-              - ntp_client
-              - ldap_client
-          - hostname: vmlnx124-q1-s1.example.int
-            hostvars:
+              - ntp_server
+              - nfs_server
+              - ldap_server
+          - host_name: admin02-q1-internal-s1.example.int
+            host_vars:
+              provisioning_data:
+                jira_id: DCC-12345
+                infra_group: DCC
+            groups:
+              - ntp_server
+              - nfs_server
+              - ldap_server
+          - host_name: web-q1-internal-s1.example.int
+            host_vars:
               provisioning_data:
                 jira_id: DCC-12346
                 infra_group: MIDWA
@@ -79,41 +84,31 @@
               - ntp_client
               - nfs_client
               - ldap_client
-      register: add_host_to_repo_result
+              - web_server
+          - host_name: web-q2-internal-s1.example.int
+            host_vars:
+              provisioning_data:
+                jira_id: DCC-12346
+                infra_group: MIDWA
+            groups:
+              - ntp_client
+              - nfs_client
+              - ldap_client
+              - web_server
 
-    - name: Display add_host_to_repo_result
+    - name: Add hosts to inventory
+      update_hosts:
+        remove_repo_dir: false
+        inventory_repo_url: "{{ __test_inventory_git_repo_url }}"
+        inventory_repo_branch: "{{ __test_inventory_git_repo_branch }}"
+        inventory_dir: "{{ __test_inventory_dir }}"
+        inventory_file: "{{ __test_inventory_file }}"
+        use_vars_files: true
+        ssh_params: "{{ __test_git_ssh_params }}"
+        logging_level: DEBUG
+        host_list: "{{ __test_host_list }}"
+      register: __update_hosts_result
+
+    - name: Display __update_hosts_result
       ansible.builtin.debug:
-        var: add_host_to_repo_result
-
-    - name: Reset/Rollback test inventory file to start
-      ansible.builtin.copy:
-        src: "{{ add_host_to_repo_result.inventory_repo_dir }}/{{ __inventory_file_start }}"
-        dest: "{{ add_host_to_repo_result.inventory_repo_dir }}/{{ __inventory_file }}"
-
-    - name: Git ACP reset/rollback update
-      become: false
-      git_acp:
-        url: "{{ __inventory_repo_url }}"
-        path: "{{ add_host_to_repo_result.inventory_repo_dir }}"
-        branch: "{{ __inventory_repo_branch }}"
-        comment: Ansible Test - Rollback inventory file to start
-        add: [.]
-        remote: origin
-        mode: "{{ __inventory_repo_scheme }}"
-        ssh_params:
-          accept_hostkey: true
-          key_file: "{{ __report_inventory_facts_git_ssh_private_keydir }}/{{ __report_inventory_facts_git_ssh_private_keyfile }}"
-      register: git_acp_result
-
-    - name: Display git_acp_result
-      ansible.builtin.debug:
-        var: git_acp_result
-
-    - name: Cleanup/Remove temporary build directory
-      when: __report_inventory_facts_tempdir.path is defined
-      ansible.builtin.file:
-        state: absent
-        path: item
-      loop:
-        - "{{ __report_inventory_facts_tempdir.path }}"
-#        - "{{ add_host_to_repo_result.inventory_repo_dir }}"
+        var: __update_hosts_result

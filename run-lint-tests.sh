@@ -14,10 +14,10 @@ KEEP_TMP=0
 DISPLAY_TEST_RESULTS=0
 
 TEST_CASE_CONFIGS="
-validate_ansiblelint
 validate_yamllint
 validate_kicslint
 validate_inclusivity
+validate_ansiblelint
 "
 
 LOG_ERROR=0
