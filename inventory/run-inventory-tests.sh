@@ -711,7 +711,7 @@ function main() {
 
   #logInfo "SCRIPT_DIR=${SCRIPT_DIR}"
   logInfo "PROJECT_DIR=${PROJECT_DIR}"
-  logInfo "TEST_CASES=${TEST_CASES[@]}"
+  logInfo "TEST_CASES=${TEST_CASES[*]}"
 
   if [ $RUN_PYTEST -eq 1 ]; then
     checkRequiredCommands pytest
