@@ -22,9 +22,9 @@ echo "==> Set up roles and vars symlinks (roles/vars)"
 ln -sf ../roles
 ln -sf ../vars
 
-echo "==> Set up resource/other symlinks (molecule/files/etc)"
-ln -sf ../molecule
-#ln -sf ../files
+#echo "==> Set up resource/other symlinks (molecule/files/etc)"
+#ln -sf ../molecule
+##ln -sf ../files
 
 echo "==> Set up inventory symlink"
 #ln -sf ../inventory/dev inventory
