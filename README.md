@@ -1,10 +1,10 @@
 
 # ansible-datacenter
 
-[![Ansible-Lint](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/ansible-lint.yml)
-[![Inclusivity-Lint](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/inclusivity-lint.yml)
-[![YAML-Lint](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/yaml-lint.yml)
-[![Molecule Tests](https://github.com/lj020326/ansible-datacenter/actions/workflows/ci.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/molecule.yml)
+[![Ansible-Lint](https://github.com/lj020326/ansible-datacenter/actions/workflows/ansible-lint.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/ansible-lint.yml)
+[![Inclusivity-Lint](https://github.com/lj020326/ansible-datacenter/actions/workflows/inclusivity-lint.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/inclusivity-lint.yml)
+[![YAML-Lint](https://github.com/lj020326/ansible-datacenter/actions/workflows/yaml-lint.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/yaml-lint.yml)
+[![Molecule Tests](https://github.com/lj020326/ansible-datacenter/actions/workflows/molecule.yml/badge.svg)](https://github.com/lj020326/ansible-datacenter/actions/workflows/molecule.yml)
 [![License](https://img.shields.io/badge/license-GPLv3-brightgreen.svg?style=flat)](LICENSE)
 
 ## Build Status
