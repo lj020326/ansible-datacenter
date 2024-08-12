@@ -1,5 +1,5 @@
 ---
-- name: Reset aap test inventory
+- name: Reset test inventory
   ansible.builtin.import_playbook: test-inventory-reset-inventory.yml
 
 - name: Run tests to Update hosts in repo inventory
@@ -7,11 +7,19 @@
   connection: local
   gather_facts: false
   become: false
-  vars_files:
-    - ./../vars/vault.yml
-#    - ./vars/test-vault.yml
-    - ./vars/test-vars.yml
+#  vars_files:
+#    - ./../vars/vault.yml
+##    - ./vars/test-vault.yml
+#    - ./vars/test-vars.yml
   tasks:
+    ## ref: https://github.com/ansible/ansible-lint/discussions/1465#discussioncomment-9211295
+    - name: Include vars files
+      ansible.builtin.include_vars:
+        file: "{{ item }}"
+      loop:
+        - ../vars/vault.yml
+        - vars/test-vars.yml
+
     - name: Display play/controller variable information
       ansible.builtin.debug:
         msg:
@@ -41,7 +49,7 @@
         __test_inventory_dir: "{{ test_inventory_dir }}"
         __test_inventory_file: "{{ test_inventory_file }}"
 
-    - name: Setup test aap inventory env
+    - name: Setup test inventory env
       when: __test_git_ssh_private_keyfile|d('')|length==0
       ansible.builtin.include_tasks: tasks/source-ssh-key-from-vault.yml
 
