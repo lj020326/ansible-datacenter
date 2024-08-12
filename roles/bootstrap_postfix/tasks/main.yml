@@ -12,6 +12,31 @@
     name: "{{ bootstrap_postfix__service_packages }}"
     state: present
 
+## ref: https://www.howtoforge.com/faq/how-to-find-out-the-postfix-version
+- name: Get __postfix_installed_version_info
+  ansible.builtin.command: postconf mail_version
+  register: __postfix_installed_version_info
+  changed_when: false
+
+- name: Display __postfix_installed_version_info
+  ansible.builtin.debug:
+    var: __postfix_installed_version_info
+
+#- name: "Set __postfix_installed_version"
+#  ansible.builtin.set_fact:
+#    __postfix_installed_version: "{{ __postfix_installed_version_info.stdout | regex_replace('^.* ([0-9\.]+)$', '\\1') }}"
+
+- name: Set __postfix_installed_version
+  when:
+    - __postfix_installed_version_info.stdout is defined
+    - __postfix_installed_version_info.stdout | length > 0
+  ansible.builtin.set_fact:
+    __postfix_installed_version: "{{ __postfix_installed_version_info.stdout | regex_search('(\\d+(\\.\\d+)+)') }}"
+
+- name: Display __postfix_installed_version
+  ansible.builtin.debug:
+    var: __postfix_installed_version
+
 - name: Ensure /etc/postfix
   ansible.builtin.file:
     path: /etc/postfix
