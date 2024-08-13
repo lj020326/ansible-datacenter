@@ -1,8 +1,19 @@
 ---
+- name: Set __relative_role_vars_path for role
+  ansible.builtin.set_fact:
+    __relative_role_vars_path: ../../../roles/bootstrap_postfix/vars
+
+- name: Include ntp OS-specific variables.
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_os_family }}.yml"
+    - "{{ __relative_role_vars_path }}/default.yml"
 
 - name: Check postfix package status
   ansible.builtin.package:
-    name: "{{ bootstrap_postfix__packages }}"
+    name: "{{ bootstrap_postfix__service_packages }}"
     state: installed
   check_mode: true
   register: pkg_status_postfix
@@ -19,4 +30,4 @@
 - name: Assert postfix service is installed/running
   ansible.builtin.assert:
     that:
-      - services | intersect([postfix_service_name, postfix_service_name+'.service'])| d([]) | length > 0
+      - services | intersect([bootstrap_postfix__service_name, bootstrap_postfix__service_name+'.service'])| d([]) | length > 0
