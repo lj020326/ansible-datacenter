@@ -1,0 +1,34 @@
+---
+
+- name: Check if reboot is needed because kernel was upgraded
+  ansible.builtin.shell: |
+    set -o pipefail # <-- adding this will prevent surprises
+    LAST_KERNEL=$(rpm -q --last kernel | \
+    awk 'NR==1{sub(/kernel-/,""); print $1}');
+    CURRENT_KERNEL=$(uname -r);
+    if [ $LAST_KERNEL != $CURRENT_KERNEL ]; then echo 'reboot'; else echo 'no'; fi
+  changed_when: false
+  register: __yum_reboot_hint_result
+
+- name: Set __reboot_hint_result
+  when:
+    - reboot_default | bool
+    - __yum_reboot_hint_result.stdout.find("no") != -1
+  ansible.builtin.set_fact:
+    __reboot_hint_result: false
+
+- name: Set __reboot_hint_result
+  when:
+    - reboot_default | bool
+    - __yum_reboot_hint_result.stdout.find("reboot") != -1
+  ansible.builtin.set_fact:
+    __reboot_hint_result: true
+
+- name: Restart host
+  when:
+    - reboot_default | bool
+    - __reboot_hint_result | bool
+  ansible.builtin.reboot:
+    pre_reboot_delay: "{{ server_update_reboot_pre_reboot_delay }}"
+    post_reboot_delay: "{{ server_update_reboot_post_reboot_delay }}"
+    reboot_timeout: "{{ server_update_reboot_reboot_timeout }}"

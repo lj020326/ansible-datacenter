@@ -16,25 +16,33 @@ dependency:
     requirements-file: collections/requirements.molecule.yml
 driver:
   name: docker
-lint: |
-  set -e
-  yamllint .
-  ansible-lint .
+#lint: |
+#  set -e
+#  yamllint .
+#  ansible-lint .
 
+## ref: https://molecule.readthedocs.io/en/stable/configuration.html#platforms
+## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/molecule/default/molecule.yml
+## ref: https://github.com/marketplace/actions/test-ansible-roles-with-molecule
 platforms:
-  - name: ${MOLECULE_DISTRO:-centos8-systemd-python}
+  - name: ${MOLECULE_DISTRO:-centos8-systemd-python}-${MOLECULE_PLATFORM:-amd64}
     image: ${MOLECULE_IMAGE_NAMESPACE:-lj020326}/${MOLECULE_DISTRO:-centos8-systemd-python}:${MOLECULE_IMAGE_TAG:-latest}
     #    command: ${MOLECULE_DOCKER_COMMAND:-""}
     #    command: ${MOLECULE_DOCKER_COMMAND:-"/sbin/init"}
     command: ${MOLECULE_DOCKER_COMMAND:-"/lib/systemd/systemd"}
+    platform: ${MOLECULE_PLATFORM:-amd64}
     tmpfs:
       - /run
       - /tmp
     capabilities:
       - SYS_ADMIN
       - NET_ADMIN
+      - NET_RAW
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    ## ref: https://github.com/docker/for-mac/issues/6073
+    ## ref: https://github.com/moby/moby/issues/30723
+    ## ref: https://unix.stackexchange.com/questions/683073/rocky-linux-container-with-systemd-on-macos
     privileged: true
     pre_build_image: true
     cgroupns_mode: host
@@ -64,9 +72,8 @@ scenario:
   name: default
   ## ref: https://blog.florianlopes.io/testing-ansible-roles-and-playbooks-with-molecule/
   test_sequence:
-    #    - lint
-    - cleanup
     - dependency
+    - cleanup
     - syntax
     - create
     - prepare
