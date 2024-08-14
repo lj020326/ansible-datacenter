@@ -1,0 +1,50 @@
+---
+
+- name: Upgrade all packages
+  ansible.builtin.package:
+    name: "*"
+    # ansible-lint generates a warning that "package installs
+    # should not use latest" here, but this is one place where we
+    # want to use it.
+    state: latest  # noqa package-latest
+    update_cache: true
+
+- name: Check if reboot is required
+  ansible.builtin.command: /usr/bin/needs-restarting -r
+  changed_when: false
+  ignore_errors: true
+  failed_when: reboot_required.rc == 2
+  register: __reboot_required
+
+- name: Display __reboot_required
+  ansible.builtin.debug:
+    var: __reboot_required.rc
+    verbosity: 2
+
+- name: Reboot the server is needed
+  # when: "'required' in __reboot_required.stdout"
+  when:
+    - __reboot_required.rc == 1
+    - ansible_facts ['virtualization_role'] != 'host'
+  block:
+    ## ref: https://thenathan.net/2020/07/16/yum-and-dnf-update-and-reboot-with-ansible/
+    - name: Reboot the server is needed
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        post_reboot_delay: 60
+      throttle: 1
+
+    - name: Check the uptime post reboot
+      ansible.builtin.command: uptime
+      changed_when: false
+      register: __uptime_post_reboot
+
+    - name: Display __uptime_post_reboot
+      ansible.builtin.debug:
+        var: __uptime_post_reboot.stdout
+
+    - name: Wait for port  22 to become open on the host, don't start checking for 60 seconds
+      ansible.builtin.wait_for:
+        port: 22
+#        host: 0.0.0.0
+        delay: 60

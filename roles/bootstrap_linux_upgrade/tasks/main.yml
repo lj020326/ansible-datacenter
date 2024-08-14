@@ -1,0 +1,48 @@
+---
+
+## ref: https://github.com/ryandaniels/ansible-role-server-update-reboot/blob/master/tasks/main.yml
+- name: Upgrade OS packages
+  block:
+    - name: Update OS packages # noqa: package-latest
+      ansible.builtin.package:
+        name: "{{ server_update_yum_install_pkgs | default('*') }}"
+        state: latest # noqa 10
+        update_cache: true
+        exclude: "{{ server_update_yum_exclude_pkgs | default([]) }}"
+      environment: "{{ proxy_env }}"
+      register: __package_upgrade_results
+      until: "__package_upgrade_results is success"
+      retries: 2
+      delay: 30
+
+    - name: Display __package_upgrade_results
+      ansible.builtin.debug:
+        var: __package_upgrade_results
+        verbosity: 1
+  rescue:
+    - name: Display package update failed
+      ansible.builtin.debug:
+        msg: 'Package Upgrade failed'
+    - name: Run flush_handlers
+      ansible.builtin.meta: flush_handlers
+    - name: Display fail check
+      ansible.builtin.fail:
+        msg: 'Package Upgrade failed'
+
+#- name: Load tasks file with install tasks based on the detected package manager
+#  ansible.builtin.include_tasks: "{{ lookup('first_found', params) }}"
+#  vars:
+#    params:
+#      files:
+#        - "{{ ansible_pkg_mgr }}.yml"
+#      paths:
+#        - "{{ role_path }}/tasks"
+
+- name: "Run {{ task_file }}"
+  ansible.builtin.include_tasks: "{{ task_file }}"
+  with_first_found:
+    - "upgrade-{{ ansible_distribution | lower() }}-{{ ansible_distribution_major_version | lower() }}.yml"
+    - "upgrade-{{ ansible_distribution | lower() }}.yml"
+    - "upgrade-{{ ansible_os_family | lower() }}.yml"
+  loop_control:
+    loop_var: task_file

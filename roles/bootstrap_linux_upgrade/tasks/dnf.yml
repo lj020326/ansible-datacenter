@@ -1,0 +1,30 @@
+---
+- name: Upgrade all packages
+  block:
+    # TODO: Remove the following block when that becomes possible.
+    # See #64 for more details.
+    - name: Upgrade the kernel-core package separately on Fedora
+      when: ansible_distribution == "Fedora"
+      block:
+        - name: Update package cache (Fedora)
+          ansible.builtin.dnf:
+            update_cache: true
+
+        - name: Upgrade the kernel-core package separately (Fedora)
+          ansible.builtin.dnf:
+            name: "{{ item }}"
+            # ansible-lint generates a warning that "package installs
+            # should not use latest" here, but this is one place where
+            # we want to use it.
+            state: latest  # noqa package-latest
+          loop:
+            - kernel-core
+
+    - name: Upgrade all packages
+      ansible.builtin.dnf:
+        name: "*"
+        # ansible-lint generates a warning that "package installs
+        # should not use latest" here, but this is one place where we
+        # want to use it.
+        state: latest  # noqa package-latest
+        update_cache: true

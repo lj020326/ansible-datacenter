@@ -1,0 +1,55 @@
+---
+
+## ref: https://unix.stackexchange.com/questions/487030/how-to-fully-upgrade-debian-from-command-line-including-release-version
+# - name: Run debian upgrade
+#   ansible.builtin.shell: |
+#     set -o pipefail # <-- adding this will prevent surprises
+#     apt update
+#     apt upgrade
+#     apt full-upgrade
+#   register: __os_upgrade
+#   changed_when: false
+
+## ref: https://unix.stackexchange.com/questions/487030/how-to-fully-upgrade-debian-from-command-line-including-release-version
+#- name: Upgrade to latest release (apt-get dist-upgrade) # noqa: command-instead-of-module
+#  ansible.builtin.shell: |
+#    sed -i 's/bullseye/bookworm/g' /etc/apt/sources.list
+#    sed -i 's/non-free non-free-firmware-firmware//g' /etc/apt/sources.list
+#    if ! grep non-free-firmware /etc/apt/sources.list
+#    then
+#        sed -i 's/non-free/non-free non-free-firmware/g' /etc/apt/sources.list
+#    fi
+#  changed_when: false
+
+## ref: https://www.cyberciti.biz/faq/how-to-upgrade-from-ubuntu-22-04-lts-to-ubuntu-24-04-lts/
+## ref: https://tech.tiq.cc/2020/04/how-to-silently-and-remotely-upgrade-ubuntu-to-a-new-version-without-interaction-no-user-prompt/
+## ref: https://askubuntu.com/questions/81585/what-is-dist-upgrade-and-why-does-it-upgrade-more-than-upgrade
+- name: Install aptitude
+  ansible.builtin.apt:
+    force_apt_get: true
+    name: aptitude
+    update_cache: true
+
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    upgrade: full
+
+## ref: https://www.jeffgeerling.com/blog/2022/ansible-playbook-upgrade-ubuntudebian-servers-and-reboot-if-needed
+- name: Perform a dist-upgrade.
+  ansible.builtin.apt:
+    upgrade: dist
+    update_cache: true
+
+- name: Check if a reboot is required.
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+    get_checksum: false
+  register: reboot_required_file
+
+- name: Reboot the server (if required).
+  when: reboot_required_file.stat.exists|bool
+  ansible.builtin.reboot:
+
+- name: Remove dependencies that are no longer required.
+  ansible.builtin.apt:
+    autoremove: true
