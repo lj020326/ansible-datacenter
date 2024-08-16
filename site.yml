@@ -33,6 +33,8 @@
   tags: always
   ignore_unreachable: true
   gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
   roles:
     - role: ansible_ping_test
       when:
@@ -46,6 +48,8 @@
   hosts: all,!ansible_localhost,!node_offline
   tags: always
   #  gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
   roles:
     - role: apply_common_groups
       when:
@@ -58,6 +62,8 @@
     - always
     - display-common-vars
     - display-network-vars
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
   tasks:
     - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
@@ -78,8 +84,12 @@
   tasks:
     - name: Display controller vars - excluding sensitive and/or global scope keys (e.g., '.*token.*', '.*password.*', '.*private_key.*', etc)
       ansible.builtin.debug:
-        var: vars | dict2items | rejectattr('key', 'match', '.*vault.*') | rejectattr('key', 'match', '.*token.*') | rejectattr('key', 'match', '.*password.*') |
-          rejectattr('key', 'match', '.*private_key.*') | list | items2dict
+        var: vars | dict2items 
+          | rejectattr('key', 'match', '.*vault.*') 
+          | rejectattr('key', 'match', '.*token.*') 
+          | rejectattr('key', 'match', '.*password.*') 
+          | rejectattr('key', 'match', '.*private_key.*') 
+          | list | items2dict
 
 - name: Display controller environment variables
   hosts: ansible_localhost
@@ -91,7 +101,10 @@
   tasks:
     - name: Display ansible_env - excluding sensitive and/or global scope keys (e.g., '.*TOKEN.*', '.*PASSWORD.*', '.*PRIVATE_KEY.*', etc)
       ansible.builtin.debug:
-        var: ansible_env | dict2items | rejectattr('key', 'match', '.*TOKEN.*') | rejectattr('key', 'match', '.*PASSWORD.*') | rejectattr('key', 'match', '.*PRIVATE_KEY.*')
+        var: ansible_env | dict2items
+          | rejectattr('key', 'match', '.*TOKEN.*') 
+          | rejectattr('key', 'match', '.*PASSWORD.*')
+          | rejectattr('key', 'match', '.*PRIVATE_KEY.*')
           | list | items2dict
 
 #    ## Debugging purposes: print all environment variables
@@ -114,8 +127,13 @@
     ## ref: https://stackoverflow.com/questions/53264221/in-ansible-how-to-filter-a-dictionary-based-on-regex-pattern-on-the-keys
     - name: Display host variables - excluding sensitive and/or global scope keys (e.g., `.*vault.*`, '.*private_key.*', 'groups', '.*password.*', etc)
       ansible.builtin.debug:
-        var: hostvars[inventory_hostname] | dict2items | rejectattr('key', 'match', '.*vault.*') | rejectattr('key', 'match', '.*password.*') | rejectattr('key',
-          'match', '.*private_key.*') | rejectattr('key', 'match', 'groups') | rejectattr('key', 'match', 'dcc_network_global_config') | list | items2dict
+        var: hostvars[inventory_hostname] | dict2items 
+          | rejectattr('key', 'match', '.*vault.*') 
+          | rejectattr('key', 'match', '.*password.*') 
+          | rejectattr('key', 'match', '.*private_key.*') 
+          | rejectattr('key', 'match', 'groups') 
+          | rejectattr('key', 'match', 'dcc_network_global_config') 
+          | list | items2dict
 
 - name: Display cert info
   hosts: all,!ansible_localhost,!node_offline
@@ -337,6 +355,8 @@
   tags:
     - bootstrap-ansible-user
     - bootstrap-ansible
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
   tasks:
     - name: Display bootstrap_user
       ansible.builtin.debug:
@@ -361,6 +381,7 @@
   become: true
   remote_user: "{{ bootstrap_user }}"
   vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
     #    ansible_ssh_user: "{{ bootstrap_user }}"
     ansible_user: "{{ bootstrap_user }}"
     ansible_password: "{{ bootstrap_user_password }}"
@@ -605,6 +626,17 @@
     - role: bootstrap_ansible
     - role: bootstrap_linux_locale
 
+- name: Bootstrap ansible venv
+  hosts: os_linux,!node_offline
+  tags:
+    - bootstrap-ansible-venv
+  become: true
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
+    bootstrap_pip__env_force_rebuild: false
+  roles:
+    - role: bootstrap_pip
+
 - name: Bootstrap pip
   hosts: os_linux,!node_offline
   tags:
@@ -730,8 +762,8 @@
     - bootstrap-docker-stack
     - docker-stack
   become: true
-  #  vars:
-  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+#  vars:
+#    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
@@ -742,7 +774,7 @@
     - docker-control-node
   become: true
   #  vars:
-  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
@@ -753,7 +785,7 @@
     - docker-admin-node
   become: true
   #  vars:
-  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
@@ -764,7 +796,7 @@
     - docker-media-node
   become: true
   #  vars:
-  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
@@ -775,7 +807,7 @@
     - docker-ml-node
   become: true
   #  vars:
-  #    ansible_python_interpreter: "{{ bootstrap_docker_python_docker_interpreter }}"
+  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 

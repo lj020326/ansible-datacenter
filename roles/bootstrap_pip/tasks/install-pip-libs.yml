@@ -5,18 +5,20 @@
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update system pip via package manager"
   when:
-    - not __bootstrap_pip__system_pip_upgrade_enabled|bool
+#    - not __bootstrap_pip__system_pip_upgrade_enabled|bool
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env.pip_version|d('')=='latest'
+    - __bootstrap_pip_env.system|d(False)|bool
   ansible.builtin.package:
     name: "{{ bootstrap_pip__packages }}"
     state: latest
 
-- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update system pip"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update pip using get-pip.yml"
   when:
-    - __bootstrap_pip__system_pip_upgrade_enabled|bool
+#    - __bootstrap_pip__system_pip_upgrade_enabled|bool
     - __bootstrap_pip_env.virtualenv is not defined
     - __bootstrap_pip_env.pip_version|d('')=='latest'
+    - not __bootstrap_pip_env.system|d(False)|bool
   ansible.builtin.include_tasks: run-get-pip.yml
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
@@ -36,7 +38,7 @@
 
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Remove existing virtualenv if rebuilding venv"
       when:
-        - bootstrap_pip__env_force_rebuild|d(True)|bool
+        - bootstrap_pip__env_force_rebuild|d(False)|bool
         - __virtual_env_python != __bootstrap_pip__python_interpreter
       ansible.builtin.file:
         path: "{{ __bootstrap_pip_env.virtualenv }}"
@@ -86,8 +88,15 @@
           ansible.builtin.include_tasks: run-get-pip.yml
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Init __bootstrap_pip_env_libs_list_by_priority"
-  ansible.builtin.set_fact:
-    __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority }}"
+  when: __bootstrap_pip__library_list_by_priority|d([])|length>0
+  block:
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display __bootstrap_pip__library_list_by_priority"
+      ansible.builtin.debug:
+        var: __bootstrap_pip__library_list_by_priority
+
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Init __bootstrap_pip_env_libs_list_by_priority"
+      ansible.builtin.set_fact:
+        __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority }}"
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
   when: __bootstrap_pip_env.libraries|d([])|length>0
@@ -102,12 +111,13 @@
   ansible.builtin.debug:
     var: __bootstrap_pip_env_libs_list_by_priority
 
-- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure pip libraries are installed for virtualenv"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure virtualenv pip libraries are installed for virtualenv"
   when:
+    - not __bootstrap_pip_env.system|bool
     - __bootstrap_pip_env.virtualenv is defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present.keys()|d([])|length>0
-  environment: "{{ bootstrap_pip__environment_vars | d({}) }}"
+  environment: "{{ bootstrap_pip__venv_environment_vars | d({}) }}"
   ansible.builtin.pip:
     name: "{{ __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | list }}"
     state: present
@@ -116,16 +126,19 @@
     virtualenv: "{{ __bootstrap_pip_env.virtualenv | d(omit) }}"
     virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(__bootstrap_pip__virtualenv_command) }}"
   #    virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(omit) }}"
+    virtualenv_site_packages: "{{ __bootstrap_pip_env.virtualenv_site_packages | d(omit) }}"
   loop: "{{ __bootstrap_pip_env_libs_list_by_priority.keys()|sort }}"
   loop_control:
     label: installing pip packages with priority={{ item }}
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure system pip libraries are installed"
   when:
-    - __bootstrap_pip_env.virtualenv is not defined
+#    - __bootstrap_pip_env.virtualenv is not defined
+    - __bootstrap_pip_env.system|bool
+    - __bootstrap_pip__system_pip_install_libs_allowed|bool
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present.keys()|d([])|length>0
-  #  environment: "{{ bootstrap_pip__environment_vars | d({}) }}"
+  #  environment: "{{ bootstrap_pip__venv_environment_vars | d({}) }}"
   environment:
     #    PATH: "$PATH:/usr/bin:/usr/local/bin"
     PIP_ROOT_USER_ACTION: ignore

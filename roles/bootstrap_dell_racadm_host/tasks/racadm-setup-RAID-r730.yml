@@ -128,17 +128,17 @@
   failed_when: '"10" not in pdisk_state_state_count.stdout'
 
 - name: Converting SSDs into NON-RAID disks (Only which are in Non-Raid State)
+  when: '"Non-Raid" not in item.0'
   #connection: local
   #command: echo non-raid---{{item.1}}
-  changed_when: false
   ansible.builtin.raw: racadm raid converttononraid:Disk.Bay."{{ item.1 }}":Enclosure.Internal.0-1:RAID.Integrated.1-1
-  register: convert_nonraid_status
-  failed_when: '"ERROR" in convert_nonraid_status.stdout'
-  ###failed_when: '"ERROR" in item.0'###not needed here, becausse we are evaluating this in pdisk_state varaible above
-  when: '"Non-Raid" not in item.0'
   with_together:
     - "{{pdisk_state_state.stdout_lines}}"
     - [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  register: convert_nonraid_status
+  failed_when: '"ERROR" in convert_nonraid_status.stdout'
+  changed_when: false
+  ###failed_when: '"ERROR" in item.0'###not needed here, because we are evaluating this in pdisk_state variable above
 
 - name: debug | Converting SSDs into NON-RAID disks (Only which are in Non-Raid State)
   ansible.builtin.debug:

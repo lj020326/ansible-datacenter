@@ -9,13 +9,16 @@
 
 ## ref: https://stackoverflow.com/questions/73293401/ansible-install-python-module-only-if-it-not-exist
 - name: "{{ __bootstrap_pip__log_prefix_get_pip }} Gather installed {{ __bootstrap_pip_env.python_executable }} version"
-  ansible.builtin.shell: |
-    set -o pipefail # <-- adding this will prevent surprises
-    {{ __bootstrap_pip_env.python_executable }} --version | cut -d ' ' -f 2
+#  ansible.builtin.shell: |
+#    set -o pipefail # <-- adding this will prevent surprises
+#    {{ __bootstrap_pip_env.python_executable }} --version | cut -d ' ' -f 2
+  ansible.builtin.command: |
+    {{ __bootstrap_pip_env.python_executable }} --version
   register: __python_version_result
-  failed_when: __python_version_result.rc != 0 and __python_version_result.rc != 127
+#  failed_when: __python_version_result.rc != 0 and __python_version_result.rc != 127
   # Since this is a reporting task, it should never change
   # as well run and register a result in any case
+  ignore_errors: true
   changed_when: false
   check_mode: false
 
@@ -32,7 +35,7 @@
     - __python_version_result.stdout is defined
     - __python_version_result.stdout | length > 0
   ansible.builtin.set_fact:
-    __python_version_current: "{{ __python_version_result.stdout }}"
+    __python_version_current: "{{ __python_version_result.stdout | regex_search('(\\d+(\\.\\d+)+)') }}"
 
 - name: "{{ __bootstrap_pip__log_prefix_get_pip }} Display __python_version_current"
   ansible.builtin.debug:
@@ -47,7 +50,7 @@
 
 - name: "{{ __bootstrap_pip__log_prefix_get_pip }} Get get-pip.py install script"
   ansible.builtin.get_url:
-    url: https://bootstrap.pypa.io/pip/3.6/get-pip.py
+    url: "{{ __bootstrap_pip__get_pip_url }}"
     dest: "{{ __bootstrap_pip__tmp }}/"
     validate_certs: false
     mode: "0644"

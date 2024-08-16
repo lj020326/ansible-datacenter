@@ -15,21 +15,22 @@ __bootstrap_pip__log_prefix_get_pip_version: get-pip-version |
 __bootstrap_pip__log_prefix_get_pip: run-get-pip |
 __bootstrap_pip__log_prefix_pipenv: Install Pip Libs | Pip ENV=>[{{ __bootstrap_pip_env.name }}] |
 
-bootstrap_pip__env_force_rebuild: true
-#bootstrap_pip__env_force_rebuild: no
+bootstrap_pip__env_force_rebuild: false
 
-__bootstrap_pip__env_list__default:
-  - pip_executable: "{{ __bootstrap_pip__pip_executable }}"
-    version: latest
+__bootstrap_pip__env_list__default: []
+#__bootstrap_pip__env_list__default:
 #  - pip_executable: "{{ __bootstrap_pip__pip_executable }}"
 #    version: latest
-#    libraries:
-#      - docker
-#      - docker-compose
-#  - virtualenv: "{{ '~/.venv/ansible' | expanduser }}"
-##    virtualenv_command: "python3 -m venv"
-#    libraries:
-#      - ansible
+##    system: true
+##  - pip_executable: "{{ __bootstrap_pip__pip_executable }}"
+##    version: latest
+##    libraries:
+##      - docker
+##      - docker-compose
+##  - virtualenv: ~/.venv/ansible
+###    virtualenv_command: "python3 -m venv"
+##    libraries:
+##      - ansible
 
 bootstrap_pip__packages:
   - python3
@@ -37,14 +38,19 @@ bootstrap_pip__packages:
   - python3-virtualenv
   - python3-cryptography
 
-bootstrap_pip__environment_vars:
-  SETUPTOOLS_USE_DISTUTILS: stdlib
+bootstrap_pip__venv_environment_vars:
+  ## ref: https://stackoverflow.com/questions/77876447/no-module-named-distutils-despite-setuptools-installed
+  SETUPTOOLS_USE_DISTUTILS: "{{ 'stdlib' if ansible_facts.python_version is version('3.12', '<') else 'local' }}"
   ## setting following env vars solves the problem:
   ## UnicodeEncodeError: 'ascii' codec can't encode character '\xe9' in position 117: ordinal not in range(128)
   ## ref: https://github.com/pypa/pip/issues/10219
   LANG: en_US.UTF-8
   LC_ALL: en_US.UTF-8
-#  PATH: "$PATH:/usr/local/bin"
+
+#bootstrap_pip__venv_environment_vars:
+#    # NOTE(dtantsur): https://github.com/pypa/setuptools/issues/2353
+#    SETUPTOOLS_USE_DISTUTILS: stdlib
+##    SETUPTOOLS_USE_DISTUTILS: local
 
 __bootstrap_pip__environment_ignore_root_user_action:
   ## ref: https://github.com/pypa/pip/pull/10990#issuecomment-1091476480
@@ -63,18 +69,20 @@ bootstrap_pip__config_dir: "{{ ansible_env.HOME }}/.config/pip"
 bootstrap_pip__lib_state: present
 bootstrap_pip__lib_priority_default: 100
 
-__bootstrap_pip__libs_default:
-  - name: setuptools
-    priority: 1
-  - pyyaml
-  - jinja2
-  - cryptography
-  #  - pyOpenSSL
-  - requests
-  - netaddr
-  - passlib
-  - jsondiff
-#  - firewall
+## do not install into system pip
+__bootstrap_pip__libs_default: []
+#__bootstrap_pip__libs_default:
+#  - name: setuptools
+#    priority: 1
+#  - pyyaml
+#  - jinja2
+#  - cryptography
+#  #  - pyOpenSSL
+#  - requests
+#  - netaddr
+#  - passlib
+#  - jsondiff
+##  - firewall
 
 __bootstrap_pip__libs: "{{ bootstrap_pip__libs | d(__bootstrap_pip__libs_default)|d([]) }}"
 
@@ -90,3 +98,5 @@ __bootstrap_pip__virtualenv_command: "{{ bootstrap_pip__virtualenv_command | d(_
 
 __bootstrap_pip__system_pip_upgrade_enabled_default: true
 __bootstrap_pip__system_pip_upgrade_enabled: "{{ bootstrap_pip__system_pip_upgrade_enabled | d(__bootstrap_pip__system_pip_upgrade_enabled_default) }}"
+
+__bootstrap_pip__system_pip_install_libs_allowed: false

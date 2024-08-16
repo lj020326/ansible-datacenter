@@ -1,7 +1,7 @@
 ---
-- name: "{{ __bootstrap_docker__log_prefix_worker }} Display bootstrap_docker__swarm_remote_addrs"
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Display __bootstrap_docker__swarm_remote_addrs"
   ansible.builtin.debug:
-    var: bootstrap_docker__swarm_remote_addrs
+    var: __bootstrap_docker__swarm_remote_addrs
 
 - name: "{{ __bootstrap_docker__log_prefix_worker }} Retrieve swarm_join_token_worker token"
   when: __swarm_join_token_worker is not defined
@@ -26,28 +26,56 @@
     var: __swarm_join_token_worker
 
 - name: "{{ __bootstrap_docker__log_prefix_worker }} Register host to swarm"
-  community.docker.docker_swarm:
-    state: join
-    advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
-    join_token: "{{ __swarm_join_token_worker }}"
-    remote_addrs: "{{ bootstrap_docker__swarm_remote_addrs }}"
-  register: __swarm_join_worker
+#  vars:
+#    ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Register host to swarm"
+      community.docker.docker_swarm:
+        state: join
+        advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+        join_token: "{{ __swarm_join_token_worker }}"
+        remote_addrs: "{{ __bootstrap_docker__swarm_remote_addrs }}"
+      register: __swarm_join_result
 
-- name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_join_worker"
-  ansible.builtin.debug:
-    var: __swarm_join_worker
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_join_result"
+      ansible.builtin.debug:
+        var: __swarm_join_result
+
+  rescue:
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_join_result"
+      ansible.builtin.debug:
+        var: __swarm_join_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Join swarm via CLI"
+      ansible.builtin.command: |
+        docker swarm join --token {{ __swarm_join_token_worker }} {{ item }}
+      loop: "{{ __bootstrap_docker__swarm_remote_addrs }}"
+      register: __join_cmd
+#      failed_when: __join_cmd.rc >= 0 and 'This node is already part of a swarm' not in __join_cmd.stdout
+      failed_when:
+        - __join_cmd.rc > 0
+        - not (__join_cmd.stderr | regex_search('This node is already part of a swarm'))
+      changed_when: false
+
+    - name: "{{ __bootstrap_docker__log_prefix_worker }} Display __join_cmd"
+      ansible.builtin.debug:
+        var: __join_cmd
 
 - name: "{{ __bootstrap_docker__log_prefix_worker }} Set worker node config"
   delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+#  vars:
+#    ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
   block:
     - name: "{{ __bootstrap_docker__log_prefix_worker }} Set node role"
       community.docker.docker_node:
-        hostname: "{{ ansible_hostname }}"
+#        hostname: "{{ ansible_host }}"
+        hostname: "{{ inventory_hostname }}"
         role: worker
 
     - name: "{{ __bootstrap_docker__log_prefix_worker }} Set node labels"
       when: bootstrap_docker__swarm_node_labels|d([])|length>0
       community.docker.docker_node:
-        hostname: "{{ ansible_hostname }}"
+#        hostname: "{{ ansible_host }}"
+        hostname: "{{ inventory_hostname }}"
         labels: "{{ bootstrap_docker__swarm_node_labels }}"
         labels_state: replace
