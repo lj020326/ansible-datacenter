@@ -18,9 +18,11 @@ ln -sf ../site.yml
 #ln -sf ../filter_plugins
 #ln -sf ../plugins
 
-#echo "==> Set up roles and vars symlinks (roles/vars)"
+#echo "==> Set up roles symlinks (roles)"
 #ln -sf ../roles
-#ln -sf ../vars
+
+echo "==> Set up vars symlinks (vars)"
+ln -sf ../vars
 
 #echo "==> Set up resource/other symlinks (molecule/files/etc)"
 #ln -sf ../molecule

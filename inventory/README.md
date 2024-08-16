@@ -53,6 +53,7 @@ ansible-inventory -i DEV/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
+$ ansible -i PROD/ -m debug -a var=ansible_host admin01
 $ ansible -i PROD/ -m debug -a var=group_names admin01
 $ ansible -i DEV/ -m debug -a var=internal_domain control01
 $ ansible -i DEV/ -m debug -a var=ansible_python_interpreter control01

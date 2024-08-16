@@ -61,15 +61,15 @@
 #    owner: "{{ ansible_user }}"
 #    backup: true
 
-- name: Install system level virtualenv
-  environment:
-    #    PATH: "$PATH:/usr/bin:/usr/local/bin"
-    PIP_ROOT_USER_ACTION: ignore
-  ansible.builtin.pip:
-    name: virtualenv
-    state: present
-    virtualenv_command: "{{ __bootstrap_pip__virtualenv_command }}"
-    virtualenv_python: "{{ __bootstrap_pip__python_executable }}"
+#- name: Install system level virtualenv
+#  environment:
+#    #    PATH: "$PATH:/usr/bin:/usr/local/bin"
+#    PIP_ROOT_USER_ACTION: ignore
+#  ansible.builtin.pip:
+#    name: virtualenv
+#    state: present
+#    virtualenv_command: "{{ __bootstrap_pip__virtualenv_command }}"
+#    virtualenv_python: "{{ __bootstrap_pip__python_executable }}"
 
 - name: Display __bootstrap_pip__libs
   ansible.builtin.debug:
@@ -130,13 +130,33 @@
     _bootstrap_pip__env_by_name_yaml: |-
       {% set _bootstrap_pip_env_by_name = {} %}
       {% for item in __bootstrap_pip__env_list %}
-        {% set _bootstrap_pip_env = item %}
         {% set _env_name = item.virtualenv | d(item.pip_executable) | d(__bootstrap_pip__pip_executable) %}
-        {% set __ = _bootstrap_pip_env.update({'name': _env_name }) %}
+        {% if _bootstrap_pip_env_by_name[_env_name] is defined %}
+          {% set _bootstrap_pip_env_libs = [] %}
+          {% if _bootstrap_pip_env_by_name[_env_name].libraries is defined %}
+            {% set __ = _bootstrap_pip_env_libs.extend(_bootstrap_pip_env_by_name[_env_name].libraries) %}
+          {% endif %}
+          {% if item.libraries is defined %}
+            {% for _library in item.libraries if _library not in _bootstrap_pip_env_libs %}
+              {% set __ = _bootstrap_pip_env_libs.append(_library) %}
+            {% endfor %}
+          {% endif %}
+          {% set _bootstrap_pip_env = _bootstrap_pip_env_by_name[_env_name] | ansible.builtin.combine(item, recursive=True) %}
+          {% set __ = _bootstrap_pip_env.update({ 'libraries': _bootstrap_pip_env_libs }) %}
+        {% else %}
+          {% set _bootstrap_pip_env = item %}
+        {% endif %}
+        {% set __ = _bootstrap_pip_env.update({ 'name': _env_name }) %}
         {% if item.virtualenv is defined %}
           {% set __ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(item.virtualenv + '/bin/python3') }) %}
+          {% if item.system is not defined %}
+            {% set __ = _bootstrap_pip_env.update({ 'system': false }) %}
+          {% endif %}
         {% else %}
           {% set __ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(__bootstrap_pip__python_executable) }) %}
+          {% if item.system is not defined %}
+            {% set __ = _bootstrap_pip_env.update({ 'system': true }) %}
+          {% endif %}
         {% endif %}
         {% set __ = _bootstrap_pip_env.update({'pip_executable': item.pip_executable | d(__bootstrap_pip__pip_executable) }) %}
         {% set __ = _bootstrap_pip_env.update({'pip_version': item.version | d(__bootstrap_pip__pip_version) }) %}
