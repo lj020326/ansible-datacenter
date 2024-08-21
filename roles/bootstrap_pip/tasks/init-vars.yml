@@ -1,0 +1,172 @@
+---
+- name: Init-vars | Set OS specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+    - default.yml
+
+- name: Init-vars | Display role vars
+  ansible.builtin.debug:
+    msg:
+      - __bootstrap_pip__virtualenv_command={{ __bootstrap_pip__virtualenv_command }}
+      - __bootstrap_pip__python_executable={{ __bootstrap_pip__python_executable }}
+      - __bootstrap_pip__pip_executable={{ __bootstrap_pip__pip_executable }}
+      - __bootstrap_pip__pip_version={{ __bootstrap_pip__pip_version }}
+      - bootstrap_pip__packages={{ bootstrap_pip__packages }}
+      - bootstrap_pip__config_dir={{ bootstrap_pip__config_dir }}
+      - bootstrap_pip__env_force_rebuild={{ bootstrap_pip__env_force_rebuild }}
+
+- name: Init-vars | Install pip env OS packages
+  ansible.builtin.set_fact:
+    __bootstrap_pip__packages: "{{ bootstrap_pip__packages }}"
+
+#- name: "Init-vars | Add __bootstrap_pip__python_executable to __bootstrap_pip__packages if not python3"
+#  when: __bootstrap_pip__python_executable != 'python3'
+#  ansible.builtin.set_fact:
+#    __bootstrap_pip__packages: "{{ (__bootstrap_pip__packages + [__bootstrap_pip__python_executable])
+#      | flatten | sort | unique }}"
+
+- name: Init-vars | Display __bootstrap_pip__packages
+  ansible.builtin.debug:
+    var: __bootstrap_pip__packages
+
+- name: Init-vars | Install __bootstrap_pip__packages
+  ansible.builtin.package:
+    state: present
+    name: "{{ __bootstrap_pip__packages }}"
+
+## ref: https://pip.pypa.io/en/stable/topics/configuration/
+- name: Init-vars | Ensure /etc/pip.conf
+  ansible.builtin.copy:
+    src: pip.conf
+    dest: /etc/pip.conf
+    mode: "0644"
+    backup: true
+
+#- name: "Init-vars | Create pip user config directory"
+#  ansible.builtin.file:
+#    path: "{{ bootstrap_pip__config_dir }}"
+#    state: directory
+#    mode: "0755"
+#    owner: "{{ ansible_user }}"
+#    group: "{{ ansible_user }}"
+#
+#- name: "Init-vars | Ensure {{ bootstrap_pip__config_dir }}//pip.conf"
+#  ansible.builtin.copy:
+#    src: pip.conf
+#    dest: "{{ bootstrap_pip__config_dir }}/pip.conf"
+#    mode: "0644"
+#    owner: "{{ ansible_user }}"
+#    backup: true
+
+#- name: Init-vars | Install system level virtualenv
+#  environment:
+#    #    PATH: "$PATH:/usr/bin:/usr/local/bin"
+#    PIP_ROOT_USER_ACTION: ignore
+#  ansible.builtin.pip:
+#    name: virtualenv
+#    state: present
+#    virtualenv_command: "{{ __bootstrap_pip__virtualenv_command }}"
+#    virtualenv_python: "{{ __bootstrap_pip__python_executable }}"
+
+- name: Init-vars | Display __bootstrap_pip__libs
+  ansible.builtin.debug:
+    var: __bootstrap_pip__libs
+
+- name: Init-vars | Set __bootstrap_pip__library_list_by_priority
+  ansible.builtin.set_fact:
+    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_pip__lib_priority_default)|int):
+      { item.state | default(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
+  loop: "{{ __bootstrap_pip__libs }}"
+
+- name: Init-vars | Display __bootstrap_pip__library_list_by_priority
+  ansible.builtin.debug:
+    var: __bootstrap_pip__library_list_by_priority
+
+- name: Init-vars | Set {{ role_name }} var prefix
+  ansible.builtin.set_fact:
+    role_var_prefix: "{{ role_name | replace('-','_') }}"
+
+- name: Init-vars | Set {{ role_name }} list var prefixes
+  ansible.builtin.set_fact:
+    role_pip_env_list_var_prefix: "{{ role_var_prefix }}__env_list__"
+
+- name: Init-vars | Set {{ role_name }} var regex's
+  ansible.builtin.set_fact:
+    role_pip_env_list_var_regex: ^{{ role_pip_env_list_var_prefix }}
+
+- name: Init-vars | Init __bootstrap_pip__env_list
+  ansible.builtin.set_fact:
+    __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list__default }}"
+
+- name: Init-vars | Display __bootstrap_pip__env_list[0]
+  ansible.builtin.debug:
+    var: __bootstrap_pip__env_list
+
+- name: Init-vars | Show variable names with '{{ role_pip_env_list_var_regex }}' regex
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
+
+#- name: "Init-vars | Show variable values with '{{ role_pip_env_list_var_regex }}' regex"
+#  ansible.builtin.debug:
+#    var: "{{ lookup('vars', item) }}"
+#  loop: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
+
+- name: Init-vars | Coalesce lists from {{ role_pip_env_list_var_prefix }}* vars into merged list
+  ansible.builtin.set_fact:
+    __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
+
+- name: Init-vars | Display __bootstrap_pip__env_list
+  ansible.builtin.debug:
+    var: __bootstrap_pip__env_list
+
+- name: Init-vars | Set __bootstrap_pip__env_by_name
+  ansible.builtin.set_fact:
+    __bootstrap_pip__env_by_name: "{{ _bootstrap_pip__env_by_name_yaml | from_yaml }}"
+  vars:
+    _bootstrap_pip__env_by_name_yaml: |-
+      {% set _bootstrap_pip_env_by_name = {} %}
+      {% for item in __bootstrap_pip__env_list %}
+        {% set _env_name = item.virtualenv | d(item.pip_executable) | d(__bootstrap_pip__pip_executable) %}
+        {% if _bootstrap_pip_env_by_name[_env_name] is defined %}
+          {% set _bootstrap_pip_env_libs = [] %}
+          {% if _bootstrap_pip_env_by_name[_env_name].libraries is defined %}
+            {% set __ = _bootstrap_pip_env_libs.extend(_bootstrap_pip_env_by_name[_env_name].libraries) %}
+          {% endif %}
+          {% if item.libraries is defined %}
+            {% for _library in item.libraries if _library not in _bootstrap_pip_env_libs %}
+              {% set __ = _bootstrap_pip_env_libs.append(_library) %}
+            {% endfor %}
+          {% endif %}
+          {% set _bootstrap_pip_env = _bootstrap_pip_env_by_name[_env_name] | ansible.builtin.combine(item, recursive=True) %}
+          {% set __ = _bootstrap_pip_env.update({ 'libraries': _bootstrap_pip_env_libs }) %}
+        {% else %}
+          {% set _bootstrap_pip_env = item %}
+        {% endif %}
+        {% set __ = _bootstrap_pip_env.update({ 'name': _env_name }) %}
+        {% if item.virtualenv is defined %}
+          {% set __ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(item.virtualenv + '/bin/python3') }) %}
+          {% if item.system is not defined %}
+            {% set __ = _bootstrap_pip_env.update({ 'system': false }) %}
+          {% endif %}
+        {% else %}
+          {% set __ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(__bootstrap_pip__python_executable) }) %}
+          {% if item.system is not defined %}
+            {% set __ = _bootstrap_pip_env.update({ 'system': true }) %}
+          {% endif %}
+        {% endif %}
+        {% if item.symlink_path is defined %}
+          {% set __ = _bootstrap_pip_env.update({'symlink_path': item.symlink_path }) %}
+        {% endif %}
+        {% set __ = _bootstrap_pip_env.update({'pip_executable': item.pip_executable | d(__bootstrap_pip__pip_executable) }) %}
+        {% set __ = _bootstrap_pip_env.update({'pip_version': item.version | d(__bootstrap_pip__pip_version) }) %}
+        {% set __ = _bootstrap_pip_env_by_name.update({ _env_name: _bootstrap_pip_env }) %}
+      {% endfor %}
+      {{ _bootstrap_pip_env_by_name }}
+
+- name: Init-vars | Display __bootstrap_pip__env_by_name
+  ansible.builtin.debug:
+    var: __bootstrap_pip__env_by_name

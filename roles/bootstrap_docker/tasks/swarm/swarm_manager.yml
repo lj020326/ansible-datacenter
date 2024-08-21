@@ -1,5 +1,10 @@
 ---
 
+- name: "{{ __bootstrap_docker__log_prefix_mgr }} Assert __bootstrap_docker__swarm_remote_addrs defined"
+  ansible.builtin.assert:
+    that:
+      - __bootstrap_docker__swarm_remote_addrs|d([])|length>0
+
 - name: "{{ __bootstrap_docker__log_prefix_mgr }} Retrieve swarm_join_token_manager token"
   when: __swarm_join_token_manager is not defined
   block:
@@ -33,28 +38,6 @@
     - name: "{{ __bootstrap_docker__log_prefix_mgr }} Display __swarm_join_result"
       ansible.builtin.debug:
         var: __swarm_join_result
-
-    - name: "{{ __bootstrap_docker__log_prefix_mgr }} Set node role"
-      community.docker.docker_node:
-#        hostname: "{{ ansible_host }}"
-        hostname: "{{ inventory_hostname }}"
-        role: manager
-
-    - name: "{{ __bootstrap_docker__log_prefix_mgr }} Set node labels"
-      when: bootstrap_docker__swarm_node_labels|d([])|length>0
-      community.docker.docker_node:
-#        hostname: "{{ ansible_host }}"
-        hostname: "{{ inventory_hostname }}"
-        labels: "{{ bootstrap_docker__swarm_node_labels }}"
-        labels_state: replace
-
-    - name: "{{ __bootstrap_docker__log_prefix_mgr }} Create Docker Swarm Secrets"
-      community.docker.docker_secret:
-        name: "{{ item.name }}"
-        data: "{{ item.value }}"
-        state: "{{ item.state }}"
-      loop: "{{ bootstrap_docker__swarm_secrets }}"
-
   rescue:
     - name: "{{ __bootstrap_docker__log_prefix_mgr }} Display __swarm_join_result"
       ansible.builtin.debug:
@@ -74,3 +57,29 @@
     - name: "{{ __bootstrap_docker__log_prefix_mgr }} Display __join_cmd"
       ansible.builtin.debug:
         var: __join_cmd
+
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Set manager role config"
+  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+#  vars:
+#    ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_mgr }} Set node role"
+      community.docker.docker_node:
+#        hostname: "{{ ansible_host }}"
+        hostname: "{{ inventory_hostname }}"
+        role: manager
+
+    - name: "{{ __bootstrap_docker__log_prefix_mgr }} Set node labels"
+      when: bootstrap_docker__swarm_node_labels|d([])|length>0
+      community.docker.docker_node:
+#        hostname: "{{ ansible_host }}"
+        hostname: "{{ inventory_hostname }}"
+        labels: "{{ bootstrap_docker__swarm_node_labels }}"
+        labels_state: replace
+
+#    - name: "{{ __bootstrap_docker__log_prefix_mgr }} Create Docker Swarm Secrets"
+#      community.docker.docker_secret:
+#        name: "{{ item.name }}"
+#        data: "{{ item.value }}"
+#        state: "{{ item.state }}"
+#      loop: "{{ bootstrap_docker__swarm_secrets }}"

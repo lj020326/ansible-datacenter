@@ -22,8 +22,8 @@ PROJECT_DIR="$( git rev-parse --show-toplevel )"
 #BASE_DIR="${PROJECT_DIR}/.."
 BASE_DIR=$(dirname "${PROJECT_DIR}")
 
-ANSIBLE_COLLECTION_REQUIREMENTS="collections/requirements.yml"
-#ANSIBLE_COLLECTION_REQUIREMENTS="collections/requirements.test.yml"
+ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/collections/requirements.yml"
+#ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/collections/requirements.test.yml"
 
 VAULTPASS_FILEPATH="~/.vault_pass"
 if [[ -f "${PROJECT_DIR}/.vault_pass" ]]; then
@@ -101,9 +101,6 @@ function main() {
 
   rm -f ./ansible.log
 
-  echo "==> ansible-galaxy collection list"
-  ansible-galaxy collection list
-
   ## ref: https://stackoverflow.com/questions/40684543/how-to-make-python-use-ca-certificates-from-mac-os-truststore
   CERT_PATH=$(python -m certifi)
   export SSL_CERT_FILE=${CERT_PATH}
@@ -112,6 +109,8 @@ function main() {
   if [[ "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
     pull_latest_galaxy_collections
   fi
+  echo "==> ansible-galaxy collection list"
+  ansible-galaxy collection list
 
   echo "==> ansible --version"
   ansible --version
