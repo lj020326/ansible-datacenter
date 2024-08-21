@@ -77,6 +77,36 @@
 #          - "dc_network_location={{ dc_network_location|d('') }}"
 #          - "dc_network_segment={{ dc_network_segment|d('') }}"
 
+- name: "Display important collection versions"
+  hosts: os_linux,!node_offline
+  tags:
+    - always
+    - display-collection-versions
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
+  tasks:
+    - name: "Display important collection versions" # noqa run-once[task]
+      run_once: true
+      ansible.builtin.debug:
+        msg:
+          - "ansible.controller version={{ lookup('community.general.collection_version', 'ansible.controller') }}"
+          - "ansible.posix version={{ lookup('community.general.collection_version', 'ansible.posix') }}"
+          - "ansible.tower version={{ lookup('community.general.collection_version', 'ansible.tower') }}"
+          - "ansible.utils version={{ lookup('community.general.collection_version', 'ansible.utils') }}"
+          - "ansible.windows version={{ lookup('community.general.collection_version', 'ansible.windows') }}"
+          - "community.crypto version={{ lookup('community.general.collection_version', 'community.crypto') }}"
+          - "community.docker version={{ lookup('community.general.collection_version', 'community.docker') }}"
+          - "community.general version={{ lookup('community.general.collection_version', 'community.general') }}"
+          - "community.postgresql version={{ lookup('community.general.collection_version', 'community.postgresql') }}"
+          - "community.vmware version={{ lookup('community.general.collection_version', 'community.vmware') }}"
+          - "community.windows version={{ lookup('community.general.collection_version', 'community.windows') }}"
+          - "confluent.platform version={{ lookup('community.general.collection_version', 'confluent.platform') }}"
+          - "cyberark.conjur version={{ lookup('community.general.collection_version', 'cyberark.conjur') }}"
+          - "cyberark.pas version={{ lookup('community.general.collection_version', 'cyberark.pas') }}"
+          - "jfrog.platform version={{ lookup('community.general.collection_version', 'jfrog.platform') }}"
+          - "microsoft.ad version={{ lookup('community.general.collection_version', 'microsoft.ad') }}"
+          - "redhat.satellite version={{ lookup('community.general.collection_version', 'redhat.satellite') }}"
+
 - name: Display controller vars
   hosts: ansible_localhost
   tags:
@@ -630,6 +660,9 @@
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-ansible-venv
+    - bootstrap-pip
+    - bootstrap-linux-docker
+    - bootstrap-docker
   become: true
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
@@ -637,13 +670,13 @@
   roles:
     - role: bootstrap_pip
 
-- name: Bootstrap pip
-  hosts: os_linux,!node_offline
-  tags:
-    - bootstrap-pip
-  become: true
-  roles:
-    - role: bootstrap_pip
+#- name: Bootstrap pip
+#  hosts: os_linux,!node_offline
+#  tags:
+#    - bootstrap-pip
+#  become: true
+#  roles:
+#    - role: bootstrap_pip
 
 ## setup step-ca pki, create CA certs and install CA certs
 - name: Configure Step-ca cli for step clients
@@ -710,10 +743,9 @@
     - bootstrap-registry
   become: true
   roles:
-    - role: bootstrap_pip
     - role: bootstrap_docker
 
-- name: Bootstrap docker nodes
+- name: Bootstrap docker swarm nodes
   hosts: docker,!node_offline
   tags:
     - bootstrap-docker-swarm

@@ -1,44 +1,53 @@
 ---
 - name: "{{ __bootstrap_docker__log_prefix_leader }} Update swarm"
-  #  when: bootstrap_docker__swarm_state != 'join'
   block:
     - name: "{{ __bootstrap_docker__log_prefix_leader }} Update swarm"
       community.docker.docker_swarm:
         state: present
         advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
       register: __update_swarm
-      ignore_errors: true
-    #      failed_when:
-    #        - __update_swarm.rc > 0
-    #        - not ( __update_swarm.msg | regex_search("This node is already part of a swarm") )
+#      failed_when:
+#        - __update_swarm.failed
+#        - not ( __update_swarm.msg | regex_search("This node is already part of a swarm") )
 
-    - name: "{{ __log_prefix_local }} Display __update_swarm"
+  rescue:
+    - name: "{{ __bootstrap_docker__log_prefix_leader }} Display __update_swarm"
       ansible.builtin.debug:
         var: __update_swarm
 
-    - name: "{{ __log_prefix_local }} Force block rescue"
-      when:
-        - __update_swarm.failed|d(False)
-        - __update_swarm.msg | regex_search("This node is already part of a swarm")
-      ansible.builtin.debug:
-        msg: Force block rescue
-      failed_when: true
-
-  rescue:
     - name: "{{ __bootstrap_docker__log_prefix_leader }} Force Update swarm"
-      #      when:
-      #        - __update_swarm.failed|d(False)
-      #        - __update_swarm.msg | regex_search("This node is already part of a swarm")
       community.docker.docker_swarm:
         state: present
         advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
         force: true
       register: __update_swarm
 
+- name: "{{ __bootstrap_docker__log_prefix_leader }} Display __update_swarm"
+  ansible.builtin.debug:
+    var: __update_swarm
+
+- name: "{{ __bootstrap_docker__log_prefix_leader }} Set node role"
+  community.docker.docker_node:
+#        hostname: "{{ ansible_host }}"
+    hostname: "{{ inventory_hostname }}"
+    role: manager
+
+- name: "{{ __bootstrap_docker__log_prefix_leader }} Get Docker Swarm info"
+  community.docker.docker_swarm_info:
+    nodes: true
+#    verbose_output: true
+  register: __docker_swarm_info
+
+- name: "{{ __bootstrap_docker__log_prefix_leader }} Display __docker_swarm_info"
+  ansible.builtin.debug:
+    var: __docker_swarm_info
+
 - name: "{{ __bootstrap_docker__log_prefix_leader }} Declare Swarm join tokens fact"
   ansible.builtin.set_fact:
-    __swarm_join_token_manager: "{{ __update_swarm.swarm_facts.JoinTokens.Manager }}"
-    __swarm_join_token_worker: "{{ __update_swarm.swarm_facts.JoinTokens.Worker }}"
+    __swarm_join_token_manager: "{{ __docker_swarm_info.swarm_facts.JoinTokens.Manager }}"
+    __swarm_join_token_worker: "{{ __docker_swarm_info.swarm_facts.JoinTokens.Worker }}"
+#    __swarm_join_token_manager: "{{ __update_swarm.swarm_facts.JoinTokens.Manager }}"
+#    __swarm_join_token_worker: "{{ __update_swarm.swarm_facts.JoinTokens.Worker }}"
     cacheable: false
 #  when: "'skipped' not in __update_swarm"
 
