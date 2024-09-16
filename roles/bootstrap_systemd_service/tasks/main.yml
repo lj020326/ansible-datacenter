@@ -1,5 +1,7 @@
 ---
 - name: Assert primary role input vars are defined
+#  when: bootstrap_systemd_service__config_map|d({})|length == 0
+  when: bootstrap_systemd_service__config_map is not defined
   ansible.builtin.assert:
     that:
       - bootstrap_systemd_service__name is defined
@@ -8,8 +10,10 @@
 ## ref: https://github.com/ansible/ansible/issues/19084
 - name: Set role variable facts from bootstrap_systemd_service__config_map # noqa: var-naming[no-jinja]
   when: bootstrap_systemd_service__config_map is defined
+  ## Setting dynamic fact key - linting will complain here
+  ## ref: https://stackoverflow.com/questions/38143647/set-fact-with-dynamic-key-name-in-ansible
   ansible.builtin.set_fact:
-    "{ bootstrap_systemd_service__{{ _role_item.key }}": "{{ _role_item.value }} }"
+    { "bootstrap_systemd_service__{{ _role_item.key }}": "{{ _role_item.value }}" }
   with_dict: "{{ bootstrap_systemd_service__config_map }}"
   loop_control:
     loop_var: _role_item
@@ -39,7 +43,7 @@
   ansible.builtin.template:
     src: service.j2
     dest: "{{ ansible_unit_test_prefix_dir }}/{{ bootstrap_systemd_service__systemd_dir }}/{{ bootstrap_systemd_service__name }}.service"
-    force: "{{ bootstrap_systemd_service__force_update | d(False) }}"
+    force: "{{ bootstrap_systemd_service__force_update | d(True) }}"
     mode: "0644"
   register: service_file
   notify: reload systemd

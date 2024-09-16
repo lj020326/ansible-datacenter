@@ -1,21 +1,76 @@
 ---
 
-#- name: Run ubuntu upgrade
+- name: Ensure not exists /etc/apt/sources.list.d/ubuntu.sources
+  ansible.builtin.file:
+    state: absent
+    path: /etc/apt/sources.list.d/ubuntu.sources
+
+### ref: https://stackoverflow.com/questions/40447957/is-it-safe-to-use-ansibles-package-module-to-upgrade-all-packages
+- name: Run apt-upgrade
+  ansible.builtin.shell: |
+    apt update -y && apt upgrade -y
+  register: __os_package_upgrade
+  changed_when: false
+
+- name: Display __os_package_upgrade
+  ansible.builtin.debug:
+    var: __os_package_upgrade
+
+## ref: https://unix.stackexchange.com/questions/487030/how-to-fully-upgrade-debian-from-command-line-including-release-version
+#- name: Upgrade to latest release (apt-get dist-upgrade) # noqa: command-instead-of-module
 #  ansible.builtin.shell: |
-#    set -o pipefail # <-- adding this will prevent surprises
-#    apt update
-#    apt upgrade
-#  register: __os_upgrade
+#    sed -i 's/focal/noble/g' /etc/apt/sources.list
+#    sed -i 's/non-free non-free-firmware-firmware//g' /etc/apt/sources.list
+#    if ! grep non-free-firmware /etc/apt/sources.list
+#    then
+#        sed -i 's/non-free/non-free non-free-firmware/g' /etc/apt/sources.list
+#    fi
 #  changed_when: false
 
 ## ref: https://www.cyberciti.biz/faq/how-to-upgrade-from-ubuntu-22-04-lts-to-ubuntu-24-04-lts/
 ## ref: https://tech.tiq.cc/2020/04/how-to-silently-and-remotely-upgrade-ubuntu-to-a-new-version-without-interaction-no-user-prompt/
+## ref: https://askubuntu.com/questions/81585/what-is-dist-upgrade-and-why-does-it-upgrade-more-than-upgrade
+- name: Install aptitude
+  ansible.builtin.apt:
+    force_apt_get: true
+    name: aptitude
+    update_cache: true
+
+## ref: https://stackoverflow.com/questions/41535838/how-to-run-apt-update-and-upgrade-via-ansible-shell#41537418
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    upgrade: full
+    update_cache: true
+    cache_valid_time: 86400 #One day
+
+## run upgrade in tmux or screen session in case the connection drops during the upgrade
+## ref: https://www.cyberciti.biz/faq/how-to-upgrade-from-ubuntu-22-04-lts-to-ubuntu-24-04-lts/
+## ref: https://tech.tiq.cc/2020/04/how-to-silently-and-remotely-upgrade-ubuntu-to-a-new-version-without-interaction-no-user-prompt/
+## ref: https://unix.stackexchange.com/questions/423761/create-a-screen-launch-a-command-in-it-and-detach
+#- name: Run ubuntu upgrade
+#  ansible.builtin.shell: |
+#    screen -S "os-upgrade" sh -c "do-release-upgrade -d -f DistUpgradeViewNonInteractive; echo $?"
+##    screen -s "/bin/bash" -dmS os-upgrade && \
+##    screen -S os-upgrade -X stuff "do-release-upgrade -d -f DistUpgradeViewNonInteractive\n"
+###    tmux has-session -t update || tmux new-session -d -s update do-release-upgrade -d -f DistUpgradeViewNonInteractive
+###    tmux update -d do-release-upgrade -d -f DistUpgradeViewNonInteractive
+###    screen -AdmS update do-release-upgrade -d -f DistUpgradeViewNonInteractive
+###    screen -S "os-upgrade" do-release-upgrade -d -f DistUpgradeViewNonInteractive
+#  register: __os_upgrade
+#  changed_when: false
+#  failed_when:
+#    - __os_upgrade.rc >= 0
+#    - not ( __os_upgrade.stdout | regex_search("There is no development version of an LTS available") )
+
 - name: Run ubuntu upgrade
-#  ansible.builtin.shell: |
-#    do-release-upgrade -d -f DistUpgradeViewNonInteractive
-#  ansible.builtin.shell: |
-#    screen -AdmS update do-release-upgrade -d -f DistUpgradeViewNonInteractive
   ansible.builtin.shell: |
-    tmux update -d do-release-upgrade -d -f DistUpgradeViewNonInteractive
+    do-release-upgrade -d -f DistUpgradeViewNonInteractive
   register: __os_upgrade
   changed_when: false
+  failed_when:
+    - __os_upgrade.rc >= 0
+    - not ( __os_upgrade.stdout | regex_search("There is no development version of an LTS available") )
+
+- name: Display __os_upgrade
+  ansible.builtin.debug:
+    var: __os_upgrade

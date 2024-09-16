@@ -3,6 +3,14 @@ log_prefix_functions=".bash_functions"
 
 echo "${log_prefix_functions} configuring shell functions..."
 
+##
+##
+unset -f install-dev-env || true
+function install-dev-env() {
+  echo "DEVENV_INSTALL_REMOTE_SCRIPT=${DEVENV_INSTALL_REMOTE_SCRIPT}"
+  bash -c "$(curl -fsSL "${DEVENV_INSTALL_REMOTE_SCRIPT}")"
+}
+
 ## ref: https://gist.github.com/vby/ef4d72e6ae51c64acbe7790ca7d89606#file-msys2-bashrc-sh
 unset -f add_winpath || true
 function add_winpath() {
@@ -24,7 +32,7 @@ function setenv-python() {
 	add2path=${2:-0}
 
 	local logPrefix="setenv-python"
-	echo "python_version=[${python_version}]"
+#	echo "python_version=[${python_version}]"
 
 	case "${python_version}" in
 		3WIN)
@@ -65,8 +73,8 @@ function setenv-python() {
 			platform="UNKNOWN:python_version=${python_version}"
 			;;
 	esac
-	
-	echo "PYTHON_HOME=[${PYTHON_HOME}]"
+
+#	echo "PYTHON_HOME=[${PYTHON_HOME}]"
 
 #	echo "PATH=$PATH"
 
@@ -143,6 +151,29 @@ function certinfo () {
   nslookup $1
   (openssl s_client -showcerts -servername $1 -connect $1:$2 <<< "Q" | openssl x509 -text | grep "DNS After")
 }
+
+unset -f reset_local_dns || true
+function reset_local_dns() {
+  local LOG_PREFIX="reset_local_dns():"
+
+  if [[ "${PLATFORM}" == *"DARWIN"* ]]; then
+    local RESET_DNS_CACHE="sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder"
+
+    echo "${LOG_PREFIX} ${RESET_DNS_CACHE}"
+    eval "${RESET_DNS_CACHE}"
+
+    echo "${LOG_PREFIX} Restart eaacloop"
+
+    ## ref: https://serverfault.com/questions/194832/how-to-start-stop-restart-launchd-services-from-the-command-line#194886
+    local RESTART_EAACLOOP="sudo launchctl kickstart -k system/net.eaacloop.wapptunneld"
+
+    echo "${LOG_PREFIX} ${RESTART_EAACLOOP}"
+    eval "${RESTART_EAACLOOP}"
+  else
+    echo "${LOG_PREFIX} function not implemented/defined for current system platform ${PLATFORM} ...yet"
+  fi
+}
+
 
 unset -f create-git-project || true
 function create-git-project() {
@@ -223,6 +254,67 @@ function cdnvm(){
 #alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
 
 
+unalias gitresetpublicbranch 1>/dev/null 2>&1
+unset -f gitresetpublicbranch || true
+function gitresetpublicbranch(){
+  GIT_DEFAULT_BRANCH=main
+
+  ## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
+  # exit when any command fails
+  set -e
+
+  # keep track of the last executed command
+  trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
+  # echo an error message before exiting
+  trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
+
+  echo "Check out ${GIT_DEFAULT_BRANCH} branch:"
+  git checkout ${GIT_DEFAULT_BRANCH}
+
+  #echo "Delete current local public branch:"
+  #git branch -D public
+
+  echo "Check out to a temporary branch:"
+  git checkout --orphan TEMP_BRANCH
+
+  echo "Update public files:"
+  if [ -d docs ]; then
+    rm -fr docs/
+  fi
+  if [ -d private ]; then
+    rm -fr private/
+  fi
+  if [ -d files/private ]; then
+    rm -fr files/private/
+  fi
+  find . -name secrets.yml -exec rm -rf {} \;
+  find . -name vault.yml -exec rm -rf {} \;
+
+  echo "Add all the files:"
+  git add -A
+
+  echo "Commit the changes:"
+  git commit -am "Initial commit"
+
+  echo "Delete the old branch:"
+  git branch -D public
+
+  echo "Rename the temporary branch to public:"
+  ## ref: https://gist.github.com/heiswayi/350e2afda8cece810c0f6116dadbe651
+  git branch -m public
+
+  echo "Force public branch update to origin repository:"
+  git push -f origin public
+  #git push -f --set-upstream origin public
+
+  echo "Force public branch update to github repository:"
+  git push -f -u github public:main
+
+  echo "Finally, checkout ${GIT_DEFAULT_BRANCH} branch:"
+  git checkout ${GIT_DEFAULT_BRANCH}
+}
+
+
 unalias gitshowupstream 1>/dev/null 2>&1
 unset -f gitshowupstream || true
 function gitshowupstream(){
@@ -300,7 +392,7 @@ unalias gitbranchdelete 1>/dev/null 2>&1
 unset -f gitbranchdelete || true
 function gitbranchdelete(){
   REPO_ORIGIN_URL="$(git config --get remote.origin.url)" && \
-  REPO_DEFAULT_BRANCH="$(git ls-remote --symref "${REPO_ORIGIN_URL}" HEAD | gsed -nE 's|^ref: refs/heads/(\S+)\s+HEAD|\1|p')" && \
+  REPO_DEFAULT_BRANCH="$(git ls-remote --symref "${REPO_ORIGIN_URL}" HEAD | sed -nE 's|^ref: refs/heads/(\S+)\s+HEAD|\1|p')" && \
   LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
   REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
   IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
@@ -309,6 +401,23 @@ function gitbranchdelete(){
   git branch -D "${LOCAL_BRANCH}" && \
   echo "==> Deleting remote ${REMOTE} branch ${REMOTE_BRANCH}" && \
   git push -d "${REMOTE}" "${REMOTE_BRANCH}"
+}
+
+unalias gitbranchrecreate 1>/dev/null 2>&1
+unset -f gitbranchrecreate || true
+function gitbranchrecreate() {
+  REPO_ORIGIN_URL="$(git config --get remote.origin.url)" && \
+  REPO_DEFAULT_BRANCH="$(git ls-remote --symref "${REPO_ORIGIN_URL}" HEAD | sed -nE 's|^ref: refs/heads/(\S+)\s+HEAD|\1|p')" && \
+  LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  git fetch origin "${REPO_DEFAULT_BRANCH}":"${REPO_DEFAULT_BRANCH}" && \
+  echo "==> Deleting existing branch ${LOCAL_BRANCH}" && \
+  gitbranchdelete && \
+  echo "==> Creating new branch ${LOCAL_BRANCH}" && \
+  git checkout -b "${LOCAL_BRANCH}" && \
+  echo "==> Pushing new branch ${LOCAL_BRANCH}" && \
+  git push -u "${REMOTE}" "${LOCAL_BRANCH}"
 }
 
 unalias getbranchhist 1>/dev/null 2>&1
@@ -330,6 +439,8 @@ function getgitrequestid() {
   if [[ $COMMENT_PREFIX = *develop* || $COMMENT_PREFIX = *main* || $COMMENT_PREFIX = *master* ]]; then
     if [ -f ${PROJECT_DIR}/.git.request.refid ]; then
       COMMENT_PREFIX=$(cat ${PROJECT_DIR}/.git.request.refid)
+    elif [ -f ${HOME}/.git.request.refid ]; then
+      COMMENT_PREFIX=$(cat ${HOME}/.git.request.refid)
     elif [ -f ${PROJECT_DIR}/save/.git.request.refid ]; then
       COMMENT_PREFIX=$(cat ${PROJECT_DIR}/save/.git.request.refid)
     elif [ -f ./.git.request.refid ]; then
@@ -404,18 +515,6 @@ function blastit() {
   git push ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH}
 }
 
-## ref: https://superuser.com/questions/154332/how-do-i-unset-or-get-rid-of-a-bash-function
-unalias blastdocs 1>/dev/null 2>&1
-unset -f blastdocs || true
-function blastdocs() {
-    pushd . && cd ~/docs && git pull origin
-    if [ -f save/phone.txt ]; then
-#        cp -p save/phone.txt . && \
-#        ansible-vault encrypt phone.txt --output ${TO}/.bash_secrets --vault-password-file ~/.vault_pass
-        ansible-vault encrypt save/phone.txt --output phone.txt --vault-password-file ~/.vault_pass
-    fi
-    blastit && popd
-}
 
 ## https://stackoverflow.com/questions/38892599/change-commit-message-for-specific-commit
 unalias change-commit-msg 1>/dev/null 2>&1
@@ -505,6 +604,35 @@ function dockerbash() {
   docker run -it --entrypoint /bin/bash "${CONTAINER_IMAGE_ID}"
 }
 
+## ref: https://stackoverflow.com/questions/26423515/how-to-automatically-update-your-docker-containers-if-base-images-are-updated
+##
+unalias docker_sync_image 1>/dev/null 2>&1
+unset -f docker_sync_image || true
+function docker_sync_image() {
+  BASE_IMAGE=${1:-registry}
+  REGISTRY=${2:-media.johnson.int:5000}
+  #REGISTRY="registry.hub.docker.com"
+  IMAGE="${REGISTRY}/${BASE_IMAGE}"
+  CID=$(docker ps | grep "${IMAGE}" | awk '{print $1}')
+  docker pull "${IMAGE}"
+
+  for im in $CID
+  do
+    LATEST=`docker inspect --format "{{.Id}}" "${IMAGE}"`
+    RUNNING=`docker inspect --format "{{.Image}}" $im`
+    NAME=`docker inspect --format '{{.Name}}' $im | sed "s/\///g"`
+    echo "Latest: ${LATEST}"
+    echo "Running: ${RUNNING}"
+    if [ "$RUNNING" != "$LATEST" ];then
+      echo "upgrading $NAME"
+      docker stop "${NAME}"
+      docker rm -f "${NAME}"
+      docker start "${NAME}"
+    else
+      echo "${NAME} up to date"
+    fi
+  done
+}
 
 ## source: https://fabianlee.org/2021/04/08/docker-determining-container-responsible-for-largest-overlay-directories/
 ##
@@ -538,14 +666,21 @@ function get-largest-docker-image-sizes() {
 unalias explodeansibletest 1>/dev/null 2>&1
 unset -f explodeansibletest || true
 function explodeansibletest() {
-
-  recent=$(find . -name \*.py | head -n1) && \
-  ${recent} explode && \
-  cat debug_dir/args | jq > debug_dir/args.json && \
+  recent=$(find . -name AnsiballZ_\*.py | head -n1) && \
+  python3 ${recent} explode && \
+  cat debug_dir/args | jq '.ANSIBLE_MODULE_ARGS.logging_level = "DEBUG"' > debug_dir/args.json && \
   cp debug_dir/args.json debug_dir/args && \
   cp debug_dir/args.json debug_dir/args.orig.json
-
 }
+#function explodeansibletest() {
+#
+#  recent=$(find . -name \*.py | head -n1) && \
+#  python3 ${recent} explode && \
+#  cat debug_dir/args | jq > debug_dir/args.json && \
+#  cp debug_dir/args.json debug_dir/args && \
+#  cp debug_dir/args.json debug_dir/args.orig.json
+#
+#}
 
 unalias cagetaccountpwd 1>/dev/null 2>&1
 unset -f cagetaccountpwd || true
@@ -579,4 +714,14 @@ function cagetaccountpwd() {
 
   echo "CA_ACCOUNT_PWD=${CA_ACCOUNT_PWD}"
 
+}
+
+unalias sshpacker 1>/dev/null 2>&1
+unset -f sshpacker || true
+function sshpacker() {
+  SSH_TARGET=${1} && \
+  echo "SSH_TARGET=${SSH_TARGET}" && \
+  IFS=@ read SSH_TARGET_CRED SSH_TARGET_HOST <<< ${SSH_TARGET} && \
+  ssh-keygen -R "${SSH_TARGET_HOST}" && \
+  ssh -i "~/.ssh/${SSH_KEY}" -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "${SSH_TARGET}"
 }

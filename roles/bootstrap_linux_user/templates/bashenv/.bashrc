@@ -7,16 +7,16 @@
 log_bash=".bashrc"
 echo "${log_bash} configuring shell env..."
 
-#OS="$(/bin/uname -s)"
-OS="$(uname -s)"
-case "${OS}" in
-    Linux*)     PLATFORM=Linux;;
-    Darwin*)    PLATFORM=DARWIN;;
-    CYGWIN*)    PLATFORM=CYGWIN;;
-    MINGW64*)   PLATFORM=MINGW64;;
-    MINGW32*)   PLATFORM=MINGW32;;
-    MSYS*)      PLATFORM=MSYS;;
-    *)          PLATFORM="UNKNOWN:${OS}"
+PLATFORM_OS=$(uname -s | tr "[:upper:]" "[:lower:]")
+
+case "${PLATFORM_OS}" in
+    linux*)     PLATFORM=LINUX;;
+    darwin*)    PLATFORM=DARWIN;;
+    cygwin*)    PLATFORM=CYGWIN;;
+    mingw64*)   PLATFORM=MINGW64;;
+    mingw32*)   PLATFORM=MINGW32;;
+    msys*)      PLATFORM=MSYS;;
+    *)          PLATFORM="UNKNOWN:${PLATFORM_OS}"
 esac
 
 echo "${log_bash} PLATFORM=[${PLATFORM}]"
@@ -35,6 +35,11 @@ if [ -f "${HOME}/.bash_functions" ]; then
     source "${HOME}/.bash_functions"
 fi
 
+if [ -f "${HOME}/.bash_env" ]; then
+    echo "${log_bash} sourcing .bash_env"
+    source ~/.bash_env
+fi
+
 if [ -f "${HOME}/.bash_secrets" ]; then
     if [ ! -f "${HOME}/.vault_pass" ]; then
         echo "${log_bash} ~/.vault_pass not found, skip loading ${HOME}/.bash_secrets"
@@ -44,16 +49,6 @@ if [ -f "${HOME}/.bash_secrets" ]; then
         echo "${log_bash} sourcing ~/.bash_secrets"
         eval "$(ansible-vault view ${HOME}/.bash_secrets --vault-password-file ${HOME}/.vault_pass)"
     fi
-fi
-
-if [ -f "${HOME}/.bash_env" ]; then
-    echo "${log_bash} sourcing .bash_env"
-    source ~/.bash_env
-fi
-
-if [ -f "${HOME}/.bash_path" ]; then
-    echo "${log_bash} sourcing .bash_path"
-    source ~/.bash_path
 fi
 
 #if [[ "$PLATFORM" =~ ^(MSYS|MINGW)$ ]]; then
@@ -67,3 +62,11 @@ if [ -f "${HOME}/.bash_aliases" ]; then
     source "${HOME}/.bash_aliases"
 fi
 
+if [[ "${USER}" == *"ansible"* ]]; then
+    ANSIBLE_VENV_DIR="{{ ansible_virtualenv }}"
+    ANSIBLE_VENV_BINDIR="${ANSIBLE_VENV_DIR}/bin"
+    if [ -f "${ANSIBLE_VENV_BINDIR}/activate" ]; then
+        echo "${log_bash} sourcing ${ANSIBLE_VENV_BINDIR}/activate"
+        source "${ANSIBLE_VENV_BINDIR}/activate"
+    fi
+fi

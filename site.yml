@@ -239,6 +239,47 @@
 ##
 ## Bootstrap linux component plays
 ##
+- name: Bootstrap linux ansible user
+  hosts: os_linux,!node_offline
+  gather_facts: false
+  become: true
+  tags:
+    - bootstrap-ansible-user
+    - bootstrap-ansible
+  tasks:
+    - name: Bootstrap ansible venv
+      vars:
+        ansible_python_interpreter: "{{ os_python_interpreter }}"
+      ansible.builtin.include_role:
+        name: bootstrap_pip
+
+    - name: Bootstrap ansible user
+      ansible.builtin.include_role:
+        name: bootstrap_ansible_user
+
+#- name: Bootstrap linux ansible user
+#  hosts: os_linux,!node_offline
+#  gather_facts: false
+#  become: true
+#  remote_user: "{{ bootstrap_user }}"
+#  tags:
+#    - bootstrap-ansible-user
+#    - bootstrap-ansible
+#  vars:
+##    ansible_python_interpreter: "{{ os_python_interpreter }}"
+#    #    ansible_ssh_user: "{{ bootstrap_user }}"
+#    ansible_user: "{{ bootstrap_user }}"
+#    ansible_password: "{{ bootstrap_user_password }}"
+#    ansible_ssh_common_args: |
+#      -o StrictHostKeyChecking=no \
+#      -o UserKnownHostsFile=/dev/null \
+#      -o PreferredAuthentications=password \
+#      -o PubkeyAuthentication=no
+#  #    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+#  roles:
+#    - role: bootstrap_linux_user
+#      bootstrap_linux_user__list:
+#        - "{{ bootstrap_ansible_user }}"
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: Bootstrap linux firewall
@@ -271,6 +312,15 @@
     - bootstrap-linux-package
   roles:
     - role: bootstrap_linux_package
+
+- name: Bootstrap java
+  hosts: os_linux,!node_offline
+  become: true
+  tags:
+    - bootstrap-java
+    - bootstrap-linux-java
+  roles:
+    - role: bootstrap_java
 
 - name: Bootstrap linux upgrade
   hosts: os_linux,!node_offline
@@ -360,7 +410,6 @@
       firewalld_action: configure
       tags: [firewall-config-nameserver]
 
-
 - name: Bootstrap kvm hosts
   hosts: kvm_host,!node_offline
   gather_facts: false
@@ -385,8 +434,8 @@
   tags:
     - bootstrap-ansible-user
     - bootstrap-ansible
-  vars:
-    ansible_python_interpreter: "{{ os_python_interpreter }}"
+#  vars:
+#    ansible_python_interpreter: "{{ os_python_interpreter }}"
   tasks:
     - name: Display bootstrap_user
       ansible.builtin.debug:
@@ -405,29 +454,6 @@
       ansible.builtin.debug:
         var: ansible_user
 
-- name: Bootstrap linux ansible user
-  hosts: os_linux,!node_offline
-  gather_facts: false
-  become: true
-  remote_user: "{{ bootstrap_user }}"
-  vars:
-    ansible_python_interpreter: "{{ os_python_interpreter }}"
-    #    ansible_ssh_user: "{{ bootstrap_user }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
-    ansible_ssh_common_args: |
-      -o StrictHostKeyChecking=no \
-      -o UserKnownHostsFile=/dev/null \
-      -o PreferredAuthentications=password \
-      -o PubkeyAuthentication=no
-  #    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-  tags:
-    - bootstrap-ansible-user
-    - bootstrap-ansible
-  roles:
-    - role: bootstrap_linux_user
-      bootstrap_linux_user__list: "[ {{ bootstrap_ansible_user }} ]"
-
 - name: Bootstrap linux users
   hosts: os_linux,!node_offline
   gather_facts: true
@@ -439,7 +465,7 @@
     ansible_password: "{{ bootstrap_user_password }}"
     ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   tags:
-    - bootstrap-linux
+#    - bootstrap-linux
     - bootstrap-linux-user
     - bootstrap-user
   roles:
@@ -639,6 +665,7 @@
 - name: Bootstrap ldap client
   hosts: ldap_client,!node_offline
   tags:
+    - bootstrap-ldap
     - bootstrap-ldap-client
   become: true
   roles:
@@ -681,6 +708,7 @@
 ## setup step-ca pki, create CA certs and install CA certs
 - name: Configure Step-ca cli for step clients
   hosts: step_ca_cli,!node_offline
+  become: true
   tags:
     - bootstrap-stepca
     - bootstrap-stepca-cli
@@ -717,7 +745,7 @@
   gather_facts: false
   tags:
     - bootstrap-node
-    #    - bootstrap-docker-stack
+#    - bootstrap-docker-stack
     - cacerts
     - cacerts-distribute
     - cacerts-deploy
@@ -726,6 +754,15 @@
   become: true
   roles:
     - role: deploy_cacerts
+
+- name: Harden linux OS
+  hosts: os_linux,!node_offline
+  tags:
+    - harden-linux-os
+    - harden-linux
+  become: true
+  roles:
+    - role: harden_os_linux
 
 ## possibly need to install docker_service dependencies first
 ## ref: https://github.com/avinetworks/ansible-role-docker

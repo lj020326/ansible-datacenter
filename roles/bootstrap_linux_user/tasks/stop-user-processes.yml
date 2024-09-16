@@ -3,13 +3,26 @@
   ansible.builtin.debug:
     var: __bootstrap_linux_user__list
 
-- name: Stop-user-processes | Assert ansible_user not in __bootstrap_linux_user__list
-  ansible.builtin.assert:
-    that: __bootstrap_linux_user__list | selectattr('name','equalto', ansible_user) | list | length == 0
+- name: Stop-user-processes | Display ansible_user
+  ansible.builtin.debug:
+    var: ansible_user
+
+#- name: Stop-user-processes | Assert ansible_user not in __bootstrap_linux_user__list
+#  ansible.builtin.assert:
+#    that: __bootstrap_linux_user__list | selectattr('name','equalto', ansible_user) | list | length == 0
+
+- name: Stop-user-processes | Set __bootstrap_linux_user__list_minus_ansible_user
+  ansible.builtin.set_fact:
+    __bootstrap_linux_user__list_minus_ansible_user: "{{ __bootstrap_linux_user__list 
+      | rejectattr('name','equalto', ansible_user) | list }}"
+
+- name: Stop-user-processes | Display __bootstrap_linux_user__list_minus_ansible_user
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list_minus_ansible_user
 
 - name: Load current passwd info
-  no_log: true
-  check_mode: false
+##  no_log: true
+#  check_mode: false
   ansible.builtin.getent:
     database: passwd
     split: ":"
@@ -20,7 +33,7 @@
   when: getent_passwd[item.name][1] is defined
   changed_when: false
   ansible.builtin.shell: ps -fu {{ item.name }} | awk '{print $2}' | tail -n +2
-  loop: "{{ __bootstrap_linux_user__list }}"
+  loop: "{{ __bootstrap_linux_user__list_minus_ansible_user }}"
   loop_control:
     label: "{{ item.name }}"
   register: running_processes
@@ -33,7 +46,8 @@
 
 - name: Stop-user-processes | Set process_list
   ansible.builtin.set_fact:
-    process_list: "{{ running_processes.results | selectattr('stdout_lines', 'defined') | map(attribute='stdout_lines') | d([]) | list | flatten }}"
+    process_list: "{{ running_processes.results 
+      | selectattr('stdout_lines', 'defined') | map(attribute='stdout_lines') | d([]) | list | flatten }}"
 
 - name: Stop-user-processes | Display process_list
   ansible.builtin.debug:
@@ -48,9 +62,11 @@
       ansible.builtin.command: kill {{ item }}
       loop: "{{ process_list }}"
       register: shell_cmd
-      failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )
+      failed_when:
+        - shell_cmd.rc > 0
+        - not ( shell_cmd.stderr | regex_search(".* No such process") )
 
-    - name: wait_for user processes to finish
+    - name: Wait for user processes to finish
       ansible.builtin.wait_for:
         path: /proc/{{ item }}/status
         state: absent
@@ -64,4 +80,6 @@
       ansible.builtin.command: kill -9 {{ item }}
       loop: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
       register: shell_cmd
-      failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search(".* No such process") )
+      failed_when:
+        - shell_cmd.rc > 0
+        - not ( shell_cmd.stderr | regex_search(".* No such process") )

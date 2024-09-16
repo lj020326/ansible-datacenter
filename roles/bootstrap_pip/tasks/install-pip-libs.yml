@@ -21,12 +21,13 @@
     - not __bootstrap_pip_env.system|d(False)|bool
   ansible.builtin.include_tasks: run-get-pip.yml
 
-- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv"
   when: __bootstrap_pip_env.virtualenv is defined
   block:
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __virtual_env_python"
       ansible.builtin.set_fact:
         __virtual_env_python: "{{ __bootstrap_pip_env.virtualenv | expanduser }}/bin/python3"
+        __virtual_env_basedir: "{{ __bootstrap_pip_env.virtualenv | expanduser | dirname }}"
 
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display python interpreter info"
       ansible.builtin.debug:
@@ -44,16 +45,26 @@
         path: "{{ __bootstrap_pip_env.virtualenv }}"
         state: absent
 
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure venv dirs exist"
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - path: "{{ __virtual_env_basedir }}"
+        - path: "{{ __bootstrap_pip_env.virtualenv }}"
+
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv for {{ __bootstrap_pip_env.virtualenv }}"
       block:
         - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv: {{ __bootstrap_pip_env.virtualenv }}"
           ansible.builtin.pip:
             name: pip
             state: present
+            umask: "0022"
             virtualenv: "{{ __bootstrap_pip_env.virtualenv }}"
-            #      virtualenv_python: "{{ __bootstrap_pip_env.python_executable | d(__bootstrap_pip__python_executable) }}"
-            #      virtualenv_site_packages: "{{ __bootstrap_pip_env.virtualenv_site_packages | d(True) }}"
-            #      virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(omit) }}"
+            virtualenv_site_packages: "{{ __bootstrap_pip_env.virtualenv_site_packages | d(True) }}"
+#            virtualenv_python: "{{ __bootstrap_pip_env.python_executable | d(__bootstrap_pip__python_executable) }}"
+#            virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(omit) }}"
             virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(__bootstrap_pip__virtualenv_command) }}"
           register: __pip_update_result
 
@@ -62,6 +73,7 @@
           ansible.builtin.pip:
             name: pip
             state: latest
+            umask: "0022"
             virtualenv: "{{ __bootstrap_pip_env.virtualenv | d(omit) }}"
             virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(omit) }}"
           #      virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(__bootstrap_pip__virtualenv_command) }}"
@@ -73,6 +85,7 @@
           ansible.builtin.pip:
             name: pip=={{ __bootstrap_pip_env.pip_version }}
             state: present
+            umask: "0022"
             executable: "{{ __bootstrap_pip_env.pip_executable | d(__bootstrap_pip__pip_executable) }}"
             virtualenv: "{{ __bootstrap_pip_env.virtualenv | d(omit) }}"
             virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(omit) }}"
@@ -121,6 +134,7 @@
   ansible.builtin.pip:
     name: "{{ __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | list }}"
     state: present
+    umask: "0022"
     extra_args: "{{ __bootstrap_pip_env.extra_args | d(omit) }}"
     #    executable: "{{ __bootstrap_pip_env.pip_executable | d(omit) }}"
     virtualenv: "{{ __bootstrap_pip_env.virtualenv | d(omit) }}"
@@ -145,6 +159,7 @@
   ansible.builtin.pip:
     name: "{{ __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | list }}"
     state: present
+    umask: "0022"
     extra_args: "{{ __bootstrap_pip_env.extra_args | d(omit) }}"
     executable: "{{ __bootstrap_pip_env.pip_executable | d(__bootstrap_pip__pip_executable) }}"
     virtualenv_command: "{{ __bootstrap_pip__virtualenv_command }}"
@@ -163,6 +178,7 @@
 #    name: >
 #      {{ item.name }}{% if item.version|d('')|length>0 %}=={{ item.version }}{% endif %}
 #    state: "{{ item.virtualenv_state | d('present') }}"
+#    umask: "0022"
 #    executable: "{{ __bootstrap_pip_env.pip_executable | d(omit) }}"
 #    virtualenv: "{{ __bootstrap_pip_env.virtualenv | d(omit) }}"
 #    virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(__bootstrap_pip__virtualenv_command) }}"

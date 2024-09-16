@@ -40,7 +40,8 @@ __docker_stack__media__nas_path: "{{ docker_stack__media__nas_media_path | d('/s
 
 __docker_stack__media__movies: movies
 __docker_stack__media__tv: tv_shows
-__docker_stack__media__music: music
+#__docker_stack__media__music: music
+__docker_stack__media__music: music/lidarr
 #__docker_stack__media__books: books
 #__docker_stack__media__books: books/lazylibrarian
 #__docker_stack__media__books: books/readarr
@@ -123,6 +124,10 @@ __docker_stack__media__transmission_host_url: https://{{ __docker_stack__media__
 __docker_stack__media__transmission_host_url_with_port: https://{{ __docker_stack__media__transmission_host }}:443/
 __docker_stack__media__transmission_rpc_username: "{{ docker_stack__media__transmission_rpc_username | d('transmission') }}"
 __docker_stack__media__transmission_rpc_password: "{{ docker_stack__media__transmission_rpc_password | d('password') }}"
+
+__docker_stack__media__calibre_server_port: "48081" # Webserver GUI
+__docker_stack__media__calibre_gui_port: "48080" # Desktop GUI
+__docker_stack__media__calibre_gui_https_port: "48181"
 
 __docker_stack__media__openvpn_ip: "{{ docker_stack__openvpn_ip | d('8.8.8.8') }}"
 __docker_stack__media__openvpn_http_port: "{{ docker_stack__openvpn_http_port | d('8088') }}"
@@ -751,8 +756,8 @@ __docker_stack__media__services:
 
   # Calibre-web  – Ebooks and Management (Plex of Ebooks)
   calibre-web:
-    active: false
-    image: lscr.io/linuxserver/calibre-web
+#    active: false
+    image: lscr.io/linuxserver/calibre-web:latest
     container_name: calibre-web
     restart: unless-stopped
     networks:
@@ -778,28 +783,31 @@ __docker_stack__media__services:
     labels: "{{ __docker_stack__media_calibreweb__traefik_labels }}"
 
   # Calibre  – Ebooks and Management (Server)
+  ## ref: https://github.com/linuxserver/docker-calibre
   calibre:
-    active: false
-    image: lscr.io/linuxserver/calibre
+#    active: false
+    image: lscr.io/linuxserver/calibre:latest
     container_name: calibre
     restart: unless-stopped
     networks:
       - "{{ docker_stack__traefik_proxy_network }}"
     security_opt:
-      - no-new-privileges:true
-    # ports:
-    #  - "$CALIBRE_PORT:8080" # Desktop GUI
-    #  - "$CALIBRE_PORT:8081" # Webserver GUI
+      - seccomp:unconfined #optional
+#      - no-new-privileges:true
+    ports:
+      - "{{ __docker_stack__media__calibre_server_port }}:8081" # Webserver GUI
+      - "{{ __docker_stack__media__calibre_gui_port }}:8080" # Desktop GUI
+#      - "{{ __docker_stack__media__calibre_gui_https_port }}:8181" # Desktop GUI https
     volumes:
       - "{{ __docker_stack__media__config_dir }}/calibre:/config"
-      #      - /media/ds918/media/books:/config/Calibre Library:rw
-      #- $USERDIR/Downloads:/downloads:rw
-      - "{{ __docker_stack__media__books_path }}/calibre:/books"
+#      - "{{ __docker_stack__media__books_path }}/calibre:/books"
+      - "{{ __docker_stack__media__books_path }}:/books"
       - "{{ __docker_stack__media__downloads }}:/downloads"
     environment:
       PUID: "{{ docker_stack__user_uid }}"
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
+#      PASSWORD: "{{ __docker_stack__media__calibre_password }}"
       # GUAC_USER: abc #Gucamole user optional
       #Guacamole password optional
       # GUAC_PASS: 900150983cd24fb0d6963f7d28e17f72

@@ -30,6 +30,48 @@
       - bootstrap_docker__swarm_managers|d([])|length>0
 #      - __bootstrap_docker__swarm_remote_addrs|d([])|length>0
 
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display ansible_python_interpreter"
+  ansible.builtin.debug:
+    var: ansible_python_interpreter
+
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display ansible_user"
+  ansible.builtin.debug:
+    var: ansible_user
+
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Get installed python module/package list"
+  #    ignore_errors: yes
+  #    failed_when: false
+  no_log: true
+  community.general.pip_package_info:
+    clients: [pip3]
+  register: __python_package_info
+
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __python_package_info"
+  ansible.builtin.debug:
+    var: __python_package_info
+#    verbosity: 2
+
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Set __docker_package_info"
+  when: __python_package_info.packages.pip3 is defined
+  #    no_log: true
+  ansible.builtin.set_fact:
+    __docker_package_info: "{{ __python_package_info.packages.pip3['docker'] | d({}) }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __docker_package_info"
+  ansible.builtin.debug:
+    var: __docker_package_info|d('')
+
+## ref: https://stackoverflow.com/questions/2589711/find-full-path-of-the-python-interpreter-python-executable
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Get python exec path"
+  changed_when: false
+  ansible.builtin.shell: |
+    {{ ansible_python_interpreter }} -c "import sys; print(print(sys.executable))"
+  register: __python_path_info
+
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __python_path_info"
+  ansible.builtin.debug:
+    var: __python_path_info
+
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} LEADER"
   when: bootstrap_docker__swarm_leader|bool
   ansible.builtin.include_tasks: swarm_leader.yml

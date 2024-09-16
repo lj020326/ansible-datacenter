@@ -1,11 +1,19 @@
 ---
-- name: Run setup-RedHat.yml
-  ansible.builtin.import_tasks: setup-RedHat.yml
-  when: ansible_os_family == 'RedHat'
 
-- name: Run setup-Debian.yml
-  ansible.builtin.import_tasks: setup-Debian.yml
-  when: ansible_os_family == 'Debian'
+- name: Load os-version specific variables
+  ansible.builtin.include_vars: "{{ lookup('first_found', __os_lookup_params) }}"
+  vars:
+    __os_lookup_params:
+      files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version | lower }}.yml"
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+
+- name: Run setup-{{ ansible_os_family }}.yml
+  ansible.builtin.include_tasks: "setup-{{ ansible_os_family | lower }}.yml"
 
 - name: Define nodejs_install_npm_user
   ansible.builtin.set_fact:

@@ -21,23 +21,23 @@ None.
 Path to the include files.
 
 ```yml
-logrotate_include_dir: /etc/logrotate.d
+bootstrap_logrotate__include_dir: /etc/logrotate.d
 ```
 
-### logrotate_global_config
+### bootstrap_logrotate__global_config
 
 Enable/disable global configuration of `/etc/logrotate.conf`.
 
 ```yml
-logrotate_global_config: true
+bootstrap_logrotate__global_config: true
 ```
 
-### logrotate_use_hourly_rotation
+### bootstrap_logrotate__use_hourly_rotation
 
 Enable/disable hourly rotation with cron.
 
 ```yml
-logrotate_use_hourly_rotation: false
+bootstrap_logrotate__use_hourly_rotation: false
 ```
 
 ### logrotate options
@@ -45,7 +45,7 @@ logrotate_use_hourly_rotation: false
 List of global options.
 
 ```yml
-logrotate_options:
+bootstrap_logrotate__options:
   - weekly
   - rotate 4
   - create
@@ -58,7 +58,7 @@ logrotate_options:
 Package name to install `logrotate`.
 
 ```yml
-logrotate_package: logrotate
+bootstrap_logrotate__package: logrotate
 ```
 
 ### default config
@@ -66,8 +66,8 @@ logrotate_package: logrotate
 Logrotate for `wtmp`:
 
 ```yml
-logrotate_wtmp_enable: true
-logrotate_wtmp:
+bootstrap_logrotate__wtmp_enable: true
+bootstrap_logrotate__wtmp:
   logs:
     - /var/log/wtmp
   options:
@@ -80,8 +80,8 @@ logrotate_wtmp:
 Logrotate for `btmp`:
 
 ```yml
-logrotate_btmp_enable: true
-logrotate_btmp:
+bootstrap_logrotate__btmp_enable: true
+bootstrap_logrotate__btmp:
   logs:
     - /var/log/btmp
   options:
@@ -96,7 +96,7 @@ logrotate_btmp:
 More log files can be added that will logorate.
 
 ```yml
-logrotate_applications: []
+bootstrap_logrotate__applications: []
 ```
 
 #### Example
@@ -104,7 +104,7 @@ logrotate_applications: []
 The following options are available.
 
 ```yml
-logrotate_applications:
+bootstrap_logrotate__applications:
   - name: name-your-log-rotate-application
     definitions:
       - logs:

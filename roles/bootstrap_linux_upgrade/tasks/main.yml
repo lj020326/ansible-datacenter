@@ -4,12 +4,11 @@
 - name: Upgrade OS packages
   block:
     - name: Update OS packages # noqa: package-latest
+      when: bootstrap_linux_upgrade__install_pkgs|d([])|length>0
       ansible.builtin.package:
-        name: "{{ server_update_yum_install_pkgs | default('*') }}"
-        state: latest # noqa 10
+        name: "{{ bootstrap_linux_upgrade__install_pkgs }}"
+        state: latest
         update_cache: true
-        exclude: "{{ server_update_yum_exclude_pkgs | default([]) }}"
-      environment: "{{ proxy_env }}"
       register: __package_upgrade_results
       until: "__package_upgrade_results is success"
       retries: 2
@@ -38,7 +37,7 @@
 #      paths:
 #        - "{{ role_path }}/tasks"
 
-- name: "Run {{ task_file }}"
+- name: "Run upgrade for {{ ansible_distribution }}"
   ansible.builtin.include_tasks: "{{ task_file }}"
   with_first_found:
     - "upgrade-{{ ansible_distribution | lower() }}-{{ ansible_distribution_major_version | lower() }}.yml"

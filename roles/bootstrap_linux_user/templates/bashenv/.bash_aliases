@@ -39,8 +39,10 @@ alias ll='ls -Fla --color'
 alias la='ls -alrt --color'
 alias lld='ll | grep ^d'
 alias lll='ll | grep ^l'
+## ref: https://stackoverflow.com/questions/8513133/how-do-i-find-all-of-the-symlinks-in-a-directory-tree#8513194
+alias findlinks="find . -type l"
 
-alias installdevenv="bash -c $(curl -fsSL "${DEVENV_INSTALL_REMOTE_SCRIPT}")"
+alias installdevenv="install-dev-env"
 
 alias cdrepos='cd ~/repos'
 alias cddocs='cd ~/docs'
@@ -51,8 +53,8 @@ alias cdjenkins='cd ~/repos/jenkins'
 alias cdnode='cd ~/repos/nodejs'
 alias cdpython='cd ~/repos/python'
 alias cdansible='cd ~/repos/ansible'
-#alias cddc='cd ~/repos/ansible/ansible-datacenter'
-alias cddc="cd ${ANSIBLE_DC_REPO}"
+alias cddc="cd ${ANSIBLE_DATACENTER_REPO}"
+alias cddev="cd ${ANSIBLE_DEVELOPER_REPO}"
 alias cdkube='cd ~/repos/ansible/ansible-kubespray'
 alias cdmeteor='cd ~/repos/meteor'
 alias cdreact='cd ~/repos/react-native'
@@ -89,11 +91,16 @@ alias genpwd='openssl rand -base64 8 | md5sum | head -c8;echo'
 ## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
 alias rsync0='rsync -ar --info=progress2 --links --delete --update'
-alias rsync1='rsync -argv --update --progress'
-alias rsync2='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
+alias rsync1='rsync -arog --info=progress2'
+alias rsync2='rsync -arv --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv'
 alias rsync3='rsync -arv --no-links --update --progress --exclude=.idea --exclude=.git --exclude=node_modules --exclude=venv --exclude=save'
 #alias rsync2='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv}'
 #alias rsync3='rsync -arv --no-links --update --progress -exclude={.idea,.git,node_modules,venv,**/save}'
+alias rsync4='rsync -argv --update --progress'
+
+alias rsyncisofile="rsync -arP -e'ssh -o StrictHostKeyChecking=no' --rsync-path 'sudo -u root rsync' \
+  ~/Downloads/rhel-server-7.9-x86_64-dvd.iso \
+  administrator@control01.johnson.int:/data/datacenter/vmware/iso-repos/linux/RedHat/7/"
 
 #alias rsyncnew='rsync -arv --no-links --update --progress --exclude=node_modules --exclude=venv /jdrive/media/torrents/completed/new /x/save/movies/; rm /jdrive/media/torrents/completed/new/*'
 alias rsyncmirror='rsync -ar --info=progress2 --delete --update'
@@ -104,9 +111,16 @@ alias prettyjson='python3 -m json.tool'
 
 ## ref: https://stackoverflow.com/questions/19551908/finding-duplicate-files-according-to-md5-with-bash
 ## ref: https://superuser.com/questions/259148/bash-find-duplicate-files-mac-linux-compatible
-alias finddupes="find . -not -empty -type f -printf '%s\n' | sort -rn | uniq -d |\
-xargs -I{} -n1 find . -type f -size {}c -print0 | xargs -0 md5sum |\
-sort | uniq -w32 --all-repeated=separate"
+alias find_dupe_files="find . -not -empty -type f -printf '%s\n' | sort -rn | uniq -d |\
+  xargs -I{} -n1 find . -type f -size {}c -print0 | xargs -0 md5sum |\
+  sort | uniq -w32 --all-repeated=separate"
+
+alias find_old_dirs="find . -mtime +14 -type d"
+alias delete_old_dirs="find . -mtime +14 -type d | xargs rm -f -r;"
+alias clean_old_dirs="find . -mtime +14 -type d | xargs rm -f -r;"
+
+alias find_git_dirs="find . -type d -name '.git' -print"
+alias remove_git_dirs="find . -type d -name '.git' | xargs rm -f -r;"
 
 alias systemctl-list='systemctl list-unit-files | sort | grep enabled'
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
@@ -114,8 +128,12 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 alias dnsreset="ipconfig //flushdns"
 
 ## ref: https://apple.stackexchange.com/questions/14980/why-are-dot-underscore-files-created-and-how-can-i-avoid-them
-alias dot-turd-show="find . -type f -name '._*' -print"
-alias dot-turd-rm="find . -type f -name '._*' -print -delete"
+alias dot-turd-show="find . -type f \( -name '._*' -o -name '.DS_Store' -o -name 'SystemOut.log' \) -print"
+alias dot-turd-rm="find . -type f \( -name '._*' -o -name '.DS_Store' -o -name 'SystemOut.log' \) -print -delete"
+
+## DNS alias wrappers around functions
+alias dnsresetcache="reset_local_dns"
+alias dnsreset="reset_local_dns"
 
 alias sshsetupkeyaliases="setup-ssh-key-identities.sh"
 alias sshvcenter='ssh root@vcenter7.dettonville.int'
@@ -126,7 +144,9 @@ alias sshesx01='ssh root@esx01.dettonville.int'
 alias sshesx02='ssh root@esx02.dettonville.int'
 alias sshesx10='ssh root@esx10.dettonville.int'
 alias sshesx11='ssh root@esx11.dettonville.int'
-alias sshpacker="ssh -i ~/.ssh/${SSH_KEY}"
+
+## this is a function instead
+#alias sshpacker="ssh -i ~/.ssh/${SSH_KEY}"
 
 alias sshmedia='ssh administrator@media.johnson.int'
 alias sshplex='ssh administrator@plex.johnson.int'
@@ -141,6 +161,9 @@ alias sshadmin05='ssh administrator@admin05.johnson.int'
 alias sshmail='ssh administrator@mail.johnson.int'
 alias sshcgminer='ssh root@cgminer.johnson.int'
 alias sshminer='ssh root@cgminer.johnson.int'
+
+## ref: https://www.tecmint.com/enable-debugging-mode-in-ssh/
+alias sshdebugadmin01='ssh -v administrator@admin01.johnson.int'
 
 alias sshalgo='ssh administrator@algotrader.johnson.int'
 alias sshwp='ssh administrator@wordpress.johnson.int'
@@ -158,7 +181,15 @@ alias sshresetkeys="ssh-keygen -R ${TARGET_HOST} && ssh-keyscan -H ${TARGET_HOST
 
 alias create-crypt-passwd="openssl passwd -1 "
 
+## ref: https://www.virtualizationhowto.com/2023/11/docker-overlay2-cleanup-5-ways-to-reclaim-disk-space/
+alias dockerprune='docker system prune -a -f; docker system df'
 alias dockernuke='docker ps -a -q | xargs --no-run-if-empty docker rm -f'
+## ref: https://stackoverflow.com/questions/32723111/how-to-remove-old-and-unused-docker-images#34616890
+alias dockerclean='docker container prune -f ; docker image prune -f ; docker network prune -f ; docker volume prune -f'
+
+alias dockersyncimage="docker_sync_image"
+alias dockerimagesync="docker_sync_image"
+
 ## https://www.howtogeek.com/devops/what-is-a-docker-image-manifest/
 ## https://github.com/docker/hub-feedback/issues/2043#issuecomment-1161578466
 ## docker manifest inspect lj020326/centos8-systemd-python:latest | jq .manifests[0].digest
@@ -166,7 +197,8 @@ alias dockerdigest='docker manifest inspect'
 alias gethist="history | tr -s ' ' | cut -d' ' -f3-"
 alias startheroku='heroku local'
 
-alias syncbashenv="${ANSIBLE_DEVELOPER_REPO}/files/scripts/sync-bashenv.sh && source ~/.bashrc"
+# alias syncbashenv='rsync1 ${ANSIBLE_DEVELOPER_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
+alias syncbashenv="${ANSIBLE_DEVELOPER_REPO}/sync-bashenv.sh && source ${HOME}/.bashrc"
 alias getsitecertinfo="get_site_cert_info.sh"
 
 ## see function for more dynamic/robust version of the same shortcut
@@ -181,13 +213,17 @@ alias gitmergesub="git submodule update --remote --merge && blastit"
 alias gitresetsub="git submodule deinit -f . && git submodule update --init --recursive --remote"
 alias gitgetcomment="getgitcomment"
 alias gitgetrequestid="getgitrequestid"
+alias gitdeletebranch="gitbranchdelete"
+alias gitfetchmaindev="git fetch origin main:main && git fetch origin development:development"
+alias gitfetchdev="git fetch origin development:development"
+alias gitfetchmain="git fetch origin main:main"
 
 ## resolve issue "Fatal: Not possible to fast-forward, aborting"
 #alias gitpullrebase="git pull origin <branch> --rebase"
 alias gitpullrebase="git pull origin --rebase"
 
 ## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
-git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
+#git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
 alias gitmerge="git merge-no-edit"
 alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout master && git merge-no-edit -X theirs main"
 
@@ -197,6 +233,11 @@ alias gitpulltheirs='git pull -X theirs'
 #alias gitpush-='git push origin'
 #alias gitcommitpush-="git add . && git commit -a -m 'updates from ${HOSTNAME}' && git push origin"
 #alias gitremovecached-="git rm -r --cached . && git add . && git commit -am 'Remove ignored files' && git push origin"
+alias gitremovecached-="gitremovecached"
+
+## ref: https://stackoverflow.com/questions/61212/how-do-i-remove-local-untracked-files-from-the-current-git-working-tree
+alias gitshowuntracked="git clean -n -d"
+alias gitcleanuntracked="git clean -f"
 
 ## ref: https://www.cloudsavvyit.com/13904/how-to-view-commit-history-with-git-log/
 alias gitlog="git log --graph --branches --oneline"
@@ -216,6 +257,10 @@ alias gitaddorigin="git remote add origin ssh://git@gitea.admin.dettonville.int:
 #alias gitsetupstream="git branch --set-upstream-to=origin/master"
 alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
 
+## ref: https://stackoverflow.com/questions/9662249/how-to-overwrite-local-tags-with-git-fetch
+alias gitfetchtags="git fetch origin --tags --force"
+alias gitsynctags="git fetch origin --tags --force --prune"
+
 ## make these function so they evaluate at time of exec and not upon shell startup
 ## Prevent bash alias from evaluating statement at shell start
 ## ref: https://stackoverflow.com/questions/13260969/prevent-bash-alias-from-evaluating-statement-at-shell-start
@@ -225,6 +270,10 @@ alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEA
 
 alias gitfold="bash folder.sh fold"
 alias gitunfold="bash folder.sh unfold"
+alias gitfetchmain="git fetch origin main:main"
+alias gitfetchdevelopment="git fetch origin development:development"
+
+alias searchrepokeywords="search-repo-keywords"
 
 alias decrypt="ansible-vault decrypt"
 alias vaultdecrypt="ansible-vault decrypt --vault-password-file=~/.vault_pass"
@@ -259,7 +308,20 @@ alias spacemacs='emacs -q --load "$HOME/.spacemacs.d/init.el"'
 
 alias fetchimagesfrommarkdown="~/bin/fetch_images_from_markdown.sh"
 alias fetchsitesslcert.sh="~/bin/fetch_site_ssl_cert.sh"
-alias fetch-and-import-site-certs="~/bin/fetch_and_import_site_cert_pem.sh"
+
+## use with host:port
+#alias fetch-and-import-site-cert="sudo ~/bin/fetch_and_import_site_cert_pem.sh"
+## use with host:port
+alias importsitecerts="sudo ~/bin/install-cacerts.sh"
+alias installcacerts="sudo ~/bin/install-cacerts.sh"
+
+## use with host:port
+alias importsslcerts="sudo ~/bin/import-ssl-certs.sh"
+alias importworksslcerts="sudo ~/bin/import-worksite-ssl-certs.sh"
+
+alias syncpythoncerts="sudo ~/bin/sync-python-certs-with-system-cabundle.sh"
+
+alias dockerlogin="docker login -u ${DOCKER_REGISTRY_USERNAME} -p \"${DOCKER_REGISTRY_PASSWORD}\" ${DOCKER_REGISTRY_INTERNAL}"
 
 # alias venv2="virtualenv --python=/usr/bin/python2.7 venv"
 # alias venv3="virtualenv --python=/usr/bin/python3.5 venv"

@@ -3,6 +3,10 @@ log_prefix_bashenv=".bash_env"
 
 echo "${log_prefix_bashenv} setting environment vars"
 
+#export ADD_GNUTOOLS_BASH_PATH=0
+
+export NETWORK_INTERNAL_DOMAIN="johnson.int"
+
 ## ref: https://github.com/ansible/ansible/issues/33831
 #export ANSIBLE_VAULT_PASSWORD_FILE=~/.vault_pass
 
@@ -28,7 +32,7 @@ export PYTHON3_BIN_DIR=$PYTHON3_HOME
 #export PYTHONPATH=$ANSIBLE/lib
 #export ANSIBLE_LIBRARY=$ANSIBLE/library
 
-export NETWORK_INTERNAL_DOMAIN="johnson.int"
+export DOCKER_REGISTRY_INTERNAL="media.${NETWORK_INTERNAL_DOMAIN}:5000"
 
 export MOLECULE_IMAGE_NAMESPACE="media.${NETWORK_INTERNAL_DOMAIN}:5000"
 export EDITOR=/usr/local/bin/emacs
@@ -66,14 +70,21 @@ export PATH+=:$OPENSHIFT_INSTALL
 echo "${log_prefix_bashenv} more PATH env var updates"
 
 if [ -d "${HOME}/.pyenv/bin" ]; then
-    export PYENV_ROOT="$HOME/.pyenv"
-    export PATH="${PYENV_ROOT}/bin:$PATH"
+  PYENV_ROOT="${HOME}/.pyenv"
+elif [ -d "${HOME}/.pyenv/pyenv-win/bin" ]; then
+  PYENV_ROOT="${HOME}/.pyenv/pyenv-win"
+fi
+if [ -n "${PYENV_ROOT}" ]; then
+  PYENV_BIN_DIR="${PYENV_ROOT}/bin"
+  echo "${log_prefix_bashenv} adding ${PYENV_BIN_DIR} into PATH"
+  export PATH="${PYENV_BIN_DIR}:$PATH"
 fi
 
 ## using pyenv
 ## ref: https://opensource.com/article/19/5/python-3-default-mac
 ## https://realpython.com/intro-to-pyenv/
 if command -v pyenv 1>/dev/null 2>&1; then
+    echo "${log_prefix_bashenv} source $(pyenv root)/shims into PATH"
     export PATH="$(pyenv root)/shims:$PATH"
 
     ## ref: https://stackoverflow.com/questions/58679742/set-default-python-with-pyenv
@@ -96,13 +107,6 @@ if [ -d "${HOME}/bin" ]; then
 fi
 if [ -d "${HOME}/.local/bin" ]; then
     export PATH="${HOME}/.local/bin:${PATH}"
-fi
-
-if [ -d "${HOME}/.pyenv/bin" ]; then
-  # Load pyenv automatically by adding
-  # the following to $HOME/.bashrc:
-  export PATH="${HOME}/.pyenv/bin:${PATH}"
-
 fi
 
 export PATH=".:${PATH}"
