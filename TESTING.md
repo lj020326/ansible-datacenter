@@ -1,7 +1,29 @@
 
 # Tests
 
-## Prepare test environment
+## Lint testing
+
+Run ansible-lint tests:
+```shell
+ansible-lint -p
+```
+
+Run yamllint tests:
+```shell
+yamllint .
+```
+
+Run kics-lint tests:
+```shell
+kics scan --ci --config .kics-config
+```
+
+Run all lint tests using local shell script:
+```shell
+run-lint-tests.sh
+```
+
+## Prepare collection test environment
 
 ### Create symbolic links to the develop branch tower-inventory repo
 
@@ -11,7 +33,7 @@ In the project tests directory, create a symbolic link to the 'tower-inventory' 
 
 ```shell
 $ cd ~/repos/ansible/ansible-datacenter/tests
-$ ln -s ../../tower-inventory/DEVelop inventory
+$ ln -s ../inventory/DEV inventory
 ```
 
 ### Create symbolic links to the internal develop branch collections
