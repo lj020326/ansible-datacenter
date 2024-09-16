@@ -1,0 +1,32 @@
+---
+- name: Set __relative_role_vars_path for role
+  ansible.builtin.set_fact:
+    __relative_role_vars_path: ../../../roles/bootstrap_java/vars
+
+- name: Include OS-specific variables.
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_distribution }}.yml"
+    - "{{ __relative_role_vars_path }}/{{ ansible_os_family }}.yml"
+    - "{{ __relative_role_vars_path }}/default.yml"
+
+- name: Display __bootstrap_java__packages
+  ansible.builtin.debug:
+    var: __bootstrap_java__packages
+
+- name: Check java package status
+  ansible.builtin.package:
+    name: "{{ __bootstrap_java__packages }}"
+    state: present
+  check_mode: true
+  register: pkg_status_java
+
+- name: Display pkg_status_java
+  ansible.builtin.debug:
+    var: pkg_status_java
+
+- name: Check java packages are installed
+  ansible.builtin.assert:
+    that:
+      - not pkg_status_java.changed
