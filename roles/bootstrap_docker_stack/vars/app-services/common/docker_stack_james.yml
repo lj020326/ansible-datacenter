@@ -1,0 +1,133 @@
+---
+
+__docker_stack__james__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__james__base_dir_default: "{{ __docker_stack__james__stack_dir }}/james"
+__docker_stack__james__base_dir: "{{ docker_stack__james__dir | d(__docker_stack__james__base_dir_default) }}"
+
+__docker_stack__james__http_port: "{{ docker_stack__james_http_port | d('2080') }}"
+__docker_stack__james__smtp_host: "{{ docker_stack__james_smtp_host | d('mail.example.int') }}"
+__docker_stack__james__traefik_labels: "{{ docker_stack__james__traefik_labels
+  | d(__docker_stack__james__traefik_labels_default) }}"
+
+__docker_stack__james__image_default: apache/james:jpa-latest
+__docker_stack__james__image: "{{ docker_stack__james__image | d(__docker_stack__james__image_default) }}"
+
+__docker_stack__james__dns_default: 127.0.0.1
+__docker_stack__james__dns: "{{ docker_stack__james__dns | d(__docker_stack__james__dns_default) }}"
+
+__docker_stack__james__dns_search_default: 'domain.tld'
+__docker_stack__james__dns_search: "{{ docker_stack__james__dns_search | d(__docker_stack__james__dns_search_default) }}"
+
+__docker_stack__james__domain_default: 'domain.tld'
+__docker_stack__james__domain: "{{ docker_stack__james__domain | d(__docker_stack__james__domain_default) }}"
+
+__docker_stack__james__admin_password: "{{ docker_stack__james__admin_password | d('change!me') }}"
+__docker_stack__james__keystore_secret: "{{ docker_stack__james__keystore_secret | d('change!me') }}"
+
+__docker_stack__james__environment:
+  DOMAIN: "{{ __docker_stack__james__domain }}"
+  JAVA_TOOL_OPTIONS: -javaagent:/root/glowroot.jar -Xms256m -Xmx2048m
+#  JAVA_TOOL_OPTIONS: -javaagent:/root/glowroot.jar
+#  JAVA_TOOL_OPTIONS: -Xms256m -Xmx2048m
+#  JAVA_TOOL_OPTIONS: -Xmx500m -Xms500m
+
+__docker_stack__james__config_dirs:
+  - path: "{{ docker_stack__dir }}/james"
+  - path: "{{ docker_stack__dir }}/james/conf"
+
+__docker_stack__james__config_tpls:
+  - src: james/dnsservice.xml.j2
+    dest: "{{ __docker_stack__james__base_dir }}/conf/dnsservice.xml"
+  - src: james/domainlist.xml.j2
+    dest: "{{ __docker_stack__james__base_dir }}/conf/domainlist.xml"
+  - src: james/usersrepository.xml.j2
+    dest: "{{ __docker_stack__james__base_dir }}/conf/usersrepository.xml"
+  - src: james/webadmin.properties.j2
+    dest: "{{ __docker_stack__james__base_dir }}/conf/webadmin.properties"
+
+__docker_stack__james__firewalld_ports:
+  - "{{ docker_stack__james_http_port }}/tcp"
+  - "3025/tcp"
+  - "3110/tcp"
+  - "3143/tcp"
+  - "3465/tcp"
+  - "3587/tcp"
+  - "3993/tcp"
+  - "4000/tcp"
+
+#__docker_stack__james__networks:
+#  ## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
+#  net:
+#    external: false
+#    attachable: true
+
+__docker_stack__james__services:
+  ## ref: https://james.staged.apache.org/james-distributed-app/3.8.0/run/run-docker.html
+  ## ref: https://james.staged.apache.org/james-project/3.8.0/servers/5-minute-demo.html
+  ## ref: https://james.staged.apache.org/james-project/3.8.0/servers/15-minute-demo.html
+  ## ref: https://github.com/apache/james-project/blob/master/server/apps/jpa-app/README.adoc
+  ## ref: https://github.com/apache/james-project/blob/master/server/apps/jpa-app/docker-compose.yml
+  ## ref: https://raw.githubusercontent.com/apache/james-project/master/server/apps/distributed-app/docker-compose.yml
+  ## ref: https://github.com/thithib/james-project/blob/master/dockerfiles/run/docker-compose.yml
+  ## ref: https://medium.com/linagora-engineering/installing-james-3-0-with-spf-verification-421b26b92f11
+  ## ref: https://james.apache.org/server/install.html
+  ## ref: https://hub.docker.com/r/apache/james
+  ## ref: https://james.apache.org/server/archive/usingLDAP_v1_2.html
+  james:
+    container_name: james
+    image: "{{ __docker_stack__james__image }}"
+#    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    hostname: "mail.{{ __docker_stack__james__domain }}"
+#    hostname: james.local
+    command:
+      - --generate-keystore
+    environment: "{{ __docker_stack__james__environment }}"
+    restart: unless-stopped
+    dns: "{{ __docker_stack__james__dns }}"
+    dns_search: "{{ __docker_stack__james__dns_search }}"
+    networks:
+      - "{{ docker_stack__traefik_proxy_network }}"
+      - net
+    volumes:
+      - "{{ __docker_stack__james__base_dir }}/conf/keystore:/root/conf/keystore"
+      - "{{ __docker_stack__james__base_dir }}/conf/dnsservice.xml:/root/conf/dnsservice.xml"
+      - "{{ __docker_stack__james__base_dir }}/conf/domainlist.xml:/root/conf/domainlist.xml"
+#      - "{{ __docker_stack__james__base_dir }}/conf/usersrepository.xml:/root/conf/usersrepository.xml"
+      - "{{ __docker_stack__james__base_dir }}/conf/webadmin.properties:/root/conf/webadmin.properties"
+#      - "{{ __docker_stack__james__base_dir }}/conf:/root/conf"
+#      - "{{ __docker_stack__james__base_dir }}/data:/var/data"
+#      - "{{ __docker_stack__ca_cert_bundle }}:/certs/ca-certificates.crt:ro"
+      - "{{ __docker_stack__ca_java_keystore }}:/etc/ssl/certs/java/cacerts"
+    ports:
+      - "3025:25"
+      - "3110:110"
+      - "3143:143"
+      - "3465:465"
+      - "3587:587"
+      - "3993:993"
+      ## james webadmin
+      - "{{ __docker_stack__james__http_port }}:8000"
+      ## glowroot
+      - "4000:4000"
+    labels: "{{ __docker_stack__james__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.hostname == {{ __docker_stack__base__traefik_host }}
+      #          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+
+docker_stack__appspec__james:
+  dirs: "{{ __docker_stack__james__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__james__config_files | d([]) }}"
+  templates: "{{ __docker_stack__james__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__james__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__james__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__james__networks | d({}) }}"
+  docker_services: "{{ __docker_stack__james__services | d({}) }}"
