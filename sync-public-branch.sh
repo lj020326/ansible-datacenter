@@ -319,14 +319,10 @@ function sync_public_branch() {
 
   logInfo "chmod project admin/maintenance scripts"
   chmod +x inventory/*.sh
-  chmod +x files/scripts/*.sh
-  chmod +x files/scripts/git/*.sh
-  
+  chmod +x *.sh
+
   logInfo "creating links for useful project scripts"
   cd ${PROJECT_DIR}
-  chmod +x ./files/scripts/git/*.sh
-  ln -sf ./files/scripts/git/stash-*.sh ./
-  ln -sf ./files/scripts/git/sync-*.sh ./
   ln -sf ./inventory/*.sh ./
 }
 
