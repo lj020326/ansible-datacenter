@@ -1,0 +1,92 @@
+---
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Assert __bootstrap_docker__swarm_remote_addrs defined"
+  ansible.builtin.assert:
+    that:
+      - __bootstrap_docker__swarm_remote_addrs|d([])|length>0
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Display __bootstrap_docker__swarm_remote_addrs"
+  ansible.builtin.debug:
+    var: __bootstrap_docker__swarm_remote_addrs
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token"
+  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token"
+      ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+      changed_when: false
+      register: __swarm_token_result
+
+  rescue:
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Re-emit failure"
+      when: not (__swarm_token_result.stderr | regex_search('This node is not a swarm manager'))
+      vars:
+        failed_task:
+          result: "{{ ansible_failed_result }}"
+      ansible.builtin.fail:
+        msg: "{{ failed_task }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token"
+      when: __swarm_token_result.stderr | regex_search('This node is not a swarm manager')
+      block:
+
+        - name: "{{ __bootstrap_docker__log_prefix_node }} Run swarm init"
+          ansible.builtin.include_tasks: swarm_leader.yml
+
+        - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token for {{ bootstrap_docker__swarm_role }}"
+          ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+          changed_when: false
+          register: __swarm_token_result
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Set __swarm_join_token"
+  ansible.builtin.set_fact:
+    __swarm_join_token: "{{ __swarm_token_result.stdout_lines
+      | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list | first }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Display __swarm_join_token"
+  ansible.builtin.debug:
+    var: __swarm_join_token
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Register host to swarm"
+  block:
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __bootstrap_docker__swarm_remote_addrs"
+      ansible.builtin.debug:
+        var: __bootstrap_docker__swarm_remote_addrs
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Register host to swarm"
+      community.docker.docker_swarm:
+        state: join
+        join_token: "{{ __swarm_join_token }}"
+        remote_addrs: "{{ __bootstrap_docker__swarm_remote_addrs | first }}"
+        timeout: 360
+        force: true
+      register: __swarm_join_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __swarm_join_result"
+      ansible.builtin.debug:
+        var: __swarm_join_result
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Set worker role config"
+  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+  block:
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Set node role"
+      community.docker.docker_node:
+#        hostname: "{{ ansible_host }}"
+        hostname: "{{ inventory_hostname }}"
+        role: "{{ bootstrap_docker__swarm_role }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Set node labels"
+      when: bootstrap_docker__swarm_node_labels|d([])|length>0
+      community.docker.docker_node:
+#        hostname: "{{ ansible_host }}"
+        hostname: "{{ inventory_hostname }}"
+        labels: "{{ bootstrap_docker__swarm_node_labels }}"
+        labels_state: replace
+
+#    - name: "{{ __bootstrap_docker__log_prefix_node }} Create Docker Swarm Secrets"
+#      community.docker.docker_secret:
+#        name: "{{ item.name }}"
+#        data: "{{ item.value }}"
+#        state: "{{ item.state }}"
+#      loop: "{{ bootstrap_docker__swarm_secrets }}"

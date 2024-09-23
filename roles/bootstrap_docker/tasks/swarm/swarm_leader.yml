@@ -1,4 +1,5 @@
 ---
+
 - name: "{{ __bootstrap_docker__log_prefix_leader }} Update swarm"
   block:
     - name: "{{ __bootstrap_docker__log_prefix_leader }} Update swarm"
@@ -20,6 +21,7 @@
       community.docker.docker_swarm:
         state: present
         advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+        default_addr_pool: "{{ bootstrap_docker__host_network_default_addr_pool }}"
         force: true
       register: __update_swarm
 
@@ -29,26 +31,26 @@
 
 - name: "{{ __bootstrap_docker__log_prefix_leader }} Set node role"
   community.docker.docker_node:
-#        hostname: "{{ ansible_host }}"
+#    hostname: "{{ ansible_host }}"
     hostname: "{{ inventory_hostname }}"
     role: manager
 
-- name: "{{ __bootstrap_docker__log_prefix_leader }} Get Docker Swarm info"
-  community.docker.docker_swarm_info:
-    nodes: true
-#    verbose_output: true
-  register: __docker_swarm_info
-
-- name: "{{ __bootstrap_docker__log_prefix_leader }} Display __docker_swarm_info"
-  ansible.builtin.debug:
-    var: __docker_swarm_info
+#- name: "{{ __bootstrap_docker__log_prefix_leader }} Get Docker Swarm info"
+#  community.docker.docker_swarm_info:
+#    nodes: true
+##    verbose_output: true
+#  register: __docker_swarm_info
+#
+#- name: "{{ __bootstrap_docker__log_prefix_leader }} Display __docker_swarm_info"
+#  ansible.builtin.debug:
+#    var: __docker_swarm_info
 
 - name: "{{ __bootstrap_docker__log_prefix_leader }} Declare Swarm join tokens fact"
   ansible.builtin.set_fact:
-    __swarm_join_token_manager: "{{ __docker_swarm_info.swarm_facts.JoinTokens.Manager }}"
-    __swarm_join_token_worker: "{{ __docker_swarm_info.swarm_facts.JoinTokens.Worker }}"
-#    __swarm_join_token_manager: "{{ __update_swarm.swarm_facts.JoinTokens.Manager }}"
-#    __swarm_join_token_worker: "{{ __update_swarm.swarm_facts.JoinTokens.Worker }}"
+#    __swarm_join_token_manager: "{{ __docker_swarm_info.swarm_facts.JoinTokens.Manager }}"
+#    __swarm_join_token_worker: "{{ __docker_swarm_info.swarm_facts.JoinTokens.Worker }}"
+    __swarm_join_token_manager: "{{ __update_swarm.swarm_facts.JoinTokens.Manager }}"
+    __swarm_join_token_worker: "{{ __update_swarm.swarm_facts.JoinTokens.Worker }}"
     cacheable: false
 #  when: "'skipped' not in __update_swarm"
 
@@ -59,42 +61,6 @@
       - __swarm_join_token_worker={{ __swarm_join_token_worker }}
 #    verbosity: 2
 
-- name: "{{ __bootstrap_docker__log_prefix_leader }} Get network info for ingress network"
-  community.docker.docker_network_info:
-    name: ingress
-  register: __docker_network_info_result
-
-- name: "{{ __bootstrap_docker__log_prefix_leader }} Display __docker_network_info_result"
-  ansible.builtin.debug:
-    var: __docker_network_info_result
-
-- name: "{{ __bootstrap_docker__log_prefix_leader }} Set __docker_network_ingress_subnet"
-  ansible.builtin.set_fact:
-    __docker_network_ingress_subnet: (__docker_network_info_result.network.IPAM.Config|first)['Subnet']
-      | split('/') | first
-
-- name: "{{ __bootstrap_docker__log_prefix_leader }} Display __docker_network_ingress_subnet"
-  ansible.builtin.debug:
-    var: __docker_network_ingress_subnet
-
 ## ref: https://stackoverflow.com/questions/59007780/container-running-on-docker-swarm-not-accessible-from-outside
-- name: "{{ __bootstrap_docker__log_prefix_leader }} Ensure ingress network does not overlap with internal network"
-  when:
-    - __docker_network_info_result.exists
-    - __docker_network_ingress_subnet == __bootstrap_docker__host_network_subnet
-  block:
-
-    - name: "{{ __bootstrap_docker__log_prefix_leader }} Remove ingress network"
-      community.docker.docker_network:
-        name: ingress
-        state: absent
-        force: true
-
-    - name: "{{ __bootstrap_docker__log_prefix_leader }} Ensure ingress network does not overlap with internal network"
-      community.docker.docker_network:
-        name: ingress
-        driver: overlay
-        attachable: false
-        internal: false
-        ipam_config: "{{ __bootstrap_docker__ingress_network_ipam_config }}"
-      register: __configure_docker_network_ingress
+- name: "{{ __bootstrap_docker__log_prefix_leader }} Ensure ingress network"
+  ansible.builtin.include_tasks: swarm_ingress_network.yml

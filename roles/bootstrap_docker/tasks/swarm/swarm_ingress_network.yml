@@ -1,0 +1,296 @@
+---
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Get network info for ingress network"
+  community.docker.docker_network_info:
+    name: "{{ bootstrap_docker__ingress_network }}"
+  register: __docker_network_info_result
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Display __docker_network_info_result"
+  ansible.builtin.debug:
+    var: __docker_network_info_result
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Set __docker_network_ingress_subnet"
+  when: __docker_network_info_result.network.IPAM.Config is defined
+  ansible.builtin.set_fact:
+    __docker_network_ingress_subnet: "{{ (__docker_network_info_result.network.IPAM.Config | first)['Subnet'] }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Init __bootstrap_docker__ingress_network_invalid"
+  ansible.builtin.set_fact:
+    __bootstrap_docker__ingress_network_invalid: false
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Set __bootstrap_docker__ingress_network_invalid if network.Ingress not defined"
+  when: not __docker_network_info_result.network.Ingress is defined
+  ansible.builtin.set_fact:
+    __bootstrap_docker__ingress_network_invalid: true
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Set __bootstrap_docker__ingress_network_invalid if network.Ingress false"
+  when:
+    - __docker_network_info_result.network.Ingress is defined
+    - not __docker_network_info_result.network.Ingress|bool
+  ansible.builtin.set_fact:
+    __bootstrap_docker__ingress_network_invalid: true
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Display bootstrap_docker__host_network_default_addr_pool"
+  ansible.builtin.debug:
+    var: bootstrap_docker__host_network_default_addr_pool
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Display __docker_network_ingress_subnet"
+  ansible.builtin.debug:
+    var: __docker_network_ingress_subnet
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Set invalid if ingress subnet in host network"
+  when:
+    - __docker_network_ingress_subnet is defined
+    - bootstrap_docker__host_network_default_addr_pool | ansible.utils.network_in_network(__docker_network_ingress_subnet)
+  ansible.builtin.set_fact:
+    __bootstrap_docker__ingress_network_invalid: true
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Display __bootstrap_docker__ingress_network_invalid"
+  ansible.builtin.debug:
+    var: __bootstrap_docker__ingress_network_invalid
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Get running stack info"
+  community.docker.docker_stack_info:
+  register: __docker_stack_info_result
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Display __docker_stack_info_result"
+  ansible.builtin.debug:
+    var: __docker_stack_info_result.results|d([])
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Remove stacks"
+  community.docker.docker_stack:
+    name: "{{ item.Name }}"
+    state: absent
+  loop: "{{ __docker_stack_info_result.results | d([]) }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Remove node and re-join to swarm"
+  when:
+    - not bootstrap_docker__swarm_leader|bool
+    - __docker_network_info_result.exists
+    - __bootstrap_docker__ingress_network_invalid|bool
+  block:
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Remove node from swarm"
+      community.docker.docker_swarm:
+        node_id: "{{ inventory_hostname }}"
+        state: absent
+        force: true
+      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+      register: __swarm_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __swarm_remove_result"
+      ansible.builtin.debug:
+        var: __swarm_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Force node to leave swarm"
+      changed_when: false
+      ansible.builtin.command: docker swarm leave --force
+      register: __swarm_leave_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __swarm_leave_result"
+      ansible.builtin.debug:
+        var: __swarm_leave_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+      block:
+        - name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+          community.docker.docker_network:
+            name: "{{ bootstrap_docker__ingress_network }}"
+            state: absent
+            force: true
+      rescue:
+        - name: "{{ __bootstrap_docker__log_prefix_network }} Force remove ingress network {{ bootstrap_docker__ingress_network }}"
+          ansible.builtin.expect:
+              command: docker network rm --force {{ bootstrap_docker__ingress_network }}
+              responses:
+                "[y/N]": "y"
+          register: __network_remove_result
+
+        - name: "{{ __bootstrap_docker__log_prefix_network }} Display __network_remove_result"
+          ansible.builtin.debug:
+            var: __network_remove_result
+
+        - name: "{{ __bootstrap_docker__log_prefix_network }} Restart docker service"
+          ansible.builtin.service:
+            name: docker
+            state: restarted
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Retrieve swarm join token"
+      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+      block:
+        - name: "{{ __bootstrap_docker__log_prefix_network }} Retrieve swarm join token"
+          ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+          changed_when: false
+          register: __swarm_token_result
+
+      rescue:
+        - name: "{{ __bootstrap_docker__log_prefix_network }} Re-emit failure"
+          when: not (__swarm_token_result.stderr | regex_search('This node is not a swarm manager'))
+          vars:
+            failed_task:
+              result: "{{ ansible_failed_result }}"
+          ansible.builtin.fail:
+            msg: "{{ failed_task }}"
+
+        - name: "{{ __bootstrap_docker__log_prefix_network }} Retrieve swarm join token"
+          when: __swarm_token_result.stderr | regex_search('This node is not a swarm manager')
+          block:
+
+#            - name: "{{ __bootstrap_docker__log_prefix_network }} Run swarm init"
+#              ansible.builtin.command: docker swarm init
+#              changed_when: false
+#              register: __docker_swarm_init_result
+
+            - name: "{{ __bootstrap_docker__log_prefix_network }} Run swarm init"
+              community.docker.docker_swarm:
+                state: present
+                advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+                default_addr_pool: "{{ bootstrap_docker__host_network_default_addr_pool }}"
+                force: true
+              register: __docker_swarm_init_result
+
+            - name: "{{ __bootstrap_docker__log_prefix_network }} Display __docker_swarm_init_result"
+              ansible.builtin.debug:
+                var: __docker_swarm_init_result
+
+            - name: "{{ __bootstrap_docker__log_prefix_network }} Retrieve swarm join token for {{ bootstrap_docker__swarm_role }}"
+              ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+              changed_when: false
+              register: __swarm_token_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Set __swarm_join_token"
+      ansible.builtin.set_fact:
+        __swarm_join_token: "{{ __swarm_token_result.stdout_lines
+          | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list | first }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __swarm_join_token"
+      ansible.builtin.debug:
+        var: __swarm_join_token
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Join node to swarm"
+      community.docker.docker_swarm:
+        state: join
+        advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+        default_addr_pool: "{{ bootstrap_docker__host_network_default_addr_pool }}"
+        join_token: "{{ __swarm_join_token }}"
+        remote_addrs: "{{ __bootstrap_docker__swarm_remote_addrs }}"
+        timeout: 360
+      register: __swarm_join_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __swarm_join_result"
+      ansible.builtin.debug:
+        var: __swarm_join_result
+
+## ref: https://stackoverflow.com/questions/59007780/container-running-on-docker-swarm-not-accessible-from-outside
+- name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+  when:
+    - bootstrap_docker__swarm_leader|bool
+    - __bootstrap_docker__ingress_network_invalid|bool
+  block:
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+      community.docker.docker_network:
+        name: "{{ bootstrap_docker__ingress_network }}"
+        state: absent
+        force: true
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Get network info for ingress network"
+      community.docker.docker_network_info:
+        name: "{{ bootstrap_docker__ingress_network }}"
+      register: __docker_network_info_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __docker_network_info_result"
+      ansible.builtin.debug:
+        var: __docker_network_info_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+      when: __docker_network_info_result.exists
+      community.docker.docker_network:
+        name: "{{ bootstrap_docker__ingress_network }}"
+        state: absent
+        force: true
+
+  rescue:
+
+    ## ref: https://stackoverflow.com/questions/67603029/unable-to-control-swarm-ingress-network-with-ansible
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Remove default ingress network"
+      ansible.builtin.expect:
+        command: docker network rm --force {{ bootstrap_docker__ingress_network }}
+        responses:
+          "[y/N]": "y"
+      register: __network_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __network_remove_result"
+      ansible.builtin.debug:
+        var: __network_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Restart docker service"
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Get network info for ingress network"
+      community.docker.docker_network_info:
+        name: "{{ bootstrap_docker__ingress_network }}"
+      register: __docker_network_info_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __docker_network_info_result"
+      ansible.builtin.debug:
+        var: __docker_network_info_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+      when:
+        - __docker_network_info_result.exists
+      ansible.builtin.expect:
+        command: docker network rm --force {{ bootstrap_docker__ingress_network }}
+        responses:
+          "[y/N]": "y"
+      register: __network_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __network_remove_result"
+      ansible.builtin.debug:
+        var: __network_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Restart docker service"
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+- name: "{{ __bootstrap_docker__log_prefix_network }} Ensure ingress network"
+  when: __bootstrap_docker__ingress_network_invalid|bool
+  block:
+#    ## ref: The module right now only handles plain docker networks
+#    ## ref: https://github.com/ansible-collections/community.docker/issues/69
+#    - name: "{{ __bootstrap_docker__log_prefix_network }} Ensure ingress network does not overlap with internal network"
+#      community.docker.docker_network:
+#        name: "{{ bootstrap_docker__ingress_network }}"
+#        force: true
+#        attachable: false
+#        internal: false
+#        scope: swarm
+#        driver: overlay
+#        driver_options:
+#          ingress: true
+#        ipam_config: "{{ __bootstrap_docker__ingress_network_ipam_config }}"
+#      register: __configure_docker_network_ingress
+
+    ## ref: https://stackoverflow.com/questions/59007780/container-running-on-docker-swarm-not-accessible-from-outside
+    ## ref: https://stackoverflow.com/questions/67603029/unable-to-control-swarm-ingress-network-with-ansible
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Create customized ingress network"
+      changed_when: false
+      ansible.builtin.shell: |
+        docker network create \
+          --ingress \
+          --driver overlay \
+          --subnet {{ bootstrap_docker__ingress_network_subnet_cidr }} \
+          --gateway {{ bootstrap_docker__ingress_network_subnet_gateway }} \
+          ingress
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Get network info for ingress network"
+      community.docker.docker_network_info:
+        name: "{{ bootstrap_docker__ingress_network }}"
+      register: __docker_network_info_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_network }} Display __docker_network_info_result"
+      ansible.builtin.debug:
+        var: __docker_network_info_result

@@ -9,37 +9,30 @@
   ansible.builtin.debug:
     var: __bootstrap_docker__swarm_remote_addrs
 
-- name: "{{ __bootstrap_docker__log_prefix_worker }} Retrieve swarm_join_token_worker token"
-  when: __swarm_join_token_worker is not defined
-  block:
-    - name: "{{ __bootstrap_docker__log_prefix_worker }} Retrieve swarm_join_token_worker token"
-      ansible.builtin.command: docker swarm join-token worker
-      changed_when: false
-      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
-      register: __swarm_token_result
+- name: "{{ __bootstrap_docker__log_prefix_network }} Retrieve swarm join token"
+  ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+  changed_when: false
+  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+  register: __swarm_token_result
 
-    - name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_token_result.stdout"
-      ansible.builtin.debug:
-        var: __swarm_token_result.stdout_lines | select('match', '^.*token .*')
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Set __swarm_join_token"
+  ansible.builtin.set_fact:
+    __swarm_join_token: "{{ __swarm_token_result.stdout_lines
+      | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list
+      | first }}"
 
-    - name: "{{ __bootstrap_docker__log_prefix_worker }} Set __swarm_join_token_worker"
-      ansible.builtin.set_fact:
-        __swarm_join_token_worker: "{{ __swarm_token_result.stdout_lines | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list
-          | first }}"
-
-- name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_join_token_worker"
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Display __swarm_join_token"
   ansible.builtin.debug:
-    var: __swarm_join_token_worker
+    var: __swarm_join_token
 
 - name: "{{ __bootstrap_docker__log_prefix_worker }} Register host to swarm"
-#  vars:
-#    ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
   block:
     - name: "{{ __bootstrap_docker__log_prefix_worker }} Register host to swarm"
       community.docker.docker_swarm:
         state: join
         advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
-        join_token: "{{ __swarm_join_token_worker }}"
+        default_addr_pool: "{{ bootstrap_docker__host_network_default_addr_pool }}"
+        join_token: "{{ __swarm_join_token }}"
         remote_addrs: "{{ __bootstrap_docker__swarm_remote_addrs }}"
       register: __swarm_join_result
 
@@ -54,7 +47,7 @@
 
     - name: "{{ __bootstrap_docker__log_prefix_worker }} Join swarm via CLI"
       ansible.builtin.command: |
-        docker swarm join --token {{ __swarm_join_token_worker }} {{ item }}
+        docker swarm join --token {{ __swarm_join_token }} {{ item }}
       loop: "{{ __bootstrap_docker__swarm_remote_addrs }}"
       register: __join_cmd
 #      failed_when: __join_cmd.rc >= 0 and 'This node is already part of a swarm' not in __join_cmd.stdout
@@ -76,7 +69,7 @@
       community.docker.docker_node:
 #        hostname: "{{ ansible_host }}"
         hostname: "{{ inventory_hostname }}"
-        role: worker
+        role: "{{ bootstrap_docker__swarm_role }}"
 
     - name: "{{ __bootstrap_docker__log_prefix_worker }} Set node labels"
       when: bootstrap_docker__swarm_node_labels|d([])|length>0
@@ -85,3 +78,14 @@
         hostname: "{{ inventory_hostname }}"
         labels: "{{ bootstrap_docker__swarm_node_labels }}"
         labels_state: replace
+
+#    - name: "{{ __bootstrap_docker__log_prefix_worker }} Create Docker Swarm Secrets"
+#      community.docker.docker_secret:
+#        name: "{{ item.name }}"
+#        data: "{{ item.value }}"
+#        state: "{{ item.state }}"
+#      loop: "{{ bootstrap_docker__swarm_secrets }}"
+
+## ref: https://stackoverflow.com/questions/59007780/container-running-on-docker-swarm-not-accessible-from-outside
+- name: "{{ __bootstrap_docker__log_prefix_worker }} Ensure ingress network"
+  ansible.builtin.include_tasks: swarm_ingress_network.yml
