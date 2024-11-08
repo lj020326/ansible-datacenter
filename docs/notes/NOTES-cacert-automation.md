@@ -11,7 +11,7 @@ Setup cert manager to support API based cert issue/signing
 - allow admin to view / manage certs
 
 - solves the issues around ansible node cacert create
-    - currently when bootstraping a new node-
+    - currently when bootstrapping a new node-
     - the process involves interaction between
 
     (1) the ansible control node,

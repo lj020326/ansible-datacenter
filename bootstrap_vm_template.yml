@@ -1,44 +1,140 @@
 ---
-- name: Gather facts for all hosts to apply OS specific group vars for them
-  tags: always
-  hosts: ansible_localhost
-  roles:
-    - role: apply_common_groups
 
-- name: Apply host to vm_template group(s)
+- name: "Apply host to vm_template root group"
   tags: always
-  hosts: ansible_localhost
+  hosts: localhost
+  connection: local
   tasks:
-    - name: Set vm_template_group
+    - name: "Set vm_template_group"
       ansible.builtin.set_fact:
-        vm_template_group: vm_template_{{ dc_os_family_shortname }}
+        vm_template_group: "vm_template"
 
-    - name: Display vm_template_group
+    - name: "Display vm_template_group"
       ansible.builtin.debug:
         var: vm_template_group
 
-    - name: Apply group {{ vm_template_group }} to hosts
+    - name: "Apply group {{ vm_template_group }} to hosts"
+      changed_when: no
+      ansible.builtin.group_by:
+        key: "{{ vm_template_group }}"
+
+    - name: "Display cacert_keystore_host"
+      ansible.builtin.debug:
+        var: cacert_keystore_host
+
+- name: "Gather facts for all hosts to apply OS specific group vars for them"
+  tags: always
+  hosts: vm_template
+  connection: local
+  roles:
+    - role: apply_common_groups
+
+- name: "Apply host to vm_template group(s)"
+  tags: always
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: "Set vm_template_group"
+      ansible.builtin.set_fact:
+        vm_template_group: vm_template_{{ dc_os_family }}
+
+    - name: "Display vm_template_group"
+      ansible.builtin.debug:
+        var: vm_template_group
+
+    - name: "Apply group {{ vm_template_group }} to hosts"
       changed_when: false
       ansible.builtin.group_by:
         key: "{{ vm_template_group }}"
 
-    - name: Display group_names
+    - name: "Display group_names"
       ansible.builtin.debug:
         var: group_names | d([])
 
-- name: Bootstrap linux OS on vm template
-  #  hosts: os_linux
+    - name: "Display ansible_python_interpreter"
+      ansible.builtin.debug:
+        var: ansible_python_interpreter
+
+    - name: "Display ansible_virtualenv_python_interpreter"
+      ansible.builtin.debug:
+        var: ansible_virtualenv_python_interpreter
+
+- name: "Display important collection versions"
+  hosts: localhost
+  connection: local
+  tags:
+    - always
+    - display-collection-versions
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_user: "{{ bootstrap_user }}"
+#    ansible_password: "{{ bootstrap_user_password }}"
+  tasks:
+    - name: "Display important collection versions" # noqa run-once[task]
+      run_once: true
+      ansible.builtin.debug:
+        msg:
+          - "ansible.controller version={{ lookup('community.general.collection_version', 'ansible.controller') }}"
+          - "ansible.posix version={{ lookup('community.general.collection_version', 'ansible.posix') }}"
+          - "ansible.tower version={{ lookup('community.general.collection_version', 'ansible.tower') }}"
+          - "ansible.utils version={{ lookup('community.general.collection_version', 'ansible.utils') }}"
+          - "ansible.windows version={{ lookup('community.general.collection_version', 'ansible.windows') }}"
+          - "community.crypto version={{ lookup('community.general.collection_version', 'community.crypto') }}"
+          - "community.docker version={{ lookup('community.general.collection_version', 'community.docker') }}"
+          - "community.general version={{ lookup('community.general.collection_version', 'community.general') }}"
+          - "community.postgresql version={{ lookup('community.general.collection_version', 'community.postgresql') }}"
+          - "community.vmware version={{ lookup('community.general.collection_version', 'community.vmware') }}"
+          - "community.windows version={{ lookup('community.general.collection_version', 'community.windows') }}"
+          - "confluent.platform version={{ lookup('community.general.collection_version', 'confluent.platform') }}"
+          - "cyberark.conjur version={{ lookup('community.general.collection_version', 'cyberark.conjur') }}"
+          - "cyberark.pas version={{ lookup('community.general.collection_version', 'cyberark.pas') }}"
+          - "microsoft.ad version={{ lookup('community.general.collection_version', 'microsoft.ad') }}"
+
+- name: Bootstrap ansible venv
   hosts: vm_template_linux
-  tags: vm-template
+  tags:
+    - vm-template
+    - bootstrap-ansible-venv
+    - bootstrap-pip
+    - bootstrap-linux-docker
+    - bootstrap-docker
+  become: true
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
+    bootstrap_pip__env_force_rebuild: false
+    ansible_become: true
+    ansible_become_user: root
+    ansible_become_method: ansible.builtin.sudo
+  roles:
+    - role: bootstrap_pip
+
+- name: Bootstrap linux OS on vm template
+  hosts: vm_template_linux
+  tags:
+    - vm-template
+    - bootstrap-vm-template
+    - bootstrap-linux-template
   connection: local
   become: true
+  become_user: root
+  become_method: ansible.builtin.sudo
+  vars:
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
+#    ansible_user: "{{ lookup('env', 'USER') }}"
+#    ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_become: true
+    ansible_become_user: root
+    ansible_become_method: ansible.builtin.sudo
   roles:
     - role: bootstrap_linux
 
-- name: Bootstrap windows OS on vm template
-  #  hosts: os_windows
+- name: Bootstrap Windows OS on vm template
   hosts: vm_template_windows
-  tags: vm-template
+  tags:
+    - vm-template
+    - bootstrap-vm-template
+    - bootstrap-windows-template
   connection: local
   become: true
   roles:

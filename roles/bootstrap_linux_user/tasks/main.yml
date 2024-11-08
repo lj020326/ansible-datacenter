@@ -24,6 +24,10 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Display __bootstrap_linux_user__list
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list
+
 ## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
 - name: Add users with groups
   when: item.bootstrap_user|d(True)|bool
@@ -35,10 +39,11 @@
     shell: "{{ item.shell | d(omit) }}"
     append: "{{ True if item.groups is defined else False }}"
     uid: "{{ item.uid | d(omit) }}"
-    group: "{{ item.gid | default(omit) }}"
-    groups: "{{ item.groups | default(omit) }}"
-    password: "{{ bootstrap_linux_user__credentials[item.name].hashed_password
-      | d(bootstrap_linux_user__credentials[item.name].password | d(omit)
+    group: "{{ item.gid | d(omit) }}"
+    groups: "{{ item.groups | d(omit) }}"
+    password: "{{ item.password
+      | d(bootstrap_linux_user__credentials[item.name].hashed_password)
+        | d(bootstrap_linux_user__credentials[item.name].password | d(omit)
         | password_hash('sha512',65534 | random(seed=inventory_hostname) | string)) }}"
     generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
     ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
@@ -111,7 +116,7 @@
     state: directory
     mode: "0700"
     owner: "{{ item.name }}"
-    group: "{{ item.group|default(item.name) }}"
+    group: "{{ item.group | d(item.name) }}"
   loop: "{{ __bootstrap_linux_user__list }}"
   loop_control:
     label: "{{ item.name }}"

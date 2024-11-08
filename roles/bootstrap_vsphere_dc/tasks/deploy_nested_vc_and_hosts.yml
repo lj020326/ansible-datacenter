@@ -4,26 +4,26 @@
     name: xorriso
     state: present
 
-- name: Display vsphere_deploy_dc_nested_clusters
+- name: Display bootstrap_vsphere_dc__nested_clusters
   ansible.builtin.debug:
-    #    var: vsphere_deploy_dc_vcenter_clusters
-    var: vsphere_deploy_dc_nested_clusters
+    #    var: bootstrap_vsphere_dc__vcenter_clusters
+    var: bootstrap_vsphere_dc__nested_clusters
 
 ## ref: https://github.com/yasensim/vsphere-lab-deploy/blob/master/playbooks/deployNestedESXi.yml
 - name: deploy_nested_vc_and_hosts | Deploy Nested ESXi VMs
   nestedESXi:
-    vcenter: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    vcenter_user: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
-    vcenter_passwd: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    vcenter: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    vcenter_user: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username | d(esxi_username) }}"
+    vcenter_passwd: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password | d(esxi_password) }}"
     vmname: "{{ item.name }}"
-    cluster: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].hosting_cluster }}"
-    vmnic_physical_portgroup_assignment: "{{ vsphere_deploy_dc_nested_clusters[item.cluster].vmnic_physical_portgroup_assignment }}"
-    datastore: "{{ vsphere_deploy_dc__vcenter.datastore | d(vsphere_deploy_dc_nested_clusters[item.cluster].hosting_datastore) }}"
-    cpucount: "{{ item.cpu | d(vsphere_deploy_dc_nested_clusters[item.cluster].cpu_cores) }}"
-    memory: "{{ item.ram_in_gb | d(vsphere_deploy_dc_nested_clusters[item.cluster].ram_in_gb) }}"
-    disks: "{{ item.disks | d(vsphere_deploy_dc_nested_clusters[item.cluster].nested_hosts_disks) }}"
-    isopath: "{{ vsphere_deploy_dc_vcenter_iso_dir }}/{{ vsphere_deploy_dc_esx_custom_iso }}"
-    esxi_version: "{{ vsphere_deploy_dc_vsphere_version }}"
+    cluster: "{{ bootstrap_vsphere_dc__nested_clusters[item.cluster].hosting_cluster }}"
+    vmnic_physical_portgroup_assignment: "{{ bootstrap_vsphere_dc__nested_clusters[item.cluster].vmnic_physical_portgroup_assignment }}"
+    datastore: "{{ bootstrap_vsphere_dc__vcenter_datastore | d(bootstrap_vsphere_dc__nested_clusters[item.cluster].hosting_datastore) }}"
+    cpucount: "{{ item.cpu | d(bootstrap_vsphere_dc__nested_clusters[item.cluster].cpu_cores) }}"
+    memory: "{{ item.ram_in_gb | d(bootstrap_vsphere_dc__nested_clusters[item.cluster].ram_in_gb) }}"
+    disks: "{{ item.disks | d(bootstrap_vsphere_dc__nested_clusters[item.cluster].nested_hosts_disks) }}"
+    isopath: "{{ bootstrap_vsphere_dc__bootstrap_vsphere_dc__vcenter_iso_dir }}/{{ bootstrap_vsphere_dc__esx_custom_iso }}"
+    esxi_version: "{{ bootstrap_vsphere_dc__vsphere_version }}"
   loop: "{{ __nested_hosts_list }}"
   async: 7200
   poll: 0
@@ -31,9 +31,9 @@
 
 - name: deploy_nested_vc_and_hosts | Set powerstate of a virtual machine to poweredon
   community.vmware.vmware_guest:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username | d(esxi_username) }}"
+    password: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password | d(esxi_password) }}"
     validate_certs: false
     name: "{{ item.name }}"
     state: poweredon
@@ -60,8 +60,8 @@
 
 - name: deploy_nested_vc_and_hosts | Check if vCenter already exists so install steps can be skipped
   ansible.builtin.uri:
-    #    url: "https://{{ vsphere_deploy_dc_nested_vcenter.ip }}/ui/"
-    url: https://{{ vsphere_deploy_dc_nested_vcenter.fqdn }}:5480/
+    #    url: "https://{{ bootstrap_vsphere_dc__nested_vcenter.ip }}/ui/"
+    url: https://{{ bootstrap_vsphere_dc__nested_vcenter.fqdn }}:5480/
     method: GET
     status_code: 200
     timeout: 2
@@ -78,8 +78,8 @@
   block:
     - name: deploy_nested_vc_and_hosts | Set deploy_minor_version
       ansible.builtin.set_fact:
-        #    deploy_version: "{{ vsphere_deploy_dc_vcsa_iso | regex_replace('^.+(MASK-.+?)\\.+','\\\1') }}"
-        deploy_minor_version: "{{ vsphere_deploy_dc_vcsa_iso | regex_search('VMware-VCSA-all-(.+)-.*.iso', '\\1') | first }}"
+        #    deploy_version: "{{ bootstrap_vsphere_dc__vcsa_iso | regex_replace('^.+(MASK-.+?)\\.+','\\\1') }}"
+        deploy_minor_version: "{{ bootstrap_vsphere_dc__vcsa_iso | regex_search('VMware-VCSA-all-(.+)-.*.iso', '\\1') | first }}"
 
     - name: deploy_nested_vc_and_hosts | Set deploy_version
       ansible.builtin.set_fact:
@@ -90,42 +90,42 @@
         var: deploy_version
 
     #    - name: Set appliance dependent variables
-    #      ansible.builtin.include_vars: '{{ vsphere_deploy_dc_vcenter_appliance_type }}.yml'
+    #      ansible.builtin.include_vars: '{{ bootstrap_vsphere_dc__vcenter_appliance_type }}.yml'
 
-    - name: deploy_nested_vc_and_hosts | Fix permissions before delete on {{vsphere_deploy_dc_vcenter_install_tmp_dir}}/VCSA
+    - name: deploy_nested_vc_and_hosts | Fix permissions before delete on {{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/VCSA
       ansible.builtin.file:
-        path: "{{vsphere_deploy_dc_vcenter_install_tmp_dir}}/ESX"
+        path: "{{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/ESX"
         mode: +w
         recurse: true
 
     - name: deploy_nested_vc_and_hosts | Clean VCSA ISO Directory
       ansible.builtin.file:
-        path: "{{vsphere_deploy_dc_vcenter_install_tmp_dir}}/VCSA"
+        path: "{{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/VCSA"
         state: absent
 
     - name: deploy_nested_vc_and_hosts | Extract VCSA ISO image
       when: not vcenter_exists
-      ansible.builtin.command: xorriso -ecma119_map lowercase -osirrox on -indev {{vc_iso}} -extract / {{vsphere_deploy_dc_vcenter_install_tmp_dir}}/VCSA
+      ansible.builtin.command: xorriso -ecma119_map lowercase -osirrox on -indev {{vc_iso}} -extract / {{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/VCSA
       changed_when: false
 
     - name: deploy_nested_vc_and_hosts | Fix VCSA directory permissions
       when: not vcenter_exists
       ansible.builtin.command: "{{item}}"
       loop:
-        - chmod -R 777 {{vsphere_deploy_dc_vcenter_install_tmp_dir}}/VCSA
+        - chmod -R 777 {{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/VCSA
       changed_when: false
 
     - name: deploy_nested_vc_and_hosts | Create JSON template file for VCSA {{ deploy_version }} with embeded PSC
       ansible.builtin.template:
         src: embedded_vCSA_on_VC_{{ deploy_version }}.json.j2
-        dest: "{{vsphere_deploy_dc_vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+        dest: "{{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
         mode: "0644"
 
     - name: deploy_nested_vc_and_hosts | Perform VC CLI Install
       when: not vcenter_exists
-      ansible.builtin.command: ./vcsa-deploy install --accept-eula --no-esx-ssl-verify {{vsphere_deploy_dc_vcenter_install_tmp_dir}}/vCSA_on_ESXi.json
+      ansible.builtin.command: ./vcsa-deploy install --accept-eula --no-esx-ssl-verify {{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/vCSA_on_ESXi.json
       args:
-        chdir: "{{vsphere_deploy_dc_vcenter_install_tmp_dir}}/VCSA/vcsa-cli-installer/lin64/"
+        chdir: "{{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/VCSA/vcsa-cli-installer/lin64/"
       async: 3600
       poll: 0
       register: vcenter_result
@@ -142,9 +142,9 @@
 
 - name: deploy_nested_vc_and_hosts | Remove Nested vcenter CDROM
   community.vmware.vmware_guest:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username | d(esxi_username) }}"
+    password: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password | d(esxi_password) }}"
     validate_certs: false
     name: "{{ item.name }}"
     cdrom:
@@ -156,10 +156,10 @@
 
 - name: deploy_nested_vc_and_hosts | Change nested ESXi hostnames
   community.vmware.vmware_vm_shell:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username | d(esxi_username) }}"
+    password: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password | d(esxi_password) }}"
+    datacenter: "{{ bootstrap_vsphere_dc__vcenter_datacenter }}"
     validate_certs: false
     vm_id: "{{ item.name }}"
     #    vm_username: "{{ item.username | d(esxi_username) }}"
@@ -167,7 +167,7 @@
     vm_username: "{{ nested_host_credentials.user }}"
     vm_password: "{{ nested_host_credentials.password }}"
     vm_shell: /bin/esxcli
-    vm_shell_args: system hostname set --fqdn={{ item.fqdn | d(item.name + '.' + vsphere_deploy_dc_vcenter_domain) }} }}
+    vm_shell_args: system hostname set --fqdn={{ item.fqdn | d(item.name + '.' + bootstrap_vsphere_dc__vcenter_domain) }} }}
     vm_shell_env:
       - PATH=/bin
       - VAR=test
@@ -187,10 +187,10 @@
 
 - name: deploy_nested_vc_and_hosts | Set VLAN to Management portgroup
   community.vmware.vmware_vm_shell:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vsphere_deploy_dc_vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username | d(esxi_username) }}"
+    password: "{{ bootstrap_vsphere_dc__vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password | d(esxi_password) }}"
+    datacenter: "{{ bootstrap_vsphere_dc__vcenter_datacenter }}"
     validate_certs: false
     vm_id: "{{ item.name }}"
     #    vm_username: "{{ item.username | d(esxi_username) }}"
@@ -198,8 +198,8 @@
     vm_username: "{{ nested_host_credentials.user }}"
     vm_password: "{{ nested_host_credentials.password }}"
     vm_shell: /bin/esxcli
-    #    vm_shell_args: "network vswitch standard portgroup set --portgroup-name='Management Network' --vlan-id={{ vsphere_deploy_dc_nested_clusters[item.cluster].mgmt_vlan }}"
-    vm_shell_args: network vswitch standard portgroup set --portgroup-name={{ vsphere_deploy_dc_nested_clusters[item.cluster].mgmt_portgroup }} --vlan-id={{ vsphere_deploy_dc_nested_clusters[item.cluster].mgmt_vlan
+    #    vm_shell_args: "network vswitch standard portgroup set --portgroup-name='Management Network' --vlan-id={{ bootstrap_vsphere_dc__nested_clusters[item.cluster].mgmt_vlan }}"
+    vm_shell_args: network vswitch standard portgroup set --portgroup-name={{ bootstrap_vsphere_dc__nested_clusters[item.cluster].mgmt_portgroup }} --vlan-id={{ bootstrap_vsphere_dc__nested_clusters[item.cluster].mgmt_vlan
       }}
     vm_shell_env:
       - PATH=/bin
@@ -220,10 +220,10 @@
 
 - name: deploy_nested_vc_and_hosts | Set vmk0 ip addresses
   community.vmware.vmware_vm_shell:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username | d(esxi_username) }}"
-    password: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password | d(esxi_password) }}"
-    datacenter: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username | d(esxi_username) }}"
+    password: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password | d(esxi_password) }}"
+    datacenter: "{{ bootstrap_vsphere_dc__vcenter_datacenter }}"
     validate_certs: false
     vm_id: "{{ item.name }}"
     #    vm_username: "{{ item.username | d(esxi_username) }}"
@@ -251,10 +251,10 @@
 
 - name: deploy_nested_vc_and_hosts | Set default gw
   community.vmware.vmware_vm_shell:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username }}"
-    password: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password }}"
-    datacenter: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username }}"
+    password: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password }}"
+    datacenter: "{{ bootstrap_vsphere_dc__vcenter_datacenter }}"
     validate_certs: false
     vm_id: "{{ item.name }}"
     #    vm_username: "{{ item.username | d(esxi_username) }}"
@@ -282,10 +282,10 @@
 
 - name: deploy_nested_vc_and_hosts | Set search domain
   community.vmware.vmware_vm_shell:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username }}"
-    password: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password }}"
-    datacenter: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username }}"
+    password: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password }}"
+    datacenter: "{{ bootstrap_vsphere_dc__vcenter_datacenter }}"
     validate_certs: false
     vm_id: "{{ item.name }}"
     #    vm_username: "{{ item.username | d(esxi_username) }}"
@@ -293,7 +293,7 @@
     vm_username: "{{ nested_host_credentials.user }}"
     vm_password: "{{ nested_host_credentials.password }}"
     vm_shell: /bin/esxcli
-    vm_shell_args: network ip dns search add --domain={{ item.domain | d(vsphere_deploy_dc_vcenter_domain) }}
+    vm_shell_args: network ip dns search add --domain={{ item.domain | d(bootstrap_vsphere_dc__vcenter_domain) }}
     vm_shell_env:
       - PATH=/bin
       - VAR=test
@@ -313,10 +313,10 @@
 
 - name: deploy_nested_vc_and_hosts | Set a DNS Server
   community.vmware.vmware_vm_shell:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username }}"
-    password: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password }}"
-    datacenter: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username }}"
+    password: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password }}"
+    datacenter: "{{ bootstrap_vsphere_dc__vcenter_datacenter }}"
     validate_certs: false
     vm_id: "{{ item.0.name }}"
     #    vm_username: "{{ item.username | d(esxi_username) }}"
@@ -336,10 +336,10 @@
 
 - name: deploy_nested_vc_and_hosts | Disable SSH Warnings
   community.vmware.vmware_vm_shell:
-    hostname: "{{ vsphere_deploy_dc__vcenter.hostname }}"
-    username: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].username }}"
-    password: "{{ vsphere_credentials[vsphere_deploy_dc__vcenter.hostname].password }}"
-    datacenter: "{{ vsphere_deploy_dc__vcenter.datacenter }}"
+    hostname: "{{ bootstrap_vsphere_dc__vcenter_fqdn }}"
+    username: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].username }}"
+    password: "{{ vsphere_credentials[bootstrap_vsphere_dc__vcenter_fqdn].password }}"
+    datacenter: "{{ bootstrap_vsphere_dc__vcenter_datacenter }}"
     validate_certs: false
     vm_id: "{{ item.name }}"
     #    vm_username: "{{ item.username | d(esxi_username) }}"
@@ -372,8 +372,8 @@
       ansible.builtin.debug:
         msg: >
           The vCenter deployment can take a long time.
-          You can check progress at https://{{ vsphere_deploy_dc_nested_vcenter.ip }}:5480 after about 20 minutes.
-          For detailed output browse to the most recent folder starting with vcsaCliInstaller  under {{ vsphere_deploy_dc_vcenter_install_tmp_dir }} and follow vcsa-cli-installer.log
+          You can check progress at https://{{ bootstrap_vsphere_dc__nested_vcenter.ip }}:5480 after about 20 minutes.
+          For detailed output browse to the most recent folder starting with vcsaCliInstaller  under {{ bootstrap_vsphere_dc__vcenter_install_tmp_dir }} and follow vcsa-cli-installer.log
 
     - name: deploy_nested_vc_and_hosts | Result check for deployment of vCenter task
       ansible.builtin.async_status:
@@ -384,7 +384,7 @@
       delay: 15
 
     - name: deploy_nested_vc_and_hosts | Check the vSphere API is online # noqa: command-instead-of-module
-    #  ansible.builtin.command: "curl -k --silent -v https://{{ vsphere_deploy_dc_nested_vcenter.ip }}/ui/"
+    #  ansible.builtin.command: "curl -k --silent -v https://{{ bootstrap_vsphere_dc__nested_vcenter.ip }}/ui/"
       ansible.builtin.command: curl -k --silent -v https://{{ vsphere_deploy__nested_vcenter.fqdn }}:5480/
       register: result
       until: result.stdout.find("<title>vSphere Client</title>") != -1
@@ -398,10 +398,10 @@
 
     - name: deploy_nested_vc_and_hosts | Delete the temporary JSON template file
       ansible.builtin.file:
-        path: "{{vsphere_deploy_dc_vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
+        path: "{{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/vCSA_on_ESXi.json"
         state: absent
 
     - name: deploy_nested_vc_and_hosts | Clean VCSA ISO Directory
       ansible.builtin.file:
-        path: "{{vsphere_deploy_dc_vcenter_install_tmp_dir}}/VCSA/"
+        path: "{{bootstrap_vsphere_dc__vcenter_install_tmp_dir}}/VCSA/"
         state: absent

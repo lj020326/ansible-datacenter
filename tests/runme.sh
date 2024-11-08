@@ -36,6 +36,7 @@ VAULT_FILEPATH="./vars/vault.yml"
 VAULT_ID="dcc-vault"
 TEST_VARS_FILE="test-vars.yml"
 
+INSTALL_GALAXY_COLLECTIONS=0
 INSTALL_LATEST_GALAXY_COLLECTIONS=0
 
 USE_SOURCE_COLLECTIONS=0
@@ -74,7 +75,7 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 #export ANSIBLE_GALAXY_IGNORE=true
 #export GALAXY_IGNORE_CERTS=true
 
-function pull_latest_galaxy_collections() {
+function install_galaxy_collections() {
 
   echo "==> ansible-galaxy --version"
   ansible-galaxy --version
@@ -87,7 +88,9 @@ function pull_latest_galaxy_collections() {
 #  GALAXY_INSTALL_CMD+=("--force")
 
   GALAXY_INSTALL_CMD=("ansible-galaxy collection install")
-  GALAXY_INSTALL_CMD+=("--upgrade")
+  if [[ "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+    GALAXY_INSTALL_CMD+=("--upgrade")
+  fi
   GALAXY_INSTALL_CMD+=("-r ${ANSIBLE_COLLECTION_REQUIREMENTS}")
   GALAXY_INSTALL_CMD+=("-p ${LOCAL_COLLECTIONS_PATH}")
 
@@ -106,8 +109,8 @@ function main() {
   export SSL_CERT_FILE=${CERT_PATH}
   export REQUESTS_CA_BUNDLE=${CERT_PATH}
 
-  if [[ "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    pull_latest_galaxy_collections
+  if [[ "${INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+    install_galaxy_collections
   fi
   echo "==> ansible-galaxy collection list"
   ansible-galaxy collection list

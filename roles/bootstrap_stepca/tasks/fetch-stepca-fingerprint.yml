@@ -1,0 +1,62 @@
+---
+
+- name: Display stepca_host_url
+  ansible.builtin.debug:
+    var: stepca_host_url
+
+## ref: https://smallstep.com/blog/embarrassingly-easy-certificates-on-aws-azure-gcp/
+- name: Set __bootstrap_stepca__stepca_root_ca_fingerprint_result
+#  ansible.builtin.shell: |
+#    curl -k -s {{ stepca_host_url }}/1.0/roots | jq -r '.crts[0]' | sed -r '/^\s*$/d'
+  ansible.builtin.uri:
+    url: "{{ stepca_host_url }}1.0/roots"
+#    method: GET
+    validate_certs: false
+    return_content: true
+    body_format: json
+    follow_redirects: false
+    status_code:
+      - 200
+      - 201
+  register: __bootstrap_stepca__stepca_root_ca_fingerprint_result
+
+- name: Display __bootstrap_stepca__stepca_root_ca_fingerprint_result
+  ansible.builtin.debug:
+    var: __bootstrap_stepca__stepca_root_ca_fingerprint_result
+
+- name: Set __bootstrap_stepca__stepca_root_ca_fingerprint_encoded
+  ansible.builtin.set_fact:
+    __bootstrap_stepca__stepca_root_ca_fingerprint_encoded: "{{ 
+      __bootstrap_stepca__stepca_root_ca_fingerprint_result['json']['crts'][0] | trim }}"
+
+- name: Display __bootstrap_stepca__stepca_root_ca_fingerprint_encoded
+  ansible.builtin.debug:
+    var: __bootstrap_stepca__stepca_root_ca_fingerprint_encoded
+
+- name: Ensure /tmp/stepca_root_ca_fingerprint_encoded.txt
+  ansible.builtin.copy:
+    dest: /tmp/stepca_root_ca_fingerprint_encoded.txt
+    content: "{{ __bootstrap_stepca__stepca_root_ca_fingerprint_encoded }}"
+    mode: "0600"
+
+- name: Get __bootstrap_stepca__stepca_root_ca_fingerprint_decoded
+  changed_when: false
+  ansible.builtin.shell: |
+    step certificate fingerprint /tmp/stepca_root_ca_fingerprint_encoded.txt
+#    step certificate fingerprint <\(echo {{ __bootstrap_stepca__stepca_root_ca_fingerprint_encoded | quote }}\)
+#    step certificate fingerprint <(echo {{ __bootstrap_stepca__stepca_root_ca_fingerprint_encoded | quote }})
+#      <(curl -k -s https://stepca.example.int/1.0/roots | jq -r '.crts[0]' | sed -r '/^\s*$/d')
+  register: __bootstrap_stepca__stepca_root_ca_fingerprint_decoded
+
+- name: Display __bootstrap_stepca__stepca_root_ca_fingerprint_decoded
+  ansible.builtin.debug:
+    var: __bootstrap_stepca__stepca_root_ca_fingerprint_decoded
+
+- name: Set __bootstrap_stepca__stepca_root_ca_fingerprint
+  ansible.builtin.set_fact:
+    __bootstrap_stepca__stepca_root_ca_fingerprint: "{{ deploy_cacerts__stepca_root_ca_fingerprint
+     | d(__bootstrap_stepca__stepca_root_ca_fingerprint_decoded.stdout) }}"
+
+- name: Display __bootstrap_stepca__stepca_root_ca_fingerprint
+  ansible.builtin.debug:
+    var: __bootstrap_stepca__stepca_root_ca_fingerprint

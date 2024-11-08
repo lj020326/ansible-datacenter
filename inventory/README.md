@@ -67,6 +67,8 @@ $ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
 $ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
 $ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
 $ ansible -i DEV/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
+## there is an alias to simplify this (it uses '-i PROD' by default)
+$ ansibledebugvar control01 group_names
 ```
 
 Query multiple variables based on group:
@@ -82,6 +84,8 @@ $ PROJECT_DIR="$( git rev-parse --show-toplevel )"
 $ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_abc123_dev
 $ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_abc123
 $ ansible -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
+## there is an alias to simplify this (it uses '-i PROD' by default)
+$ ansibledebugvar control01 group_names
 ```
 
 Query with vault and vars files variables (e.g., `./test-vars.yml`) 

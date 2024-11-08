@@ -7,6 +7,17 @@
   ansible.builtin.debug:
     var: bootstrap_postfix__raw_options
 
+- name: Display key role vars
+  ansible.builtin.debug:
+    msg:
+      - "bootstrap_postfix__default_database_type={{ bootstrap_postfix__default_database_type }}"
+      - "bootstrap_postfix__default_database_type={{ bootstrap_postfix__default_database_type }}"
+      - "bootstrap_postfix__sender_canonical_maps_database_type={{ bootstrap_postfix__sender_canonical_maps_database_type }}"
+      - "bootstrap_postfix__recipient_canonical_maps_database_type={{ bootstrap_postfix__recipient_canonical_maps_database_type }}"
+      - "bootstrap_postfix__transport_maps_database_type={{ bootstrap_postfix__transport_maps_database_type }}"
+      - "bootstrap_postfix__header_checks_database_type={{ bootstrap_postfix__header_checks_database_type }}"
+      - "bootstrap_postfix__smtp_generic_maps_database_type={{ bootstrap_postfix__smtp_generic_maps_database_type }}"
+
 - name: Ensure postfix is installed.
   ansible.builtin.package:
     name: "{{ bootstrap_postfix__service_packages }}"
@@ -50,12 +61,8 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
   notify: restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-mailname
 
 - name: Update {{ bootstrap_postfix__main_cf | basename }} configuration file
   ansible.builtin.template:
@@ -64,12 +71,8 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
   notify: restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-configuration
 
 - name: Update {{ bootstrap_postfix__master_cf | basename }} configuration file
   ansible.builtin.template:
@@ -78,51 +81,39 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
   notify: restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-configuration
 
 - name: Configure {{ bootstrap_postfix__sasl_passwd_file }}
+  when:
+    - bootstrap_postfix__relayhost | length
+    - bootstrap_postfix__sasl_auth_enable | bool
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__sasl_passwd_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__sasl_passwd_file }}"
     owner: root
     group: root
     mode: "0600"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
-  when:
-    - bootstrap_postfix__relayhost | length
-    - bootstrap_postfix__sasl_auth_enable | bool
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
+    force: true
   no_log: "{{ not ansible_check_mode }}"
   notify:
     - postmap_sasl_passwd
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-sasl-passwd
 
 - name: Configure {{ bootstrap_postfix__tls_policy_file }}
+  when:
+    - bootstrap_postfix__relayhost | length
+    - bootstrap_postfix__sasl_auth_enable | bool
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__tls_policy_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__tls_policy_file }}"
     owner: root
     group: root
     mode: "0600"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
-  when:
-    - bootstrap_postfix__relayhost | length
-    - bootstrap_postfix__sasl_auth_enable | bool
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
   no_log: "{{ not ansible_check_mode }}"
-  notify:
-    - postmap_sasl_passwd
-    - restart_postfix
-  tags:
-    - configuration
-    - postfix
+  notify: restart_postfix
 
 - name: Configure {{ bootstrap_postfix__aliases_file }}
   ansible.builtin.template:
@@ -131,30 +122,21 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
+    force: true
   notify:
     - new_aliases
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-aliases
 
 - name: Check if aliases.db exists
+  when: bootstrap_postfix__default_database_type == 'hash'
+  changed_when: not (_aliasesdb.stat.exists | bool)
   ansible.builtin.stat:
     path: "{{ bootstrap_postfix__aliases_file }}.db"
   register: _aliasesdb
-  changed_when: not _aliasesdb.stat.exists
-  when: bootstrap_postfix__default_database_type == 'hash'
-  notify:
-    - new_aliases
-    - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-aliases
 
 - name: Configure {{ bootstrap_postfix__virtual_aliases_file }}
+  when: bootstrap_postfix__virtual_aliases|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__virtual_aliases }}"
   ansible.builtin.template:
@@ -163,16 +145,14 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
+    force: true
   notify:
     - new_virtual_aliases
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-virtual-aliases
 
 - name: Configure {{ bootstrap_postfix__sender_canonical_maps_file }}
+  when: bootstrap_postfix__sender_canonical_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__sender_canonical_maps }}"
   ansible.builtin.template:
@@ -181,16 +161,14 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
+    force: true
   notify:
     - postmap_sender_canonical_maps
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-sender-canonical-maps
 
 - name: Configure {{ bootstrap_postfix__recipient_canonical_maps_file }}
+  when: bootstrap_postfix__recipient_canonical_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__recipient_canonical_maps }}"
   ansible.builtin.template:
@@ -199,16 +177,14 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
+    force: true
   notify:
     - postmap_recipient_canonical_maps
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-recipient-canonical-maps
 
 - name: Configure {{ bootstrap_postfix__transport_maps_file }}
+  when: bootstrap_postfix__transport_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__transport_maps }}"
   ansible.builtin.template:
@@ -217,16 +193,14 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
+    force: true
   notify:
     - postmap_transport_maps
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-transport-maps
 
 - name: Configure {{ bootstrap_postfix__sender_dependent_relayhost_maps_file }}
+  when: bootstrap_postfix__sender_dependent_relayhost_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__sender_dependent_relayhost_maps }}"
   ansible.builtin.template:
@@ -235,16 +209,14 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
+    force: true
   notify:
     - postmap_sender_dependent_relayhost_maps
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-sender-dependent-relayhost-maps
 
 - name: Configure {{ bootstrap_postfix__smtp_generic_maps_file }}
+  when: bootstrap_postfix__smtp_generic_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__smtp_generic_maps }}"
   ansible.builtin.template:
@@ -253,14 +225,10 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
   notify:
     - postmap_generic
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-generic-table
 
 - name: Configure {{ bootstrap_postfix__header_checks_file }}
   ansible.builtin.template:
@@ -269,13 +237,9 @@
     owner: root
     group: root
     mode: "0644"
-    backup: "{{ bootstrap_postfix__backup_configs|d(True)|bool }}"
+    backup: "{{ bootstrap_postfix__backup_configs | d(True) | bool }}"
   notify:
     - restart_postfix
-  tags:
-    - configuration
-    - postfix
-    - postfix-header-checks-table
 
 - name: Ensure postfix is started and enabled at boot.
   ansible.builtin.service:

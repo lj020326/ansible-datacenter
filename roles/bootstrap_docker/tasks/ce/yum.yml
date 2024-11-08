@@ -28,9 +28,21 @@
       retries: 10
       delay: 2
 
+#    - name: "{{ __bootstrap_docker__log_prefix_yum }} Download GPG key (systems without SNI)."
+#      ansible.builtin.command: curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o /tmp/docker-gpg # noqa command-instead-of-module
+#      changed_when: false
+
     - name: "{{ __bootstrap_docker__log_prefix_yum }} Download GPG key (systems without SNI)."
-      ansible.builtin.command: curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o /tmp/docker-gpg # noqa command-instead-of-module
-      changed_when: false
+      ansible.builtin.get_url:
+        url: "{{ bootstrap_docker__ce_gpg_key }}"
+        dest: /tmp/docker-gpg
+        mode: "0644"
+        validate_certs: false
+      register: __fetch_gpg_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_yum }} Displauy __fetch_gpg_result"
+      ansible.builtin.debug:
+        var: __fetch_gpg_result
 
     - name: "{{ __bootstrap_docker__log_prefix_yum }} Add Docker GPG key (systems without SNI)."
       ansible.builtin.command: rpm --import /tmp/docker-gpg # noqa command-instead-of-module

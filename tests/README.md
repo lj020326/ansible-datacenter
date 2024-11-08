@@ -95,6 +95,12 @@ $ ansible -i inventory/prod/hosts.yml -m debug -a var=bootstrap_ntp_servers test
 $ ansible -i inventory/prod/hosts.yml -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
 ```
 
+or use bashenv alias setup in the ansible-developer bash defined environment like so:
+```shell
+ansibledebugvar control01 group_names
+ansibledebugvar vcontrol01 bootstrap_nfs__exports
+```
+
 Check vaulted variable
 
 ```shell

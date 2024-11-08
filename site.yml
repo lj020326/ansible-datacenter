@@ -35,6 +35,8 @@
   gather_facts: false
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
   roles:
     - role: ansible_ping_test
       when:
@@ -50,6 +52,8 @@
   #  gather_facts: false
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
   roles:
     - role: apply_common_groups
       when:
@@ -64,6 +68,8 @@
     - display-network-vars
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
   tasks:
     - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
@@ -84,6 +90,8 @@
     - display-collection-versions
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
   tasks:
     - name: "Display important collection versions" # noqa run-once[task]
       run_once: true
@@ -103,9 +111,7 @@
           - "confluent.platform version={{ lookup('community.general.collection_version', 'confluent.platform') }}"
           - "cyberark.conjur version={{ lookup('community.general.collection_version', 'cyberark.conjur') }}"
           - "cyberark.pas version={{ lookup('community.general.collection_version', 'cyberark.pas') }}"
-          - "jfrog.platform version={{ lookup('community.general.collection_version', 'jfrog.platform') }}"
           - "microsoft.ad version={{ lookup('community.general.collection_version', 'microsoft.ad') }}"
-          - "redhat.satellite version={{ lookup('community.general.collection_version', 'redhat.satellite') }}"
 
 - name: Display controller vars
   hosts: ansible_localhost
@@ -206,6 +212,7 @@
 ## Deploy VMs
 ##
 - name: Deploy Virtual Machines
+#  hosts: ansible_localhost
   hosts: vmware_control_node
   tags:
     - bootstrap-vm
@@ -246,16 +253,21 @@
   tags:
     - bootstrap-ansible-user
     - bootstrap-ansible
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_user: "{{ bootstrap_user }}"
+    ansible_password: "{{ bootstrap_user_password }}"
   tasks:
-    - name: Bootstrap ansible venv
-      vars:
-        ansible_python_interpreter: "{{ os_python_interpreter }}"
-      ansible.builtin.include_role:
-        name: bootstrap_pip
-
     - name: Bootstrap ansible user
       ansible.builtin.include_role:
         name: bootstrap_ansible_user
+
+    - name: Bootstrap ansible venv
+#      vars:
+#        ansible_python_interpreter: "{{ os_python_interpreter }}"
+      ansible.builtin.include_role:
+        name: bootstrap_pip
+
 
 #- name: Bootstrap linux ansible user
 #  hosts: os_linux,!node_offline
@@ -327,6 +339,8 @@
   become: true
   tags:
     - bootstrap-linux-upgrade
+    - bootstrap-os-upgrade
+    - bootstrap-os-update
   roles:
     - role: bootstrap_linux_upgrade
 
@@ -474,14 +488,22 @@
 ##
 ## Bootstrap linux plays
 ##
-- name: Bootstrap linux to new deployed vm instance
-  hosts: vmware_new_vm_linux
-  #  gather_facts: false
-  tags: deploy-vm
+- name: Bootstrap ansible venv
+  hosts: os_linux,!node_offline
+  tags:
+    - bootstrap-ansible-venv
+    - bootstrap-pip
+    - bootstrap-linux-docker
+    - bootstrap-linux
+    - bootstrap-docker
+    - vm-template
+    - vm-template-linux
   become: true
+  vars:
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
+    bootstrap_pip__env_force_rebuild: false
   roles:
-    - role: apply_common_groups
-    - role: bootstrap_linux
+    - role: bootstrap_pip
 
 - name: Bootstrap linux
   hosts: os_linux,!node_offline
@@ -501,6 +523,15 @@
   become: true
   roles:
     - role: bootstrap_linux_core
+
+- name: Bootstrap linux to new deployed vm instance
+  hosts: vmware_new_vm_linux
+  #  gather_facts: false
+  tags: deploy-vm
+  become: true
+  roles:
+    - role: apply_common_groups
+    - role: bootstrap_linux
 
 ##
 ## Bootstrap windows plays
@@ -610,29 +641,29 @@
     #    - role: syncoid
     - role: bootstrap_mergerfs
 
-#- name: Install veeam-agent
-#  hosts: veeam_agent,!node_offline
-#  become: true
-#  tags:
-#    - bootstrap-veeam
-#    - bootstrap-veeam-agent
-#    - setup-veeam-agent
-#    - install-veeam-agent
-#  roles:
-#    - role: bootstrap_veeam_agent
-#    - role: bootstrap_linux_firewalld
-#      firewalld_action: configure
-#      tags: [firewall-config-veeamagent]
+- name: Install veeam-agent
+  hosts: veeam_agent,!node_offline
+  become: true
+  tags:
+    - bootstrap-veeam
+    - bootstrap-veeam-agent
+    - setup-veeam-agent
+    - install-veeam-agent
+  roles:
+    - role: bootstrap_veeam_agent
+    - role: bootstrap_linux_firewalld
+      firewalld_action: configure
+      tags: [firewall-config-veeamagent]
 
-#- name: Configure veeam-agent jobs
-#  hosts: veeam_agent,!node_offline
-#  become: true
-#  tags:
-#    - config-veeam-agent
-#  #    - bootstrap-veeam
-#  #    - bootstrap-veeam-agent
-#  roles:
-#    - role: bootstrap_veeam_agent_config
+- name: Configure veeam-agent jobs
+  hosts: veeam_agent,!node_offline
+  become: true
+  tags:
+    - config-veeam-agent
+  #    - bootstrap-veeam
+  #    - bootstrap-veeam-agent
+  roles:
+    - role: bootstrap_veeam_agent_config
 
 - name: Bootstrap postfix server
   hosts: postfix_server,!node_offline
@@ -682,20 +713,6 @@
     - role: bootstrap_git
     - role: bootstrap_ansible
     - role: bootstrap_linux_locale
-
-- name: Bootstrap ansible venv
-  hosts: os_linux,!node_offline
-  tags:
-    - bootstrap-ansible-venv
-    - bootstrap-pip
-    - bootstrap-linux-docker
-    - bootstrap-docker
-  become: true
-  vars:
-    ansible_python_interpreter: "{{ os_python_interpreter }}"
-    bootstrap_pip__env_force_rebuild: false
-  roles:
-    - role: bootstrap_pip
 
 #- name: Bootstrap pip
 #  hosts: os_linux,!node_offline
@@ -919,6 +936,7 @@
 - name: Deploy VSphere Datacenter
   hosts: vsphere_control_node
   tags:
+    - bootstrap-vsphere
     - deploy-vsphere-dc
     - vsphere-deploy-dc
     - ping-exclude
@@ -935,6 +953,7 @@
     - role: vmware_upgrade_esxi
 
 - name: VMware Remount VM Datastores
+#  hosts: ansible_localhost
   hosts: vmware_control_node
   become: true
   tags:
@@ -943,12 +962,14 @@
     #    - role: vmware_remount_datastores
     - role: bootstrap_vmware_datastores
       vars:
-        vmware_unmount_datastores_first: true
+        bootstrap_vmware_datastores__unmount_datastores_first: true
 
 - name: VMware Mount VM Datastores
+#  hosts: ansible_localhost
   hosts: vmware_control_node
   become: true
   tags:
+    - bootstrap-vmware-mounts
     - vmware-mount-datastores
   roles:
     - role: bootstrap_vmware_datastores

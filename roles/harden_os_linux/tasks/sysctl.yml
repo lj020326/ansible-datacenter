@@ -40,24 +40,30 @@
     access_time: preserve
 
 - name: Set Daemon umask, do config for rhel-family | NSA 2.2.4.1
+  when:
+    - ansible_facts.distribution in ['Amazon', 'CentOS', 'Fedora', 'RedHat']
+    - harden_os_linux__security_kernel_enable_rhel_sysconfig_init
   ansible.builtin.template:
     src: etc/sysconfig/rhel_sysconfig_init.j2
     dest: /etc/sysconfig/init
     owner: root
     group: root
     mode: "0544"
-  when: ansible_facts.distribution in ['Amazon', 'CentOS', 'Fedora', 'RedHat']
 
 - name: Install initramfs-tools
+  when:
+    - ansible_facts.os_family == 'Debian'
+    - harden_os_linux__security_kernel_enable_module_loading
   ansible.builtin.apt:
     name: initramfs-tools
     state: present
     update_cache: true
-  when:
-    - ansible_facts.os_family == 'Debian'
-    - harden_os_linux__security_kernel_enable_module_loading
 
 - name: Rebuild initramfs with starting pack of modules, if module loading at runtime is disabled
+  when:
+    - ansible_facts.os_family == 'Debian'
+    - ansible_facts.distribution_major_version|int is version('9', '>')
+    - harden_os_linux__security_kernel_enable_module_loading
   ansible.builtin.template:
     src: etc/initramfs-tools/modules.j2
     dest: /etc/initramfs-tools/modules
@@ -66,10 +72,6 @@
     mode: "0440"
   notify:
     - OS-HARDEN-UPDATE-initramfs
-  when:
-    - ansible_facts.os_family == 'Debian'
-    - ansible_facts.distribution_major_version|int is version('9', '>')
-    - harden_os_linux__security_kernel_enable_module_loading
   register: initramfs
 
 - name: Change sysctls

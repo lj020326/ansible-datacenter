@@ -1,5 +1,7 @@
 ---
 
+os_python_interpreter: /bin/python3
+
 ## ref: https://itspyworld.blogspot.com/2020/03/update-vmware-esxi-hosts-with-ansible.html
 ## ref: https://graspingtech.com/ansible-esxi/
 ansible_python_interpreter: /bin/python3
@@ -15,36 +17,89 @@ vcenter_subnet: "{{ vcenter_ipv4_subnet_1_2 }}.0"
 vcenter_vmotion_subnet: "{{ vcenter_ipv4_subnet_1_2 }}.6"
 vcenter_vsan_subnet: "{{ vcenter_ipv4_subnet_1_2 }}.7"
 
-vsphere_deploy_dc_vcenter_mgt_vswitch: "vSwitch0"
-vsphere_deploy_dc_vcenter_mgt_vswitch_mtu: "1700"
+bootstrap_vsphere_dc__vcenter_network: VM Network
+
+bootstrap_vsphere_dc__vcenter_mgt_vswitch: vSwitch0
+bootstrap_vsphere_dc__vcenter_mgt_vswitch_mtu: "1700"
+bootstrap_vsphere_dc__vcenter_mgt_network: Management Network
+bootstrap_vsphere_dc__vcenter_mgt_vlan_id: 0
+
+## VSS => vmware standard switch setup
+#bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name: "AllVlansVSS"
+bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name: nested-trunk
+bootstrap_vsphere_dc__vcenter_nested_vss_vlan_id: 4095
 
 vcenter_switch_nics:
   - vmnic0
 
-vsphere_deploy_dc_vcenter_domain: "{{ dns_domain }}"
-
-vsphere_deploy_dc_vcenter_dns_servers: "{{ dns_nameservers }}"
 esx_dns_servers: "{{ dns_nameservers }}"
-esx_ntp_servers: "{{ vsphere_deploy_dc_vcenter_dns_servers }}"
+esx_ntp_servers: "{{ bootstrap_vsphere_dc__vcenter_dns_servers }}"
 
-vsphere_deploy_dc_vcenter_search_domains:
-  - "{{ vsphere_deploy_dc_vcenter_domain }}"
+vcenter_search_domains:
+  - "{{ dns_domain }}"
 
-vcenter_switch_teaming: {}
+bootstrap_vsphere_dc__vcenter_dns_servers: "{{ dns_nameservers }}"
+bootstrap_vsphere_dc__vcenter_domain: "{{ dns_domain }}"
+bootstrap_vsphere_dc__vcenter_search_domains: "{{ vcenter_search_domains }}"
+
+#vcenter_switch_teaming: {}
+vcenter_switch_teaming:
+  active_adapters:
+    - vmnic0
+#    - vmnic1
+  standby_adapters: []
+#  standby_adapters:
+#    - vmnic2
+#    - vmnic3
+
+bootstrap_vsphere_dc__vcenter_compute_vlan_id: 0
+
+vcenter_portgroups:
+  - switch_name: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch }}"
+    portgroup_name: "{{ bootstrap_vsphere_dc__vcenter_network }}"
+    vlan_id: "{{ bootstrap_vsphere_dc__vcenter_compute_vlan_id }}"
+    network_policy:
+      promiscuous_mode: true
+
+  - switch_name: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch }}"
+    portgroup_name: "{{ bootstrap_vsphere_dc__vcenter_mgt_network }}"
+    vlan_id: "{{ bootstrap_vsphere_dc__vcenter_mgt_vlan_id }}"
+    network_policy:
+      promiscuous_mode: true
+
+  - switch_name: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch }}"
+    portgroup_name: "{{ bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name }}"
+    vlan_id: "{{ bootstrap_vsphere_dc__vcenter_nested_vss_vlan_id }}"
+    network_policy:
+      promiscuous_mode: true
+      forged_transmits: true
+      mac_changes: true
 
 vcenter_switches:
-  - switch_name: "{{ vsphere_deploy_dc_vcenter_mgt_vswitch }}"
-    mtu: "{{ vsphere_deploy_dc_vcenter_mgt_vswitch_mtu }}"
+  - switch_name: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch }}"
+    mtu: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch_mtu }}"
     nics: "{{ vcenter_switch_nics }}"
-    teaming: "{{ vcenter_switch_teaming | d(omit) }}"
+    teaming: "{{ vcenter_switch_teaming }}"
 
 vcenter_esxi_node_info:
   name: "{{ inventory_hostname_short }}"
-  hostname: "{{ inventory_hostname_short }}.{{ vsphere_deploy_dc_vcenter_domain }}"
+  hostname: "{{ inventory_hostname_short }}.{{ bootstrap_vsphere_dc__vcenter_domain }}"
 #  ip: "{{ vcenter_ipv4_address }}"
-  vlan: "{{ vsphere_deploy_dc_vcenter_mgt_vlan_id }}"
-  switch_name: "{{ vsphere_deploy_dc_vcenter_mgt_vswitch }}"
-  cluster: "{{ vsphere_deploy_dc_vcenter_cluster }}"
+  vlan: "{{ bootstrap_vsphere_dc__vcenter_mgt_vlan_id }}"
+  switch_name: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch }}"
+  cluster: "{{ bootstrap_vsphere_dc__vcenter_cluster }}"
   vmotion_ip: "{{ vcenter_vmotion_ip }}"
   vsan_ip: "{{ vcenter_vsan_ip }}"
+  network_type: "{{ vcenter_network_type | d('dhcp') }}"
+  network_device: "{{ vcenter_network_device | d('vmk0') }}"
+  dns_domain: "{{ dns_domain }}"
+  dns_servers: "{{ dns_nameservers }}"
+  search_domains: "{{ vcenter_search_domains }}"
+  datastores: "{{ vmware_host_datastores }}"
+  portgroups: "{{ vcenter_portgroups }}"
   switches: "{{ vcenter_switches }}"
+#  switches:
+#    - switch_name: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch }}"
+#      mtu: "{{ bootstrap_vsphere_dc__vcenter_mgt_vswitch_mtu }}"
+#      nics: "{{ vcenter_switch_nics }}"
+#      teaming: "{{ vcenter_switch_teaming }}"
