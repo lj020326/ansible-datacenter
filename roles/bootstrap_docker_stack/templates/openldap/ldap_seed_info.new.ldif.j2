@@ -216,40 +216,54 @@ sambaSIDList: {{ _group_samba_sid }}
 
 ## LDAP domain hosts
 {% if __docker_stack__openldap__domain_host_map|d({})|dict2items|length>0 %}
-    {% for host_cn,host_config in __docker_stack__openldap__domain_host_map.items() %}
+    {% for _host_cn,_host_config in __docker_stack__openldap__domain_host_map.items() %}
 
-dn: {{ host_config.dn }}
+dn: {{ _host_config.dn }}
 changetype: add
-        {% set _object_class_list = host_config.object_class_list %}
+        {% set _object_class_list = _host_config.object_class_list %}
         {% if _object_class_list|d([])|length > 0 %}
             {% for _object_class in _object_class_list %}
 objectClass: {{ _object_class }}
             {% endfor %}
         {% endif %}
-cn: {{ host_cn }}
-        {% if host_config.gid_number is defined %}
-gidNumber: {{ host_config.gid_number }}
+cn: {{ _host_cn }}
+        {% if _host_config.gid_number is defined %}
+gidNumber: {{ _host_config.gid_number }}
         {% endif %}
 homeDirectory: /dev/null
-uid: {{ host_cn }}$
-        {% if host_config.uid_number is defined %}
-uidNumber: {{ host_config.uid_number }}
+uid: {{ _host_cn }}$
+        {% if _host_config.uid_number is defined %}
+uidNumber: {{ _host_config.uid_number }}
         {% endif %}
-description: {{ host_config.description | d(host_cn) }}
-displayName: {{ host_config.display_name | d(host_cn) }}
+description: {{ _host_config.description | d(_host_cn) }}
+displayName: {{ _host_config.display_name | d(_host_cn) }}
 loginShell: /bin/false
-        {% if host_config.samba is defined %}
-            {% if host_config.samba.sid is defined %}
-sambaSID: {{ host_config.samba.sid }}
+        {% if _host_config.samba is defined %}
+            {% if _host_config.samba.sid is defined %}
+sambaSID: {{ _host_config.samba.sid }}
             {% endif %}
 sambaAcctFlags: [W          ]
 sambaDomainName: {{ __docker_stack__openldap__domain }}
-            {% if host_config.samba.primary_group_sid is defined %}
-sambaPrimaryGroupSID: {{ host_config.samba.primary_group_sid }}
+            {% if _host_config.samba.primary_group_sid is defined %}
+sambaPrimaryGroupSID: {{ _host_config.samba.primary_group_sid }}
             {% endif %}
-            {% if host_config.samba.nt_password is defined %}
-sambaNTPassword: {{ host_config.samba.nt_password }}
+            {% if _host_config.samba.nt_password is defined %}
+sambaNTPassword: {{ _host_config.samba.nt_password }}
             {% endif %}
         {% endif %}
     {% endfor %}
 {% endif %}
+
+cn=lastGID,{{ __docker_stack__openldap__base_dn }}
+changetype: add
+objectClass: top
+objectClass: device
+description: Records the last GID used to create a Posix group. This prevents the re-use of a GID from a deleted group.
+serialNumber: 2000
+
+cn=lastUID,{{ __docker_stack__openldap__base_dn }}
+changetype: add
+objectClass: top
+objectClass: device
+description: Records the last UID used to create a Posix account. This prevents the re-use of a UID from a deleted account.
+serialNumber: 2000

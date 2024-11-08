@@ -471,9 +471,9 @@ If there is the need to invoke the firewall role from another role, see the exam
 
 ```
 
-### Example 3 : 'bootstrap_docker_stack' role using firewalld role
+### Example 3 : 'docker-stack' role using firewalld role
 
-[roles/bootstrap_docker_stack/tasks/setup-firewalld.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/bootstrap_docker_stack/tasks/setup-firewalld.yml#L28-L34):
+[roles/docker-stack/tasks/setup-firewalld.yml](https://github.com/lj020326/ansible-datacenter/blob/main/roles/docker-stack/tasks/setup-firewalld.yml#L28-L34):
 ```yaml
 ---
 
