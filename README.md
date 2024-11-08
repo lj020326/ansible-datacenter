@@ -297,26 +297,6 @@ $ run-playbook.sh site.yml -t bootstrap-docker-stack -l admin01
 $ run-playbook.sh bootstrap-ntp.yml -l testgroup_lnx
 ```
 
-### Using run-ansible.sh launch script for jump hosts
-
-Using the run-ansible.sh script to automatically first install all dependencies then run the command
-
-A [run-ansible.sh script](run-ansible.sh) is available that will upon execution always (1) check and create a virtualenv named 'venv' if not already exists, (2) install [pip library requirements](./requirements.txt), (3) install [collection requirements](collections/requirements.yml), (4) install [role requirements](roles/requirements.yml) and (5) run the command specified.  It also checks in the latest code via git Add/Commit/Push (ACP) before the steps just mentioned.  Finally, it also allows specification of a control/jump host to run the playbook via ssh wrapper.  
-
-```shell
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l control01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l media01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-docker-stack -l media01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-linux -l control01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-linux -l media01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-mounts -l media01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-registry -l media01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-user -l control01
-run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-user -l media01
-
-```
-
-
 ### To setup/configure iscsi client node
 
 ```shell
@@ -678,6 +658,26 @@ runme.sh -vvv bootstrap-docker.yml -l admin01
 runme.sh bootstrap-docker-stack.yml -l docker_stack_jenkins_jcac
 runme.sh bootstrap-jenkins-agent.yml -l admin01
 ```
+
+### Using run-ansible.sh launch script for jump hosts
+
+Using the run-ansible.sh script to automatically first install all dependencies then run the command
+
+A [run-ansible.sh script](run-ansible.sh) is available that will upon execution always (1) check and create a virtualenv named 'venv' if not already exists, (2) install [pip library requirements](./requirements.txt), (3) install [collection requirements](collections/requirements.yml), (4) install [role requirements](roles/requirements.yml) and (5) run the command specified.  It also checks in the latest code via git Add/Commit/Push (ACP) before the steps just mentioned.  Finally, it also allows specification of a control/jump host to run the playbook via ssh wrapper.  
+
+```shell
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l control01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-docker-stack -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-linux -l control01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-linux -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-mounts -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-registry -l media01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-user -l control01
+run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-user -l media01
+
+```
+
 
 ## Contact
 
