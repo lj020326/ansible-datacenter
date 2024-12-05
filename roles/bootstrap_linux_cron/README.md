@@ -113,7 +113,7 @@ bootstrap_linux_cron__list__docker_stack:
 #    user: "{{ docker_stack__user_username }}"
 
   - name: "Restart the docker stack"
-    job: "cd /home/{{ docker_stack__user_username }}/docker && /usr/local/bin/docker-compose up -d"
+    job: "cd /home/{{ docker_stack__user_username }}/docker && docker-compose up -d"
     ## run 1:10AM every day
     schedule: ["10", "1", "*", "*", "*"]
     cron_file: "docker-stack-restart"

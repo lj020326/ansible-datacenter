@@ -31,6 +31,18 @@ bootstrap_postfix__relayhost: "{{ smtp_relay_host }}"
 bootstrap_postfix__relayhost_port: "{{ smtp_relay_port }}"
 bootstrap_postfix__relaytls: true
 
+# bootstrap_postfix__mailname: "dettonville.org"
+bootstrap_postfix__mailname: "dettonville.com"
+# bootstrap_postfix__mydestination: []
+
+bootstrap_postfix__mydestination:
+  - "{{ ca_domain }}"
+  - "mail.{{ ca_domain }}"
+  - "{{ bootstrap_postfix__hostname }}"
+  - localdomain
+  - localhost
+  - localhost.localdomain
+
 bootstrap_postfix__smtpd_tls_cert_file: /etc/ssl/certs/ssl-cert-snakeoil.pem
 bootstrap_postfix__smtpd_tls_key_file: /etc/ssl/private/ssl-cert-snakeoil.key
 
@@ -41,30 +53,57 @@ bootstrap_postfix__sasl_password: "{{ smtp_relay_password }}"
 
 bootstrap_postfix__smtp_tls_wrappermode: true
 
-# bootstrap_postfix__mailname: "dettonville.org"
-bootstrap_postfix__mailname: "dettonville.com"
-# bootstrap_postfix__mydestination: []
-
 ## ref: http://www.postfix.org/ADDRESS_REWRITING_README.html
 bootstrap_postfix__smtp_generic_maps:
   - pattern: "@dettonville.int"
     result: "@dettonville.com"
   - pattern: "@johnson.int"
     result: "@dettonville.com"
+  - pattern: "@epgtec.com"
+    result: "@dettonville.com"
 #  - pattern: "@dettonville.int"
 #    result: "$local@dettonville.com"
 #  - pattern: "@johnson.int"
 #    result: "$local@dettonville.com"
 
+bootstrap_postfix__sender_canonical_maps_database_type: regexp
+
+bootstrap_postfix__sender_canonical_classes:
+  - envelope_sender
+  - header_sender
+
+## use regex to rewrite all sender
+## ref: https://github.com/lj020326/ansible-developer/blob/main/docs/postfix/zoho-postfix-smtp-relay.md
 bootstrap_postfix__sender_canonical_maps:
-  - pattern: root
+  - pattern: "/.+/"
     result: admin@dettonville.com
-  - pattern: ansible
-    result: admin@dettonville.com
-  - pattern: admin@dettonville.org
-    result: admin@dettonville.com
-  - pattern: MAILER-DAEMON@dettonville.com
-    result: admin@dettonville.com
+
+## use regex to rewrite all sender
+## ref: https://github.com/lj020326/ansible-developer/blob/main/docs/postfix/zoho-postfix-smtp-relay.md
+#bootstrap_postfix__smtp_header_checks_database_type: regexp
+bootstrap_postfix__smtp_header_checks_database_type: pcre
+bootstrap_postfix__smtp_header_checks:
+#  - pattern: "/^From:.*+(.*?)@.*/"
+  - pattern: "/^From:.*\\+(.*?)@.*/"
+    action: REPLACE
+    text: "From: admin+$1@dettonville.com"
+#  - pattern: "/^From:.*/"
+#  - pattern: "/^From:\\w\\+(?!\\+)@.*/"
+  - pattern: "/^From:(?!\\+).*/"
+    action: REPLACE
+    text: "From: admin@dettonville.com"
+
+#bootstrap_postfix__sender_canonical_maps:
+#  - pattern: root
+#    result: admin@dettonville.com
+#  - pattern: ansible
+#    result: admin@dettonville.com
+#  - pattern: root@johnson.int
+#    result: admin@dettonville.com
+#  - pattern: admin@dettonville.org
+#    result: admin@dettonville.com
+#  - pattern: MAILER-DAEMON@dettonville.com
+#    result: admin@dettonville.com
 ## cant use regex in hash db
 #  - pattern: "/.+/"
 #    result: admin@dettonville.com
@@ -76,9 +115,13 @@ bootstrap_postfix__sender_canonical_maps:
 bootstrap_postfix__recipient_target: "{{ vault__postfix_recipient_target | d('') }}"
 
 bootstrap_postfix__recipient_canonical_maps:
+  - pattern: root@dettonville.com
+    result: "{{ bootstrap_postfix__recipient_target }}"
   - pattern: admin@dettonville.com
     result: "{{ bootstrap_postfix__recipient_target }}"
   - pattern: admin@dettonville.org
+    result: "{{ bootstrap_postfix__recipient_target }}"
+  - pattern: admin@epgtec.com
     result: "{{ bootstrap_postfix__recipient_target }}"
 
 bootstrap_postfix__enable_original_recipient: "no"
@@ -102,7 +145,7 @@ bootstrap_postfix__debug_list:
   - media01
   - vcontrol01
 #  - admin01
-  - admin02
+#  - admin02
 #  - admin03
 
 bootstrap_postfix__debug_host_list_yaml: |

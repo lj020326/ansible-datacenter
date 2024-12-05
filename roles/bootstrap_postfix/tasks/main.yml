@@ -15,7 +15,7 @@
       - "bootstrap_postfix__sender_canonical_maps_database_type={{ bootstrap_postfix__sender_canonical_maps_database_type }}"
       - "bootstrap_postfix__recipient_canonical_maps_database_type={{ bootstrap_postfix__recipient_canonical_maps_database_type }}"
       - "bootstrap_postfix__transport_maps_database_type={{ bootstrap_postfix__transport_maps_database_type }}"
-      - "bootstrap_postfix__header_checks_database_type={{ bootstrap_postfix__header_checks_database_type }}"
+      - "bootstrap_postfix__smtp_header_checks_database_type={{ bootstrap_postfix__smtp_header_checks_database_type }}"
       - "bootstrap_postfix__smtp_generic_maps_database_type={{ bootstrap_postfix__smtp_generic_maps_database_type }}"
 
 - name: Ensure postfix is installed.
@@ -23,9 +23,10 @@
     name: "{{ bootstrap_postfix__service_packages }}"
     state: present
 
+## ref: https://www.tecmint.com/find-postfix-mail-server-version-in-linux/
 ## ref: https://www.howtoforge.com/faq/how-to-find-out-the-postfix-version
 - name: Get __postfix_installed_version_info
-  ansible.builtin.command: postconf mail_version
+  ansible.builtin.command: postconf -d mail_version
   register: __postfix_installed_version_info
   changed_when: false
 
@@ -53,6 +54,25 @@
     path: /etc/postfix
     state: directory
     mode: "0755"
+
+## ref: https://forum.centos-webpanel.com/updates/postfix-mailserver-not-starting/
+- name: Ensure /etc/postfix/postfix-files
+  ansible.builtin.file:
+    path: /etc/postfix
+    state: touch
+    mode: "0640"
+
+- name: Find existing postfix hash db files
+  ansible.builtin.find:
+    paths: /etc/postfix
+    patterns: "*.db"
+  register: __postfix_hashmap_db_files
+
+- name: Remove old/existing postfix hash db files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ __postfix_hashmap_db_files.files }}"
 
 - name: Configure mailname
   ansible.builtin.template:
@@ -88,6 +108,7 @@
   when:
     - bootstrap_postfix__relayhost | length
     - bootstrap_postfix__sasl_auth_enable | bool
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__sasl_passwd_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__sasl_passwd_file }}"
@@ -105,6 +126,7 @@
   when:
     - bootstrap_postfix__relayhost | length
     - bootstrap_postfix__sasl_auth_enable | bool
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__tls_policy_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__tls_policy_file }}"
@@ -116,6 +138,7 @@
   notify: restart_postfix
 
 - name: Configure {{ bootstrap_postfix__aliases_file }}
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__aliases_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__aliases_file }}"
@@ -128,17 +151,11 @@
     - new_aliases
     - restart_postfix
 
-- name: Check if aliases.db exists
-  when: bootstrap_postfix__default_database_type == 'hash'
-  changed_when: not (_aliasesdb.stat.exists | bool)
-  ansible.builtin.stat:
-    path: "{{ bootstrap_postfix__aliases_file }}.db"
-  register: _aliasesdb
-
 - name: Configure {{ bootstrap_postfix__virtual_aliases_file }}
   when: bootstrap_postfix__virtual_aliases|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__virtual_aliases }}"
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__virtual_aliases_file }}"
@@ -155,6 +172,8 @@
   when: bootstrap_postfix__sender_canonical_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__sender_canonical_maps }}"
+    __bootstrap_postfix__canonical_maps_type: "{{ bootstrap_postfix__sender_canonical_maps_database_type }}"
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__sender_canonical_maps_file }}"
@@ -171,6 +190,7 @@
   when: bootstrap_postfix__recipient_canonical_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__recipient_canonical_maps }}"
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__recipient_canonical_maps_file }}"
@@ -187,6 +207,7 @@
   when: bootstrap_postfix__transport_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__transport_maps }}"
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__transport_maps_file }}"
@@ -203,6 +224,7 @@
   when: bootstrap_postfix__sender_dependent_relayhost_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__sender_dependent_relayhost_maps }}"
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__sender_dependent_relayhost_maps_file }}"
@@ -219,6 +241,7 @@
   when: bootstrap_postfix__smtp_generic_maps|length>0
   vars:
     __bootstrap_postfix__canonical_maps: "{{ bootstrap_postfix__smtp_generic_maps }}"
+  changed_when: true
   ansible.builtin.template:
     src: "{{ bootstrap_postfix__canonical_maps_file.lstrip('/') }}.j2"
     dest: "{{ bootstrap_postfix__smtp_generic_maps_file }}"
@@ -230,10 +253,12 @@
     - postmap_generic
     - restart_postfix
 
-- name: Configure {{ bootstrap_postfix__header_checks_file }}
+- name: Configure {{ bootstrap_postfix__smtp_header_checks_file }}
+  when: bootstrap_postfix__smtp_header_checks|length>0
+  changed_when: true
   ansible.builtin.template:
-    src: "{{ bootstrap_postfix__header_checks_file.lstrip('/') }}.j2"
-    dest: "{{ bootstrap_postfix__header_checks_file }}"
+    src: "{{ bootstrap_postfix__smtp_header_checks_file.lstrip('/') }}.j2"
+    dest: "{{ bootstrap_postfix__smtp_header_checks_file }}"
     owner: root
     group: root
     mode: "0644"

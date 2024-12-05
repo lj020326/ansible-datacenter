@@ -40,8 +40,8 @@ Options for values `inet_interfaces` and `inet_protocols` in the `main.cf` file.
  * `bootstrap_postfix__transport_maps` [default: `[]`]: Transport mapping based on recipient address `/etc/postfix/transport_maps` ([see](http://www.postfix.org/postconf.5.html#recipient_canonical_maps))
  * `bootstrap_postfix__transport_maps_database_type` [default: `"{{ bootstrap_postfix__default_database_type }}"`]: The database type for use in `bootstrap_postfix__transport_maps`
  * `bootstrap_postfix__sender_dependent_relayhost_maps` [default: `[]`]: Transport mapping based on sender address `/etc/postfix/sender_dependent_relayhost_maps` ([see](http://www.postfix.org/postconf.5.html#recipient_canonical_maps))
- * `bootstrap_postfix__header_checks` [default: `[]`]: Lookup tables for content inspection of primary non-MIME message headers `/etc/postfix/header_checks` ([see](http://www.postfix.org/postconf.5.html#header_checks))
- * `bootstrap_postfix__header_checks_database_type` [default: `regexp`]: The database type for use in `header_checks`
+ * `bootstrap_postfix__smtp_header_checks` [default: `[]`]: Lookup tables for content inspection of primary non-MIME message headers `/etc/postfix/header_checks` ([see](http://www.postfix.org/postconf.5.html#header_checks))
+ * `bootstrap_postfix__smtp_header_checks_database_type` [default: `regexp`]: The database type for use in `header_checks`
  * `bootstrap_postfix__generic` [default: `bootstrap_postfix__smtp_generic_maps`]: **Deprecated**, use `bootstrap_postfix__smtp_generic_maps`
  * `bootstrap_postfix__smtp_generic_maps` [default: `[]`]: Generic table address mapping in `/etc/postfix/generic` ([see](http://www.postfix.org/generic.5.html))
  * `bootstrap_postfix__smtp_generic_maps_database_type` [default: `"{{ bootstrap_postfix__default_database_type }}"`]: The database type for use in `smtp_generic_maps`
