@@ -2,3 +2,28 @@
 
 bootstrap_docker__swarm_leader: true
 docker_stack__swarm_manager: true
+
+##########
+## crons
+##   list of CRONs to be setup for docker_stack machines.
+##########
+bootstrap_linux_cron__list__docker_stack:
+  - name: "Docker disk clean up"
+    job: "docker system prune -af 2>&1"
+#    job: "docker system prune -af > /dev/null 2>&1"
+    ## run 12:00AM every sunday
+    schedule: ["0", "0", "*", "*", "0"]
+    cron_file: "docker-disk-clean-up"
+#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+  - name: "Docker large log file clean up"
+    job: "/opt/scripts/docker-cleanup-large-logfiles.sh -y 2>&1"
+    ## run 12:00AM every sunday
+    schedule: ["0", "0", "*", "*", "0"]
+    cron_file: "docker-large-logfile-clean-up"
+#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+  - name: "Restart the docker stack"
+    job: "{{ docker_stack__restart_stack_command }}"
+    ## run 1:10AM every day
+    schedule: ["10", "1", "*", "*", "*"]
+    cron_file: "docker-stack-restart"
+#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"

@@ -4,7 +4,12 @@ docker_stack__swarm_mode: true
 docker_stack__traefik_host: "{{ docker_stack__swarm_leader_host }}"
 docker_stack__setup_systemd_service: false
 
-docker_stack__restart_stack_command: "cd /home/{{ docker_stack__user_username }}/docker && docker stack rm docker_stack && ./deploy-stack.sh"
+docker_stack__restart_stack_command: >
+  cd /home/{{ docker_stack__user_username }}/docker && ./recreate-stack.sh
+
+#docker_stack__restart_stack_command: >
+#  cd /home/{{ docker_stack__user_username }}/docker &&
+#  docker stack rm docker_stack || true ; ./deploy-stack.sh
 
 #bootstrap_docker__swarm_remote_addrs: |-
 #  {% set remote_addresses = [] %}
@@ -25,3 +30,15 @@ firewalld_ports__docker:
   - "4789/udp"
   ## ref: https://stackoverflow.com/questions/61028328/docker-swarm-a-node-is-not-joining-the-ingress-network
   - "7946/tcp"
+
+##########
+## crons
+##   list of CRONs to be setup for docker_stack machines.
+##########
+bootstrap_linux_cron__list__docker_stack:
+  - name: "Docker large log file clean up"
+    job: "/opt/scripts/docker-cleanup-large-logfiles.sh -y 2>&1"
+    ## run 12:00AM every sunday
+    schedule: ["0", "0", "*", "*", "0"]
+    cron_file: "docker-large-logfile-clean-up"
+#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"

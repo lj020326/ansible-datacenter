@@ -105,46 +105,91 @@ __docker_stack__base__firewalld_ports:
   - "{{ __docker_stack__base__traefik_http }}/tcp"
   - "{{ __docker_stack__base__traefik_https }}/tcp"
 
+## ref: ## ref: https://www.virtualizationhowto.com/2023/03/docker-compose-static-ip-configuration/
+## ref: https://docs.docker.com/engine/network/tutorials/overlay/
 docker_stack__traefik_proxy_network_config:
-  driver: overlay
   external: true
-  ipam_config:
-    - subnet: 10.0.4.0/24
+  driver: overlay
+#  ## make sure that the following segment does not overlap with the existing host network segment
+##  ipam:
+##    config:
+##      - subnet: "192.168.12.0/24"
+#  ipam_config:
+#    - subnet: 192.168.12.0/24
 
-docker_stack__traefik_proxy_network_info: "{{ { docker_stack__traefik_proxy_network: docker_stack__traefik_proxy_network_config } }}"
-#docker_stack__traefik_proxy_network_info: "{{ { docker_stack__traefik_proxy_network: { 'attachable': true } } }}"
+docker_stack__traefik_proxy_network_info: "{{
+  { docker_stack__traefik_proxy_network_name: docker_stack__traefik_proxy_network_config } }}"
+#docker_stack__traefik_proxy_network_info: "{{ { docker_stack__traefik_proxy_network_name: { 'attachable': true } } }}"
 
 #docker_stack__traefik_proxy_network_info: |
 #  {{ {
-#        docker_stack__traefik_proxy_network: {
+#        docker_stack__traefik_proxy_network_name: {
 #          'external': true
 #        }
 #      }
 #  }}
 
+## ref: ## ref: https://www.virtualizationhowto.com/2023/03/docker-compose-static-ip-configuration/
+## ref: https://docs.docker.com/engine/network/tutorials/overlay/
+## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
+## ref: https://stackoverflow.com/questions/46845381/how-do-configure-docker-compose-to-use-a-given-subnet-if-a-variable-is-set-or-c
+## ref: https://www.warp.dev/terminus/docker-compose-networks
+## ref: https://stackoverflow.com/questions/50432734/what-is-the-purpose-of-the-ipam-key-in-a-docker-compose-config
+__docker_stack__base__default_network_swarm:
+#    name: net
+  driver: overlay
+  ipam:
+    config:
+      - subnet: "192.168.10.0/24"
+
+#__docker_stack__base__default_network_standalone: {}
+__docker_stack__base__default_network_standalone:
+#    name: net
+#    attachable: true
+  ipam:
+    config:
+      - subnet: "192.168.10.0/24"
+
+__docker_stack__base__default_network: |-
+  {% set _docker_stack__base__default_network = {} %}
+  {% if docker_stack__swarm_mode | d(false) %}
+  {% set __ = _docker_stack__base__default_network.update(__docker_stack__base__default_network_swarm) %}
+  {% else %}
+  {% set __ = _docker_stack__base__default_network.update(__docker_stack__base__default_network_standalone) %}
+  {% endif %}
+  {{ _docker_stack__base__default_network | from_yaml }}
+
+## ref: https://www.virtualizationhowto.com/2023/03/docker-compose-static-ip-configuration/
+## ref: https://docs.docker.com/engine/network/tutorials/overlay/
+__docker_stack__base__networks_socket_proxy:
+  driver: overlay
+  ipam:
+    config:
+      - subnet: "192.168.11.0/24"
+#        gateway: 192.168.11.1
+##  attachable: true
+##  driver: bridge
+##  external: true
+##  ipam_config:
+##    - subnet: 10.0.3.0/24
+
 ## ref: https://docs.ansible.com/ansible/latest/collections/community/docker/docker_network_module.html#ansible-collections-community-docker-docker-network-module
-__docker_stack__base__networks_default:
+#__docker_stack__base__networks_default:
+#
+#  default: "{{ __docker_stack__base__default_network }}"
+#  socket_proxy: "{{ __docker_stack__base__networks_socket_proxy }}"
 
-  ## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
-  ## ref: https://stackoverflow.com/questions/46845381/how-do-configure-docker-compose-to-use-a-given-subnet-if-a-variable-is-set-or-c
-  net:
-    attachable: true
-    driver: overlay
-#    ipam:
-#      driver: default
-#      config:
-#        - subnet: "192.168.0.0/24"
-  socket_proxy:
-    #    attachable: true
-    #    driver: bridge
-    driver: overlay
-    external: true
-#    ipam_config:
-#      - subnet: 10.0.3.0/24
+__docker_stack__base__networks_default: "{{
+  {
+    docker_stack__default_network_name: __docker_stack__base__default_network, 
+    'socket_proxy': __docker_stack__base__networks_socket_proxy
+  } 
+  }}"
 
-#__docker_stack__traefik__networks: "{{ __docker_stack__base__networks_default | combine( { docker_stack_proxy_network: { 'external': true } } ) }}"
-__docker_stack__base__networks: "{{ (docker_stack__base_networks | d(__docker_stack__base__networks_default)) | combine( docker_stack__traefik_proxy_network_info
-  ) }}"
+#__docker_stack__traefik__networks: "{{ __docker_stack__base__networks_default
+#  | combine( { docker_stack_proxy_network: { 'external': true } } ) }}"
+__docker_stack__base__networks: "{{ (docker_stack__base_networks | d(__docker_stack__base__networks_default)) 
+  | combine(docker_stack__traefik_proxy_network_info) }}"
 
 __docker_stack__base__volumes: {}
 docker_stack__appspec__base:
@@ -175,12 +220,12 @@ __docker_stack__base__services:
     image: "{{ __docker_stack__base__traefik_image }}"
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
-      - socket_proxy
+      - "{{ docker_stack__traefik_proxy_network_name }}"
+#      - socket_proxy
     #    depends_on:
     #      - socket-proxy
     #    security_opt:
-    #      - no-new-privileges:true
+    #      - no-new-privileges=true
     #healthcheck:
     #  test: ["CMD", "traefik", "healthcheck", "--ping"]
     #  interval: 5s
@@ -249,7 +294,7 @@ __docker_stack__base__services:
     restart: always
     networks:
       - socket_proxy
-    #      - "{{ docker_stack__traefik_proxy_network }}"
+    #      - "{{ docker_stack__traefik_proxy_network_name }}"
     privileged: true
     ports:
       - 2375:2375
@@ -314,7 +359,7 @@ __docker_stack__base__services:
     container_name: whoami
     #    hostname: "whoami"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     ports:
       - target: 80
         published: 9080
@@ -347,7 +392,7 @@ __docker_stack__base__services:
     container_name: watchtower
     restart: unless-stopped
     networks:
-      - net
+      - "{{ docker_stack__default_network_name }}"
       - socket_proxy
     depends_on:
       - socket-proxy
@@ -415,9 +460,9 @@ __docker_stack__base__services:
     image: humenius/traefik-certs-dumper:latest
     #    network_mode: none
     networks:
-      - net
+      - "{{ docker_stack__default_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # command: --restart-containers container1,container2,container3
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     environment:
@@ -473,7 +518,7 @@ __docker_stack__base__services:
     environment:
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
       - socket_proxy
     #    depends_on:
     #      - socket-proxy
@@ -485,7 +530,7 @@ __docker_stack__base__services:
         mode: "{{ __docker_stack__port_mode }}"
     #      - 9010:9000/tcp
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/volumes:/var/lib/docker/volumes
@@ -510,12 +555,12 @@ __docker_stack__base__services:
     container_name: dozzle
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
       - socket_proxy
     #    depends_on:
     #      - socket-proxy
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     environment: "{{ __docker_stack__dozzle__environment }}"
     ports:
       - target: 8080

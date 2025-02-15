@@ -41,7 +41,9 @@ __docker_stack__media__nas_path: "{{ docker_stack__media__nas_media_path | d('/s
 __docker_stack__media__movies: movies
 __docker_stack__media__tv: tv_shows
 #__docker_stack__media__music: music
-__docker_stack__media__music: music/lidarr
+__docker_stack__media__music: music
+__docker_stack__media__music_managed: "{{ __docker_stack__media__music }}/lidarr"
+__docker_stack__media__music_unmanaged: "{{ __docker_stack__media__music }}/unmanaged"
 #__docker_stack__media__books: books
 #__docker_stack__media__books: books/lazylibrarian
 #__docker_stack__media__books: books/readarr
@@ -50,7 +52,8 @@ __docker_stack__media__pictures: pictures
 
 __docker_stack__media__movies_path: "{{ __docker_stack__media__nas_path }}/{{ __docker_stack__media__movies }}"
 __docker_stack__media__tv_path: "{{ __docker_stack__media__nas_path }}/{{ __docker_stack__media__tv }}"
-__docker_stack__media__music_path: "{{ __docker_stack__media__nas_path }}/{{ __docker_stack__media__music }}"
+__docker_stack__media__music_path: "{{ __docker_stack__media__nas_path }}/{{ __docker_stack__media__music_managed }}"
+__docker_stack__media__music_unmanaged_path: "{{ __docker_stack__media__nas_path }}/{{ __docker_stack__media__music_unmanaged }}"
 __docker_stack__media__books_path: "{{ __docker_stack__media__nas_path }}/{{ __docker_stack__media__books }}"
 __docker_stack__media__pictures_path: "{{ __docker_stack__media__nas_path }}/{{ __docker_stack__media__pictures }}"
 
@@ -196,6 +199,7 @@ __docker_stack__media__config_dirs:
   - path: "{{ __docker_stack__media__config_dir }}/bazarr/custom-cont-init.d"
   - path: "{{ __docker_stack__media__config_dir }}/bazarr/certs"
   - path: "{{ __docker_stack__media__config_dir }}/picard"
+  - path: "{{ __docker_stack__media__config_dir }}/dupeguru"
   - path: "{{ __docker_stack__media__config_dir }}/airsonic"
   - path: "{{ __docker_stack__media__config_dir }}/airsonic/config"
   - path: "{{ __docker_stack__media__config_dir }}/airsonic/podcasts"
@@ -227,6 +231,7 @@ __docker_stack__media__config_dirs:
   - path: "{{ __docker_stack__media__tv_path }}"
   - path: "{{ __docker_stack__media__movies_path }}"
   - path: "{{ __docker_stack__media__music_path }}"
+  - path: "{{ __docker_stack__media__music_unmanaged_path }}"
   - path: "{{ __docker_stack__media__books_path }}"
   - path: "{{ __docker_stack__media__pictures_path }}"
   - path: "{{ __docker_stack__media__path }}/makemkv/output"
@@ -357,6 +362,8 @@ __docker_stack__media_bazarr__traefik_labels: "{{ docker_stack__media_bazarr__tr
 
 __docker_stack__media_picard__traefik_labels: "{{ docker_stack__media_picard__traefik_labels | d(__docker_stack__media_picard__traefik_labels_default) }}"
 
+__docker_stack__media_dupeguru__traefik_labels: "{{ docker_stack__media_dupeguru__traefik_labels | d(__docker_stack__media_dupeguru__traefik_labels_default) }}"
+
 __docker_stack__media_readarr__traefik_labels: "{{ docker_stack__media_readarr__traefik_labels | d(__docker_stack__media_readarr__traefik_labels_default) }}"
 
 __docker_stack__media_lazylibrarian__traefik_labels: "{{ docker_stack__media_lazylibrarian__traefik_labels | d(__docker_stack__media_lazylibrarian__traefik_labels_default)
@@ -405,7 +412,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     volumes:
       - "{{ __docker_stack__media__config_dir }}/heimdall:/config"
       - "{{ __docker_stack__media__config_dir }}/shared:/shared"
@@ -425,7 +432,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     volumes:
       - "{{ __docker_stack__media__config_dir }}/heimdall-int:/config"
       - "{{ __docker_stack__media__config_dir }}/shared:/shared"
@@ -458,7 +465,7 @@ __docker_stack__media__services:
     restart: unless-stopped
     networks:
       - vpn
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     ports:
       - "{{ __docker_stack__media__bittorrent_port }}:8168"
     #      - "{{ __docker_stack__media__openvpn_http_port }}:80"
@@ -497,7 +504,7 @@ __docker_stack__media__services:
       TRPASSWD: "{{ __docker_stack__media__transmission_rpc_password }}"
     network_mode: service:openvpn
     #    networks:
-    #      - "{{ docker_stack__traefik_proxy_network }}"
+    #      - "{{ docker_stack__traefik_proxy_network_name }}"
     #      - vpn
     #    ports:
     #      - "{{ __docker_stack__media__bittorrent_port }}:9091"
@@ -522,7 +529,7 @@ __docker_stack__media__services:
       WEBUI_PORT: 8168
     network_mode: service:openvpn
     #    networks:
-    #      - "{{ docker_stack__traefik_proxy_network }}"
+    #      - "{{ docker_stack__traefik_proxy_network_name }}"
     #      - vpn
     #    ports:
     #      - "{{ __docker_stack__media__bittorrent_port }}:9091"
@@ -548,7 +555,7 @@ __docker_stack__media__services:
       TZ: "{{ docker_stack__timezone }}"
     network_mode: service:openvpn
     #    networks:
-    #      - "{{ docker_stack__traefik_proxy_network }}"
+    #      - "{{ docker_stack__traefik_proxy_network_name }}"
     #      - vpn
     volumes:
       - "{{ __docker_stack__media__config_dir }}/sabnzbd:/config"
@@ -580,7 +587,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     entrypoint: /entrypoint.sh
     volumes:
       - "{{ docker_stack__script_dir }}/mono-entrypoint.sh:/entrypoint.sh"
@@ -608,7 +615,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     ## ref: https://stackoverflow.com/questions/41299514/docker-compose-define-mount-for-bind-mount-and-managed-mount
     ## ref: https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation
     volumes:
@@ -635,7 +642,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     volumes:
       #      - "/etc/localtime:/etc/localtime:ro"
       - "{{ __docker_stack__media__config_dir }}/lidarr:/config"
@@ -651,9 +658,9 @@ __docker_stack__media__services:
     container_name: bazarr
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # ports:
     #  - "$BAZARR_PORT:6767"
     volumes:
@@ -674,14 +681,14 @@ __docker_stack__media__services:
 
   # Picard - Music Library Tagging and Management
   picard:
-    active: false
+#    active: false
     image: mikenye/picard:latest
     container_name: picard
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # ports:
     #   - "$PICARD_PORT:5800"
     volumes:
@@ -690,6 +697,7 @@ __docker_stack__media__services:
       - "{{ __docker_stack__media__config_dir }}/picard:/config"
       - "{{ __docker_stack__media__downloads }}/wip_media:/wip_media"
       - "{{ __docker_stack__media__music_path }}:/music"
+      - "{{ __docker_stack__media__music_unmanaged_path }}:/music_various_artists"
       - "{{ __docker_stack__media__config_dir }}/shared:/shared"
       - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
     #      - $USERDIR/Downloads/wip_media:/wip_media:rw
@@ -704,6 +712,38 @@ __docker_stack__media__services:
       DISPLAY_HEIGHT: 960
     labels: "{{ __docker_stack__media_picard__traefik_labels }}"
 
+  # dupeguru
+  # ref: https://github.com/jlesage/docker-dupeguru
+  dupeguru:
+#    active: false
+    image: jlesage/dupeguru:latest
+    container_name: dupeguru
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack__traefik_proxy_network_name }}"
+    security_opt:
+      - no-new-privileges=true
+    # ports:
+    #   - "5800:5800"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /dev/shm:/dev/shm
+      - "{{ __docker_stack__media__config_dir }}/dupeguru:/config"
+      - "{{ __docker_stack__media__downloads }}/wip_media:/wip_media"
+      - "{{ __docker_stack__media__music_path }}:/storage"
+#      - "{{ __docker_stack__media__music_path }}:/music"
+#      - "{{ __docker_stack__media__music_unmanaged_path }}:/music_various_artists"
+      - "{{ __docker_stack__media__config_dir }}/shared:/shared"
+      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    environment:
+      USER_ID: "{{ docker_stack__user_uid }}"
+      GROUP_ID: "{{ docker_stack__user_gid }}"
+      TZ: "{{ docker_stack__timezone }}"
+      UMASK: "002"
+#      DISPLAY_WIDTH: 1920
+#      DISPLAY_HEIGHT: 1080
+    labels: "{{ __docker_stack__media_dupeguru__traefik_labels }}"
+
   readarr:
     image: "{{ __docker_stack__media__readarr_image }}"
     container_name: readarr
@@ -715,7 +755,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     #      ports:
     #        - 5299:5299
     restart: unless-stopped
@@ -741,7 +781,7 @@ __docker_stack__media__services:
       TZ: "{{ docker_stack__timezone }}"
       DOCKER_MODS: lscr.io/linuxserver/calibre-web:calibre #optional
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     #      ports:
     #        - 5299:5299
     restart: unless-stopped
@@ -761,9 +801,9 @@ __docker_stack__media__services:
     container_name: calibre-web
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # ports:
     #  - "$CALIBRE_WEB_PORT:8083"
     volumes:
@@ -790,10 +830,10 @@ __docker_stack__media__services:
     container_name: calibre
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - seccomp:unconfined #optional
-#      - no-new-privileges:true
+      - seccomp=unconfined #optional
+#      - no-new-privileges=true
     ports:
       - "{{ __docker_stack__media__calibre_server_port }}:8081" # Webserver GUI
       - "{{ __docker_stack__media__calibre_gui_port }}:8080" # Desktop GUI
@@ -822,9 +862,9 @@ __docker_stack__media__services:
     image: lscr.io/linuxserver/airsonic:latest
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # ports:
     #   - "$AIRSONIC_PORT:4040"
     volumes:
@@ -854,11 +894,11 @@ __docker_stack__media__services:
     container_name: embyms
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     devices:
       - /dev/dri:/dev/dri # for harware transcoding
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     ports:
       - "{{ __docker_stack__media__emby_port }}:8096/tcp"
       - 8920:8920/tcp
@@ -882,11 +922,11 @@ __docker_stack__media__services:
     container_name: jellyfin
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     devices:
       - /dev/dri:/dev/dri # for harware transcoding
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     ports:
       - "{{ __docker_stack__media__jellyfin_port }}:8096"
       - 8921:8920 # Changed to 8921 - conflict with Emby
@@ -912,9 +952,9 @@ __docker_stack__media__services:
     container_name: handbrake
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # ports:
     #   - "$HANDBRAKE_PORT:5800"
     volumes:
@@ -946,9 +986,9 @@ __docker_stack__media__services:
     container_name: mkvtoolnix
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # ports:
     #   - "$MKVTOOLNIX_PORT:5800"
     volumes:
@@ -985,7 +1025,7 @@ __docker_stack__media__services:
       GROUP_ID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     volumes:
       #        - "/docker/appdata/makemkv:/config:rw"
       #        - "$HOME:/storage:ro"
@@ -1015,7 +1055,7 @@ __docker_stack__media__services:
     ports:
       - 8191:8191
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     #    volumes:
     #      - "/etc/localtime:/etc/localtime:ro"
     #      - "{{ __docker_stack__media__config_dir }}/flaresolverr:/config"
@@ -1032,7 +1072,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - "{{ __docker_stack__media__config_dir }}/prowlarr:/config"
@@ -1052,7 +1092,7 @@ __docker_stack__media__services:
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     volumes:
       - "{{ __docker_stack__media__config_dir }}/hydra:/config"
       - "{{ __docker_stack__media__downloads }}:/downloads"
@@ -1075,7 +1115,7 @@ __docker_stack__media__services:
       - openvpn
     network_mode: service:openvpn
     #    networks:
-    #      - "{{ docker_stack__traefik_proxy_network }}"
+    #      - "{{ docker_stack__traefik_proxy_network_name }}"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - "{{ __docker_stack__media__config_dir }}/jackett:/config"
@@ -1099,7 +1139,7 @@ __docker_stack__media__services:
       - 9000:9000
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     labels: "{{ __docker_stack__media_thelounge__traefik_labels }}"
 
   ############################# UTILITIES
@@ -1111,9 +1151,9 @@ __docker_stack__media__services:
     container_name: duplicati
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
+      - "{{ docker_stack__traefik_proxy_network_name }}"
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     # ports:
     #  - "$DUPLICATI_PORT:8200"
     volumes:

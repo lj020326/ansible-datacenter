@@ -73,13 +73,17 @@ __docker_stack__postgres__services:
   ## ref: https://hub.docker.com/_/postgres
   postgres:
     container_name: postgres
-    #      image: postgres
+#    image: postgres
     image: postgres:11
     ports:
-      - "{{ __docker_stack__postgres__port }}:5432"
+#      - "{{ __docker_stack__postgres__port }}:5432"
+      - target: 5432
+        published: "{{ __docker_stack__postgres__port | int }}"
+        protocol: tcp
+        mode: "{{ __docker_stack__port_mode }}"
     restart: unless-stopped
     networks:
-      - net
+      - "{{ docker_stack__default_network_name }}"
     volumes:
       - "{{ docker_stack__dir }}/postgres/passwd:/etc/passwd:ro"
       - "{{ docker_stack__dir }}/postgres/group:/etc/group:ro"
@@ -121,7 +125,8 @@ __docker_stack__postgres__services:
   pgadmin:
     container_name: pgadmin
     #    image: "dpage/pgadmin4"
-    image: dpage/pgadmin4:5.0
+#    image: dpage/pgadmin4:5.0
+    image: dpage/pgadmin4:latest
     links:
       - postgres
     depends_on:
@@ -140,8 +145,8 @@ __docker_stack__postgres__services:
       - "{{ __docker_stack__postgres__pgadmin_port }}:80"
     restart: unless-stopped
     networks:
-      - "{{ docker_stack__traefik_proxy_network }}"
-      - net
+      - "{{ docker_stack__traefik_proxy_network_name }}"
+      - "{{ docker_stack__default_network_name }}"
     labels: "{{ __docker_stack__postgres_pgadmin__traefik_labels }}"
     deploy:
       mode: replicated
