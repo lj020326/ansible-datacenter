@@ -265,7 +265,7 @@ $ ansible-playbook site.yml --tags bootstrap-ansible --limit admin02
 
 ### To build docker images from source repos
 Note: this is performed from jenkins docker build pipeline and not performed directly using ansible unless necessary 
-The docker image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildDockerImage.groovy).
+The docker image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/main/vars/buildDockerImage.groovy).
 
 ```shell
 $ ansible-playbook site.yml --tags bootstrap-docker-images --limit admin02
@@ -569,7 +569,7 @@ ansible-playbook site.yml --tags deploy-vm
 Bootstrap VM nodes if needed
 Note: This is not used any longer since this is now performed from the jenkins pipeline.
 The jenkins pipeline is responsible for building VM template images using packer.
-The vm image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/public/vars/buildVmTemplate.groovy).
+The vm image build pipeline source is located here [here](https://github.com/lj020326/pipeline-automation-lib/blob/main/vars/buildVmTemplate.groovy).
 
 ```shell
 ansible-playbook site.yml --tags bootstrap-linux --limit admin02
