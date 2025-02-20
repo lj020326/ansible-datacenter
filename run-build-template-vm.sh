@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-#!/usr/bin/env bash
 
 #set -eux
 
@@ -30,7 +29,8 @@ fi
 #VAULT_FILEPATH="integration_config.vault.yml"
 VAULT_FILEPATH="./vars/vault.yml"
 
-INSTALL_LATEST_GALAXY_COLLECTIONS=1
+INSTALL_GALAXY_COLLECTIONS=0
+INSTALL_LATEST_GALAXY_COLLECTIONS=0
 
 USE_SOURCE_COLLECTIONS=0
 SOURCE_COLLECTIONS_PATH="${BASE_DIR}/requirements_collections"
@@ -45,7 +45,6 @@ echo "SCRIPT_FILE=[${SCRIPT_FILE}]"
 echo "PROJECT_DIR=${PROJECT_DIR}"
 
 echo "VAULT_FILEPATH=${VAULT_FILEPATH}"
-echo "VAULT_ID=${VAULT_ID}"
 
 export LOCAL_COLLECTIONS_PATH=${HOME}/.ansible
 #export ANSIBLE_ROLES_PATH=./
@@ -68,7 +67,7 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 #export ANSIBLE_GALAXY_IGNORE=true
 #export GALAXY_IGNORE_CERTS=true
 
-function pull_latest_galaxy_collections() {
+function install_galaxy_collections() {
 
   echo "==> ansible-galaxy --version"
   ansible-galaxy --version
@@ -81,7 +80,9 @@ function pull_latest_galaxy_collections() {
 #  GALAXY_INSTALL_CMD+=("--force")
 
   GALAXY_INSTALL_CMD=("ansible-galaxy collection install")
-  GALAXY_INSTALL_CMD+=("--upgrade")
+  if [[ "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+    GALAXY_INSTALL_CMD+=("--upgrade")
+  fi
   GALAXY_INSTALL_CMD+=("-r ${ANSIBLE_COLLECTION_REQUIREMENTS}")
   GALAXY_INSTALL_CMD+=("-p ${LOCAL_COLLECTIONS_PATH}")
 
@@ -91,7 +92,6 @@ function pull_latest_galaxy_collections() {
 }
 
 function main() {
-  PLAYBOOK_ARGS="$@"
   if [ $# -gt 0 ]; then
     PLAYBOOK_ARGS=("$@")
   else
@@ -106,8 +106,8 @@ function main() {
   export SSL_CERT_FILE=${CERT_PATH}
   export REQUESTS_CA_BUNDLE=${CERT_PATH}
 
-  if [[ "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    pull_latest_galaxy_collections
+  if [[ "${INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+    install_galaxy_collections
   fi
   echo "==> ansible-galaxy collection list"
   ansible-galaxy collection list
@@ -119,9 +119,8 @@ function main() {
 #  PLAYBOOK_CMD+=("-e @${TEST_VARS_FILE}")
   PLAYBOOK_CMD+=("-e @${VAULT_FILEPATH}")
   PLAYBOOK_CMD+=("--vault-id ${VAULT_ID}@${VAULTPASS_FILEPATH}")
-  PLAYBOOK_CMD+=("${PLAYBOOK_PATH}")
-  PLAYBOOK_CMD+=("${PLAYBOOK_ARGS[*]}")
   PLAYBOOK_CMD+=("-i ${ANSIBLE_TEMPLATE_INVENTORY}")
+  PLAYBOOK_CMD+=("${PLAYBOOK_ARGS[*]}")
 
   echo "==> ${PLAYBOOK_CMD[*]}"
   eval "${PLAYBOOK_CMD[@]}"

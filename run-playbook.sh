@@ -14,6 +14,8 @@ echo "PWD=${PWD}"
 #echo "==> ENV"
 #echo "$(export -p | sed 's/declare -x //')"
 
+PLAYBOOK_DEFAULT="site.yml"
+
 PROJECT_DIR="$( git rev-parse --show-toplevel )"
 
 ## only needed if sourcing local private collections by source instead of galaxy
@@ -50,12 +52,12 @@ echo "VAULT_FILEPATH=${VAULT_FILEPATH}"
 
 export LOCAL_COLLECTIONS_PATH=${HOME}/.ansible
 #export ANSIBLE_ROLES_PATH=./
-#export ANSIBLE_COLLECTIONS_PATH=${HOME}/.ansible:${PROJECT_DIR}/collections:${BASE_DIR}/requirements_collections
-#export ANSIBLE_COLLECTIONS_PATH=${PROJECT_DIR}/collections:${BASE_DIR}/requirements_collections
-#export ANSIBLE_COLLECTIONS_PATH=${BASE_DIR}/requirements_collections
-#export ANSIBLE_COLLECTIONS_PATH=${PROJECT_DIR}/collections
-#export ANSIBLE_COLLECTIONS_PATH=${PROJECT_DIR}/collections:${LOCAL_COLLECTIONS_PATH}
-export ANSIBLE_COLLECTIONS_PATH=${PROJECT_DIR}/collections:${LOCAL_COLLECTIONS_PATH}
+#export ANSIBLE_COLLECTIONS_PATH="${HOME}/.ansible:${PROJECT_DIR}/collections:${BASE_DIR}/requirements_collections"
+#export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${BASE_DIR}/requirements_collections"
+#export ANSIBLE_COLLECTIONS_PATH="${BASE_DIR}/requirements_collections"
+#export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections"
+#export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
+export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
 
 if [[ "${USE_SOURCE_COLLECTIONS}" -eq 1 ]]; then
   export ANSIBLE_COLLECTIONS_PATH=${ANSIBLE_COLLECTIONS_PATH}:${SOURCE_COLLECTIONS_PATH}
@@ -94,7 +96,12 @@ function install_galaxy_collections() {
 }
 
 function main() {
-  PLAYBOOK_ARGS="$@"
+  if [ $# -gt 0 ]; then
+    PLAYBOOK_ARGS=("$@")
+  else
+    PLAYBOOK_ARGS=("${PLAYBOOK_DEFAULT}")
+  fi
+  echo "==> PLAYBOOK_ARGS[*]=${PLAYBOOK_ARGS[*]}"
 
   rm -f ./ansible.log
 

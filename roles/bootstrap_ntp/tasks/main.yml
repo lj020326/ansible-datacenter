@@ -39,6 +39,24 @@
         name: ntp
         state: absent
 
+- name: uninstall systemd-timesyncd when used
+  when:
+    - bootstrap_ntp__enabled | bool
+    - services | d([]) | intersect(['systemd-timesyncd', 'systemd-timesyncd.service']) | list | length>0
+    #    - '"systemd-timesyncd.service" in services'
+    - services["systemd-timesyncd.service"]["status"] != "not-found"
+  block:
+    - name: Disable systemd-timesyncd if it's running but ntp is enabled.
+      ansible.builtin.service:
+        name: systemd-timesyncd.service
+        enabled: false
+        state: stopped
+
+    - name: Ensure ntp package is uninstalled
+      ansible.builtin.package:
+        name: systemd-timesyncd
+        state: absent
+
 - name: Display bootstrap_ntp__packages
   ansible.builtin.debug:
     var: bootstrap_ntp__packages
@@ -61,17 +79,6 @@
 
 - name: Populate post-install service facts.
   ansible.builtin.service_facts:
-
-- name: Disable systemd-timesyncd if it's running but ntp is enabled.
-  when:
-    - bootstrap_ntp__enabled | bool
-    - services | d([]) | intersect(['systemd-timesyncd', 'systemd-timesyncd.service']) | list | length>0
-    #    - '"systemd-timesyncd.service" in services'
-    - services["systemd-timesyncd.service"]["status"] != "not-found"
-  ansible.builtin.service:
-    name: systemd-timesyncd.service
-    enabled: false
-    state: stopped
 
 - name: Ensure {{ bootstrap_ntp__daemon }} is stopped and disabled as configured.
   when: not (bootstrap_ntp__enabled | bool)
