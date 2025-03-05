@@ -4,6 +4,8 @@
 import os
 import subprocess
 import shlex
+from typing import List, Any
+
 import yaml
 import sys
 import argparse
@@ -15,8 +17,8 @@ from subprocess import Popen, PIPE, STDOUT
 
 
 __scriptName__ = sys.argv[0]
-__version__ = '0.1'
-__updated__ = '07 Dec 2020'
+__version__ = '2025.3.5'
+__updated__ = '05 Feb 2025'
 
 progname = __scriptName__.split(".")[0]
 
@@ -32,12 +34,11 @@ handler = logging.StreamHandler()
 log.addHandler(handler)
 
 # configDir = "/opt/scripts"
-# configDir = os.path.join(os.path.expanduser('~'), '.build-datacenter')
 configDir = os.path.dirname(os.path.realpath(__file__))
 configFile = os.path.join(configDir, 'backups.yml')
 
 ## ref: https://www.geeksforgeeks.org/python-merging-two-dictionaries/
-def MergeDicts(dict1, dict2):
+def mergeDicts(dict1, dict2):
     res = {**dict1, **dict2}
     return res
 
@@ -75,7 +76,7 @@ class Backups(object):
         #         self.log.info("key=%s, value=%s" % (key, value))
 
         ## ref: https://thispointer.com/different-ways-to-remove-a-key-from-dictionary-in-python/
-        backupConfig = MergeDicts({key: value for key, value in self.config.items() if key != 'backups'}, backupConfig)
+        backupConfig = mergeDicts({key: value for key, value in self.config.items() if key != 'backups'}, backupConfig)
         backupConfig['scriptPath'] = os.path.join(backupConfig['scriptDir'], backupConfig['backupScript'])
 
         # log.info("backupConfig = %s" % pformat(backupConfig))
@@ -85,11 +86,34 @@ class Backups(object):
         for target in backupConfig['targets']:
             self.log.info("target =>%s" % yaml.dump(target))
 
-            targetConfig = MergeDicts({key: value for key, value in backupConfig.items() if key != 'targets'}, target)
+            targetConfig = mergeDicts({key: value for key, value in backupConfig.items() if key != 'targets'}, target)
             self.log.info("targetConfig =>")
             self.log.info(yaml.dump(targetConfig))
 
-            shell_command="bash -x %s %s %s %s" % (targetConfig['scriptPath'], targetConfig['backupLabel'], targetConfig['srcDir'], targetConfig['destDir'])
+            shell_command_array: list[str | Any] = ["bash"]
+
+            # if self.loglevel=="DEBUG":
+            #     shell_command_array.append("-x")
+
+            shell_command_array.append(targetConfig['scriptPath'])
+
+            if 'loglevel' in targetConfig:
+                shell_command_array.append("-L %s" % targetConfig['loglevel'])
+
+            shell_command_array.append("-b %s" % targetConfig['backupLabel'])
+            shell_command_array.append("-s %s" % targetConfig['srcDir'])
+            shell_command_array.append("-d %s" % targetConfig['destDir'])
+
+            if 'configPath' in targetConfig:
+                shell_command_array.append("-c %s" % targetConfig['configPath'])
+            if 'emailFrom' in targetConfig:
+                shell_command_array.append("-f %s" % targetConfig['emailFrom'])
+            if 'emailTo' in targetConfig:
+                shell_command_array.append("-t %s" % targetConfig['emailTo'])
+            if 'logDir' in targetConfig:
+                shell_command_array.append("-l %s" % targetConfig['logDir'])
+
+            shell_command=' '.join(shell_command_array)
             self.log.info("shell_command=[%s]" % shell_command)
             self.run_shell_command(shell_command)
             self.log.info("Finished backup from %s to %s" % (target['srcDir'], target['destDir']))
@@ -128,8 +152,8 @@ class Backups(object):
             # # process_output = StringIO(process_output)
             # log_subprocess_output(process_output)
 
-        except (OSError, CalledProcessError) as exception:
-            self.log.info('Exception occured: ' + str(exception))
+        except (OSError, ChildProcessError) as exception:
+            self.log.info('Exception occurred: ' + str(exception))
             self.log.info('Subprocess failed')
             return False
         else:

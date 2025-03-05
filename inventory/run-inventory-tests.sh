@@ -36,6 +36,7 @@ validate_child_inventories
 validate_child_groupvars
 "
 
+#### LOGGING RELATED
 LOG_ERROR=0
 LOG_WARN=1
 LOG_INFO=2
@@ -47,34 +48,89 @@ LOG_LEVEL=${LOG_INFO}
 
 function logError() {
   if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
-  	echo -e "[ERROR]: ==> ${1}"
+#  	echo -e "[ERROR]: ==> ${1}"
+  	logMessage "${LOG_ERROR}" "${1}"
   fi
 }
 function logWarn() {
   if [ $LOG_LEVEL -ge $LOG_WARN ]; then
-  	echo -e "[WARN ]: ==> ${1}"
+#  	echo -e "[WARN ]: ==> ${1}"
+  	logMessage "${LOG_WARN}" "${1}"
   fi
 }
 function logInfo() {
   if [ $LOG_LEVEL -ge $LOG_INFO ]; then
-  	echo -e "[INFO ]: ==> ${1}"
+#  	echo -e "[INFO ]: ==> ${1}"
+  	logMessage "${LOG_INFO}" "${1}"
   fi
 }
 function logTrace() {
   if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
-  	echo -e "[TRACE]: ==> ${1}"
+#  	echo -e "[TRACE]: ==> ${1}"
+  	logMessage "${LOG_TRACE}" "${1}"
   fi
 }
 function logDebug() {
   if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
-  	echo -e "[DEBUG]: ==> ${1}"
+#  	echo -e "[DEBUG]: ==> ${1}"
+  	logMessage "${LOG_DEBUG}" "${1}"
   fi
 }
 
-function setLogLevel() {
-  local LOGLEVEL=$1
+function logMessage() {
+  local LOG_MESSAGE_LEVEL="${1}"
+  local LOG_MESSAGE="${2}"
+  ## remove first item from FUNCNAME array
+#  local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2}")
+  ## Get the length of the array
+  local CALLING_FUNCTION_ARRAY_LENGTH=${#FUNCNAME[@]}
+  local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2:$((CALLING_FUNCTION_ARRAY_LENGTH - 3))}")
+#  echo "CALLING_FUNCTION_ARRAY[@]=${CALLING_FUNCTION_ARRAY[@]}"
 
-  case "${LOGLEVEL}" in
+  local CALL_ARRAY_LENGTH=${#CALLING_FUNCTION_ARRAY[@]}
+  local REVERSED_CALL_ARRAY=()
+  for (( i = CALL_ARRAY_LENGTH - 1; i >= 0; i-- )); do
+    REVERSED_CALL_ARRAY+=( "${CALLING_FUNCTION_ARRAY[i]}" )
+  done
+#  echo "REVERSED_CALL_ARRAY[@]=${REVERSED_CALL_ARRAY[@]}"
+
+#  local CALLING_FUNCTION_STR="${CALLING_FUNCTION_ARRAY[*]}"
+  ## ref: https://stackoverflow.com/questions/1527049/how-can-i-join-elements-of-a-bash-array-into-a-delimited-string#17841619
+  local SEPARATOR=":"
+  local CALLING_FUNCTION_STR=$(printf "${SEPARATOR}%s" "${REVERSED_CALL_ARRAY[@]}")
+  local CALLING_FUNCTION_STR=${CALLING_FUNCTION_STR:${#SEPARATOR}}
+
+  case "${LOG_MESSAGE_LEVEL}" in
+    $LOG_ERROR*)
+      LOG_LEVEL_STR="ERROR"
+      ;;
+    $LOG_WARN*)
+      LOG_LEVEL_STR="WARN"
+      ;;
+    $LOG_INFO*)
+      LOG_LEVEL_STR="INFO"
+      ;;
+    $LOG_TRACE*)
+      LOG_LEVEL_STR="TRACE"
+      ;;
+    $LOG_DEBUG*)
+      LOG_LEVEL_STR="DEBUG"
+      ;;
+    *)
+      abort "Unknown LOG_MESSAGE_LEVEL of [${LOG_MESSAGE_LEVEL}] specified"
+  esac
+
+  local LOG_LEVEL_PADDING_LENGTH=5
+  local PADDED_LOG_LEVEL=$(printf "%-${LOG_LEVEL_PADDING_LENGTH}s" "${LOG_LEVEL_STR}")
+
+  local LOG_PREFIX="${CALLING_FUNCTION_STR}():"
+  echo -e "[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX} ${LOG_MESSAGE}"
+}
+
+function setLogLevel() {
+  LOG_LEVEL_STR=$1
+
+  case "${LOG_LEVEL_STR}" in
     ERROR*)
       LOG_LEVEL=$LOG_ERROR
       ;;
@@ -92,8 +148,28 @@ function setLogLevel() {
       DISPLAY_TEST_RESULTS=1
       ;;
     *)
-      abort "Unknown loglevel of [${LOGLEVEL}] specified"
+      abort "Unknown LOG_LEVEL_STR of [${LOG_LEVEL_STR}] specified"
   esac
+
+}
+
+function handle_cmd_return_code() {
+  ## ref: https://unix.stackexchange.com/questions/261305/how-to-determine-callee-function-name-in-a-script
+  local CALLING_FUNCTION="${FUNCNAME[1]}"
+  local RUN_COMMAND=$1
+
+  logInfo "${RUN_COMMAND}"
+  eval "${RUN_COMMAND} > /dev/null 2>&1"
+  local RETURN_STATUS=$?
+
+  if [[ $RETURN_STATUS -eq 0 ]]; then
+    logDebug "SUCCESS => No exceptions found from packer validate!!"
+  else
+    logError "packer validate resulted in return code [${RETURN_STATUS}]!! :("
+    logError "${RUN_COMMAND}"
+    eval "${RUN_COMMAND}"
+    exit 1
+  fi
 
 }
 
@@ -117,36 +193,33 @@ function stringContain() { case $2 in *$1* ) return 0;; *) return 1;; esac ;}
 ###################################
 ### validation functions
 function validate_file_extensions() {
-  local LOG_PREFIX="validate_file_extensions():"
   local ERROR_COUNT=0
 
   logInfo ""
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} Validate all files consistent with *.yml"
+  logInfo "Validate all files consistent with *.yml"
 
   local EXCEPTION_COUNT=$(find . \
     -type f \( ! -iname ".*" ! -iname "*.yml" ! -iname "*.sh" ! -iname "*.py" ! -iname "*.log" ! -iname "*.md" ! -iname "pytest.ini" \) \
       -not -path "./.test-results/*" -not -path "./__pycache__/*" -not -path "./.pytest_cache/*" | wc -l)
   if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-    logInfo "${LOG_PREFIX} SUCCESS => No inconsistent file extensions found!!"
+    logInfo "SUCCESS => No inconsistent file extensions found!!"
   else
     ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-    logInfo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] inconsistent file names found without *.yml extension:"
+    logInfo "There are [${EXCEPTION_COUNT}] inconsistent file names found without *.yml extension:"
     find . \
       -type f \( ! -iname ".*" ! -iname "*.yml" ! -iname "*.sh" ! -iname "*.py" ! -iname "*.log" ! -iname "*.md" ! -iname "pytest.ini" \) \
       -not -path "./.test-results/*" -not -path "./__pycache__/*" -not -path "./.pytest_cache/*"
   fi
 
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} ERROR_COUNT=${ERROR_COUNT}"
+  logInfo "ERROR_COUNT=${ERROR_COUNT}"
   logInfo ""
 
   return "${ERROR_COUNT}"
 }
 
 function validate_child_inventories() {
-  local LOG_PREFIX="validate_child_inventories():"
-
   ansible-inventory --version
   local ERROR_COUNT=0
   logInfo ""
@@ -155,30 +228,29 @@ function validate_child_inventories() {
   for INVENTORY in ${INVENTORY_LIST}
   do
     logInfo "#######################################################"
-    logInfo "${LOG_PREFIX} Validate yamllint"
+    logInfo "Validate yamllint"
     local VALIDATION_TEST_COMMAND="ansible-inventory --graph -i ${INVENTORY} 2>&1"
-    logInfo "${LOG_PREFIX} [${VALIDATION_TEST_COMMAND} | grep -i -e warning -e error]"
+    logInfo "[${VALIDATION_TEST_COMMAND} | grep -i -e warning -e error]"
     local EXCEPTION_COUNT=$(eval "${VALIDATION_TEST_COMMAND} | grep -c -i -e warning -e error")
 
     if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-      logInfo "${LOG_PREFIX} SUCCESS => No ansible-inventory exceptions found!!"
+      logInfo "SUCCESS => No ansible-inventory exceptions found!!"
     else
 #      ERROR_COUNT+=EXCEPTION_COUNT
       ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-      logInfo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] ansible-inventory exceptions found:"
+      logInfo "There are [${EXCEPTION_COUNT}] ansible-inventory exceptions found:"
       eval "${VALIDATION_TEST_COMMAND} | grep -A 2 -i -e warning -e error"
     fi
   done
 
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} ERROR_COUNT=${ERROR_COUNT}"
+  logInfo "ERROR_COUNT=${ERROR_COUNT}"
   logInfo ""
 
   return "${ERROR_COUNT}"
 }
 
 function validate_child_groupvars() {
-  local LOG_PREFIX="validate_child_groupvars():"
   local ERROR_COUNT=0
   logInfo ""
 
@@ -186,25 +258,24 @@ function validate_child_groupvars() {
   for INVENTORY in ${INVENTORY_LIST}
   do
     logInfo "#######################################################"
-    logInfo "${LOG_PREFIX} Compare ./group_vars and [$INVENTORY]"
+    logInfo "Compare ./group_vars and [$INVENTORY]"
     local EXCEPTION_COUNT=$(diff -r group_vars "${INVENTORY}/group_vars" | grep -c -v ": env_specific.yml")
     if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-      logInfo "${LOG_PREFIX} SUCCESS => No group_var diffs found!!"
+      logInfo "SUCCESS => No group_var diffs found!!"
     else
       ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-      logInfo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] group_var diffs found :("
+      logInfo "There are [${EXCEPTION_COUNT}] group_var diffs found :("
       diff -r group_vars "${INVENTORY}/group_vars" | grep -v ": env_specific.yml"
     fi
   done
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} ERROR_COUNT=${ERROR_COUNT}"
+  logInfo "ERROR_COUNT=${ERROR_COUNT}"
   logInfo ""
 
   return "${ERROR_COUNT}"
 }
 
 function validate_xenv_group_hierarchy() {
-  local LOG_PREFIX="validate_xenv_group_hierarchy():"
   local ERROR_COUNT=0
   logInfo ""
   local RETURN_STATUS=0
@@ -213,7 +284,7 @@ function validate_xenv_group_hierarchy() {
   for INVENTORY in ${INVENTORY_LIST}
   do
     logInfo "#######################################################"
-    logInfo "${LOG_PREFIX} Check if all groups in [${INVENTORY}/hosts.yml] exist in xenv_groups.yml"
+    logInfo "Check if all groups in [${INVENTORY}/hosts.yml] exist in xenv_groups.yml"
 
     local TEST_COMMAND="python3 run-group-in-xenv-check.py -G xenv_groups.yml ${INVENTORY}/hosts.yml 2>&1"
     eval "${TEST_COMMAND} > /dev/null 2>&1"
@@ -221,10 +292,10 @@ function validate_xenv_group_hierarchy() {
     ERROR_COUNT=$((${ERROR_COUNT} + ${RETURN_STATUS}))
 
     if [[ $RETURN_STATUS -eq 0 ]]; then
-      logInfo "${LOG_PREFIX} SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+      logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
     else
-      logInfo "${LOG_PREFIX} There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-      logInfo "${LOG_PREFIX} ${TEST_COMMAND}"
+      logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+      logInfo "${TEST_COMMAND}"
       eval "${TEST_COMMAND}"
     fi
 
@@ -234,7 +305,7 @@ function validate_xenv_group_hierarchy() {
 
   logInfo ""
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} Check if all groups in [xenv_hosts.yml] exist in xenv_groups.yml"
+  logInfo "Check if all groups in [xenv_hosts.yml] exist in xenv_groups.yml"
 
   TEST_COMMAND="python3 run-group-in-xenv-check.py -G xenv_groups.yml xenv_hosts.yml 2>&1"
   eval "${TEST_COMMAND} > /dev/null 2>&1"
@@ -242,48 +313,45 @@ function validate_xenv_group_hierarchy() {
   ERROR_COUNT=$((${ERROR_COUNT} + ${RETURN_STATUS}))
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "${LOG_PREFIX} SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+    logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
   else
-    logInfo "${LOG_PREFIX} There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-    logInfo "${LOG_PREFIX} ${TEST_COMMAND}"
+    logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    logInfo "${TEST_COMMAND}"
     eval "${TEST_COMMAND}"
   fi
 
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} ERROR_COUNT=${ERROR_COUNT}"
+  logInfo "ERROR_COUNT=${ERROR_COUNT}"
   logInfo ""
 
   return "${ERROR_COUNT}"
 }
 
 function validate_xenv_groups_unique() {
-  local LOG_PREFIX="validate_xenv_groups_unique():"
-
   logInfo ""
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} Check if all groups in [xenv_groups.yml] are unique"
+  logInfo "Check if all groups in [xenv_groups.yml] are unique"
 
   TEST_COMMAND="python3 run-group-in-xenv-check.py -d xenv_groups.yml 2>&1"
   eval "${TEST_COMMAND} > /dev/null 2>&1"
   local RETURN_STATUS=$?
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "${LOG_PREFIX} SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+    logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
   else
-    logInfo "${LOG_PREFIX} There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-    logInfo "${LOG_PREFIX} ${TEST_COMMAND}"
+    logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    logInfo "${TEST_COMMAND}"
     eval "${TEST_COMMAND}"
   fi
 
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} RETURN_STATUS=${RETURN_STATUS}"
+  logInfo "RETURN_STATUS=${RETURN_STATUS}"
   logInfo ""
 
   return "${RETURN_STATUS}"
 }
 
 function validate_yml_sortorder() {
-  local LOG_PREFIX="validate_yml_sortorder():"
   local ERROR_COUNT=0
   logInfo ""
 
@@ -296,13 +364,13 @@ function validate_yml_sortorder() {
   printf -v FIND_FILE_ARGS "\055name %s${DELIM}" "${INVENTORY_YML_LIST[@]}"
   FIND_FILE_ARGS=${FIND_FILE_ARGS%$DELIM}
 
-  logDebug "${LOG_PREFIX} FIND_FILE_ARGS=${FIND_FILE_ARGS}"
+  logDebug "FIND_FILE_ARGS=${FIND_FILE_ARGS}"
 
   FIND_CMD="find . -type f \( ${FIND_FILE_ARGS} \) -printf '%P\n' | sort"
-  logInfo "${LOG_PREFIX} ${FIND_CMD}"
+  logInfo "${FIND_CMD}"
 
   INVENTORY_YML_FILES_FOUND=$(eval "${FIND_CMD}")
-  logDebug "${LOG_PREFIX} INVENTORY_YML_FILES_FOUND=${INVENTORY_YML_FILES_FOUND}"
+  logDebug "INVENTORY_YML_FILES_FOUND=${INVENTORY_YML_FILES_FOUND}"
 
   for INVENTORY_FILE in ${INVENTORY_YML_FILES_FOUND}
   do
@@ -319,26 +387,26 @@ function validate_yml_sortorder() {
     TMP_INVENTORY_FILE_SORTED="${TMP_DIR}/${TMP_INVENTORY_FILE_PREFIX}${INVENTORY_FILE_BASENAME%.*}_sorted.yml"
     TMP_INVENTORY_FILE="${TMP_DIR}/${TMP_INVENTORY_FILE_PREFIX}${INVENTORY_FILE_BASENAME}"
 
-    logDebug "${LOG_PREFIX} Create temporary sorted file to compare with ${INVENTORY_FILE}"
+    logDebug "Create temporary sorted file to compare with ${INVENTORY_FILE}"
     yq "${INVENTORY_FILE}" > "${TMP_INVENTORY_FILE}"
     yq -P 'sort_keys(..)' "${INVENTORY_FILE}" > "${TMP_INVENTORY_FILE_SORTED}"
 
     logInfo "#######################################################"
-    logInfo "${LOG_PREFIX} Compare ${INVENTORY_FILE} and ${TMP_INVENTORY_FILE_SORTED}"
+    logInfo "Compare ${INVENTORY_FILE} and ${TMP_INVENTORY_FILE_SORTED}"
 
     ## ref: https://stackoverflow.com/questions/1566461/how-to-count-differences-between-two-files-on-linux#8837860
     local EXCEPTION_COUNT=$(diff -U 0 "${TMP_INVENTORY_FILE_SORTED}" "${TMP_INVENTORY_FILE}" | grep -c "^@")
     if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-      logInfo "${LOG_PREFIX} SUCCESS => No sort diffs found!!"
+      logInfo "SUCCESS => No sort diffs found!!"
     else
       ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-      logInfo "${LOG_PREFIX} There are [${EXCEPTION_COUNT}] sort diffs found :("
+      logInfo "There are [${EXCEPTION_COUNT}] sort diffs found :("
       diff -U 0 "${TMP_INVENTORY_FILE_SORTED}" "${TMP_INVENTORY_FILE}" | grep "^@"
     fi
-    logInfo "${LOG_PREFIX} ERROR_COUNT=${ERROR_COUNT}"
+    logInfo "ERROR_COUNT=${ERROR_COUNT}"
   done
   logInfo "#######################################################"
-  logInfo "${LOG_PREFIX} ERROR_COUNT=${ERROR_COUNT}"
+  logInfo "ERROR_COUNT=${ERROR_COUNT}"
   logInfo ""
 
   return "${ERROR_COUNT}"
@@ -348,13 +416,12 @@ function validate_yml_sortorder() {
 ###################################
 ### run pytests
 function run_pytests() {
-  local LOG_PREFIX="run_pytests():"
   local PYTEST_JUNIT_REPORT=$1
   local PYTESTS_TARGET=$2
   shift 2
   local TEST_CASES=("$@")
 
-  logInfo "${LOG_PREFIX} TEST_CASES[@]=${TEST_CASES[@]}"
+  logInfo "TEST_CASES[@]=${TEST_CASES[@]}"
 
   local TEST_COMMAND="pytest --verbose --capture=tee-sys --junitxml=${PYTEST_JUNIT_REPORT} ${PYTESTS_TARGET}"
   if [[ "${TEST_CASES[@]}" != "ALL" ]]; then
@@ -368,13 +435,13 @@ function run_pytests() {
   local RETURN_STATUS=$?
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "${LOG_PREFIX} SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+    logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
   else
-    logInfo "${LOG_PREFIX} There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-    logInfo "${LOG_PREFIX} ${TEST_COMMAND}"
+    logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    logInfo "${TEST_COMMAND}"
     eval "${TEST_COMMAND}"
   fi
-  logInfo "${LOG_PREFIX} TEST[${TEST_CASE_ID}] - RETURN_STATUS=${RETURN_STATUS}"
+  logInfo "TEST[${TEST_CASE_ID}] - RETURN_STATUS=${RETURN_STATUS}"
 
   return "${RETURN_STATUS}"
 }
@@ -425,7 +492,6 @@ function run_test_case() {
 }
 
 function print_test_cases() {
-  local LOG_PREFIX="print_test_cases():"
 
   TEST_CASE_IDX=0
 
@@ -454,13 +520,12 @@ function print_test_cases() {
 
 
 function run_tests() {
-  local LOG_PREFIX="run_tests():"
   local ERROR_COUNT=0
 #  local TEST_CASES=$@
   local TEST_CASES=("$@")
   local RETURN_STATUS=0
 
-  logInfo "${LOG_PREFIX} TEST_CASES[@]=${TEST_CASES[@]}"
+  logInfo "TEST_CASES[@]=${TEST_CASES[@]}"
   TEST_CASES_STR="${TEST_CASES[@]}"
   TEST_CASE_IDX=0
 
@@ -480,23 +545,23 @@ function run_tests() {
 
     TEST_CASE=${TEST_CASE_ARRAY[0]}
 
-    logDebug "${LOG_PREFIX} TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE}"
+    logDebug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE}"
 
     local TEST_CASE_ARGS=()
     if [[ ${#TEST_CASE_ARRAY[@]} -gt 1 ]]; then
       ## ref: https://unix.stackexchange.com/questions/413976/how-to-shift-array-value-in-bash#413990
       TEST_CASE_ARGS=${TEST_CASE_ARRAY[@]:1}
-      logDebug "${LOG_PREFIX} TEST_CASE_ARGS=${TEST_CASE_ARGS[@]}"
+      logDebug "TEST_CASE_ARGS=${TEST_CASE_ARGS[@]}"
     fi
 
     run_test_case "${TEST_CASE_IDX_PADDED}" "${TEST_CASE}" "${TEST_CASES_STR}" "${TEST_CASE_ARGS[@]}"
     RETURN_STATUS=$?
     ERROR_COUNT=$((${ERROR_COUNT} + ${RETURN_STATUS}))
-    logDebug "${LOG_PREFIX} TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
+    logDebug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
 
   done
 
-  logInfo "${LOG_PREFIX} ERROR_COUNT=${ERROR_COUNT}"
+  logInfo "ERROR_COUNT=${ERROR_COUNT}"
   return ${ERROR_COUNT}
 }
 
@@ -518,13 +583,12 @@ function isInstalled() {
 
 
 function install_jq() {
-  local LOG_PREFIX="==> install_jq():"
   local OS="${1}"
   local PACKAGE_NAME="jq"
 
   echo "==> installing jq - required for yq sort-keys (https://mikefarah.gitbook.io/yq/operators/sort-keys)"
   if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for linux"
+    logInfo "Installing jq for linux"
     if [[ -n "$(command -v dnf)" ]]; then
       sudo dnf install -y "${PACKAGE_NAME}"
     elif [[ -n "$(command -v yum)" ]]; then
@@ -534,12 +598,12 @@ function install_jq() {
     fi
   fi
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for MacOS"
+    logInfo "Installing jq for MacOS"
     brew install "${PACKAGE_NAME}"
   fi
   if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
     PACKAGE_NAME="mingw-w64-x86_64-jq"
-    logInfo "${LOG_PREFIX} Installing jq for MSYS2"
+    logInfo "Installing jq for MSYS2"
     ## ref: https://packages.msys2.org/package/mingw-w64-x86_64-jq?repo=mingw64
     pacman --noconfirm -S "${PACKAGE_NAME}"
   fi
@@ -547,12 +611,11 @@ function install_jq() {
 
 
 function install_yq() {
-  local LOG_PREFIX="==> install_jq():"
   local OS="${1}"
   local VERSION="v4.40.5"
   local BINARY="yq_linux_amd64"
 
-  logInfo "${LOG_PREFIX} Installing yq (golang) (https://github.com/mikefarah/yq#install)"
+  logInfo "Installing yq (golang) (https://github.com/mikefarah/yq#install)"
 
   if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
 
@@ -563,17 +626,17 @@ function install_yq() {
     INSTALL_DIR="${HOME}/bin"
     mkdir -p "${INSTALL_DIR}"
 
-    logInfo "${LOG_PREFIX} Installing yq for linux"
+    logInfo "Installing yq for linux"
     ## ref: https://unix.stackexchange.com/questions/85194/how-to-download-an-archive-and-extract-it-without-saving-the-archive-to-disk
     curl -s -L "https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz" |\
       tar xzf - -C "${TMPDIR}" && mv "${TMPDIR}/${BINARY}" "${INSTALL_DIR}/yq"
   fi
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for MacOS"
+    logInfo "Installing jq for MacOS"
     brew install yq
   fi
   if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for MSYS2"
+    logInfo "Installing jq for MSYS2"
 
     ## ref: https://github.com/mikefarah/yq#arch-linux
     #pacman --noconfirm -S go-yq
@@ -590,17 +653,14 @@ function install_yq() {
 
 
 function ensure_python_modules() {
-  local LOG_PREFIX="ensure_python_modules():"
-
   PIP_COMMAND="pip install -r ${PROJECT_DIR}/requirements.txt"
-  logDebug "${LOG_PREFIX} ${PIP_COMMAND}"
+  logDebug "${PIP_COMMAND}"
   eval "${PIP_COMMAND} >/dev/null 2>&1"
-  logDebug "${LOG_PREFIX} pip install complete"
+  logDebug "pip install complete"
 }
 
 
 function ensure_tool() {
-  local LOG_PREFIX="ensure_tool():"
   if [[ $# -ne 1 ]]
   then
     return 1
@@ -610,7 +670,7 @@ function ensure_tool() {
   local install_function="install_${executable}"
 
   if [[ -z "$(command -v "${executable}")" ]]; then
-    logDebug "${LOG_PREFIX} executable '${executable}' not found"
+    logDebug "executable '${executable}' not found"
     # First check OS.
     PLATFORM_OS=$(uname -s | tr "[:upper:]" "[:lower:]")
 
@@ -629,7 +689,7 @@ function ensure_tool() {
         ;;
     esac
 
-    logDebug "${LOG_PREFIX} installing executable '${executable}'"
+    logDebug "installing executable '${executable}'"
     eval "${install_function} ${PLATFORM_OS}"
   fi
 }

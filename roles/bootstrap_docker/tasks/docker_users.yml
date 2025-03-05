@@ -1,4 +1,5 @@
 ---
+
 - name: "{{ __bootstrap_docker__log_prefix_users }} Ensure docker users are added to the docker group."
   ansible.builtin.user:
     name: "{{ item }}"
@@ -42,8 +43,37 @@
     docker_user_home: "{{ __bootstrap_docker__user_result.home }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_users }} Enable sudo for docker user"
+  when: bootstrap_docker__user_sudo_access | bool
   ansible.builtin.user:
     name: "{{ docker_user_username }}"
     groups: "{{ docker_sudo_group[ansible_distribution] }}"
     append: true
-  when: bootstrap_docker__user_sudo_access | bool
+
+- name: "{{ __bootstrap_docker__log_prefix_users }} Add ansible user to docker group"
+  no_log: true
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: "{{ bootstrap_docker__user_groups[ansible_distribution] | join(',') }}"
+    append: true
+  register: __bootstrap_docker__user_to_docker_group
+
+### ref: https://stackoverflow.com/questions/48568172/docker-sock-permission-denied
+### ref: https://github.com/redhat-nfvpe/ansible-role-install-docker/pull/22/files
+#- name: "{{ __bootstrap_docker__log_prefix_users }} Load 'docker' group into the ansible_user"
+#  when:
+#    - __bootstrap_docker__user_to_docker_group.changed
+#    - not bootstrap_docker__install_suppress_newgrp
+#  changed_when: false
+#  ansible.builtin.command: "newgrp docker"
+
+## ref: https://www.jeffgeerling.com/blog/2021/allowing-ansible-playbooks-work-new-user-groups-on-first-run
+## ref: https://stackoverflow.com/questions/26677064/create-and-use-group-without-restart
+- name: "{{ __bootstrap_docker__log_prefix_users }} Reset connection to allow user changes to affect ansible user"
+  ansible.builtin.meta:
+    reset_connection
+
+- name: "{{ __bootstrap_docker__log_prefix_users }} After adding users to the docker group, restart Docker daemon service"
+  when: bootstrap_docker__service_started|bool
+  ansible.builtin.service:
+    name: docker
+    state: restarted

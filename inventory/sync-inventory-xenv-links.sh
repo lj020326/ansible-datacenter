@@ -20,7 +20,6 @@ INVENTORY_YML_LIST=("hosts.yml")
 INVENTORY_YML_LIST+=("xenv_hosts.yml")
 INVENTORY_YML_LIST+=("xenv_groups.yml")
 
-
 #### LOGGING RELATED
 LOG_ERROR=0
 LOG_WARN=1
@@ -33,34 +32,89 @@ LOG_LEVEL=${LOG_INFO}
 
 function logError() {
   if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
-  	echo -e "[ERROR]: ${1}"
+#  	echo -e "[ERROR]: ==> ${1}"
+  	logMessage "${LOG_ERROR}" "${1}"
   fi
 }
 function logWarn() {
   if [ $LOG_LEVEL -ge $LOG_WARN ]; then
-  	echo -e "[WARN ]: ${1}"
+#  	echo -e "[WARN ]: ==> ${1}"
+  	logMessage "${LOG_WARN}" "${1}"
   fi
 }
 function logInfo() {
   if [ $LOG_LEVEL -ge $LOG_INFO ]; then
-  	echo -e "[INFO ]: ${1}"
+#  	echo -e "[INFO ]: ==> ${1}"
+  	logMessage "${LOG_INFO}" "${1}"
   fi
 }
 function logTrace() {
   if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
-  	echo -e "[TRACE]: ${1}"
+#  	echo -e "[TRACE]: ==> ${1}"
+  	logMessage "${LOG_TRACE}" "${1}"
   fi
 }
 function logDebug() {
   if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
-  	echo -e "[DEBUG]: ${1}"
+#  	echo -e "[DEBUG]: ==> ${1}"
+  	logMessage "${LOG_DEBUG}" "${1}"
   fi
 }
 
-function setLogLevel() {
-  local LOGLEVEL=$1
+function logMessage() {
+  local LOG_MESSAGE_LEVEL="${1}"
+  local LOG_MESSAGE="${2}"
+  ## remove first item from FUNCNAME array
+#  local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2}")
+  ## Get the length of the array
+  local CALLING_FUNCTION_ARRAY_LENGTH=${#FUNCNAME[@]}
+  local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2:$((CALLING_FUNCTION_ARRAY_LENGTH - 3))}")
+#  echo "CALLING_FUNCTION_ARRAY[@]=${CALLING_FUNCTION_ARRAY[@]}"
 
-  case "${LOGLEVEL}" in
+  local CALL_ARRAY_LENGTH=${#CALLING_FUNCTION_ARRAY[@]}
+  local REVERSED_CALL_ARRAY=()
+  for (( i = CALL_ARRAY_LENGTH - 1; i >= 0; i-- )); do
+    REVERSED_CALL_ARRAY+=( "${CALLING_FUNCTION_ARRAY[i]}" )
+  done
+#  echo "REVERSED_CALL_ARRAY[@]=${REVERSED_CALL_ARRAY[@]}"
+
+#  local CALLING_FUNCTION_STR="${CALLING_FUNCTION_ARRAY[*]}"
+  ## ref: https://stackoverflow.com/questions/1527049/how-can-i-join-elements-of-a-bash-array-into-a-delimited-string#17841619
+  local SEPARATOR=":"
+  local CALLING_FUNCTION_STR=$(printf "${SEPARATOR}%s" "${REVERSED_CALL_ARRAY[@]}")
+  local CALLING_FUNCTION_STR=${CALLING_FUNCTION_STR:${#SEPARATOR}}
+
+  case "${LOG_MESSAGE_LEVEL}" in
+    $LOG_ERROR*)
+      LOG_LEVEL_STR="ERROR"
+      ;;
+    $LOG_WARN*)
+      LOG_LEVEL_STR="WARN"
+      ;;
+    $LOG_INFO*)
+      LOG_LEVEL_STR="INFO"
+      ;;
+    $LOG_TRACE*)
+      LOG_LEVEL_STR="TRACE"
+      ;;
+    $LOG_DEBUG*)
+      LOG_LEVEL_STR="DEBUG"
+      ;;
+    *)
+      abort "Unknown LOG_MESSAGE_LEVEL of [${LOG_MESSAGE_LEVEL}] specified"
+  esac
+
+  local LOG_LEVEL_PADDING_LENGTH=5
+  local PADDED_LOG_LEVEL=$(printf "%-${LOG_LEVEL_PADDING_LENGTH}s" "${LOG_LEVEL_STR}")
+
+  local LOG_PREFIX="${CALLING_FUNCTION_STR}():"
+  echo -e "[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX} ${LOG_MESSAGE}"
+}
+
+function setLogLevel() {
+  LOG_LEVEL_STR=$1
+
+  case "${LOG_LEVEL_STR}" in
     ERROR*)
       LOG_LEVEL=$LOG_ERROR
       ;;
@@ -77,8 +131,28 @@ function setLogLevel() {
       LOG_LEVEL=$LOG_DEBUG
       ;;
     *)
-      abort "Unknown loglevel of [${LOGLEVEL}] specified"
+      abort "Unknown LOG_LEVEL_STR of [${LOG_LEVEL_STR}] specified"
   esac
+
+}
+
+function handle_cmd_return_code() {
+  ## ref: https://unix.stackexchange.com/questions/261305/how-to-determine-callee-function-name-in-a-script
+  local CALLING_FUNCTION="${FUNCNAME[1]}"
+  local RUN_COMMAND=$1
+
+  logInfo "${RUN_COMMAND}"
+  eval "${RUN_COMMAND} > /dev/null 2>&1"
+  local RETURN_STATUS=$?
+
+  if [[ $RETURN_STATUS -eq 0 ]]; then
+    logDebug "SUCCESS => No exceptions found from packer validate!!"
+  else
+    logError "packer validate resulted in return code [${RETURN_STATUS}]!! :("
+    logError "${RUN_COMMAND}"
+    eval "${RUN_COMMAND}"
+    exit 1
+  fi
 
 }
 
@@ -154,10 +228,9 @@ function cleanup_tmpdir() {
 function create_host_links_yml() {
   local INVENTORY_DIR=$1
   local ENVS=$2
-  local LOG_PREFIX="==> create_host_links_yml():"
 
   BASE_DIRECTORY="${INVENTORY_DIR}"
-  logDebug "${LOG_PREFIX} BASE_DIRECTORY=${BASE_DIRECTORY}"
+  logDebug "BASE_DIRECTORY=${BASE_DIRECTORY}"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
@@ -165,19 +238,19 @@ function create_host_links_yml() {
   IFS=$'\n'
   for ENVIRONMENT in ${ENVS}
   do
-    logDebug "${LOG_PREFIX} ############### ENVIRONMENT=${ENVIRONMENT} ########################################"
-    logInfo "${LOG_PREFIX} Create host (*.yml) symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
+    logDebug "############### ENVIRONMENT=${ENVIRONMENT} ########################################"
+    logInfo "Create host (*.yml) symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
 
     ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
-    logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
-    logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
+    logDebug "ENV_DIR=${ENV_DIR}"
+    logDebug "cd ${ENV_DIR}"
     cd "${ENV_DIR}"/
 
-    logDebug "${LOG_PREFIX} get the relative path between $PWD and $BASE_DIRECTORY directories"
+    logDebug "get the relative path between $PWD and $BASE_DIRECTORY directories"
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    logDebug "${LOG_PREFIX} RELPATH=${RELPATH}"
+    logDebug "RELPATH=${RELPATH}"
 
-    logDebug "${LOG_PREFIX} Remove all existing host links in ${ENV_DIR}"
+    logDebug "Remove all existing host links in ${ENV_DIR}"
     if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
 #      find . -maxdepth 1 -type l -print -exec rm {} \;
       find . -maxdepth 1 -type l -delete
@@ -185,7 +258,7 @@ function create_host_links_yml() {
       find . -maxdepth 1 -type l -delete > /dev/null 2>&1
     fi
 
-    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/*.yml ./"
+    logDebug "ln -sf ${RELPATH}/*.yml ./"
     ln -sf "${RELPATH}"/*.yml ./
 
   done
@@ -197,11 +270,9 @@ function create_groupvars_links_yml() {
   local INVENTORY_DIR=$1
   local ENVS=$2
 
-  local LOG_PREFIX="==> create_groupvars_links_yml():"
-
   BASE_DIRECTORY="${INVENTORY_DIR}"
-  logDebug "${LOG_PREFIX} BASE_DIRECTORY=${BASE_DIRECTORY}"
-  logDebug "${LOG_PREFIX} ENVS=${ENVS}"
+  logDebug "BASE_DIRECTORY=${BASE_DIRECTORY}"
+  logDebug "ENVS=${ENVS}"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
@@ -209,22 +280,22 @@ function create_groupvars_links_yml() {
   IFS=$'\n'
   for ENVIRONMENT in ${ENVS}
   do
-    logDebug "${LOG_PREFIX} ############### ENVIRONMENT=${ENVIRONMENT} ########################################"
-    logInfo "${LOG_PREFIX} Create group_vars/*.yml symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
+    logDebug "############### ENVIRONMENT=${ENVIRONMENT} ########################################"
+    logInfo "Create group_vars/*.yml symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
 
     ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
-    logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
-    logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
+    logDebug "ENV_DIR=${ENV_DIR}"
+    logDebug "cd ${ENV_DIR}"
     cd ${ENV_DIR}/
 
     mkdir -p group_vars
     cd group_vars
 
-    logDebug "${LOG_PREFIX} get relative path between $PWD and $BASE_DIRECTORY dirs"
+    logDebug "get relative path between $PWD and $BASE_DIRECTORY dirs"
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    logDebug "${LOG_PREFIX} RELPATH=${RELPATH}"
+    logDebug "RELPATH=${RELPATH}"
 
-    logDebug "${LOG_PREFIX} Remove all existing group_var links in ${ENV_DIR}"
+    logDebug "Remove all existing group_var links in ${ENV_DIR}"
     if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
 #      find . -type l -print -exec rm {} \;
       find . -type l -print -delete
@@ -232,28 +303,28 @@ function create_groupvars_links_yml() {
       find . -type l -print -delete > /dev/null 2>&1
     fi
 
-    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/group_vars/*.yml ./"
+    logDebug "ln -sf ${RELPATH}/group_vars/*.yml ./"
     ln -sf ${RELPATH}/group_vars/*.yml ./
 
     ## ref: https://stackoverflow.com/questions/4210042/how-do-i-exclude-a-directory-when-using-find#15736463
-    logDebug "${LOG_PREFIX} find sub directories in groups_vars excluding 'all'"
+    logDebug "find sub directories in groups_vars excluding 'all'"
     GROUPVAR_SUBDIRS=$(find ${RELPATH}/group_vars/* -maxdepth 0 -type d -not \( -name all -prune \))
-    logDebug "${LOG_PREFIX} GROUPVAR_SUBDIRS=${GROUPVAR_SUBDIRS}"
+    logDebug "GROUPVAR_SUBDIRS=${GROUPVAR_SUBDIRS}"
 
     for SUB_DIR in ${GROUPVAR_SUBDIRS}; do
-      logDebug "${LOG_PREFIX} ln -sf ${SUB_DIR} ./"
+      logDebug "ln -sf ${SUB_DIR} ./"
       ln -sf "${SUB_DIR}" ./
     done
 
 #    rm -f all.yml
-    logDebug "${LOG_PREFIX} Create ${PWD}/all dir if does not exist"
+    logDebug "Create ${PWD}/all dir if does not exist"
     mkdir -p all
 
     cd all
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    logDebug "${LOG_PREFIX} group_vars/all/ => RELPATH=${RELPATH}"
+    logDebug "group_vars/all/ => RELPATH=${RELPATH}"
 
-    logDebug "${LOG_PREFIX} Remove all existing group_var links in ${ENV_DIR}/group_vars/all/"
+    logDebug "Remove all existing group_var links in ${ENV_DIR}/group_vars/all/"
     if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
 #      find . -type l -print -exec rm {} \;
       find . -type l -delete
@@ -261,7 +332,7 @@ function create_groupvars_links_yml() {
       find . -type l -delete > /dev/null 2>&1
     fi
 
-    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/group_vars/all/*.yml ./"
+    logDebug "ln -sf ${RELPATH}/group_vars/all/*.yml ./"
     ln -sf ${RELPATH}/group_vars/all/*.yml ./
 
 ## NOTES:
@@ -333,10 +404,8 @@ function create_hostvars_links_yml() {
   local INVENTORY_DIR=$1
   local ENVS=$2
 
-  local LOG_PREFIX="==> create_hostvars_links_yml():"
-
   BASE_DIRECTORY="${INVENTORY_DIR}"
-  logDebug "${LOG_PREFIX} BASE_DIRECTORY=${BASE_DIRECTORY}"
+  logDebug "BASE_DIRECTORY=${BASE_DIRECTORY}"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
@@ -344,19 +413,19 @@ function create_hostvars_links_yml() {
   IFS=$'\n'
   for ENVIRONMENT in ${ENVS}
   do
-    logDebug "${LOG_PREFIX} ############### ENVIRONMENT=${ENVIRONMENT} ########################################"
-    logInfo "${LOG_PREFIX} Create host_vars symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
+    logDebug "############### ENVIRONMENT=${ENVIRONMENT} ########################################"
+    logInfo "Create host_vars symlinks for files in ENVIRONMENT [$ENVIRONMENT]"
 
     ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
-    logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
-    logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
+    logDebug "ENV_DIR=${ENV_DIR}"
+    logDebug "cd ${ENV_DIR}"
     cd ${ENV_DIR}/
 
-    logDebug "${LOG_PREFIX} get the relative path between $PWD and $BASE_DIRECTORY directories"
+    logDebug "get the relative path between $PWD and $BASE_DIRECTORY directories"
     RELPATH=$(pnrelpath "$PWD" "$BASE_DIRECTORY")
-    logDebug "${LOG_PREFIX} RELPATH=${RELPATH}"
+    logDebug "RELPATH=${RELPATH}"
 
-    logDebug "${LOG_PREFIX} ln -sf ${RELPATH}/host_vars ./"
+    logDebug "ln -sf ${RELPATH}/host_vars ./"
     ln -sf ${RELPATH}/host_vars ./
 
   done
@@ -384,9 +453,7 @@ function create_special_links() {
   local SPECIAL_LINKS=$2
   BASE_DIRECTORY="${INVENTORY_DIR}/${ENV_BASE}"
 
-  local LOG_PREFIX="==> create_special_links():"
-
-  logInfo "${LOG_PREFIX} ############### BASE_DIRECTORY=${BASE_DIRECTORY} ########################################"
+  logInfo "############### BASE_DIRECTORY=${BASE_DIRECTORY} ########################################"
 
   ##
   ## for each PATH iteration create a soft link back to all files found in the respective base directory (Sandbox/Prod)
@@ -395,8 +462,8 @@ function create_special_links() {
   for special_link in ${SPECIAL_LINKS}
   do
 
-    logInfo "${LOG_PREFIX} ###############"
-    logInfo "${LOG_PREFIX} Create SPECIAL_LINKS symlinks for special_link [$special_link]"
+    logInfo "###############"
+    logInfo "Create SPECIAL_LINKS symlinks for special_link [$special_link]"
     # split sub-list if available
     if [[ $special_link == *":"* ]]
     then
@@ -407,21 +474,21 @@ function create_special_links() {
       link=${linkInfoArray[0]}
       linkSource=${linkInfoArray[1]}
 
-      logDebug "${LOG_PREFIX} link=[$link]"
-      logDebug "${LOG_PREFIX} linkSource=[$linkSource]"
+      logDebug "link=[$link]"
+      logDebug "linkSource=[$linkSource]"
 
       linkName=$(basename "${link}")
       ENVIRONMENT=$(dirname "${link}")
 
-      logDebug "${LOG_PREFIX} linkName=[$linkName]"
-      logDebug "${LOG_PREFIX} ENVIRONMENT=[$ENVIRONMENT]"
+      logDebug "linkName=[$linkName]"
+      logDebug "ENVIRONMENT=[$ENVIRONMENT]"
 
       ENV_DIR="${INVENTORY_DIR}/${ENVIRONMENT}"
-      logDebug "${LOG_PREFIX} ENV_DIR=${ENV_DIR}"
-      logDebug "${LOG_PREFIX} cd ${ENV_DIR}"
+      logDebug "ENV_DIR=${ENV_DIR}"
+      logDebug "cd ${ENV_DIR}"
       cd "${ENV_DIR}"/
 
-      logDebug "${LOG_PREFIX} Remove existing link in ${ENV_DIR}"
+      logDebug "Remove existing link in ${ENV_DIR}"
       if [[ $LOG_LEVEL -gt $LOG_TRACE ]]; then
 #        find . -maxdepth 1 -name "${linkName}" -type l -print -exec rm {} \;
         find . -maxdepth 1 -name "${linkName}" -type l -delete
@@ -429,7 +496,7 @@ function create_special_links() {
         find . -maxdepth 1 -name "${linkName}" -type l -delete > /dev/null 2>&1
       fi
 
-      logDebug "${LOG_PREFIX} ln -sf ${linkSource} ${linkName}"
+      logDebug "ln -sf ${linkSource} ${linkName}"
       ln -sf "${linkSource}" "${linkName}"
     fi
 
@@ -439,13 +506,12 @@ function create_special_links() {
 }
 
 function install_jq() {
-  local LOG_PREFIX="==> install_jq():"
   local OS="${1}"
   local PACKAGE_NAME="jq"
 
   echo "==> installing jq - required for yq sort-keys (https://mikefarah.gitbook.io/yq/operators/sort-keys)"
   if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for linux"
+    logInfo "Installing jq for linux"
     if [[ -n "$(command -v dnf)" ]]; then
       sudo dnf install -y "${PACKAGE_NAME}"
     elif [[ -n "$(command -v yum)" ]]; then
@@ -455,24 +521,23 @@ function install_jq() {
     fi
   fi
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for MacOS"
+    logInfo "Installing jq for MacOS"
     brew install "${PACKAGE_NAME}"
   fi
   if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
     PACKAGE_NAME="mingw-w64-x86_64-jq"
-    logInfo "${LOG_PREFIX} Installing jq for MSYS2"
+    logInfo "Installing jq for MSYS2"
     ## ref: https://packages.msys2.org/package/mingw-w64-x86_64-jq?repo=mingw64
     pacman --noconfirm -S "${PACKAGE_NAME}"
   fi
 }
 
 function install_yq() {
-  local LOG_PREFIX="==> install_jq():"
   local OS="${1}"
   local VERSION="v4.40.5"
   local BINARY="yq_linux_amd64"
 
-  logInfo "${LOG_PREFIX} Installing yq (golang) (https://github.com/mikefarah/yq#install)"
+  logInfo "Installing yq (golang) (https://github.com/mikefarah/yq#install)"
 
   if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
 
@@ -491,18 +556,18 @@ function install_yq() {
     mkdir -p "${INSTALL_DIR}"
     export PATH="${INSTALL_DIR}:${PATH}"
 
-    logInfo "${LOG_PREFIX} Installing yq for linux"
+    logInfo "Installing yq for linux"
     ## ref: https://unix.stackexchange.com/questions/85194/how-to-download-an-archive-and-extract-it-without-saving-the-archive-to-disk
     curl -s -L "https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz" |\
       tar xzf - -C "${TMPDIR}" && mv "${TMPDIR}/${BINARY}" "${INSTALL_DIR}/yq"
 
   fi
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for MacOS"
+    logInfo "Installing jq for MacOS"
     brew install yq
   fi
   if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
-    logInfo "${LOG_PREFIX} Installing jq for MSYS2"
+    logInfo "Installing jq for MSYS2"
 
     ## ref: https://github.com/mikefarah/yq#arch-linux
     #pacman --noconfirm -S go-yq
@@ -518,7 +583,6 @@ function install_yq() {
 }
 
 function ensure_tool() {
-  local LOG_PREFIX="==> ensure_tool():"
   if [[ $# -ne 1 ]]
   then
     return 1
@@ -551,7 +615,6 @@ function ensure_tool() {
 }
 
 function ensure_pip_tool() {
-  local LOG_PREFIX="==> ensure_pip_tool():"
   if [[ $# -ne 1 ]]
   then
     return 1
@@ -565,18 +628,17 @@ function ensure_pip_tool() {
 }
 
 function sort_xenv_files() {
-  local LOG_PREFIX="==> sort_xenv_files():"
   local INVENTORY_YML_LIST=("$@")
 
   ## ref: https://pypi.org/project/yq/
-  logInfo "${LOG_PREFIX} Ensure jq present/installed (required for yq sort-keys)"
+  logInfo "Ensure jq present/installed (required for yq sort-keys)"
   ensure_tool jq
 
   ## ref: https://github.com/mikefarah/yq#install
-  logInfo "${LOG_PREFIX} Ensure yq present/installed (required for yq sort-keys)"
+  logInfo "Ensure yq present/installed (required for yq sort-keys)"
   ensure_tool yq
 
-  logDebug "${LOG_PREFIX} INVENTORY_YML_LIST=${INVENTORY_YML_LIST[*]}"
+  logDebug "INVENTORY_YML_LIST=${INVENTORY_YML_LIST[*]}"
 
   local DELIM=' -o '
   ## ref: https://superuser.com/questions/1371834/escaping-hyphens-with-printf-in-bash
@@ -584,19 +646,19 @@ function sort_xenv_files() {
   printf -v FIND_FILE_ARGS "\055name %s${DELIM}" "${INVENTORY_YML_LIST[@]}"
   FIND_FILE_ARGS=${FIND_FILE_ARGS%$DELIM}
 
-  logDebug "${LOG_PREFIX} FIND_FILE_ARGS=${FIND_FILE_ARGS}"
+  logDebug "FIND_FILE_ARGS=${FIND_FILE_ARGS}"
 
   FIND_CMD="find . -type f \( ${FIND_FILE_ARGS} \) -printf '%P\n' | sort"
-  logInfo "${LOG_PREFIX} ${FIND_CMD}"
+  logInfo "${FIND_CMD}"
 
   INVENTORY_YML_FILES_FOUND=$(eval "${FIND_CMD}")
-  logDebug "${LOG_PREFIX} INVENTORY_YML_FILES_FOUND=${INVENTORY_YML_FILES_FOUND}"
+  logDebug "INVENTORY_YML_FILES_FOUND=${INVENTORY_YML_FILES_FOUND}"
 
   for INVENTORY_FILE in ${INVENTORY_YML_FILES_FOUND}
   do
     ## ref: https://mikefarah.gitbook.io/yq/operators/sort-keys
     SORT_CMD="yq -i -P 'sort_keys(..)' ${INVENTORY_FILE}"
-    logInfo "${LOG_PREFIX} ${SORT_CMD}"
+    logInfo "${SORT_CMD}"
     eval "${SORT_CMD}"
 #    yq -i -P 'sort_keys(..)' "${INVENTORY_FILE}"
   done
