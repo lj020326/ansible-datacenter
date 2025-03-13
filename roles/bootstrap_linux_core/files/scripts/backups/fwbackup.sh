@@ -16,11 +16,11 @@ TIMESTAMP=`date +%Y%m%d%H%M%S`
 
 logName="fwbackup_$(date -Id)_$(date +%H-%M-%S).log"
 ownFolderName=".fwbackup"
-logFolderName="log"
+logFolderName="logs"
 
-# Combinate previously defined variables for use (don't touch this)
+# Combine previously defined variables for use (don't touch this)
 ownFolderPath="${HOME}/${ownFolderName}"
-tempLogPath="${ownFolderPath}/logs"
+tempLogPath="${ownFolderPath}/${logFolderName}"
 logFile="${tempLogPath}/${logName}"
 
 # Prepare own folder

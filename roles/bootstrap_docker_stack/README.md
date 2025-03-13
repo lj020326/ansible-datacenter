@@ -49,7 +49,7 @@ The docker runtime environment is expected to be already prepared in a prior pla
 | docker_stack__compose_http_timeout           | no       | 120                                                                               |                            |
 | docker_stack__run_services                   | no       | yes                                                                               |                            |
 | docker_stack__restart_service                | no       | yes                                                                               |                            |
-| docker_stack__traefik_proxy_network_name          | no       | "traefik_public"                                                                  |                            |
+| docker_stack__network_name__traefik_proxy          | no       | "traefik_public"                                                                  |                            |
 | docker_stack__networks                       | no       | {}                                                                                |                            |
 | docker_stack__volumes                        | no       | {}                                                                                |                            |
 | docker_stack__configs                        | no       | {}                                                                                |                            |

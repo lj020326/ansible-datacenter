@@ -27,6 +27,11 @@ LOG_DEBUG=4
 #LOG_LEVEL=${LOG_DEBUG}
 LOG_LEVEL=${LOG_INFO}
 
+function abort() {
+  logError "%s\n" "$@"
+  exit 1
+}
+
 function logError() {
   if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
 #  	echo -e "[ERROR]: ==> ${1}"
@@ -139,13 +144,13 @@ function usage() {
   echo ""
   echo "  Options:"
   echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
-  echo "       -c CONFIG_FILEPATH (default '')"
-  echo "       -f EMAIL_FROM (default 'backups@example.int')"
-  echo "       -t EMAIL_TO (default 'admin@example.int')"
-  echo "       -b BACKUP_LABEL (default 'daily')"
-  echo "       -s SOURCE_DIR (default '/srv/data1/data/Records')"
-  echo "       -d DEST_DIR (default '/srv/backups/records/daily')"
-  echo "       -l LOG_DIR (default '/var/log/backups')"
+  echo "       -c CONFIG_FILEPATH : default empty and not loaded (e.g. 'backups.cfg')"
+  echo "       -f EMAIL_FROM : default 'backups@example.int'"
+  echo "       -t EMAIL_TO : default 'admin@example.int'"
+  echo "       -b BACKUP_LABEL : default 'daily'"
+  echo "       -s SOURCE_DIR : default '/srv/data1/data/Records'"
+  echo "       -d DEST_DIR : default '/srv/backups/records/daily'"
+  echo "       -l LOG_DIR : default '/var/log/backups'"
   echo "       -v : show script version"
   echo "       -h : help"
   echo ""
@@ -185,8 +190,7 @@ function main() {
   if [ -n "${CONFIG_FILEPATH}" ]; then
     if [ ! -e $CONFIG_FILEPATH ]; then
 #      logWarn "Config file ${CONFIG_FILEPATH} not found, skipping!"
-      logError "Config file ${CONFIG_FILEPATH} not found, quitting now!"
-      exit 1
+      abort "Config file ${CONFIG_FILEPATH} not found, quitting now!"
     else
       logInfo "Reading configs from ${CONFIG_FILEPATH} ...."
       source ${CONFIG_FILEPATH}

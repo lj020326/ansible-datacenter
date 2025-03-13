@@ -8,13 +8,22 @@
 
 {% if __docker_stack__networks %}
 networks:
-{% if docker_stack__swarm_mode|d(False)|bool %}
-  {{ __docker_stack__networks | ansible.utils.remove_keys(target=['ipam_config','scope'])
-    | to_nice_yaml(indent=2) | indent(2) }}
+{% for _network_key, _network_config in __docker_stack__networks.items() %}
+  {{ _network_key }}:
+{% if _network_config.external|d(False)|bool %}
+    external: true
 {% else %}
-  {{ __docker_stack__networks | ansible.utils.remove_keys(target=['driver','ipam_config','scope'])
-    | to_nice_yaml(indent=2) | indent(2) }}
+{% if docker_stack__swarm_mode|d(False)|bool %}
+    {{ _network_config
+      | ansible.utils.remove_keys(target=['ipam_config','scope'])
+      | to_nice_yaml(indent=2) | indent(4) }}
+{% else %}
+    {{ _network_config
+      | ansible.utils.remove_keys(target=['driver','ipam_config','scope'])
+      | to_nice_yaml(indent=2) | indent(4) }}
 {% endif %}
+{% endif %}
+{% endfor %}
 {% endif %}
 
 {% if __docker_stack__volumes %}

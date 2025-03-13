@@ -5,12 +5,21 @@
 
 VERSION="2025.2.12"
 
+CONFIG_FILEPATH="deploy-stack.cfg"
+
+## ref: https://stackoverflow.com/questions/43053013/how-do-i-check-that-a-docker-host-is-in-swarm-mode
+DOCKER_SWARM_NODE_STATE=$(docker info --format '{{.Swarm.LocalNodeState}}')
+DOCKER_SWARM_CONTROL_NODE=$(docker info --format '{{.Swarm.ControlAvailable}}')
+
+DOCKER_SWARM_MODE=0
+
 DOCKER_STACK_LIST_DEFAULT=()
 DOCKER_STACK_LIST_DEFAULT+=("docker_stack")
 
 DOCKER_EXTERNAL_NETWORK_LIST=()
-#DOCKER_EXTERNAL_NETWORK_LIST=("traefik_public")
-DOCKER_EXTERNAL_NETWORK_LIST=("traefik_public,172.28.0.0/16")
+#DOCKER_EXTERNAL_NETWORK_LIST+=("traefik_public")
+#DOCKER_EXTERNAL_NETWORK_LIST+=("traefik_public,172.28.0.0/16")
+#DOCKER_EXTERNAL_NETWORK_LIST+=("traefik_public,192.168.12.0/24")
 
 DOCKER_COMPOSE_FILE=docker-compose.yml
 
@@ -29,33 +38,33 @@ LOG_DEBUG=4
 #LOG_LEVEL=${LOG_DEBUG}
 LOG_LEVEL=${LOG_INFO}
 
+function abort() {
+  logError "%s\n" "$@"
+  exit 1
+}
+
 function logError() {
   if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
-#  	echo -e "[ERROR]: ==> ${1}"
   	logMessage "${LOG_ERROR}" "${1}"
   fi
 }
 function logWarn() {
   if [ $LOG_LEVEL -ge $LOG_WARN ]; then
-#  	echo -e "[WARN ]: ==> ${1}"
   	logMessage "${LOG_WARN}" "${1}"
   fi
 }
 function logInfo() {
   if [ $LOG_LEVEL -ge $LOG_INFO ]; then
-#  	echo -e "[INFO ]: ==> ${1}"
   	logMessage "${LOG_INFO}" "${1}"
   fi
 }
 function logTrace() {
   if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
-#  	echo -e "[TRACE]: ==> ${1}"
   	logMessage "${LOG_TRACE}" "${1}"
   fi
 }
 function logDebug() {
   if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
-#  	echo -e "[DEBUG]: ==> ${1}"
   	logMessage "${LOG_DEBUG}" "${1}"
   fi
 }
@@ -140,24 +149,37 @@ function remove_docker_stack() {
   local wait_limit=20
 
   logInfo "Removing stack [${DOCKER_STACK_NAME}].."
-  #docker stack rm ${DOCKER_STACK_NAME} >/dev/null 2>&1 || true
-  ## ref: https://github.com/moby/moby/issues/32620#issuecomment-439050180
-  DOCKER_STACK_RM_COMMAND="docker stack rm --detach=false ${DOCKER_STACK_NAME}"
-  logInfo "${DOCKER_STACK_RM_COMMAND}"
-  ${DOCKER_STACK_RM_COMMAND} || true
 
-  ## it would be nice if the 'docker stack rm' command supported a 'wait' option to avoid the following hack
-  ## ref: https://github.com/moby/moby/issues/30942
-#    until [ -z "$(docker service ls --filter label=com.docker.stack.namespace=${DOCKER_STACK_NAME} -q)" ] || [ "$wait_limit" -lt 0 ]; do
-  until [ -z "$(docker stack ps "${DOCKER_STACK_NAME}" -q)" ] || [ "$wait_limit" -lt 0 ]; do
-    sleep 2;
-    wait_limit="$((wait_limit-1))"
-  done
+  DOCKER_STACK_PS_COMMAND="docker compose --file=${DOCKER_COMPOSE_FILE} ps -q"
+  DOCKER_STACK_RM_COMMAND="docker-compose down"
+  if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
+      #docker stack rm ${DOCKER_STACK_NAME} >/dev/null 2>&1 || true
+      ## ref: https://github.com/moby/moby/issues/32620#issuecomment-439050180
+    DOCKER_STACK_PS_COMMAND="docker stack ps ${DOCKER_STACK_NAME} -q"
+    DOCKER_STACK_RM_COMMAND="docker stack rm --detach=false ${DOCKER_STACK_NAME}"
+  elif [[ "${DOCKER_SWARM_MODE}" -ne 0 ]]; then
+    abort "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}], skipping stack removal"
+  fi
 
-  until [ -z "$(docker network ls --filter label=com.docker.stack.namespace=${DOCKER_STACK_NAME} -q)" ] || [ "$wait_limit" -lt 0 ]; do
-    sleep 2;
-    wait_limit="$((wait_limit-1))"
-  done
+  logInfo "${DOCKER_STACK_PS_COMMAND} && ${DOCKER_STACK_RM_COMMAND}"
+  eval "${DOCKER_STACK_PS_COMMAND} >/dev/null 2>&1" && eval "${DOCKER_STACK_RM_COMMAND}" || true
+
+  if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
+    DOCKER_LABEL_FILTER="label=com.docker.stack.namespace=${DOCKER_STACK_NAME}"
+
+    ## it would be nice if the 'docker stack rm' command supported a 'wait' option to avoid the following hack
+    ## ref: https://github.com/moby/moby/issues/30942
+  #    until [ -z "$(docker service ls --filter ${DOCKER_LABEL_FILTER} -q)" ] || [ "$wait_limit" -lt 0 ]; do
+    until [ -z "$(docker stack ps ${DOCKER_STACK_NAME} -q >/dev/null 2>&1)" ] || [ "$wait_limit" -lt 0 ]; do
+      sleep 2;
+      wait_limit="$((wait_limit-1))"
+    done
+
+    until [ -z "$(docker network ls --filter ${DOCKER_LABEL_FILTER} -q)" ] || [ "$wait_limit" -lt 0 ]; do
+      sleep 2;
+      wait_limit="$((wait_limit-1))"
+    done
+  fi
 
   for DOCKER_EXTERNAL_NETWORK in "${DOCKER_EXTERNAL_NETWORK_LIST[@]}"; do
     # ref: https://stackoverflow.com/questions/12317483/array-of-arrays-in-bash
@@ -170,8 +192,9 @@ function remove_docker_stack() {
     docker network rm "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || true
   done
 
-  logInfo "Restarting docker"
-  systemctl restart docker
+  local RESTART_DOCKER_COMMAND="systemctl restart docker"
+  logInfo "${RESTART_DOCKER_COMMAND}"
+  eval "${RESTART_DOCKER_COMMAND}"
 
   logInfo "Docker stack completely removed and ready to recreate."
 }
@@ -190,46 +213,64 @@ function deploy_docker_stack() {
     local DOCKER_NETWORK_NAME=${DOCKER_NETWORK_INFO_ARRAY[0]}
     local DOCKER_NETWORK_SUBNET=${DOCKER_NETWORK_INFO_ARRAY[1]}
 
-    logInfo "DOCKER_NETWORK_NAME=${DOCKER_NETWORK_NAME}"
-    logInfo "DOCKER_NETWORK_SUBNET=${DOCKER_NETWORK_SUBNET}"
+    logDebug "DOCKER_NETWORK_NAME=${DOCKER_NETWORK_NAME}"
+    logDebug "DOCKER_NETWORK_SUBNET=${DOCKER_NETWORK_SUBNET}"
+
+    DOCKER_CREATE_NETWORK_COMMAND=("docker network create")
+    if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
+      ## ref: https://github.com/moby/moby/issues/34153
+      DOCKER_CREATE_NETWORK_COMMAND+=("--scope=swarm")
+      DOCKER_CREATE_NETWORK_COMMAND+=("--driver=overlay")
+    else
+      DOCKER_CREATE_NETWORK_COMMAND+=("--scope=local")
+    fi
+
+    DOCKER_CREATE_NETWORK_COMMAND+=("--attachable")
+    if [ -n ${DOCKER_NETWORK_SUBNET} ]; then
+      DOCKER_CREATE_NETWORK_COMMAND+=("--subnet=${DOCKER_NETWORK_SUBNET}")
+    fi
+    DOCKER_CREATE_NETWORK_COMMAND+=("${DOCKER_NETWORK_NAME}")
+    logInfo "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
 
     ## ref: https://stackoverflow.com/questions/48643466/docker-create-network-should-ignore-existing-network
     ## ref: https://docs.docker.com/reference/cli/docker/network/create/
-    docker network inspect "${DOCKER_EXTERNAL_NETWORK}" >/dev/null 2>&1 || \
-        docker network create \
-          --scope=swarm \
-          --driver=overlay \
-          --attachable \
-          --subnet=${DOCKER_NETWORK_SUBNET} \
-          "${DOCKER_NETWORK_NAME}"
+    docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || eval "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
   done
 
   logInfo "Deploy stack [${DOCKER_STACK_NAME}].."
 
-  ## ref: https://github.com/moby/moby/issues/34153
-  DOCKER_DEPLOY_COMMAND=("docker stack deploy")
-  DOCKER_DEPLOY_COMMAND+=("--with-registry-auth")
-  DOCKER_DEPLOY_COMMAND+=("--resolve-image=always")
-  DOCKER_DEPLOY_COMMAND+=("--compose-file=${DOCKER_COMPOSE_FILE}")
-  if [ "${DOCKER_DEPLOY_DETACHED}" -eq 0 ]; then
-    DOCKER_DEPLOY_COMMAND+=("--detach=false")
+  DOCKER_DEPLOY_COMMAND=()
+  if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
+
+    ## ref: https://github.com/moby/moby/issues/34153
+    DOCKER_DEPLOY_COMMAND+=("docker stack deploy")
+    DOCKER_DEPLOY_COMMAND+=("--with-registry-auth")
+    DOCKER_DEPLOY_COMMAND+=("--resolve-image=always")
+    DOCKER_DEPLOY_COMMAND+=("--compose-file=${DOCKER_COMPOSE_FILE}")
+    if [ "${DOCKER_DEPLOY_DETACHED}" -eq 0 ]; then
+      DOCKER_DEPLOY_COMMAND+=("--detach=false")
+    else
+      DOCKER_DEPLOY_COMMAND+=("--detach=true")
+    fi
+    DOCKER_DEPLOY_COMMAND+=("${DOCKER_STACK_NAME}")
+
+  elif [[ "${DOCKER_SWARM_MODE}" -eq 0 ]]; then
+#    DOCKER_DEPLOY_COMMAND+=("docker-compose up -d")
+    DOCKER_DEPLOY_COMMAND+=("docker compose")
+    DOCKER_DEPLOY_COMMAND+=("--file=${DOCKER_COMPOSE_FILE}")
+    DOCKER_DEPLOY_COMMAND+=("up --detach")
   else
-    DOCKER_DEPLOY_COMMAND+=("--detach=true")
+    abort "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}], skipping stack deploy"
   fi
-  DOCKER_DEPLOY_COMMAND+=("${DOCKER_STACK_NAME}")
-
-#  docker stack deploy \
-#    --with-registry-auth \
-#    --resolve-image=always \
-#    --compose-file="${DOCKER_COMPOSE_FILE}" \
-#    --detach=false \
-#    "${DOCKER_STACK_NAME}"
-
   logInfo "${DOCKER_DEPLOY_COMMAND[*]}"
   eval "${DOCKER_DEPLOY_COMMAND[*]}"
 
   logInfo "Running containers for stack [${DOCKER_STACK_NAME}]:"
-  docker stack ps --filter="desired-state=running" ${DOCKER_STACK_NAME}
+  if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
+    docker stack ps --filter="desired-state=running" ${DOCKER_STACK_NAME}
+  elif [[ "${DOCKER_SWARM_MODE}" -eq 0 ]]; then
+    docker compose ps
+  fi
 }
 
 function usage() {
@@ -237,10 +278,11 @@ function usage() {
   echo ""
   echo "  Options:"
   echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
-  echo "       -v : show script version"
-  echo "       -f : docker compose filename (default docker-compose.yml)"
+  echo "       -c CONFIG_FILEPATH : default 'docker-stack.cfg'"
+  echo "       -f DOCKER_COMPOSE_FILE : default 'docker-compose.yml'"
   echo "       -r : remove specified docker stack before deploying the specified docker stack"
-  echo "       -s : skip docker stack deployment - may be used in conjunction with prior option to ONLY remove the stack"
+  echo "       -s : skip docker stack deployment - may be used with 'remove' option to ONLY remove the stack"
+  echo "       -v : show script version"
   echo "       -h : help"
   echo ""
   echo "  Examples:"
@@ -249,22 +291,17 @@ function usage() {
   echo "       ${0} -v"
 	echo "       ${0} my_docker_stack"
 	echo "       ${0} -L DEBUG my_stack1 my_stack2"
+  echo "       ${0} -r -s"
 	[ -z "$1" ] || exit "$1"
 }
 
 function main() {
 
-  if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
-    if [ "$EUID" -ne 0 ]; then
-      echo "Must run this script as root. run 'sudo $SCRIPT_NAME'"
-      exit
-    fi
-  fi
-
   while getopts "L:f:vrsh" opt; do
       case "${opt}" in
           L) setLogLevel "${OPTARG}" ;;
           v) echo "${VERSION}" && exit ;;
+          c) CONFIG_FILEPATH="${OPTARG}" ;;
           f) DOCKER_COMPOSE_FILE="${OPTARG}" ;;
           r) REMOVE_DOCKER_STACK=1 ;;
           s) DEPLOY_DOCKER_STACK=0 ;;
@@ -279,6 +316,38 @@ function main() {
   if [ $# -gt 0 ]; then
     __DOCKER_STACK_LIST=("$@")
   fi
+
+  if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
+    if [ "$EUID" -ne 0 ]; then
+      abort "Must run this script as root. run 'sudo $SCRIPT_NAME'"
+    fi
+  fi
+
+  if [ ! -e "${DOCKER_COMPOSE_FILE}" ]; then
+    abort "docker compose file ${DOCKER_COMPOSE_FILE} not found, quitting now!"
+  fi
+
+  if [[ "${DOCKER_SWARM_NODE_STATE}" == "active" ]]; then
+    if [[ "${DOCKER_SWARM_CONTROL_NODE}" == "true" ]]; then
+      DOCKER_SWARM_MODE=1
+    else
+      ## not a control node
+      DOCKER_SWARM_MODE=2
+    fi
+  fi
+  logDebug "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}]"
+
+  if [ -n "${CONFIG_FILEPATH}" ]; then
+    if [ ! -e $CONFIG_FILEPATH ]; then
+      logWarn "Config file ${CONFIG_FILEPATH} not found, skip loading it!"
+    else
+      logInfo "Reading configs from ${CONFIG_FILEPATH} ...."
+      source ${CONFIG_FILEPATH}
+    fi
+  fi
+
+  logDebug "REMOVE_DOCKER_STACK => [${REMOVE_DOCKER_STACK}]"
+  logDebug "DEPLOY_DOCKER_STACK => [${DEPLOY_DOCKER_STACK}]"
 
   if [ "${REMOVE_DOCKER_STACK}" -eq 1 ]; then
     for DOCKER_STACK in "${__DOCKER_STACK_LIST[@]}"; do
