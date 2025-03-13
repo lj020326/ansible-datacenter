@@ -5,11 +5,11 @@
   register: _pve_cluster
 
 - name: Identify if the host is already part of a cluster
-  when: _pve_cluster | community.general.json_query(query) | ternary(true, false)
+  when: _pve_cluster | community.general.json_query(query_regex) | ternary(true, false)
   vars:
-    query: response[?type=='cluster'].name | [0]
+    query_regex: response[?type=='cluster'].name | [0]
   ansible.builtin.set_fact:
-    _pve_active_cluster: "{{ _pve_cluster | community.general.json_query(query) }}"
+    _pve_active_cluster: "{{ _pve_cluster | community.general.json_query(query_regex) }}"
 
 - name: Identify all clusters that the hosts in the specified group may be in
   when: "'_pve_active_cluster' in hostvars[item]"
@@ -52,11 +52,11 @@
   when:
     - inventory_hostname == groups[pve_group][0]
   vars:
-    query: response[?type=='cluster'].quorate | [0]
+    query_regex: response[?type=='cluster'].quorate | [0]
   proxmox_query:
     query: cluster/status
   register: _pve_cluster_init
-  until: (_pve_cluster_init | community.general.json_query(query)) == 1
+  until: (_pve_cluster_init | community.general.json_query(query_regex)) == 1
   retries: 5
   delay: 5
 
