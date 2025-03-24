@@ -1,0 +1,144 @@
+---
+
+############################# PHOTO Management
+# Immich - High performance self-hosted photo and video management solution
+# ref: https://github.com/imagegenius/docker-immich
+
+__docker_stack__immich__url: immich.{{ docker_stack__external_domain }}
+
+__docker_stack__immich__image: ghcr.io/immich-app/immich-server:release
+#__docker_stack__immich__image: ghcr.io/imagegenius/immich:latest
+
+__docker_stack__immich__ml_image: ghcr.io/immich-app/immich-machine-learning:release
+
+__docker_stack__immich__postgres_image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0
+
+__docker_stack__immich__traefik_labels: "{{ docker_stack__immich__traefik_labels | d(__docker_stack__immich__traefik_labels_default) }}"
+
+__docker_stack__immich__base_dir: "{{ docker_stack__dir }}/immich"
+__docker_stack__immich__config_dir: "{{ __docker_stack__immich__base_dir }}/config"
+__docker_stack__immich__data_dir: "{{ __docker_stack__immich__base_dir }}/data"
+
+
+## downloads and media directories
+__docker_stack__immich__media_path: "{{ docker_stack__immich__media_path | d('/srv/media') }}"
+__docker_stack__immich__photos_path: "{{ __docker_stack__immich__media_path }}/pictures"
+__docker_stack__immich__libraries_path: "{{ __docker_stack__immich__base_dir }}/libraries"
+
+__docker_stack__immich__scripts_dir: "{{ __docker_stack__immich__base_dir }}/scripts"
+
+__docker_stack__immich__shared_data_dir: "{{ docker_stack__immich__shared_data_dir | d('/data') }}"
+
+__docker_stack__immich__port: 2283
+
+__docker_stack__immich__postgres_password: postgres
+__docker_stack__immich__postgres_user: postgres
+__docker_stack__immich__postgres_db_name: immich
+
+__docker_stack__immich__config_dirs:
+  - path: "{{ __docker_stack__immich__base_dir }}"
+  - path: "{{ __docker_stack__immich__config_dir }}"
+  - path: "{{ __docker_stack__immich__data_dir }}"
+  ## app dirs:
+  - path: "{{ __docker_stack__immich__media_path }}"
+
+__docker_stack__immich__config_tpls:
+  - src: postgres/config-passwd.conf.j2
+    dest: "{{ docker_stack__dir }}/postgres/passwd"
+  - src: postgres/config-group.conf.j2
+    dest: "{{ docker_stack__dir }}/postgres/group"
+  - src: immich/immich.env.j2
+    dest: "{{ __docker_stack__immich__base_dir }}/immich.env"
+
+#__docker_stack__immich__config_files: []
+
+__docker_stack__immich__firewalld_ports:
+  - "{{ __docker_stack__immich__port }}/tcp"
+
+docker_stack__appspec__immich:
+  dirs: "{{ __docker_stack__immich__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__immich__config_files | d([]) }}"
+  templates: "{{ __docker_stack__immich__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__immich__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__immich__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__immich__networks | d({}) }}"
+  volumes: "{{ __docker_stack__immich__volumes | d({}) }}"
+  docker_services: "{{ __docker_stack__immich__services | d({}) }}"
+
+__docker_stack__immich__services:
+
+  ############################# PHOTO Management
+  # Immich - High performance self-hosted photo and video management solution
+  # ref: https://github.com/immich-app/immich/tree/main
+  # ref: https://github.com/immich-app/immich/blob/main/docker/docker-compose.yml
+  # ref: https://immich.app/docs/install/docker-compose/
+  immich:
+    image: "{{ __docker_stack__immich__image }}"
+    container_name: immich
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
+    ports:
+      - "{{ __docker_stack__immich__port }}:2283"
+    env_file:
+      - immich/immich.env
+    environment:
+      PUID: "{{ docker_stack__user_uid }}"
+      PGID: "{{ docker_stack__user_gid }}"
+      TZ: "{{ docker_stack__timezone }}"
+    volumes:
+      - "{{ __docker_stack__immich__config_dir }}:/config"
+      - "{{ __docker_stack__immich__photos_path }}:/photos"
+      - "{{ __docker_stack__immich__libraries_path }}:/libraries"
+    labels: "{{ __docker_stack__immich__traefik_labels }}"
+    healthcheck:
+      disable: false
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    # For hardware acceleration, add one of -[armnn, cuda, rocm, openvino, rknn] to the image tag.
+    # Example tag: ${IMMICH_VERSION:-release}-cuda
+    image: "{{ __docker_stack__immich__ml_image }}"
+    # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
+    #   file: hwaccel.ml.yml
+    #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    volumes:
+      - model-cache:/cache
+    env_file:
+      - immich/immich.env
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    restart: always
+    healthcheck:
+      disable: false
+
+  postgres:
+    container_name: immich_postgres
+    image: "{{ __docker_stack__immich__postgres_image }}"
+    environment:
+      POSTGRES_PASSWORD: "{{ __docker_stack__immich__postgres_password }}"
+      POSTGRES_USER: "{{ __docker_stack__immich__postgres_user }}"
+      POSTGRES_DB: "{{ __docker_stack__immich__postgres_db_name }}"
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    ports:
+      - "{{ __docker_stack__postgres__port }}:5432"
+    volumes:
+      - "{{ docker_stack__dir }}/postgres/passwd:/etc/passwd:ro"
+      - "{{ docker_stack__dir }}/postgres/group:/etc/group:ro"
+      - "{{ docker_stack__dir }}/postgres/data:/var/lib/postgresql/data"
+    healthcheck:
+      test: >-
+        pg_isready --dbname="$${POSTGRES_DB}" --username="$${POSTGRES_USER}" || exit 1; 
+        Chksum="$$(psql --dbname="$${POSTGRES_DB}" --username="$${POSTGRES_USER}" --tuples-only --no-align 
+        --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; 
+        echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
+      interval: 5m
+      start_interval: 30s
+      start_period: 5m
+    restart: always

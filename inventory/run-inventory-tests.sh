@@ -463,16 +463,15 @@ function run_test_case() {
   if [ $# -gt 0 ]; then
     TEST_ARGS=${@}
   fi
-  local LOG_PREFIX="run_test_case(${TEST_CASE_ID}):"
 
   if stringContain "${TEST_CASE_ID}" "${TEST_CASES_STR}" ||
      stringContain "${TEST_FUNCTION}" "${TEST_CASES_STR}" ||
      [ "${TEST_CASES_STR}" == "ALL" ]
   then
-    logDebug "${LOG_PREFIX} Run test [${TEST_FUNCTION}]"
+    logDebug "Run test [${TEST_FUNCTION}]"
 
     local TEST_COMMAND="${TEST_FUNCTION}"
-    logDebug "${LOG_PREFIX} TEST_COMMAND=${TEST_COMMAND}"
+    logDebug "TEST_COMMAND=${TEST_COMMAND}"
 
 #    local TEST_RESULTS=$(${TEST_FUNCTION} "${TEST_ARGS}")
 #    local TEST_RESULTS=$(eval "${TEST_FUNCTION} ${TEST_ARGS}")
@@ -480,18 +479,18 @@ function run_test_case() {
     local RETURN_STATUS=$?
 
     if [[ $RETURN_STATUS -eq 0 ]]; then
-      logInfo "${LOG_PREFIX} ${TEST_FUNCTION}: SUCCESS"
+      logInfo "${TEST_FUNCTION}: SUCCESS"
     else
-      logError "${LOG_PREFIX} ${TEST_FUNCTION}: FAILED"
+      logError "${TEST_FUNCTION}: FAILED"
     fi
 
     if [[ $RETURN_STATUS -ne 0 || $DISPLAY_TEST_RESULTS -gt 0 ]]; then
-      logInfo "${LOG_PREFIX} TEST_RESULTS ****"
+      logInfo "TEST_RESULTS ****"
       eval "${TEST_FUNCTION} ${TEST_ARGS}"
     fi
-    logDebug "${LOG_PREFIX} RETURN_STATUS=${RETURN_STATUS}"
+    logDebug "RETURN_STATUS=${RETURN_STATUS}"
   fi
-  logDebug "${LOG_PREFIX} TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
+  logDebug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
   return "${RETURN_STATUS}"
 
 }

@@ -30,11 +30,6 @@ LOG_DEBUG=4
 #LOG_LEVEL=${LOG_DEBUG}
 LOG_LEVEL=${LOG_INFO}
 
-function abort() {
-  logError "%s\n" "$@"
-  exit 1
-}
-
 function logError() {
   if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
 #  	echo -e "[ERROR]: ==> ${1}"
@@ -64,6 +59,10 @@ function logDebug() {
 #  	echo -e "[DEBUG]: ==> ${1}"
   	logMessage "${LOG_DEBUG}" "${1}"
   fi
+}
+function abort() {
+  logError "%s\n" "$@"
+  exit 1
 }
 
 function logMessage() {

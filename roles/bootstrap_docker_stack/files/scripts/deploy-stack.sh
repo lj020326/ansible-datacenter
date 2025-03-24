@@ -5,6 +5,7 @@
 
 VERSION="2025.2.12"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILEPATH="deploy-stack.cfg"
 
 ## ref: https://stackoverflow.com/questions/43053013/how-do-i-check-that-a-docker-host-is-in-swarm-mode
@@ -317,6 +318,8 @@ function main() {
     __DOCKER_STACK_LIST=("$@")
   fi
 
+  cd "${SCRIPT_DIR}"
+
   if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
     if [ "$EUID" -ne 0 ]; then
       abort "Must run this script as root. run 'sudo $SCRIPT_NAME'"
@@ -335,7 +338,6 @@ function main() {
       DOCKER_SWARM_MODE=2
     fi
   fi
-  logDebug "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}]"
 
   if [ -n "${CONFIG_FILEPATH}" ]; then
     if [ ! -e $CONFIG_FILEPATH ]; then
@@ -346,8 +348,10 @@ function main() {
     fi
   fi
 
+  logDebug "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}]"
   logDebug "REMOVE_DOCKER_STACK => [${REMOVE_DOCKER_STACK}]"
   logDebug "DEPLOY_DOCKER_STACK => [${DEPLOY_DOCKER_STACK}]"
+  logDebug "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
   if [ "${REMOVE_DOCKER_STACK}" -eq 1 ]; then
     for DOCKER_STACK in "${__DOCKER_STACK_LIST[@]}"; do

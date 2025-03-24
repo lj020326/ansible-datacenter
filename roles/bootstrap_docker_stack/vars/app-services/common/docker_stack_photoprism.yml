@@ -1,0 +1,99 @@
+---
+
+############################# PHOTO Management
+# Photoprism - High performance self-hosted photo and video management solution
+# ref: https://hub.docker.com/r/photoprism/photoprism
+# ref: https://docs.photoprism.app/getting-started/docker-compose/
+# ref: https://dl.photoprism.app/docker/compose.yaml
+# ref: https://photoprism.app/docs/install/docker-compose/
+# ref: https://docs.photoprism.app/getting-started/config-options/
+
+__docker_stack__photoprism__url: photoprism.{{ docker_stack__external_domain }}
+
+## Use photoprism/photoprism:preview for testing preview builds
+__docker_stack__photoprism__image: photoprism/photoprism:latest
+#__docker_stack__photoprism__mysql_image: mariadb:11
+
+__docker_stack__photoprism__traefik_labels: "{{ docker_stack__photoprism__traefik_labels | d(__docker_stack__photoprism__traefik_labels_default) }}"
+
+__docker_stack__photoprism__base_dir: "{{ docker_stack__dir }}/photoprism"
+__docker_stack__photoprism__config_dir: "{{ __docker_stack__photoprism__base_dir }}/config"
+__docker_stack__photoprism__data_dir: "{{ __docker_stack__photoprism__base_dir }}/data"
+
+## downloads and media directories
+__docker_stack__photoprism__media_path: "{{ docker_stack__photoprism__media_path | d('/srv/media') }}"
+__docker_stack__photoprism__photos_path: "{{ __docker_stack__photoprism__media_path }}/pictures"
+__docker_stack__photoprism__data_path: "{{ __docker_stack__photoprism__base_dir }}/data"
+
+__docker_stack__photoprism__scripts_dir: "{{ __docker_stack__photoprism__base_dir }}/scripts"
+
+__docker_stack__photoprism__shared_data_dir: "{{ docker_stack__photoprism__shared_data_dir | d('/data') }}"
+
+__docker_stack__photoprism__port: 2342
+
+#__docker_stack__photoprism__mysql_password: mysql
+#__docker_stack__photoprism__mysql_user: mysql
+#__docker_stack__photoprism__mysql_db_name: photoprism
+
+__docker_stack__photoprism__user_default: admin
+__docker_stack__photoprism__password_default: passw0rd
+
+__docker_stack__photoprism__username: "{{ docker_stack__photoprism__username 
+  | d(__docker_stack__photoprism__user_default) }}"
+__docker_stack__photoprism__password: "{{ docker_stack__photoprism__password 
+  | d(__docker_stack__photoprism__password_default) }}"
+
+__docker_stack__photoprism__config_dirs:
+  - path: "{{ __docker_stack__photoprism__base_dir }}"
+  - path: "{{ __docker_stack__photoprism__data_dir }}"
+  ## app dirs:
+  - path: "{{ __docker_stack__photoprism__media_path }}"
+
+__docker_stack__photoprism__config_tpls:
+  - src: photoprism/photoprism.env.j2
+    dest: "{{ __docker_stack__photoprism__base_dir }}/photoprism.env"
+
+#__docker_stack__photoprism__config_files: []
+
+__docker_stack__photoprism__firewalld_ports:
+  - "{{ __docker_stack__photoprism__port }}/tcp"
+
+docker_stack__appspec__photoprism:
+  dirs: "{{ __docker_stack__photoprism__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__photoprism__config_files | d([]) }}"
+  templates: "{{ __docker_stack__photoprism__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__photoprism__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__photoprism__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__photoprism__networks | d({}) }}"
+  volumes: "{{ __docker_stack__photoprism__volumes | d({}) }}"
+  docker_services: "{{ __docker_stack__photoprism__services | d({}) }}"
+
+__docker_stack__photoprism__services:
+
+  ############################# PHOTO Management
+  # Photoprism - High performance self-hosted photo and video management solution
+  # ref: https://hub.docker.com/r/photoprism/photoprism
+  # ref: https://docs.photoprism.app/getting-started/docker-compose/
+  # ref: https://dl.photoprism.app/docker/compose.yaml
+  # ref: https://photoprism.app/docs/install/docker-compose/
+  # ref: https://docs.photoprism.app/getting-started/config-options/
+  photoprism:
+    image: "{{ __docker_stack__photoprism__image }}"
+    container_name: photoprism
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    ports:
+      - "{{ __docker_stack__photoprism__port }}:2342"
+    env_file:
+      - photoprism/photoprism.env
+    environment:
+      PUID: "{{ docker_stack__user_uid }}"
+      PGID: "{{ docker_stack__user_gid }}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__photoprism__photos_path }}:/photoprism/originals"
+      - "{{ __docker_stack__photoprism__data_path }}:/photoprism/storage"
+    labels: "{{ __docker_stack__photoprism__traefik_labels }}"
+    healthcheck:
+      disable: false

@@ -7,18 +7,6 @@ GIT_PUBLIC_BRANCH=public
 # exit when any command fails
 set -e
 
-function gitcommitpush() {
-  local LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
-  local REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
-  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
-  echo "Staging changes:" && \
-  git add -A || true && \
-  echo "Committing changes:" && \
-  git commit -am "group updates to public branch" || true && \
-  echo "Pushing branch '${LOCAL_BRANCH}' to remote '${REMOTE}' branch '${REMOTE_BRANCH}':" && \
-  git push -f -u ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH} || true
-}
-
 ## https://www.pixelstech.net/article/1577768087-Create-temp-file-in-Bash-using-mktemp-and-trap
 TMP_DIR=$(mktemp -d -p ~)
 
@@ -141,6 +129,10 @@ function logDebug() {
   	logMessage "${LOG_DEBUG}" "${1}"
   fi
 }
+function abort() {
+  logError "%s\n" "$@"
+  exit 1
+}
 
 function logMessage() {
   local LOG_MESSAGE_LEVEL="${1}"
@@ -233,6 +225,18 @@ function checkRequiredCommands() {
     fi
 }
 
+function gitcommitpush() {
+  local LOCAL_BRANCH="$(git symbolic-ref --short HEAD)" && \
+  local REMOTE_AND_BRANCH=$(git rev-parse --abbrev-ref ${LOCAL_BRANCH}@{upstream}) && \
+  IFS=/ read REMOTE REMOTE_BRANCH <<< ${REMOTE_AND_BRANCH} && \
+  echo "Staging changes:" && \
+  git add -A || true && \
+  echo "Committing changes:" && \
+  git commit -am "group updates to public branch" || true && \
+  echo "Pushing branch '${LOCAL_BRANCH}' to remote '${REMOTE}' branch '${REMOTE_BRANCH}':" && \
+  git push -f -u ${REMOTE} ${LOCAL_BRANCH}:${REMOTE_BRANCH} || true
+}
+
 function search_repo_keywords () {
 
   local REPO_EXCLUDE_DIR_LIST=(".git")
@@ -243,8 +247,7 @@ function search_repo_keywords () {
 
   #export -p | sed 's/declare -x //' | sed 's/export //'
   if [ -z ${REPO_EXCLUDE_KEYWORDS+x} ]; then
-    logError "REPO_EXCLUDE_KEYWORDS not set/defined"
-    exit 1
+    abort "REPO_EXCLUDE_KEYWORDS not set/defined"
   fi
 
   logDebug "REPO_EXCLUDE_KEYWORDS=${REPO_EXCLUDE_KEYWORDS}"
