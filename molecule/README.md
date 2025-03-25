@@ -11,6 +11,7 @@ The molecule tests below use the [python enabled docker systemd images defined h
 $ git clone https://github.com/lj020326/ansible-datacenter.git
 $ cd ansible-datacenter
 $ pip install -r requirements.molecule.txt
+$ ansible-galaxy install --upgrade -r collections/requirements.molecule.txt
 ```
 
 ## To sync the latest image version
