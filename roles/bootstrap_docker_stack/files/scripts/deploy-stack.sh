@@ -187,7 +187,6 @@ function remove_docker_stack() {
     # split server name from sub-list
     IFS="," read -a DOCKER_NETWORK_INFO_ARRAY <<< $DOCKER_EXTERNAL_NETWORK
     local DOCKER_NETWORK_NAME=${DOCKER_NETWORK_INFO_ARRAY[0]}
-    local DOCKER_NETWORK_SUBNET=${DOCKER_NETWORK_INFO_ARRAY[1]}
 
     logInfo "Removing external network ${DOCKER_NETWORK_NAME}"
     docker network rm "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || true
@@ -227,7 +226,7 @@ function deploy_docker_stack() {
     fi
 
     DOCKER_CREATE_NETWORK_COMMAND+=("--attachable")
-    if [ -n ${DOCKER_NETWORK_SUBNET} ]; then
+    if [ -n "${DOCKER_NETWORK_SUBNET}" ]; then
       DOCKER_CREATE_NETWORK_COMMAND+=("--subnet=${DOCKER_NETWORK_SUBNET}")
     fi
     DOCKER_CREATE_NETWORK_COMMAND+=("${DOCKER_NETWORK_NAME}")
@@ -279,7 +278,7 @@ function usage() {
   echo ""
   echo "  Options:"
   echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
-  echo "       -c CONFIG_FILEPATH : default 'docker-stack.cfg'"
+  echo "       -c CONFIG_FILEPATH : default 'deploy-stack.cfg'"
   echo "       -f DOCKER_COMPOSE_FILE : default 'docker-compose.yml'"
   echo "       -r : remove specified docker stack before deploying the specified docker stack"
   echo "       -s : skip docker stack deployment - may be used with 'remove' option to ONLY remove the stack"
@@ -298,7 +297,7 @@ function usage() {
 
 function main() {
 
-  while getopts "L:f:vrsh" opt; do
+  while getopts "L:c:f:vrsh" opt; do
       case "${opt}" in
           L) setLogLevel "${OPTARG}" ;;
           v) echo "${VERSION}" && exit ;;
