@@ -218,26 +218,26 @@ ansible-playbook report-windows-facts.yml -i inventory/DEV/hosts.yml -t untagged
 ```shell
 $ git clone https://github.com/lj020326/ansible-datacenter.git
 $ cd ansible-datacenter
-$ export MOLECULE_DISTRO=redhat7-systemd-python
+$ export MOLECULE_IMAGE_LABEL=redhat7-systemd-python
 $ molecule login
 $ molecule --debug test -s bootstrap_linux_package
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule converge
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule converge
 $ molecule destroy
-$ MOLECULE_DISTRO=centos8-systemd-python molecule --debug converge
+$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug converge
 $ molecule destroy
-$ MOLECULE_DISTRO=ubuntu2204-systemd-python molecule --debug converge
+$ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python molecule --debug converge
 
 ```
 
 ### To log into molecule created container
 
 ```shell
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule create
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule create
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
 $ molecule destroy
 ```
 

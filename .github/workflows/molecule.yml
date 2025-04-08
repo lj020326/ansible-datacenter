@@ -6,11 +6,9 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
       - main
   pull_request:
     branches:
-      - master
       - main
   # Schedule updates (once daily)
   schedule:
@@ -18,7 +16,6 @@ on:
     - cron: '29 15 * * *'
 
 jobs:
-
   run-molecule-tests:
     name: Molecule
     runs-on: ubuntu-latest
@@ -33,20 +30,22 @@ jobs:
         architecture:
           - amd64
 #          - arm64
-        distro:
-          - centos7-systemd-python
-          - centos8-systemd-python
-          - centos9-systemd-python
-          - redhat7-systemd-python
-          - redhat8-systemd-python
-          - redhat9-systemd-python
-          - debian10-systemd-python
-          - debian11-systemd-python
-          - debian12-systemd-python
-          - ubuntu2004-systemd-python
-          - ubuntu2204-systemd-python
-          - ubuntu2404-systemd-python
-          - fedora-systemd-python
+        image:
+          ## NOTE: removing all RHEL based dists that do not support Python3.7+
+          ## ref: https://github.com/ansible/ansible/issues/82068
+#          - lj020326/centos7-systemd-python
+#          - lj020326/centos8-systemd-python
+          - lj020326/centos9-systemd-python
+#          - lj020326/redhat7-systemd-python
+#          - lj020326/redhat8-systemd-python
+          - lj020326/redhat9-systemd-python
+          - lj020326/debian10-systemd-python
+          - lj020326/debian11-systemd-python
+          - lj020326/debian12-systemd-python
+#          - lj020326/ubuntu2004-systemd-python
+          - lj020326/ubuntu2204-systemd-python
+          - lj020326/ubuntu2404-systemd-python
+#          - lj020326/fedora-systemd-python
         scenario:
           - bootstrap_linux
 #          - default
@@ -91,7 +90,7 @@ jobs:
         working-directory: "${{ github.repository }}"
 
       ## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/.github/workflows/molecule.yml
-      - name: Run Molecule tests for ${{ matrix.distro }} for scenario bootstrap_linux
+      - name: Run Molecule tests for ${{ matrix.image }} for scenario bootstrap_linux
 #        run: >-
 #          molecule test
 #          --platform-name ${{ matrix.platform }}-${{ matrix.architecture }}
@@ -101,8 +100,7 @@ jobs:
         env:
           PY_COLORS: '1'
           ANSIBLE_FORCE_COLOR: '1'
-          MOLECULE_DISTRO: ${{ matrix.distro }}
-#          MOLECULE_DISTRO: ${{ matrix.image }}
+          MOLECULE_IMAGE_LABEL: ${{ matrix.image }}
           MOLECULE_PLATFORM: ${{ matrix.architecture }}
           MOLECULE_DOCKER_COMMAND: ${{ matrix.command || '/lib/systemd/systemd' }}
 #          ## ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value

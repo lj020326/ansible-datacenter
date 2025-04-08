@@ -159,7 +159,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        molecule_distro:
+        molecule_image_label:
           - distro: centos:7
             command: /usr/sbin/init # needed to ensure systemd is started on each to ensure proper service module testing
           - distro: centos:8
@@ -198,8 +198,8 @@ jobs:
         run: >-
           molecule --version &&
           ansible --version &&
-          MOLECULE_COMMAND=${{ matrix.molecule_distro.command }}
-          MOLECULE_DISTRO=${{ matrix.molecule_distro.distro }}
+          MOLECULE_COMMAND=${{ matrix.molecule_image_label.command }}
+          MOLECULE_IMAGE_LABEL=${{ matrix.molecule_image_label.distro }}
           molecule --debug test -s ${{ matrix.collection_role }}
 ```
 
@@ -215,7 +215,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        molecule_distro:
+        molecule_image_label:
           - distro: centos:7
             command: /usr/sbin/init
           - distro: centos:8
@@ -234,9 +234,9 @@ jobs:
           - epel
           - ntp
         exclude:
-          - {"molecule_distro": {"distro": "ubuntu:16.04"}, "collection_role":"epel"}
-          - {"molecule_distro": {"distro": "ubuntu:18.04"}, "collection_role":"epel"}
-          - {"molecule_distro": {"distro": "ubuntu:20.04"}, "collection_role":"epel"}
+          - {"molecule_image_label": {"distro": "ubuntu:16.04"}, "collection_role":"epel"}
+          - {"molecule_image_label": {"distro": "ubuntu:18.04"}, "collection_role":"epel"}
+          - {"molecule_image_label": {"distro": "ubuntu:20.04"}, "collection_role":"epel"}
 ```
 
 Of course, that’s not scalable. So, I gave it a bit of thought. Why don’t we treat each role for what it is? It’s a separate role. Editing Role1 shouldn’t affect Role2 or even need to test Role2 in this situation. So I decided to create multiple workflows. Using GitHub Workflows I created the following structure.
@@ -266,7 +266,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        molecule_distro:
+        molecule_image_label:
           - distro: centos:7
             command: /usr/sbin/init
           - distro: centos:8
@@ -294,8 +294,8 @@ jobs:
         run: >-
           molecule --version &&
           ansible --version &&
-          MOLECULE_COMMAND=${{ matrix.molecule_distro.command }}
-          MOLECULE_DISTRO=${{ matrix.molecule_distro.distro }}
+          MOLECULE_COMMAND=${{ matrix.molecule_image_label.command }}
+          MOLECULE_IMAGE_LABEL=${{ matrix.molecule_image_label.distro }}
           molecule --debug test -s ${{ matrix.collection_role }}
 
 ```
@@ -343,7 +343,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        molecule_distro:
+        molecule_image_label:
           - distro: centos:7
             command: /usr/sbin/init
           - distro: centos:8
@@ -371,8 +371,8 @@ jobs:
         run: >-
           molecule --version &&
           ansible --version &&
-          MOLECULE_COMMAND=${{ matrix.molecule_distro.command }}
-          MOLECULE_DISTRO=${{ matrix.molecule_distro.distro }}
+          MOLECULE_COMMAND=${{ matrix.molecule_image_label.command }}
+          MOLECULE_IMAGE_LABEL=${{ matrix.molecule_image_label.distro }}
           molecule --debug test -s ${{ matrix.collection_role }}
 ```
 

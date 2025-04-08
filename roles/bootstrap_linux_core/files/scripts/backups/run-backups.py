@@ -67,26 +67,26 @@ class Backups(object):
 
         # self.log.info("config =>%s" % yaml.dump(self.config))
 
-        # backupConfig = self.config.backups[type]
-        backupConfig = self.config['backups'][type]
-        # self.log.info("backupConfig0 =>%s" % yaml.dump(backupConfig))
+        # backupGroupConfig = self.config.groups[type]
+        backupGroupConfig = self.config['groups'][type]
+        # self.log.info("backupGroupConfig =>%s" % yaml.dump(backupGroupConfig))
 
         # for key, value in self.config.items():
-        #     if key != 'backups':
+        #     if key != 'groups':
         #         self.log.info("key=%s, value=%s" % (key, value))
 
         ## ref: https://thispointer.com/different-ways-to-remove-a-key-from-dictionary-in-python/
-        backupConfig = mergeDicts({key: value for key, value in self.config.items() if key != 'backups'}, backupConfig)
-        backupConfig['scriptPath'] = os.path.join(backupConfig['scriptDir'], backupConfig['backupScript'])
+        backupGroupConfig = mergeDicts({key: value for key, value in self.config.items() if key != 'groups'}, backupGroupConfig)
+        backupGroupConfig['scriptPath'] = os.path.join(backupGroupConfig['scriptDir'], backupGroupConfig['backupScript'])
 
-        # log.info("backupConfig = %s" % pformat(backupConfig))
-        # self.log.info("backupConfig =>")
-        # self.log.info(yaml.dump(backupConfig))
+        # log.info("backupGroupConfig = %s" % pformat(backupGroupConfig))
+        # self.log.info("backupGroupConfig =>")
+        # self.log.info(yaml.dump(backupGroupConfig))
 
-        for target in backupConfig['targets']:
+        for target in backupGroupConfig['targets']:
             self.log.info("target =>%s" % yaml.dump(target))
 
-            targetConfig = mergeDicts({key: value for key, value in backupConfig.items() if key != 'targets'}, target)
+            targetConfig = mergeDicts({key: value for key, value in backupGroupConfig.items() if key != 'targets'}, target)
             self.log.info("targetConfig =>")
             self.log.info(yaml.dump(targetConfig))
 
@@ -196,7 +196,7 @@ Examples of use:
     group.add_argument("-l", "--loglevel", choices=['DEBUG', 'INFO', 'WARN', 'ERROR'], help="log level")
     # group.add_argument("-b", "--backuptype", choices=['daily', 'monthly'], help="backup type")
 
-    parser.add_argument('type', help="Backup config type defined under root 'backups' node in config yaml file - e.g., 'daily', 'monthly', etc")
+    parser.add_argument('type', help="Backup config type defined under root 'groups' node in config yaml file - e.g., 'daily', 'monthly', etc")
 
     # parser.add_argument('args', nargs=argparse.REMAINDER)
     # parser.add_argument('args', nargs='?')
