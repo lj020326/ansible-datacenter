@@ -307,7 +307,7 @@ $ MOLECULE_IMAGE_LABEL=debian9-systemd-python molecule --debug destroy -s bootst
 $ MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap_linux
 $ MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap_linux --destroy never
 $ MOLECULE_IMAGE=media.johnson.int:5000/centos8-systemd-python molecule --debug create -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_NAMESPACE=media.johnson.int:5000 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug create -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_REGISTRY=media.johnson.int:5000 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug create -s bootstrap_linux --destroy never
 $ MOLECULE_IMAGE_LABEL=redhat8-systemd-python MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap_linux
 $ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug -s bootstrap_linux converge
 $ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug converge --all -s bootstrap_linux
@@ -330,12 +330,12 @@ $ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python molecule --debug converge -s bo
 $ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python molecule destroy
 $ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python molecule destroy --all
 $ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug destroy -s bootstrap_linux
-$ MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug create -s bootstrap_linux
-$ MOLECULE_IMAGE_NAMESPACE=lj020326 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_REGISTRY=lj020326 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug create -s bootstrap_linux
+$ MOLECULE_IMAGE_REGISTRY=lj020326 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug test -s bootstrap_linux --destroy never
 $ ansible-galaxy collection install -vvv -fr collections/requirements.molecule.yml 
 $ cat requirements.molecule.txt 
 $ echo $MOLECULE_IMAGE_LABEL
-$ echo $MOLECULE_IMAGE_NAMESPACE
+$ echo $MOLECULE_IMAGE_REGISTRY
 $ molecule --version
 $ molecule destroy
 $ molecule destroy --all
