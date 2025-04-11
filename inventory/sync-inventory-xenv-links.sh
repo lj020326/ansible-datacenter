@@ -160,11 +160,6 @@ function handle_cmd_return_code() {
 
 }
 
-function abort() {
-  printf "%s\n" "$@" >&2
-  exit 1
-}
-
 ## ref: https://stackoverflow.com/questions/229551/how-to-check-if-a-string-contains-a-substring-in-bash#229585
 function stringContain() { case $2 in *$1* ) return 0;; *) return 1;; esac ;}
 

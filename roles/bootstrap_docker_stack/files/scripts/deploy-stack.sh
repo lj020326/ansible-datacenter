@@ -24,6 +24,9 @@ DOCKER_EXTERNAL_NETWORK_LIST=()
 
 DOCKER_COMPOSE_FILE=docker-compose.yml
 
+DOCKER_CLEANUP_POSTGRES_PIDFILE=0
+DOCKER_POSTGRES_PIDFILE_PATH=postgres/data/postmaster.pid
+
 DOCKER_DEPLOY_DETACHED=1
 
 REMOVE_DOCKER_STACK=0
@@ -38,11 +41,6 @@ LOG_DEBUG=4
 
 #LOG_LEVEL=${LOG_DEBUG}
 LOG_LEVEL=${LOG_INFO}
-
-function abort() {
-  logError "%s\n" "$@"
-  exit 1
-}
 
 function logError() {
   if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
@@ -68,6 +66,10 @@ function logDebug() {
   if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
   	logMessage "${LOG_DEBUG}" "${1}"
   fi
+}
+function abort() {
+  logError "%s\n" "$@"
+  exit 1
 }
 
 function logMessage() {
@@ -280,6 +282,7 @@ function usage() {
   echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
   echo "       -c CONFIG_FILEPATH : default 'deploy-stack.cfg'"
   echo "       -f DOCKER_COMPOSE_FILE : default 'docker-compose.yml'"
+  echo "       -p : make sure postgres pid file is cleaned up after stopping"
   echo "       -r : remove specified docker stack before deploying the specified docker stack"
   echo "       -s : skip docker stack deployment - may be used with 'remove' option to ONLY remove the stack"
   echo "       -v : show script version"
@@ -291,18 +294,21 @@ function usage() {
   echo "       ${0} -v"
 	echo "       ${0} my_docker_stack"
 	echo "       ${0} -L DEBUG my_stack1 my_stack2"
+  echo "       ${0} -p"
   echo "       ${0} -r -s"
+  echo "       ${0} -rs"
 	[ -z "$1" ] || exit "$1"
 }
 
 function main() {
 
-  while getopts "L:c:f:vrsh" opt; do
+  while getopts "L:c:f:prsvh" opt; do
       case "${opt}" in
           L) setLogLevel "${OPTARG}" ;;
           v) echo "${VERSION}" && exit ;;
           c) CONFIG_FILEPATH="${OPTARG}" ;;
           f) DOCKER_COMPOSE_FILE="${OPTARG}" ;;
+          p) DOCKER_CLEANUP_POSTGRES_PIDFILE=1 ;;
           r) REMOVE_DOCKER_STACK=1 ;;
           s) DEPLOY_DOCKER_STACK=0 ;;
           h) usage 1 ;;
@@ -348,6 +354,7 @@ function main() {
   fi
 
   logDebug "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}]"
+  logDebug "DOCKER_CLEANUP_POSTGRES_PIDFILE => [${DOCKER_CLEANUP_POSTGRES_PIDFILE}]"
   logDebug "REMOVE_DOCKER_STACK => [${REMOVE_DOCKER_STACK}]"
   logDebug "DEPLOY_DOCKER_STACK => [${DEPLOY_DOCKER_STACK}]"
   logDebug "SCRIPT_DIR=[${SCRIPT_DIR}]"
@@ -356,6 +363,10 @@ function main() {
     for DOCKER_STACK in "${__DOCKER_STACK_LIST[@]}"; do
       remove_docker_stack "${DOCKER_STACK}"
     done
+  fi
+  if [ "${DOCKER_CLEANUP_POSTGRES_PIDFILE}" -eq 1 ]; then
+    logInfo "remove ${DOCKER_POSTGRES_PIDFILE_PATH}"
+    rm -f "${DOCKER_POSTGRES_PIDFILE_PATH}"
   fi
 
   if [ "${DEPLOY_DOCKER_STACK}" -eq 0 ]; then
