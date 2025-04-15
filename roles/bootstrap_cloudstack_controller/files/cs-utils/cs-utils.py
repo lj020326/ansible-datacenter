@@ -203,7 +203,9 @@ class ApiKeyHelper(object):
         log.info("%s starting" % logPrefix)
 
         login_params = { 'command': 'login', 'username': 'admin', 'password': password, 'response': 'json' }
-        log.info("%s login_params=%s" % (logPrefix, login_params))
+        safe_login_params = login_params.copy()
+        safe_login_params['password'] = '***'
+        log.info("%s login_params=%s" % (logPrefix, safe_login_params))
 
         # # create sessionkey and cookie of the api session initiated with username and password
         session = requests.Session()
