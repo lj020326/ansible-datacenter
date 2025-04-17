@@ -102,12 +102,18 @@ __docker_stack__postgres__services:
       POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
     #      healthcheck:
     #        test: "exit 0"
-    ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
+#    ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
+#    healthcheck:
+#      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+    ## ref: https://stackoverflow.com/questions/35069027/docker-wait-for-postgresql-to-be-running
     healthcheck:
-      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     deploy:
       mode: replicated
       placement:
