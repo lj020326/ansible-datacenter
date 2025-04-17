@@ -80,8 +80,9 @@ class ApiKeyHelper(object):
             if new_resource.username == 'admin':
                 log.info('Reseting admin api keys')
                 admin_keys = self.generate_admin_keys(new_resource.url, new_resource.password)
-                log.info('admin api keys: Generate new admin keys admin_keys=[%s]' % admin_keys)
-
+                sanitized_admin_keys = admin_keys.copy()
+                sanitized_admin_keys['secret_key'] = '***REDACTED***'
+                log.info('admin api keys: Generate new admin keys admin_keys=[%s]' % sanitized_admin_keys)
                 new_resource.admin_apikey = admin_keys['api_key']
                 new_resource.admin_secretkey = admin_keys['secret_key']
         else:
