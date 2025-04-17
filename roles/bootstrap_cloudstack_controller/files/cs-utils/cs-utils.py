@@ -176,7 +176,8 @@ class ApiKeyHelper(object):
     def keys_valid(self, new_resource):
         logPrefix="keys_valid():"
         log.info("%s starting" % logPrefix)
-        log.debug("%s new_resource=%s" % (logPrefix, new_resource))
+        sanitized_resource = {k: (v if k != 'password' else '***') for k, v in new_resource.items()}
+        log.debug("%s new_resource=%s" % (logPrefix, sanitized_resource))
         # Test if current defined keys are valid
         #
         if ('admin_apikey' in new_resource or 'admin_secretkey' in new_resource):
