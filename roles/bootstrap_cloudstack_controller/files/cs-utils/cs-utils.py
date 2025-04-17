@@ -111,7 +111,8 @@ class ApiKeyHelper(object):
         new_resource = resource
         logPrefix="admin_apikeys_from_cloudstack():"
         log.info("%s starting" % logPrefix)
-        log.debug("%s resource=%s" % (logPrefix, resource))
+        sanitized_resource = {k: (v if k != 'password' else '<redacted>') for k, v in resource.items()}
+        log.debug("%s resource=%s" % (logPrefix, sanitized_resource))
 
         # look if apikeys already exist
         # otherwise  generate them
