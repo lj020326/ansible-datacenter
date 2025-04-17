@@ -123,7 +123,8 @@ class ApiKeyHelper(object):
                 log.info('%s keys not found' % logPrefix)
                 log.info('%s Creating keys for admin' % logPrefix)
                 admin_keys = self.generate_admin_keys(resource['password'])
-                log.info('%s admin api keys: Generated new key admin_keys=%s' % (logPrefix, admin_keys))
+                redacted_admin_keys = {key: "<REDACTED>" if key in ["api_key", "secret_key"] else value for key, value in admin_keys.items()}
+                log.info('%s admin api keys: Generated new key admin_keys=%s' % (logPrefix, redacted_admin_keys))
             else:
                 log.info('%s admin api keys: use existing in CloudStack' % logPrefix)
 
