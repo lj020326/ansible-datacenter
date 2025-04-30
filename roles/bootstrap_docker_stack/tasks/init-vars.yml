@@ -139,6 +139,8 @@
     __docker_stack__service_groups_by_name: "{{ __docker_stack__service_groups_by_name | d({}) | combine({ ((item is mapping) | ternary( item.name, item)): { 'source':
       item.source | d('role'), 'name': ((item is mapping) | ternary( item.name, item)) | replace('-','_') } } ) }}"
   loop: "{{ __docker_stack__service_groups_combined }}"
+  loop_control:
+    label: "{{ item.name | d(item) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups_by_name"
   ansible.builtin.debug:
@@ -204,7 +206,7 @@
   ansible.builtin.include_vars: app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_{{ item.name }}.yml
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.name | d(item) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set the common app services vars"
   #  when: item.source|d('role') == 'role'
@@ -212,7 +214,7 @@
   ansible.builtin.include_vars: app-services/common/docker_stack_{{ item.name }}.yml
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.name | d(item) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker stack info"
   ansible.builtin.debug:
@@ -234,6 +236,8 @@
       | combine({ item.name: lookup('vars', q('varnames','^docker_stack__appspec__'+item.name.replace('-','_')+'$')
       | first | d('') )|d({}) }) }}"
   loop: "{{ __docker_stack__service_groups }}"
+  loop_control:
+    label: "{{ item.name | d(item) }}"
 
 ## NOTE: sensitive info - this var contains the secrets
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_configs"

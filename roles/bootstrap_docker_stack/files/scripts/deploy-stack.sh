@@ -198,7 +198,38 @@ function remove_docker_stack() {
   logInfo "${RESTART_DOCKER_COMMAND}"
   eval "${RESTART_DOCKER_COMMAND}"
 
+  ## ref: https://github.com/moby/moby/issues/25981#issuecomment-244783392
+  DOCKER_PROXY_PORTS_STILL_EXIST=$(netstat -tulnp | grep -c "docker-proxy")
+
+  if [ "${DOCKER_PROXY_PORTS_STILL_EXIST}" -ne 0 ]; then
+    logInfo "[${DOCKER_PROXY_PORTS_STILL_EXIST}] docker-proxy port binds continue to exist after restart"
+    logInfo "performing additional network cleanup"
+    logInfo "  ** fix/resolution reference: https://github.com/moby/moby/issues/25981#issuecomment-244783392"
+    cleanup_stale_docker_networks
+  fi
+
   logInfo "Docker stack completely removed and ready to recreate."
+}
+
+## ref: https://github.com/moby/moby/issues/25981#issuecomment-244783392
+function cleanup_stale_docker_networks() {
+  local STOP_DOCKER_COMMAND="systemctl stop docker"
+  logInfo "${STOP_DOCKER_COMMAND}"
+  eval "${STOP_DOCKER_COMMAND}"
+
+  rm -fr /var/lib/docker/network/files/*
+
+  local START_DOCKER_COMMAND="systemctl start docker"
+  logInfo "${START_DOCKER_COMMAND}"
+  eval "${START_DOCKER_COMMAND}"
+
+  DOCKER_PROXY_PORTS_STILL_EXIST=$(netstat -tulnp | grep -c "docker-proxy")
+
+  if [ "${DOCKER_PROXY_PORTS_STILL_EXIST}" -ne 0 ]; then
+    logError "[${DOCKER_PROXY_PORTS_STILL_EXIST}] docker-proxy port binds CONTINUE to exist after network cleanup"
+    abort "quitting!"
+  fi
+
 }
 
 function deploy_docker_stack() {

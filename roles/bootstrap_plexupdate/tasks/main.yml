@@ -1,0 +1,49 @@
+---
+- name: Install prerequisites
+  become: true
+  ansible.builtin.package:
+    name: git
+    state: present
+
+- name: Ensure {{ plexupdate_dir }} exists
+  ansible.builtin.file:
+    dest: "{{ plexupdate_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Git clone plexupdate repo
+  ansible.builtin.git:
+    repo: "{{ plexupdate_repo }}"
+    dest: "{{ plexupdate_dir }}/"
+    version: "{{ plexupdate_version }}"
+    force: true
+
+- name: Ensure plexupdate.conf
+  ansible.builtin.template:
+    src: plexupdate.conf.j2
+    dest: /etc/plexupdate.conf
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Ensure plexupdate.cron.conf
+  ansible.builtin.template:
+    src: plexupdate.cron.conf.j2
+    dest: /etc/plexupdate.cron.conf
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Ensure daily cron setup
+  ansible.builtin.file:
+    src: /opt/plexupdate/extras/cronwrapper
+    dest: /etc/cron.daily/plexupdate
+    state: link
+
+- name: Ensure plex user added to the media group
+  ansible.builtin.user:
+    name: plex
+    groups: media
+    append: true
