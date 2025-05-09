@@ -6,13 +6,13 @@ class FilterModule:
     @staticmethod
     def add_home(_user_list):
         for user in _user_list:
-            if 'homedir' not in user:
-                user['homedir']='/home/{0}'.format(user['name'])
+            if 'home_dir' not in user:
+                user['home_dir']='/home/{0}'.format(user['name'])
 
         return _user_list
 
     def filters(self):
         return {
-            'add_homedir': self.add_home
+            'add_home_dir': self.add_home
         }
 

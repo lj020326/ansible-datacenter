@@ -11,6 +11,10 @@
     split: ":"
   check_mode: false
 
+- name: Display __bootstrap_linux_user__list
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list
+
 - name: Ensure group exist with correct gid
   when:
     - item.gid is defined
@@ -24,10 +28,6 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Display __bootstrap_linux_user__list
-  ansible.builtin.debug:
-    var: __bootstrap_linux_user__list
-
 ## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
 - name: Add users with groups
   when: item.bootstrap_user|d(True)|bool
@@ -37,7 +37,7 @@
     state: "{{ item.state | d('present') }}"
     system: "{{ item.system | d(false) }}"
     shell: "{{ item.shell | d(omit) }}"
-    append: "{{ True if item.groups is defined else False }}"
+    append: "{{ true if item.groups is defined else false }}"
     uid: "{{ item.uid | d(omit) }}"
     group: "{{ item.gid | d(omit) }}"
     groups: "{{ item.groups | d(omit) }}"
@@ -48,6 +48,8 @@
     generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
     ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
     ssh_key_file: "{{ item.ssh_key_file | d(omit) }}"
+    create_home: "{{ item.create_home | d(omit) }}"
+    home: "{{ item.home | d(omit) }}"
   loop: "{{ __bootstrap_linux_user__list }}"
   loop_control:
     label: "{{ item.name }}"
@@ -110,9 +112,9 @@
 #  lineinfile: dest=/etc/sudoers regexp=requiretty state=absent
 
 - name: "Add .ssh directories"
-  when: item.homedir is defined
+  when: item.home_dir is defined
   ansible.builtin.file:
-    path: "{{ item.homedir }}/.ssh"
+    path: "{{ item.home_dir }}/.ssh"
     state: directory
     mode: "0700"
     owner: "{{ item.name }}"
@@ -148,7 +150,7 @@
   when: bootstrap_linux_user__credentials[item.name].ssh_keypair.private is defined
   ansible.builtin.copy:
     content: "{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.private }}"
-    dest: "{{ item.homedir }}/.ssh/id_rsa"
+    dest: "{{ item.home_dir }}/.ssh/id_rsa"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: "0600"
@@ -161,7 +163,7 @@
   when: bootstrap_linux_user__credentials[item.name].ssh_keypair.public is defined
   ansible.builtin.copy:
     content: "{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.public }}"
-    dest: "{{ item.homedir }}/.ssh/id_rsa.pub"
+    dest: "{{ item.home_dir }}/.ssh/id_rsa.pub"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: "0600"
@@ -175,13 +177,13 @@
   ansible.builtin.copy:
     backup: true
     src: "{{ item.1 }}"
-    dest: "{{ item.0.homedir }}/"
+    dest: "{{ item.0.home_dir }}/"
     mode: "0644"
     owner: "{{ item.0.name }}"
     force: true
   loop: "{{ __bootstrap_linux_user__list | product( lookup('fileglob', 'files/bashenv/.*', wantlist=True)) | list }}"
   loop_control:
-    label: Copy {{ item.1 | basename }} to {{ item.0.homedir }}
+    label: Copy {{ item.1 | basename }} to {{ item.0.home_dir }}
 
 - name: "Template bash env files to home directory"
   when: item.0.setup_bashenv|d(True)|bool
@@ -189,10 +191,10 @@
   ansible.builtin.template:
     backup: true
     src: "{{ item.1 }}"
-    dest: "{{ item.0.homedir }}/"
+    dest: "{{ item.0.home_dir }}/"
     mode: "0644"
     owner: "{{ item.0.name }}"
     force: true
   loop: "{{ __bootstrap_linux_user__list | product( lookup('fileglob', 'templates/bashenv/.*', wantlist=True)) | list }}"
   loop_control:
-    label: Copy {{ item.1 | basename }} to {{ item.0.homedir }}
+    label: Copy {{ item.1 | basename }} to {{ item.0.home_dir }}
