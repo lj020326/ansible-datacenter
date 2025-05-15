@@ -1,6 +1,6 @@
 ---
 
-- name: Set OS specific variables
+- name: "Set OS specific variables"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
@@ -8,15 +8,31 @@
     - "{{ ansible_os_family|lower }}.yml"
     - default.yml
 
-- name: Run install.yml
+- name: "Install netplan packages"
   when:
-    - bootstrap_netplan__check_install
-  ansible.builtin.import_tasks: install.yml
+    - bootstrap_netplan__check_install|bool
+    - bootstrap_netplan__packages|d([])|length>0
+  ansible.builtin.package:
+    name: "{{ bootstrap_netplan__packages }}"
+    state: present
+  become: true
+  register: result
+  until: result is successful
 
-- name: Run existing.yml
-  when:
-    - bootstrap_netplan__remove_existing
+- name: "Remove existing configurations"
+  when: bootstrap_netplan__remove_existing|bool
   ansible.builtin.import_tasks: remove-existing.yml
 
-- name: Run configure.yml
-  ansible.builtin.import_tasks: configure.yml
+- name: "Display bootstrap_netplan__configuration"
+  ansible.builtin.debug:
+    var: bootstrap_netplan__configuration
+#    verbosity: 1
+
+- name: "Ensure netplan configuration"
+  when: bootstrap_netplan__configuration|length>0
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ bootstrap_netplan__config_file }}"
+    mode: "0600"
+  become: true
+  notify: netplan generate config
