@@ -200,6 +200,7 @@ alias startheroku='heroku local'
 # alias syncbashenv='rsync1 ${ANSIBLE_DEVELOPER_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
 alias syncbashenv="${ANSIBLE_DEVELOPER_REPO}/sync-bashenv.sh && source ${HOME}/.bashrc"
 alias getsitecertinfo="get_site_cert_info.sh"
+alias getcertinfo="openssl x509 -text -noout -in"
 
 ## see function for more dynamic/robust version of the same shortcut
 #alias blastit-="git pull origin && git add . && git commit -am 'updates from ${HOSTNAME}' && git push origin"

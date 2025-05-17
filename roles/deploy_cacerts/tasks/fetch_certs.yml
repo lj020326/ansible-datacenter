@@ -1,11 +1,11 @@
 ---
 - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display cert and key dir info"
   ansible.builtin.debug:
-    var: "{{ item }}"
-  loop:
-    - deploy_cacerts__cacert_local_cert_dir
-    - deploy_cacerts__cacert_local_key_dir
-    - deploy_cacerts__ca_key_dir
+    msg:
+      - deploy_cacerts__using_stepca={{ deploy_cacerts__using_stepca }}
+      - deploy_cacerts__cacert_local_cert_dir={{ deploy_cacerts__cacert_local_cert_dir }}
+      - deploy_cacerts__cacert_local_key_dir={{ deploy_cacerts__cacert_local_key_dir }}
+      - deploy_cacerts__ca_key_dir={{ deploy_cacerts__ca_key_dir }}
 
 - name: "{{ __deploy_cacerts__log_prefix_fetch }} Remove all existing old CA certs and keys"
   when: deploy_cacerts__ca_reset_local_certs|bool
@@ -27,16 +27,62 @@
     - "{{ deploy_cacerts__cacert_local_key_dir }}"
     - "{{ deploy_cacerts__ca_key_dir }}"
 
-- name: "{{ __deploy_cacerts__log_prefix_fetch }} fetch host cert/key from keystore"
-  when: not deploy_cacerts__using_stepca|d(False)|bool
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} Ensure script dirs exist"
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    mode: "{{ item.mode | default(omit) }}"
+    recurse: "{{ item.recurse | default( omit ) }}"
+  loop: "{{ __deploy_cacerts__script_dirs }}"
+
+## ref: http://www.mydailytutorials.com/ansible-template-module-examples/
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} Install admin scripts"
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    force: "{{ item.force | default(true) }}"
+    ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html
+    mode: "{{ item.mode | default('0755') }}"
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    backup: "{{ item.backup | default( omit ) }}"
+  loop: "{{ __deploy_cacerts__scripts }}"
+
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch root cert from keystore"
+  ansible.builtin.include_tasks: slurp_from_to.yml
+  loop_control:
+    loop_var: __copy_from_to_info
+  loop:
+    - src: "{{ deploy_cacerts__keystore_cert_base_dir }}/{{ deploy_cacerts__ca_root_cn }}/{{ deploy_cacerts__pki_caroot_cert }}"
+      dest: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} Copy root cert to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
+  ansible.builtin.copy:
+    src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+    dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
+    remote_src: true
+    force: "{{ item.force | default('true') }}"
+    mode: "{{ item.mode | default('0755') }}"
+    owner: "{{ item.owner | default( 'root' ) }}"
+    group: "{{ item.owner | default( 'root' ) }}"
+    backup: "{{ item.backup | default( omit ) }}"
+
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} Update CA trust: {{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
+  changed_when: false
+  ansible.builtin.command: "{{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
+
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch host cert/key from keystore"
+  when: not deploy_cacerts__using_stepca|d(false)|bool
   block:
-    - name: "{{ __deploy_cacerts__log_prefix_fetch }} fetch host cert/key from keystore"
+    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch host cert/key from keystore"
       ansible.builtin.include_tasks: slurp_from_to.yml
       loop_control:
         loop_var: __copy_from_to_info
       loop:
-        - src: "{{ deploy_cacerts__keystore_cert_base_dir }}/{{ deploy_cacerts__ca_root_cn }}/{{ deploy_cacerts__pki_caroot_cert }}"
-          dest: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+#        - src: "{{ deploy_cacerts__keystore_cert_base_dir }}/{{ deploy_cacerts__ca_root_cn }}/{{ deploy_cacerts__pki_caroot_cert }}"
+#          dest: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
         - src: "{{ deploy_cacerts__keystore_cert_base_dir }}/{{ deploy_cacerts__ca_domain }}/{{ deploy_cacerts__hostname_full }}.pem"
           dest: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.pem"
         - src: "{{ deploy_cacerts__keystore_cert_base_dir }}/{{ deploy_cacerts__ca_domain }}/{{ deploy_cacerts__hostname_full }}.chain.pem"
@@ -62,21 +108,21 @@
           group: root
           mode: "0600"
 
-- name: "{{ __deploy_cacerts__log_prefix_fetch }} fetch host cert/key from keystore"
-  when: deploy_cacerts__using_stepca|d(False)|bool
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} fetch host cert/key using step-ca"
+  when: deploy_cacerts__using_stepca|d(false)|bool
   block:
 
-    - name: Fetch __deploy_cacerts__stepca_root_ca_fingerprint
+    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch __deploy_cacerts__stepca_root_ca_fingerprint"
       when: not deploy_cacerts__stepca_root_ca_fingerprint is defined
       run_once: true
       block:
 
-        - name: Display deploy_cacerts__stepca_host_url
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display deploy_cacerts__stepca_host_url"
           ansible.builtin.debug:
             var: deploy_cacerts__stepca_host_url
 
         ## ref: https://smallstep.com/blog/embarrassingly-easy-certificates-on-aws-azure-gcp/
-        - name: Set __deploy_cacerts__stepca_root_ca_fingerprint_result
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Set __deploy_cacerts__stepca_root_ca_fingerprint_result"
 #          ansible.builtin.shell: |
 #            curl -k -s {{ deploy_cacerts__stepca_host_url }}/1.0/roots | jq -r '.crts[0]' | sed -r '/^\s*$/d'
           ansible.builtin.uri:
@@ -85,32 +131,32 @@
             validate_certs: false
             return_content: true
             body_format: json
-            follow_redirects: false
+            follow_redirects: none
             status_code:
               - 200
               - 201
           register: __deploy_cacerts__stepca_root_ca_fingerprint_result
 
-        - name: Display __deploy_cacerts__stepca_root_ca_fingerprint_result
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display __deploy_cacerts__stepca_root_ca_fingerprint_result"
           ansible.builtin.debug:
             var: __deploy_cacerts__stepca_root_ca_fingerprint_result
 
-        - name: Set __deploy_cacerts__stepca_root_ca_fingerprint_encoded
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Set __deploy_cacerts__stepca_root_ca_fingerprint_encoded"
           ansible.builtin.set_fact:
             __deploy_cacerts__stepca_root_ca_fingerprint_encoded: "{{ 
               __deploy_cacerts__stepca_root_ca_fingerprint_result['json']['crts'][0] | trim }}"
 
-        - name: Display __deploy_cacerts__stepca_root_ca_fingerprint_encoded
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display __deploy_cacerts__stepca_root_ca_fingerprint_encoded"
           ansible.builtin.debug:
             var: __deploy_cacerts__stepca_root_ca_fingerprint_encoded
 
-        - name: Ensure /tmp/stepca_root_ca_fingerprint_encoded.txt
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Ensure /tmp/stepca_root_ca_fingerprint_encoded.txt"
           ansible.builtin.copy:
             dest: /tmp/stepca_root_ca_fingerprint_encoded.txt
             content: "{{ __deploy_cacerts__stepca_root_ca_fingerprint_encoded }}"
             mode: "0600"
 
-        - name: Get __deploy_cacerts__stepca_root_ca_fingerprint_decoded
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Get __deploy_cacerts__stepca_root_ca_fingerprint_decoded"
           changed_when: false
           ansible.builtin.shell: |
             step certificate fingerprint /tmp/stepca_root_ca_fingerprint_encoded.txt
@@ -119,20 +165,20 @@
 #              <(curl -k -s https://stepca.example.int/1.0/roots | jq -r '.crts[0]' | sed -r '/^\s*$/d')
           register: __deploy_cacerts__stepca_root_ca_fingerprint_decoded
 
-        - name: Display __deploy_cacerts__stepca_root_ca_fingerprint_decoded
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display __deploy_cacerts__stepca_root_ca_fingerprint_decoded"
           ansible.builtin.debug:
             var: __deploy_cacerts__stepca_root_ca_fingerprint_decoded
 
-        - name: Set __deploy_cacerts__stepca_root_ca_fingerprint
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Set __deploy_cacerts__stepca_root_ca_fingerprint"
           ansible.builtin.set_fact:
             __deploy_cacerts__stepca_root_ca_fingerprint: "{{ deploy_cacerts__stepca_root_ca_fingerprint
              | d(__deploy_cacerts__stepca_root_ca_fingerprint_decoded.stdout) }}"
 
-    - name: Display __deploy_cacerts__stepca_root_ca_fingerprint_decoded
+    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display __deploy_cacerts__stepca_root_ca_fingerprint_decoded"
       ansible.builtin.debug:
         var: __deploy_cacerts__stepca_root_ca_fingerprint_decoded
 
-    - name: Validate __deploy_cacerts__stepca_root_ca_fingerprint defined
+    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Validate __deploy_cacerts__stepca_root_ca_fingerprint defined"
       ansible.builtin.assert:
         that: __deploy_cacerts__stepca_root_ca_fingerprint is defined
 
@@ -142,7 +188,7 @@
       register: __cacert_root_result
 
     - name: "{{ __deploy_cacerts__log_prefix_fetch }} check host cert info"
-      when: deploy_cacerts__validate_certs|d(True)|bool
+      when: deploy_cacerts__validate_certs|d(true)|bool
       block:
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Check if {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__hostname_full }}.pem exists"
           ansible.builtin.stat:
@@ -170,14 +216,23 @@
         step ca bootstrap --force --ca-url {{ deploy_cacerts__stepca_host_url }} \
           --fingerprint {{ __deploy_cacerts__stepca_root_ca_fingerprint }}
 
-    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch root cert/key from stepca to {{ deploy_cacerts__cacert_local_cert_dir }}"
-      when: not __cacert_root_result.stat.exists
-      ansible.builtin.command: |
-        step ca root {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}
-      changed_when: false
+#    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch root cert/key from stepca to {{ deploy_cacerts__cacert_local_cert_dir }}"
+##      when: not __cacert_root_result.stat.exists
+#      ansible.builtin.command: |
+#        step ca root {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}
+#      changed_when: false
+#
+#    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Copy root cert to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
+#      copy_remotely:
+#        src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+#        dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
+#
+#    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Update CA trust: {{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
+#      changed_when: false
+#      ansible.builtin.command: "{{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
 
     - name: "{{ __deploy_cacerts__log_prefix_fetch }} Validate root cert"
-      when: deploy_cacerts__validate_certs|d(True)|bool
+      when: deploy_cacerts__validate_certs|d(true)|bool
       block:
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display ansible_python_interpreter"
           ansible.builtin.debug:
@@ -185,40 +240,44 @@
 
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Validate cacerts by querying {{ deploy_cacerts__stepca_host_url }}health"
           #      ignore_errors: yes
+          ## ref: https://stackoverflow.com/a/66865493
+          environment:
+            SSL_CERT_FILE: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
           ansible.builtin.uri:
             url: "{{ deploy_cacerts__stepca_host_url }}health"
             method: GET
             status_code: 200
             validate_certs: true
             return_content: false
+            ca_path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
           register: __step_get_result
 
-      rescue:
-        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch root cert/key from stepca and overwrite old/stale at {{ deploy_cacerts__cacert_local_cert_dir }}/{{
-            deploy_cacerts__pki_caroot_cert }}"
-          #          when: __step_get_result.status != 200
-          ansible.builtin.command: |
-            step ca root -f {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}
-          changed_when: false
-
-        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Copy root cert to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
-          copy_remotely:
-            src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
-            dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
-
-        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Update CA trust: {{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
-          changed_when: false
-          ansible.builtin.command: "{{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
+#      rescue:
+#        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch root cert/key from stepca and overwrite old/stale at {{ deploy_cacerts__cacert_local_cert_dir }}/{{
+#            deploy_cacerts__pki_caroot_cert }}"
+#          #          when: __step_get_result.status != 200
+#          ansible.builtin.command: |
+#            step ca root -f {{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}
+#          changed_when: false
+#
+#        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Copy root cert to {{ __deploy_cacerts__trust_ca_cacert_dir }} for importing"
+#          copy_remotely:
+#            src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+#            dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
+#
+#        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Update CA trust: {{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
+#          changed_when: false
+#          ansible.builtin.command: "{{ __deploy_cacerts__trust_ca_update_trust_cmd }}"
 
     - name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch host cert and key"
-      when: deploy_cacerts__deploy_host_certs|d(True)|bool
+      when: deploy_cacerts__deploy_host_certs|d(true)|bool
       block:
         - name: Get firewalld service status
           ansible.builtin.systemd:
             name: firewalld
           register: __firewalld_service_state
 
-        - name: temporarily permit traffic on port 80/tcp in order to perform stepca host verification
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Temporarily permit traffic on port 80/tcp in order to perform stepca host verification"
           when: __firewalld_service_state.status.ActiveState|d('')=='active'
           ansible.posix.firewalld:
             port: 80/tcp
@@ -234,7 +293,8 @@
           changed_when: false
 
       rescue:
-        - name: Temporarily permit traffic on port {{ deploy_cacerts__stepca_acme_http_challenge_proxy_port }}/tcp in order to perform stepca host verification
+        - name: "{{ __deploy_cacerts__log_prefix_fetch }} Temporarily permit traffic on port {{ 
+            deploy_cacerts__stepca_acme_http_challenge_proxy_port }}/tcp in order to perform stepca host verification"
           ansible.posix.firewalld:
             port: "{{ deploy_cacerts__stepca_acme_http_challenge_proxy_port }}/tcp"
             state: enabled
@@ -250,7 +310,7 @@
               --http-listen :{{ deploy_cacerts__stepca_acme_http_challenge_proxy_port }}
 
     - name: "{{ __deploy_cacerts__log_prefix_fetch }} Create bundle"
-      when: deploy_cacerts__create_cert_bundle|d(True)|bool
+      when: deploy_cacerts__create_cert_bundle|d(true)|bool
       block:
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Create cert bundle from stepca to {{ deploy_cacerts__cacert_local_cert_dir }}"
           when: not (cacert_certbundle_result.stat.exists and cacert_key_result.stat.exists)
@@ -267,8 +327,10 @@
     #    path: "{{ '~/.ssh/known_hosts' | expanduser }}"
     state: absent
 
-- name: "{{ __deploy_cacerts__log_prefix_fetch }} fetch intermediate certs"
-  when: deploy_cacerts__deploy_intermediate_certs|d(True)|bool
+- name: "{{ __deploy_cacerts__log_prefix_fetch }} Fetch intermediate certs"
+  when:
+    - deploy_cacerts__deploy_intermediate_certs|d(true)|bool
+    - __deploy_cacerts__ca_intermediate_cert_list|d([])|length>0
   #  become: no
   block:
     - name: "{{ __deploy_cacerts__log_prefix_fetch }} Add intermediate certs to __cert_from_to_list"
@@ -308,7 +370,7 @@
       ansible.builtin.copy:
         src: "{{ deploy_cacerts__cacert_local_key_dir }}/{{ item.route }}-key.pem"
         dest: "{{ deploy_cacerts__ca_key_dir }}/{{ item.route }}-key.pem"
+        mode: "0600"
         backup: true
         remote_src: true
-        mode: "0600"
       loop: "{{ deploy_cacerts__ca_service_routes_list }}"

@@ -295,7 +295,7 @@ An example playbook setup-ca-server.yml utilizing the CA role to setup the CA se
    bootstrap_certs__ca_force_create: yes
    bootstrap_certs__ca_force_certify_nodes: yes
   roles:
-   - role: bootstrap-cacerts
+   - role: bootstrap_certs
      tags: ca
 ```
 
@@ -378,7 +378,7 @@ The following playbook creates and signs certificates with our provided configur
       easy_install: { name: pip, state: latest }
       become: yes
   roles:
-    - role: snieking.keystore_truststore
+    - role: bootstrap_certs
       trusted_ca_path: /my/trusted/ca-path/
       clean_up: no
       common_name: thecuriousdev.org
