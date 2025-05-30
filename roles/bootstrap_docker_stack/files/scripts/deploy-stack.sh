@@ -303,10 +303,13 @@ function deploy_docker_stack() {
 
   logInfo "Running containers for stack [${DOCKER_STACK_NAME}]:"
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
-    docker stack ps --filter="desired-state=running" ${DOCKER_STACK_NAME}
+    #docker stack ps --filter="desired-state=running" ${DOCKER_STACK_NAME}
+    DOCKER_PS_COMMAND="docker stack ps --filter=\"desired-state=running\" ${DOCKER_STACK_NAME}"
   elif [[ "${DOCKER_SWARM_MODE}" -eq 0 ]]; then
-    docker compose ps
+    DOCKER_PS_COMMAND="docker compose ps"
   fi
+  logInfo "${DOCKER_PS_COMMAND}"
+  eval "${DOCKER_PS_COMMAND}"
 }
 
 function usage() {

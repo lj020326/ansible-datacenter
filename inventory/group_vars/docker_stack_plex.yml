@@ -1,14 +1,42 @@
 ---
 
+## container user
+docker_stack__user_username: "{{ user_media_uid }}"
+docker_stack__user_password: "{{ vault__docker_user_password }}"
+docker_stack__user_group: "{{ user_media_uid }}"
+
+## make sure to use the same UID/GID specified for the LDAP user
+## this also guarantees consistency across all nodes for the given user ID.
+#docker_stack__user_uid: 1003
+container_user_name: "{{ docker_stack__user_username }}"
+container_user_uid: "{{ user_media_uid_number }}"
+container_user_gid: "{{ user_media_gid_number }}"
+
 bootstrap_linux_user__list__docker_plex:
+  - name: "{{ user_media_uid }}"
+    uid: "{{ user_media_uid_number }}"
+    gid: "{{ user_media_gid_number }}"
+    shell: /bin/bash
   - name: "{{ user_plex_uid }}"
     uid: "{{ user_plex_uid_number }}"
     gid: "{{ user_plex_gid_number }}"
     groups: "{{ user_media_uid }}"
     home: /var/lib/plexmediaserver
 
-docker_stack__service_groups__media:
-  - registry
+## run 1:30 AM every day
+docker_stack__restart_stack_schedule: ["30", "1", "*", "*", "*"]
+
+bootstrap_linux_package__package_list__plex_node:
+  ## ref: https://github.com/desimaniac/docs/blob/master/enable_igpu_on_hetzner.md
+  - vainfo
+  ## ref: https://askubuntu.com/questions/387594/how-to-measure-gpu-usage
+  - intel-gpu-tools
+  ## ref: https://unix.stackexchange.com/questions/127347/editing-metadata-with-bash
+  - libimage-exiftool-perl
+  ## ref: https://www.tecmint.com/find-and-delete-duplicate-files-in-linux/
+  - rdfind
+
+docker_stack__service_groups__plex:
   - redis
 #  - plex
 
@@ -20,3 +48,19 @@ bootstrap_linux_mount__list__tmpdir:
     fstype: "tmpfs"
     ## ref: https://forums.plex.tv/t/guide-plex-media-server-with-intel-nuc-and-ubuntu-16-04-lts/217937
     options: 'size=100G,defaults,noatime,nosuid,nodev,mode=1777'
+
+bootstrap_linux_mount__list__plex:
+  - name: "/srv/backups"
+    src: "diskstation01.johnson.int:/volume2/backups"
+    fstype: "nfs"
+    options: "vers=4.1,intr,auto,nofail"
+
+  - name: "/srv/media"
+    src: "/data/media"
+    fstype: none
+    options: "rw,auto,bind"
+
+  - name: "/data/backups"
+    src: "/srv/backups"
+    fstype: none
+    options: "ro,auto,bind"

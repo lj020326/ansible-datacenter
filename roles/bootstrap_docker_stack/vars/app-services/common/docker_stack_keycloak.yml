@@ -68,6 +68,12 @@ __docker_stack__keycloak__services:
   keycloak:
     container_name: keycloak
     image: "{{ __docker_stack__keycloak__image }}"
+    ## in swarm mode - docker deploy does not support depends_on condition
+    ## ref: https://docs.docker.com/reference/compose-file/legacy-versions/#depends_on
+    ## ref: https://github.com/docker/compose/issues/9957#issuecomment-1329726003
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
     depends_on:
       - postgres
     links:
@@ -98,15 +104,18 @@ __docker_stack__keycloak__services:
       interval: 5s
       timeout: 2s
       retries: 15
+      start_period: 90s
     deploy:
       mode: replicated
       placement:
         constraints:
           - node.hostname == {{ __docker_stack__base__traefik_host }}
+      update_config:
+        delay: 60s
       replicas: 1
       restart_policy:
         condition: on-failure
-        delay: 10s
+        delay: 30s
         max_attempts: 3
         window: 120s
     labels: "{{ __docker_stack__keycloak__traefik_labels }}"

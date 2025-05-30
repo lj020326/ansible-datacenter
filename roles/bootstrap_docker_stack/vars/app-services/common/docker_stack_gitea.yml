@@ -67,6 +67,12 @@ __docker_stack__gitea__services:
     container_name: gitea
     #      image: gitea/gitea:1.6
     image: gitea/gitea:latest
+    ## in swarm mode - docker deploy does not support depends_on condition
+    ## ref: https://docs.docker.com/reference/compose-file/legacy-versions/#depends_on
+    ## ref: https://github.com/docker/compose/issues/9957#issuecomment-1329726003
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
     depends_on:
       - postgres
     environment: "{{ __docker_stack__gitea__environment }}"
@@ -95,12 +101,20 @@ __docker_stack__gitea__services:
         published: "{{ __docker_stack__gitea__ssh_port }}"
         target: 22
     labels: "{{ __docker_stack__gitea__traefik_labels }}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       mode: replicated
       placement:
         constraints:
           - node.hostname == {{ __docker_stack__base__traefik_host }}
       #          - node.role == manager
+      update_config:
+        delay: 60s
       replicas: 1
       restart_policy:
         condition: on-failure
