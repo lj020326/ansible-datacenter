@@ -188,7 +188,7 @@ usage() {
   echo "Usage: ${0} [options] [[TESTCASE_ID] [TESTCASE_ID] ...]"
   echo ""
   echo "  Options:"
-  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default: '${LOGLEVEL_TO_STR[${LOG_LEVEL}]}')"
   echo "       -l : show/list test cases"
   echo "       -v : show script version"
   echo "       -h : help"

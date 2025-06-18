@@ -103,21 +103,18 @@ __docker_stack__postgres__services:
       ## ref: https://stackoverflow.com/a/51697579
       TZ: "{{ docker_stack__timezone }}"
       PGTZ: "{{ docker_stack__timezone }}"
-    #      healthcheck:
-    #        test: "exit 0"
-#    ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
-#    healthcheck:
-#      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?
-#      interval: 30s
-#      timeout: 10s
-#      retries: 3
+    ## ref: https://docs.docker.com/reference/compose-file/services/#healthcheck
+    ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
     ## ref: https://stackoverflow.com/questions/35069027/docker-wait-for-postgresql-to-be-running
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+#      test: ["CMD-SHELL", "pg_isready -U postgres", "&&", "psql --username=postgres --list"]
+#      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?
+      interval: 30s
       timeout: 5s
-      retries: 5
       start_period: 20s
+      start_interval: 20s
+      retries: 5
     deploy:
       mode: replicated
       placement:
@@ -127,9 +124,12 @@ __docker_stack__postgres__services:
       replicas: 1
       restart_policy:
         condition: on-failure
-        delay: 10s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
 
   ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/container_deployment.html
   ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/config_py.html#config-py
@@ -174,11 +174,11 @@ __docker_stack__postgres__services:
       #        constraints:
       #          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
       ##          - node.role == manager
-      update_config:
-        delay: 60s
       replicas: 1
       restart_policy:
         condition: on-failure
         delay: 10s
         max_attempts: 3
         window: 20s
+      update_config:
+        delay: 10s

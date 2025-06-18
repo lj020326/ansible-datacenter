@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 
-ANSIBLE_PLAYBOOK="run-remote.sh ansible-playbook"
+VERSION="2025.6.12"
+
+SCRIPT_NAME="$(basename "$0")"
+
+ANSIBLE_PLAYBOOK="run-playbook.sh"
 PATH="${PATH}:."
 
 usage() {
 #    reset
     echo "" 1>&2
-    echo "Usage: ${0} node_name" 1>&2
-    echo "     node_name: name of the node to bootstrap the setup for the users and user env" 1>&2
+    echo "Usage: ${SCRIPT_NAME} NODE_NAME" 1>&2
+    echo "     NODE_NAME: name of the node to bootstrap the setup for the users and user env" 1>&2
     echo "" 1>&2
     echo "  Examples:" 1>&2
-    echo "     ${0} node01" 1>&2
-    echo "     ${0} all" 1>&2
+    echo "     ${SCRIPT_NAME} node01" 1>&2
+    echo "     ${SCRIPT_NAME} all" 1>&2
     echo "" 1>&2
     exit ${1}
 }
@@ -39,11 +43,11 @@ done
 
 
 if [ $# -lt 1 ]; then
-    echo "required node_name not specified" >&2
+    echo "required NODE_NAME not specified" >&2
     usage 5
 fi
 
-node_name=$1
+NODE_NAME=$1
 
 ask_pass_opts="--ask-pass --ask-become-pass"
 ansible_extra_vars=""
@@ -63,11 +67,11 @@ fi
 DEBUG_VERBOSITY="-vvvv"
 ANSIBLE_COMMAND="${ANSIBLE_PLAYBOOK} ${DEBUG_VERBOSITY} site.yml --tags bootstrap-user ${ask_pass_opts} ${ansible_extra_vars}"
 
-case "${node_name}" in
+case "${NODE_NAME}" in
     "all")
         ${ANSIBLE_COMMAND}
         ;;
     *)
-        ${ANSIBLE_COMMAND} --limit ${node_name}
+        ${ANSIBLE_COMMAND} --limit "${NODE_NAME}"
         ;;
 esac

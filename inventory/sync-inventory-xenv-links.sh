@@ -4,6 +4,7 @@ VERSION="2025.5.5"
 
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_NAME=$(basename "$0")
 
 ## PURPOSE RELATED VARS
 #PROJECT_DIR=$( git rev-parse --show-toplevel )
@@ -681,10 +682,10 @@ function run_sync_function() {
 }
 
 function usage() {
-  echo "Usage: ${0} [options] [[SYNC_FUNCTION_NAME] [SYNC_FUNCTION_NAME]...]"
+  echo "Usage: ${SCRIPT_NAME} [options] [[SYNC_FUNCTION_NAME] [SYNC_FUNCTION_NAME]...]"
   echo ""
   echo "  Options:"
-  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default: '${LOGLEVEL_TO_STR[${LOG_LEVEL}]}')"
   echo "       -v : show script version"
   echo "       -h : help"
   echo "     [SYNC_FUNCTION_NAME]"
@@ -696,12 +697,12 @@ function usage() {
   echo "        - sort_xenv_files"
   echo ""
   echo "  Examples:"
-	echo "       ${0} "
-	echo "       ${0} create_host_links_yml"
-	echo "       ${0} create_host_links_yml create_hostvars_links_yml"
-	echo "       ${0} sort_xenv_files"
-	echo "       ${0} -L DEBUG sort_xenv_files"
-  echo "       ${0} -v"
+	echo "       ${SCRIPT_NAME} "
+	echo "       ${SCRIPT_NAME} create_host_links_yml"
+	echo "       ${SCRIPT_NAME} create_host_links_yml create_hostvars_links_yml"
+	echo "       ${SCRIPT_NAME} sort_xenv_files"
+	echo "       ${SCRIPT_NAME} -L DEBUG sort_xenv_files"
+  echo "       ${SCRIPT_NAME} -v"
 	[ -z "$1" ] || exit "$1"
 }
 

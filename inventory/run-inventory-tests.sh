@@ -4,6 +4,7 @@ VERSION="2025.5.5"
 
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_NAME=$(basename "$0")
 
 ## PURPOSE RELATED VARS
 #PROJECT_DIR=$( git rev-parse --show-toplevel )
@@ -535,6 +536,11 @@ function run_tests() {
   return ${ERROR_COUNT}
 }
 
+
+function isInstalled() {
+    command -v "${1}" >/dev/null 2>&1 || return 1
+}
+
 function checkRequiredCommands() {
     missingCommands=""
     for currentCommand in "$@"
@@ -542,13 +548,9 @@ function checkRequiredCommands() {
         isInstalled "${currentCommand}" || missingCommands="${missingCommands} ${currentCommand}"
     done
 
-    if [[ ! -z "${missingCommands}" ]]; then
+    if [[ -n "${missingCommands}" ]]; then
         fail "checkRequiredCommands(): Please install the following commands required by this script:${missingCommands}"
     fi
-}
-
-function isInstalled() {
-    command -v "${1}" >/dev/null 2>&1 || return 1
 }
 
 
@@ -666,10 +668,10 @@ function ensure_tool() {
 
 
 function usage() {
-  echo "Usage: ${0} [options] [[TESTCASE_ID] [TESTCASE_ID] ...]"
+  echo "Usage: ${SCRIPT_NAME} [options] [[TESTCASE_ID] [TESTCASE_ID] ...]"
   echo ""
   echo "  Options:"
-  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default: '${LOGLEVEL_TO_STR[${LOG_LEVEL}]}')"
   echo "       -d : display test results details"
   echo "       -l : show/list test cases"
   echo "       -p : run pytest"
@@ -680,17 +682,17 @@ function usage() {
   echo "     [TEST_CASES]"
   echo ""
   echo "  Examples:"
-	echo "       ${0} "
-	echo "       ${0} -l"
-	echo "       ${0} 01"
-	echo "       ${0} validate_file_extensions"
-	echo "       ${0} -k -L DEBUG validate_yml_sortorder"
-	echo "       ${0} 01 03"
-	echo "       ${0} -L DEBUG 02 04"
-	echo "       ${0} -p"
-	echo "       ${0} -p 01 02"
-	echo "       ${0} -r .test-results/junit-report.xml"
-  echo "       ${0} -v"
+	echo "       ${SCRIPT_NAME} "
+	echo "       ${SCRIPT_NAME} -l"
+	echo "       ${SCRIPT_NAME} 01"
+	echo "       ${SCRIPT_NAME} validate_file_extensions"
+	echo "       ${SCRIPT_NAME} -k -L DEBUG validate_yml_sortorder"
+	echo "       ${SCRIPT_NAME} 01 03"
+	echo "       ${SCRIPT_NAME} -L DEBUG 02 04"
+	echo "       ${SCRIPT_NAME} -p"
+	echo "       ${SCRIPT_NAME} -p 01 02"
+	echo "       ${SCRIPT_NAME} -r .test-results/junit-report.xml"
+  echo "       ${SCRIPT_NAME} -v"
 	[ -z "$1" ] || exit "$1"
 }
 

@@ -40,7 +40,7 @@
     var: ansible_user
 
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Get installed python module/package list"
-  #    ignore_errors: yes
+  #    ignore_errors: true
   #    failed_when: false
   no_log: true
   community.general.pip_package_info:
@@ -50,7 +50,7 @@
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __python_package_info"
   ansible.builtin.debug:
     var: __python_package_info
-#    verbosity: 2
+    verbosity: 2
 
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Set __docker_package_info"
   when: __python_package_info.packages.pip3 is defined
@@ -69,19 +69,19 @@
     {{ ansible_python_interpreter }} -c "import sys; print(print(sys.executable))"
   register: __python_path_info
 
-- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __python_path_info"
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __python_path_info.stdout"
   ansible.builtin.debug:
-    var: __python_path_info
+    var: __python_path_info.stdout | d('')
 
-
-- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __docker_stack__firewalld_ports"
+- name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __bootstrap_docker__swarm_firewalld_ports"
   ansible.builtin.debug:
-    var: __docker_stack__firewalld_ports
+    var: __bootstrap_docker__swarm_firewalld_ports
 
 ## ref: https://docs.docker.com/engine/swarm/ingress/
 ## ref: https://docs.docker.com/engine/swarm/swarm-tutorial/#the-ip-address-of-the-manager-machine
 ## ref: https://stackoverflow.com/questions/54298815/is-it-necessary-to-open-ports-2377-7946-4789-to-create-a-docker-swarm
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Configure firewall for docker swarm communications"
+  when: __bootstrap_docker__swarm_firewalld_ports|d([])|length > 0
   ansible.builtin.include_role:
     name: bootstrap_linux_firewalld
   vars:

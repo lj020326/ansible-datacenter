@@ -2,6 +2,10 @@
 
 VERSION="2025.5.5"
 
+#SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_NAME=$(basename "$0")
+
 GIT_DEFAULT_BRANCH=main
 GIT_PUBLIC_BRANCH=public
 
@@ -21,8 +25,6 @@ trap 'rm -fr "$TMP_DIR"' EXIT
 GIT_REMOVE_CACHED_FILES=0
 
 CONFIRM=0
-#SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(dirname "$0")"
 
 ## PURPOSE RELATED VARS
 #PROJECT_DIR=$( git rev-parse --show-toplevel )
@@ -384,18 +386,18 @@ function sync_public_branch() {
 
 
 function usage() {
-  echo "Usage: ${0} [options]"
+  echo "Usage: ${SCRIPT_NAME} [options]"
   echo ""
   echo "  Options:"
-  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default: '${LOGLEVEL_TO_STR[${LOG_LEVEL}]}')"
   echo "       -v : show script version"
   echo "       -h : help"
   echo "     [TEST_CASES]"
   echo ""
   echo "  Examples:"
-	echo "       ${0} "
-	echo "       ${0} -L DEBUG"
-  echo "       ${0} -v"
+	echo "       ${SCRIPT_NAME} "
+	echo "       ${SCRIPT_NAME} -L DEBUG"
+  echo "       ${SCRIPT_NAME} -v"
 	[ -z "$1" ] || exit "$1"
 }
 
