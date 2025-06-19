@@ -4,6 +4,9 @@
 # Sets up a stable, prerelease, or unstable repository to provide Webmin and
 # Usermin packages on Debian-based and RPM-based systems
 
+## ref: https://raw.githubusercontent.com/webmin/webmin/master/webmin-setup-repo.sh
+## ref: https://raw.githubusercontent.com/webmin/webmin/be436183cf1f9e624ff63941b2be871ddea94081/webmin-setup-repo.sh
+
 # Default values that can be overridden
 repo_host="download.webmin.com"
 repo_download="https://$repo_host"
