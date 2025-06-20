@@ -35,6 +35,7 @@ MIRROR_DIR_LIST="
 .jenkins
 collections
 docs
+files
 inventory
 molecule
 playbooks
