@@ -108,9 +108,26 @@
       ansible.builtin.debug:
         var: __docker_swarm_status.Error
 
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display hostvars[bootstrap_docker__swarm_leader_host]['ansible_host']"
+      ansible.builtin.debug:
+        var: hostvars[bootstrap_docker__swarm_leader_host]['ansible_host']
+        verbosity: 1
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Perform dns lookup to get leader node IP address"
+      ansible.builtin.set_fact:
+        __leader_node_ipv4: "{{ query('community.dns.lookup',
+          hostvars[bootstrap_docker__swarm_leader_host]['ansible_host'],
+          server=bootstrap_docker__dns,
+          query_timeout=2,
+          nxdomain_handling='empty') | d([]) | first }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __leader_node_ipv4"
+      ansible.builtin.debug:
+        var: __leader_node_ipv4
+
     - name: "{{ __bootstrap_docker__log_prefix_node }} Set __invalid_docker_host_join"
       when: __docker_swarm_status.Error is search('The swarm does not have a leader') or
-            __docker_swarm_status.RemoteManagers is not search(hostvars[bootstrap_docker__swarm_leader_host]['ansible_default_ipv4']['address'])
+            __docker_swarm_status.RemoteManagers is not search(__leader_node_ipv4)
       ansible.builtin.set_fact:
         __invalid_docker_host_join: true
 

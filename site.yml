@@ -789,8 +789,19 @@
   roles:
     - role: bootstrap_docker
 
-- name: Bootstrap docker swarm nodes
-  hosts: docker,!node_offline
+- name: Bootstrap docker swarm leader nodes
+  hosts: docker_swarm_leader,!node_offline
+  tags:
+    - bootstrap-docker-swarm
+    - docker-swarm
+  become: true
+  roles:
+    - role: bootstrap_docker
+      bootstrap_docker__actions: [setup-swarm]
+
+- name: Bootstrap docker swarm non-leader nodes
+  hosts: docker_swarm,!docker_swarm_leader,!node_offline
+#  hosts: docker_swarm_manager,docker_swarm_worker,!node_offline
   tags:
     - bootstrap-docker-swarm
     - docker-swarm
@@ -833,7 +844,8 @@
 ## bootstrap docker stack nodes
 ##############
 - name: Bootstrap docker stack node
-  hosts: docker_stack,!node_offline
+  ## only run on docker_swarm_leader (already in docker_stack)
+  hosts: docker_stack,!docker_swarm_manager,!docker_swarm_worker,!node_offline
   tags:
     - bootstrap-docker-stack
     - docker-stack
@@ -940,7 +952,7 @@
     - deploy-vsphere-dc
     - vsphere-deploy-dc
     - ping-exclude
-  become: true
+#  become: true
   roles:
     - role: bootstrap_vsphere_dc
 
@@ -955,11 +967,11 @@
 - name: VMware Remount VM Datastores
 #  hosts: ansible_localhost
   hosts: vmware_control_node
-  become: true
+  gather_facts: false
+#  become: true
   tags:
     - vmware-remount-datastores
   roles:
-    #    - role: vmware_remount_datastores
     - role: bootstrap_vmware_datastores
       vars:
         bootstrap_vmware_datastores__unmount_datastores_first: true
@@ -967,7 +979,8 @@
 - name: VMware Mount VM Datastores
 #  hosts: ansible_localhost
   hosts: vmware_control_node
-  become: true
+  gather_facts: false
+#  become: true
   tags:
     - bootstrap-vmware-mounts
     - vmware-mount-datastores
@@ -1060,7 +1073,7 @@
   hosts: dell_idrac_hosts,!node_offline
   tags:
     - dell-idrac-get-host-info
-  connection: local
+#  connection: local
   gather_facts: false
   tasks:
     - name: Get hardware inventory
@@ -1085,7 +1098,7 @@
   hosts: dell_idrac_hosts,!node_offline
   tags:
     - dell-idrac-config-ntp
-  connection: local
+#  connection: local
   gather_facts: false
   vars:
     #    ntpserver1: "1.jp.pool.ntp.org"

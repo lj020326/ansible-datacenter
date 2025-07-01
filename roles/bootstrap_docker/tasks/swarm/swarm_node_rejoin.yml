@@ -28,18 +28,19 @@
       community.docker.docker_node:
         hostname: "{{ inventory_hostname }}"
         availability: drain
-      register: __drain_swarm_node
+      register: __swarm_node_drain
 
-    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __drain_swarm_node"
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_node_drain"
       ansible.builtin.debug:
-        var: __drain_swarm_node
+        var: __swarm_node_drain
 
     - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Remove node from swarm"
+      ignore_errors: true
       community.docker.docker_swarm:
         node_id: "{{ inventory_hostname }}"
         state: absent
         force: true
-      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+#      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
       register: __swarm_remove_result
 
     - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_remove_result"
@@ -131,6 +132,17 @@
       ansible.builtin.debug:
         var: __swarm_join_token
 
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Set node availability"
+      ignore_errors: true
+      community.docker.docker_node:
+        hostname: "{{ inventory_hostname }}"
+        availability: active
+      register: __swarm_node_active
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_node_active"
+      ansible.builtin.debug:
+        var: __swarm_node_active
+
 - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Join node to swarm"
   block:
 
@@ -152,7 +164,7 @@
         var: __swarm_join_result
 
     - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Re-emit failure"
-      when: not (__swarm_join_result.stderr | regex_search('This node is not a swarm manager'))
+      when: not (__swarm_join_result.stderr | d('') | regex_search('This node is not a swarm manager'))
       vars:
         failed_task:
           result: "{{ ansible_failed_result }}"
