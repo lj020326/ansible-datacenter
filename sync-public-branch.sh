@@ -79,24 +79,15 @@ EXCLUDES="${EXCLUDES%,}"
 
 ## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
-#RSYNC_OPTS_GIT_MIRROR=(
-#    -dar
-#    --links
-#    --delete-excluded
-#    --exclude={"${EXCLUDES},${EXCLUDE_AND_REMOVE}"}
-#)
 RSYNC_OPTS_GIT_MIRROR=()
 RSYNC_OPTS_GIT_MIRROR+=("-dar")
 RSYNC_OPTS_GIT_MIRROR+=("--links")
 RSYNC_OPTS_GIT_MIRROR+=("--delete-excluded")
 RSYNC_OPTS_GIT_MIRROR+=("--exclude={${EXCLUDES},${EXCLUDE_AND_REMOVE}}")
 
-RSYNC_MIRROR_OPTS="${RSYNC_OPTS_GIT_MIRROR[*]}"
-
-RSYNC_OPTS_GIT_UPDATE=(
-    -ari
-    --links
-)
+RSYNC_OPTS_GIT_UPDATE=()
+RSYNC_OPTS_GIT_UPDATE+=("-ari")
+RSYNC_OPTS_GIT_UPDATE+=("--links")
 
 #### LOGGING RELATED
 LOG_ERROR=0
@@ -413,8 +404,11 @@ function search_repo_keywords () {
 }
 
 function sync_public_branch() {
+  local RSYNC_MIRROR_OPTS="${RSYNC_OPTS_GIT_MIRROR[*]}"
+  local RSYNC_UPDATE_OPTS="${RSYNC_OPTS_GIT_UPDATE[*]}"
 
   log_debug "RSYNC_MIRROR_OPTS=${RSYNC_MIRROR_OPTS}"
+  log_debug "RSYNC_UPDATE_OPTS=${RSYNC_UPDATE_OPTS}"
 
   git fetch --all
   git checkout ${GIT_DEFAULT_BRANCH}
@@ -436,7 +430,7 @@ function sync_public_branch() {
   fi
   
   log_info "Copy ${TEMP_DIR} to project dir $PROJECT_DIR"
-  RSYNC_CMD="rsync ${RSYNC_OPTS_GIT_UPDATE[*]} ${TEMP_DIR}/ ${PROJECT_DIR}/"
+  RSYNC_CMD="rsync ${RSYNC_UPDATE_OPTS} ${TEMP_DIR}/ ${PROJECT_DIR}/"
   execute_eval_command "${RSYNC_CMD}"
 
   IFS=$'\n'
