@@ -61,8 +61,8 @@ PRIVATE_CONTENT_ARRAY+=('**/integration_config.yml')
 PRIVATE_CONTENT_ARRAY+=('**/integration_config.vault.yml')
 PRIVATE_CONTENT_ARRAY+=('*.log')
 
-printf -v EXCLUDE_AND_REMOVE '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"
-EXCLUDE_AND_REMOVE="${EXCLUDE_AND_REMOVE%,}"
+printf -v PRIVATE_CONTENT_LIST '%s,' "${PRIVATE_CONTENT_ARRAY[@]}"
+PRIVATE_CONTENT_LIST="${PRIVATE_CONTENT_LIST%,}"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY
@@ -70,12 +70,11 @@ EXCLUDES_ARRAY+=('.git')
 EXCLUDES_ARRAY+=('.gitmodule')
 EXCLUDES_ARRAY+=('.idea')
 EXCLUDES_ARRAY+=('.vscode')
-EXCLUDES_ARRAY+=('**/.DS_Store')
 EXCLUDES_ARRAY+=('venv')
-EXCLUDES_ARRAY+=('*.log')
+EXCLUDES_ARRAY+=('.DS_Store')
 
-printf -v EXCLUDES '%s,' "${EXCLUDES_ARRAY[@]}"
-EXCLUDES="${EXCLUDES%,}"
+printf -v EXCLUDES_LIST '%s,' "${EXCLUDES_ARRAY[@]}"
+EXCLUDES_LIST="${EXCLUDES_LIST%,}"
 
 ## https://serverfault.com/questions/219013/showing-total-progress-in-rsync-is-it-possible
 ## https://www.studytonight.com/linux-guide/how-to-exclude-files-and-directory-using-rsync
@@ -83,7 +82,7 @@ RSYNC_OPTS_GIT_MIRROR=()
 RSYNC_OPTS_GIT_MIRROR+=("-dar")
 RSYNC_OPTS_GIT_MIRROR+=("--links")
 RSYNC_OPTS_GIT_MIRROR+=("--delete-excluded")
-RSYNC_OPTS_GIT_MIRROR+=("--exclude={${EXCLUDES},${EXCLUDE_AND_REMOVE}}")
+RSYNC_OPTS_GIT_MIRROR+=("--exclude={${EXCLUDES_LIST},${PRIVATE_CONTENT_LIST}}")
 
 RSYNC_OPTS_GIT_UPDATE=()
 RSYNC_OPTS_GIT_UPDATE+=("-ari")
@@ -342,12 +341,6 @@ function git_commit_push() {
 
 function search_repo_keywords () {
 
-  local REPO_EXCLUDE_DIR_LIST=(".git")
-  REPO_EXCLUDE_DIR_LIST+=(".idea")
-  REPO_EXCLUDE_DIR_LIST+=("venv")
-  REPO_EXCLUDE_DIR_LIST+=("private")
-  REPO_EXCLUDE_DIR_LIST+=("save")
-
   #export -p | sed 's/declare -x //' | sed 's/export //'
   if [ -z ${REPO_EXCLUDE_KEYWORDS+x} ]; then
     abort "REPO_EXCLUDE_KEYWORDS not set/defined"
@@ -375,8 +368,8 @@ function search_repo_keywords () {
   log_debug "GREP_COMMAND=${GREP_COMMAND}"
 
   local FIND_DELIM=' -o '
-#  printf -v FIND_EXCLUDE_DIRS "\055path '*/%s/*' -prune${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
-  printf -v FIND_EXCLUDE_DIRS "! -path '*/%s/*'${FIND_DELIM}" "${REPO_EXCLUDE_DIR_LIST[@]}"
+#  printf -v FIND_EXCLUDE_DIRS "\055path '*/%s/*' -prune${FIND_DELIM}" "${EXCLUDES_ARRAY[@]}"
+  printf -v FIND_EXCLUDE_DIRS "! -path '*/%s/*'${FIND_DELIM}" "${EXCLUDES_ARRAY[@]}"
   local FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS%"$FIND_DELIM"}
 
   log_debug "FIND_EXCLUDE_DIRS=${FIND_EXCLUDE_DIRS}"
@@ -414,8 +407,6 @@ function sync_public_branch() {
   git checkout ${GIT_DEFAULT_BRANCH}
   
   #RSYNC_OPTS=${RSYNC_OPTS_GIT_MIRROR[@]}
-  log_debug "EXCLUDE_AND_REMOVE=${EXCLUDE_AND_REMOVE}"
-
   log_debug "copy project to temporary dir $TEMP_DIR"
   local RSYNC_CMD
   RSYNC_CMD="rsync ${RSYNC_MIRROR_OPTS} ${PROJECT_DIR}/ ${TEMP_DIR}/"
@@ -428,13 +419,12 @@ function sync_public_branch() {
     log_info "Removing files cached in git"
     git rm -r --cached .
   fi
-  
+
   log_info "Copy ${TEMP_DIR} to project dir $PROJECT_DIR"
   RSYNC_CMD="rsync ${RSYNC_UPDATE_OPTS} ${TEMP_DIR}/ ${PROJECT_DIR}/"
   execute_eval_command "${RSYNC_CMD}"
 
-  IFS=$'\n'
-  for TARGET_DIR in ${MIRROR_DIR_LIST}
+  for TARGET_DIR in "${MIRROR_DIR_ARRAY[@]}"
   do
     log_info "Mirror ${TEMP_DIR}/${TARGET_DIR}/ to project dir ${PROJECT_DIR}/${TARGET_DIR}/"
     RSYNC_CMD="rsync ${RSYNC_MIRROR_OPTS} ${TEMP_DIR}/${TARGET_DIR}/ ${PROJECT_DIR}/${TARGET_DIR}/"
@@ -515,8 +505,6 @@ function main() {
       esac
   done
   shift $((OPTIND-1))
-
-  log_debug "EXCLUDES=${EXCLUDES}"
 
   log_debug "PROJECT_DIR=${PROJECT_DIR}"
   log_debug "TEMP_DIR=${TEMP_DIR}"
