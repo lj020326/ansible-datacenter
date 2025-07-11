@@ -1,0 +1,44 @@
+---
+- name: Remove ppa
+  ansible.builtin.apt_repository:
+    repo: ppa:graphics-drivers/ppa
+    state: absent
+
+- name: Remove old signing key
+  ansible.builtin.apt_key:
+    id: "{{ bootstrap_nvidia_drivers__ubuntu_cuda_repo_gpgkey_id_old }}"
+    state: absent
+  environment: "{{proxy_env if proxy_env is defined else {}}}"
+  when: bootstrap_nvidia_drivers__add_repos | bool
+
+- name: Add CUDA keyring
+  ansible.builtin.apt:
+    deb: "{{ bootstrap_nvidia_drivers__ubuntu_cuda_keyring_url }}"
+    state: present
+  environment: "{{proxy_env if proxy_env is defined else {}}}"
+  when: bootstrap_nvidia_drivers__add_repos | bool
+
+- name: Force an apt update
+  ansible.builtin.apt:
+    update_cache: true
+  changed_when: false
+
+- name: Ensure kmod is installed
+  ansible.builtin.apt:
+    name: kmod
+    state: present
+
+- name: Blacklist nouveau
+  community.general.kernel_blacklist:
+    name: nouveau
+    state: present
+
+- name: Install driver packages
+  ansible.builtin.apt:
+    name: "{{ bootstrap_nvidia_drivers__package_version | ternary(bootstrap_nvidia_drivers__ubuntu_cuda_package+'='+bootstrap_nvidia_drivers__package_version, bootstrap_nvidia_drivers__ubuntu_cuda_package)
+      }}"
+    state: "{{ bootstrap_nvidia_drivers__package_state }}"
+    autoremove: "{{ bootstrap_nvidia_drivers__package_state == 'absent' }}"
+    purge: "{{ bootstrap_nvidia_drivers__package_state == 'absent' }}"
+  register: install_driver
+  environment: "{{proxy_env if proxy_env is defined else {}}}"

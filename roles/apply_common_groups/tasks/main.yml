@@ -30,7 +30,7 @@
           - ansible_playbook_python={{ ansible_playbook_python | d('') }}
 
     - name: Get installed python module/package list
-      #    ignore_errors: yes
+      #    ignore_errors: true
       #    failed_when: false
       no_log: true
       community.general.pip_package_info:
@@ -42,11 +42,18 @@
         var: __python_package_info
         verbosity: 2
 
+#    - name: Set __pip3_package_info
+#      when: __python_package_info is defined
+#      #    no_log: true
+#      ansible.builtin.set_fact:
+#        __pip3_package_info: "{{ __python_package_info.packages['pip3'] | dict2items | map(attribute='value') | flatten }}"
+
     - name: Set __pip3_package_info
       when: __python_package_info is defined
-      #    no_log: true
+#      no_log: true
       ansible.builtin.set_fact:
-        __pip3_package_info: "{{ __python_package_info.packages['pip3'] | dict2items | map(attribute='value') | flatten }}"
+        __pip3_package_info: "{{ __python_package_info.packages.pip3.values() | list |
+            community.general.json_query('[].{name: name, version: version}') }}"
 
     - name: Display __pip3_package_info
       ansible.builtin.debug:

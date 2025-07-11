@@ -9,17 +9,26 @@
   ansible.builtin.debug:
     var: __bootstrap_docker__swarm_remote_addrs
 
-- name: "{{ __bootstrap_docker__log_prefix_network }} Retrieve swarm join token"
-  ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
-  changed_when: false
-  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
-  register: __swarm_token_result
+#- name: "{{ __bootstrap_docker__log_prefix_network }} Retrieve swarm join token"
+#  ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+#  changed_when: false
+#  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+#  register: __swarm_token_result
+#
+#- name: "{{ __bootstrap_docker__log_prefix_mgr }} Set __swarm_join_token"
+#  ansible.builtin.set_fact:
+#    __swarm_join_token: "{{ __swarm_token_result.stdout_lines
+#      | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list
+#      | first }}"
 
-- name: "{{ __bootstrap_docker__log_prefix_mgr }} Set __swarm_join_token"
+- name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token for {{ bootstrap_docker__swarm_role }}"
+  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+  community.docker.docker_swarm_info: {}
+  register: __swarm_info
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Set __swarm_join_token"
   ansible.builtin.set_fact:
-    __swarm_join_token: "{{ __swarm_token_result.stdout_lines
-      | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list
-      | first }}"
+    __swarm_join_token: "{{ __swarm_info.swarm_facts.JoinTokens[ bootstrap_docker__swarm_role | capitalize ] }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_mgr }} Display __swarm_join_token"
   ansible.builtin.debug:

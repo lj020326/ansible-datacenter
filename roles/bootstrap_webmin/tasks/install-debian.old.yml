@@ -1,0 +1,110 @@
+---
+- name: "Webmin | Debian | Install webmin mandatory dependencies"
+  ansible.builtin.package:
+    state: present
+    name: "{{ __bootstrap_webmin__debian_packages }}"
+
+## ref: https://peateasea.de/avoiding-ansible-apt-key-on-debian/
+## ref: https://github.com/ansible/ansible/issues/78063
+## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/linux-package/ansible-how-to-fix-aptkey-deprecated-debianubuntu.md
+- name: "Webmin | Debian | Add trusted apt repository key for webmin"
+  ansible.builtin.get_url:
+    url: "{{ bootstrap_webmin__repo_key_url }}"
+    dest: "{{ bootstrap_webmin__repo_key_download }}"
+    mode: "0644"
+    force: true
+
+- name: "Webmin | Debian | dearmor the downloaded signing key file"
+  ansible.builtin.shell: |
+    gpg --import {{ bootstrap_webmin__repo_key_download }} &&
+    gpg --dearmor -o {{ bootstrap_webmin__apt_repo_keyring_file }} {{ bootstrap_webmin__repo_key_download }}
+#    gpg --no-default-keyring --keyring gnupg-ring:{{ bootstrap_webmin__apt_repo_keyring_file }} --import
+#    gpg --batch --dearmor -o {{ bootstrap_webmin__apt_repo_keyring_file }} {{ bootstrap_webmin__repo_key_download }}
+  args:
+    creates: "{{ bootstrap_webmin__apt_repo_keyring_file }}"
+
+#- name: "Webmin | Debian | Add Optional channel (Debian)"
+#  ansible.builtin.template:
+#    src: "{{ bootstrap_webmin__apt_repo_template }}"
+#    dest: /etc/apt/sources.list.d/webmin.repo.list
+#    mode: "0644"
+
+- name: "Webmin | Debian | Add Webmin repository"
+  block:
+
+    - name: "Webmin | Debian | Remove existing webmin repository"
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/webmin.repo.list
+        state: absent
+
+    - name: "Webmin | Debian | Add Webmin repository"
+      ansible.builtin.apt_repository:
+        repo: "{{ bootstrap_webmin__apt_repo_spec }}"
+        filename: webmin.repo
+        state: present
+      register: __webmin_add_repo_result
+
+  rescue:
+
+    - name: "Webmin | Debian | Display __webmin_add_repo_result"
+      ansible.builtin.debug:
+        var: __webmin_add_repo_result
+
+    - name: "Webmin | Debian | Set __webmin_allow_dsa1024"
+      when: __webmin_add_repo_result.msg is search('untrusted public key algorithm.* dsa1024')
+      ansible.builtin.set_fact:
+        __webmin_allow_dsa1024: true
+
+    ## ref: https://github.com/webmin/webmin/issues/1741
+    - name: "Webmin | Debian | allow DSA-1024 in apt"
+      when: __webmin_allow_dsa1024|d(false)|bool
+      block:
+        - name: "Webmin | Debian | Ensure /etc/apt/pref.d"
+          ansible.builtin.file:
+            dest: /etc/apt/pref.d
+            state: directory
+            mode: "0755"
+            owner: root
+            group: root
+
+        - name: "Webmin | Debian | Allow and enable algorithm DSA-1024 in apt"
+          ansible.builtin.template:
+            src: allow_algo_dsa_1024.ini.j2
+            dest: /etc/apt/pref.d/dsa1024
+            mode: "0644"
+            owner: root
+            group: root
+
+        - name: "Webmin | Debian | Add Webmin repository"
+          ansible.builtin.apt_repository:
+            repo: "{{ bootstrap_webmin__apt_repo_spec }}"
+            filename: webmin.repo
+            state: present
+
+## ref: https://www.redpill-linpro.com/sysadvent/2017/12/24/ansible-system-updates.html
+## ref: https://www.cyberciti.biz/faq/ansible-apt-update-all-packages-on-ubuntu-debian-linux/#:~:text=Upgrading%20all%20apt%20packages%20using%20Ansible&text=dist%20force_apt_get%3Dyes-,Where%2C,apt%2Dget%20instead%20of%20aptitude.
+- name: Webmin | Debian | Update apt-get repo and cache
+  ansible.builtin.apt:
+    update_cache: true
+    force_apt_get: true
+
+- name: Webmin | Debian | Install webmin package
+  ansible.builtin.package:
+    name: webmin
+    state: present
+#    state: latest
+#    update_cache: yes
+#  changed_when: false
+
+- name: Webmin | Debian | Remove webmin repo config
+  when: bootstrap_webmin__remove_repo_after_install|d(False)|bool
+  ansible.builtin.file:
+    dest: /etc/apt/sources.list.d/webmin.repo.list
+    state: absent
+
+#- name: Webmin | Debian | Remove duplicate entry.
+##  when: ( ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu' )
+#  when: ansible_os_family == 'Debian'
+#  file: name=/etc/apt/sources.list.d/{{ item }} state=absent
+#  become: true
+#  loop: bootstrap_webmin__repo_files

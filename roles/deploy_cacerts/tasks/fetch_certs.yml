@@ -123,7 +123,7 @@
 
         ## ref: https://smallstep.com/blog/embarrassingly-easy-certificates-on-aws-azure-gcp/
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Set __deploy_cacerts__stepca_root_ca_fingerprint_result"
-          run_once: true
+#          run_once: true
 #          ansible.builtin.shell: |
 #            curl -k -s {{ deploy_cacerts__stepca_host_url }}/1.0/roots | jq -r '.crts[0]' | sed -r '/^\s*$/d'
           ansible.builtin.uri:
@@ -144,7 +144,7 @@
 
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Set __deploy_cacerts__stepca_root_ca_fingerprint_encoded"
           ansible.builtin.set_fact:
-            __deploy_cacerts__stepca_root_ca_fingerprint_encoded: "{{ 
+            __deploy_cacerts__stepca_root_ca_fingerprint_encoded: "{{
               __deploy_cacerts__stepca_root_ca_fingerprint_result['json']['crts'][0] | trim }}"
 
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Display __deploy_cacerts__stepca_root_ca_fingerprint_encoded"
@@ -210,6 +210,20 @@
     #      ansible.builtin.debug:
     #        var: __deploy_cacerts__stepca_root_ca_fingerprint
 
+    - name: "{{ __deploy_cacerts__log_prefix_fetch }} Validate cacerts by querying {{ deploy_cacerts__stepca_host_url }}health"
+      ignore_errors: true
+      ## ref: https://stackoverflow.com/a/66865493
+      environment:
+        SSL_CERT_FILE: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+      ansible.builtin.uri:
+        url: "{{ deploy_cacerts__stepca_host_url }}health"
+        method: GET
+        status_code: 200
+        validate_certs: true
+        return_content: false
+        ca_path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+      register: __step_get_result
+
     ## ref: https://smallstep.com/docs/step-ca/getting-started#initialize-your-certificate-authority
     - name: "{{ __deploy_cacerts__log_prefix_fetch }} Bootstrap step cli configuration"
       changed_when: false
@@ -240,7 +254,7 @@
             var: ansible_python_interpreter
 
         - name: "{{ __deploy_cacerts__log_prefix_fetch }} Validate cacerts by querying {{ deploy_cacerts__stepca_host_url }}health"
-          #      ignore_errors: yes
+          #      ignore_errors: true
           ## ref: https://stackoverflow.com/a/66865493
           environment:
             SSL_CERT_FILE: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"

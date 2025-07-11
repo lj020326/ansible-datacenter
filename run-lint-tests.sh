@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-VERSION="2024.6.1"
+VERSION="2025.6.12"
 
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_NAME="$(basename "$0")"
 
 ## PURPOSE RELATED VARS
 #PROJECT_DIR=$( git rev-parse --show-toplevel )
@@ -512,10 +513,10 @@ function ensure_tool() {
 
 
 function usage() {
-  echo "Usage: ${0} [options] [[TESTCASE_ID] [TESTCASE_ID] ...]"
+  echo "Usage: ${SCRIPT_NAME} [options] [[TESTCASE_ID] [TESTCASE_ID] ...]"
   echo ""
   echo "  Options:"
-  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default: '${LOGLEVEL_TO_STR[${LOG_LEVEL}]}')"
   echo "       -d : display test results details"
   echo "       -l : show/list test cases"
   echo "       -v : show script version"
@@ -523,13 +524,13 @@ function usage() {
   echo "       -h : help"
   echo ""
   echo "  Examples:"
-	echo "       ${0} "
-	echo "       ${0} -l"
-	echo "       ${0} validate_ansiblelint"
-	echo "       ${0} validate_yamllint"
-	echo "       ${0} -k -L DEBUG validate_ansiblelint"
-	echo "       ${0} -L DEBUG"
-  echo "       ${0} -v"
+	echo "       ${SCRIPT_NAME} "
+	echo "       ${SCRIPT_NAME} -l"
+	echo "       ${SCRIPT_NAME} validate_ansiblelint"
+	echo "       ${SCRIPT_NAME} validate_yamllint"
+	echo "       ${SCRIPT_NAME} -k -L DEBUG validate_ansiblelint"
+	echo "       ${SCRIPT_NAME} -L DEBUG"
+  echo "       ${SCRIPT_NAME} -v"
 	[ -z "$1" ] || exit "$1"
 }
 

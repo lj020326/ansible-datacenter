@@ -1,53 +1,44 @@
 ---
-- name: Webmin | Debian | Install webmin mandatory dependencies
+- name: "Webmin | Debian | Install webmin mandatory dependencies"
   ansible.builtin.package:
     state: present
     name: "{{ __bootstrap_webmin__debian_packages }}"
 
-- name: Webmin | Debian | Initialize trust key type
-  ansible.builtin.set_fact:
-    __webmin_apt_repo_key_type: trust_store
-    __webmin_repo_template: webmin.debian.repo.j2
-
-## support for signed keys in repo config has been around since debian 9
-## The "signed-by" repo option is available since Debian Stretch
-## ref: https://github.com/ansible/ansible/issues/78063#issuecomment-1242970339
-- name: Webmin | Debian | Set trust key type
-  when: (ansible_distribution=='Ubuntu' and ansible_distribution_major_version|int<=18) or (ansible_distribution=='Debian' and ansible_distribution_major_version|int<=9)
-  ansible.builtin.set_fact:
-    __webmin_apt_repo_key_type: apt_key
-    __webmin_repo_template: webmin.debian.repo.jessie.j2
-
-## ref: https://github.com/ansible/ansible/issues/78063
-## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/linux-package/ansible-how-to-fix-aptkey-deprecated-debianubuntu.md
-- name: Webmin | Debian | Add trusted apt repository key for webmin
-  when: __webmin_apt_repo_key_type=='trust_store'
+- name: "Webmin | Debian | Download webmin installer"
+  when: bootstrap_webmin__repo_installer_source == 'github'
   ansible.builtin.get_url:
-    url: "{{ bootstrap_webmin__repo_key_url }}"
-    dest: "{{ bootstrap_webmin__apt_keyring_dir }}/webmin.asc"
-    mode: "0644"
+    url: "{{ bootstrap_webmin__repo_installer_url }}"
+    dest: /tmp/webmin-setup-repo.sh
+    mode: "0755"
     force: true
 
-- name: Webmin | Debian | Add apt key for webmin
-  when: __webmin_apt_repo_key_type=='apt_key'
-  ansible.builtin.apt_key:
-    url: "{{ bootstrap_webmin__repo_key_url }}"
-    state: present
+- name: "Webmin | Debian | Setup webmin installer"
+  when: bootstrap_webmin__repo_installer_source == 'local'
+  ansible.builtin.copy:
+    src: webmin-setup-repo.sh
+    dest: /tmp/webmin-setup-repo.sh
+    mode: "0755"
+    force: true
 
-- name: Webmin | Debian | Add Optional channel (Debian)
-  ansible.builtin.template:
-    src: "{{ __webmin_repo_template }}"
-    dest: /etc/apt/sources.list.d/webmin.repo.list
-    mode: "0644"
+- name: "Webmin | Debian | Execute webmin-setup-repo.sh"
+  changed_when: false
+  ansible.builtin.command: "sh ./webmin-setup-repo.sh -f"
+  args:
+    chdir: /tmp
+
+- name: "Webmin | Debian | Remove the webmin-setup-repo.sh"
+  ansible.builtin.file:
+    path: /tmp/webmin-setup-repo.sh
+    state: absent
 
 ## ref: https://www.redpill-linpro.com/sysadvent/2017/12/24/ansible-system-updates.html
-## ref: https://www.cyberciti.biz/faq/ansible-apt-update-all-packages-on-ubuntu-debian-linux/#:~:text=Upgrading%20all%20apt%20packages%20using%20Ansible&text=dist%20force_apt_get%3Dyes-,Where%2C,apt%2Dget%20instead%20of%20aptitude.
-- name: Webmin | Debian | Update apt-get repo and cache
+## ref: https://www.cyberciti.biz/faq/ansible-apt-update-all-packages-on-ubuntu-debian-linux
+- name: "Webmin | Debian | Update apt-get repo and cache"
   ansible.builtin.apt:
     update_cache: true
     force_apt_get: true
 
-- name: Webmin | Debian | Install webmin package
+- name: "Webmin | Debian | Install webmin package"
   ansible.builtin.package:
     name: webmin
     state: present
@@ -55,7 +46,7 @@
 #    update_cache: yes
 #  changed_when: false
 
-- name: Webmin | Debian | Remove webmin repo config
+- name: "Webmin | Debian | Remove webmin repo config"
   when: bootstrap_webmin__remove_repo_after_install|d(False)|bool
   ansible.builtin.file:
     dest: /etc/apt/sources.list.d/webmin.repo.list

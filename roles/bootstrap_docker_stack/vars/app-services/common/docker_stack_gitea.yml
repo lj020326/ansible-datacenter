@@ -60,6 +60,17 @@ __docker_stack__gitea__environment: "{{ docker_stack__gitea__environment | d(__d
 __docker_stack__gitea__traefik_labels: "{{ docker_stack__gitea__traefik_labels | d(__docker_stack__gitea__traefik_labels_default) }}"
 
 __docker_stack__gitea__services:
+
+#  ## ref: https://github.com/jwilder/dockerize
+#  ## ref: https://stackoverflow.com/a/72629559
+#  ## Wait for postgres to be usable
+#  check-gitea-db-started:
+##    image: jwilder/dockerize:0.6.1
+#    image: jwilder/dockerize:latest
+#    command: 'dockerize -wait=tcp://postgres:5432'
+#    depends_on:
+#      - postgres
+
   ## ref: https://docs.gitea.com/installation/install-with-docker
   ## ref: https://git.habd.as/comfusion/high-tea/src/branch/master/docker-compose.yml
   ## ref: https://docs.gitea.io/en-us/install-with-docker/
@@ -74,6 +85,7 @@ __docker_stack__gitea__services:
 #      postgres:
 #        condition: service_healthy
     depends_on:
+#      - check-gitea-db-started
       - postgres
     environment: "{{ __docker_stack__gitea__environment }}"
     #      restart: always
@@ -113,11 +125,13 @@ __docker_stack__gitea__services:
         constraints:
           - node.hostname == {{ __docker_stack__base__traefik_host }}
       #          - node.role == manager
-      update_config:
-        delay: 60s
       replicas: 1
       restart_policy:
         condition: on-failure
         delay: 10s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first

@@ -64,18 +64,50 @@
 #- ansible.builtin.debug:
 #    var: vcenter_node_info
 
-- name: Display bootstrap_vsphere_dc__vcenter_clusters
+- name: "Display bootstrap_vsphere_dc__vcenter_clusters"
   ansible.builtin.debug:
     var: bootstrap_vsphere_dc__vcenter_clusters
 
-- name: Install common pip libs
+- name: "Display python runtime information before install pip libs"
+  ansible.builtin.debug:
+    msg:
+      - "ansible_version={{ ansible_version | d('') }}"
+      - "ansible_config_file={{ ansible_config_file | d('') }}"
+      - "discovered_interpreter_python={{ discovered_interpreter_python | d('') }}"
+      - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
+      - "ansible_playbook_python={{ ansible_playbook_python | d('') }}"
+      - "ansible_python_version={{ ansible_python_version | d('') }}"
+      - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('') }}"
+
+## ref: https://stackoverflow.com/questions/2589711/find-full-path-of-the-python-interpreter-python-executable
+- name: Get python exec path
+  changed_when: false
+  ansible.builtin.shell: |
+    {{ ansible_python_interpreter }} -c "import sys; print(print(sys.executable))"
+  register: __python_path_info
+
+- name: Display __python_path_info
+  ansible.builtin.debug:
+    var: __python_path_info.stdout_lines | first
+
+#- name: Install vmware pip libs
+#  when:
+#    - bootstrap_vsphere_dc__vcenter_python_pip_depends is defined
+#    - not (bootstrap_vsphere_dc__vcenter_python_pip_depends is none)
+#  ansible.builtin.pip:
+#    name: "{{ bootstrap_vsphere_dc__vcenter_python_pip_depends }}"
+#    state: latest
+#    virtualenv_command: python3 -m venv
+##    extra_args: --user
+
+- name: Install vmware pip libs
   when:
     - bootstrap_vsphere_dc__vcenter_python_pip_depends is defined
     - not (bootstrap_vsphere_dc__vcenter_python_pip_depends is none)
-  ansible.builtin.pip:
+  community.general.pipx:
     name: "{{ bootstrap_vsphere_dc__vcenter_python_pip_depends }}"
-    state: latest
-    extra_args: --user
+    state: present
+#    pip_args: "--no-cache-dir"
 
 - name: Prepare esxi hosts
   ansible.builtin.include_tasks: prepare_esxi.yml
