@@ -111,14 +111,26 @@
       ansible.builtin.set_fact:
         __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority }}"
 
+#- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
+#  when: __bootstrap_pip_env.libraries|d([])|length>0
+#  ansible.builtin.set_fact:
+#    __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip_env_libs_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_pip__lib_priority_default)|int):
+#      { item.state | default(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
+#  loop: "{{ __bootstrap_pip_env.libraries }}"
+
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
-  when: __bootstrap_pip_env.libraries|d([])|length>0
-  block:
-    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
-      ansible.builtin.set_fact:
-        __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip_env_libs_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_pip__lib_priority_default)|int):
-          { item.state | default(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
-      loop: "{{ __bootstrap_pip_env.libraries }}"
+  when: __bootstrap_pip_env.libraries|d([])|length > 0
+  ansible.builtin.set_fact:
+    __bootstrap_pip_env_libs_list_by_priority: >-
+      {{ __bootstrap_pip_env_libs_list_by_priority | d({}) | combine({
+        (library_priority | int): {
+          item.state | d(bootstrap_pip__lib_state): { library_name: {} }
+        }
+      }, recursive=True) }}
+  loop: "{{ __bootstrap_pip_env.libraries }}"
+  vars:
+    library_name: "{{ item.name if item is mapping else item }}"
+    library_priority: "{{ item.priority | d(bootstrap_pip__lib_priority_default) if item is mapping else bootstrap_pip__lib_priority_default }}"
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display __bootstrap_pip_env_libs_list_by_priority"
   ansible.builtin.debug:
@@ -187,9 +199,8 @@
 #  environment:
 #    SETUPTOOLS_USE_DISTUTILS: stdlib
 
-- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Symlink venv Python binary to {{ __bootstrap_pip_env.symlink_path }}"
-  when:
-    - __bootstrap_pip_env.symlink_path is defined
+- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Symlink venv Python binary"
+  when: __bootstrap_pip_env.symlink_path is defined
   ansible.builtin.file:
     path: "{{ __bootstrap_pip_env.symlink_path }}"
     src: "{{ __bootstrap_pip_env.virtualenv }}/bin/python"

@@ -1,10 +1,8 @@
 ---
 
 __bootstrap_certs__trust_ca_cacert_dir: "{{ bootstrap_certs__trust_ca_cacert_dir | d(__bootstrap_certs__trust_ca_cacert_dir_default) }}"
-
 __bootstrap_certs__trust_ca_update_trust_cmd: "{{ bootstrap_certs__trust_ca_update_trust_cmd | d(__bootstrap_certs__trust_ca_update_trust_cmd_default) }}"
-
-__bootstrap_certs__ca_java_keystore_default: "{{ bootstrap_certs__ca_java_keystore | d(__bootstrap_certs__ca_java_keystore_default) }}"
+__bootstrap_certs__ca_java_keystore: "{{ bootstrap_certs__ca_java_keystore | d(__bootstrap_certs__ca_java_keystore_default) }}"
 
 bootstrap_certs__required_pip_libs:
   - pexpect
@@ -13,17 +11,14 @@ bootstrap_certs__required_pip_libs:
 
 bootstrap_certs__display_cacert_result: true
 
-bootstrap_certs__trust_ca_update_trust_cmd: update-ca-trust extract
-bootstrap_certs__trust_ca_cacert_dir: /etc/pki/ca-trust/source/anchors
-
 bootstrap_certs__ca_init: true
 bootstrap_certs__ca_certify_nodes: true
 bootstrap_certs__ca_certify_routes: true
-# bootstrap_certs__ca_force_create: no
-# bootstrap_certs__ca_force_certify_nodes: no
+# bootstrap_certs__ca_force_create: false
+# bootstrap_certs__ca_force_certify_nodes: false
 
 bootstrap_certs__ca_certify_node_list: []
-# bootstrap_certs__ca_force_create: yes
+# bootstrap_certs__ca_force_create: true
 bootstrap_certs__ca_force_create: false
 bootstrap_certs__ca_force_certify_nodes: false
 bootstrap_certs__ca_force_distribute_nodes: false
@@ -83,11 +78,25 @@ bootstrap_certs__ca_root:
   organizationalUnit: Research
   email: caroot@example.com
 
+bootstrap_certs__ca_root_subject: "/C={{ bootstrap_certs__ca_root.country
+  }}/ST={{ bootstrap_certs__ca_root.state
+  }}/L={{ bootstrap_certs__ca_root.locality
+  }}/O={{ bootstrap_certs__ca_root.organization
+  }}/OU={{ bootstrap_certs__ca_root.organizationalUnit
+  }}/CN={{ bootstrap_certs__ca_root.domainName
+  }}/emailAddress={{ bootstrap_certs__ca_root.email }}"
+
+# Validity period in days (10 years = 365 * 10 = 3650 days)
+bootstrap_certs__ca_root_cert_validity_days: 3650
+bootstrap_certs__ca_root_cert_digest: sha256
+
 bootstrap_certs__ca_root_csr_tpl:
   CN: "{{ bootstrap_certs__ca_root.commonName }}"
   #  hosts: "{{ bootstrap_certs__ca_root.sans|default([]) + bootstrap_certs__ca_root.altips|default([]) }}"
   key: "{{ bootstrap_certs__ca_key_spec }}"
   names: "{{ bootstrap_certs__ca_root_names }}"
+  ## root cert expires in 10 years
+  expiry: "87600h"
 
 bootstrap_certs__ca_root_cacerts_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ bootstrap_certs__ca_root.domainName }}"
 bootstrap_certs__ca_root_cert: "{{ bootstrap_certs__ca_root_cn }}.pem"
@@ -111,11 +120,17 @@ bootstrap_certs__ca_service_routes_list:
   - route: route-1.example.com
   - route: route-2.example.com
 
+bootstrap_certs__subj_alt_names_default:
+  - '127.0.0.1'
+  - __bootstrap_certs__ca_cert_fqdn
+  - "*.{{ __bootstrap_certs__ca_cert_fqdn }}"
+
 bootstrap_certs__ca_cert_type: cert
 
 bootstrap_certs__ca_key_spec:
   algo: rsa
-  size: 2048
+  size: 4096
+#  size: 2048
 
 bootstrap_certs__ca_root_names:
   - C: "{{ bootstrap_certs__ca_root.country }}"
@@ -127,6 +142,20 @@ bootstrap_certs__ca_root_names:
 bootstrap_certs__ca_intermediate_default_profile: intermediate_ca
 bootstrap_certs__ca_cacert_default_profile: server
 
+bootstrap_certs__ca_root_config_tpl:
+  signing:
+    default:
+      ## root signed certs expire in 5 years
+      expiry: 43800h
+    profiles:
+      ca:
+        usages:
+          - signing
+          - key encipherment
+          - cert sign
+          - crl sign
+        expiry: 87600h
+
 ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
 ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
 ## ref: https://github.com/entercloudsuite/ansible-cfssl/blob/master/defaults/main.yml
@@ -137,6 +166,13 @@ bootstrap_certs__ca_intermediate_config_tpl:
       #      expiry: 43800h
       expiry: 87660h
     profiles:
+      ca:
+        usages:
+          - signing
+          - key encipherment
+          - cert sign
+          - crl sign
+        expiry: 87600h
       intermediate_ca:
         ca_constraint:
           is_ca: true

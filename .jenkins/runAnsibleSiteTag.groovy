@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 
-import com.dettonville.api.pipeline.utils.JsonUtils
+import com.dettonville.pipeline.utils.JsonUtils
 
 Map config=[:]
 
@@ -20,5 +20,9 @@ config.ansibleVaultCredId = "ansible-vault-password-file"
 // config.ansibleInstallation = "/root/.venv/ansible/bin/ansible"
 // config.ansibleInstallation = "ansible-venv"
 config.ansibleVault = "./vars/vault.yml"
+
+config.gitRepoUrl = "git@bitbucket.org:lj020326/ansible-datacenter.git"
+config.gitCredId = "bitbucket-ssh-jenkins"
+config.gitRemoteBuildSummary = "ansible-datacenter"
 
 runAnsibleParamWrapper(config)
