@@ -12,7 +12,7 @@
 #echo "==> ENV"
 #echo "$(export -p | sed 's/declare -x //')"
 
-VERSION="2025.7.1"
+VERSION="2025.8.14"
 
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 SCRIPT_NAME="$(basename "$0")"
@@ -52,7 +52,8 @@ echo "VAULT_FILEPATH=${VAULT_FILEPATH}"
 ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/collections/requirements.yml"
 #ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/tests/requirements.yml"
 
-export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
+export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible/collections"
+#export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
 #export ANSIBLE_ROLES_PATH=./
 #export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}:${PROJECT_DIR}/collections:${PROJECT_PARENT_DIR}/requirements_collections"
 #export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${PROJECT_PARENT_DIR}/requirements_collections"
