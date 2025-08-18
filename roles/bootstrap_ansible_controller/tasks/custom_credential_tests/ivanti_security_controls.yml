@@ -1,0 +1,28 @@
+---
+### Validation for custom credential type:
+### 'Ivanti Security Controls'
+### Performs an API GET to retrieve machinegroups
+
+- name: Ivanti Security Controls credential validations
+  block:
+    - name: Get machinegroups from Ivanti API
+      no_log: true
+      dettonville.utils.ntlm_uri:
+        url: "https://{{ item['inputs']['ivanti_url'] }}/st/console/api/v1.0/machinegroups"
+        url_username: "{{ item['inputs']['ivanti_username'] }}"
+        url_password: "{{ item['inputs']['ivanti_password'] }}"
+        method: GET
+        validate_certs: false
+      check_mode: false
+      register: __ivanti_results
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'Ivanti Security Controls') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __ivanti_results['results'] | selectattr('failed') }}"

@@ -106,7 +106,7 @@ Example:
 ljohnson@Lees-MacBook-Pro:[tests](main)$ git switch develop-lj
 Switched to branch 'develop-lj'
 Your branch is up to date with 'origin/develop-lj'.
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ sync-inventory-xenv-links.sh 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ sync-inventory-xenv-links.sh 
 [INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
 [INFO ]: ==> INVENTORY_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter/inventory
 [INFO ]: ==> SYNC_FUNCTIONS[@]=all
@@ -114,7 +114,7 @@ e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ sync-inventory-xenv-links.sh
 [INFO ]: ==> run_sync_function(create_groupvars_links_yml): SUCCESS
 [INFO ]: ==> run_sync_function(create_hostvars_links_yml): SUCCESS
 [INFO ]: ==> run_sync_function(sort_xenv_files): SUCCESS
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$
 ```
 
 Running the synchronization will only need to be done upon adding or removing a `group_vars` file. 
@@ -137,8 +137,8 @@ This same script is invoked by the jenkins test pipeline for `aap-inventory PR r
 Example run of the script with ideal validation results:
 
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ run-inventory-tests.sh 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ run-inventory-tests.sh 
 [INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
 [INFO ]: ==> TEST_CASES=ALL
 [INFO ]: ==> run_tests(): TEST_CASES[@]=ALL
@@ -153,7 +153,7 @@ e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ run-inventory-tests.sh
 [INFO ]: ==> OVERALL INVENTORY TEST RESULTS
 [INFO ]: ==> TOTAL TOTAL_FAILED=0
 [INFO ]: ==> TEST SUCCEEDED!
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ 
 ```
 
 __Resolve any/all reported inventory issue(s) if any exist and repeat this step until none exist.__
@@ -162,11 +162,11 @@ __Resolve any/all reported inventory issue(s) if any exist and repeat this step 
 
 After successful test, then add, commit, and push the inventory groupvars code change(s) for the developer's branch.
 
-E.g., given a example feature branch named "feature/AIM-1234", the git code commit/push process is accomplished with:
+E.g., given a example feature branch named "feature/INFRA-1234", the git code commit/push process is accomplished with:
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ git add . 
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ git commit -m "AIM-1234 - inventory group enhancements" 
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ git push origin develop-lj
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ git add . 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ git commit -m "AIM-1234 - inventory group enhancements" 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ git push origin develop-lj
 ```
 
 After the code commit/push, the inventory repo pipeline will automatically execute for the developer's branch.
@@ -178,23 +178,23 @@ The inventory test pipeline will execute the same inventory test script (run-inv
 Make sure to pull in the latest default upstream branch ('development') code changes and switch to the upstream branch ('development'):
 
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ git fetch origin development:development 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ git fetch origin development:development 
 ## or if older git version, use 'git checkout development'
-e-leej@ansutilp1s4:[aap-inventory](develop-lj)$ git switch development  
-e-leej@ansutilp1s4:[aap-inventory](development)$ 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ git switch development  
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](development)$ 
 ```
 
 Create the feature branch locally or using the equivalent branch create button from the Jira UI:
 
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](development)$ git checkout -b feature/AIM-1234
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$  
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](development)$ git checkout -b feature/AIM-1234
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$  
 ```
 
 Make sure to set/push the feature upstream branch to same origin feature branch:
 
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ git push -u origin feature/AIM-1234 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ git push -u origin feature/AIM-1234 
 ```
 
 Copy the changes made in the developer's branch in the 'inventory/' directory to the feature branch:
@@ -203,16 +203,16 @@ Copy the changes made in the developer's branch in the 'inventory/' directory to
 ## NOTE: if desirable run git diff first to validate changes to be copied from the developer's branch into the feature branch:
 ## ref: https://stackoverflow.com/questions/8382019/how-do-i-git-diff-on-a-certain-directory
 ## ref: https://devconnected.com/how-to-compare-two-git-branches/
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ git diff develop-lj..feature/AIM-1234 inventory/
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ git diff develop-lj..feature/AIM-1234 inventory/
 ## now copy changes from the developer's branch to the feature branch
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ git checkout develop-lj -- inventory/
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ git checkout develop-lj -- inventory/
 ```
 
 Make sure all symlinks are synchronized in feature branch.
 
 The symlinks should copy over with prior checkout but redundantly running the sync script is simple way to validate:
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ sync-inventory-xenv-links.sh 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ sync-inventory-xenv-links.sh 
 [INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
 [INFO ]: ==> INVENTORY_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter/inventory
 [INFO ]: ==> SYNC_FUNCTIONS[@]=all
@@ -224,7 +224,7 @@ e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ sync-inventory-xenv-links.
 
 Test/Validate the feature branch changes:
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ run-inventory-tests.sh 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ run-inventory-tests.sh 
 [INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
 [INFO ]: ==> TEST_CASES=ALL
 [INFO ]: ==> run_tests(): TEST_CASES[@]=ALL
@@ -243,9 +243,9 @@ e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ run-inventory-tests.sh
 
 Add, commit and push the feature branch changes:
 ```shell
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ git add .
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ git commit -m "AIM-1234 - inventory group enhancements" 
-e-leej@ansutilp1s4:[aap-inventory](feature/AIM-1234)$ git push origin feature/AIM-1234
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ git add .
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ git commit -m "AIM-1234 - inventory group enhancements" 
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ git push origin feature/AIM-1234
 ```
 
 After the code commit/push, the inventory repo pipeline will automatically execute for the feature branch.

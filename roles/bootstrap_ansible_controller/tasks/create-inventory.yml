@@ -1,0 +1,31 @@
+---
+- name: Create inventory
+  ansible.controller.inventory:
+    name: "{{ inventory_item['name'] | mandatory }}"
+    description: "{{ inventory_item['description'] | d('', true) }}"
+    organization: "{{ inventory_item['organization'] | mandatory }}"
+
+- name: Add sources
+  ansible.controller.inventory_source:
+    name: "{{ item['name'] | mandatory }}"
+    description: "{{ item['description'] | d('', true) }}"
+    organization: "{{ inventory_item['organization'] | d('', true) }}"
+    inventory: "{{ inventory_item['name'] | mandatory }}"
+    credential: "{{ item['credential'] | d(omit) }}"
+    execution_environment: "{{ item['execution_environment'] | d(omit) }}"
+    update_on_launch: "{{ item['update_on_launch'] | d(false) }}"
+    source: "{{ item['source'] | d('scm', true) }}"
+    source_project: "{{ item['source_project'] | d('', true) }}"
+    source_path: "{{ item['source_path'] | d('', true) }}"
+    overwrite: "{{ item['overwrite'] | d(false) }}"
+    overwrite_vars: "{{ item['overwrite_vars'] | d(false) }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  loop: "{{ inventory_item['sources'] }}"
+  register: __add_sources_result
+
+- name: Update sources
+  ansible.controller.inventory_source_update:
+    name: "{{ item['invocation']['module_args']['name'] | mandatory }}"
+    inventory: "{{ inventory_item['name'] | mandatory }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  loop: "{{ __add_sources_result['results'] | selectattr('changed') | list }}"

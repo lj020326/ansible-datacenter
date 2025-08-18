@@ -1,0 +1,30 @@
+---
+### Validation for custom credential type:
+### 'controller api access'
+### Attempts to create a local user via ansible.controller.user in check mode
+
+- name: Controller api access credential type validations
+  block:
+    - name: Check creating a user using environment variables
+      ansible.controller.user:
+        username: fakeuserfortesting
+        password: fakepassword
+      environment:
+        TOWER_HOST: "{{ item['inputs']['hostname'] }}"
+        TOWER_OAUTH_TOKEN: "{{ item['inputs']['oauth_token'] }}"
+        TOWER_VERIFY_SSL: "{{ item['inputs']['verify_ssl'] | d(false) }}"
+      check_mode: true
+      changed_when: false
+      no_log: true  # Hide oauth token from high verbosity output
+      register: __controller_env_user_results
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'controller api access') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __controller_env_user_results['results'] | selectattr('failed') }}"

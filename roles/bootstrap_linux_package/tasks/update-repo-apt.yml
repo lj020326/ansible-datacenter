@@ -1,46 +1,64 @@
 ---
 - name: Package | APT - Check that HTTPS Transport is Installed
+  when:
+    - bootstrap_linux_package__apt_repo_use_https | bool
   ansible.builtin.apt:
     name: apt-transport-https
     state: present
-  when:
-    - bootstrap_linux_package__apt_repo_use_https | bool
 
-- name: Package | APT - Install sources.list
-  ansible.builtin.template:
-    src: "{{ bootstrap_linux_package__apt_sources_tpl }}"
-    dest: "{{ bootstrap_linux_package__apt_sources_file }}"
-    owner: root
-    group: root
-    mode: "0644"
-    backup: true
-  notify: APT Update Cache
+- name: Package | APT - Install repositories
+  when: ansible_distribution_major_version|int <= 11
+  block:
 
-- name: Package | APT - Install backports.list
-  when:
-    - bootstrap_linux_package__apt_backports | bool
-    - ansible_distribution == 'Debian'
-  ansible.builtin.template:
-    src: "{{ bootstrap_linux_package__apt_backports_tpl }}"
-    dest: "{{ bootstrap_linux_package__apt_backports_file }}"
-    owner: root
-    group: root
-    mode: "0644"
-    backup: true
-  notify: APT Update Cache
+    - name: Package | APT - Display bootstrap_linux_package__apt_sources
+      ansible.builtin.debug:
+        var: bootstrap_linux_package__apt_sources
 
-- name: Package | APT - Install experimental.list
-  when:
-    - bootstrap_linux_package__apt_experimental | bool
-    - ansible_distribution == 'Debian'
-  ansible.builtin.template:
-    src: "{{ bootstrap_linux_package__apt_experimental_tpl }}"
-    dest: "{{ bootstrap_linux_package__apt_experimental_file }}"
-    owner: root
-    group: root
-    mode: "0644"
-    backup: true
-  notify: APT Update Cache
+    - name: Package | APT - Install sources.list
+      when:
+        - bootstrap_linux_package__apt_sources | bool
+      ansible.builtin.template:
+        src: "{{ bootstrap_linux_package__apt_sources_tpl }}"
+        dest: "{{ bootstrap_linux_package__apt_sources_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: APT Update Cache
+
+    - name: Package | APT - Display bootstrap_linux_package__apt_backports
+      ansible.builtin.debug:
+        var: bootstrap_linux_package__apt_backports
+
+    - name: Package | APT - Install backports.list
+      when:
+        - bootstrap_linux_package__apt_backports | bool
+        - ansible_distribution == 'Debian'
+      ansible.builtin.template:
+        src: "{{ bootstrap_linux_package__apt_backports_tpl }}"
+        dest: "{{ bootstrap_linux_package__apt_backports_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: APT Update Cache
+
+    - name: Package | APT - Display bootstrap_linux_package__apt_experimental
+      ansible.builtin.debug:
+        var: bootstrap_linux_package__apt_experimental
+
+    - name: Package | APT - Install experimental.list
+      when:
+        - bootstrap_linux_package__apt_experimental | bool
+        - ansible_distribution == 'Debian'
+      ansible.builtin.template:
+        src: "{{ bootstrap_linux_package__apt_experimental_tpl }}"
+        dest: "{{ bootstrap_linux_package__apt_experimental_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: APT Update Cache
 
 - name: Package | APT - Custom repos
   when: bootstrap_linux_package__custom_repo_list.apt | length > 0

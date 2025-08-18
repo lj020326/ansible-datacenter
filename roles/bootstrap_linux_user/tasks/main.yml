@@ -2,14 +2,48 @@
 - name: Init {{ role_name }} vars
   ansible.builtin.include_tasks: init-vars.yml
 
-- name: Ensure any user processes are stopped/terminated before modifying users
+- name: Display __bootstrap_linux_user__list
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list
+
+- name: Display ansible_user
+  ansible.builtin.debug:
+    var: ansible_user
+
+- name: Set __bootstrap_linux_user__list_minus_ansible_user
+  ansible.builtin.set_fact:
+    __bootstrap_linux_user__list_minus_ansible_user: "{{ __bootstrap_linux_user__list 
+      | rejectattr('name','equalto', ansible_user) | list }}"
+
+- name: Display __bootstrap_linux_user__list_minus_ansible_user
+  ansible.builtin.debug:
+    var: __bootstrap_linux_user__list_minus_ansible_user
+
+- name: Loop over users and stop their processes
   ansible.builtin.include_tasks: stop-user-processes.yml
+  loop: "{{ __bootstrap_linux_user__list_minus_ansible_user }}"
+  loop_control:
+    loop_var: current_user
+
+#- name: Ensure any user processes are stopped/terminated before modifying users
+#  ansible.builtin.include_tasks: stop-user-processes.yml
 
 - name: Load current group info
+#  become: true
+#  ignore_errors: true
   ansible.builtin.getent:
     database: group
     split: ":"
+  register: __getent_group
+  until: __getent_group is succeeded
+  retries: 3
+  delay: 10
   check_mode: false
+
+- name: Display __getent_group
+  ansible.builtin.debug:
+    var: __getent_group
+    verbosity: 1
 
 - name: Display __bootstrap_linux_user__list
   ansible.builtin.debug:
@@ -18,7 +52,7 @@
 - name: Ensure group exist with correct gid
   when:
     - item.gid is defined
-    - item.gid!=getent_group[item.name][1]|d('')
+    - item.gid!=__getent_group[item.name][1]|d('')
   #  ignore_errors: true
   ansible.builtin.group:
     name: "{{ item.name }}"
@@ -30,7 +64,7 @@
 
 ## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
 - name: Add users with groups
-  when: item.bootstrap_user|d(True)|bool
+  when: item.bootstrap_user | d(True) | bool
   no_log: true
   ansible.builtin.user:
     name: "{{ item.name }}"
@@ -41,10 +75,7 @@
     uid: "{{ item.uid | d(omit) }}"
     group: "{{ item.gid | d(omit) }}"
     groups: "{{ item.groups | d(omit) }}"
-    password: "{{ item.password
-      | d(bootstrap_linux_user__credentials[item.name].hashed_password)
-        | d(bootstrap_linux_user__credentials[item.name].password | d(omit)
-        | password_hash('sha512',65534 | random(seed=inventory_hostname) | string)) }}"
+    password: "{{ user_password | d(omit) }}"
     generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
     ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
     ssh_key_file: "{{ item.ssh_key_file | d(omit) }}"
@@ -53,6 +84,19 @@
   loop: "{{ __bootstrap_linux_user__list }}"
   loop_control:
     label: "{{ item.name }}"
+  vars:
+    # Set a temporary variable for the password to handle conditional logic
+    user_password: >-
+      {{ item.password | d(
+          bootstrap_linux_user__credentials[item.name].hashed_password | d(
+            bootstrap_linux_user__credentials[item.name].password | d(omit)
+          )
+        )
+      }}
+    # Conditionally hash the password if it's not omit
+    hashed_password: >-
+      {{ user_password if user_password is string else omit }}
+    final_password: "{{ hashed_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
 
 ## ref: https://github.com/lj020326/ansible-set-user-password-expire/blob/main/passwords-set-expire.yml
 - name: "Fetch user valid days from /etc/shadow"
@@ -94,7 +138,7 @@
 
 - name: "Add to sudoers"
   when: item.system|d(False)|bool
-  #  no_log: yes
+  no_log: true
   ansible.builtin.copy:
     dest: /etc/sudoers.d/{{ item.name }}
     mode: "0644"
@@ -129,7 +173,7 @@
     verbosity: 1
 
 - name: "Add user SSH authorized keys"
-  #  no_log: yes
+  #  no_log: true
   when:
     - bootstrap_linux_user__credentials is defined
     - bootstrap_linux_user__credentials[item.name] is defined
@@ -146,7 +190,7 @@
 #    var: __all_bootstrap_linux_user__list
 
 - name: "Add user SSH private key"
-  #  no_log: yes
+  #  no_log: true
   when: bootstrap_linux_user__credentials[item.name].ssh_keypair.private is defined
   ansible.builtin.copy:
     content: "{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.private }}"
@@ -173,7 +217,7 @@
 
 - name: "Copy bash env files to home directory"
   when: item.0.setup_bashenv|d(True)|bool
-  #  no_log: yes
+  #  no_log: true
   ansible.builtin.copy:
     backup: true
     src: "{{ item.1 }}"
@@ -187,7 +231,7 @@
 
 - name: "Template bash env files to home directory"
   when: item.0.setup_bashenv|d(True)|bool
-  #  no_log: yes
+  #  no_log: true
   ansible.builtin.template:
     backup: true
     src: "{{ item.1 }}"

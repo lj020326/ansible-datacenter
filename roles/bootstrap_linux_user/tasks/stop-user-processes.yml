@@ -1,90 +1,14 @@
 ---
-- name: Stop-user-processes | Display __bootstrap_linux_user__list
-  ansible.builtin.debug:
-    var: __bootstrap_linux_user__list
-
-- name: Stop-user-processes | Display ansible_user
-  ansible.builtin.debug:
-    var: ansible_user
-
-#- name: Stop-user-processes | Assert ansible_user not in __bootstrap_linux_user__list
-#  ansible.builtin.assert:
-#    that: __bootstrap_linux_user__list | selectattr('name','equalto', ansible_user) | list | length == 0
-
-- name: Stop-user-processes | Set __bootstrap_linux_user__list_minus_ansible_user
-  ansible.builtin.set_fact:
-    __bootstrap_linux_user__list_minus_ansible_user: "{{ __bootstrap_linux_user__list 
-      | rejectattr('name','equalto', ansible_user) | list }}"
-
-- name: Stop-user-processes | Display __bootstrap_linux_user__list_minus_ansible_user
-  ansible.builtin.debug:
-    var: __bootstrap_linux_user__list_minus_ansible_user
-
-- name: Stop-user-processes | Load current passwd info
-#  no_log: true
-  ansible.builtin.getent:
-    database: passwd
-    split: ":"
-  failed_when: false
-  register: __getent_user_result
-
-- name: Stop-user-processes | Display __getent_user_result
-  ansible.builtin.debug:
-    var: __getent_user_result
-
-## ref: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
-## ref: https://unix.stackexchange.com/questions/85466/how-to-see-process-created-by-specific-user-in-unix-linux
-- name: Stop-user-processes | Get running user processes
-  when: __getent_user_result[item.name][1] is defined
+- name: Stop-user-processes | Get running user processes for {{ current_user.name }}
+  when: current_user.name is defined
+  ansible.builtin.shell: "ps -u {{ current_user.name }} -o pid= || true"
   changed_when: false
-  ansible.builtin.shell: ps -fu {{ item.name }} | awk '{print $2}' | tail -n +2
-  loop: "{{ __bootstrap_linux_user__list_minus_ansible_user }}"
-  loop_control:
-    label: "{{ item.name }}"
-  register: running_processes
-  ignore_errors: true
+  register: __user_processes
 
-- name: Stop-user-processes | Display running_processes
-  ansible.builtin.debug:
-    var: running_processes
-#    verbosity: 2
-
-- name: Stop-user-processes | Set process_list
-  ansible.builtin.set_fact:
-    process_list: "{{ running_processes.results 
-      | selectattr('stdout_lines', 'defined') | map(attribute='stdout_lines') | d([]) | list | flatten }}"
-
-- name: Stop-user-processes | Display process_list
-  ansible.builtin.debug:
-    var: process_list
-
-- name: Running processes block
-  when: process_list|d([]) | length>0
-  block:
-    - name: Stop-user-processes | Kill running processes
-      when: item|d('')|length>0
-      changed_when: false
-      ansible.builtin.command: kill {{ item }}
-      loop: "{{ process_list }}"
-      register: shell_cmd
-      failed_when:
-        - shell_cmd.rc > 0
-        - not ( shell_cmd.stderr | regex_search(".* No such process") )
-
-    - name: Wait for user processes to finish
-      ansible.builtin.wait_for:
-        path: /proc/{{ item }}/status
-        state: absent
-      #      loop: "{{ running_processes.results | map(attribute='stdout_lines') | list }}"
-      loop: "{{ process_list }}"
-      ignore_errors: true
-      register: killed_processes
-
-    - name: Force kill stuck processes
-      changed_when: false
-      ansible.builtin.command: kill -9 {{ item }}
-      loop: "{{ killed_processes.results | select('failed') | map(attribute='item') | list }}"
-      register: shell_cmd
-      failed_when:
-        - shell_cmd.rc > 0
-        - not ( shell_cmd.stderr | regex_search(".* No such process") )
+- name: Stop-user-processes | Kill processes for {{ current_user.name }}
+  when: __user_processes.stdout | d('') | length > 0
+  changed_when: true
+  ansible.builtin.command: "kill -9 {{ item }}"
+  loop: "{{ __user_processes.stdout.split() }}"
+  register: __kill_result
+  failed_when: __kill_result is failed and not ( __kill_result.stderr | regex_search("No such process") )

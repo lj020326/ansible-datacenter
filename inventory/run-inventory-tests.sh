@@ -804,6 +804,7 @@ function usage() {
 
 function main() {
 
+  PYTEST_JUNIT_REPORT="${PYTEST_JUNIT_REPORT_DEFAULT}"
   while getopts "L:r:dlpvhk" opt; do
       case "${opt}" in
           L) set_log_level "${OPTARG}" ;;
@@ -820,9 +821,7 @@ function main() {
   done
   shift $((OPTIND-1))
 
-  if [[ -n "${PYTEST_JUNIT_REPORT-}" ]]; then
-    PYTEST_JUNIT_REPORT="${PYTEST_JUNIT_REPORT_DEFAULT}"
-  fi
+  log_debug "PYTEST_JUNIT_REPORT=${PYTEST_JUNIT_REPORT}"
 
   ## ref: https://pypi.org/project/yq/
   log_debug "Ensure jq present/installed (required for yq sort-keys)"

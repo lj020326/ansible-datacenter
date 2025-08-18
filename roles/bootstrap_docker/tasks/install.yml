@@ -54,6 +54,7 @@
   ansible.builtin.include_tasks: lvm_setup.yml
 
 - name: Docker | Deploy Config
+  when: not bootstrap_docker__k8s_mode
   ansible.builtin.include_tasks: deploy_config.yml
 
 - name: Docker | Proxy configuration
@@ -61,7 +62,9 @@
   when: bootstrap_docker__http_proxy is defined or bootstrap_docker__https_proxy is defined or bootstrap_docker__no_proxy_params is defined
 
 - name: Docker | Setup docker users
-  when: bootstrap_docker__users is defined
+  when:
+    - bootstrap_docker__users is defined
+    - not bootstrap_docker__k8s_mode
   ansible.builtin.include_tasks: docker_users.yml
 
 - name: Docker | Ensure service started
@@ -71,11 +74,16 @@
     state: started
 
 - name: Docker | Setup docker-compose
-  when: bootstrap_docker__install_compose | bool
+  when:
+    - bootstrap_docker__install_compose
+    - not bootstrap_docker__k8s_mode
   ansible.builtin.include_tasks: docker_compose.yml
 
 - name: Docker | Get docker system info on docker host
-  when: bootstrap_docker__service_started|bool
+  when:
+    - bootstrap_docker__service_started|bool
+    - bootstrap_docker__install_compose
+    - not bootstrap_docker__k8s_mode
   block:
 
     - name: Docker | Get docker system info on docker host

@@ -1,0 +1,29 @@
+---
+### Validation for custom credential type:
+### 'Jira_custom'
+### Searches for an issue within AIM project using community.general.jira module
+
+- name: Jira_custom credential type validations
+  block:
+    - name: Search for a ticket using credential
+      no_log: true
+      community.general.jira:
+        uri: "{{ item['inputs']['jira_url'] }}"
+        username: "{{ item['inputs']['jira_username'] }}"
+        password: "{{ item['inputs']['jira_password'] }}"
+        operation: search
+        maxresults: 1
+        jql: project=AIM
+      check_mode: false
+      register: __jira_custom_results
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'Jira_custom') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __jira_custom_results['results'] | selectattr('failed') }}"

@@ -1,0 +1,27 @@
+---
+### Validation for custom credential type:
+### 'Conjur Lookup Injector'
+### Performs an authentication via uri module
+
+- name: Cyberark Conjur Injector Validations
+  block:
+    - name: Validate Conjur Credential
+      ansible.builtin.uri:
+        url: "{{ item['inputs']['conjur_url'] }}/authn/{{ item['inputs']['conjur_account'] }}/{{ item['inputs']['conjur_username'] | regex_replace('/', '%2F') }}/authenticate" # noqa yaml[line-length]
+        method: POST
+        body: "{{ item['inputs']['conjur_apikey'] }}"
+      no_log: true # Hide api key from high verbosity output
+      register: conjur_injector_results
+      changed_when: false
+      check_mode: false
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'Conjur Lookup Injector') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flags to true
+      ansible.builtin.set_fact:
+        credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ conjur_injector_results }}"

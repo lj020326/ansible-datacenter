@@ -67,7 +67,7 @@
   notify: Docker | Restart Docker
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Configure Docker daemon environment variables"
-  when: bootstrap_docker__daemon_environment is defined and bootstrap_docker__daemon_environment | count > 0
+  when: bootstrap_docker__daemon_environment | d([]) | length > 0
   ansible.builtin.template:
     src: etc/systemd/system/docker.service.d/environment.conf.j2
     dest: /etc/systemd/system/docker.service.d/environment.conf
@@ -95,11 +95,12 @@
 #  when: bootstrap_docker__zfs_override
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Reload systemd daemon"
+  when: >
+    (bootstrap_docker__register_daemon_flags | d() and bootstrap_docker__register_daemon_flags is changed) 
+    or (bootstrap_docker__register_daemon_environment | d() and bootstrap_docker__register_daemon_environment is changed)
+    or (bootstrap_docker__register_custom_override | d() and bootstrap_docker__register_custom_override is changed)
   ansible.builtin.systemd:
     daemon_reload: true
-  when: (bootstrap_docker__register_daemon_flags | d() and bootstrap_docker__register_daemon_flags is changed) or (bootstrap_docker__register_daemon_environment |
-    d() and bootstrap_docker__register_daemon_environment is changed) or (bootstrap_docker__register_custom_override | d() and bootstrap_docker__register_custom_override
-    is changed)
   notify: Docker | Restart Docker
 
 #- name: {{ __bootstrap_docker__log_prefix_deploy_config }} Restart Docker now to make sure `docker login` works

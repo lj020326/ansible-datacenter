@@ -1,0 +1,25 @@
+---
+### Validation for custom credential type:
+### 'Netbrain'
+### Retrieves status list of network devices from netbrain
+- name: Netbrain credential Validations
+  block:
+    - name: Get Netbrain Devices
+      no_log: true
+      dettonville.netbrain.network_device_info:
+        api_hostname: "{{ item['inputs']['netbrain_hostname'] }}"
+        api_username: "{{ item['inputs']['netbrain_username'] }}"
+        api_password: "{{ item['inputs']['netbrain_password'] }}"
+        validate_certs: false
+      register: __netbrain_devices
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'Netbrain') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        var: __netbrain_devices

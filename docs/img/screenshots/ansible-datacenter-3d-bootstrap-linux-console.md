@@ -2,7 +2,7 @@
 
 ```
 Started by user admin
-Loading library pipeline-automation-lib@master
+Loading library pipelineAutomationLib@master
 Attempting to resolve master from remote references...
  > git --version # timeout=10
  > git --version # 'git version 2.30.2'
@@ -127,7 +127,7 @@ Running on admin02 in /workspace/dettonville/infra/ansible-datacenter/dev/bootst
 [Pipeline] script (hide)
 [Pipeline] { (hide)
 [Pipeline] echo (hide)
-11:46:59  [INFO] runAnsiblePlaybook : config={
+11:46:59  [INFO] runAnsiblePipeline : config={
 11:46:59      "ansible": {
 11:46:59          "installation": "ansible-local",
 11:46:59          "playbook": "site.yml",

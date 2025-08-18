@@ -66,6 +66,7 @@ PRIVATE_CONTENT_LIST="${PRIVATE_CONTENT_LIST%,}"
 
 ## ref: https://stackoverflow.com/questions/53839253/how-can-i-convert-an-array-into-a-comma-separated-string
 declare -a EXCLUDES_ARRAY
+EXCLUDES_ARRAY+=('.ansible')
 EXCLUDES_ARRAY+=('.git')
 EXCLUDES_ARRAY+=('.gitmodule')
 EXCLUDES_ARRAY+=('.idea')

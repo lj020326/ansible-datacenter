@@ -13,7 +13,6 @@
       - ansible_user={{ ansible_user }}
       - ansible_python_interpreter={{ ansible_python_interpreter }}
       - bootstrap_pip__packages={{ bootstrap_pip__packages }}
-      - bootstrap_pip__config_dir={{ bootstrap_pip__config_dir }}
       - bootstrap_pip__env_force_rebuild={{ bootstrap_pip__env_force_rebuild }}
       - __bootstrap_pip__python_executable={{ __bootstrap_pip__python_executable }}
       - __bootstrap_pip__pip_executable={{ __bootstrap_pip__pip_executable }}
@@ -38,11 +37,36 @@
   ansible.builtin.debug:
     var: __bootstrap_pip__libs
 
+#- name: Init-vars | Set __bootstrap_pip__library_list_by_priority
+#  ansible.builtin.set_fact:
+#    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({})
+#      | combine({ (item.priority | d(bootstrap_pip__lib_priority_default)|int):
+#        { item.state | default(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
+#  loop: "{{ __bootstrap_pip__libs }}"
+#
+#- name: Init-vars | Set __bootstrap_pip__library_list_by_priority
+#  ansible.builtin.set_fact:
+#    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}) | combine({
+#        (item.priority | d(bootstrap_pip__lib_priority_default) | int): {
+#          item.state | d(bootstrap_pip__lib_state): {
+#            (item is mapping | ternary(item.name, item)): {}
+#          }
+#        }
+#      }, recursive=True) }}"
+#  loop: "{{ __bootstrap_pip__libs }}"
+
 - name: Init-vars | Set __bootstrap_pip__library_list_by_priority
   ansible.builtin.set_fact:
-    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_pip__lib_priority_default)|int):
-      { item.state | default(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
+    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}) | combine({
+      (library_priority | int): {
+        (library_state | d(bootstrap_pip__lib_state)): { library_name: {} }
+      }
+    }, recursive=True) }}"
   loop: "{{ __bootstrap_pip__libs }}"
+  vars:
+    library_name: "{{ item.name if item is mapping else item }}"
+    library_priority: "{{ item.priority | d(bootstrap_pip__lib_priority_default) if item is mapping else bootstrap_pip__lib_priority_default }}"
+    library_state: "{{ item.state if item is mapping else 'present' }}"
 
 - name: Init-vars | Display __bootstrap_pip__library_list_by_priority
   ansible.builtin.debug:

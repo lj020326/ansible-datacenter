@@ -1,0 +1,30 @@
+---
+### Validation for custom credential type:
+### 'Men and Mice'
+### Retrieves a subnet from Men and Mice via API GET
+
+- name: Men and Mice credential type validations
+  block:
+    - name: Get subnet from Men and Mice using credential
+      no_log: true
+      ansible.builtin.uri:
+        url: "{{ item['inputs']['mm_url'] }}/mmws/api/ranges?limit=1"
+        user: "{{ item['inputs']['mm_username'] }}"
+        password: "{{ item['inputs']['mm_password'] }}"
+        force_basic_auth: true
+        validate_certs: false
+        method: GET
+        return_content: true
+      check_mode: false
+      register: __men_and_mice_results
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'Men and Mice') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __men_and_mice_results['results'] | selectattr('failed') }}"

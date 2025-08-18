@@ -1,0 +1,34 @@
+---
+### Validation for custom credential type:
+### 'Tableau API Credential'
+### Performs a login via API POST to provided URL
+
+- name: Tableau API Credential credential type validations
+  block:
+    - name: Login to Tableau API
+      ansible.builtin.uri:
+        url: "{{ item['inputs']['tableau_base_url'] }}/api/{{ item['inputs']['tableau_api_version'] }}/auth/signin"
+        validate_certs: "{{ item['inputs']['tableau_verify_ssl'] }}"
+        method: POST
+        headers:
+          Content-Type: application/json
+        body_format: json
+        body:
+          credentials:
+            name: "{{ item['inputs']['tableau_username'] }}"
+            password: "{{ item['inputs']['tableau_password'] }}"
+            site:
+              contentUrl: "{{ item['inputs']['tableau_site_name'] }}"
+      check_mode: false
+      register: __tableau_signin_results
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'Tableau API Credential') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __tableau_signin_results['results'] | selectattr('failed') }}"

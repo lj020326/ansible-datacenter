@@ -12,7 +12,7 @@
 #echo "==> ENV"
 #echo "$(export -p | sed 's/declare -x //')"
 
-VERSION="2025.7.7"
+VERSION="2025.8.14"
 
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 SCRIPT_NAME="$(basename "$0")"
@@ -51,13 +51,15 @@ echo "VAULT_ID=${VAULT_ID}"
 ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/collections/requirements.yml"
 #ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/collections/requirements.test.yml"
 
-export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
+export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible/collections"
+#export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
 #export ANSIBLE_ROLES_PATH=./
 #export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}:${PROJECT_DIR}/collections:${PROJECT_PARENT_DIR}/requirements_collections"
 #export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${PROJECT_PARENT_DIR}/requirements_collections"
 #export ANSIBLE_COLLECTIONS_PATH="${PROJECT_PARENT_DIR}/requirements_collections"
 #export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections"
-export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
+#export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
+export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}"
 
 if [[ "${USE_SOURCE_COLLECTIONS}" -eq 1 ]]; then
   export ANSIBLE_COLLECTIONS_PATH=${SOURCE_COLLECTIONS_PATH}:${ANSIBLE_COLLECTIONS_PATH}

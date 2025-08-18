@@ -9,57 +9,6 @@
   when: __apply_common_groups__os_family == 'linux'
   ansible.builtin.include_tasks: set-systemd-status.yml
 
-- name: Display ansible controller environment information
-  run_once: true
-  delegate_to: localhost
-  connection: local
-  #  vars:
-  #    ansible_connection: local
-  block:
-    - name: Display play/controller variable information
-      ansible.builtin.debug:
-        msg:
-          ## BEGIN ansible special/magic variables
-          ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_vars_facts.html#discovering-variables-facts-and-magic-variables
-          - ansible_run_tags={{ ansible_run_tags | d([]) }}
-          - ansible_limit={{ ansible_limit | d('') }}
-          - ansible_inventory_sources={{ ansible_inventory_sources | d('') }}
-          - ansible_version={{ ansible_version | d('') }}
-          - ansible_config_file={{ ansible_config_file | d('') }}
-          - discovered_interpreter_python={{ discovered_interpreter_python | d('') }}
-          - ansible_playbook_python={{ ansible_playbook_python | d('') }}
-
-    - name: Get installed python module/package list
-      #    ignore_errors: true
-      #    failed_when: false
-      no_log: true
-      community.general.pip_package_info:
-        clients: [pip3]
-      register: __python_package_info
-
-    - name: Display __python_package_info
-      ansible.builtin.debug:
-        var: __python_package_info
-        verbosity: 2
-
-#    - name: Set __pip3_package_info
-#      when: __python_package_info is defined
-#      #    no_log: true
-#      ansible.builtin.set_fact:
-#        __pip3_package_info: "{{ __python_package_info.packages['pip3'] | dict2items | map(attribute='value') | flatten }}"
-
-    - name: Set __pip3_package_info
-      when: __python_package_info is defined
-#      no_log: true
-      ansible.builtin.set_fact:
-        __pip3_package_info: "{{ __python_package_info.packages.pip3.values() | list |
-            community.general.json_query('[].{name: name, version: version}') }}"
-
-    - name: Display __pip3_package_info
-      ansible.builtin.debug:
-        var: __pip3_package_info|d('')
-        verbosity: 2
-
 - name: Display ansible target host information
   ansible.builtin.debug:
     msg:
@@ -114,6 +63,58 @@
       - container_user_name={{ container_user_name | d('') }}
       - container_user_uid={{ container_user_uid | d('') }}
       - container_user_gid={{ container_user_uid | d('') }}
+
+- name: Display ansible controller environment information
+  run_once: true
+  delegate_to: localhost
+#  delegate_facts: true
+#  connection: local
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  block:
+    - name: Display play/controller variable information
+      ansible.builtin.debug:
+        msg:
+          ## BEGIN ansible special/magic variables
+          ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_vars_facts.html#discovering-variables-facts-and-magic-variables
+          - ansible_run_tags={{ ansible_run_tags | d([]) }}
+          - ansible_limit={{ ansible_limit | d('') }}
+          - ansible_inventory_sources={{ ansible_inventory_sources | d('') }}
+          - ansible_version={{ ansible_version | d('') }}
+          - ansible_config_file={{ ansible_config_file | d('') }}
+          - discovered_interpreter_python={{ discovered_interpreter_python | d('') }}
+          - ansible_playbook_python={{ ansible_playbook_python | d('') }}
+
+    - name: Get installed python module/package list
+      #    ignore_errors: true
+      #    failed_when: false
+#      no_log: true
+      community.general.pip_package_info:
+        clients: [pip3]
+      register: __python_package_info
+
+    - name: Display __python_package_info
+      ansible.builtin.debug:
+        var: __python_package_info
+        verbosity: 2
+
+#    - name: Set __pip3_package_info
+#      when: __python_package_info is defined
+#      #    no_log: true
+#      ansible.builtin.set_fact:
+#        __pip3_package_info: "{{ __python_package_info.packages['pip3'] | dict2items | map(attribute='value') | flatten }}"
+
+    - name: Set __pip3_package_info
+      when: __python_package_info is defined
+#      no_log: true
+      ansible.builtin.set_fact:
+        __pip3_package_info: "{{ __python_package_info.packages.pip3.values() | list |
+            community.general.json_query('[].{name: name, version: version}') }}"
+
+    - name: Display __pip3_package_info
+      ansible.builtin.debug:
+        var: __pip3_package_info|d('')
+        verbosity: 2
 
 - name: Display group_names - including derived __apply_common_groups__* groups
   ansible.builtin.debug:

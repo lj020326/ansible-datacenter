@@ -821,13 +821,14 @@
 ## ref: https://github.com/ansible/ansible/issues/29510
 ## ref: https://github.com/nickjj/ansible-docker
 - name: Bootstrap docker nodes
-  hosts: docker,!node_offline
+  hosts: docker,kubernetes,!node_offline
   tags:
     - bootstrap
     - docker
     - bootstrap-linux
     - bootstrap-linux-docker
     - bootstrap-docker
+    - bootstrap-kubernetes
     - bootstrap-registry
   become: true
   roles:
@@ -953,6 +954,14 @@
   roles:
     - role: bootstrap_plexupdate
 
+- name: Deploy Gitea Action Runner
+  hosts: gitea_runner,!node_offline
+  become: true
+  tags:
+    - bootstrap-gitea-runner
+  roles:
+    - bootstrap_gitea_runner
+
 - name: Deploy LLM Server
   hosts: llm_server,!node_offline
   become: true
@@ -960,6 +969,24 @@
     - bootstrap-llm-server
   roles:
     - role: bootstrap_llm_server
+
+- name: Setup Kubernetes
+  hosts: kubernetes,!node_offline
+  become: true
+  tags:
+    - bootstrap-aibrix
+    - bootstrap-kubernetes
+  roles:
+    - role: bootstrap_kubernetes
+
+- name: Deploy AIBrix
+  hosts: aibrix,!node_offline
+  become: true
+  tags:
+    - bootstrap-aibrix
+    - bootstrap-aibrix-only
+  roles:
+    - role: bootstrap_aibrix
 
 ## ref: https://github.com/lae/ansible-role-proxmox
 - name: Deploy ProxMox Cluster
@@ -1171,6 +1198,36 @@
         baseuri: "{{ idrac_ip }}"
         username: "{{ idrac_user }}"
         password: "{{ idrac_password }}"
+
+##
+## AAP Controller config
+##
+- name: Bootstrap Ansible Automation Controller
+  hosts: localhost
+  gather_facts: false
+  environment:
+    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
+    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
+  tags:
+    - bootstrap-ansible-controller
+    - bootstrap-controller-resources
+  roles:
+    - role: bootstrap_ansible_controller
+
+- name: Remove AAP Configuration
+  hosts: localhost
+  gather_facts: false
+  environment:
+    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
+    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
+  tags:
+    - remove-tower-resources
+  roles:
+    - role: bootstrap_ansible_controller
+      vars:
+        controller_resource_state: absent
 
 ##
 ## Tower config

@@ -2,16 +2,14 @@
 
 Map config=[:]
 
-config.gitBranch = 'main'
-config.gitCredId = 'bitbucket-ssh-jenkins'
-
 // config.environment = "${env.JOB_NAME.split('/')[-2]}"
 // config.ansibleInventory = "./inventory/${config.environment}/hosts.yml"
 
+// config.ansibleCollectionsRequirements = 'requirements.yml'
 // config.ansibleCollectionsRequirements = './collections/requirements.molecule.yml'
 // config.ansibleRolesRequirements = './roles/requirements.molecule.yml'
-config.ansibleCollectionsRequirements = './collections/requirements.yml'
 // config.ansibleRolesRequirements = './roles/requirements.yml'
+
 config.ansibleVault = "./vars/vault.yml"
 config.ansiblePlaybook = "./site.yml"
 config.ansibleVaultCredId = "ansible-vault-password-file"
