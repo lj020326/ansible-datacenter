@@ -1,0 +1,70 @@
+---
+- name: Create ollama user
+  ansible.builtin.user:
+    name: "{{ bootstrap_llm_server__ollama_user }}"
+    home: "{{ bootstrap_llm_server__ollama_home }}"
+    shell: /bin/bash
+    system: false
+    create_home: true
+
+#- name: Download and install Ollama
+#  ansible.builtin.shell: |
+#    curl -fsSL https://ollama.com/install.sh | sh
+#  args:
+#    creates: /usr/local/bin/ollama
+#  register: ollama_install_result
+#  changed_when: ollama_install_result.rc != 0
+
+- name: Download Ollama install script
+  ansible.builtin.get_url:
+    url: https://ollama.com/install.sh
+    dest: /tmp/ollama_install.sh
+    mode: "0755"
+  register: download_result
+
+- name: Install Ollama
+  ansible.builtin.command: /tmp/ollama_install.sh
+  args:
+    creates: /usr/local/bin/ollama
+  register: ollama_install_result
+  when: download_result is succeeded
+
+- name: Display ollama_install_result
+  ansible.builtin.debug:
+    var: ollama_install_result
+
+- name: Clean up install script
+  ansible.builtin.file:
+    path: /tmp/ollama_install.sh
+    state: absent
+
+- name: Create Ollama systemd service
+  ansible.builtin.template:
+    src: ollama.service.j2
+    dest: /etc/systemd/system/ollama.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart ollama
+
+- name: Enable and start Ollama service
+  ansible.builtin.systemd:
+    name: ollama
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for Ollama service to be ready
+  ansible.builtin.uri:
+    url: http://localhost:{{ bootstrap_llm_server__ollama_port }}/api/tags
+    method: GET
+  register: ollama_ready
+  until: ollama_ready.status == 200
+  retries: 30
+  delay: 2
+
+- name: Install management script
+  ansible.builtin.copy:
+    src: llm-server-mgmt.sh
+    dest: /usr/local/bin/llm-server
+    mode: "0755"

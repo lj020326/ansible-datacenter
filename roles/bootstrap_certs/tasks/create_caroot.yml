@@ -3,6 +3,7 @@
   ansible.builtin.set_fact:
     __bootstrap_certs__keystore_cert_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ bootstrap_certs__ca_root.domainName }}"
     __bootstrap_certs__ca_cert: "{{ bootstrap_certs__ca_root.domainName }}.pem"
+    __bootstrap_certs__ca_csr: "{{ bootstrap_certs__ca_root.domainName }}.csr"
     __bootstrap_certs__ca_key: "{{ bootstrap_certs__ca_root.domainName }}-key.pem"
 
 - name: Caroot | Display ca info
@@ -18,7 +19,7 @@
   ansible.builtin.include_tasks: validate_cacerts.yml
 
 - name: Create_caroot | Create intermediate certificate authority key pair and CSR
-  when: _ca_missing_or_invalid_cert|bool or not _ca_key_exists|bool or bootstrap_certs__ca_force_create|bool
+  when: __cert_validation_results.failed|bool or bootstrap_certs__ca_force_create|bool
   block:
     - name: Caroot | Create domain configuration directories
       ansible.builtin.file:
@@ -28,29 +29,79 @@
         group: root
         mode: "0755"
 
-    - name: Caroot | Create CA CSR json
-      ansible.builtin.template:
-        src: ca/ca-root-csr.json.j2
-        dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ bootstrap_certs__ca_root.commonName }}.json"
-        mode: "0600"
+    - name: Caroot | Generate OpenSSL private key for CA
+      no_log: true
+      community.crypto.openssl_privatekey:
+        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
+        size: "{{ bootstrap_certs__ca_key_spec.size }}" # Key size from your ca-root.json
+        type: "{{ bootstrap_certs__ca_key_spec.algo | upper }}" # Algorithm type from your ca-root.json
+        mode: '0600' # Restrict permissions for the private key
 
-    ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
-    ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
-    - name: Caroot | Create certificate authority key pair and CSR
-      changed_when: false
-      ansible.builtin.shell: |
-        cfssl genkey -initca {{ bootstrap_certs__ca_root.commonName }}.json \
-          | cfssljson -bare {{ bootstrap_certs__ca_root.commonName }}
-      args:
-        chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
-    #    creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ bootstrap_certs__pki_caroot_key }}"
+    - name: Caroot | Create root CSR
+      community.crypto.openssl_csr:
+        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_csr }}"
+        privatekey_path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
+        # Define key usages for a CA root certificate
+        extended_key_usage: [] # Not typically used for root CAs
+        key_usage:
+          - digitalSignature
+          - keyCertSign
+          - cRLSign
+        subject:
+          CN: "{{ bootstrap_certs__ca_root.domainName | d(omit) }}" # Updated key name
+          O: "{{ bootstrap_certs__ca_root.organization }}"
+          OU: "{{ bootstrap_certs__ca_root.organizationalUnit | d(omit) }}" # Updated key name
+          C: "{{ bootstrap_certs__ca_root.country | d(omit) }}"
+          ST: "{{ bootstrap_certs__ca_root.state | d(omit) }}"
+          L: "{{ bootstrap_certs__ca_root.locality | d(omit) }}"
+          emailAddress: "{{ bootstrap_certs__ca_root.email | d(omit) }}" # Added email_address
+#        subject:
+#          commonName: "{{ bootstrap_certs__ca_root.domainName | d(omit) }}" # Updated key name
+#          organization: "{{ bootstrap_certs__ca_root.organization }}"
+#          organizationalUnit: "{{ bootstrap_certs__ca_root.organizationalUnit | d(omit) }}" # Updated key name
+#          country: "{{ bootstrap_certs__ca_root.country | d(omit) }}"
+#          state: "{{ bootstrap_certs__ca_root.state | d(omit) }}"
+#          locality: "{{ bootstrap_certs__ca_root.locality | d(omit) }}"
+#          emailAddress: "{{ bootstrap_certs__ca_root.email | d(omit) }}" # Added email_address
+#        subject_alt_names: [] # No subject alternative names for a root CA, typically
 
-    - name: Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
+    ## the following module does not support a number of critical parameters needed
+    ## so we invoke openssl directly using shell instead
+    - name: Caroot | Generate root CA certificate
+      community.crypto.x509_certificate:
+        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+        privatekey_path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
+        csr_path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_csr }}"
+        provider: selfsigned
+        selfsigned_digest: "{{ bootstrap_certs__ca_root_cert_digest }}"
+        # Set the cert validity
+        selfsigned_not_after: "+{{ bootstrap_certs__ca_root_cert_validity_days | int }}d"
+
+#    - name: Caroot | Generate self-signed root CA certificate using OpenSSL command
+#      ansible.builtin.shell:
+#        cmd: |
+#          openssl req -x509 -new \
+#          -key "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}" \
+#          -out "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}" \
+#          -days "{{ bootstrap_certs__ca_root_cert_validity_days | int }}" \
+#          -sha256 \
+#          -subj "{{ bootstrap_certs__ca_root_subject }}" \
+#          -addext "basicConstraints=CA:TRUE" \
+#          -addext "keyUsage=digitalSignature,keyCertSign,cRLSign" \
+#          -addext "subjectKeyIdentifier=hash" \
+#          -addext "authorityKeyIdentifier=keyid:always"
+#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+#      args:
+#        # Prevents shell module from attempting to use jinja2 templating on the command string,
+#        # ensuring the raw openssl command is passed
+#        executable: /bin/bash
+
+    - name: Caroot | Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
       ansible.builtin.file:
         dest: "{{ item.dest }}"
         mode: "{{ item.mode }}"
       loop:
-        - dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ bootstrap_certs__pki_caroot_key }}"
+        - dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
           mode: "600"
         - dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
           mode: "644"

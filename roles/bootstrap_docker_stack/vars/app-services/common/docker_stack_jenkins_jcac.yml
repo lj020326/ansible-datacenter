@@ -74,6 +74,10 @@ __docker_stack__jenkins_jcac__data_dir: "{{ docker_stack__jenkins_data_dir | d(_
 __docker_stack__jenkins_jcac__pipeline_lib_repo_default: https://gitea.example.int/infra/pipeline-automation-lib.git
 __docker_stack__jenkins_jcac__pipeline_lib_repo: "{{ docker_stack__jenkins_jcac__pipeline_lib_repo | d(__docker_stack__jenkins_jcac__pipeline_lib_repo_default) }}"
 
+__docker_stack__jenkins_jcac__pipeline_lib_credential_id_default: my-ssh-cred
+__docker_stack__jenkins_jcac__pipeline_lib_credential_id: "{{ docker_stack__jenkins_jcac__pipeline_lib_credential_id
+  | d(docker_stack__jenkins_jcac__pipeline_lib_credential_id_default) }}"
+
 __docker_stack__jenkins_jcac__vmware_data_dir_default: /data/datacenter/vmware
 __docker_stack__jenkins_jcac__vmware_data_dir: "{{ docker_stack__jenkins_jcac__vmware_data_dir | d(__docker_stack__jenkins_jcac__vmware_data_dir_default) }}"
 
@@ -136,9 +140,10 @@ __docker_stack__jenkins_jcac__ansible_venv_libs_default:
 #__docker_stack__jenkins_jcac__ansible_lib_default: "ansible"
 ## ref: ## ref: https://www.jeffgeerling.com/blog/2024/newer-versions-ansible-dont-work-rhel-8
 ## ref: https://pypi.org/project/ansible-core/#history
-#__docker_stack__jenkins_jcac__ansible_lib_default: ansible-core==2.18.0
-__docker_stack__jenkins_jcac__ansible_lib_default: ansible-core==2.17.6
+__docker_stack__jenkins_jcac__ansible_lib_default: ansible-core==2.18.4
+#__docker_stack__jenkins_jcac__ansible_lib_default: ansible-core==2.17.6
 #__docker_stack__jenkins_jcac__ansible_lib_default: ansible-core==2.16.3
+
 __docker_stack__jenkins_jcac__ansible_lib: "{{ docker_stack__jenkins__ansible_lib | d(__docker_stack__jenkins_jcac__ansible_lib_default) }}"
 
 __docker_stack__jenkins_jcac__ansible_venv_libs: "{{ docker_stack__jenkins_jcac__ansible_venv_libs | d(__docker_stack__jenkins_jcac__ansible_venv_libs_default) }}"
@@ -159,6 +164,16 @@ __docker_stack__jenkins_jcac__jenkins_java_opts_list:
 __docker_stack__jenkins_jcac__jenkins_java_opts: "{{ __docker_stack__jenkins_jcac__jenkins_java_opts_list | join(' ') }}"
 
 __docker_stack__jenkins_jcac__agent_min_num_executors: 4
+
+## ref: https://plugins.jenkins.io/throttle-concurrents/
+__docker_stack__jenkins_jcac__throttle_job_properties:
+  categories:
+    - categoryName: "docker_image_builds"
+      maxConcurrentTotal: 8
+      maxConcurrentPerNode: 2
+#      nodeLabeledPairs:
+#      - throttledNodeLabel: "docker"
+#        maxConcurrentPerNodeLabeled: 1
 
 ## ref: https://stackoverflow.com/questions/39539559/ansible-procesor-count-vs-processor-cores-vs-processor-vcpus
 ## ref: github.com/ansible/ansible/pull/66569
@@ -183,6 +198,9 @@ __docker_stack__jenkins_jcac__cred_ansible_ssh_password: "{{ docker_stack__jenki
 
 __docker_stack__jenkins_jcac__cred_bitbucket_ssh_username: "{{ docker_stack__jenkins_jcac__cred_bitbucket_ssh_username | d('CHANGEME123') }}"
 __docker_stack__jenkins_jcac__cred_bitbucket_ssh_private_key: "{{ docker_stack__jenkins_jcac__cred_bitbucket_ssh_private_key | d('CHANGEME123') }}"
+
+__docker_stack__jenkins_jcac__cred_gitea_ssh_username: "{{ docker_stack__jenkins_jcac__cred_gitea_ssh_username | d('CHANGEME123') }}"
+__docker_stack__jenkins_jcac__cred_gitea_ssh_private_key: "{{ docker_stack__jenkins_jcac__cred_gitea_ssh_private_key | d('CHANGEME123') }}"
 
 ## docker registry
 __docker_stack__jenkins_jcac__cred_docker_registry_admin_username: "{{ docker_stack__jenkins_jcac__cred_docker_registry_admin_username | d('admin') }}"
@@ -250,6 +268,10 @@ __docker_stack__jenkins_jcac__secrets:
     value: "{{ __docker_stack__jenkins_jcac__cred_bitbucket_ssh_username }}"
   - name: bitbucket_ssh_private_key
     value: "{{ __docker_stack__jenkins_jcac__cred_bitbucket_ssh_private_key }}"
+  - name: gitea_ssh_username
+    value: "{{ __docker_stack__jenkins_jcac__cred_gitea_ssh_username }}"
+  - name: gitea_ssh_private_key
+    value: "{{ __docker_stack__jenkins_jcac__cred_gitea_ssh_private_key }}"
   - name: bitbucket_cloud_oauth_username
     value: "{{ __docker_stack__jenkins_jcac__cred_bitbucket_cloud_oauth_key }}"
   - name: bitbucket_cloud_oauth_password
@@ -265,6 +287,8 @@ __docker_stack__jenkins_jcac__secrets:
   - name: docker_registry_admin_username
     value: "{{ __docker_stack__jenkins_jcac__cred_docker_registry_admin_username }}"
   - name: docker_registry_admin_password
+    value: "{{ __docker_stack__jenkins_jcac__cred_docker_registry_admin_password }}"
+  - name: docker_registry_password
     value: "{{ __docker_stack__jenkins_jcac__cred_docker_registry_admin_password }}"
 
 docker_stack__jenkins_jcac__firewalld_appspec_ports:
@@ -313,6 +337,7 @@ __docker_stack__jenkins_jcac__services:
     #      - "{{ __docker_stack__jenkins_jcac__agent_port }}:9000/tcp"
     #      command: "--httpsCertificate=/var/lib/jenkins/cert --httpsPrivateKey=/var/lib/jenkins/pk"
     volumes:
+      - /etc/localtime:/etc/localtime
       - /var/run/docker.sock:/var/run/docker.sock
       - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
       - "{{ __docker_stack__ca_java_keystore }}:/var/lib/jenkins/cacerts"
@@ -341,6 +366,8 @@ __docker_stack__jenkins_jcac__services:
       - ansible_ssh_private_key
       - bitbucket_ssh_username
       - bitbucket_ssh_private_key
+      - gitea_ssh_username
+      - gitea_ssh_private_key
       - bitbucket_cloud_oauth_username
       - bitbucket_cloud_oauth_password
       - docker_registry_admin_username
@@ -364,4 +391,7 @@ __docker_stack__jenkins_jcac__services:
         delay: 10s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        order: stop-first
     labels: "{{ __docker_stack__jenkins_jcac__traefik_labels }}"

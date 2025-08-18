@@ -1,0 +1,29 @@
+---
+- name: Create Nginx configuration for LLM server
+  ansible.builtin.template:
+    src: nginx-llm-server.conf.j2
+    dest: /etc/nginx/sites-available/llm-server
+    mode: "0644"
+  notify:
+    - Restart nginx
+
+- name: Enable Nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/llm-server
+    dest: /etc/nginx/sites-enabled/llm-server
+    state: link
+  notify:
+    - Restart nginx
+
+- name: Remove default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify:
+    - Restart nginx
+
+- name: Enable and start Nginx service
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started

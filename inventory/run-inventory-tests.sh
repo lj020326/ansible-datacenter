@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 
-VERSION="2024.5.1"
+## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
+# exit when any command fails
+#set -e
+
+VERSION="2025.6.12"
 
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_NAME="$(basename "$0")"
 
 ## PURPOSE RELATED VARS
 #PROJECT_DIR=$( git rev-parse --show-toplevel )
@@ -43,46 +48,123 @@ LOG_INFO=2
 LOG_TRACE=3
 LOG_DEBUG=4
 
+declare -A LOGLEVEL_TO_STR
+LOGLEVEL_TO_STR["${LOG_ERROR}"]="ERROR"
+LOGLEVEL_TO_STR["${LOG_WARN}"]="WARN"
+LOGLEVEL_TO_STR["${LOG_INFO}"]="INFO"
+LOGLEVEL_TO_STR["${LOG_TRACE}"]="TRACE"
+LOGLEVEL_TO_STR["${LOG_DEBUG}"]="DEBUG"
+
+# string formatters
+if [[ -t 1 ]]
+then
+  tty_escape() { printf "\033[%sm" "$1"; }
+else
+  tty_escape() { :; }
+fi
+tty_mkbold() { tty_escape "1;$1"; }
+tty_underline="$(tty_escape "4;39")"
+tty_blue="$(tty_mkbold 34)"
+tty_red="$(tty_mkbold 31)"
+tty_orange="$(tty_mkbold 33)"
+tty_bold="$(tty_mkbold 39)"
+tty_reset="$(tty_escape 0)"
+
+function reverse_array() {
+  local -n ARRAY_SOURCE_REF=$1
+  local -n REVERSED_ARRAY_REF=$2
+  # Iterate over the keys of the LOGLEVEL_TO_STR array
+  for KEY in "${!ARRAY_SOURCE_REF[@]}"; do
+    # Get the value associated with the current key
+    VALUE="${ARRAY_SOURCE_REF[$KEY]}"
+    # Add the reversed key-value pair to the REVERSED_ARRAY_REF array
+    REVERSED_ARRAY_REF[$VALUE]="$KEY"
+  done
+}
+
+declare -A LOGLEVELSTR_TO_LEVEL
+reverse_array LOGLEVEL_TO_STR LOGLEVELSTR_TO_LEVEL
+
 #LOG_LEVEL=${LOG_DEBUG}
 LOG_LEVEL=${LOG_INFO}
 
+function log_error() {
+  if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
+  	log_message "${LOG_ERROR}" "${1}"
+  fi
+}
+
+function log_warn() {
+  if [ $LOG_LEVEL -ge $LOG_WARN ]; then
+  	log_message "${LOG_WARN}" "${1}"
+  fi
+}
+
+function log_info() {
+  if [ $LOG_LEVEL -ge $LOG_INFO ]; then
+  	log_message "${LOG_INFO}" "${1}"
+  fi
+}
+
+function log_trace() {
+  if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
+  	log_message "${LOG_TRACE}" "${1}"
+  fi
+}
+
+function log_debug() {
+  if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
+  	log_message "${LOG_DEBUG}" "${1}"
+  fi
+}
+
+function shell_join() {
+  local arg
+  printf "%s" "$1"
+  shift
+  for arg in "$@"
+  do
+    printf " "
+    printf "%s" "${arg// /\ }"
+  done
+}
+
+function chomp() {
+  printf "%s" "${1/"$'\n'"/}"
+}
+
+function ohai() {
+  printf "${tty_blue}==>${tty_bold} %s${tty_reset}\n" "$(shell_join "$@")"
+}
+
 function abort() {
-  logError "%s\n" "$@"
+  log_error "$@"
   exit 1
 }
 
-function logError() {
-  if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
-#  	echo -e "[ERROR]: ==> ${1}"
-  	logMessage "${LOG_ERROR}" "${1}"
-  fi
-}
-function logWarn() {
-  if [ $LOG_LEVEL -ge $LOG_WARN ]; then
-#  	echo -e "[WARN ]: ==> ${1}"
-  	logMessage "${LOG_WARN}" "${1}"
-  fi
-}
-function logInfo() {
-  if [ $LOG_LEVEL -ge $LOG_INFO ]; then
-#  	echo -e "[INFO ]: ==> ${1}"
-  	logMessage "${LOG_INFO}" "${1}"
-  fi
-}
-function logTrace() {
-  if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
-#  	echo -e "[TRACE]: ==> ${1}"
-  	logMessage "${LOG_TRACE}" "${1}"
-  fi
-}
-function logDebug() {
-  if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
-#  	echo -e "[DEBUG]: ==> ${1}"
-  	logMessage "${LOG_DEBUG}" "${1}"
-  fi
+function warn() {
+  log_warn "$@"
+#  log_warn "$(chomp "$1")"
+#  printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
 }
 
-function logMessage() {
+#function abort() {
+#  printf "%s\n" "$@" >&2
+#  exit 1
+#}
+
+function error() {
+  log_error "$@"
+#  printf "%s\n" "$@" >&2
+##  echo "$@" 1>&2;
+}
+
+function fail() {
+  error "$@"
+  exit 1
+}
+
+function log_message() {
   local LOG_MESSAGE_LEVEL="${1}"
   local LOG_MESSAGE="${2}"
   ## remove first item from FUNCNAME array
@@ -102,90 +184,98 @@ function logMessage() {
 #  local CALLING_FUNCTION_STR="${CALLING_FUNCTION_ARRAY[*]}"
   ## ref: https://stackoverflow.com/questions/1527049/how-can-i-join-elements-of-a-bash-array-into-a-delimited-string#17841619
   local SEPARATOR=":"
-  local CALLING_FUNCTION_STR=$(printf "${SEPARATOR}%s" "${REVERSED_CALL_ARRAY[@]}")
-  local CALLING_FUNCTION_STR=${CALLING_FUNCTION_STR:${#SEPARATOR}}
+  local CALLING_FUNCTION_STR
+  CALLING_FUNCTION_STR=$(printf "${SEPARATOR}%s" "${REVERSED_CALL_ARRAY[@]}")
+  CALLING_FUNCTION_STR=${CALLING_FUNCTION_STR:${#SEPARATOR}}
 
-  case "${LOG_MESSAGE_LEVEL}" in
-    $LOG_ERROR*)
-      LOG_LEVEL_STR="ERROR"
-      ;;
-    $LOG_WARN*)
-      LOG_LEVEL_STR="WARN"
-      ;;
-    $LOG_INFO*)
-      LOG_LEVEL_STR="INFO"
-      ;;
-    $LOG_TRACE*)
-      LOG_LEVEL_STR="TRACE"
-      ;;
-    $LOG_DEBUG*)
-      LOG_LEVEL_STR="DEBUG"
-      ;;
-    *)
-      abort "Unknown LOG_MESSAGE_LEVEL of [${LOG_MESSAGE_LEVEL}] specified"
-  esac
+  ## ref: https://stackoverflow.com/a/13221491
+  if [ "${LOGLEVEL_TO_STR[${LOG_MESSAGE_LEVEL}]+abc}" ]; then
+    LOG_LEVEL_STR="${LOGLEVEL_TO_STR[${LOG_MESSAGE_LEVEL}]}"
+  else
+    abort "Unknown log level of [${LOG_MESSAGE_LEVEL}]"
+  fi
 
   local LOG_LEVEL_PADDING_LENGTH=5
-  local PADDED_LOG_LEVEL=$(printf "%-${LOG_LEVEL_PADDING_LENGTH}s" "${LOG_LEVEL_STR}")
+
+  local PADDED_LOG_LEVEL
+  PADDED_LOG_LEVEL=$(printf "%-${LOG_LEVEL_PADDING_LENGTH}s" "${LOG_LEVEL_STR}")
 
   local LOG_PREFIX="${CALLING_FUNCTION_STR}():"
-  echo -e "[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX} ${LOG_MESSAGE}"
+  local __LOG_MESSAGE="${LOG_PREFIX} ${LOG_MESSAGE}"
+#  echo -e "[${PADDED_LOG_LEVEL}]: ==> ${__LOG_MESSAGE}"
+  if [ "${LOG_MESSAGE_LEVEL}" -eq $LOG_INFO ]; then
+    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_reset} %s\n" "${LOG_MESSAGE}" >&2
+#    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==>${tty_reset} %s\n" "${__LOG_MESSAGE}" >&2
+#    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}"
+  elif [ "${LOG_MESSAGE_LEVEL}" -eq $LOG_WARN ]; then
+    printf "${tty_orange}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_bold} %s${tty_reset}\n" "${LOG_MESSAGE}" >&2
+#    printf "${tty_orange}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}" >&2
+#    printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
+  elif [ "${LOG_MESSAGE_LEVEL}" -le $LOG_ERROR ]; then
+    printf "${tty_red}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_bold} %s${tty_reset}\n" "${LOG_MESSAGE}" >&2
+#    printf "${tty_red}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}" >&2
+#    printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
+  else
+    printf "${tty_bold}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_reset} %s\n" "${LOG_MESSAGE}" >&2
+#    printf "[${PADDED_LOG_LEVEL}]: ==> %s\n" "${LOG_PREFIX} ${LOG_MESSAGE}"
+  fi
 }
 
-function setLogLevel() {
+function set_log_level() {
   LOG_LEVEL_STR=$1
 
-  case "${LOG_LEVEL_STR}" in
-    ERROR*)
-      LOG_LEVEL=$LOG_ERROR
-      ;;
-    WARN*)
-      LOG_LEVEL=$LOG_WARN
-      ;;
-    INFO*)
-      LOG_LEVEL=$LOG_INFO
-      ;;
-    TRACE*)
-      LOG_LEVEL=$LOG_TRACE
-      ;;
-    DEBUG*)
-      LOG_LEVEL=$LOG_DEBUG
-      DISPLAY_TEST_RESULTS=1
-      ;;
-    *)
-      abort "Unknown LOG_LEVEL_STR of [${LOG_LEVEL_STR}] specified"
-  esac
-
-}
-
-function handle_cmd_return_code() {
-  ## ref: https://unix.stackexchange.com/questions/261305/how-to-determine-callee-function-name-in-a-script
-  local CALLING_FUNCTION="${FUNCNAME[1]}"
-  local RUN_COMMAND=$1
-
-  logInfo "${RUN_COMMAND}"
-  eval "${RUN_COMMAND} > /dev/null 2>&1"
-  local RETURN_STATUS=$?
-
-  if [[ $RETURN_STATUS -eq 0 ]]; then
-    logDebug "SUCCESS => No exceptions found from packer validate!!"
+  ## ref: https://stackoverflow.com/a/13221491
+  if [ "${LOGLEVELSTR_TO_LEVEL[${LOG_LEVEL_STR}]+abc}" ]; then
+    LOG_LEVEL="${LOGLEVELSTR_TO_LEVEL[${LOG_LEVEL_STR}]}"
   else
-    logError "packer validate resulted in return code [${RETURN_STATUS}]!! :("
-    logError "${RUN_COMMAND}"
-    eval "${RUN_COMMAND}"
-    exit 1
+    abort "Unknown log level of [${LOG_LEVEL_STR}]"
   fi
 
 }
 
-function error() {
-  printf "%s\n" "$@" >&2
-#  echo "$@" 1>&2;
+function execute() {
+  log_info "${*}"
+  if ! "$@"
+  then
+    abort "$(printf "Failed during: %s" "$(shell_join "$@")")"
+  fi
 }
 
-function fail() {
-  error "$@"
-  exit 1
+function execute_eval_command() {
+  local RUN_COMMAND="${*}"
+
+  log_debug "${RUN_COMMAND}"
+  COMMAND_RESULT=$(eval "${RUN_COMMAND}")
+#  COMMAND_RESULT=$(eval "${RUN_COMMAND} > /dev/null 2>&1")
+  local RETURN_STATUS=$?
+
+  if [[ $RETURN_STATUS -eq 0 ]]; then
+    if [[ $COMMAND_RESULT != "" ]]; then
+      log_debug "${COMMAND_RESULT}"
+    fi
+    log_debug "SUCCESS!"
+  else
+    log_error "ERROR (${RETURN_STATUS})"
+#    echo "${COMMAND_RESULT}"
+    abort "$(printf "Failed during: %s" "${COMMAND_RESULT}")"
+  fi
+
+}
+
+function is_installed() {
+  command -v "${1}" >/dev/null 2>&1 || return 1
+}
+
+function check_required_commands() {
+  missingCommands=""
+  for currentCommand in "$@"
+  do
+    is_installed "${currentCommand}" || missingCommands="${missingCommands} ${currentCommand}"
+  done
+
+  if [[ -n "${missingCommands}" ]]; then
+    fail "Please install the following commands required by this script:${missingCommands}"
+  fi
 }
 
 function cleanup_tmpdir() {
@@ -200,26 +290,26 @@ function stringContain() { case $2 in *$1* ) return 0;; *) return 1;; esac ;}
 function validate_file_extensions() {
   local ERROR_COUNT=0
 
-  logInfo ""
-  logInfo "#######################################################"
-  logInfo "Validate all files consistent with *.yml"
+  log_info ""
+  log_info "#######################################################"
+  log_info "Validate all files consistent with *.yml"
 
   local EXCEPTION_COUNT=$(find . \
     -type f \( ! -iname ".*" ! -iname "*.yml" ! -iname "*.sh" ! -iname "*.py" ! -iname "*.log" ! -iname "*.md" ! -iname "pytest.ini" \) \
       -not -path "./.test-results/*" -not -path "./__pycache__/*" -not -path "./.pytest_cache/*" | wc -l)
   if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-    logInfo "SUCCESS => No inconsistent file extensions found!!"
+    log_info "SUCCESS => No inconsistent file extensions found!!"
   else
     ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-    logInfo "There are [${EXCEPTION_COUNT}] inconsistent file names found without *.yml extension:"
+    log_info "There are [${EXCEPTION_COUNT}] inconsistent file names found without *.yml extension:"
     find . \
       -type f \( ! -iname ".*" ! -iname "*.yml" ! -iname "*.sh" ! -iname "*.py" ! -iname "*.log" ! -iname "*.md" ! -iname "pytest.ini" \) \
       -not -path "./.test-results/*" -not -path "./__pycache__/*" -not -path "./.pytest_cache/*"
   fi
 
-  logInfo "#######################################################"
-  logInfo "ERROR_COUNT=${ERROR_COUNT}"
-  logInfo ""
+  log_info "#######################################################"
+  log_info "ERROR_COUNT=${ERROR_COUNT}"
+  log_info ""
 
   return "${ERROR_COUNT}"
 }
@@ -227,69 +317,69 @@ function validate_file_extensions() {
 function validate_child_inventories() {
   ansible-inventory --version
   local ERROR_COUNT=0
-  logInfo ""
+  log_info ""
 
   IFS=$'\n'
   for INVENTORY in ${INVENTORY_LIST}
   do
-    logInfo "#######################################################"
-    logInfo "Validate yamllint"
+    log_info "#######################################################"
+    log_info "Validate yamllint"
     local VALIDATION_TEST_COMMAND="ansible-inventory --graph -i ${INVENTORY} 2>&1"
-    logInfo "[${VALIDATION_TEST_COMMAND} | grep -i -e warning -e error]"
+    log_info "[${VALIDATION_TEST_COMMAND} | grep -i -e warning -e error]"
     local EXCEPTION_COUNT=$(eval "${VALIDATION_TEST_COMMAND} | grep -c -i -e warning -e error")
 
     if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-      logInfo "SUCCESS => No ansible-inventory exceptions found!!"
+      log_info "SUCCESS => No ansible-inventory exceptions found!!"
     else
 #      ERROR_COUNT+=EXCEPTION_COUNT
       ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-      logInfo "There are [${EXCEPTION_COUNT}] ansible-inventory exceptions found:"
+      log_info "There are [${EXCEPTION_COUNT}] ansible-inventory exceptions found:"
       eval "${VALIDATION_TEST_COMMAND} | grep -A 2 -i -e warning -e error"
     fi
   done
 
-  logInfo "#######################################################"
-  logInfo "ERROR_COUNT=${ERROR_COUNT}"
-  logInfo ""
+  log_info "#######################################################"
+  log_info "ERROR_COUNT=${ERROR_COUNT}"
+  log_info ""
 
   return "${ERROR_COUNT}"
 }
 
 function validate_child_groupvars() {
   local ERROR_COUNT=0
-  logInfo ""
+  log_info ""
 
   IFS=$'\n'
   for INVENTORY in ${INVENTORY_LIST}
   do
-    logInfo "#######################################################"
-    logInfo "Compare ./group_vars and [$INVENTORY]"
+    log_info "#######################################################"
+    log_info "Compare ./group_vars and [$INVENTORY]"
     local EXCEPTION_COUNT=$(diff -r group_vars "${INVENTORY}/group_vars" | grep -c -v ": env_specific.yml")
     if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-      logInfo "SUCCESS => No group_var diffs found!!"
+      log_info "SUCCESS => No group_var diffs found!!"
     else
       ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-      logInfo "There are [${EXCEPTION_COUNT}] group_var diffs found :("
+      log_info "There are [${EXCEPTION_COUNT}] group_var diffs found :("
       diff -r group_vars "${INVENTORY}/group_vars" | grep -v ": env_specific.yml"
     fi
   done
-  logInfo "#######################################################"
-  logInfo "ERROR_COUNT=${ERROR_COUNT}"
-  logInfo ""
+  log_info "#######################################################"
+  log_info "ERROR_COUNT=${ERROR_COUNT}"
+  log_info ""
 
   return "${ERROR_COUNT}"
 }
 
 function validate_xenv_group_hierarchy() {
   local ERROR_COUNT=0
-  logInfo ""
+  log_info ""
   local RETURN_STATUS=0
 
   IFS=$'\n'
   for INVENTORY in ${INVENTORY_LIST}
   do
-    logInfo "#######################################################"
-    logInfo "Check if all groups in [${INVENTORY}/hosts.yml] exist in xenv_groups.yml"
+    log_info "#######################################################"
+    log_info "Check if all groups in [${INVENTORY}/hosts.yml] exist in xenv_groups.yml"
 
     local TEST_COMMAND="python3 run-group-in-xenv-check.py -G xenv_groups.yml ${INVENTORY}/hosts.yml 2>&1"
     eval "${TEST_COMMAND} > /dev/null 2>&1"
@@ -297,20 +387,20 @@ function validate_xenv_group_hierarchy() {
     ERROR_COUNT=$((${ERROR_COUNT} + ${RETURN_STATUS}))
 
     if [[ $RETURN_STATUS -eq 0 ]]; then
-      logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+      log_info "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
     else
-      logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-      logInfo "${TEST_COMMAND}"
+      log_info "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+      log_info "${TEST_COMMAND}"
       eval "${TEST_COMMAND}"
     fi
 
   done
-  logInfo "#######################################################"
-  logInfo ""
+  log_info "#######################################################"
+  log_info ""
 
-  logInfo ""
-  logInfo "#######################################################"
-  logInfo "Check if all groups in [xenv_hosts.yml] exist in xenv_groups.yml"
+  log_info ""
+  log_info "#######################################################"
+  log_info "Check if all groups in [xenv_hosts.yml] exist in xenv_groups.yml"
 
   TEST_COMMAND="python3 run-group-in-xenv-check.py -G xenv_groups.yml xenv_hosts.yml 2>&1"
   eval "${TEST_COMMAND} > /dev/null 2>&1"
@@ -318,47 +408,47 @@ function validate_xenv_group_hierarchy() {
   ERROR_COUNT=$((${ERROR_COUNT} + ${RETURN_STATUS}))
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+    log_info "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
   else
-    logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-    logInfo "${TEST_COMMAND}"
+    log_info "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    log_info "${TEST_COMMAND}"
     eval "${TEST_COMMAND}"
   fi
 
-  logInfo "#######################################################"
-  logInfo "ERROR_COUNT=${ERROR_COUNT}"
-  logInfo ""
+  log_info "#######################################################"
+  log_info "ERROR_COUNT=${ERROR_COUNT}"
+  log_info ""
 
   return "${ERROR_COUNT}"
 }
 
 function validate_xenv_groups_unique() {
-  logInfo ""
-  logInfo "#######################################################"
-  logInfo "Check if all groups in [xenv_groups.yml] are unique"
+  log_info ""
+  log_info "#######################################################"
+  log_info "Check if all groups in [xenv_groups.yml] are unique"
 
   TEST_COMMAND="python3 run-group-in-xenv-check.py -d xenv_groups.yml 2>&1"
   eval "${TEST_COMMAND} > /dev/null 2>&1"
   local RETURN_STATUS=$?
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+    log_info "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
   else
-    logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-    logInfo "${TEST_COMMAND}"
+    log_info "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    log_info "${TEST_COMMAND}"
     eval "${TEST_COMMAND}"
   fi
 
-  logInfo "#######################################################"
-  logInfo "RETURN_STATUS=${RETURN_STATUS}"
-  logInfo ""
+  log_info "#######################################################"
+  log_info "RETURN_STATUS=${RETURN_STATUS}"
+  log_info ""
 
   return "${RETURN_STATUS}"
 }
 
 function validate_yml_sortorder() {
   local ERROR_COUNT=0
-  logInfo ""
+  log_info ""
 
   TMP_DIR="$(mktemp -d --suffix .inventory-tests XXXX -p /tmp)"
   trap cleanup_tmpdir INT TERM EXIT
@@ -366,16 +456,16 @@ function validate_yml_sortorder() {
   local DELIM=' -o '
   ## ref: https://superuser.com/questions/1371834/escaping-hyphens-with-printf-in-bash
   #'-name' ==> '\055name'
-  printf -v FIND_FILE_ARGS "\055name %s${DELIM}" "${INVENTORY_YML_LIST[@]}"
+  printf -v FIND_FILE_ARGS "\055name %s${DELIM}" "${INVENTORY_YML_LIST[*]}"
   FIND_FILE_ARGS=${FIND_FILE_ARGS%$DELIM}
 
-  logDebug "FIND_FILE_ARGS=${FIND_FILE_ARGS}"
+  log_debug "FIND_FILE_ARGS=${FIND_FILE_ARGS}"
 
   FIND_CMD="find . -type f \( ${FIND_FILE_ARGS} \) -printf '%P\n' | sort"
-  logInfo "${FIND_CMD}"
+  log_info "${FIND_CMD}"
 
   INVENTORY_YML_FILES_FOUND=$(eval "${FIND_CMD}")
-  logDebug "INVENTORY_YML_FILES_FOUND=${INVENTORY_YML_FILES_FOUND}"
+  log_debug "INVENTORY_YML_FILES_FOUND=${INVENTORY_YML_FILES_FOUND}"
 
   for INVENTORY_FILE in ${INVENTORY_YML_FILES_FOUND}
   do
@@ -392,27 +482,27 @@ function validate_yml_sortorder() {
     TMP_INVENTORY_FILE_SORTED="${TMP_DIR}/${TMP_INVENTORY_FILE_PREFIX}${INVENTORY_FILE_BASENAME%.*}_sorted.yml"
     TMP_INVENTORY_FILE="${TMP_DIR}/${TMP_INVENTORY_FILE_PREFIX}${INVENTORY_FILE_BASENAME}"
 
-    logDebug "Create temporary sorted file to compare with ${INVENTORY_FILE}"
+    log_debug "Create temporary sorted file to compare with ${INVENTORY_FILE}"
     yq "${INVENTORY_FILE}" > "${TMP_INVENTORY_FILE}"
     yq -P 'sort_keys(..)' "${INVENTORY_FILE}" > "${TMP_INVENTORY_FILE_SORTED}"
 
-    logInfo "#######################################################"
-    logInfo "Compare ${INVENTORY_FILE} and ${TMP_INVENTORY_FILE_SORTED}"
+    log_info "#######################################################"
+    log_info "Compare ${INVENTORY_FILE} and ${TMP_INVENTORY_FILE_SORTED}"
 
     ## ref: https://stackoverflow.com/questions/1566461/how-to-count-differences-between-two-files-on-linux#8837860
     local EXCEPTION_COUNT=$(diff -U 0 "${TMP_INVENTORY_FILE_SORTED}" "${TMP_INVENTORY_FILE}" | grep -c "^@")
     if [[ $EXCEPTION_COUNT -eq 0 ]]; then
-      logInfo "SUCCESS => No sort diffs found!!"
+      log_info "SUCCESS => No sort diffs found!!"
     else
       ERROR_COUNT=$((${ERROR_COUNT} + ${EXCEPTION_COUNT}))
-      logInfo "There are [${EXCEPTION_COUNT}] sort diffs found :("
+      log_info "There are [${EXCEPTION_COUNT}] sort diffs found :("
       diff -U 0 "${TMP_INVENTORY_FILE_SORTED}" "${TMP_INVENTORY_FILE}" | grep "^@"
     fi
-    logInfo "ERROR_COUNT=${ERROR_COUNT}"
+    log_info "ERROR_COUNT=${ERROR_COUNT}"
   done
-  logInfo "#######################################################"
-  logInfo "ERROR_COUNT=${ERROR_COUNT}"
-  logInfo ""
+  log_info "#######################################################"
+  log_info "ERROR_COUNT=${ERROR_COUNT}"
+  log_info ""
 
   return "${ERROR_COUNT}"
 }
@@ -426,7 +516,7 @@ function run_pytests() {
   shift 2
   local TEST_CASES=("$@")
 
-  logInfo "TEST_CASES[@]=${TEST_CASES[@]}"
+  log_info "TEST_CASES[@]=${TEST_CASES[@]}"
 
   local TEST_COMMAND="pytest --verbose --capture=tee-sys --junitxml=${PYTEST_JUNIT_REPORT} ${PYTESTS_TARGET}"
   if [[ "${TEST_CASES[@]}" != "ALL" ]]; then
@@ -440,13 +530,13 @@ function run_pytests() {
   local RETURN_STATUS=$?
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    logInfo "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
+    log_info "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
   else
-    logInfo "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
-    logInfo "${TEST_COMMAND}"
+    log_info "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    log_info "${TEST_COMMAND}"
     eval "${TEST_COMMAND}"
   fi
-  logInfo "TEST[${TEST_CASE_ID}] - RETURN_STATUS=${RETURN_STATUS}"
+  log_info "TEST[${TEST_CASE_ID}] - RETURN_STATUS=${RETURN_STATUS}"
 
   return "${RETURN_STATUS}"
 }
@@ -468,10 +558,10 @@ function run_test_case() {
      stringContain "${TEST_FUNCTION}" "${TEST_CASES_STR}" ||
      [ "${TEST_CASES_STR}" == "ALL" ]
   then
-    logDebug "Run test [${TEST_FUNCTION}]"
+    log_debug "Run test [${TEST_FUNCTION}]"
 
     local TEST_COMMAND="${TEST_FUNCTION}"
-    logDebug "TEST_COMMAND=${TEST_COMMAND}"
+    log_debug "TEST_COMMAND=${TEST_COMMAND}"
 
 #    local TEST_RESULTS=$(${TEST_FUNCTION} "${TEST_ARGS}")
 #    local TEST_RESULTS=$(eval "${TEST_FUNCTION} ${TEST_ARGS}")
@@ -479,18 +569,18 @@ function run_test_case() {
     local RETURN_STATUS=$?
 
     if [[ $RETURN_STATUS -eq 0 ]]; then
-      logInfo "${TEST_FUNCTION}: SUCCESS"
+      log_info "${TEST_FUNCTION}: SUCCESS"
     else
-      logError "${TEST_FUNCTION}: FAILED"
+      log_error "${TEST_FUNCTION}: FAILED"
     fi
 
     if [[ $RETURN_STATUS -ne 0 || $DISPLAY_TEST_RESULTS -gt 0 ]]; then
-      logInfo "TEST_RESULTS ****"
+      log_info "TEST_RESULTS ****"
       eval "${TEST_FUNCTION} ${TEST_ARGS}"
     fi
-    logDebug "RETURN_STATUS=${RETURN_STATUS}"
+    log_debug "RETURN_STATUS=${RETURN_STATUS}"
   fi
-  logDebug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
+  log_debug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
   return "${RETURN_STATUS}"
 
 }
@@ -529,8 +619,8 @@ function run_tests() {
   local TEST_CASES=("$@")
   local RETURN_STATUS=0
 
-  logInfo "TEST_CASES[@]=${TEST_CASES[@]}"
-  TEST_CASES_STR="${TEST_CASES[@]}"
+  log_info "TEST_CASES[*]=${TEST_CASES[*]}"
+  TEST_CASES_STR="${TEST_CASES[*]}"
   TEST_CASE_IDX=0
 
   IFS=$'\n'
@@ -549,42 +639,25 @@ function run_tests() {
 
     TEST_CASE=${TEST_CASE_ARRAY[0]}
 
-    logDebug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE}"
+    log_debug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE}"
 
     local TEST_CASE_ARGS=()
     if [[ ${#TEST_CASE_ARRAY[@]} -gt 1 ]]; then
       ## ref: https://unix.stackexchange.com/questions/413976/how-to-shift-array-value-in-bash#413990
       TEST_CASE_ARGS=${TEST_CASE_ARRAY[@]:1}
-      logDebug "TEST_CASE_ARGS=${TEST_CASE_ARGS[@]}"
+      log_debug "TEST_CASE_ARGS=${TEST_CASE_ARGS[@]}"
     fi
 
     run_test_case "${TEST_CASE_IDX_PADDED}" "${TEST_CASE}" "${TEST_CASES_STR}" "${TEST_CASE_ARGS[@]}"
     RETURN_STATUS=$?
     ERROR_COUNT=$((${ERROR_COUNT} + ${RETURN_STATUS}))
-    logDebug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
+    log_debug "TEST_CASE_IDX=${TEST_CASE_IDX_PADDED} TEST_CASE=${TEST_CASE} RETURN_STATUS=${RETURN_STATUS} ERROR_COUNT=${ERROR_COUNT}"
 
   done
 
-  logInfo "ERROR_COUNT=${ERROR_COUNT}"
+  log_info "ERROR_COUNT=${ERROR_COUNT}"
   return ${ERROR_COUNT}
 }
-
-function checkRequiredCommands() {
-    missingCommands=""
-    for currentCommand in "$@"
-    do
-        isInstalled "${currentCommand}" || missingCommands="${missingCommands} ${currentCommand}"
-    done
-
-    if [[ ! -z "${missingCommands}" ]]; then
-        fail "checkRequiredCommands(): Please install the following commands required by this script:${missingCommands}"
-    fi
-}
-
-function isInstalled() {
-    command -v "${1}" >/dev/null 2>&1 || return 1
-}
-
 
 function install_jq() {
   local OS="${1}"
@@ -592,7 +665,7 @@ function install_jq() {
 
   echo "==> installing jq - required for yq sort-keys (https://mikefarah.gitbook.io/yq/operators/sort-keys)"
   if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
-    logInfo "Installing jq for linux"
+    log_info "Installing jq for linux"
     if [[ -n "$(command -v dnf)" ]]; then
       sudo dnf install -y "${PACKAGE_NAME}"
     elif [[ -n "$(command -v yum)" ]]; then
@@ -602,12 +675,12 @@ function install_jq() {
     fi
   fi
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
-    logInfo "Installing jq for MacOS"
+    log_info "Installing jq for MacOS"
     brew install "${PACKAGE_NAME}"
   fi
   if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
     PACKAGE_NAME="mingw-w64-x86_64-jq"
-    logInfo "Installing jq for MSYS2"
+    log_info "Installing jq for MSYS2"
     ## ref: https://packages.msys2.org/package/mingw-w64-x86_64-jq?repo=mingw64
     pacman --noconfirm -S "${PACKAGE_NAME}"
   fi
@@ -619,7 +692,7 @@ function install_yq() {
   local VERSION="v4.40.5"
   local BINARY="yq_linux_amd64"
 
-  logInfo "Installing yq (golang) (https://github.com/mikefarah/yq#install)"
+  log_info "Installing yq (golang) (https://github.com/mikefarah/yq#install)"
 
   if [[ -n "${INSTALL_ON_LINUX-}" ]]; then
 
@@ -630,17 +703,17 @@ function install_yq() {
     INSTALL_DIR="${HOME}/bin"
     mkdir -p "${INSTALL_DIR}"
 
-    logInfo "Installing yq for linux"
+    log_info "Installing yq for linux"
     ## ref: https://unix.stackexchange.com/questions/85194/how-to-download-an-archive-and-extract-it-without-saving-the-archive-to-disk
     curl -s -L "https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz" |\
       tar xzf - -C "${TMPDIR}" && mv "${TMPDIR}/${BINARY}" "${INSTALL_DIR}/yq"
   fi
   if [[ -n "${INSTALL_ON_MACOS-}" ]]; then
-    logInfo "Installing jq for MacOS"
+    log_info "Installing jq for MacOS"
     brew install yq
   fi
   if [[ -n "${INSTALL_ON_MSYS-}" ]]; then
-    logInfo "Installing jq for MSYS2"
+    log_info "Installing jq for MSYS2"
 
     ## ref: https://github.com/mikefarah/yq#arch-linux
     #pacman --noconfirm -S go-yq
@@ -658,9 +731,9 @@ function install_yq() {
 
 function ensure_python_modules() {
   PIP_COMMAND="pip install -r ${PROJECT_DIR}/requirements.txt"
-  logDebug "${PIP_COMMAND}"
+  log_debug "${PIP_COMMAND}"
   eval "${PIP_COMMAND} >/dev/null 2>&1"
-  logDebug "pip install complete"
+  log_debug "pip install complete"
 }
 
 
@@ -674,7 +747,7 @@ function ensure_tool() {
   local install_function="install_${executable}"
 
   if [[ -z "$(command -v "${executable}")" ]]; then
-    logDebug "executable '${executable}' not found"
+    log_debug "executable '${executable}' not found"
     # First check OS.
     PLATFORM_OS=$(uname -s | tr "[:upper:]" "[:lower:]")
 
@@ -693,17 +766,17 @@ function ensure_tool() {
         ;;
     esac
 
-    logDebug "installing executable '${executable}'"
+    log_debug "installing executable '${executable}'"
     eval "${install_function} ${PLATFORM_OS}"
   fi
 }
 
 
 function usage() {
-  echo "Usage: ${0} [options] [[TESTCASE_ID] [TESTCASE_ID] ...]"
+  echo "Usage: ${SCRIPT_NAME} [options] [[TESTCASE_ID] [TESTCASE_ID] ...]"
   echo ""
   echo "  Options:"
-  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
+  echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default: '${LOGLEVEL_TO_STR[${LOG_LEVEL}]}')"
   echo "       -d : display test results details"
   echo "       -l : show/list test cases"
   echo "       -p : run pytest"
@@ -714,28 +787,27 @@ function usage() {
   echo "     [TEST_CASES]"
   echo ""
   echo "  Examples:"
-	echo "       ${0} "
-	echo "       ${0} -l"
-	echo "       ${0} 01"
-	echo "       ${0} validate_file_extensions"
-	echo "       ${0} -k -L DEBUG validate_yml_sortorder"
-	echo "       ${0} 01 03"
-	echo "       ${0} -L DEBUG 02 04"
-	echo "       ${0} -p"
-	echo "       ${0} -p 01 02"
-	echo "       ${0} -r .test-results/junit-report.xml"
-  echo "       ${0} -v"
+	echo "       ${SCRIPT_NAME} "
+	echo "       ${SCRIPT_NAME} -l"
+	echo "       ${SCRIPT_NAME} 01"
+	echo "       ${SCRIPT_NAME} validate_file_extensions"
+	echo "       ${SCRIPT_NAME} -k -L DEBUG validate_yml_sortorder"
+	echo "       ${SCRIPT_NAME} 01 03"
+	echo "       ${SCRIPT_NAME} -L DEBUG 02 04"
+	echo "       ${SCRIPT_NAME} -p"
+	echo "       ${SCRIPT_NAME} -p 01 02"
+	echo "       ${SCRIPT_NAME} -r .test-results/junit-report.xml"
+  echo "       ${SCRIPT_NAME} -v"
 	[ -z "$1" ] || exit "$1"
 }
 
 
 function main() {
 
-  checkRequiredCommands ansible-inventory yamllint
-
+  PYTEST_JUNIT_REPORT="${PYTEST_JUNIT_REPORT_DEFAULT}"
   while getopts "L:r:dlpvhk" opt; do
       case "${opt}" in
-          L) setLogLevel "${OPTARG}" ;;
+          L) set_log_level "${OPTARG}" ;;
           l) print_test_cases && exit ;;
           r) PYTEST_JUNIT_REPORT="${OPTARG}" ;;
           d) DISPLAY_TEST_RESULTS=1 ;;
@@ -749,36 +821,34 @@ function main() {
   done
   shift $((OPTIND-1))
 
-  if [[ -n "${PYTEST_JUNIT_REPORT-}" ]]; then
-    PYTEST_JUNIT_REPORT="${PYTEST_JUNIT_REPORT_DEFAULT}"
-  fi
+  log_debug "PYTEST_JUNIT_REPORT=${PYTEST_JUNIT_REPORT}"
 
   ## ref: https://pypi.org/project/yq/
-  logDebug "Ensure jq present/installed (required for yq sort-keys)"
+  log_debug "Ensure jq present/installed (required for yq sort-keys)"
   ensure_tool jq
 
   ## ref: https://github.com/mikefarah/yq#install
-  logDebug "Ensure yq present/installed (required for yq sort-keys)"
+  log_debug "Ensure yq present/installed (required for yq sort-keys)"
   ensure_tool yq
 
   if [ $ENSURE_PYTHON_MODULES -eq 1 ]; then
-    logDebug "Ensure python modules present/installed"
+    log_debug "Ensure python modules present/installed"
     ensure_python_modules
   fi
 
-  checkRequiredCommands ansible-inventory yamllint jq yq
+  check_required_commands ansible-inventory yamllint jq yq
 
   TEST_CASES=("ALL")
   if [ $# -gt 0 ]; then
     TEST_CASES=("$@")
   fi
 
-  #logInfo "SCRIPT_DIR=${SCRIPT_DIR}"
-  logInfo "PROJECT_DIR=${PROJECT_DIR}"
-  logInfo "TEST_CASES=${TEST_CASES[*]}"
+  #log_info "SCRIPT_DIR=${SCRIPT_DIR}"
+  log_info "PROJECT_DIR=${PROJECT_DIR}"
+  log_info "TEST_CASES=${TEST_CASES[*]}"
 
   if [ $RUN_PYTEST -eq 1 ]; then
-    checkRequiredCommands pytest
+    check_required_commands pytest
     run_pytests "${PYTEST_JUNIT_REPORT}" "${INVENTORY_DIR}" "${TEST_CASES[@]}"
     exit $?
   fi
@@ -788,13 +858,13 @@ function main() {
   run_tests "${TEST_CASES[@]}"
   TOTAL_FAILED=$?
 
-  logInfo "*********************** "
-  logInfo "OVERALL INVENTORY TEST RESULTS"
-  logInfo "TOTAL TOTAL_FAILED=${TOTAL_FAILED}"
+  log_info "*********************** "
+  log_info "OVERALL INVENTORY TEST RESULTS"
+  log_info "TOTAL TOTAL_FAILED=${TOTAL_FAILED}"
   if [[ $TOTAL_FAILED -eq 0 ]]; then
-    logInfo "TEST SUCCEEDED!"
+    log_info "TEST SUCCEEDED!"
   else
-    logError "TEST FAILED!"
+    log_error "TEST FAILED!"
   fi
   exit $TOTAL_FAILED
 }

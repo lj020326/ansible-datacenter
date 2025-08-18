@@ -47,11 +47,11 @@ __docker_stack__postgres__config_tpls:
   - src: postgres/config-passwd.conf.j2
     dest: "{{ docker_stack__dir }}/postgres/passwd"
   - src: postgres/config-group.conf.j2
-  - dest: "{{ docker_stack__dir }}/postgres/group"
+    dest: "{{ docker_stack__dir }}/postgres/group"
   - src: pgadmin/config-passwd.conf.j2
-  - dest: "{{ docker_stack__dir }}/pgadmin/passwd"
+    dest: "{{ docker_stack__dir }}/pgadmin/passwd"
   - src: pgadmin/config-group.conf.j2
-  - dest: "{{ docker_stack__dir }}/pgadmin/group"
+    dest: "{{ docker_stack__dir }}/pgadmin/group"
 
 __docker_stack__postgres__firewalld_ports:
   - "{{ __docker_stack__postgres__port }}/tcp"
@@ -100,14 +100,21 @@ __docker_stack__postgres__services:
       POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__postgres__databases | join(':') }}"
       POSTGRES_USER: "{{ __docker_stack__postgres__user }}"
       POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
-    #      healthcheck:
-    #        test: "exit 0"
+      ## ref: https://stackoverflow.com/a/51697579
+      TZ: "{{ docker_stack__timezone }}"
+      PGTZ: "{{ docker_stack__timezone }}"
+    ## ref: https://docs.docker.com/reference/compose-file/services/#healthcheck
     ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
+    ## ref: https://stackoverflow.com/questions/35069027/docker-wait-for-postgresql-to-be-running
     healthcheck:
-      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+#      test: ["CMD-SHELL", "pg_isready -U postgres", "&&", "psql --username=postgres --list"]
+#      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?
       interval: 30s
-      timeout: 10s
-      retries: 3
+      timeout: 5s
+      start_period: 20s
+      start_interval: 20s
+      retries: 5
     deploy:
       mode: replicated
       placement:
@@ -117,9 +124,12 @@ __docker_stack__postgres__services:
       replicas: 1
       restart_policy:
         condition: on-failure
-        delay: 10s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
 
   ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/container_deployment.html
   ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/config_py.html#config-py
@@ -133,6 +143,12 @@ __docker_stack__postgres__services:
     image: dpage/pgadmin4:latest
     links:
       - postgres
+    ## in swarm mode - docker deploy does not support depends_on condition
+    ## ref: https://docs.docker.com/reference/compose-file/legacy-versions/#depends_on
+    ## ref: https://github.com/docker/compose/issues/9957#issuecomment-1329726003
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
     depends_on:
       - postgres
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
@@ -163,4 +179,6 @@ __docker_stack__postgres__services:
         condition: on-failure
         delay: 10s
         max_attempts: 3
-        window: 120s
+        window: 20s
+      update_config:
+        delay: 10s

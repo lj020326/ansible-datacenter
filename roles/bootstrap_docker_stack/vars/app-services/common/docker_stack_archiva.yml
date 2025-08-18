@@ -5,8 +5,11 @@ __docker_stack__archiva__smtp_host: "{{ docker_stack__archiva_smtp_host | d('mai
 __docker_stack__archiva__traefik_labels: "{{ docker_stack__archiva__traefik_labels 
   | d(__docker_stack__archiva__traefik_labels_default) }}"
 
+__docker_stack__archiva__data_dir_default: "{{ __docker_stack__archiva__stack_dir }}/archiva"
+__docker_stack__archiva__data_dir: "{{ docker_stack__archiva__dir | d(__docker_stack__archiva__data_dir_default) }}"
+
 __docker_stack__archiva__config_dirs:
-  - { path: "{{ docker_stack__dir }}/archiva" }
+  - path: "{{ __docker_stack__archiva__data_dir }}"
 
 __docker_stack__archiva__firewalld_ports:
   - "{{ docker_stack__archiva_http_port }}/tcp"
@@ -39,7 +42,7 @@ __docker_stack__archiva__services:
       - "{{ docker_stack__network_name__traefik_proxy }}"
       - "{{ docker_stack__network_name__default }}"
     volumes:
-      - "{{ docker_stack__dir }}/archiva:/archiva-data"
+      - "{{ __docker_stack__archiva__data_dir }}:/archiva-data"
       #        - "{{ __docker_stack__ca_cert_bundle }}:/certs/ca-certificates.crt:ro"
       - "{{ __docker_stack__ca_java_keystore }}:/etc/ssl/certs/java/cacerts"
     ports:
@@ -57,6 +60,9 @@ __docker_stack__archiva__services:
         delay: 10s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        order: stop-first
 
 docker_stack__appspec__archiva:
   dirs: "{{ __docker_stack__archiva__config_dirs | d([]) }}"

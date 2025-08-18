@@ -1,0 +1,126 @@
+---
+
+- name: "Display __bootstrap_ansible_controller__controller_host"
+  ansible.builtin.debug:
+    var: __bootstrap_ansible_controller__controller_host
+
+- name: "Display controller_env"
+  ansible.builtin.debug:
+    var: controller_env
+
+- name: "Display __bootstrap_ansible_controller__controller_oauth_token"
+  ansible.builtin.debug:
+    var: __bootstrap_ansible_controller__controller_oauth_token
+    verbosity: 1
+
+- name: "Display __bootstrap_ansible_controller__controller_verify_ssl"
+  ansible.builtin.debug:
+    var: __bootstrap_ansible_controller__controller_verify_ssl
+
+- name: "Include all vars files"
+  ansible.builtin.include_vars:
+    dir: vars/
+    ignore_files: vaulted-credentials.yml
+    ignore_unknown_extensions: true
+    extensions: ['yml', 'yaml', 'json']
+
+- name: "Include secure credentials" # Used to set vaulted_credentials fact as either masked or unmasked
+  ansible.builtin.include_vars:
+    file: vars/vaulted-credentials.yml
+  no_log: true
+
+- name: "Mask credentials"
+  ansible.builtin.set_fact:
+    vaulted_credentials: "{{ vaulted_credentials | d({}) | combine(({item: 'MASKED'})) }}"
+  loop: "{{ _vaulted_credentials.keys() | list }}"
+
+# - name: "Display controller organizations action"
+#   ansible.builtin.debug:
+#     var: bootstrap_ansible_controller__state
+
+- name: "Set __role_var_prefix"
+  ansible.builtin.set_fact:
+    __role_var_prefix: "controller"
+#    __role_var_prefix: "{{ role_name | replace('-','_') }}"
+
+- name: "Set {{ __role_var_prefix }} list var prefixes"
+  ansible.builtin.set_fact:
+#    __role_credentials_var_prefix: "{{ __role_var_prefix }}_credentials__"
+    __role_projects_var_prefix: "{{ __role_var_prefix }}_projects__"
+    __role_inventories_var_prefix: "{{ __role_var_prefix }}_inventories__"
+    __role_job_templates_var_prefix: "{{ __role_var_prefix }}_job_templates__"
+    __role_workflow_templates_var_prefix: "{{ __role_var_prefix }}_workflow_templates__"
+    __role_schedules_var_prefix: "{{ __role_var_prefix }}_schedules__"
+
+- name: "Set {{ __role_var_prefix }} var regex's"
+  ansible.builtin.set_fact:
+#    __role_credentials_list_var_regex: "^{{ __role_credentials_var_prefix }}"
+    __role_projects_list_var_regex: "^{{ __role_projects_var_prefix }}"
+    __role_inventories_list_var_regex: "^{{ __role_inventories_var_prefix }}"
+    __role_job_templates_list_var_regex: "^{{ __role_job_templates_var_prefix }}"
+    __role_workflow_templates_list_var_regex: "^{{ __role_workflow_templates_var_prefix }}"
+    __role_schedules_list_var_regex: "^{{ __role_schedules_var_prefix }}"
+
+- name: "Initialize {{ __role_var_prefix }} lists"
+  ansible.builtin.set_fact:
+#    controller_credentials: !unsafe "{{ controller_credentials|d([]) }}"
+    __controller_projects: "{{ controller_projects|d([]) }}"
+    __controller_inventories: "{{ controller_inventories|d([]) }}"
+    __controller_job_templates: "{{ controller_job_templates|d([]) }}"
+    __controller_workflow_templates: "{{ controller_workflow_templates|d([]) }}"
+    __controller_schedules: "{{ controller_schedules|d([]) }}"
+
+#- name: "Show variables with {{ __role_credentials_list_var_prefix }} prefix"
+#  ansible.builtin.debug:
+#    msg: "{{ lookup('varnames', __role_credentials_list_var_regex, wantlist=True) }}"
+
+- name: "Show variables with {{ __role_projects_list_var_prefix }} prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', __role_projects_list_var_regex, wantlist=True) }}"
+
+- name: "Show variables with {{ __role_inventories_list_var_prefix }} prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', __role_inventories_list_var_regex, wantlist=True) }}"
+
+- name: "Show variables with {{ __role_job_templates_list_var_prefix }} prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', __role_job_templates_list_var_regex, wantlist=True) }}"
+
+- name: "Show variables with {{ __role_workflow_templates_list_var_prefix }} prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', __role_workflow_templates_list_var_regex, wantlist=True) }}"
+
+- name: "Show variables with {{ __role_schedules_list_var_prefix }} prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', __role_schedules_list_var_regex, wantlist=True) }}"
+
+
+#- name: "Coalesce lists from {{ __role_credentials_list_var_prefix }}* vars into merged list"
+#  ansible.builtin.set_fact:
+#    controller_credentials: !unsafe "{{ controller_credentials|d([]) + lookup('vars', item)|d([]) }}"
+#  loop: "{{ lookup('varnames', __role_credentials_list_var_regex, wantlist=True) }}"
+
+- name: "Coalesce lists from {{ __role_projects_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __controller_projects: "{{ __controller_projects|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', __role_projects_list_var_regex, wantlist=True) }}"
+
+- name: "Coalesce lists from {{ __role_inventories_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __controller_inventories: "{{ __controller_inventories|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', __role_inventories_list_var_regex, wantlist=True) }}"
+
+- name: "Coalesce lists from {{ __role_job_templates_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __controller_job_templates: "{{ __controller_job_templates|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', __role_job_templates_list_var_regex, wantlist=True) }}"
+
+- name: "Coalesce lists from {{ __role_workflow_templates_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __controller_workflow_templates: "{{ __controller_workflow_templates|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', __role_workflow_templates_list_var_regex, wantlist=True) }}"
+
+- name: "Coalesce lists from {{ __role_schedules_list_var_prefix }}* vars into merged list"
+  ansible.builtin.set_fact:
+    __controller_schedules: "{{ __controller_schedules|d([]) + lookup('vars', item)|d([]) }}"
+  loop: "{{ lookup('varnames', __role_schedules_list_var_regex, wantlist=True) }}"

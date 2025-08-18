@@ -1,0 +1,32 @@
+---
+### Validation for custom credential type:
+### 'M365 Application Access'
+### Performs an API GET on provided URL
+
+- name: M365 Application Access credential type validations
+  block:
+    - name: Connect to AzureAD using credentials
+      ansible.windows.win_shell: Connect-AzureAD -CertificateThumbprint "{{ item['inputs']['m365_certificate_thumbprint'] }}" -ApplicationId "{{ item['inputs']['m365_application_id'] }}" -TenantId "{{ item['inputs']['m365_tenant_id'] }}" # noqa yaml[line-length]
+      check_mode: false
+      changed_when: false
+      delegate_to: azadcnctp1s1.dettonville.int
+      vars:
+        ansible_user: "{{ vaulted_credentials['azured_ad_username'] }}"
+        ansible_password: "{{ vaulted_credentials['azured_ad_password'] }}"
+        ansible_connection: winrm
+        ansible_port: 5985
+        ansible_winrm_scheme: http
+        ansible_winrm_server_cert_validation: ignore
+        ansible_winrm_transport: ntlm
+      register: __m365_results
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'M365 Application Access') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __m365_results['results'] | selectattr('failed') }}"

@@ -1,0 +1,436 @@
+---
+- name: Compile dictionary of org admin roles
+  ansible.builtin.set_fact:
+    __org_admin_map: |-
+      {% set ns = namespace() %}
+      {% for role in __organization_loop_var['admin_roles'] %}
+      {% set ns.org_map = ns.org_map | d([]) + ([role] | product(__organization_loop_var['admin_roles'][role]) | list) %}
+      {% endfor %}
+      {% for entry in ns.org_map %}
+      {% set ns.org_map_dict = ns.org_map_dict | d([]) + [{'role': entry[0], 'team': entry[1]}] %}
+      {% endfor %}
+      {{ ns.org_map_dict }}
+
+- name: Display organization admin role map
+  ansible.builtin.debug:
+    var: __org_admin_map
+
+- name: Set organization admin roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ item['team'] }}"
+    role: "{{ item['role'] }}"
+    state: "{{ bootstrap_ansible_controller__state }}"
+    organizations:
+      - "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  register: role_absent_result
+  failed_when:
+    - role_absent_result.failed
+    - bootstrap_ansible_controller__state == 'present' or
+        (bootstrap_ansible_controller__state == 'absent' and 'Unable to find team with name' not in role_absent_result.msg)
+  loop: "{{ __org_admin_map }}"
+
+- name: Set organization team auditor roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ item }}"
+    role: auditor
+    state: "{{ bootstrap_ansible_controller__state }}"
+    organizations:
+      - "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  register: org_auditor_result
+  loop: "{{ __organization_loop_var['auditors'] | d([]) | intersect(__organization_loop_var['teams']) }}"
+
+- name: Set organization local user auditor roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    user: "{{ item }}"
+    role: auditor
+    state: "{{ bootstrap_ansible_controller__state }}"
+    organizations:
+      - "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  register: org_auditor_result
+  loop: "{{ __organization_loop_var['auditors'] | d([]) | intersect(bootstrap_ansible_controller__local_users |
+    selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username')) }}"
+
+### Team roles
+
+- name: Compile dictionary of team roles
+  ansible.builtin.set_fact:
+    team_roles: "{{ team_roles | d({}) | combine({
+        team_name: {
+          'use': {
+            'projects': (__controller_projects | selectattr('environments', 'undefined') +
+              (__controller_projects | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.use', 'defined') | selectattr('roles.use', 'iterable') |
+              selectattr('roles.use', 'superset', [team_name]) | map(attribute='name') | list,
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.use', 'defined') | selectattr('roles.use', 'iterable') |
+              selectattr('roles.use', 'superset', [team_name]) | map(attribute='name') | list,
+            'credentials': (controller_credentials | selectattr('environments', 'undefined') +
+              (controller_credentials | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.use', 'defined') | selectattr('roles.use', 'iterable') |
+              selectattr('roles.use', 'superset', [team_name]) | map(attribute='name') | list
+          },
+          'execute': {
+            'job_templates': (__controller_job_templates | selectattr('environments', 'undefined') +
+              (__controller_job_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.execute', 'defined') | selectattr('roles.execute', 'iterable') |
+              selectattr('roles.execute', 'superset', [team_name]) | map(attribute='name') | list,
+            'workflow_templates': (__controller_workflow_templates | selectattr('environments', 'undefined') +
+              (__controller_workflow_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.execute', 'defined') | selectattr('roles.execute', 'iterable') |
+              selectattr('roles.execute', 'superset', [team_name]) | map(attribute='name') | list
+          },
+          'admin': {
+            'projects': (__controller_projects | selectattr('environments', 'undefined') +
+              (__controller_projects | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [team_name]) | map(attribute='name') | list,
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [team_name]) | map(attribute='name') | list,
+            'job_templates': (__controller_job_templates | selectattr('environments', 'undefined') +
+              (__controller_job_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [team_name]) | map(attribute='name') | list,
+            'workflow_templates': (__controller_workflow_templates | selectattr('environments', 'undefined') +
+              (__controller_workflow_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [team_name]) | map(attribute='name') | list
+          },
+          'update': {
+            'projects': (__controller_projects | selectattr('environments', 'undefined') +
+              (__controller_projects | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.update', 'defined') | selectattr('roles.update', 'iterable') |
+              selectattr('roles.update', 'superset', [team_name]) | map(attribute='name') | list,
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.update', 'defined') | selectattr('roles.update', 'iterable') |
+              selectattr('roles.update', 'superset', [team_name]) | map(attribute='name') | list
+          },
+          'adhoc': {
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.adhoc', 'defined') | selectattr('roles.adhoc', 'iterable') |
+              selectattr('roles.adhoc', 'superset', [team_name]) | map(attribute='name') | list
+          },
+          'approval': {
+            'workflow_templates': (__controller_workflow_templates | selectattr('environments', 'undefined') +
+              (__controller_workflow_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.approval', 'defined') | selectattr('roles.approval', 'iterable') |
+              selectattr('roles.approval', 'superset', [team_name]) | map(attribute='name') | list
+          }
+        }
+      }) }}"
+  loop: "{{ __organization_loop_var['teams'] }}"
+  loop_control:
+    loop_var: team_name
+    label: "{{ team_name }}"
+
+- name: Show team role definitions
+  ansible.builtin.debug:
+    var: team_roles
+
+- name: Set team use roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ team_name }}"
+    role: use
+    state: "{{ bootstrap_ansible_controller__state }}"
+    projects: "{{ team_roles[team_name]['use']['projects'] | d(omit, true) }}"
+    inventories: "{{ team_roles[team_name]['use']['inventories'] | d(omit, true) }}"
+    credentials: "{{ team_roles[team_name]['use']['credentials'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - team_roles[team_name]['use']['projects'] | length > 0 or
+        team_roles[team_name]['use']['inventories'] | length > 0 or
+        team_roles[team_name]['use']['credentials'] | length > 0
+  loop: "{{ __organization_loop_var['teams'] }}"
+  loop_control:
+    loop_var: team_name
+    label: "{{ team_name }}"
+
+- name: Set team execute roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ team_name }}"
+    role: execute
+    state: "{{ bootstrap_ansible_controller__state }}"
+    job_templates: "{{ team_roles[team_name]['execute']['job_templates'] }}"
+    workflows: "{{ team_roles[team_name]['execute']['workflow_templates'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - team_roles[team_name]['execute']['job_templates'] | length > 0 or
+        team_roles[team_name]['admin']['workflow_templates'] | length > 0
+  loop: "{{ __organization_loop_var['teams'] }}"
+  loop_control:
+    loop_var: team_name
+    label: "{{ team_name }}"
+
+- name: Set team admin roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ team_name }}"
+    role: admin
+    state: "{{ bootstrap_ansible_controller__state }}"
+    projects: "{{ team_roles[team_name]['admin']['projects'] | d(omit, true) }}"
+    inventories: "{{ team_roles[team_name]['admin']['inventories'] | d(omit, true) }}"
+    job_templates: "{{ team_roles[team_name]['admin']['job_templates'] | d(omit, true) }}"
+    workflows: "{{ team_roles[team_name]['admin']['workflow_templates'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - team_roles[team_name]['admin']['projects'] | length > 0 or
+        team_roles[team_name]['admin']['inventories'] | length > 0 or
+        team_roles[team_name]['admin']['job_templates'] | length > 0 or
+        team_roles[team_name]['admin']['workflow_templates'] | length > 0
+  loop: "{{ __organization_loop_var['teams'] }}"
+  loop_control:
+    loop_var: team_name
+    label: "{{ team_name }}"
+
+- name: Set team update roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ team_name }}"
+    role: update
+    state: "{{ bootstrap_ansible_controller__state }}"
+    projects: "{{ team_roles[team_name]['update']['projects'] | d(omit, true) }}"
+    inventories: "{{ team_roles[team_name]['update']['inventories'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - team_roles[team_name]['update']['projects'] | length > 0 or
+        team_roles[team_name]['update']['inventories'] | length > 0
+  loop: "{{ __organization_loop_var['teams'] }}"
+  loop_control:
+    loop_var: team_name
+    label: "{{ team_name }}"
+
+- name: Set team adhoc roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ team_name }}"
+    role: adhoc
+    state: "{{ bootstrap_ansible_controller__state }}"
+    inventories: "{{ team_roles[team_name]['adhoc']['inventories'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - team_roles[team_name]['adhoc']['inventories'] | length > 0
+  loop: "{{ __organization_loop_var['teams'] }}"
+  loop_control:
+    loop_var: team_name
+    label: "{{ team_name }}"
+
+- name: Set team approval roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    team: "{{ team_name }}"
+    role: approval
+    state: "{{ bootstrap_ansible_controller__state }}"
+    workflows: "{{ team_roles[team_name]['approval']['workflow_templates'] }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - team_roles[team_name]['approval']['workflow_templates'] | length > 0
+  loop: "{{ __organization_loop_var['teams'] }}"
+  loop_control:
+    loop_var: team_name
+    label: "{{ team_name }}"
+
+### Local user roles
+
+- name: Compile dictionary of local user roles
+  ansible.builtin.set_fact:
+    local_user_roles: "{{ local_user_roles | d({}) | combine({
+        local_user_name: {
+          'use': {
+            'projects': (__controller_projects | selectattr('environments', 'undefined') +
+              (__controller_projects | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.use', 'defined') | selectattr('roles.use', 'iterable') |
+              selectattr('roles.use', 'superset', [local_user_name]) | map(attribute='name') | list,
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.use', 'defined') | selectattr('roles.use', 'iterable') |
+              selectattr('roles.use', 'superset', [local_user_name]) | map(attribute='name') | list,
+            'credentials': (controller_credentials | selectattr('environments', 'undefined') +
+              (controller_credentials | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.use', 'defined') | selectattr('roles.use', 'iterable') |
+              selectattr('roles.use', 'superset', [local_user_name]) | map(attribute='name') | list
+          },
+          'execute': {
+            'job_templates': (__controller_job_templates | selectattr('environments', 'undefined') +
+              (__controller_job_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.execute', 'defined') | selectattr('roles.execute', 'iterable') |
+              selectattr('roles.execute', 'superset', [local_user_name]) | map(attribute='name') | list,
+            'workflow_templates': (__controller_workflow_templates | selectattr('environments', 'undefined') +
+              (__controller_workflow_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.execute', 'defined') | selectattr('roles.execute', 'iterable') |
+              selectattr('roles.execute', 'superset', [local_user_name]) | map(attribute='name') | list
+          },
+          'admin': {
+            'projects': (__controller_projects | selectattr('environments', 'undefined') +
+              (__controller_projects | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [local_user_name]) | map(attribute='name') | list,
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [local_user_name]) | map(attribute='name') | list,
+            'job_templates': (__controller_job_templates | selectattr('environments', 'undefined') +
+              (__controller_job_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [local_user_name]) | map(attribute='name') | list,
+            'workflow_templates': (__controller_workflow_templates | selectattr('environments', 'undefined') +
+              (__controller_workflow_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.admin', 'defined') | selectattr('roles.admin', 'iterable') |
+              selectattr('roles.admin', 'superset', [local_user_name]) | map(attribute='name') | list
+          },
+          'update': {
+            'projects': (__controller_projects | selectattr('environments', 'undefined') +
+              (__controller_projects | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.update', 'defined') | selectattr('roles.update', 'iterable') |
+              selectattr('roles.update', 'superset', [local_user_name]) | map(attribute='name') | list,
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.update', 'defined') | selectattr('roles.update', 'iterable') |
+              selectattr('roles.update', 'superset', [local_user_name]) | map(attribute='name') | list
+          },
+          'adhoc': {
+            'inventories': (__controller_inventories | selectattr('environments', 'undefined') +
+              (__controller_inventories | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.adhoc', 'defined') | selectattr('roles.adhoc', 'iterable') |
+              selectattr('roles.adhoc', 'superset', [local_user_name]) | map(attribute='name') | list
+          },
+          'approval': {
+            'workflow_templates': (__controller_workflow_templates | selectattr('environments', 'undefined') +
+              (__controller_workflow_templates | selectattr('environments', 'defined') | selectattr('environments', 'superset', [controller_env]))) |
+              selectattr('roles.approval', 'defined') | selectattr('roles.approval', 'iterable') |
+              selectattr('roles.approval', 'superset', [local_user_name]) | map(attribute='name') | list
+          }
+        }
+      }) }}"
+  loop: "{{ bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username') }}"
+  loop_control:
+    loop_var: local_user_name
+    label: "{{ local_user_name }}"
+
+- name: Show local user role definitions
+  ansible.builtin.debug:
+    var: local_user_roles
+
+- name: Set local user use roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    user: "{{ local_user_name }}"
+    role: use
+    state: "{{ bootstrap_ansible_controller__state }}"
+    projects: "{{ local_user_roles[local_user_name]['use']['projects'] | d(omit, true) }}"
+    inventories: "{{ local_user_roles[local_user_name]['use']['inventories'] | d(omit, true) }}"
+    credentials: "{{ local_user_roles[local_user_name]['use']['credentials'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - local_user_roles[local_user_name]['use']['projects'] | length > 0 or
+        local_user_roles[local_user_name]['use']['inventories'] | length > 0 or
+        local_user_roles[local_user_name]['use']['credentials'] | length > 0
+  loop: "{{ bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username') }}"
+  loop_control:
+    loop_var: local_user_name
+    label: "{{ local_user_name }}"
+
+- name: Set local user execute roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    user: "{{ local_user_name }}"
+    role: execute
+    state: "{{ bootstrap_ansible_controller__state }}"
+    job_templates: "{{ local_user_roles[local_user_name]['execute']['job_templates'] }}"
+    workflows: "{{ local_user_roles[local_user_name]['execute']['workflow_templates'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - local_user_roles[local_user_name]['execute']['job_templates'] | length > 0 or
+        local_user_roles[local_user_name]['admin']['workflow_templates'] | length > 0
+  loop: "{{ bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username') }}"
+  loop_control:
+    loop_var: local_user_name
+    label: "{{ local_user_name }}"
+
+- name: Set local user admin roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    user: "{{ local_user_name }}"
+    role: admin
+    state: "{{ bootstrap_ansible_controller__state }}"
+    projects: "{{ local_user_roles[local_user_name]['admin']['projects'] | d(omit, true) }}"
+    inventories: "{{ local_user_roles[local_user_name]['admin']['inventories'] | d(omit, true) }}"
+    job_templates: "{{ local_user_roles[local_user_name]['admin']['job_templates'] | d(omit, true) }}"
+    workflows: "{{ local_user_roles[local_user_name]['admin']['workflow_templates'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - local_user_roles[local_user_name]['admin']['projects'] | length > 0 or
+        local_user_roles[local_user_name]['admin']['inventories'] | length > 0 or
+        local_user_roles[local_user_name]['admin']['job_templates'] | length > 0 or
+        local_user_roles[local_user_name]['admin']['workflow_templates'] | length > 0
+  loop: "{{ bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username') }}"
+  loop_control:
+    loop_var: local_user_name
+    label: "{{ local_user_name }}"
+
+- name: Set local user update roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    user: "{{ local_user_name }}"
+    role: update
+    state: "{{ bootstrap_ansible_controller__state }}"
+    projects: "{{ local_user_roles[local_user_name]['update']['projects'] | d(omit, true) }}"
+    inventories: "{{ local_user_roles[local_user_name]['update']['inventories'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - local_user_roles[local_user_name]['update']['projects'] | length > 0 or
+        local_user_roles[local_user_name]['update']['inventories'] | length > 0
+  loop: "{{ bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username') }}"
+  loop_control:
+    loop_var: local_user_name
+    label: "{{ local_user_name }}"
+
+- name: Set local user adhoc roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    user: "{{ local_user_name }}"
+    role: adhoc
+    state: "{{ bootstrap_ansible_controller__state }}"
+    inventories: "{{ local_user_roles[local_user_name]['adhoc']['inventories'] | d(omit, true) }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - local_user_roles[local_user_name]['adhoc']['inventories'] | length > 0
+  loop: "{{ bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username') }}"
+  loop_control:
+    loop_var: local_user_name
+    label: "{{ local_user_name }}"
+
+- name: Set local user approval roles to {{ bootstrap_ansible_controller__state }}
+  ansible.controller.role:
+    user: "{{ local_user_name }}"
+    role: approval
+    state: "{{ bootstrap_ansible_controller__state }}"
+    workflows: "{{ local_user_roles[local_user_name]['approval']['workflow_templates'] }}"
+    lookup_organization: "{{ __organization_loop_var['name'] }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  when:
+    - bootstrap_ansible_controller__state == 'present' # No need to remove roles when resources will be removed
+    - local_user_roles[local_user_name]['approval']['workflow_templates'] | length > 0
+  loop: "{{ bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username') }}"
+  loop_control:
+    loop_var: local_user_name
+    label: "{{ local_user_name }}"

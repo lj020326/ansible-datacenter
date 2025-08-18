@@ -1,0 +1,93 @@
+---
+# We have to do this because the CentOS mirrors don't keep kernel-headers, etc
+# for older kernels.
+- name: Ensure we have kernel-headers installed for the current kernel
+  block:
+    - name: Attempt to install kernel support packages for current version
+      ansible.builtin.package:
+        name:
+          - kernel-headers-{{ ansible_kernel }}
+          - kernel-tools-{{ ansible_kernel }}
+          - kernel-tools-libs-{{ ansible_kernel }}
+          - kernel-devel-{{ ansible_kernel }}
+          - kernel-debug-devel-{{ ansible_kernel }}
+        state: present
+      environment: "{{proxy_env if proxy_env is defined else {}}}"
+  rescue:
+    - name: Update the kernel to latest version so we have a supported version
+      ansible.builtin.package:
+        name:
+          - kernel
+          - kernel-headers
+          - kernel-tools
+          - kernel-tools-libs
+          - kernel-devel
+          - kernel-debug-devel
+        state: latest
+        update_only: true
+      environment: "{{proxy_env if proxy_env is defined else {}}}"
+    - name: Reboot to pick up the new kernel
+      ansible.builtin.reboot:
+      when: not bootstrap_nvidia_drivers__skip_reboot
+
+- name: Add epel repo gpg key
+  ansible.builtin.rpm_key:
+    key: "{{ epel_repo_key }}"
+    state: present
+  when: bootstrap_nvidia_drivers__add_repos | bool
+
+- name: Add epel repo
+  become: true
+  ansible.builtin.package:
+    name:
+      - "{{ epel_package }}"
+    state: latest
+    update_only: true
+  environment: "{{proxy_env if proxy_env is defined else {}}}"
+  when: bootstrap_nvidia_drivers__add_repos | bool
+
+- name: Install dependencies
+  ansible.builtin.package:
+    name: dkms
+    state: present
+
+- name: Blacklist nouveau
+  community.general.kernel_blacklist:
+    name: nouveau
+    state: present
+
+- name: Add repo
+  ansible.builtin.yum_repository:
+    name: cuda
+    description: NVIDIA CUDA YUM Repo
+    baseurl: "{{ bootstrap_nvidia_drivers__rhel_cuda_repo_baseurl }}"
+    gpgkey: "{{ bootstrap_nvidia_drivers__rhel_cuda_repo_gpgkey }}"
+  environment: "{{proxy_env if proxy_env is defined else {}}}"
+  when: bootstrap_nvidia_drivers__add_repos | bool
+
+- name: Install driver packages RHEL/CentOS 7 and older
+  ansible.builtin.dnf:
+    name: "{{ bootstrap_nvidia_drivers__package_version | ternary('nvidia-driver-latest-dkms-'+bootstrap_nvidia_drivers__package_version, 'nvidia-driver-branch-'+bootstrap_nvidia_drivers__rhel_branch)
+      }}"
+    state: "{{ bootstrap_nvidia_drivers__package_state }}"
+    autoremove: "{{ bootstrap_nvidia_drivers__package_state == 'absent' }}"
+  register: install_driver_rhel7
+  environment: "{{proxy_env if proxy_env is defined else {}}}"
+  when: ansible_distribution_major_version < '8'
+
+- name: Install driver packages RHEL/CentOS 8 and newer
+  ansible.builtin.dnf:
+    name: "{{ bootstrap_nvidia_drivers__package_version | ternary('@nvidia-driver:'+bootstrap_nvidia_drivers__package_version, '@nvidia-driver:'+bootstrap_nvidia_drivers__rhel_branch+'-dkms')
+      }}"
+    state: "{{ bootstrap_nvidia_drivers__package_state }}"
+    autoremove: "{{ bootstrap_nvidia_drivers__package_state == 'absent' }}"
+  register: install_driver_rhel8
+  environment: "{{proxy_env if proxy_env is defined else {}}}"
+  when: ansible_distribution_major_version > '7'
+
+- name: Set install_driver.changed var for RHEL 7/8
+  ansible.builtin.debug:
+    msg: Driver installed for RHEL
+  when: install_driver_rhel7.changed or install_driver_rhel8.changed
+  register: install_driver
+  changed_when: install_driver_rhel7.changed or install_driver_rhel8.changed

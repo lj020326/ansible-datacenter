@@ -200,6 +200,7 @@ alias startheroku='heroku local'
 # alias syncbashenv='rsync1 ${ANSIBLE_DEVELOPER_REPO}/files/scripts/bashenv/msys2/.bash* ~/'
 alias syncbashenv="${ANSIBLE_DEVELOPER_REPO}/sync-bashenv.sh && source ${HOME}/.bashrc"
 alias getsitecertinfo="get_site_cert_info.sh"
+alias getcertinfo="openssl x509 -text -noout -in"
 
 ## see function for more dynamic/robust version of the same shortcut
 #alias blastit-="git pull origin && git add . && git commit -am 'updates from ${HOSTNAME}' && git push origin"
@@ -225,7 +226,7 @@ alias gitpullrebase="git pull origin --rebase"
 ## https://stackoverflow.com/questions/24609146/stop-git-merge-from-opening-text-editor
 #git config --global alias.merge-no-edit '!env GIT_EDITOR=: git merge'
 alias gitmerge="git merge-no-edit"
-alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout master && git merge-no-edit -X theirs main"
+alias gitmergemain="git fetch --all && git checkout main && gitpull && git checkout main && git merge-no-edit -X theirs main"
 
 ## ref: https://stackoverflow.com/questions/40585959/git-pull-x-theirs-doesnt-work
 alias gitpulltheirs='git pull -X theirs'
@@ -251,10 +252,10 @@ alias gitrewind="git reset --hard HEAD && git clean -d -f"
 alias gitcleanupoldlocal="git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D "
 
 ## ref: https://stackoverflow.com/questions/1371261/get-current-directory-name-without-full-path-in-a-bash-script
-#alias gitaddorigin="git remote add origin ssh://git@gitea.admin.johnson.int:2222/gitadmin/${PWD##*/}.git && git push -u origin master"
-alias gitaddorigin="git remote add origin ssh://git@gitea.admin.dettonville.int:2222/infra/${PWD##*/}.git && git push -u origin master"
+#alias gitaddorigin="git remote add origin ssh://git@gitea.admin.johnson.int:2222/gitadmin/${PWD##*/}.git && git push -u origin main"
+alias gitaddorigin="git remote add origin ssh://git@gitea.admin.dettonville.int:2222/infra/${PWD##*/}.git && git push -u origin main"
 
-#alias gitsetupstream="git branch --set-upstream-to=origin/master"
+#alias gitsetupstream="git branch --set-upstream-to=origin/main"
 alias gitsetupstream="git branch --set-upstream-to=origin/$(git symbolic-ref HEAD 2>/dev/null)"
 
 ## ref: https://stackoverflow.com/questions/9662249/how-to-overwrite-local-tags-with-git-fetch

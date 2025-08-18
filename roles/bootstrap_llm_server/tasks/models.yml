@@ -1,0 +1,44 @@
+---
+- name: Pull DeepSeek models
+  ansible.builtin.shell: |
+    sudo -u {{ bootstrap_llm_server__ollama_user }} /usr/local/bin/ollama pull {{ item }}
+  loop: "{{ bootstrap_llm_server__deepseek_models }}"
+  async: "{{ bootstrap_llm_server__model_download_timeout }}"
+  poll: 0
+  register: deepseek_downloads
+  changed_when: true
+
+- name: Display deepseek_downloads
+  ansible.builtin.debug:
+    var: deepseek_downloads
+
+- name: Pull additional models
+  ansible.builtin.shell: |
+    sudo -u {{ bootstrap_llm_server__ollama_user }} /usr/local/bin/ollama pull {{ item }}
+  loop: "{{ bootstrap_llm_server__additional_models }}"
+  async: "{{ bootstrap_llm_server__model_download_timeout }}"
+  poll: 0
+  register: additional_downloads
+  changed_when: true
+
+- name: Display additional_downloads
+  ansible.builtin.debug:
+    var: additional_downloads
+
+- name: Wait for DeepSeek model downloads to complete
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: deepseek_job_result
+  until: deepseek_job_result.finished
+  retries: 180
+  delay: 20
+  loop: "{{ deepseek_downloads.results }}"
+
+- name: Wait for additional model downloads to complete
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: additional_job_result
+  until: additional_job_result.finished
+  retries: 180
+  delay: 20
+  loop: "{{ additional_downloads.results }}"

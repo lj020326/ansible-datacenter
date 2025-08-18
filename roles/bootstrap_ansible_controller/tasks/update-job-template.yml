@@ -1,0 +1,69 @@
+---
+
+##
+## Create job_templates in batches
+##
+##   According to the documentation, in order to run multiple asynchronous tasks
+##   while limiting the number of tasks running concurrently:
+##
+##   ref: https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_async.html
+##   ref: https://dmsimard.com/2017/05/10/limiting-the-amount-of-concurrent-asynchronous-tasks-in-ansible/
+##
+
+- name: Create project job templates
+  when:
+    - __controller_job_templates | d([]) | length>0
+    - async_item['environments'] is not defined or controller_env.lower() in async_item['environments']
+  ansible.controller.job_template:
+    name: "{{ async_item['name'] | mandatory }}"
+    description: "{{ async_item['description'] | d('') }}"
+    organization: "{{ async_item['organization'] | d('') }}"
+    inventory: "{{ async_item['inventory'] | d(omit, true) }}"
+    project: "{{ async_item['project'] | mandatory }}"
+    playbook: "{{ async_item['playbook'] | d(omit, true) }}"
+    credentials: "{{ async_item['credentials'] | d([], true) }}"
+    limit: "{{ async_item['limit'] | d('', true) }}"
+    survey_enabled: "{{ async_item['survey_enabled'] | d(false) }}"
+    survey_spec: "{{ async_item['survey_spec'] | d({}, true) }}"
+    extra_vars: "{{ async_item['extra_vars'] | d({}, true) }}"
+    become_enabled: "{{ async_item['become_enabled'] | d(false) }}"
+    job_tags: "{{ async_item['job_tags'] | d('', true) }}"
+    skip_tags: "{{ async_item['skip_tags'] | d('', true) }}"
+    scm_branch: "{{ async_item['scm_branch'] | d('', true) }}"
+    state: "{{ async_item['state'] | d('present') }}"
+    execution_environment: "{{ async_item['execution_environment'] | d(omit) }}"
+    allow_simultaneous: "{{ async_item['allow_simultaneous'] | d(false) }}"
+    ask_limit_on_launch: "{{ async_item['ask_limit_on_launch'] | d(false) }}"
+    ask_variables_on_launch: "{{ async_item['ask_variables_on_launch'] | d(false) }}"
+    ask_verbosity_on_launch: "{{ async_item['ask_verbosity_on_launch'] | d(false) }}"
+    ask_inventory_on_launch: "{{ async_item['ask_inventory_on_launch'] | d(false) }}"
+    ask_job_type_on_launch: "{{ async_item['ask_job_type_on_launch'] | d(false) }}"
+    ask_credential_on_launch: "{{ async_item['ask_credential_on_launch'] | d(false) }}"
+    ask_tags_on_launch: "{{ async_item['ask_tags_on_launch'] | d(false) }}"
+    ask_skip_tags_on_launch: "{{ async_item['ask_skip_tags_on_launch'] | d(false) }}"
+    notification_templates_started: "{{ async_item['notification_templates_started'] | d([], true) }}"
+    notification_templates_success: "{{ async_item['notification_templates_success'] | d([], true) }}"
+    notification_templates_error: "{{ async_item['notification_templates_error'] | d([], true) }}"
+  async: "{{ ansible_check_mode | ternary(0, __bootstrap_ansible_controller__async_max_runtime_in_seconds) }}"
+  poll: 0
+  register: __create_job_template_async
+  changed_when: not __create_job_template_async.changed
+  ignore_errors: "{{ ansible_check_mode }}"
+  loop: "{{ _controller_job_templates_batch }}"
+  loop_control:
+    loop_var: "async_item"    
+    label: "{{ async_item['name'] }}"
+
+- name: Wait for async job template creation to finish
+  when:
+    - not ansible_check_mode
+    - async_result_item.ansible_job_id is defined
+  ansible.builtin.async_status:
+    jid: "{{ async_result_item.ansible_job_id }}"
+  register: __async_job_template_result
+  loop: "{{ __create_job_template_async.results }}"
+  loop_control:
+    loop_var: "async_result_item"
+    label: "{{ async_result_item['async_item']['name'] }}"
+  until: __async_job_template_result.finished
+  retries: 10

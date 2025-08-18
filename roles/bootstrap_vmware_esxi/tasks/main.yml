@@ -4,6 +4,8 @@
 
 - name: Run locally
   delegate_to: localhost
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
   block:
     - name: Test ESXi connectivity for root
       changed_when: false
@@ -17,15 +19,11 @@
       ansible.builtin.debug:
         var: login_enabled
 
-    #    - ansible.builtin.debug:
-    #        var: vmware_esxi_password
-
     ## ref: https://kb.vmware.com/s/article/1002866
     - name: Add ssh auth key to ESXi servers
-    #  when: item.stdout.find("success") != -1
-      when: login_enabled.rc != 0
+      when: not login_enabled.failed
       changed_when: false
       ansible.builtin.shell: |
-        sshpass -p '{{ vmware_esxi_password }}' ssh -oStrictHostKeyChecking=no \
+        sshpass -p '{{ bootstrap_vmware_esxi__esxi_password }}' ssh -oStrictHostKeyChecking=no \
           {{ ansible_user }}@{{ inventory_hostname }}.{{ ca_domain }} \
           -C 'echo {{ admin_ssh_public_key }} >> /etc/ssh/keys-{{ ansible_user }}/authorized_keys'

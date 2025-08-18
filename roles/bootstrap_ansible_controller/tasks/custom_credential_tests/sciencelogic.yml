@@ -1,0 +1,25 @@
+### Validation for custom credential type:
+### 'Netbrain'
+### Retrieves status list of network devices from netbrain
+- name: Netbrain credential Validations
+  block:
+    - name: Get Devices on with name attribute only
+      no_log: true
+      dettonville.sciencelogic.device_info:
+        uri: "{{ item['inputs']['sciencelogic_url'] }}"
+        username: "{{ item['inputs']['sciencelogic_username'] }}"
+        password: "{{ item['inputs']['sciencelogic_password'] }}"
+        validate_certs: "{{ item['inputs']['sciencelogic_validate_certs'] }}"
+      register: sciencelogic_devices
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'ScienceLogic') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        var: sciencelogic_devices

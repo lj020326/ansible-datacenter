@@ -1,8 +1,7 @@
 ---
 
 docker_stack__service_groups__base:
-  - name: base
-    source: role
+  - base
 
 # docker_stack__python_docker_interpreter: "{{ ansible_python_docker_interpreter }}"
 
@@ -66,6 +65,17 @@ docker_stack__grafana_admin_password: "{{ vault__docker_stack__grafana_admin_pas
 ############
 ## LDAP
 ############
+user_media_uid: "media"
+user_media_uid_number: 1003
+#user_media_gid_number: 995
+user_media_gid_number: 895
+
+user_plex_uid: "plex"
+#user_plex_uid_number: 996
+#user_plex_gid_number: 985
+user_plex_uid_number: 898
+user_plex_gid_number: 898
+
 docker_stack__ldap_domain: "{{ docker_stack__internal_root_domain }}"
 # docker_stack__ldap_domain: "{{ control_plane_domain }}"
 
@@ -149,11 +159,12 @@ docker_stack__archiva_smtp_host: "{{ docker_stack__smtp_host }}"
 docker_stack__gitlab_smtp_address: "{{ docker_stack__smtp_host }}"
 docker_stack__gitlab_smtp_port: "{{ docker_stack__smtp_port }}"
 
-docker_stack__email_from: "admin@dettonville.com"
+#docker_stack__email_from: "admin@dettonville.com"
+docker_stack__email_from: "admin+{{ inventory_hostname_short }}@dettonville.com"
 docker_stack__email_to: "admin@dettonville.com"
 docker_stack__email_default_suffix: "@dettonville.com"
 
-docker_stack__email_admin_address: "admin+jenkins@dettonville.com"
+docker_stack__email_jenkins_admin_address: "admin+jenkins@dettonville.com"
 
 
 docker_stack__healthchecks_site_name: "Dettonville HealthChecks"
@@ -207,6 +218,8 @@ docker_stack__registry_password: "{{ docker_registry_password }}"
 docker_stack__registry_service_common_name: "{{ docker_stack__internal_domain }}"
 docker_stack__registry_users: "{{ registry_users }}"
 
+docker_stack__registry_service_data_path: "/data/docker_registry_local"
+
 #docker_stack__restart_stack_command: >
 #  cd /home/{{ docker_stack__user_username }}/docker &&
 #  docker-compose down &&
@@ -216,6 +229,7 @@ docker_stack__registry_users: "{{ registry_users }}"
 docker_stack__restart_stack_command: >
   /home/{{ docker_stack__user_username }}/docker/recreate-stack.sh
 
+## run 2:10 AM every day
 docker_stack__restart_stack_schedule: ["10", "2", "*", "*", "*"]
 
 ##########
@@ -238,7 +252,6 @@ bootstrap_linux_cron__list__docker_stack:
 #    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
   - name: "Restart the docker stack"
     job: "{{ docker_stack__restart_stack_command }}"
-    ## run 1:10AM every day
     schedule: "{{ docker_stack__restart_stack_schedule }}"
     cron_file: "docker-stack-restart"
 #    user: "{{ (bootstrap_docker__users | first) | d('root') }}"

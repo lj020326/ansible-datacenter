@@ -7,22 +7,22 @@
 ```shell
 $ PROJECT_DIR="$( git rev-parse --show-toplevel )"
 $ cd ${COLLECTION_DIR}
-$ export MOLECULE_DISTRO=redhat7-systemd-python
+$ export MOLECULE_IMAGE_LABEL=redhat7-systemd-python
 $ molecule --debug test --destroy never
 $ molecule login
 $ molecule --debug test -s bootstrap-linux-package
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_DISTRO=centos7-systemd-python molecule converge --destroy never
-$ MOLECULE_DISTRO=centos7-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule converge --destroy never
+$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_DISTRO=centos8-systemd-python --debug converge
+$ MOLECULE_IMAGE_LABEL=centos8-systemd-python --debug converge
 $ molecule destroy
-$ MOLECULE_DISTRO=ubuntu2004-systemd-python converge
+$ MOLECULE_IMAGE_LABEL=ubuntu2004-systemd-python converge
 $ molecule destroy
-$ MOLECULE_DISTRO=ubuntu2204-systemd-python --debug converge
+$ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python --debug converge
 
 ```
 

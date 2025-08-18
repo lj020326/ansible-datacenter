@@ -1,0 +1,199 @@
+---
+
+#- name: "{{ __bootstrap_docker__log_prefix_rejoin }} Remove node and re-join to swarm"
+#  when: bootstrap_docker__swarm_manager|bool
+#  block:
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Get running stack info"
+#      ignore_errors: true
+#      community.docker.docker_stack_info:
+#      register: __docker_stack_info_result
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __docker_stack_info_result"
+#      ansible.builtin.debug:
+#        var: __docker_stack_info_result.results|d([])
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Remove stacks"
+#      community.docker.docker_stack:
+#        name: "{{ item.Name }}"
+#        state: absent
+#      loop: "{{ __docker_stack_info_result.results | d([]) }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_rejoin }} Remove node and re-join to swarm"
+  when: not bootstrap_docker__swarm_leader|bool
+  block:
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Set node availability"
+      ignore_errors: true
+      community.docker.docker_node:
+        hostname: "{{ inventory_hostname }}"
+        availability: drain
+      register: __swarm_node_drain
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_node_drain"
+      ansible.builtin.debug:
+        var: __swarm_node_drain
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Remove node from swarm"
+      ignore_errors: true
+      community.docker.docker_swarm:
+        node_id: "{{ inventory_hostname }}"
+        state: absent
+        force: true
+#      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+      register: __swarm_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_remove_result"
+      ansible.builtin.debug:
+        var: __swarm_remove_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Force node to leave swarm"
+      changed_when: false
+      ansible.builtin.command: docker swarm leave --force
+      register: __swarm_leave_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_leave_result"
+      ansible.builtin.debug:
+        var: __swarm_leave_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+      block:
+        - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
+          community.docker.docker_network:
+            name: "{{ bootstrap_docker__ingress_network }}"
+            state: absent
+            force: true
+      rescue:
+        - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Force remove ingress network {{ bootstrap_docker__ingress_network }}"
+          ansible.builtin.expect:
+            command: docker network rm --force {{ bootstrap_docker__ingress_network }}
+            responses:
+              "[y/N]": "y"
+          register: __network_remove_result
+
+        - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __network_remove_result"
+          ansible.builtin.debug:
+            var: __network_remove_result
+
+        - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Restart docker service"
+          ansible.builtin.service:
+            name: docker
+            state: restarted
+
+#    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Retrieve swarm join token"
+#      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+#      block:
+#        - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Retrieve swarm join token"
+#          ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+#          changed_when: false
+#          register: __swarm_token_result
+#
+#      rescue:
+#        - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Re-emit failure"
+#          when: not (__swarm_token_result.stderr | regex_search('This node is not a swarm manager'))
+#          vars:
+#            failed_task:
+#              result: "{{ ansible_failed_result }}"
+#          ansible.builtin.fail:
+#            msg: "{{ failed_task }}"
+#
+#        - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Retrieve swarm join token"
+#          when: __swarm_token_result.stderr | regex_search('This node is not a swarm manager')
+#          block:
+#
+##            - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Run swarm init"
+##              ansible.builtin.command: docker swarm init
+##              changed_when: false
+##              register: __docker_swarm_init_result
+#
+#            - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Run swarm init"
+#              community.docker.docker_swarm:
+#                state: present
+#                advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+#                default_addr_pool: "{{ bootstrap_docker__host_network_default_addr_pool }}"
+#                force: true
+#              register: __docker_swarm_init_result
+#
+#            - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __docker_swarm_init_result"
+#              ansible.builtin.debug:
+#                var: __docker_swarm_init_result
+#
+#            - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Retrieve swarm join token for {{ bootstrap_docker__swarm_role }}"
+#              ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+#              changed_when: false
+#              register: __swarm_token_result
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Set __swarm_join_token"
+#      ansible.builtin.set_fact:
+#        __swarm_join_token: "{{ __swarm_token_result.stdout_lines
+#          | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list | first }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_join_token"
+      ansible.builtin.debug:
+        var: __swarm_join_token
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Set node availability"
+      ignore_errors: true
+      community.docker.docker_node:
+        hostname: "{{ inventory_hostname }}"
+        availability: active
+      register: __swarm_node_active
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_node_active"
+      ansible.builtin.debug:
+        var: __swarm_node_active
+
+- name: "{{ __bootstrap_docker__log_prefix_rejoin }} Join node to swarm"
+  block:
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Join node to swarm"
+      community.docker.docker_swarm:
+        state: join
+        advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+        default_addr_pool: "{{ bootstrap_docker__host_network_default_addr_pool }}"
+        join_token: "{{ __swarm_join_token }}"
+        remote_addrs: "{{ __bootstrap_docker__swarm_remote_addrs }}"
+        timeout: 360
+        force: true
+      register: __swarm_join_result
+
+  rescue:
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_join_result"
+      ansible.builtin.debug:
+        var: __swarm_join_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Re-emit failure"
+      when: not (__swarm_join_result.stderr | d('') | regex_search('This node is not a swarm manager'))
+      vars:
+        failed_task:
+          result: "{{ ansible_failed_result }}"
+      ansible.builtin.fail:
+        msg: "{{ failed_task }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Run swarm init"
+      delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+      ansible.builtin.import_tasks: swarm_leader.yml
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Join node to swarm"
+      community.docker.docker_swarm:
+        state: join
+        advertise_addr: "{{ bootstrap_docker__swarm_adv_addr | d(omit) }}"
+        default_addr_pool: "{{ bootstrap_docker__host_network_default_addr_pool }}"
+        join_token: "{{ __swarm_join_token }}"
+        remote_addrs: "{{ __bootstrap_docker__swarm_remote_addrs }}"
+        timeout: 360
+        force: true
+      register: __swarm_join_result
+
+    - name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_join_result"
+      ansible.builtin.debug:
+        var: __swarm_join_result
+
+- name: "{{ __bootstrap_docker__log_prefix_rejoin }} Retrieve swarm join token for {{ bootstrap_docker__swarm_role }}"
+  community.docker.docker_swarm_info: {}
+  register: __swarm_info
+
+- name: "{{ __bootstrap_docker__log_prefix_rejoin }} Display __swarm_info"
+  ansible.builtin.debug:
+    var: __swarm_info

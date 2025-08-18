@@ -1,9 +1,9 @@
 #!/bin/bash -eu
 
-MOLECULE_DISTROS="centos7"
+MOLECULE_IMAGE_LABELS="centos7"
 
-for MOLECULE_DISTRO in $MOLECULE_DISTROS; do
-  echo "*** $MOLECULE_DISTRO"
-  export MOLECULE_DISTRO
+for MOLECULE_IMAGE_LABEL in $MOLECULE_IMAGE_LABELS; do
+  echo "*** $MOLECULE_IMAGE_LABEL"
+  export MOLECULE_IMAGE_LABEL
   molecule test
 done

@@ -61,6 +61,17 @@ docker_stack__appspec__keycloak:
 __docker_stack__keycloak__traefik_labels: "{{ docker_stack__keycloak__traefik_labels | d(__docker_stack__keycloak__traefik_labels_default) }}"
 
 __docker_stack__keycloak__services:
+
+  ## ref: https://github.com/jwilder/dockerize
+  ## ref: https://stackoverflow.com/a/72629559
+  ## Wait for postgres to be usable
+  check-keycloak-db-started:
+#    image: jwilder/dockerize:0.6.1
+    image: jwilder/dockerize:latest
+    command: 'dockerize -wait=tcp://postgres:5432'
+    depends_on:
+      - postgres
+
   ## ref: https://blog.exceptionerror.io/2018/08/29/openldap-keycloak-and-docker/
   ## ref: https://github.com/wolfeidau/keycloak-docker-compose/blob/master/docker-compose.yml
   ## ref: https://github.com/jboss-dockerfiles/keycloak/tree/master/docker-compose-examples
@@ -68,8 +79,16 @@ __docker_stack__keycloak__services:
   keycloak:
     container_name: keycloak
     image: "{{ __docker_stack__keycloak__image }}"
+    ## in swarm mode - docker deploy does not support depends_on condition
+    ## ref: https://docs.docker.com/reference/compose-file/legacy-versions/#depends_on
+    ## ref: https://github.com/docker/compose/issues/9957#issuecomment-1329726003
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
     depends_on:
+      - check-keycloak-db-started
       - postgres
+#    entrypoint: ["/wait-for-it.sh", "postgres:5432", "&&", "/init/entrypoint.sh"]
     links:
       - postgres
     restart: unless-stopped
@@ -90,6 +109,7 @@ __docker_stack__keycloak__services:
     ports:
       - 8081:8080
     volumes:
+#      - "{{ docker_stack__dir }}/wait-for-it.sh:/wait-for-it.sh"
       - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/themes:/opt/jboss/keycloak/themes/custome/:rw"
       #        - {{ __docker_stack__keycloak__stack_dir }}/keycloak/data:/data
       - keycloak_data:/data
@@ -98,6 +118,7 @@ __docker_stack__keycloak__services:
       interval: 5s
       timeout: 2s
       retries: 15
+      start_period: 90s
     deploy:
       mode: replicated
       placement:
@@ -106,7 +127,11 @@ __docker_stack__keycloak__services:
       replicas: 1
       restart_policy:
         condition: on-failure
-        delay: 10s
+        delay: 60s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        delay: 60s
+        order: stop-first
     labels: "{{ __docker_stack__keycloak__traefik_labels }}"

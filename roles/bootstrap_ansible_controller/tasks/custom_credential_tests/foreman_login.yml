@@ -1,0 +1,28 @@
+---
+### Validation for custom credential type:
+### 'Foreman Login'
+### Retrieves status of Satellite via redhat.satellite.status_info module
+
+- name: Foreman Login credential type validations
+  block:
+    - name: Get status of satellite using credential
+      no_log: true
+      redhat.satellite.status_info:
+        server_url: https://sat01.s4.dettonville.int
+        username: "{{ item['inputs']['username'] }}"
+        password: "{{ item['inputs']['password'] }}"
+        validate_certs: false
+      register: __foreman_login_results
+      vars:
+        ansible_python_interpreter: /usr/bin/python3.9
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'Foreman Login') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __foreman_login_results['results'] | selectattr('failed') }}"

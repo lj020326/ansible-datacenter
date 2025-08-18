@@ -8,9 +8,10 @@
 HOST=$1
 #USER=$2
 #PASS=$3
-DESTPATH=${2-/var/fwbackups}
-CFGPATH=${3-~/.fwbackup.cfg}
+DESTPATH=${2:-/var/fwbackups}
+CFGPATH=${3:-~/.fwbackup.cfg}
 
+MAILFROM=admin@dettonville.com
 MAILTO=admin@dettonville.com
 TIMESTAMP=`date +%Y%m%d%H%M%S`
 
@@ -99,13 +100,13 @@ if [ -e $BACKUPFILE ]; then
 
 	# Clear unneeded partials and lock file
 	fwbackupFail=0
-	cat "${logFile}" | mail -s "fwbackup: SUCCESS Backup for ${HOST}" -r admin@dettonville.com $MAILTO
-    #sendemail -u "Firewall Backup Successful for $1" -f admin@dettonville.com -t $MAILTO -m "Success - pfSense backup - $1"
+	cat "${logFile}" | mail -s "fwbackup: SUCCESS Backup for ${HOST}" -r $MAILFROM $MAILTO
+    #sendemail -u "Firewall Backup Successful for $1" -f $MAILFROM -t $MAILTO -m "Success - pfSense backup - $1"
 else
 	writeToLog "\n[$(date -Is)] FW Backup failed, try again later\n"
 	fwbackupFail=1
-	cat "${logFile}" | mail -s "fwbackup: FAILED for ${HOST}" -r admin@dettonville.com $MAILTO
-    #sendemail -u "Firewall Backup Failed for $1" -f admin@dettonville.com -t $MAILTO -m "Failure - pfSense backup - $1"
+	cat "${logFile}" | mail -s "fwbackup: FAILED for ${HOST}" -r $MAILFROM $MAILTO
+    #sendemail -u "Firewall Backup Failed for $1" -f $MAILFROM -t $MAILTO -m "Failure - pfSense backup - $1"
 fi
 
 exit "${fwbackupFail}"

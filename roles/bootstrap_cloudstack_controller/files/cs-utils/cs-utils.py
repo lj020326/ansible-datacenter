@@ -80,7 +80,9 @@ class ApiKeyHelper(object):
             if new_resource.username == 'admin':
                 log.info('Reseting admin api keys')
                 admin_keys = self.generate_admin_keys(new_resource.url, new_resource.password)
-                log.info('admin api keys: Generate new admin keys admin_keys=[%s]' % admin_keys)
+                sanitized_admin_keys = admin_keys.copy()
+                sanitized_admin_keys['secret_key'] = '***REDACTED***'
+                log.info('admin api keys: Generate new admin keys admin_keys=[%s]' % sanitized_admin_keys)
 
                 new_resource.admin_apikey = admin_keys['api_key']
                 new_resource.admin_secretkey = admin_keys['secret_key']
@@ -111,7 +113,8 @@ class ApiKeyHelper(object):
         new_resource = resource
         logPrefix="admin_apikeys_from_cloudstack():"
         log.info("%s starting" % logPrefix)
-        log.debug("%s resource=%s" % (logPrefix, resource))
+        sanitized_resource = {k: (v if k != 'password' else '<redacted>') for k, v in resource.items()}
+        log.debug("%s resource=%s" % (logPrefix, sanitized_resource))
 
         # look if apikeys already exist
         # otherwise  generate them
@@ -123,7 +126,8 @@ class ApiKeyHelper(object):
                 log.info('%s keys not found' % logPrefix)
                 log.info('%s Creating keys for admin' % logPrefix)
                 admin_keys = self.generate_admin_keys(resource['password'])
-                log.info('%s admin api keys: Generated new key admin_keys=%s' % (logPrefix, admin_keys))
+                redacted_admin_keys = {key: "<REDACTED>" if key in ["api_key", "secret_key"] else value for key, value in admin_keys.items()}
+                log.info('%s admin api keys: Generated new key admin_keys=%s' % (logPrefix, redacted_admin_keys))
             else:
                 log.info('%s admin api keys: use existing in CloudStack' % logPrefix)
 
@@ -176,7 +180,9 @@ class ApiKeyHelper(object):
     def keys_valid(self, new_resource):
         logPrefix="keys_valid():"
         log.info("%s starting" % logPrefix)
-        log.debug("%s new_resource=%s" % (logPrefix, new_resource))
+        sanitized_resource = {k: (v if k != 'password' else '***') for k, v in new_resource.items()}
+        log.debug("%s new_resource=%s" % (logPrefix, sanitized_resource))
+
         # Test if current defined keys are valid
         #
         if ('admin_apikey' in new_resource or 'admin_secretkey' in new_resource):
@@ -203,7 +209,9 @@ class ApiKeyHelper(object):
         log.info("%s starting" % logPrefix)
 
         login_params = { 'command': 'login', 'username': 'admin', 'password': password, 'response': 'json' }
-        log.info("%s login_params=%s" % (logPrefix, login_params))
+        safe_login_params = login_params.copy()
+        safe_login_params['password'] = '***'
+        log.info("%s login_params=%s" % (logPrefix, safe_login_params))
 
         # # create sessionkey and cookie of the api session initiated with username and password
         session = requests.Session()

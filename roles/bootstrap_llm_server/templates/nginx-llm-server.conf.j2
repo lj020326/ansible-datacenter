@@ -1,0 +1,32 @@
+{{ ansible_managed | comment(decoration='# ') }}
+server {
+    listen {{ bootstrap_llm_server__nginx_port }};
+    server_name localhost;
+
+    # Open WebUI
+    location / {
+        proxy_pass http://localhost:{{ bootstrap_llm_server__webui_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Ollama API
+    location /api/ {
+        proxy_pass http://localhost:{{ bootstrap_llm_server__ollama_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}

@@ -1,0 +1,42 @@
+---
+
+- name: "Init {{ role_name }} vars"
+  ansible.builtin.include_tasks: init-vars.yml
+  args:
+    apply:
+      tags:
+        - always
+  tags:
+    - always
+
+- name: Validate credentials
+  when: bootstrap_ansible_controller__validate_credentials|bool
+  ansible.builtin.include_tasks: "credential-tests.yml"
+  args:
+    apply:
+      tags:
+        - validate-credentials
+  tags:
+    - validate-credentials
+
+- name: Validate definitions
+  ansible.builtin.include_tasks: validate-definitions.yml
+  args:
+    apply:
+      tags:
+        - validate-definitions
+  tags:
+    - validate-definitions
+
+# - name: Display controller organizations action
+#   ansible.builtin.debug:
+#     var: bootstrap_ansible_controller__state
+
+## defaults to updating controller resources
+- name: "Updating resources"
+  when: bootstrap_ansible_controller__state=='present'
+  ansible.builtin.include_tasks: "update-controller-config.yml"
+
+- name: "Removing resources"
+  when: bootstrap_ansible_controller__state=='absent'
+  ansible.builtin.include_tasks: "remove-controller-config.yml"

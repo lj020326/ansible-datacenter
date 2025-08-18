@@ -4,13 +4,14 @@
 // ref: https://devops.stackexchange.com/questions/11833/how-do-i-load-a-jenkins-shared-library-in-a-jenkins-job-dsl-seed
 // ref: https://stackoverflow.com/questions/69364938/error-creating-jobdsl-parameters-programatically
 String jobsRepoUrl = "{{ __docker_stack__jenkins__pipeline_lib_repo }}"
+String gitCredentialsId = "{{ __docker_stack__jenkins__pipeline_lib_credential_id }}"
 
 String seedJobName = "ADMIN/bootstrap-projects"
 
-def createSeedJob(String seedJobName, String jobsRepoUrl) {
-    String gitCredentialsId = 'bitbucket-ssh-jenkins'
+def createSeedJob(String seedJobName, String jobsRepoUrl, String gitCredentialsId) {
     String seedJobFolder = seedJobName.split("/")[0]
     println "seedJobFolder=${seedJobFolder}"
+
     folder(seedJobFolder) {
         properties {
             authorizationMatrix {
@@ -19,84 +20,44 @@ def createSeedJob(String seedJobName, String jobsRepoUrl) {
                 }
                 // ref: https://github.com/jenkinsci/matrix-auth-plugin/releases
                 entries {
-                  user {
-                      name('admin')
-                      permissions([
-                        'Overall/Administer'
-                      ])
-                  }
-                  group {
-                      name('admin')
-                      permissions([
-                        'Overall/Administer'
-                      ])
-                  }
-                  group {
-                      name('Domain Admins')
-                      permissions([
-                        'Overall/Administer'
-                      ])
-                  }
-                  group {
-                      name('authenticated')
-                      permissions([
-                        'Overall/Read'
-                      ])
-                  }
+                    group { name('admin'); permissions(['Job/Read','Job/Configure','Job/Build']) }
+                    group { name('Domain Admins'); permissions(['Job/Read','Job/Configure','Job/Build']) }
+                    group { name('authenticated'); permissions(['Job/Read']) }
                 }
-
-//                 permissions([
-//                     "GROUP:Job/Build:admin",
-//                     "GROUP:Job/Cancel:admin",
-//                     "GROUP:Job/Configure:admin",
-//                     "GROUP:Job/Create:admin",
-//                     "GROUP:Job/Delete:admin",
-//                     "GROUP:Job/Discover:admin",
-//                     "GROUP:Job/Move:admin",
-//                     "GROUP:Job/Read:admin",
-//                     "GROUP:Job/Workspace:admin",
-//                 ])
             }
         }
     }
 
-    job(seedJobName) {
-        description()
-        label("controller")
+    pipelineJob(seedJobName) {
+        description('Seed job to create and update all other Jenkins jobs from Git.')
         keepDependencies(false)
         disabled(false)
-        concurrentBuild(false)
         quietPeriod(0)
-        logRotator {
-          numToKeep(10)
-        }
-        // ref: https://github.com/tomasbjerre/jenkins-configuration-as-code-sandbox/blob/master/jenkins-docker/jenkins.yaml
-        triggers {
-          cron("H/15 * * * *")
-        }
-        scm {
-            git {
-                remote {
-                    url(jobsRepoUrl)
-                    credentials(gitCredentialsId)
+        logRotator { numToKeep(10) }
+        triggers { cron("H/15 * * * *") }
+
+        definition {
+            cpsScm {
+                lightweight(true)
+                scm {
+                    git {
+                        remote {
+                            url jobsRepoUrl
+                            credentials gitCredentialsId
+                        }
+                        branch "*/main"
+                    }
                 }
-                branch("*/main")
-            }
-        }
-        steps {
-            jobDsl {
-                targets "jobs/jobdsl/templates/**/*.groovy"
-                // ref: https://marcesher.com/2016/06/21/jenkins-as-code-registering-jobs-for-automatic-seed-job-creation/
-                additionalClasspath "vars/" + "\r\n" + "src/"
+                // Move scriptPath inside cpsScm
+                scriptPath 'jobs/jobdsl/seed.groovy' // Your Jenkinsfile path for the seed job
             }
         }
     }
 }
 
-// ref: https://stackoverflow.com/questions/51212832/start-jenkins-job-immediately-after-creation-by-seed-job-with-parameters
-// ref: https://blog.ippon.tech/setting-up-a-shared-library-and-seed-job-in-jenkins-part-2/
-createSeedJob(seedJobName, jobsRepoUrl)
+// Pass the list of jobs to the function
+createSeedJob(seedJobName, jobsRepoUrl, gitCredentialsId)
 
 // ref: https://github.com/jenkinsci/job-dsl-plugin/wiki/Job-DSL-Commands#queue
 println "Add ${seedJobName} to the job queue"
-// queue(seedJobName)
+queue(seedJobName)

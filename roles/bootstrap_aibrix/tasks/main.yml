@@ -1,0 +1,235 @@
+---
+- name: Create AIBrix namespace
+  kubernetes.core.k8s:
+    name: aibrix-system
+    api_version: v1
+    kind: Namespace
+    state: present
+    wait: true
+
+- name: Check if AIBrix dependencies are already installed
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: aibrix-dependency-check
+    namespace: aibrix-system
+  register: dependency_check
+
+- name: Install AIBrix dependencies (stable)
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: aibrix-dependency-check
+        namespace: aibrix-system
+      data:
+        installed: "true"
+    wait: true
+  when: dependency_check.resources | length == 0
+
+- name: Apply AIBrix dependencies from stable release
+  kubernetes.core.k8s:
+    state: present
+    src: "https://github.com/vllm-project/aibrix/releases/download/{{ bootstrap_aibrix__version }}/aibrix-dependency-{{ bootstrap_aibrix__version }}.yaml"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 600
+  when: dependency_check.resources | length == 0
+
+- name: Wait for dependency pods to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ item }}"
+    label_selectors:
+      - "app.kubernetes.io/part-of=aibrix"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300
+  loop: "{{ bootstrap_aibrix__dependency_namespaces }}"
+  when: dependency_check.resources | length == 0
+
+- name: Install AIBrix core components
+  kubernetes.core.k8s:
+    state: present
+    src: "https://github.com/vllm-project/aibrix/releases/download/{{ bootstrap_aibrix__version }}/aibrix-core-{{ bootstrap_aibrix__version }}.yaml"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 600
+
+- name: Wait for AIBrix core components to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: aibrix-system
+    label_selectors:
+      - "app.kubernetes.io/part-of=aibrix"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300
+
+- name: Create AIBrix configuration ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: aibrix-config
+        namespace: aibrix-system
+      data:
+        gateway.yaml: |
+          apiVersion: gateway.aibrix.io/v1alpha1
+          kind: Gateway
+          metadata:
+            name: aibrix-gateway
+            namespace: aibrix-system
+          spec:
+            replicas: {{ bootstrap_aibrix__gateway_replicas }}
+            resources:
+              requests:
+                cpu: {{ bootstrap_aibrix__gateway_cpu_request }}
+                memory: {{ bootstrap_aibrix__gateway_memory_request }}
+              limits:
+                cpu: {{ bootstrap_aibrix__gateway_cpu_limit }}
+                memory: {{ bootstrap_aibrix__gateway_memory_limit }}
+            autoscaling:
+              enabled: {{ bootstrap_aibrix__autoscaling_enabled }}
+              minReplicas: {{ bootstrap_aibrix__autoscaling_min_replicas }}
+              maxReplicas: {{ bootstrap_aibrix__autoscaling_max_replicas }}
+              targetCPUUtilizationPercentage: {{ bootstrap_aibrix__autoscaling_target_cpu }}
+        runtime.yaml: |
+          apiVersion: runtime.aibrix.io/v1alpha1
+          kind: Runtime
+          metadata:
+            name: aibrix-runtime
+            namespace: aibrix-system
+          spec:
+            backend: {{ bootstrap_aibrix__runtime_backend }}
+            modelCache:
+              enabled: {{ bootstrap_aibrix__model_cache_enabled }}
+              size: {{ bootstrap_aibrix__model_cache_size }}
+            distributedInference:
+              enabled: {{ bootstrap_aibrix__distributed_inference_enabled }}
+              strategy: {{ bootstrap_aibrix__distributed_strategy }}
+            kvCache:
+              enabled: {{ bootstrap_aibrix__kv_cache_enabled }}
+              distributed: {{ bootstrap_aibrix__kv_cache_distributed }}
+            gpuFailureDetection:
+              enabled: {{ bootstrap_aibrix__gpu_failure_detection_enabled }}
+              checkInterval: {{ bootstrap_aibrix__gpu_check_interval }}
+
+- name: Apply AIBrix Gateway configuration
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ (lookup('kubernetes.core.k8s', api_version='v1', kind='ConfigMap', namespace='aibrix-system', resource_name='aibrix-config').data['gateway.yaml'] | from_yaml) }}"
+    wait: true
+
+- name: Apply AIBrix Runtime configuration
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ (lookup('kubernetes.core.k8s', api_version='v1', kind='ConfigMap', namespace='aibrix-system', resource_name='aibrix-config').data['runtime.yaml'] | from_yaml) }}"
+    wait: true
+
+- name: Create GPU node selector for AIBrix workloads
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: aibrix-gpu-config
+        namespace: aibrix-system
+      data:
+        nodeSelector: |
+          accelerator: nvidia-tesla-{{ bootstrap_aibrix__gpu_type }}
+        tolerations: |
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        resources: |
+          limits:
+            nvidia.com/gpu: {{ bootstrap_aibrix__gpu_count }}
+  when: bootstrap_aibrix__gpu_enabled
+
+- name: Create AIBrix service monitor for Prometheus
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: monitoring.coreos.com/v1
+      kind: ServiceMonitor
+      metadata:
+        name: aibrix-monitoring
+        namespace: aibrix-system
+        labels:
+          app.kubernetes.io/name: aibrix
+          app.kubernetes.io/component: monitoring
+      spec:
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: aibrix
+        endpoints:
+          - port: metrics
+            interval: 30s
+            path: /metrics
+  when: bootstrap_aibrix__monitoring_enabled
+
+- name: Create AIBrix ingress for external access
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: aibrix-ingress
+        namespace: aibrix-system
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          cert-manager.io/cluster-issuer: "{{ bootstrap_aibrix__cert_issuer }}"
+      spec:
+        ingressClassName: nginx
+        tls:
+          - hosts:
+              - "{{ bootstrap_aibrix__domain }}"
+            secretName: aibrix-tls
+        rules:
+          - host: "{{ bootstrap_aibrix__domain }}"
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: aibrix-gateway
+                      port:
+                        number: 80
+  when: bootstrap_aibrix__ingress_enabled
+
+- name: Verify AIBrix installation
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: aibrix-system
+    label_selectors:
+      - "app.kubernetes.io/name=aibrix"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: 300
+  register: bootstrap_aibrix__pods
+
+- name: Display AIBrix installation status
+  ansible.builtin.debug:
+    msg: "AIBrix installation completed successfully. {{ bootstrap_aibrix__pods.resources | length }} pods are running."

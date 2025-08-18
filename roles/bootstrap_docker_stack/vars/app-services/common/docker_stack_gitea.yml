@@ -1,6 +1,8 @@
 ---
 
 __docker_stack__gitea__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__gitea__base_dir_default: "{{ __docker_stack__gitea__stack_dir }}/gitea"
+__docker_stack__gitea__base_dir: "{{ docker_stack__gitea__dir | d(__docker_stack__gitea__base_dir_default) }}"
 
 __docker_stack__gitea__http_port: "{{ docker_stack__gitea_http_port | d('3000') }}"
 __docker_stack__gitea__ssh_port: "{{ docker_stack__gitea_ssh_port | d('2222') }}"
@@ -19,12 +21,13 @@ __docker_stack__gitea__internal_token: "{{ docker_stack__gitea_internal_token | 
 __docker_stack__gitea__oauth_jwt_secret: "{{ docker_stack__gitea_oauth_jwt_secret | d('00000000001111111111') }}"
 
 __docker_stack__gitea__config_dirs:
-  - path: "{{ __docker_stack__gitea__stack_dir }}/gitea"
-  - path: "{{ __docker_stack__gitea__stack_dir }}/gitea/gitea/conf"
+  - path: "{{ __docker_stack__gitea__base_dir }}"
+  - path: "{{ __docker_stack__gitea__base_dir }}/data"
+  - path: "{{ __docker_stack__gitea__base_dir }}/config"
 
 __docker_stack__gitea__config_tpls:
   - src: gitea/app.ini.j2
-    dest: "{{ __docker_stack__gitea__stack_dir }}/gitea/gitea/conf/app.ini"
+    dest: "{{ __docker_stack__gitea__base_dir }}/config/app.ini"
 
 __docker_stack__gitea__firewalld_ports:
   - "{{ __docker_stack__gitea__ssh_port }}/tcp"
@@ -57,13 +60,32 @@ __docker_stack__gitea__environment: "{{ docker_stack__gitea__environment | d(__d
 __docker_stack__gitea__traefik_labels: "{{ docker_stack__gitea__traefik_labels | d(__docker_stack__gitea__traefik_labels_default) }}"
 
 __docker_stack__gitea__services:
-  ## ref: https://docs.gitea.io/en-us/install-with-docker/
+
+#  ## ref: https://github.com/jwilder/dockerize
+#  ## ref: https://stackoverflow.com/a/72629559
+#  ## Wait for postgres to be usable
+#  check-gitea-db-started:
+##    image: jwilder/dockerize:0.6.1
+#    image: jwilder/dockerize:latest
+#    command: 'dockerize -wait=tcp://postgres:5432'
+#    depends_on:
+#      - postgres
+
+  ## ref: https://docs.gitea.com/installation/install-with-docker
   ## ref: https://git.habd.as/comfusion/high-tea/src/branch/master/docker-compose.yml
+  ## ref: https://docs.gitea.io/en-us/install-with-docker/
   gitea:
     container_name: gitea
     #      image: gitea/gitea:1.6
     image: gitea/gitea:latest
+    ## in swarm mode - docker deploy does not support depends_on condition
+    ## ref: https://docs.docker.com/reference/compose-file/legacy-versions/#depends_on
+    ## ref: https://github.com/docker/compose/issues/9957#issuecomment-1329726003
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
     depends_on:
+#      - check-gitea-db-started
       - postgres
     environment: "{{ __docker_stack__gitea__environment }}"
     #      restart: always
@@ -72,8 +94,10 @@ __docker_stack__gitea__services:
       - "{{ docker_stack__network_name__traefik_proxy }}"
       - "{{ docker_stack__network_name__default }}"
     volumes:
-      - "{{ __docker_stack__gitea__stack_dir }}/gitea:/data"
-      #      - "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem:/etc/ssl/certs/ca-certificates.crt:ro"
+#      - "{{ __docker_stack__gitea__base_dir }}:/data"
+#      - "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__internal_domain }}.chain.pem:/etc/ssl/certs/ca-certificates.crt:ro"
+      - "{{ __docker_stack__gitea__base_dir }}/data:/data"
+#      - "{{ __docker_stack__gitea__base_dir }}/config:/etc/gitea"
       - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
@@ -89,6 +113,12 @@ __docker_stack__gitea__services:
         published: "{{ __docker_stack__gitea__ssh_port }}"
         target: 22
     labels: "{{ __docker_stack__gitea__traefik_labels }}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       mode: replicated
       placement:
@@ -101,3 +131,7 @@ __docker_stack__gitea__services:
         delay: 10s
         max_attempts: 3
         window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first

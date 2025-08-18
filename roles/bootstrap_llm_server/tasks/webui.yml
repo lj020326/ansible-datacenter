@@ -1,0 +1,94 @@
+---
+- name: Create webui user
+  ansible.builtin.user:
+    name: "{{ bootstrap_llm_server__webui_user }}"
+    home: "{{ bootstrap_llm_server__webui_home }}"
+    shell: /bin/bash
+    system: false
+    create_home: true
+
+- name: Install Open WebUI
+  when: bootstrap_llm_server__install_open_webui
+  block:
+
+    - name: Create virtual environment for Open WebUI
+      ansible.builtin.pip:
+        name: pip
+        virtualenv: /opt/open-webui-venv
+        virtualenv_command: python3 -m venv
+
+    - name: Install Open WebUI in virtual environment
+      ansible.builtin.pip:
+        name: open-webui
+        state: present
+        virtualenv: /opt/open-webui-venv
+        extra_args: --no-cache-dir
+
+#    - name: Install pipx
+#      ansible.builtin.apt:
+#        name: pipx
+#        state: present
+#
+#    - name: Install Open WebUI using pipx
+#      community.general.pipx:
+#        name: open-webui
+#        state: latest
+#        pip_args: "--no-cache-dir"
+
+    - name: Create Open WebUI systemd service
+      ansible.builtin.template:
+        src: open-webui.service.j2
+        dest: /etc/systemd/system/open-webui.service
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart open-webui
+
+    - name: Enable and start Open WebUI service
+      ansible.builtin.systemd:
+        name: open-webui
+        enabled: true
+        state: started
+        daemon_reload: true
+
+- name: Install Ollama WebUI
+  when: bootstrap_llm_server__install_ollama_webui
+  block:
+    - name: Clone Ollama Web UI repository
+      become_user: "{{ bootstrap_llm_server__webui_user }}"
+      become: true
+      ansible.builtin.git:
+        repo: https://github.com/ollama-webui/ollama-webui.git
+        dest: "{{ bootstrap_llm_server__webui_home }}/ollama-webui"
+        version: main
+
+    - name: Install Ollama Web UI dependencies
+      become_user: "{{ bootstrap_llm_server__webui_user }}"
+      become: true
+      community.general.npm:
+        path: "{{ bootstrap_llm_server__webui_home }}/ollama-webui"
+        state: present
+
+    - name: Build Ollama Web UI
+      become_user: "{{ bootstrap_llm_server__webui_user }}"
+      become: true
+      ansible.builtin.shell: |
+        cd {{ bootstrap_llm_server__webui_home }}/ollama-webui
+        npm run build
+      changed_when: true
+
+    - name: Create Ollama Web UI systemd service
+      ansible.builtin.template:
+        src: ollama-webui.service.j2
+        dest: /etc/systemd/system/ollama-webui.service
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart ollama-webui
+
+    - name: Enable and start Ollama Web UI service
+      ansible.builtin.systemd:
+        name: ollama-webui
+        enabled: true
+        state: started
+        daemon_reload: true

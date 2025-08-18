@@ -13,7 +13,8 @@ bootstrap_linux_core__dns_search_domains:
 bootstrap_linux_core__default_path: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 #bootstrap_linux_core__default_path: ~/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-bootstrap_linux_core__init_network: false
+bootstrap_linux_core__init_netplan: false
+bootstrap_linux_core__init_network_interfaces: false
 
 bootstrap_linux_core__restart_systemd: true
 
@@ -22,7 +23,7 @@ bootstrap_linux_core__stop_user_procs: true
 bootstrap_linux_core__init_hosts_file: true
 
 bootstrap_linux_core__setup_figurine: true
-#bootstrap_linux_core__figurine_force_config: no
+#bootstrap_linux_core__figurine_force_config: false
 bootstrap_linux_core__figurine_force_config: true
 bootstrap_linux_core__figurine_name: "{{ ansible_hostname }}"
 
@@ -67,17 +68,23 @@ bootstrap_linux_core__systemd_sysctl_execstart: /lib/systemd/systemd-sysctl
 bootstrap_linux_core__enable_rsyslog: false
 bootstrap_linux_core__setup_journald: true
 
+bootstrap_linux_core__setup_host_networks: true
+
+bootstrap_linux_core__public_interface: "{{ ansible_default_ipv4.interface }}"
+
 bootstrap_linux_core__network:
   network:
     version: 2
     renderer: networkd
     ethernets:
-      ens160:
+      "{{ bootstrap_linux_core__public_interface }}":
         dhcp4: true
         dhcp6: true
         ## ref: https://www.oxcrag.net/2019/02/07/creating-a-working-ubuntu-18-04-vmware-template/
         dhcp-identifier: mac
-#        set-name: ens192
+#        set-name: enp1s0
+#        set-name: ens160
+#        set-name: eno1
 
 bootstrap_linux_core__setup_admin_scripts: true
 bootstrap_linux_core__setup_backup_scripts: false
@@ -89,6 +96,9 @@ bootstrap_linux_core__backup_script_dir: /opt/scripts
 bootstrap_linux_core__fwbackups_dir: /srv/backups/fwbackups
 bootstrap_linux_core__backups_dir: /srv/backups
 bootstrap_linux_core__backups_log_dir: /var/log/backups
+
+bootstrap_linux_core__backups_email_from: "admin@example.com"
+bootstrap_linux_core__backups_email_to: "admin@example.com"
 
 bootstrap_linux_core__admin_script_dirs:
   - path: "{{ bootstrap_linux_core__admin_script_dir }}"
@@ -131,7 +141,6 @@ bootstrap_linux_core__backup_script_config_tpls:
     dest: "{{ bootstrap_linux_core__backup_script_dir }}/backups.yml"
   - src: scripts/backups.cfg.j2
     dest: /root/.backups.cfg
-    mode: "0600"
     backup: true
   - src: scripts/fwbackup.conf.j2
     dest: /root/.fwbackup.cfg
@@ -171,6 +180,30 @@ bootstrap_linux_core__backups_cron_list: []
 ##    job: "{{ bootstrap_linux_backup_script_dir }}/job-backup-incremental.sh  MONTHLY /data/Records {{ docker_stack__backups_dir }}/records/monthly 2>&1 | tee -a {{ bootstrap_linux_core__backups_log_dir }}/backup_records_monthly.log"
 ##    job: "bash -x {{ bootstrap_linux_backup_script_dir }}//run-monthly-backup.sh"
 #    job: "python3 {{ bootstrap_linux_backup_script_dir }}/run-backups.py monthly"
+
+bootstrap_linux_core__backups_config_groups:
+  daily:
+    backupLabel: daily
+    targets:
+      - srcDir: /data/Records
+        destDir: /srv/backups/records/daily
+
+  monthly:
+    backupLabel: monthly
+    targets:
+      - srcDir: /data/Records
+        destDir: /srv/backups/records/monthly
+
+#bootstrap_linux_core__backups_loglevel: "INFO"
+bootstrap_linux_core__backups_loglevel: "DEBUG"
+
+bootstrap_linux_core__backup_config:
+  backupScript: "job-backup-incremental.sh"
+  loglevel: "{{ bootstrap_linux_core__backups_loglevel }}"
+  emailFrom: "{{ bootstrap_linux_core__backups_email_from }}"
+  emailTo: "{{ bootstrap_linux_core__backups_email_to }}"
+  logDir: "{{ bootstrap_linux_core__backups_log_dir }}"
+  groups: "{{ bootstrap_linux_core__backups_config_groups }}"
 
 __bootstrap_linux_core__log_prefix_scripts: setup-admin-scripts |
 __bootstrap_linux_core__log_prefix_backup_scripts: setup-backup-scripts |

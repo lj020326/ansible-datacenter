@@ -2,13 +2,26 @@
 #####################
 ## IMPORTANT NOTES:
 ##
-## The `untagged` tag is used to run the `common` plays.
-## It is implicitly defined by ansible for any plays that do not have tags assigned in the playbook.
+## Ansible runs all plays in site.yml with 'always' tags implicitly when the 'always' tag is defined for any play.
 ##
-## The `untagged` plays are mostly meant for target host plays where the ansible machine credential
-## has already been set up.
+## The `always` tagged plays are a set of base/common plays run before starting any following plays.
 ##
-## exception use cases include plays that are:
+## The set of base/common plays include ping checking 'ansible_ping_test' and common dynamic groups
+## to be applied via 'apply_common_groups'.
+##
+## Ansible can also runs all plays in site.yml without the 'always' tags when the 'always' tag is defined for any play.
+## The base/common `always` plays require that the target host ansible user machine credential to be set up.
+##
+## Plays responsible for the ansible credentials setup require run with '--skip-tags always' such that
+## the base/common plays ('ansible_ping_test', 'apply_common_groups', etc) are intentionally skipped since
+## the common ansible credentials used for the given play target host have yet to be setup/prepared.
+##
+## E.g.,
+##     ansible-playbook -t bootstrap-linux -l vmhost01 site.yml
+##  versus
+##     ansible-playbook --skip-tags always -t bootstrap-ansible-user -l esx01 site.yml
+##
+## Exception use cases include plays that are:
 ## - run on the ansible controller/localhost and do not include non-controller/localhost target hosts
 ## - API related: (1) cloud API, (2) vcenter/vmware API, etc,
 ## - initial ansible user and/or ssh-key setup plays for ansible to connect to newly created hosts
@@ -22,9 +35,9 @@
 ## All such plays do not require the common plays to run.
 ##
 ## The job template/pipeline responsible for launching each play tag should specify
-## whether to include the `untagged` tag based on the use-case.
+## whether to include the `always` tag based on the use-case.
 ##
-## Using this `untagged` tag convention allows for all the aforementioned use cases to be included
+## Using this `always` tag convention allows for all the aforementioned use cases to be included
 ## in a single site.yml
 ##
 
@@ -102,6 +115,8 @@
           - "ansible.tower version={{ lookup('community.general.collection_version', 'ansible.tower') }}"
           - "ansible.utils version={{ lookup('community.general.collection_version', 'ansible.utils') }}"
           - "ansible.windows version={{ lookup('community.general.collection_version', 'ansible.windows') }}"
+#          - "dettonville.git_inventory version={{ lookup('community.general.collection_version', 'dettonville.git_inventory') }}"
+          - "dettonville.utils version={{ lookup('community.general.collection_version', 'dettonville.utils') }}"
           - "community.crypto version={{ lookup('community.general.collection_version', 'community.crypto') }}"
           - "community.docker version={{ lookup('community.general.collection_version', 'community.docker') }}"
           - "community.general version={{ lookup('community.general.collection_version', 'community.general') }}"
@@ -113,19 +128,56 @@
           - "cyberark.pas version={{ lookup('community.general.collection_version', 'cyberark.pas') }}"
           - "microsoft.ad version={{ lookup('community.general.collection_version', 'microsoft.ad') }}"
 
-- name: Display controller vars
+- name: "Display tower vars"
+  hosts: ansible_localhost,!node_offline
+  tags:
+    - display-tower-vars
+  tasks:
+    - name: "Display tower vars - excluding sensitive keys"
+      ansible.builtin.debug:
+        var: vars | dict2items
+          | selectattr('key', 'match', '^tower.*')
+          | list | items2dict
+          | dettonville.utils.remove_sensitive_keys
+
+- name: Display ansible_localhost vars
   hosts: ansible_localhost
   tags:
     - display-controller-vars
   tasks:
-    - name: Display controller vars - excluding sensitive and/or global scope keys (e.g., '.*token.*', '.*password.*', '.*private_key.*', etc)
+    - name: "Display controller vars - excluding sensitive keys"
       ansible.builtin.debug:
-        var: vars | dict2items 
-          | rejectattr('key', 'match', '.*vault.*') 
-          | rejectattr('key', 'match', '.*token.*') 
-          | rejectattr('key', 'match', '.*password.*') 
-          | rejectattr('key', 'match', '.*private_key.*') 
+        var: vars | dict2items
           | list | items2dict
+          | dettonville.utils.remove_sensitive_keys
+        verbosity: 2
+
+    ## ref: https://stackoverflow.com/questions/2589711/find-full-path-of-the-python-interpreter-python-executable
+    - name: Get python exec path
+      changed_when: false
+      ansible.builtin.shell: |
+        {{ ansible_python_interpreter }} -c "import sys; print(print(sys.executable))"
+      register: __python_path_info
+
+    - name: Display __python_path_info
+      ansible.builtin.debug:
+        var: __python_path_info.stdout_lines | first
+
+    - name: "Display controller variable information"
+      ansible.builtin.debug:
+        msg:
+          ## BEGIN ansible special/magic variables
+          ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_vars_facts.html#discovering-variables-facts-and-magic-variables
+          - "ansible_run_tags={{ ansible_run_tags | d([]) }}"
+          - "ansible_limit={{ ansible_limit | d('') }}"
+          - "ansible_inventory_sources={{ ansible_inventory_sources | d('') }}"
+          - "ansible_version={{ ansible_version | d('') }}"
+          - "ansible_config_file={{ ansible_config_file | d('') }}"
+          - "discovered_interpreter_python={{ discovered_interpreter_python | d('') }}"
+          - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
+          - "ansible_playbook_python={{ ansible_playbook_python | d('') }}"
+          - "ansible_python_version={{ ansible_python_version | d('') }}"
+          - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('') }}"
 
 - name: Display controller environment variables
   hosts: ansible_localhost
@@ -135,13 +187,9 @@
     - debug-envvars
     - debug-env-vars
   tasks:
-    - name: Display ansible_env - excluding sensitive and/or global scope keys (e.g., '.*TOKEN.*', '.*PASSWORD.*', '.*PRIVATE_KEY.*', etc)
+    - name: "Display ansible_env - excluding sensitive keys"
       ansible.builtin.debug:
-        var: ansible_env | dict2items
-          | rejectattr('key', 'match', '.*TOKEN.*') 
-          | rejectattr('key', 'match', '.*PASSWORD.*')
-          | rejectattr('key', 'match', '.*PRIVATE_KEY.*')
-          | list | items2dict
+        var: ansible_env | dettonville.utils.remove_sensitive_keys
 
 #    ## Debugging purposes: print all environment variables
 #    ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
@@ -161,15 +209,11 @@
     - display-hostvars
   tasks:
     ## ref: https://stackoverflow.com/questions/53264221/in-ansible-how-to-filter-a-dictionary-based-on-regex-pattern-on-the-keys
-    - name: Display host variables - excluding sensitive and/or global scope keys (e.g., `.*vault.*`, '.*private_key.*', 'groups', '.*password.*', etc)
+    - name: "Display host vars - excluding sensitive keys"
       ansible.builtin.debug:
         var: hostvars[inventory_hostname] | dict2items 
-          | rejectattr('key', 'match', '.*vault.*') 
-          | rejectattr('key', 'match', '.*password.*') 
-          | rejectattr('key', 'match', '.*private_key.*') 
-          | rejectattr('key', 'match', 'groups') 
-          | rejectattr('key', 'match', 'dcc_network_global_config') 
           | list | items2dict
+          | dettonville.utils.remove_sensitive_keys
 
 - name: Display cert info
   hosts: all,!ansible_localhost,!node_offline
@@ -177,6 +221,7 @@
   ignore_errors: true
   #  gather_facts: false
   tags:
+    - bootstrap-certs
     - bootstrap-cacerts
     - bootstrap-signing-certs
     - bootstrap-keyring
@@ -255,19 +300,12 @@
     - bootstrap-ansible
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+#    ansible_user: "{{ bootstrap_user }}"
+#    ansible_password: "{{ bootstrap_user_password }}"
   tasks:
     - name: Bootstrap ansible user
       ansible.builtin.include_role:
         name: bootstrap_ansible_user
-
-    - name: Bootstrap ansible venv
-#      vars:
-#        ansible_python_interpreter: "{{ os_python_interpreter }}"
-      ansible.builtin.include_role:
-        name: bootstrap_pip
-
 
 #- name: Bootstrap linux ansible user
 #  hosts: os_linux,!node_offline
@@ -464,10 +502,6 @@
         var: bootstrap_user_password
         verbosity: 1
 
-    - name: Display ansible_user
-      ansible.builtin.debug:
-        var: ansible_user
-
 - name: Bootstrap linux users
   hosts: os_linux,!node_offline
   gather_facts: true
@@ -510,7 +544,6 @@
   gather_facts: false
   tags:
     - bootstrap-linux
-    - bootstrap-node-core
     - bootstrap-node
   become: true
   roles:
@@ -520,6 +553,7 @@
   hosts: os_linux,!node_offline
   tags:
     - bootstrap-linux-core
+    - bootstrap-node-core
   become: true
   roles:
     - role: bootstrap_linux_core
@@ -724,7 +758,7 @@
 
 ## setup step-ca pki, create CA certs and install CA certs
 - name: Configure Step-ca cli for step clients
-  hosts: step_ca_cli,!node_offline
+  hosts: step_ca_network,!node_offline
   become: true
   tags:
     - bootstrap-stepca
@@ -762,7 +796,7 @@
   gather_facts: false
   tags:
     - bootstrap-node
-#    - bootstrap-docker-stack
+    - bootstrap-docker-stack
     - cacerts
     - cacerts-distribute
     - cacerts-deploy
@@ -787,20 +821,32 @@
 ## ref: https://github.com/ansible/ansible/issues/29510
 ## ref: https://github.com/nickjj/ansible-docker
 - name: Bootstrap docker nodes
-  hosts: docker,!node_offline
+  hosts: docker,kubernetes,!node_offline
   tags:
     - bootstrap
     - docker
     - bootstrap-linux
     - bootstrap-linux-docker
     - bootstrap-docker
+    - bootstrap-kubernetes
     - bootstrap-registry
   become: true
   roles:
     - role: bootstrap_docker
 
-- name: Bootstrap docker swarm nodes
-  hosts: docker,!node_offline
+- name: Bootstrap docker swarm leader nodes
+  hosts: docker_swarm_leader,!node_offline
+  tags:
+    - bootstrap-docker-swarm
+    - docker-swarm
+  become: true
+  roles:
+    - role: bootstrap_docker
+      bootstrap_docker__actions: [setup-swarm]
+
+- name: Bootstrap docker swarm non-leader nodes
+  hosts: docker_swarm,!docker_swarm_leader,!node_offline
+#  hosts: docker_swarm_manager,docker_swarm_worker,!node_offline
   tags:
     - bootstrap-docker-swarm
     - docker-swarm
@@ -843,7 +889,8 @@
 ## bootstrap docker stack nodes
 ##############
 - name: Bootstrap docker stack node
-  hosts: docker_stack,!node_offline
+  ## only run on docker_swarm_leader (already in docker_stack)
+  hosts: docker_stack,!docker_swarm_manager,!docker_swarm_worker,!node_offline
   tags:
     - bootstrap-docker-stack
     - docker-stack
@@ -897,6 +944,50 @@
   roles:
     - role: bootstrap_docker_stack
 
+## bootstrap_plexupdate
+## ref: https://github.com/lj020326/plexupdate
+- name: Bootstrap plexupdate
+  hosts: plex,!node_offline
+  become: true
+  tags:
+    - bootstrap-plexupdate
+  roles:
+    - role: bootstrap_plexupdate
+
+- name: Deploy Gitea Action Runner
+  hosts: gitea_runner,!node_offline
+  become: true
+  tags:
+    - bootstrap-gitea-runner
+  roles:
+    - bootstrap_gitea_runner
+
+- name: Deploy LLM Server
+  hosts: llm_server,!node_offline
+  become: true
+  tags:
+    - bootstrap-llm-server
+  roles:
+    - role: bootstrap_llm_server
+
+- name: Setup Kubernetes
+  hosts: kubernetes,!node_offline
+  become: true
+  tags:
+    - bootstrap-aibrix
+    - bootstrap-kubernetes
+  roles:
+    - role: bootstrap_kubernetes
+
+- name: Deploy AIBrix
+  hosts: aibrix,!node_offline
+  become: true
+  tags:
+    - bootstrap-aibrix
+    - bootstrap-aibrix-only
+  roles:
+    - role: bootstrap_aibrix
+
 ## ref: https://github.com/lae/ansible-role-proxmox
 - name: Deploy ProxMox Cluster
   hosts: proxmox,!node_offline
@@ -917,8 +1008,10 @@
     - role: fetch_os_images
 
 - name: Bootstrap VMware ESXi servers
+#  hosts: vmware_esx_host,vmware_physical_esx_host,!node_offline
   hosts: vmware_physical_esx_host,!node_offline
   tags:
+    - bootstrap-esxi
     - bootstrap-vmware-esxi
     - bootstrap-vcenter
     - deploy-vsphere-dc
@@ -936,11 +1029,12 @@
 - name: Deploy VSphere Datacenter
   hosts: vsphere_control_node
   tags:
+    - bootstrap-vcenter
     - bootstrap-vsphere
     - deploy-vsphere-dc
     - vsphere-deploy-dc
     - ping-exclude
-  become: true
+#  become: true
   roles:
     - role: bootstrap_vsphere_dc
 
@@ -955,11 +1049,11 @@
 - name: VMware Remount VM Datastores
 #  hosts: ansible_localhost
   hosts: vmware_control_node
-  become: true
+  gather_facts: false
+#  become: true
   tags:
     - vmware-remount-datastores
   roles:
-    #    - role: vmware_remount_datastores
     - role: bootstrap_vmware_datastores
       vars:
         bootstrap_vmware_datastores__unmount_datastores_first: true
@@ -967,7 +1061,8 @@
 - name: VMware Mount VM Datastores
 #  hosts: ansible_localhost
   hosts: vmware_control_node
-  become: true
+  gather_facts: false
+#  become: true
   tags:
     - bootstrap-vmware-mounts
     - vmware-mount-datastores
@@ -1060,7 +1155,7 @@
   hosts: dell_idrac_hosts,!node_offline
   tags:
     - dell-idrac-get-host-info
-  connection: local
+#  connection: local
   gather_facts: false
   tasks:
     - name: Get hardware inventory
@@ -1085,7 +1180,7 @@
   hosts: dell_idrac_hosts,!node_offline
   tags:
     - dell-idrac-config-ntp
-  connection: local
+#  connection: local
   gather_facts: false
   vars:
     #    ntpserver1: "1.jp.pool.ntp.org"
@@ -1103,6 +1198,36 @@
         baseuri: "{{ idrac_ip }}"
         username: "{{ idrac_user }}"
         password: "{{ idrac_password }}"
+
+##
+## AAP Controller config
+##
+- name: Bootstrap Ansible Automation Controller
+  hosts: localhost
+  gather_facts: false
+  environment:
+    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
+    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
+  tags:
+    - bootstrap-ansible-controller
+    - bootstrap-controller-resources
+  roles:
+    - role: bootstrap_ansible_controller
+
+- name: Remove AAP Configuration
+  hosts: localhost
+  gather_facts: false
+  environment:
+    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
+    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
+  tags:
+    - remove-tower-resources
+  roles:
+    - role: bootstrap_ansible_controller
+      vars:
+        controller_resource_state: absent
 
 ##
 ## Tower config

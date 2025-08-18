@@ -1,13 +1,26 @@
 ---
 
 # defaults file for ansible-netplan
+#bootstrap_netplan__config_file: /etc/netplan/50-cloud-init.yaml
 bootstrap_netplan__config_file: /etc/netplan/ansible-config.yaml
 
 # switch to enable/disable the role completely
 bootstrap_netplan__enabled: true
 
 # Configured devices get handled by systemd-networkd by default, unless explicitly marked as managed by a specific renderer (NetworkManager)
-bootstrap_netplan__renderer:
+bootstrap_netplan__renderer: networkd
+
+bootstrap_netplan__public_interface: "{{ ansible_default_ipv4.interface }}"
+
+bootstrap_netplan__ethernet_interface_name: "ens160"
+bootstrap_netplan__ethernet_primary_mac: "{{ ansible_default_ipv4.macaddress }}"
+
+__bootstrap_netplan__netplan_interfaces_default:
+  - name: "{{ bootstrap_netplan__ethernet_interface_name }}"
+    macaddress: "{{ bootstrap_netplan__ethernet_primary_mac }}"
+
+__bootstrap_netplan__netplan_interfaces: "{{ bootstrap_netplan__netplan_interfaces |
+  d(__bootstrap_netplan__netplan_interfaces_default) }}"
 
 bootstrap_netplan__configuration: {}
 #bootstrap_netplan__configuration:
@@ -46,8 +59,8 @@ bootstrap_netplan__configuration: {}
   #       addresses: [7.7.7.7/32]
   #   wifis:
   #     wlp2s0b1:
-  #       dhcp4: no
-  #       dhcp6: no
+  #       dhcp4: false
+  #       dhcp6: false
   #       addresses: [192.168.0.21/24]
   #       gateway4: 192.168.0.1
   #       access-points:
@@ -55,7 +68,7 @@ bootstrap_netplan__configuration: {}
   #           password: "**********"
   #   bonds:
   #     bond0:
-  #       dhcp4: yes
+  #       dhcp4: true
   #       interfaces:
   #         - enp0s3
   #         - enp4s0
@@ -66,7 +79,7 @@ bootstrap_netplan__configuration: {}
   #         primary: enp0s3
   #   bridges:
   #     # br0:
-  #     #   dhcp4: yes
+  #     #   dhcp4: true
   #     #   interfaces:
   #     #     - enp0s3
   #     br0:
@@ -74,11 +87,12 @@ bootstrap_netplan__configuration: {}
   #       interfaces: [vlan15]
   #   vlans:
   #     vlan15:
-  #       accept-ra: no
+  #       accept-ra: false
   #       id: 15
   #       link: enp0s25
 
-bootstrap_netplan__remove_existing: false
+#bootstrap_netplan__remove_existing: false
+bootstrap_netplan__remove_existing: true
 
 bootstrap_netplan__packages:
   - nplan
@@ -86,6 +100,6 @@ bootstrap_netplan__packages:
 
 bootstrap_netplan__pri_domain: example.org
 
-bootstrap_netplan__check_install: True
+bootstrap_netplan__check_install: true
 
-bootstrap_netplan__apply: True
+bootstrap_netplan__apply: true

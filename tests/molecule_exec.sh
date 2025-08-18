@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-export MOLECULE_DISTRO="${1:-centos7}"
+export MOLECULE_IMAGE_LABEL="${1:-centos7}"
 #export MOLECULE_ACTION="${2:-converge}"
 
 shift 1
@@ -11,7 +11,7 @@ else
 fi
 
 echo "MOLECULE_ACTION=${MOLECULE_ACTION}"
-echo "MOLECULE_DISTRO=${MOLECULE_DISTRO}"
+echo "MOLECULE_IMAGE_LABEL=${MOLECULE_IMAGE_LABEL}"
 
 #export MOLECULE_DOCKER_COMMAND="${5:-/usr/lib/systemd/systemd}"
 #export MOLECULE_DOCKER_COMMAND="${5:-/sbin/init}"

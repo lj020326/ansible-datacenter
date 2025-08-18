@@ -1,0 +1,31 @@
+---
+### Validation for custom credential type:
+### 'NTW - Akamai'
+### Attempts to retrieve siteshield maps using dettonville.akamai.manage_akamai
+
+- name: NTW - Akamai credential type validations
+  block:
+    - name: Get siteshield maps using credentials
+      dettonville.akamai.manage_akamai:
+        method: GET
+        section: default
+        endpoint: '/siteshield/v1/maps'
+        edge_auth:
+          host: "{{ item['inputs']['akamai_api_host'] }}"
+          client_token: "{{ item['inputs']['akamai_client_token'] }}"
+          client_secret: "{{ item['inputs']['akamai_client_secret'] }}"
+          access_token: "{{ item['inputs']['akamai_access_token'] }}"
+      check_mode: false
+      register: __akamai_results
+      no_log: true # Hide secrets from high verbosity output
+      loop: "{{ controller_credentials | selectattr('credential_type', 'eq', 'NTW - Akamai') }}"
+      loop_control:
+        label: "{{ item['name'] }}"
+  rescue:
+    - name: Set test failure flag to true
+      ansible.builtin.set_fact:
+        __credential_test_failures: true
+
+    - name: Display failure details
+      ansible.builtin.debug:
+        msg: "{{ __akamai_results['results'] | selectattr('failed') }}"

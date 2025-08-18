@@ -102,13 +102,31 @@
 #    __bootstrap_linux_package__package_list_present: []
 #    __bootstrap_linux_package__package_list_latest: []
 #    __bootstrap_linux_package__package_list_absent: []
+#
+#- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __bootstrap_linux_package__package_list_by_priority"
+#  when: item not in bootstrap_linux_package__exclude_list|d([])
+#  ansible.builtin.set_fact:
+#    __bootstrap_linux_package__package_list_by_priority: "{{ __bootstrap_linux_package__package_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_linux_package__priority_default)|int):
+#      { item.state | default(bootstrap_linux_package__state): { ((item is mapping) | ternary( item.apt|d(item.name), item)): {} } } }, recursive=True) }}"
+#  loop: "{{ __bootstrap_linux_package__package_list }}"
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __bootstrap_linux_package__package_list_by_priority"
   when: item not in bootstrap_linux_package__exclude_list|d([])
   ansible.builtin.set_fact:
-    __bootstrap_linux_package__package_list_by_priority: "{{ __bootstrap_linux_package__package_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_linux_package__priority_default)|int):
-      { item.state | default(bootstrap_linux_package__state): { ((item is mapping) | ternary( item.apt|d(item.name), item)): {} } } }, recursive=True) }}"
+    __bootstrap_linux_package__package_list_by_priority: >-
+      {{ __bootstrap_linux_package__package_list_by_priority | d({}) | combine({
+        (package_priority | int): {
+          package_state: { package_name: {} }
+        }
+      }, recursive=True) }}
   loop: "{{ __bootstrap_linux_package__package_list }}"
+  vars:
+    # Safely determine the package name, handling both mappings and strings
+    package_name: "{{ item.apt | d(item.name) if item is mapping else item }}"
+    # Safely determine the priority, handling both mappings and strings
+    package_priority: "{{ item.priority | d(bootstrap_linux_package__priority_default) if item is mapping else bootstrap_linux_package__priority_default }}"
+    # Safely determine the state, handling both mappings and strings
+    package_state: "{{ item.state | d(bootstrap_linux_package__state) if item is mapping else bootstrap_linux_package__state }}"
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__package_list_by_priority"
   ansible.builtin.debug:
@@ -119,10 +137,6 @@
 #  ansible.builtin.set_fact:
 #    __bootstrap_linux_package__package_list_present: "{{ __bootstrap_linux_package__package_list_present | d([]) }}"
 #  loop: "{{ __bootstrap_linux_package__package_list_by_priority.present.keys() | d([]) }}"
-
-- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display bootstrap_linux_package__npm_list"
-  ansible.builtin.debug:
-    var: bootstrap_linux_package__npm_list
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Show variables with '{{ role_npm_list_var_prefix }}' prefix"
   ansible.builtin.debug:
@@ -136,10 +150,6 @@
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__npm_list"
   ansible.builtin.debug:
     var: __bootstrap_linux_package__npm_list
-
-- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display bootstrap_linux_package__snap_list"
-  ansible.builtin.debug:
-    var: bootstrap_linux_package__snap_list
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Show variables with '{{ role_snap_list_var_prefix }}' prefix"
   ansible.builtin.debug:

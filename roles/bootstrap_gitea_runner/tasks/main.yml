@@ -1,0 +1,158 @@
+---
+- name: Ensure required packages are installed (for Docker and basic utilities)
+  when: docker_install
+  block:
+    - name: Ensure required packages are installed (for Docker and basic utilities)
+      ansible.builtin.apt:
+        name: "{{ bootstrap_gitea_runner__packages }}"
+        state: present
+        update_cache: true
+
+    - name: Add Docker GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      when: docker_install
+
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+      when: docker_install
+
+    - name: Install Docker Engine, containerd, and Docker Compose
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+      when: docker_install
+
+- name: Create runner user and group
+  ansible.builtin.user:
+    name: "{{ bootstrap_gitea_runner__user }}"
+    group: "{{ bootstrap_gitea_runner__group }}"
+    system: true
+    shell: /bin/bash
+    create_home: true
+    home: "{{ bootstrap_gitea_runner__work_dir }}"
+
+- name: Add runner user to docker group
+  ansible.builtin.user:
+    name: "{{ bootstrap_gitea_runner__user }}"
+    groups: docker
+    append: true
+  when: docker_install
+
+- name: Create runner work directory
+  ansible.builtin.file:
+    path: "{{ bootstrap_gitea_runner__work_dir }}"
+    state: directory
+    owner: "{{ bootstrap_gitea_runner__user }}"
+    group: "{{ bootstrap_gitea_runner__group }}"
+    mode: "0755"
+
+- name: Set __gitea_api_headers
+  ansible.builtin.set_fact:
+    #    __api_crumb: "{{ __api_get_crumb_result.json.crumb }}"
+    __gitea_api_headers:
+      Content-Type: "application/json"
+      Authorization: "token {{ bootstrap_gitea_runner__gitea_admin_token }}"
+
+- name: Display __gitea_api_headers
+  ansible.builtin.debug:
+    var: __gitea_api_headers
+#    verbosity: 1
+
+- name: Generate Gitea Act Runner Registration Token via API
+  when: >
+    (bootstrap_gitea_runner__gitea_admin_token is defined and bootstrap_gitea_runner__gitea_admin_token) or
+    (bootstrap_gitea_runner__gitea_admin_user is defined and
+      bootstrap_gitea_runner__gitea_admin_password is defined and
+      bootstrap_gitea_runner__gitea_admin_user and
+      bootstrap_gitea_runner__gitea_admin_password)
+  ansible.builtin.uri:
+    url: "{{ bootstrap_gitea_runner__gitea_url }}/api/v1/admin/runners"
+    method: POST
+    headers: "{{ __gitea_api_headers }}"
+    #    # Fallback to basic authentication if no token is provided
+    #    {% if bootstrap_gitea_runner__gitea_admin_token is not defined or not bootstrap_gitea_runner__gitea_admin_token %}
+    #    user: "{{ bootstrap_gitea_runner__gitea_admin_user }}"
+    #    password: "{{ bootstrap_gitea_runner__gitea_admin_password }}"
+    #    force_basic_auth: yes # Ensure basic auth is used even over HTTPS without validating certs (not recommended for production)
+    #    {% endif %}
+    body_format: json
+    body:
+      name: "{{ ansible_hostname }}-runner" # Set a descriptive name for the runner
+      description: "Ansible managed runner on {{ ansible_hostname }}"
+      # You can add more parameters here if the API allows (e.g., identity, labels)
+    status_code: 201 # Expect a 201 Created status code for success
+  register: gitea_runner_api_response
+  # Ensure the task only runs if a token or user/pass is provided
+
+- name: Set fact for __gitea_runner_token
+  when:
+    - gitea_runner_api_response is success
+    - gitea_runner_api_response.json.token is defined
+  ansible.builtin.set_fact:
+    __gitea_runner_token: "{{ gitea_runner_api_response.json.token }}"
+
+- name: Fail if Gitea runner token could not be generated
+  when: __gitea_runner_token is not defined
+  ansible.builtin.fail:
+    msg: "Failed to generate Gitea runner token via API. Check Gitea URL, admin credentials, and API response."
+
+- name: Download act_runner binary
+  ansible.builtin.get_url:
+    url: "https://github.com/gitea/act_runner/releases/download/v{{ bootstrap_gitea_runner__version }}/act_runner-{{ bootstrap_gitea_runner__version }}-linux-amd64"
+    dest: "/usr/local/bin/act_runner"
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Register act_runner with Gitea
+  ansible.builtin.command: >
+    /usr/local/bin/act_runner register
+    --no-interactive
+    --instance {{ bootstrap_gitea_runner__gitea_url }}
+    --token {{ __gitea_runner_token }}
+    --name {{ ansible_hostname }}-runner
+    --labels {{ bootstrap_gitea_runner__labels }}
+  args:
+    chdir: "{{ bootstrap_gitea_runner__work_dir }}"
+  register: runner_registration
+  changed_when: "'Runner registered successfully' in runner_registration.stdout"
+  failed_when:
+    - not (runner_registration.stderr | regex_search('Runner already registered'))
+    - not (runner_registration.stdout | regex_search('Runner registered successfully'))
+
+- name: Copy .runner file to runner work directory
+  ansible.builtin.copy:
+    src: "{{ bootstrap_gitea_runner__work_dir }}/.runner"
+    dest: "{{ bootstrap_gitea_runner__work_dir }}/.runner"
+    owner: "{{ bootstrap_gitea_runner__user }}"
+    group: "{{ bootstrap_gitea_runner__group }}"
+    mode: "0600"
+    remote_src: true
+
+- name: Create systemd service file for act_runner
+  ansible.builtin.template:
+    src: act_runner.service.j2
+    dest: "/etc/systemd/system/act_runner.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart act_runner
+
+- name: Ensure act_runner service is started and enabled
+  ansible.builtin.systemd:
+    name: act_runner
+    state: started
+    enabled: true
+    daemon_reload: true

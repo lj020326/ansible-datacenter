@@ -5,7 +5,7 @@ PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
 echo "*** $PROJECT_DIR"
 cd ${PROJECT_DIR}
 
-#MOLECULE_DISTROS="
+#MOLECULE_IMAGE_LABELS="
 #centos7
 #centos8
 #debian9
@@ -17,7 +17,7 @@ cd ${PROJECT_DIR}
 #ubuntu2204
 #"
 
-MOLECULE_DISTROS="
+MOLECULE_IMAGE_LABELS="
 centos7
 centos8
 debian9
@@ -28,9 +28,9 @@ ubuntu2204
 "
 
 IFS=$'\n'
-for MOLECULE_DISTRO in $MOLECULE_DISTROS; do
-  echo "*** $MOLECULE_DISTRO"
-  export MOLECULE_DISTRO
+for MOLECULE_IMAGE_LABEL in $MOLECULE_IMAGE_LABELS; do
+  echo "*** $MOLECULE_IMAGE_LABEL"
+  export MOLECULE_IMAGE_LABEL="${MOLECULE_IMAGE_LABEL}"
   molecule reset
   molecule test --debug --parallel
 done

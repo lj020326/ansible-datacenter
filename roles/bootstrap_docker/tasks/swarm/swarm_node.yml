@@ -9,45 +9,69 @@
   ansible.builtin.debug:
     var: __bootstrap_docker__swarm_remote_addrs
 
+- name: "{{ __bootstrap_docker__log_prefix_node }} Display bootstrap_docker__swarm_leader_host"
+  ansible.builtin.debug:
+    var: bootstrap_docker__swarm_leader_host
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Get docker info"
+  community.docker.docker_host_info:
+  register: __docker_host_info
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Display __docker_host_info"
+  ansible.builtin.debug:
+    var: __docker_host_info
+    verbosity: 1
+
 - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token"
   delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
   block:
+
     - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token"
-      ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
-      changed_when: false
-      register: __swarm_token_result
+      community.docker.docker_swarm_info: {}
+      register: __swarm_info
 
   rescue:
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __swarm_info"
+      ansible.builtin.debug:
+        var: __swarm_info
+
     - name: "{{ __bootstrap_docker__log_prefix_node }} Re-emit failure"
-      when: not (__swarm_token_result.stderr | regex_search('This node is not a swarm manager'))
+      when: not (__swarm_info.stderr | regex_search('This node is not a swarm manager'))
       vars:
         failed_task:
           result: "{{ ansible_failed_result }}"
       ansible.builtin.fail:
         msg: "{{ failed_task }}"
 
-    - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token"
-      when: __swarm_token_result.stderr | regex_search('This node is not a swarm manager')
-      block:
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Run swarm init"
+      ansible.builtin.include_tasks: swarm_leader.yml
 
-        - name: "{{ __bootstrap_docker__log_prefix_node }} Run swarm init"
-          ansible.builtin.include_tasks: swarm_leader.yml
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token for {{ bootstrap_docker__swarm_role }}"
+      community.docker.docker_swarm_info: {}
+      register: __swarm_info
 
-        - name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token for {{ bootstrap_docker__swarm_role }}"
-          ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
-          changed_when: false
-          register: __swarm_token_result
+#- name: "{{ __bootstrap_docker__log_prefix_node }} Retrieve swarm join token"
+#  delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
+#  ansible.builtin.command: docker swarm join-token {{ bootstrap_docker__swarm_role }}
+#  changed_when: false
+#  register: __swarm_token_result
+#
+#- name: "{{ __bootstrap_docker__log_prefix_node }} Set __swarm_join_token"
+#  ansible.builtin.set_fact:
+#    __swarm_join_token: "{{ __swarm_token_result.stdout_lines
+#      | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list | first }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_node }} Set __swarm_join_token"
   ansible.builtin.set_fact:
-    __swarm_join_token: "{{ __swarm_token_result.stdout_lines
-      | select('match', '^.*token .*') | map('regex_replace', '^.*token (.*) .*$', '\\1') | list | first }}"
+    __swarm_join_token: "{{ __swarm_info.swarm_facts.JoinTokens[ bootstrap_docker__swarm_role | capitalize ] }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_node }} Display __swarm_join_token"
   ansible.builtin.debug:
     var: __swarm_join_token
 
 - name: "{{ __bootstrap_docker__log_prefix_node }} Register host to swarm"
+  when: not bootstrap_docker__swarm_leader|bool
   block:
 
     - name: "{{ __bootstrap_docker__log_prefix_node }} Display __bootstrap_docker__swarm_remote_addrs"
@@ -67,7 +91,55 @@
       ansible.builtin.debug:
         var: __swarm_join_result
 
-- name: "{{ __bootstrap_docker__log_prefix_node }} Set worker role config"
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Set __docker_swarm_status"
+      ansible.builtin.set_fact:
+        __docker_swarm_status: "{{ __docker_host_info.host_info.Swarm }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __docker_swarm_status"
+      ansible.builtin.debug:
+        var: __docker_swarm_status
+        verbosity: 1
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __docker_swarm_status.RemoteManagers"
+      ansible.builtin.debug:
+        var: __docker_swarm_status.RemoteManagers
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __docker_swarm_status.Error"
+      ansible.builtin.debug:
+        var: __docker_swarm_status.Error
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display hostvars[bootstrap_docker__swarm_leader_host]['ansible_host']"
+      ansible.builtin.debug:
+        var: hostvars[bootstrap_docker__swarm_leader_host]['ansible_host']
+        verbosity: 1
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Perform dns lookup to get leader node IP address"
+      ansible.builtin.set_fact:
+        __leader_node_ipv4: "{{ query('community.dns.lookup',
+          hostvars[bootstrap_docker__swarm_leader_host]['ansible_host'],
+          server=bootstrap_docker__dns,
+          query_timeout=2,
+          nxdomain_handling='empty') | d([]) | first }}"
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __leader_node_ipv4"
+      ansible.builtin.debug:
+        var: __leader_node_ipv4
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Set __invalid_docker_host_join"
+      when: __docker_swarm_status.Error is search('The swarm does not have a leader') or
+            __docker_swarm_status.RemoteManagers is not search(__leader_node_ipv4)
+      ansible.builtin.set_fact:
+        __invalid_docker_host_join: true
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Display __invalid_docker_host_join"
+      ansible.builtin.debug:
+        var: __invalid_docker_host_join
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Remove and rejoin swarm node"
+      when: __invalid_docker_host_join | d(false) | bool
+      ansible.builtin.include_tasks: swarm_node_rejoin.yml
+
+- name: "{{ __bootstrap_docker__log_prefix_node }} Set role config"
   delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
   block:
     - name: "{{ __bootstrap_docker__log_prefix_node }} Set node role"

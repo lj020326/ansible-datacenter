@@ -1,0 +1,82 @@
+- name: {{ __retrieved_job_template['name'] }}
+  description: {{ __retrieved_job_template['description'] }}
+  organization: {{ __retrieved_job_template['summary_fields']['organization']['name'] }}
+  inventory: {{ __retrieved_job_template['summary_fields']['inventory']['name'] | d('') }}
+  project: {{ __retrieved_job_template['summary_fields']['project']['name'] }}
+  playbook: {{ __retrieved_job_template['playbook'] }}
+{% if __retrieved_job_template['scm_branch'] != ''%}
+  scm_branch: {{ __retrieved_job_template['scm_branch'] }}
+{% endif %}
+  credentials:
+{% for credential in __retrieved_job_template['summary_fields']['credentials'] | map(attribute='name') | list %}
+  - {{ credential }}
+{% endfor %}
+  limit: {{ __retrieved_job_template['limit'] }}
+{% if __retrieved_job_template['extra_vars'] != ''%}
+  extra_vars:
+{% for ev in __retrieved_job_template['extra_vars'].split('\n') %}
+{% if ev != '---' %}
+    {{ ev }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if __retrieved_job_template['ask_job_type_on_launch'] %}
+  ask_job_type_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['ask_limit_on_launch'] %}
+  ask_limit_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['ask_tags_on_launch'] %}
+  ask_tags_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['ask_skip_tags_on_launch'] %}
+  ask_skip_tags_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['ask_variables_on_launch'] %}
+  ask_variables_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['ask_verbosity_on_launch'] %}
+  ask_verbosity_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['ask_credential_on_launch'] %}
+  ask_credential_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['ask_inventory_on_launch'] %}
+  ask_inventory_on_launch: true
+{% endif %}
+{% if __retrieved_job_template['allow_simultaneous'] %}
+  allow_simultaneous: true
+{% endif %}
+{% if __retrieved_job_template['become_enabled'] %}
+  become_enabled: true
+{% endif %}
+{% if __retrieved_job_template['survey_enabled'] %}
+  survey_enabled: {{ __retrieved_job_template['survey_enabled'] | lower }}
+{% endif %}
+{% if __retrieved_job_template['survey_enabled'] %}
+  survey_spec:
+    name: ""
+    description: ""
+    spec:
+{% for sq in lookup('ansible.controller.controller_api', __retrieved_job_template['related']['survey_spec']).get('spec') %}
+      - question_name: {{ sq['question_name'] }}
+        question_description: {{ sq['question_description'] }}
+        type: {{ sq['type'] }}
+        variable: {{ sq['variable'] }}
+{% if sq['default'] | d('') != '' %}
+        default: {{ sq['default'] }}
+{% endif %}
+{% if sq['type'] in ['multiplechoice', 'multiselect'] %}
+        choices:
+{% for choice in sq['choices'] %}
+          - {{ choice }}
+{% endfor %}
+{% endif %}
+        required: {{ sq['required'] | lower }}
+        min: {{ sq['min'] | d('') }}
+        max: {{ sq['max'] | d('') }}
+{% endfor %}
+{% endif %}
+  roles:
+    admin:
+    execute:

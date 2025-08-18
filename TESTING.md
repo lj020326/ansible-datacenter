@@ -211,23 +211,23 @@ The molecule tests below use the [python enabled docker systemd images defined h
 ```shell
 $ git clone https://github.com/lj020326/ansible-datacenter.git
 $ cd ansible-datacenter
-$ export MOLECULE_DISTRO=redhat7-systemd-python
+$ export MOLECULE_IMAGE_LABEL=redhat7-systemd-python
 $ molecule create
 $ molecule login
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package
 $ molecule --debug test -s bootstrap_linux_package
 $ molecule destroy
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
-$ MOLECULE_DISTRO=redhat8-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_DISTRO=centos7-systemd-python molecule converge --destroy never
-$ MOLECULE_DISTRO=centos7-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule converge --destroy never
+$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_DISTRO=centos8-systemd-python --debug converge
+$ MOLECULE_IMAGE_LABEL=centos8-systemd-python --debug converge
 $ molecule destroy
-$ MOLECULE_DISTRO=ubuntu2004-systemd-python converge
+$ MOLECULE_IMAGE_LABEL=ubuntu2004-systemd-python converge
 $ molecule destroy
-$ MOLECULE_DISTRO=ubuntu2204-systemd-python --debug converge
+$ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python --debug converge
 
 ```
 
