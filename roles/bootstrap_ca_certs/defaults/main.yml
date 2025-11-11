@@ -1,0 +1,104 @@
+---
+
+# Base directory for storing generated certificates and keys
+bootstrap_ca_certs__base_dir: "/etc/ansible/cacerts"
+
+# --- Global Role Configuration Flags ---
+# Set to 'yes' to initialize and configure the root CA
+bootstrap_ca_certs__ca_init: "no"
+# Set to 'yes' to generate certificates for host nodes listed in bootstrap_ca_certs__ca_certify_node_list
+bootstrap_ca_certs__ca_certify_nodes: "no"
+# Force creation of CA certificates even if files exist (e.g., root CA)
+bootstrap_ca_certs__ca_force_create: "no"
+# Force creation of node certificates even if files exist
+bootstrap_ca_certs__ca_force_certify_nodes: "no"
+# Clean up temporary files after execution
+bootstrap_ca_certs__clean_up: "yes"
+
+# --- Root CA Configuration ---
+# Common Name for the Root CA
+bootstrap_ca_certs__ca_root_cn: "root_ca"
+
+# Certificate common name
+bootstrap_ca_certs__common_name: "ca.example.com"
+# Country code (e.g., US)
+bootstrap_ca_certs__country: "US"
+# State/Province (e.g., California)
+bootstrap_ca_certs__state: "California"
+# Locality/City (e.g., San Francisco)
+bootstrap_ca_certs__locality: "San Francisco"
+# Organization name
+bootstrap_ca_certs__organization: "Your Company"
+# Organizational Unit name
+bootstrap_ca_certs__organizational_unit: "IT"
+# Default email address for certificate subjects
+bootstrap_ca_certs__email: "admin@example.com"
+# Keystore password (for JKS/PKCS12, if implemented; currently not used in CFSSL)
+bootstrap_ca_certs__keystore_password: "change_me_unsecure_password"
+
+# Path to trusted CA certificates (e.g., for signing intermediate CAs)
+bootstrap_ca_certs__trusted_ca_path: ""
+
+# --- Intermediate CA Configuration ---
+bootstrap_ca_certs__ca_intermediate_certs_list: []
+#   - commonName: "ca.dettonville.int"
+#     domainName: "dettonville.int"
+#     signerName: "{{ bootstrap_ca_certs__common_name }}"
+#     country: "US"
+#     state: "New York"
+#     locality: "NYC"
+#     organization: "Dettonville Internal"
+#     organizationalUnit: "Research & Technology"
+#     email: "admin@dettonville.int" # Can override global default
+
+# --- Service Route Certificates Configuration ---
+bootstrap_ca_certs__ca_service_routes_list: []
+
+# --- Host Node Certificates Configuration ---
+bootstrap_ca_certs__ca_certify_node_list: []
+
+# --- CFSSL Profiles (default values for usages and expiry) ---
+bootstrap_ca_certs__cfssl_root_profile:
+  usages: ["signing", "key encipherment", "cert sign", "crl sign"]
+  expiry: "438000h" # ~50 years
+  ca_constraint:
+    is_ca: true
+    max_path_len: 1
+
+bootstrap_ca_certs__cfssl_intermediate_profile:
+  usages: ["signing", "key encipherment", "cert sign", "crl sign"]
+  expiry: "87600h" # ~10 years
+  ca_constraint:
+    is_ca: true
+    max_path_len: 0
+
+bootstrap_ca_certs__cfssl_server_profile:
+  usages: ["signing", "key encipherment", "server auth"]
+  expiry: "8760h" # ~1 year
+
+bootstrap_ca_certs__cfssl_client_profile:
+  usages: ["signing", "key encipherment", "client auth"]
+  expiry: "8760h" # ~1 year
+
+# --- Vault Integration ---
+bootstrap_ca_certs__vault_enabled: false
+bootstrap_ca_certs__vault_url: "http://127.0.0.1:8200"
+bootstrap_ca_certs__vault_token: ""
+bootstrap_ca_certs__vault_kv_mount_point: "secret"
+bootstrap_ca_certs__vault_kv_path: "secret/{{ bootstrap_ca_certs__common_name }}/certs"
+bootstrap_ca_certs__vault_api_version: "v1"
+
+bootstrap_ca_certs__key_algo: rsa
+bootstrap_ca_certs__key_size: 2048
+
+# --- Certificate Validation Thresholds ---
+bootstrap_ca_certs__ca_cert_expiration_panic_threshold: 2592000
+
+#bootstrap_ca_certs__display_cacert_result: false
+bootstrap_ca_certs__display_cacert_result: true
+
+# --- Logging Prefixes ---
+#__bootstrap_ca_certs__log_prefix_validate: "[VALIDATE CERTS]"
+#__bootstrap_ca_certs__log_prefix_create: "[CREATE CERTS]"
+__bootstrap_ca_certs__log_prefix_validate: "[VALIDATE CERTS | {{ __bootstrap_ca_certs__cert_configs.common_name }}]"
+__bootstrap_ca_certs__log_prefix_create: "[CREATE CERTS | {{ __bootstrap_ca_certs__cert_configs.common_name }}]"

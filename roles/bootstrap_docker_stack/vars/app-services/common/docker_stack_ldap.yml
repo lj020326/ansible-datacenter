@@ -1,16 +1,16 @@
 ---
 
-#__docker_stack__ldap__image: "{{ docker_stack__registry_endpoint }}/openldap:latest"
+#__docker_stack__ldap__image: "{{ docker_stack__registry__endpoint }}/openldap:latest"
 #__docker_stack__ldap__image: "osixia/openldap:1.4.0"
 __docker_stack__ldap__image: osixia/openldap:1.5.0
 
-__docker_stack__ldap__root_password: "{{ docker_stack__ldap_root_password | d('password') }}"
-__docker_stack__ldap__admin_password: "{{ docker_stack__ldap_admin_password | d('password') }}"
-__docker_stack__ldap__config_password: "{{ docker_stack__ldap_config_password | d('passsword') }}"
-#__docker_stack__ldap__host: "{{ docker_stack__ldap_host | d('ldap.example.int') }}"
+__docker_stack__ldap__root_password: "{{ docker_stack__ldap__root_password | d('password') }}"
+__docker_stack__ldap__admin_password: "{{ docker_stack__ldap__admin_password | d('password') }}"
+__docker_stack__ldap__config_password: "{{ docker_stack__ldap__config_password | d('passsword') }}"
+#__docker_stack__ldap__host: "{{ docker_stack__ldap__host | d('ldap.example.int') }}"
 __docker_stack__ldap__readonly_user: "true"
 __docker_stack__ldap__readonly_username: readonly
-__docker_stack__ldap__readonly_password: "{{ docker_stack__ldap_bind_user_password }}"
+__docker_stack__ldap__readonly_password: "{{ docker_stack__ldap__bind_user_password }}"
 
 __docker_stack__ldap__port: 389
 
@@ -70,9 +70,9 @@ __docker_stack__ldap__services:
   ## ref: https://github.com/osixia/docker-ldap/issues/163
   ldap:
     container_name: ldap
-    #    image: {{ docker_stack__registry_endpoint }}/openldap:latest
+    #    image: {{ docker_stack__registry__endpoint }}/openldap:latest
     image: "{{ __docker_stack__ldap__image }}"
-    #    hostname: "{{ docker_stack__ldap_host }}"
+    #    hostname: "{{ docker_stack__ldap__host }}"
     command: --copy-service --loglevel debug
     ports:
       - 389:389
@@ -95,9 +95,9 @@ __docker_stack__ldap__services:
       #      LDAP_TLS: 0
       LDAP_ldap_UID: "{{ docker_stack__user_uid }}"
       LDAP_ldap_GID: "{{ docker_stack__user_gid }}"
-      LDAP_ORGANISATION: "{{ docker_stack__ldap_organisation }}"
-      LDAP_DOMAIN: "{{ docker_stack__ldap_domain }}"
-      LDAP_BASE_DN: "{{ docker_stack__ldap_base_dn }}"
+      LDAP_ORGANISATION: "{{ docker_stack__ldap__organisation }}"
+      LDAP_DOMAIN: "{{ docker_stack__ldap__domain }}"
+      LDAP_BASE_DN: "{{ docker_stack__ldap__base_dn }}"
       LDAP_ADMIN_PASSWORD: "{{ __docker_stack__ldap__admin_password }}"
       LDAP_READONLY_USER: "{{ __docker_stack__ldap__readonly_user }}"
       LDAP_READONLY_USER_USERNAME: "{{ __docker_stack__ldap__readonly_username }}"
@@ -112,7 +112,7 @@ __docker_stack__ldap__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
+          - node.hostname == {{ __docker_stack__traefik__host }}
       #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -121,24 +121,24 @@ __docker_stack__ldap__services:
         max_attempts: 3
         window: 120s
 
-__docker_stack__ldap_samba_domain_map_yaml: |-
+__docker_stack__ldap__samba_domain_map_yaml: |-
   {
-  {{ docker_stack__ldap_domain }}: { 'sid': {{ docker_stack__ldap_domain_sid_root }} }
+  {{ docker_stack__ldap__domain }}: { 'sid': {{ docker_stack__ldap__domain_sid_root }} }
   }
 
-__docker_stack__ldap_samba_domain_map: "{{ __docker_stack__ldap_samba_domain_map_yaml | from_yaml }}"
+__docker_stack__ldap__samba_domain_map: "{{ __docker_stack__ldap__samba_domain_map_yaml | from_yaml }}"
 
 ## ref: https://serverfault.com/questions/885324/background-on-sambasid-calculation
-__docker_stack__ldap_domain_user_map_yaml: |-
+__docker_stack__ldap__domain_user_map_yaml: |-
   {
-  {% for user_key,user_config in docker_stack__ldap_domain_user_map.items() %}
+  {% for user_key,user_config in docker_stack__ldap__domain_user_map.items() %}
     {% set _uid = user_config.uid|d(user_key) %}
     {% set _uid_number_default = (range(100, 999) | random(seed=_uid))|int + 10000 %}
     {% set _uid_number = user_config.uid_number | d(_uid_number_default) %}
     {% set _gid_number = user_config.gid_number | d(_uid_number) %}
     {% set _uid = user_config.uid|d(user_key) %}
-    {% set _dn = 'uid='+_uid+','+ docker_stack__ldap_user_base_dn %}
-    {% set _object_class_list = user_config.object_class_list | d(docker_stack__ldap_domain_user_object_class_list_default) %}
+    {% set _dn = 'uid='+_uid+','+ docker_stack__ldap__user_base_dn %}
+    {% set _object_class_list = user_config.object_class_list | d(docker_stack__ldap__domain_user_object_class_list_default) %}
     {% set _user_config = { 'dn': _dn, 'object_class_list': _object_class_list } %}
     {% if 'posixAccount' in _object_class_list %}
       {% set __ = _user_config.update({ 'uid_number': _uid_number, 'gid_number': _gid_number }) %}
@@ -146,7 +146,7 @@ __docker_stack__ldap_domain_user_map_yaml: |-
     {% if 'sambaSamAccount' in _object_class_list %}
       {% set _user_config_samba = user_config.samba | d({}) %}
       {% if _user_config_samba.sid is not defined %}
-        {% set _samba_sid_default = docker_stack__ldap_domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
+        {% set _samba_sid_default = docker_stack__ldap__domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
         {% set __ = _user_config_samba.update({'sid': _samba_sid_default }) %}
       {% endif %}
       {% set __ = _user_config.update({ 'samba': _user_config_samba }) %}
@@ -155,21 +155,21 @@ __docker_stack__ldap_domain_user_map_yaml: |-
   {% endfor %}
   }
 
-__docker_stack__ldap_domain_user_map: "{{ __docker_stack__ldap_domain_user_map_yaml | from_yaml }}"
+__docker_stack__ldap__domain_user_map: "{{ __docker_stack__ldap__domain_user_map_yaml | from_yaml }}"
 
-__docker_stack__ldap_domain_group_map_yaml: |-
+__docker_stack__ldap__domain_group_map_yaml: |-
   {
-  {% for group_key,group_config in docker_stack__ldap_domain_group_map.items() %}
+  {% for group_key,group_config in docker_stack__ldap__domain_group_map.items() %}
     {% set _gid = group_config.gid|d(group_key) %}
     {% set _gid_number_default = (range(100, 999) | random(seed=_gid))|int + 10000 %}
     {% set _gid_number = group_config.gid_number | d(_gid_number_default) %}
     {% set _group_cn = group_config.cn | d(group_key) %}
     {% if group_config.parent_ou is defined %}
-        {% set _dn = 'cn='+_group_cn+','+group_config.parent_ou+','+docker_stack__ldap_base_dn %}
+        {% set _dn = 'cn='+_group_cn+','+group_config.parent_ou+','+docker_stack__ldap__base_dn %}
     {% else %}
-        {% set _dn = 'cn='+_group_cn+','+ docker_stack__ldap_group_base_dn %}
+        {% set _dn = 'cn='+_group_cn+','+ docker_stack__ldap__group_base_dn %}
     {% endif %}
-    {% set _object_class_list = group_config.object_class_list | d(docker_stack__ldap_domain_group_object_class_list_default) %}
+    {% set _object_class_list = group_config.object_class_list | d(docker_stack__ldap__domain_group_object_class_list_default) %}
     {% set _group_config = { 'dn': _dn, 'cn': _group_cn, 'object_class_list': _object_class_list } %}
     {% if 'posixGroup' in _object_class_list %}
       {% set __ = _group_config.update({ 'gid_number': _gid_number }) %}
@@ -177,7 +177,7 @@ __docker_stack__ldap_domain_group_map_yaml: |-
     {% if 'sambaGroupMapping' in _object_class_list %}
       {% set _group_config_samba = group_config.samba | d({}) %}
       {% if _group_config_samba.sid is not defined %}
-        {% set _samba_group_sid_default = docker_stack__ldap_domain_sid_root+'-'+((_gid_number|int*2+1001)|string) %}
+        {% set _samba_group_sid_default = docker_stack__ldap__domain_sid_root+'-'+((_gid_number|int*2+1001)|string) %}
         {% set __ = _group_config_samba.update({'sid': _samba_group_sid_default }) %}
       {% endif %}
       {% set __ = _group_config.update({ 'samba': _group_config_samba }) %}
@@ -186,31 +186,31 @@ __docker_stack__ldap_domain_group_map_yaml: |-
   {% endfor %}
   }
 
-__docker_stack__ldap_domain_group_map: "{{ __docker_stack__ldap_domain_group_map_yaml | from_yaml }}"
+__docker_stack__ldap__domain_group_map: "{{ __docker_stack__ldap__domain_group_map_yaml | from_yaml }}"
 
-__docker_stack__ldap_domain_host_map_yaml: |-
+__docker_stack__ldap__domain_host_map_yaml: |-
   {
-  {% for host_key in docker_stack__ldap_domain_host_list %}
+  {% for host_key in docker_stack__ldap__domain_host_list %}
     {% set _host_ldap_config = hostvars[host_key].ldap_host_config %}
     {% set _uid = _host_ldap_config.uid|d(host_key) %}
     {% set _uid_number_default = (range(100, 999) | random(seed=_uid))|int + 50000 %}
     {% set _uid_number = _host_ldap_config.uid_number | d(_uid_number_default) %}
     {% set _gid_number = _host_ldap_config.gid_number | d(_uid_number) %}
     {% set _host_cn = _host_ldap_config.cn | d(host_key) %}
-    {% set _dn = 'cn='+_host_cn+','+ docker_stack__ldap_host_base_dn %}
-    {% set _object_class_list = _host_ldap_config.object_class_list | d(docker_stack__ldap_domain_host_object_class_list_default) %}
+    {% set _dn = 'cn='+_host_cn+','+ docker_stack__ldap__host_base_dn %}
+    {% set _object_class_list = _host_ldap_config.object_class_list | d(docker_stack__ldap__domain_host_object_class_list_default) %}
     {% set _host_config = { 'dn': _dn, 'cn': _host_cn, 'object_class_list': _object_class_list } %}
-    {% if 'posixAccount' in _host_ldap_config.object_class_list|d(docker_stack__ldap_domain_host_object_class_list_default) %}
+    {% if 'posixAccount' in _host_ldap_config.object_class_list|d(docker_stack__ldap__domain_host_object_class_list_default) %}
       {% set __ = _host_config.update({ 'uid_number': _uid_number, 'gid_number': _gid_number }) %}
     {% endif %}
     {% if 'sambaSamAccount' in _object_class_list %}
       {% set _host_config_samba = _host_ldap_config.samba | d({}) %}
       {% if _host_config_samba.sid is not defined %}
-        {% set _samba_sid_default = docker_stack__ldap_domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
+        {% set _samba_sid_default = docker_stack__ldap__domain_sid_root+'-'+((_uid_number|int*2+1000)|string) %}
         {% set __ = _host_config_samba.update({'sid': _samba_sid_default }) %}
       {% endif %}
       {% if _host_config_samba.primary_group_sid is not defined %}
-        {% set __ = _host_config_samba.update({'primary_group_sid': docker_stack__ldap_domain_computers_group_sid }) %}
+        {% set __ = _host_config_samba.update({'primary_group_sid': docker_stack__ldap__domain_computers_group_sid }) %}
       {% endif %}
       {% set __ = _host_config.update({ 'samba': _host_config_samba }) %}
     {% endif %}
@@ -218,4 +218,4 @@ __docker_stack__ldap_domain_host_map_yaml: |-
   {% endfor %}
   }
 
-__docker_stack__ldap_domain_host_map: "{{ __docker_stack__ldap_domain_host_map_yaml | from_yaml }}"
+__docker_stack__ldap__domain_host_map: "{{ __docker_stack__ldap__domain_host_map_yaml | from_yaml }}"

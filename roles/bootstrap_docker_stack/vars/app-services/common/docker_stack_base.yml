@@ -2,49 +2,77 @@
 
 __docker_stack__base__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
 
-#__docker_stack__base__traefik_host_default: "leader.example.int"
-__docker_stack__base__traefik_host_default: "{{ ansible_fqdn | d(inventory_hostname) }}"
-__docker_stack__base__traefik_host: "{{ docker_stack__base__traefik_host | d(docker_stack__traefik_host) | d(__docker_stack__base__traefik_host_default) }}"
+#__docker_stack__traefik__host_default: "leader.example.int"
+__docker_stack__traefik__host_default: "{{ ansible_fqdn | d(inventory_hostname) }}"
+__docker_stack__traefik__host: "{{ docker_stack__traefik__host | d(docker_stack__traefik__host) | d(__docker_stack__traefik__host_default) }}"
 
-__docker_stack__base__traefik_certresolver_enable_qa: "{{ docker_stack__traefik_certprovider_qa | d(False) | bool }}"
+__docker_stack__traefik__certresolver_enable_qa: "{{ docker_stack__traefik__certprovider_qa | d(False) | bool }}"
 
-__docker_stack__base__traefik_certresolver: "{{ 'letsencrypt-qa' if __docker_stack__base__traefik_certresolver_enable_qa else 'letsencrypt' }}"
+#__docker_stack__traefik__certresolver_default: "{{ 'letsencrypt-qa'
+#    if __docker_stack__traefik__certresolver_enable_qa else 'letsencrypt' }}"
+#__docker_stack__traefik__certresolver_default: "letsencrypt"
+__docker_stack__traefik__certresolver_default: "stepca"
+__docker_stack__traefik__certresolver: "{{ docker_stack__traefik__certresolver
+  | d(__docker_stack__traefik__certresolver_default) }}"
 
-__docker_stack__base__traefik_certresolver_acme_file_qa: acme-qa.json
-__docker_stack__base__traefik_certresolver_acme_file_prod: acme.json
-__docker_stack__base__traefik_certresolver_acme_file: "{{ __docker_stack__base__traefik_certresolver_acme_file_qa if __docker_stack__base__traefik_certresolver_enable_qa
-  else __docker_stack__base__traefik_certresolver_acme_file_prod }}"
+__docker_stack__traefik__certresolver_acme_file_qa: acme-qa.json
+__docker_stack__traefik__certresolver_acme_file_prod: acme.json
+__docker_stack__traefik__certresolver_acme_file: "{{ __docker_stack__traefik__certresolver_acme_file_qa
+  if __docker_stack__traefik__certresolver_enable_qa
+  else __docker_stack__traefik__certresolver_acme_file_prod }}"
 
-__docker_stack__base__traefik_version: "{{ docker_stack__traefik_version | d('v2') }}"
+__docker_stack__traefik__certresolver_stepca_url_default: "https://stepca.example.int"
+__docker_stack__traefik__certresolver_stepca_url: "{{ docker_stack__traefik__certresolver_stepca_url
+  | d(__docker_stack__traefik__certresolver_stepca_url_default) }}"
 
-__docker_stack__base__traefik_dirs:
+#__docker_stack__traefik__certresolver_stepca_certificates_duration_default: 24
+__docker_stack__traefik__certresolver_stepca_certificates_duration_default: 8760
+__docker_stack__traefik__certresolver_stepca_certificates_duration: "{{
+  docker_stack__traefik__certresolver_stepca_certificates_duration
+  | d(__docker_stack__traefik__certresolver_stepca_certificates_duration_default) }}"
+
+__docker_stack__traefik__version: "{{ docker_stack__traefik__version | d('v2') }}"
+
+__docker_stack__traefik__dirs:
   v1: "{{ __docker_stack__base__stack_dir }}/traefik1"
   v2: "{{ __docker_stack__base__stack_dir }}/traefik2"
 
-__docker_stack__base__traefik_dir_default: "{{ __docker_stack__base__stack_dir }}/traefik"
-__docker_stack__base__traefik_dir: "{{ __docker_stack__base__traefik_dirs[__docker_stack__base__traefik_version] | d(__docker_stack__base__traefik_dir_default) }}"
+__docker_stack__traefik__dir_default: "{{ __docker_stack__base__stack_dir }}/traefik"
+__docker_stack__traefik__dir: "{{ __docker_stack__traefik__dirs[__docker_stack__traefik__version] | d(__docker_stack__traefik__dir_default) }}"
 
-__docker_stack__base__traefik_http: "{{ docker_stack__traefik_http | d(80) | int }}"
-__docker_stack__base__traefik_https: "{{ docker_stack__traefik_https | d(443) | int }}"
-#__docker_stack__base__traefik_https_suffix: "{{ (':' + __docker_stack__base__traefik_https|string)
-#  if __docker_stack__base__traefik_https != 443 else '' }}"
+__docker_stack__traefik__http_port: "{{ docker_stack__traefik__http_port | d(80) | int }}"
+__docker_stack__traefik__https_port: "{{ docker_stack__traefik__https_port | d(443) | int }}"
+#__docker_stack__traefik__port: "{{ (':' + __docker_stack__traefik__https_port|string)
+#  if __docker_stack__traefik__https_port != 443 else '' }}"
+
+__docker_stack__traefik__https_entrypoints_default:
+  address: ":{{ docker_stack__traefik__https_port }}"
+  forwardedHeaders:
+    trustedIPs:
+      - "{{ docker_stack__host_network }}"
+#      - 192.168.0.0/16
+#      - 172.0.0.0/8
+
+__docker_stack__traefik__https_entrypoints: "{{ docker_stack__traefik__https_entrypoints
+  | d(__docker_stack__traefik__https_entrypoints_default) }}"
 
 __docker_stack__base__cert_dump_dir_default: "{{ __docker_stack__base__stack_dir }}/shared/certs"
 __docker_stack__base__cert_dump_dir: "{{ docker_stack__external_ssl_cert_dir | d(__docker_stack__base__cert_dump_dir_default) }}"
 
 __docker_stack__base__cacert_files:
   - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
-    dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}"
-  - src: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
-    dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}"
+    dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}"
+  - src: "{{ docker_stack__internal_ssl_key_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
+    dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}"
     mode: "0600"
 #  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_root_cacert_file }}"
-#    dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_root_cacert_file }}"
+#    dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_root_cacert_file }}"
 #  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cacert_file }}"
-#    dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_cacert_file }}"
+#    dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_cacert_file }}"
 
-__docker_stack__base__traefik_image_default: traefik:v3.1
-__docker_stack__base__traefik_image: "{{ docker_stack__traefik_image | d(__docker_stack__base__traefik_image_default) }}"
+#__docker_stack__traefik__image_default: "traefik:v3.1"
+__docker_stack__traefik__image_default: "traefik:v3.2"
+__docker_stack__traefik__image: "{{ docker_stack__traefik__image | d(__docker_stack__traefik__image_default) }}"
 
 #__docker_stack__base__socket_image: fluencelabs/docker-socket-proxy:latest
 __docker_stack__base__socket_image: tecnativa/docker-socket-proxy:latest
@@ -61,31 +89,31 @@ __docker_stack__base__dozzle_image: amir20/dozzle:latest
 __docker_stack__base__watchtower_image: containrrr/watchtower:latest
 __docker_stack__base__gc_image: clockworksoul/docker-gc-cron:latest
 
-__docker_stack__base__traefik_auth_labels:
+__docker_stack__traefik__auth_labels:
   ## Middlewares
   traefik.http.routers.traefik-rtr.middlewares: chain-oauth@file
 
 __docker_stack__base__config_tpls:
-  - src: traefik/config-traefik-{{ docker_stack__traefik_version }}.yml.j2
-    dest: "{{ __docker_stack__base__traefik_dir }}/traefik.yml"
+  - src: traefik/config-traefik-{{ docker_stack__traefik__version }}.yml.j2
+    dest: "{{ __docker_stack__traefik__dir }}/traefik.yml"
     backup: true
   - src: traefik/rules/middlewares.yml.j2
-    dest: "{{ __docker_stack__base__traefik_dir }}/rules/middlewares.yml"
+    dest: "{{ __docker_stack__traefik__dir }}/rules/middlewares.yml"
   - src: traefik/rules/middlewares-chains.yml.j2
-    dest: "{{ __docker_stack__base__traefik_dir }}/rules/middlewares-chains.yml"
+    dest: "{{ __docker_stack__traefik__dir }}/rules/middlewares-chains.yml"
   - src: traefik/rules/certs-traefik.yml.j2
-    dest: "{{ __docker_stack__base__traefik_dir }}/rules/certs-traefik.yml"
+    dest: "{{ __docker_stack__traefik__dir }}/rules/certs-traefik.yml"
   - src: traefik/rules/tls-opts.yml.j2
-    dest: "{{ __docker_stack__base__traefik_dir }}/rules/tls-opts.yml"
+    dest: "{{ __docker_stack__traefik__dir }}/rules/tls-opts.yml"
   - src: docker-gc-exclude.conf.j2
     dest: "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude"
 
 __docker_stack__base__config_dirs:
   - path: "{{ __docker_stack__base__stack_dir }}"
-  - path: "{{ __docker_stack__base__traefik_dir }}"
-  - path: "{{ __docker_stack__base__traefik_dir }}/rules"
-  - path: "{{ __docker_stack__base__traefik_dir }}/certs"
-  - path: "{{ __docker_stack__base__traefik_dir }}/acme"
+  - path: "{{ __docker_stack__traefik__dir }}"
+  - path: "{{ __docker_stack__traefik__dir }}/rules"
+  - path: "{{ __docker_stack__traefik__dir }}/certs"
+  - path: "{{ __docker_stack__traefik__dir }}/acme"
   - path: "{{ __docker_stack__base__stack_dir }}/shared"
   - path: "{{ __docker_stack__base__stack_dir }}/shared/certs"
   - path: "{{ __docker_stack__base__stack_dir }}/docker-gc"
@@ -102,12 +130,12 @@ __docker_stack__base__firewalld_ports:
   - 2377/tcp
   - 4789/udp
   - 7946/tcp
-  - "{{ __docker_stack__base__traefik_http }}/tcp"
-  - "{{ __docker_stack__base__traefik_https }}/tcp"
+  - "{{ __docker_stack__traefik__http_port }}/tcp"
+  - "{{ __docker_stack__traefik__https_port }}/tcp"
 
 ## ref: ## ref: https://www.virtualizationhowto.com/2023/03/docker-compose-static-ip-configuration/
 ## ref: https://docs.docker.com/engine/network/tutorials/overlay/
-__docker_stack__traefik_proxy_network_config_swarm:
+__docker_stack__traefik__proxy_network_config_swarm:
   external: true
   attachable: true
   scope: swarm
@@ -115,7 +143,7 @@ __docker_stack__traefik_proxy_network_config_swarm:
   ipam_config:
     - subnet: "{{ docker_stack__network_subnet__traefik_proxy }}"
 
-__docker_stack__traefik_proxy_network_config_standalone:
+__docker_stack__traefik__proxy_network_config_standalone:
   external: true
   attachable: true
   scope: local
@@ -123,19 +151,19 @@ __docker_stack__traefik_proxy_network_config_standalone:
   ipam_config:
     - subnet: "{{ docker_stack__network_subnet__traefik_proxy }}"
 
-__docker_stack__traefik_proxy_network_config: |-
-  {% set _docker_stack__traefik_proxy_network_config = {} %}
+__docker_stack__traefik__proxy_network_config: |-
+  {% set _docker_stack__traefik__proxy_network_config = {} %}
   {% if docker_stack__swarm_mode | d(false) %}
-  {% set __ = _docker_stack__traefik_proxy_network_config.update(__docker_stack__traefik_proxy_network_config_swarm) %}
+  {% set __ = _docker_stack__traefik__proxy_network_config.update(__docker_stack__traefik__proxy_network_config_swarm) %}
   {% else %}
-  {% set __ = _docker_stack__traefik_proxy_network_config.update(__docker_stack__traefik_proxy_network_config_standalone) %}
+  {% set __ = _docker_stack__traefik__proxy_network_config.update(__docker_stack__traefik__proxy_network_config_standalone) %}
   {% endif %}
-  {{ _docker_stack__traefik_proxy_network_config | from_yaml }}
+  {{ _docker_stack__traefik__proxy_network_config | from_yaml }}
 
-#docker_stack__traefik_proxy_network_info: "{{
-#  { docker_stack__network_name__traefik_proxy: __docker_stack__traefik_proxy_network_config } }}"
-##docker_stack__traefik_proxy_network_info: "{{ { docker_stack__network_name__traefik_proxy: { 'attachable': true } } }}"
-##docker_stack__traefik_proxy_network_info: |
+#docker_stack__traefik__proxy_network_info: "{{
+#  { docker_stack__network_name__traefik_proxy: __docker_stack__traefik__proxy_network_config } }}"
+##docker_stack__traefik__proxy_network_info: "{{ { docker_stack__network_name__traefik_proxy: { 'attachable': true } } }}"
+##docker_stack__traefik__proxy_network_info: |
 ##  {{ {
 ##        docker_stack__network_name__traefik_proxy: {
 ##          'external': true
@@ -174,6 +202,25 @@ __docker_stack__base__default_network: |-
   {% endif %}
   {{ _docker_stack__base__default_network | from_yaml }}
 
+__docker_stack__traefik__environment_internal:
+  PUID: "{{ docker_stack__user_uid }}"
+  PGID: "{{ docker_stack__user_gid }}"
+  TZ: "{{ docker_stack__timezone }}"
+
+__docker_stack__traefik__environment_external:
+  CLOUDFLARE_EMAIL: "{{ docker_stack__cloudflare_email }}"
+  CLOUDFLARE_API_KEY: "{{ docker_stack__cloudflare_apikey }}"
+  CF_API_EMAIL: "{{ docker_stack__cloudflare_email }}"
+  CF_API_KEY: "{{ docker_stack__cloudflare_apikey }}"
+
+__docker_stack__traefik__environment: |-
+  {% set _traefik_environment = {} %}
+  {% set _ = _traefik_environment.update(__docker_stack__traefik__environment_internal) %}
+  {% if docker_stack__enable_external_route %}
+  {% set _ = _traefik_environment.update(__docker_stack__traefik__environment_external) %}
+  {% endif %}
+  {{ _traefik_environment | from_yaml }}
+
 ## ref: https://www.virtualizationhowto.com/2023/03/docker-compose-static-ip-configuration/
 ## ref: https://docs.docker.com/engine/network/tutorials/overlay/
 __docker_stack__base__networks_socket_proxy:
@@ -194,18 +241,19 @@ __docker_stack__base__networks_socket_proxy:
 #  socket_proxy: "{{ __docker_stack__base__networks_socket_proxy }}"
 
 __docker_stack__base__networks_default: "{{ {
-    docker_stack__network_name__default: __docker_stack__base__default_network, 
+    docker_stack__network_name__default: __docker_stack__base__default_network,
     docker_stack__network_name__socket_proxy: __docker_stack__base__networks_socket_proxy,
-    docker_stack__network_name__traefik_proxy: __docker_stack__traefik_proxy_network_config
+    docker_stack__network_name__traefik_proxy: __docker_stack__traefik__proxy_network_config
   } }}"
 
 #__docker_stack__traefik__networks: "{{ __docker_stack__base__networks_default
 #  | combine( { docker_stack_proxy_network: { 'external': true } } ) }}"
 #__docker_stack__base__networks: "{{ (docker_stack__base_networks | d(__docker_stack__base__networks_default))
-#  | combine(docker_stack__traefik_proxy_network_info) }}"
+#  | combine(docker_stack__traefik__proxy_network_info) }}"
 __docker_stack__base__networks: "{{ docker_stack__base_networks | d(__docker_stack__base__networks_default) }}"
 
 __docker_stack__base__volumes: {}
+
 docker_stack__appspec__base:
   dirs: "{{ __docker_stack__base__config_dirs | d([]) }}"
   files: "{{ __docker_stack__base__config_files | d([]) }}"
@@ -216,7 +264,7 @@ docker_stack__appspec__base:
   volumes: "{{ __docker_stack__base__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__base__services | d({}) }}"
 
-__docker_stack__traefik__traefik_labels: "{{ docker_stack__traefik__traefik_labels | d(__docker_stack__traefik__traefik_labels_default) }}"
+__docker_stack__traefik__labels: "{{ docker_stack__traefik__labels | d(__docker_stack__traefik__labels_default) }}"
 __docker_stack__whoami__traefik_labels: "{{ docker_stack__whoami__traefik_labels | d(__docker_stack__whoami__traefik_labels_default) }}"
 __docker_stack__portainer__traefik_labels: "{{ docker_stack__portainer__traefik_labels | d(__docker_stack__portainer__traefik_labels_default) }}"
 __docker_stack__dozzle__traefik_labels: "{{ docker_stack__dozzle__traefik_labels | d(__docker_stack__dozzle__traefik_labels_default) }}"
@@ -224,14 +272,14 @@ __docker_stack__dozzle__traefik_labels: "{{ docker_stack__dozzle__traefik_labels
 __docker_stack__dozzle__environment: "{{ docker_stack__dozzle__environment | d(__docker_stack__dozzle__environment_default) }}"
 
 ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
-__docker_stack__base__services:
+__docker_stack__base__services_internal:
   ######### FRONTENDS ##########
   # Traefik Reverse Proxy
   # ref: https://github.com/lj020326/docker_swarm-mode.traefik2-example/blob/master/docker-compose.app.v10.yml
   traefik:
     container_name: traefik
     #    hostname: traefik
-    image: "{{ __docker_stack__base__traefik_image }}"
+    image: "{{ __docker_stack__traefik__image }}"
     restart: unless-stopped
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
@@ -246,11 +294,11 @@ __docker_stack__base__services:
     #  retries: 3
     ports:
       - target: 80
-        published: "{{ __docker_stack__base__traefik_http | int }}"
+        published: "{{ __docker_stack__traefik__http_port | int }}"
         protocol: tcp
         mode: "{{ __docker_stack__port_mode }}"
       - target: 443
-        published: "{{ __docker_stack__base__traefik_https | int }}"
+        published: "{{ __docker_stack__traefik__https_port | int }}"
         protocol: tcp
         mode: "{{ __docker_stack__port_mode }}"
     # - target: 8080
@@ -261,18 +309,11 @@ __docker_stack__base__services:
     #  published: 8082
     #  protocol: tcp
     #  mode: "{{ __docker_stack__port_mode }}"
-    environment:
-      PUID: "{{ docker_stack__user_uid }}"
-      PGID: "{{ docker_stack__user_gid }}"
-      TZ: "{{ docker_stack__timezone }}"
-      CLOUDFLARE_EMAIL: "{{ docker_stack__cloudflare_email }}"
-      CLOUDFLARE_API_KEY: "{{ docker_stack__cloudflare_apikey }}"
-      CF_API_EMAIL: "{{ docker_stack__cloudflare_email }}"
-      CF_API_KEY: "{{ docker_stack__cloudflare_apikey }}"
+    environment: "{{ __docker_stack__traefik__environment }}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - "{{ __docker_stack__base__traefik_dir }}:/etc/traefik"
-      - "{{ __docker_stack__base__traefik_dir }}/certs:/certs"
+      - "{{ __docker_stack__traefik__dir }}:/etc/traefik"
+      - "{{ __docker_stack__traefik__dir }}/certs:/certs"
       - "{{ __docker_stack__base__stack_dir }}/shared:/shared"
     deploy:
       ## References:
@@ -283,7 +324,7 @@ __docker_stack__base__services:
       endpoint_mode: dnsrr
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
+          - node.hostname == {{ __docker_stack__traefik__host }}
       #          - node.role == manager
       #          - node.labels.proxy == true
       #          - node.labels.traefik-public == true
@@ -296,7 +337,7 @@ __docker_stack__base__services:
       update_config:
         order: start-first
 #        order: stop-first
-    labels: "{{ __docker_stack__traefik__traefik_labels }}"
+    labels: "{{ __docker_stack__traefik__labels }}"
 
   # Docker Socket Proxy - Security Enchanced Proxy for Docker Socket
   socket-proxy:
@@ -356,7 +397,7 @@ __docker_stack__base__services:
       #      mode: global
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
+          - node.hostname == {{ __docker_stack__traefik__host }}
       #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -430,7 +471,7 @@ __docker_stack__base__services:
       mode: global
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
+          - node.hostname == {{ __docker_stack__traefik__host }}
   #      replicas: 1
   #      restart_policy:
   #        condition: on-failure
@@ -463,35 +504,6 @@ __docker_stack__base__services:
       DOCKER_HOST: tcp://socket-proxy:2375
     deploy:
       mode: global
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 3
-        window: 120s
-
-  # Traefik Certs Dumper - Extract LetsEncrypt Certificates - Traefik2 Compatible
-  certdumper:
-    container_name: traefik_certdumper
-    image: humenius/traefik-certs-dumper:latest
-    #    network_mode: none
-    networks:
-      - "{{ docker_stack__network_name__default }}"
-    security_opt:
-      - no-new-privileges=true
-    # command: --restart-containers container1,container2,container3
-    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
-    environment:
-      DOMAIN: "{{ docker_stack__external_domain }}"
-    volumes:
-      - "{{ __docker_stack__base__traefik_dir }}/acme:/traefik:ro"
-      - "{{ __docker_stack__base__cert_dump_dir }}:/output:rw"
-      # - /var/run/docker.sock:/var/run/docker.sock:ro # Only needed if restarting containers (use Docker Socket Proxy instead)
-    deploy:
-      placement:
-        constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
-      #          - node.role == manager
-      replicas: 1
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -555,7 +567,7 @@ __docker_stack__base__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
+          - node.hostname == {{ __docker_stack__traefik__host }}
       #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -592,7 +604,7 @@ __docker_stack__base__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
+          - node.hostname == {{ __docker_stack__traefik__host }}
       #          - node.role == manager
       replicas: 1
       restart_policy:
@@ -601,3 +613,46 @@ __docker_stack__base__services:
         max_attempts: 3
         window: 120s
     labels: "{{ __docker_stack__dozzle__traefik_labels }}"
+
+__docker_stack__base__services_external:
+  # Traefik Certs Dumper - Extract LetsEncrypt Certificates - Traefik2 Compatible
+  certdumper:
+    container_name: traefik_certdumper
+    image: humenius/traefik-certs-dumper:latest
+    #    network_mode: none
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    security_opt:
+      - no-new-privileges=true
+    # command: --restart-containers container1,container2,container3
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    environment:
+      DOMAIN: "{{ docker_stack__external_domain }}"
+    volumes:
+      - "{{ __docker_stack__traefik__dir }}/acme:/traefik:ro"
+      - "{{ __docker_stack__base__cert_dump_dir }}:/output:rw"
+      # - /var/run/docker.sock:/var/run/docker.sock:ro # Only needed if restarting containers (use Docker Socket Proxy instead)
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == {{ __docker_stack__traefik__host }}
+      #          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+
+__docker_stack__base__services: |-
+  {% set _base_docker_services = {} %}
+  {% set _ = _base_docker_services.update(__docker_stack__base__services_internal) %}
+  {% if docker_stack__enable_external_route %}
+  {% set _ = _base_docker_services.update(__docker_stack__base__services_external) %}
+  {% endif %}
+  {{ _base_docker_services | from_yaml }}
+
+#__docker_stack__base__services: |-
+#  {% set _base_docker_services = {} %}
+#  {% set _ = _base_docker_services.update(__docker_stack__base__services_internal) %}
+#  {{ _base_docker_services | from_yaml }}

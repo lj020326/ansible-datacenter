@@ -1,0 +1,102 @@
+---
+# Task file for ensuring admin token exists
+# Uses root token to check and create admin token if missing
+
+- name: "ensure-admin-token : Get list of token accessors"
+  ansible.builtin.uri:
+    url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_api_version }}/auth/token/accessors"
+    method: LIST
+    headers:
+      X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+    validate_certs: false
+    return_content: true
+  register: __token_accessors_response
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "ensure-admin-token : Set fact for accessors list"
+  when: __token_accessors_response.status == 200
+  ansible.builtin.set_fact:
+    __token_accessors: "{{ __token_accessors_response.json.data.keys | list }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-admin-token : Debug no accessors available"
+  when: __token_accessors_response.status != 200 or __token_accessors_response.json.data.keys | length == 0
+  ansible.builtin.debug:
+    msg: "No token accessors available or error fetching list. Skipping admin token lookup."
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-admin-token : Lookup token details for each accessor"
+  when:
+    - __token_accessors_response.status == 200
+    - __token_accessors | length > 0
+  ansible.builtin.uri:
+    url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_api_version }}/auth/token/lookup-accessor/{{ item }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body: {}
+    validate_certs: false
+    return_content: true
+  loop: "{{ __token_accessors }}"
+  loop_control:
+    label: "Accessor {{ loop.index }} of {{ __token_accessors | length }}"
+  register: __token_lookups
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "ensure-admin-token : Find admin token by display name"
+  ansible.builtin.set_fact:
+    __admin_token: "{{ __token_lookups.results | selectattr('json.data', 'defined')
+      | selectattr('json.data.display_name', 'equalto', bootstrap_pki__admin_token_display_name)
+      | map(attribute='json.data.client_token') | first | default('') }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-admin-token : Debug admin token found"
+  ansible.builtin.debug:
+    msg: "Admin token {{ bootstrap_pki__admin_token_display_name }} found: {{ __admin_token if __admin_token != '' else 'not found' }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-admin-token : Create admin token if not found"
+  when: __admin_token | d('') | length == 0
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "auth/token/create"
+    data:
+      display_name: "{{ bootstrap_pki__admin_token_display_name }}"
+      policies: "{{ bootstrap_pki__admin_token_policies }}"
+      ttl: "{{ bootstrap_pki__admin_token_ttl | default(omit) }}"
+    validate_certs: false
+  register: __admin_token_create
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-admin-token : Set fact for created admin token"
+  when: __admin_token_create is changed # noqa: no-handler
+  block:
+    - name: "ensure-admin-token : Set fact for created admin token"
+      ansible.builtin.set_fact:
+        __admin_token: "{{ __admin_token_create.data.auth.client_token }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-admin-token : Debug admin token created"
+      ansible.builtin.debug:
+        msg: "Admin token {{ bootstrap_pki__admin_token_display_name }} created: {{ __admin_token }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-admin-token : Set role fact for admin token"
+      ansible.builtin.set_fact:
+        bootstrap_pki__admin_token: "{{ __admin_token }}"
+      delegate_to: localhost
+      run_once: true

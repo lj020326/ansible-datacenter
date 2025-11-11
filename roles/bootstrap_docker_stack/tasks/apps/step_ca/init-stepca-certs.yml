@@ -1,0 +1,48 @@
+- name: Docker Stack | StepCA | pre-start | Initialize step-ca
+  community.docker.docker_container:
+    name: step-ca-csr
+    image: "{{ __docker_stack__stepca__image }}"
+    env:
+      STEPCA_GID: "{{ docker_stack__user_gid }}"
+      STEPCA_UID: "{{ docker_stack__user_uid }}"
+      DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
+      DEFAULT_CERT_VALIDITY: "{{ __docker_stack__stepca__default_cert_validity }}"
+      MAX_CERT_VALIDITY: "{{ __docker_stack__stepca__max_cert_validity }}"
+      PASSWORD: "{{ __docker_stack__stepca__password }}"
+      INTERMEDIATE_CA_NAME: "{{ __docker_stack__stepca__ca_name }}"
+      INIT_CONFIG: "1"
+    volumes:
+      - "{{ __docker_stack__stepca__home_dir }}:/home/step"
+    detach: false
+    container_default_behavior: compatibility
+  register: __stepca_init_docker_output
+
+- name: Docker Stack | StepCA | pre-start | Display __stepca_init_docker_output results
+  ansible.builtin.debug:
+    var: __stepca_init_docker_output.container.Output|d('')
+#            var: stepca_csr_docker_output
+
+- name: Docker Stack | StepCA | pre-start | Remove default secrets/root_ca_key
+  ansible.builtin.file:
+    path: "{{ __docker_stack__stepca__home_dir }}/secrets/root_ca_key"
+    state: absent
+
+- name: Docker Stack | StepCA | pre-start | Copy step-ca's root, intermediate CA cert and key
+  when: docker_stack__stepca__use_host_cacerts
+  ansible.builtin.copy:
+    remote_src: true
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    backup: "{{ item.backup | d(True) }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+    mode: "{{ item.mode | d('0644') }}"
+  loop:
+    - src: "{{ __docker_stack__stepca__root_cacert }}"
+      dest: "{{ __docker_stack__stepca__home_dir }}/certs/root_ca.crt"
+    - src: "{{ __docker_stack__stepca__cacert }}"
+      dest: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt"
+    - src: "{{ __docker_stack__stepca__cacert_key }}"
+      dest: "{{ __docker_stack__stepca__home_dir }}/secrets/intermediate_ca_key"
+      mode: "0660"

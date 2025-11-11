@@ -18,7 +18,7 @@
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
   loop:
-    - src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}"
+    - src: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_ca_root_cert }}"
       dest: "{{ __deploy_cacerts__trust_ca_cacert_dir }}/{{ deploy_cacerts__ca_root_cn }}.{{ deploy_cacerts__trust_ca_cert_extension }}"
   register: trust_ca_cacertinstalled
 
@@ -89,7 +89,7 @@
 #      -alias {{ item.route }} \
 #      -file {{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.pem
 #  register: shell_cmd
-#  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
+#  failed_when: shell_cmd.rc > 0 and shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") is none
 #  loop: "{{ deploy_cacerts__ca_service_routes_list }}"
 
 #- name: "{{ __deploy_cacerts__log_prefix_trust }} Add root ca root and host certs to keystore"
@@ -102,9 +102,9 @@
 #      -alias {{ item.cn }} \
 #      -file {{ item.path }}
 #  register: shell_cmd
-#  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
+#  failed_when: shell_cmd.rc > 0 and shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") is none
 #  loop:
-#    - { cn: "{{ deploy_cacerts__ca_root_cn }}", path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_caroot_cert }}" }
+#    - { cn: "{{ deploy_cacerts__ca_root_cn }}", path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ deploy_cacerts__pki_ca_root_cert }}" }
 ##    - { cn: "{{ inventory_hostname }}", path: "{{ deploy_cacerts__cacert_local_cert_dir }}/{{ inventory_hostname }}.chain.pem" }
 
 - name: "{{ __deploy_cacerts__log_prefix_trust }} Update java keystore"
@@ -121,7 +121,7 @@
           -alias {{ item.route }}
       register: keystore_remove_cert
       ignore_errors: true
-      #      failed_when: keystore_remove_cert.rc > 0 and not ( keystore_remove_cert.stdout | regex_search("Certificate not imported, alias .* already exists") )
+      #      failed_when: keystore_remove_cert.rc > 0 and keystore_remove_cert.stdout | regex_search("Certificate not imported, alias .* already exists") is none
       loop: "{{ deploy_cacerts__ca_service_routes_list }}"
       changed_when: false
 
@@ -140,6 +140,8 @@
           -alias {{ item.route }} \
           -file {{ deploy_cacerts__cacert_local_cert_dir }}/{{ item.route }}.pem
       register: keystore_add_cert
-      failed_when: keystore_add_cert.rc > 0 and not ( keystore_add_cert.stderr | regex_search("Certificate not imported, alias .* already exists") )
+      failed_when:
+        - keystore_add_cert.rc > 0
+        - keystore_add_cert.stderr | regex_search("Certificate not imported, alias .* already exists") is none
       loop: "{{ deploy_cacerts__ca_service_routes_list }}"
       changed_when: false

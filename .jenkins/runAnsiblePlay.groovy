@@ -23,7 +23,7 @@ config.ansibleVault = "./vars/vault.yml"
 // config.ansibleEnvVarsList = ansibleEnvVarsList
 
 // List ansibleSecretVarsList=[
-//     sshUserPrivateKey(credentialsId: 'bitbucket-ssh-jenkins')
+//     sshUserPrivateKey(credentialsId: 'gitea-ssh-jenkins')
 // ]
 // config.ansibleSecretVarsList = ansibleSecretVarsList
 

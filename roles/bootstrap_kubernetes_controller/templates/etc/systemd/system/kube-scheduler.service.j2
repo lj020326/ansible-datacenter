@@ -1,0 +1,21 @@
+#jinja2: trim_blocks:False
+[Unit]
+Description=Kubernetes Scheduler
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+Wants=network-online.target
+Wants=kube-apiserver.service
+After=network-online.target
+After=kube-apiserver.service
+
+[Service]
+ExecStartPre=/usr/bin/timeout 30 sh -c 'while ! ss -H -t -l -n sport = :{{ bootstrap_kubernetes_controller__api_endpoint_port }} | grep -q "^LISTEN.*:{{ bootstrap_kubernetes_controller__api_endpoint_port }}"; do sleep 1; done'
+ExecStart={{ bootstrap_kubernetes_controller__bin_dir }}/kube-scheduler \
+{%- for setting in bootstrap_kubernetes_controller__scheduler_settings | sort %}
+  --{{ setting }}={{ bootstrap_kubernetes_controller__scheduler_settings[setting] }} {% if not loop.last %}\{% endif %}
+{%- endfor %}
+{%- for setting in bootstrap_kubernetes_controller__service_options %}
+{{ setting }}
+{%- endfor %}
+
+[Install]
+WantedBy=multi-user.target

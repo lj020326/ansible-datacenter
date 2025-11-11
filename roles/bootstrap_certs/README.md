@@ -212,7 +212,7 @@ when: bootstrap_certs__ca_fetch_certs is defined
   - "{{ bootstrap_certs__caroot_cert }}"
   - "{{ bootstrap_certs__caroot_key }}"
   - { src: "{{ ca_certs_dir }}/{{ bootstrap_certs__caroot_cert }}", dest: "{{ bootstrap_certs__cacert_certs_dir }}/{{ item }}" }
-  - { src: "{{ ca_certs_dir }}/{{ bootstrap_certs__pki_caroot_key }}", dest: "{{ bootstrap_certs__cacert_keys_dir }}/{{ item }}" }
+  - { src: "{{ ca_certs_dir }}/{{ bootstrap_certs__pki_ca_root_key }}", dest: "{{ bootstrap_certs__cacert_keys_dir }}/{{ item }}" }
 ```
 
 * Distribute the Certs & keys to the various nodes:
@@ -244,12 +244,12 @@ when: bootstrap_certs__ca_fetch_certs is defined
 
 # Root CA key/cert
 
-- name: "Copy {{ bootstrap_certs__pki_caroot_key }} to {{ bootstrap_certs__cacert_local_key_dir }}"
+- name: "Copy {{ bootstrap_certs__pki_ca_root_key }} to {{ bootstrap_certs__cacert_local_key_dir }}"
   ansible.builtin.copy:
    src: "{{ bootstrap_certs__cacert_keys_dir }}/{{ item }}"
    dest: "{{ bootstrap_certs__cacert_local_key_dir }}/{{ item }}"
   with_items:
-  - "{{ bootstrap_certs__pki_caroot_key }}"
+  - "{{ bootstrap_certs__pki_ca_root_key }}"
 
 - name: "Copy {{ bootstrap_certs__caroot_cert }} to {{ bootstrap_certs__ca_local_cert_dir }}"
   ansible.builtin.copy:
@@ -287,7 +287,7 @@ An example playbook setup-ca-server.yml utilizing the CA role to setup the CA se
 
 ```yaml
 - hosts: caserver01
-  become: yes
+  become: true
   vars:
    bootstrap_certs__ca_init: yes
    bootstrap_certs__ca_certify_nodes: yes
@@ -303,7 +303,7 @@ Example deploy-nodes.yml for nodes needing certificates ...
 
 ```yaml
 - hosts: ca-swarm-instances
-  become: yes
+  become: true
   become_user: root
   roles:
     - role: deploy_cacerts
@@ -376,7 +376,7 @@ The following playbook creates and signs certificates with our provided configur
   pre_tasks:
     - name: ensure pip is installed
       easy_install: { name: pip, state: latest }
-      become: yes
+      become: true
   roles:
     - role: bootstrap_certs
       trusted_ca_path: /my/trusted/ca-path/

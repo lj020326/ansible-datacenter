@@ -1,0 +1,130 @@
+---
+- name: Gather instance facts
+  ansible.builtin.setup:
+
+- name: Create group
+  when:
+    - bootstrap_etcd__group != "root"
+  ansible.builtin.group:
+    name: "{{ bootstrap_etcd__group }}"
+    state: present
+    system: "{{ bootstrap_etcd__group_system | bool }}"
+    gid: "{{ bootstrap_etcd__group_gid | default(omit) }}"
+
+- name: Create user
+  when:
+    - bootstrap_etcd__user != "root"
+  ansible.builtin.user:
+    name: "{{ bootstrap_etcd__user }}"
+    state: present
+    shell: "{{ bootstrap_etcd__user_shell }}"
+    system: "{{ bootstrap_etcd__user_system | bool }}"
+    create_home: "{{ bootstrap_etcd__user_home is defined and bootstrap_etcd__user_system != true | bool }}"
+    home: "{{ bootstrap_etcd__user_home | default(omit) }}"
+    uid: "{{ bootstrap_etcd__user_uid | default(omit) }}"
+    group: "{{ bootstrap_etcd__group }}"
+
+- name: Create etcd config directory
+  ansible.builtin.file:
+    state: directory
+    path: "{{ bootstrap_etcd__conf_dir }}"
+    mode: "{{ bootstrap_etcd__conf_dir_mode }}"
+    owner: "{{ bootstrap_etcd__conf_dir_user }}"
+    group: "{{ bootstrap_etcd__conf_dir_group }}"
+
+- name: Create etcd download directory
+  ansible.builtin.file:
+    state: directory
+    path: "{{ bootstrap_etcd__download_dir }}"
+    mode: "{{ bootstrap_etcd__download_dir_mode }}"
+    owner: "{{ bootstrap_etcd__download_dir_user }}"
+    group: "{{ bootstrap_etcd__download_dir_group }}"
+
+- name: Create etcd bin directory
+  when:
+    - bootstrap_etcd__bin_dir == "/usr/local/bin"
+    - bootstrap_etcd__bin_dir == "/usr/local/bin/"
+  ansible.builtin.file:
+    state: directory
+    path: "{{ bootstrap_etcd__bin_dir }}"
+    mode: "{{ bootstrap_etcd__bin_dir_mode }}"
+    owner: "{{ bootstrap_etcd__bin_dir_user }}"
+    group: "{{ bootstrap_etcd__bin_dir_group }}"
+
+- name: Create etcd data directory
+  ansible.builtin.file:
+    state: directory
+    path: "{{ bootstrap_etcd__data_dir }}"
+    mode: "{{ bootstrap_etcd__data_dir_mode }}"
+    owner: "{{ bootstrap_etcd__data_dir_user }}"
+    group: "{{ bootstrap_etcd__data_dir_group }}"
+
+- name: Ensure correct owner/group for etcd data directory
+  ansible.builtin.file:
+    state: directory
+    path: "{{ bootstrap_etcd__data_dir }}"
+    owner: "{{ bootstrap_etcd__data_dir_user }}"
+    group: "{{ bootstrap_etcd__data_dir_group }}"
+    recurse: true
+
+- name: Copy certificates
+  ansible.builtin.copy:
+    src: "{{ bootstrap_etcd__ca_conf_directory }}/{{ item }}"
+    dest: "{{ bootstrap_etcd__conf_dir }}/{{ item }}"
+    mode: "0640"
+    owner: "{{ bootstrap_etcd__conf_dir_user }}"
+    group: "{{ bootstrap_etcd__conf_dir_group }}"
+  with_items:
+    - "{{ bootstrap_etcd__certificates }}"
+  no_log: '{{ ansible_verbosity < 3 }}'
+
+- name: Downloading official etcd release
+  ansible.builtin.get_url:
+    url: "{{ bootstrap_etcd__download_url }}"
+    dest: "{{ bootstrap_etcd__download_dir }}/etcd-v{{ bootstrap_etcd__version }}-linux-{{ bootstrap_etcd__architecture }}.tar.gz"
+    checksum: "{{ bootstrap_etcd__download_url_checksum }}"
+    mode: "0755"
+
+- name: Unzip downloaded file
+  ansible.builtin.unarchive:
+    src: "{{ bootstrap_etcd__download_dir }}/etcd-v{{ bootstrap_etcd__version }}-linux-{{ bootstrap_etcd__architecture }}.tar.gz"
+    dest: "{{ bootstrap_etcd__download_dir }}/"
+    remote_src: true
+    owner: "root"
+    group: "root"
+    creates: "{{ bootstrap_etcd__download_dir }}/etcd-v{{ bootstrap_etcd__version }}-linux-{{ bootstrap_etcd__architecture }}/etcd"
+
+- name: Copy etcd binaries to destination directory
+  ansible.builtin.copy:
+    src: "{{ bootstrap_etcd__download_dir }}/etcd-v{{ etcd_version }}-linux-{{ bootstrap_etcd__architecture }}/{{ item }}"
+    dest: "{{ etcd_bin_dir }}/{{ item }}"
+    mode: "0755"
+    owner: "root"
+    group: "root"
+    remote_src: true
+  with_items:
+    - etcd
+    - etcdctl
+
+- name: Combine bootstrap_etcd__settings and bootstrap_etcd__settings_user (if defined)
+  ansible.builtin.set_fact:
+    bootstrap_etcd__settings: "{{ bootstrap_etcd__settings | combine(bootstrap_etcd__settings_user | default({})) }}"
+
+- name: Create systemd unit file
+  ansible.builtin.template:
+    src: etc/systemd/system/etcd.service.j2
+    dest: "/etc/systemd/system/{{ bootstrap_etcd__service_name }}.service"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  notify:
+    - Reload systemd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start etcd
+  ansible.builtin.service:
+    name: "{{ bootstrap_etcd__service_name }}"
+    enabled: true
+    state: started

@@ -1,0 +1,56 @@
+---
+
+- name: Setup K8s worker
+  hosts: kubernetes_worker
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Setup Kubernetes worker
+      when:
+        - bootstrap_kubernetes_worker__worker_setup_networking is not defined
+      ansible.builtin.include_role:
+        name: bootstrap_kubernetes_controller
+
+- name: Setup Cilium
+  hosts: kubernetes_worker
+  become: true
+  gather_facts: true
+  environment:
+    K8S_AUTH_KUBECONFIG: "{{ bootstrap_kubernetes_worker__admin_conf_dir }}/admin.kubeconfig"
+  tasks:
+    - name: Include Cilium role
+      when:
+        - bootstrap_kubernetes_worker__worker_setup_networking is defined
+        - bootstrap_kubernetes_worker__worker_setup_networking == "install"
+      ansible.builtin.include_role:
+        name: githubixx.cilium_kubernetes
+      vars:
+        cilium_action: "install"  # noqa var-naming
+
+- name: Setup tooling to make worker nodes usable
+  hosts: test-assets
+  become: true
+  gather_facts: true
+  environment:
+    K8S_AUTH_KUBECONFIG: "{{ bootstrap_kubernetes_worker__admin_conf_dir }}/admin.kubeconfig"
+  tasks:
+    - name: Setup tooling
+      when:
+        - bootstrap_kubernetes_worker__worker_setup_networking is defined
+        - bootstrap_kubernetes_worker__worker_setup_networking == "install"
+      block:
+        - name: Waiting for Cilium to become ready
+          ansible.builtin.include_tasks:
+            file: tasks/cilium_status.yml
+
+        - name: Control plane nodes should only run Cilium pods
+          ansible.builtin.include_tasks:
+            file: tasks/taint_controller_nodes.yml
+
+        - name: Install CoreDNS
+          ansible.builtin.include_tasks:
+            file: tasks/coredns.yml
+
+        - name: Waiting for CoreDNS to become ready
+          ansible.builtin.include_tasks:
+            file: tasks/coredns_status.yml

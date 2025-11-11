@@ -7,7 +7,7 @@
 ## exit when any command fails
 #set -e
 
-VERSION="2025.6.12"
+VERSION="2025.10.1"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
@@ -305,6 +305,12 @@ function remove_docker_stack() {
     docker network rm "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || true
   done
 
+  log_info "Pruning unused containers"
+  docker container prune -f
+
+  log_info "Pruning unused networks"
+  docker network prune -f
+
   local RESTART_DOCKER_COMMAND="systemctl restart docker"
   log_info "${RESTART_DOCKER_COMMAND}"
   eval "${RESTART_DOCKER_COMMAND}"
@@ -317,6 +323,11 @@ function remove_docker_stack() {
     log_info "performing additional network cleanup"
     log_info "  ** fix/resolution reference: https://github.com/moby/moby/issues/25981#issuecomment-244783392"
     cleanup_stale_docker_networks
+  fi
+
+  if [ "${DOCKER_CLEANUP_POSTGRES_PIDFILE}" -eq 1 ]; then
+    log_info "remove ${DOCKER_POSTGRES_PIDFILE_PATH}"
+    rm -f "${DOCKER_POSTGRES_PIDFILE_PATH}"
   fi
 
   log_info "Docker stack completely removed and ready to recreate."
@@ -508,10 +519,6 @@ function main() {
     for DOCKER_STACK in "${__DOCKER_STACK_LIST[@]}"; do
       remove_docker_stack "${DOCKER_STACK}"
     done
-  fi
-  if [ "${DOCKER_CLEANUP_POSTGRES_PIDFILE}" -eq 1 ]; then
-    log_info "remove ${DOCKER_POSTGRES_PIDFILE_PATH}"
-    rm -f "${DOCKER_POSTGRES_PIDFILE_PATH}"
   fi
 
   if [ "${DEPLOY_DOCKER_STACK}" -eq 0 ]; then

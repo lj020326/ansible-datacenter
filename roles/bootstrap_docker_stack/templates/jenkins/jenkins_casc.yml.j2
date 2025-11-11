@@ -42,10 +42,15 @@ credentials:
           username: "${BITBUCKET_CLOUD_OAUTH_USERNAME}"
           usernameSecret: true
       - string:
+          description: "gitea-ssh-jenkins-string"
+          id: "gitea-ssh-jenkins-string"
+          scope: GLOBAL
+          secret: "${GITEA_SSH_PRIVATE_KEY}"
+      - string:
           description: "bitbucket-ssh-jenkins-string"
           id: "bitbucket-ssh-jenkins-string"
           scope: GLOBAL
-          secret: "${readFile:${BITBUCKET_SSH_PRIVATE_KEY}}"
+          secret: "${BITBUCKET_SSH_PRIVATE_KEY}"
       - usernamePassword:
           description: "infra-jenkins-git-user"
           id: "infra-jenkins-git-user"
@@ -144,26 +149,6 @@ credentials:
 #            secretBytes: "${base64:${readFile:${ANSIBLE_VAULT_PASSWORD_FILE}}}"
 #            secretBytes: "${readFile:${ANSIBLE_VAULT_PASSWORD_FILE}}"
 jenkins:
-#  agentProtocols:
-#  - "JNLP4-connect"
-#  - "Ping"
-#  ## ref: https://webapp.chatgpt4google.com/s/MjcyNDgx
-#  agentProtocols:
-#  - jnlp:
-#      agentInboundSecurity:
-#        preference: "preferred"
-#        randomSeed: "some-random-string"
-#        fixedSecret: "${JENKINS_AGENT_SECRET}"
-#  ## ref: https://webapp.chatgpt4google.com/s/MTk5ODA5
-#  agents:
-#    inbound:
-#      - name: "jenkins-agent-{{ inventory_hostname_short }}"
-#        agentType: "jnlp"
-#        labels:
-#          - "linux"
-#          - "docker"
-#          - "packer"
-#        secret: "${JENKINS_AGENT_SECRET}"
   authorizationStrategy:
     ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/global-matrix-auth
     ## ref: https://stackoverflow.com/questions/32111825/jenkins-how-to-set-authorization-on-project-basis
@@ -292,12 +277,6 @@ jenkins:
       name: "all"
   projectNamingStrategy: "standard"
   quietPeriod: 5
-#  ## Since Jenkins 2.326, the agent-to-controller security subsystem is always enabled, so
-#  ## following block is no longer needed and only prints a deprecation message and stacktrace during startup:
-#  ##   j.s.s2m.AdminWhitelistRule#setMasterKillSwitch: Setting AdminWhitelistRule no longer has any effect.
-#  ## ref: https://github.com/cider-security-research/cicd-goat/issues/15
-#  remotingSecurity:
-#    enabled: true
   scmCheckoutRetryCount: 0
   securityRealm:
     ldap:
@@ -374,18 +353,9 @@ security:
     sshHostKeyVerificationStrategy: "noHostKeyVerificationStrategy"
   globalJobDslSecurityConfiguration:
     useScriptSecurity: false
-  ## ref: https://github.com/jenkinsci/authorize-project-plugin/blob/master/src/test/resources/org/jenkinsci/plugins/authorizeproject/ConfigurationAsCodeTest/global.config.TriggeringUsersAuthorizationStrategy.yml
-  ## ref: https://bobcares.com/blog/jenkins-setup-docker/
-#  queueItemAuthenticator:
-#    authenticators:
-#    - global:
-#        strategy: "triggeringUsersAuthorizationStrategy"
-##        strategy: "systemAuthorizationStrategy"
   sSHD:
     port: -1
   scriptApproval:
-#    approvedScriptHashes:
-#    - "SHA512:0f0c5c854e3608345c98c0d36bda33f17963a8dc9d76e04587dc2d5088610ba8eea4c7f8c1564457bfc0b09a697cc257774ab668fa963627451056a7ff466571"
     approvedSignatures:
       - "field hudson.model.Slave name"
       - "field hudson.plugins.git.GitSCMBackwardCompatibility branch"
@@ -591,7 +561,7 @@ unclassified:
       retriever:
         modernSCM:
           scm:
-            git:
+            gitSource:
               credentialsId: "{{ __docker_stack__jenkins__pipeline_lib_credential_id }}"
               remote: "{{ __docker_stack__jenkins__pipeline_lib_repo }}"
               traits:
@@ -606,14 +576,6 @@ unclassified:
   injectionConfig:
     allowUntrusted: false
     enabled: false
-#    enforceUrl: false
-#    injectCcudExtension: false
-#    injectMavenExtension: false
-#  jiraCloudPluginConfig:
-#    autoBuildsEnabled: false
-#    autoDeploymentsEnabled: false
-#    autoDeploymentsRegex: "^deploy to (?<envName>.*)$"
-#    debugLogging: false
   junitTestResultStorage:
     storage: "file"
   location:
@@ -625,12 +587,8 @@ unclassified:
     smtpHost: "{{ docker_stack__smtp_host }}"
     useSsl: false
     useTls: false
-#  pluginImpl:
-#    enableCredentialsFromNode: false
   pollSCM:
     pollingThreadCount: 10
-#  prismConfiguration:
-#    theme: PRISM
   prometheusConfiguration:
     appendParamLabel: false
     appendStatusLabel: false
@@ -661,20 +619,9 @@ unclassified:
   slackNotifier:
     botUser: false
     sendAsText: false
-#  themeManager:
-#    disableUserThemes: true
-#    theme: "noOp"
   ## ref: https://plugins.jenkins.io/throttle-concurrents/
   throttleJobProperty:
     {{ __docker_stack__jenkins__throttle_job_properties | to_nice_yaml(indent=2) | indent(4) }}
-#  throttleJobProperty:
-#    categories:
-#      - categoryName: "docker_image_builds"
-#        maxConcurrentTotal: 5
-#        maxConcurrentPerNode: 5
-##        nodeLabeledPairs:
-##        - throttledNodeLabel: "docker"
-##          maxConcurrentPerNodeLabeled: 1
   timestamper:
     allPipelines: false
     elapsedTimeFormat: "'<b>'HH:mm:ss.S'</b> '"
@@ -700,29 +647,7 @@ tool:
                 .venv/ansible/bin/pip3 -q install {{ __docker_stack__jenkins__ansible_venv_libs | join(' ') }}
               label: "ansible"
               toolHome: ".venv/ansible/bin"
-#    - home: ".venv/ansible"
-#      name: "ansible-venv"
-#      properties:
-#      - installSource:
-#          installers:
-#          - command:
-#              command: |+
-#                python3 -m venv . && \
-#                ./bin/pip3 -q install --upgrade pip && \
-#                ./bin/pip3 -q install ansible
-#              label: "ansible"
-#              toolHome: "./bin"
     - name: "ansible"
-#  customTool:
-#    installations:
-#    - exportedPaths: "/usr/local/bin"
-#      home: "/usr/local/bin"
-#      name: "packer-local"
-##      labelSpecifics:
-##      - label: "packer"
-#    - exportedPaths: "/usr/local/bin"
-#      home: "/usr/local/bin"
-#      name: "govc-local"
   git:
     installations:
 #    - home: "/usr/bin/git"
@@ -731,20 +656,6 @@ tool:
   mavenGlobalConfig:
     globalSettingsProvider: "standard"
     settingsProvider: "standard"
-#  packer:
-#    installations:
-#    - home: "/usr/local/bin"
-#      name: "Default"
-#    - home: "/usr/local/bin"
-#      name: "packer-1.6.2"
-#    # packer_template_file: provision/base.json
-#  pipelineMaven:
-#    globalTraceability: false
-#    triggerDownstreamUponResultAborted: false
-#    triggerDownstreamUponResultFailure: false
-#    triggerDownstreamUponResultNotBuilt: false
-#    triggerDownstreamUponResultSuccess: true
-#    triggerDownstreamUponResultUnstable: false
   terraform:
     installations:
     - home: "/usr/bin"

@@ -1,0 +1,166 @@
+---
+# This file handles the logic for fetching and deploying a single certificate,
+# either from a PKI secrets engine or a KV store.
+#
+# Requires the following variable:
+# __cert_info:
+#   type: 'pki' or 'kv'
+#   name: The name of the certificate file.
+#   common_name: The common name (for PKI only).
+#   source_path: The full path in Vault (e.g., 'kv/pki/ca/pem')
+#   source_content: The certificate content (for KV type, to avoid re-fetching)
+#   local_cert_path: The local directory for the cert file.
+#   local_key_path: The local directory for the key file (for PKI only).
+#   key_algo: The algorithm of the key (optional).
+#   key_size: The size of the key (optional).
+
+- name: "fetch-cert : Display __cert_info"
+  ansible.builtin.debug:
+    var: __cert_info
+
+- name: "fetch-cert : Check if certificate file {{ __cert_info.name }} exists"
+  ansible.builtin.stat:
+    path: "{{ __cert_info.local_cert_path }}/{{ __cert_info.name }}"
+  register: __cert_stat
+
+- name: "fetch-cert : Validate existing certificate {{ __cert_info.name }}"
+  when: __cert_stat.stat.exists
+  dettonville.utils.x509_certificate_verify:
+    path: "{{ __cert_info.local_cert_path }}/{{ __cert_info.name }}"
+    validate_expired: true
+    common_name: "{{ __cert_info.common_name | default(omit) }}"
+    key_algo: "{{ __cert_info.key_algo | default(omit) }}"
+    key_size: "{{ __cert_info.key_size | default(omit) }}"
+  register: __cert_verify_result
+
+- name: "fetch-cert : Retrieve and deploy certificate from Vault"
+  when: (not __cert_stat.stat.exists) or __cert_verify_result.verify_failed | d(true) | bool
+  block:
+    - name: "fetch-cert : Deploy certificate from KV store"
+      when: __cert_info.type == "kv"
+      block:
+        - name: "fetch-cert : Retrieve certificate from Vault (KV store)"
+          when: __cert_info.source_content is not defined
+          community.hashi_vault.vault_kv2_get:
+            url: "{{ deploy_ca_certs__vault_url }}"
+            token: "{{ deploy_ca_certs__vault_token }}"
+            engine_mount_point: "{{ __cert_info.source_path.split('/')[0] }}"
+            path: "{{ __cert_info.source_path.split('/')[1:] | join('/') }}"
+          register: __kv_fetch_result
+          delegate_to: localhost
+          run_once: true
+
+        - name: "fetch-cert : Deploy new certificate (from KV store)"
+          ansible.builtin.copy:
+            content: "{{ (__cert_info.source_content is defined) | ternary(__cert_info.source_content, __kv_fetch_result.data.data.certificate) }}"
+            dest: "{{ __cert_info.local_cert_path }}/{{ __cert_info.name }}"
+            mode: '0644'
+          register: __cert_deploy_result
+
+- name: "fetch-cert : Deploy certificate from PKI engine"
+  when: __cert_info.type == "pki"
+  block:
+    - name: "fetch-cert : Debug PKI configuration"
+      ansible.builtin.debug:
+        msg:
+          - "PKI Mount Point: {{ deploy_ca_certs__vault_mount_path }}"
+          - "Role Name: {{ deploy_ca_certs__pki_cert_role_name }}"
+          - "Common Name: {{ __cert_info.common_name }}"
+          - "Vault URL: {{ deploy_ca_certs__vault_url }}"
+          - "Certificate Issuance URL: {{ deploy_ca_certs__vault_url }}/v1/{{
+            deploy_ca_certs__vault_mount_path }}/issue/{{ deploy_ca_certs__pki_cert_role_name }}"
+
+    - name: "fetch-cert : Validate PKI mount and issuer"
+      community.hashi_vault.vault_read:
+        url: "{{ deploy_ca_certs__vault_url }}"
+        token: "{{ deploy_ca_certs__vault_token }}"
+        path: "{{ deploy_ca_certs__vault_mount_path }}/config"
+        validate_certs: false
+      register: __pki_config_result
+      delegate_to: localhost
+      run_once: true
+      failed_when: >
+        __pki_config_result.failed or
+        __pki_config_result.data is not defined or
+        __pki_config_result.data.default_issuer is not defined
+
+    - name: "fetch-cert : Validate internal-api role exists"
+      community.hashi_vault.vault_read:
+        url: "{{ deploy_ca_certs__vault_url }}"
+        token: "{{ deploy_ca_certs__vault_token }}"
+        path: "{{ deploy_ca_certs__vault_mount_path }}/roles/{{ deploy_ca_certs__pki_cert_role_name }}"
+        validate_certs: false
+      register: __pki_role_result
+      delegate_to: localhost
+      run_once: true
+      failed_when: __pki_role_result.failed or __pki_role_result.data is not defined
+
+    - name: "fetch-cert : Stat host's private key file"
+      ansible.builtin.stat:
+        path: "{{ __cert_info.local_key_path }}/{{ __cert_info.name | regex_replace('\\.crt$', '.key') }}"
+      register: __host_key_stat
+
+    - name: "fetch-cert : Create host's private key if it doesn't exist"
+      when: not __host_key_stat.stat.exists
+      community.crypto.openssl_privatekey:
+        path: "{{ __cert_info.local_key_path }}/{{ __cert_info.name | regex_replace('\\.crt$', '.key') }}"
+        type: "{{ __cert_info.key_algo | default('RSA') }}"
+        size: "{{ __cert_info.key_size | default(4096) }}"
+      register: __host_key_result
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: "fetch-cert : Create CSR for the certificate"
+      community.crypto.openssl_csr:
+        path: "{{ __cert_info.local_cert_path }}/{{ __cert_info.name | regex_replace('\\.crt$', '.csr') }}"
+        privatekey_path: "{{ __cert_info.local_key_path }}/{{ __cert_info.name | regex_replace('\\.crt$', '.key') }}"
+        common_name: "{{ __cert_info.common_name }}"
+        extended_key_usage:
+          - "serverAuth"
+          - "clientAuth"
+      register: __pki_csr_result
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: "fetch-cert : Display deploy_ca_certs__vault_mount_path"
+      ansible.builtin.debug:
+        var: deploy_ca_certs__vault_mount_path
+
+    - name: "fetch-cert : Request certificate from Vault (PKI engine)"
+      community.hashi_vault.vault_pki_generate_certificate:
+        url: "{{ deploy_ca_certs__vault_url }}"
+        token: "{{ deploy_ca_certs__vault_token }}"
+        mount_point: "{{ deploy_ca_certs__vault_mount_path }}"
+        role_name: "{{ deploy_ca_certs__pki_cert_role_name }}"
+        common_name: "{{ __cert_info.common_name }}"
+        ttl: "{{ deploy_ca_certs__certificate_ttl }}"
+        validate_certs: false
+      register: __pki_fetch_result
+      delegate_to: localhost
+      run_once: true
+
+    - name: "fetch-cert : Deploy new certificate (from PKI engine)"
+      ansible.builtin.copy:
+        content: "{{ __pki_fetch_result.certificate }}"
+        dest: "{{ __cert_info.local_cert_path }}/{{ __cert_info.name }}"
+        mode: '0644'
+      register: __cert_deploy_result
+
+    - name: "fetch-cert : Deploy new private key"
+      ansible.builtin.copy:
+        content: "{{ __pki_fetch_result.private_key }}"
+        dest: "{{ __cert_info.local_key_path }}/{{ __cert_info.name | regex_replace('\\.crt$', '.key') }}"
+        mode: '0600'
+
+- name: "fetch-cert : Set fact for certificate has changed"
+  when: __cert_info.type == "kv" and __cert_deploy_result.changed
+  ansible.builtin.set_fact:
+    __intermediate_ca_has_changed: true
+
+- name: "fetch-cert : Set fact for service certs changed"
+  when: __cert_info.type == "pki" and __cert_deploy_result.changed
+  ansible.builtin.set_fact:
+    __service_cert_results: true
+
+- name: "fetch-cert : Set fact for host cert changed"
+  when: __cert_info.common_name == ansible_fqdn and __cert_deploy_result.changed
+  ansible.builtin.set_fact:
+    __host_cert_result: true

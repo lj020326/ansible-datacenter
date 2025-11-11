@@ -6,18 +6,18 @@
     mode: "{{ item.mode | default(omit) }}"
   loop:
     - path: "{{ docker_stack__internal_ssl_cert_dir }}"
-    - path: "{{ docker_stack__internal_ssl_certkey_dir }}"
+    - path: "{{ docker_stack__internal_ssl_key_dir }}"
       mode: "0600"
 
-- name: "{{ __docker_stack__log_prefix__self_signed_cert }} Generate ssl privatekey to {{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file
+- name: "{{ __docker_stack__log_prefix__self_signed_cert }} Generate ssl privatekey to {{ docker_stack__internal_ssl_key_dir }}/{{ docker_stack__ssl_internal_privatekey_file
     }}"
   community.crypto.openssl_privatekey:
-    path: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
+    path: "{{ docker_stack__internal_ssl_key_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
 
 - name: "{{ __docker_stack__log_prefix__self_signed_cert }} Create ssl CSR to {{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_csr_file }}"
   community.crypto.openssl_csr:
     path: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_csr_file }}"
-    privatekey_path: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
+    privatekey_path: "{{ docker_stack__internal_ssl_key_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
     subject:
       commonName: "*.{{ docker_stack__internal_domain }}"
     subject_alt_name: "{{ item.value | map('regex_replace', '^', 'DNS:') | list }}"
@@ -26,12 +26,12 @@
       - dev.{{ docker_stack__internal_domain }}
       - "{{ docker_stack__internal_domain }}"
 
-- name: "{{ __docker_stack__log_prefix__self_signed_cert }} Create self-signed ssl certificate to {{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file
-    }}"
+- name: "{{ __docker_stack__log_prefix__self_signed_cert }} Create self-signed ssl certificate to {{
+  docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
   community.crypto.x509_certificate:
     path: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
     csr_path: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_csr_file }}"
-    privatekey_path: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
+    privatekey_path: "{{ docker_stack__internal_ssl_key_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
     provider: selfsigned
     selfsigned_digest: sha256
   register: selfsigned_certificate
@@ -48,7 +48,7 @@
     group: "{{ docker_stack__user_group }}"
   loop:
     - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
-      dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}"
-    - src: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
-      dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}"
+      dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}"
+    - src: "{{ docker_stack__internal_ssl_key_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
+      dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}"
       mode: "0600"

@@ -156,9 +156,9 @@
   ansible.builtin.debug:
     var: __docker_stack__service_groups
 
-- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__traefik_routing_method"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__traefik__routing_method"
   ansible.builtin.debug:
-    var: docker_stack__traefik_routing_method
+    var: docker_stack__traefik__routing_method
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__proxy_configs"
   ansible.builtin.set_fact:
@@ -188,9 +188,9 @@
     #       verbosity: 2
 
     - name: "{{ __docker_stack__log_prefix__init_vars }} Set the app proxy services vars specific to traefik version"
-      when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik_version + '/' + docker_stack__traefik_routing_method + '/docker_stack_proxy_' + item.name
+      when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik__version + '/' + docker_stack__traefik__routing_method + '/docker_stack_proxy_' + item.name
         + '.yml') is file
-      ansible.builtin.include_vars: app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_proxy_{{ item.name
+      ansible.builtin.include_vars: app-services/traefik/{{ docker_stack__traefik__version }}/{{ docker_stack__traefik__routing_method }}/docker_stack_proxy_{{ item.name
         }}.yml
       loop: "{{ __docker_stack__proxy_services }}"
 
@@ -201,9 +201,9 @@
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set the traefik app services vars"
   #  when: item.source|d('role') == 'role'
-  when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik_version + '/' + docker_stack__traefik_routing_method + '/docker_stack_' + item.name + '.yml')
+  when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik__version + '/' + docker_stack__traefik__routing_method + '/docker_stack_' + item.name + '.yml')
     is file
-  ansible.builtin.include_vars: app-services/traefik/{{ docker_stack__traefik_version }}/{{ docker_stack__traefik_routing_method }}/docker_stack_{{ item.name }}.yml
+  ansible.builtin.include_vars: app-services/traefik/{{ docker_stack__traefik__version }}/{{ docker_stack__traefik__routing_method }}/docker_stack_{{ item.name }}.yml
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
     label: "{{ item.name | d(item) }}"
@@ -222,9 +222,13 @@
       - docker_stack__service_route_name={{ docker_stack__service_route_name }}
       - docker_stack__internal_root_domain={{ docker_stack__internal_root_domain }}
       - docker_stack__internal_domain={{ docker_stack__internal_domain }}
-      - docker_stack__external_domain={{ docker_stack__external_domain }}
       - docker_stack__user_gid={{ docker_stack__user_gid }}
       - docker_stack__user_uid={{ docker_stack__user_uid }}
+
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__external_domain"
+  when: docker_stack__enable_external_route
+  ansible.builtin.debug:
+    var: docker_stack__external_domain
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_configs"
   ansible.builtin.set_fact:
@@ -258,8 +262,9 @@
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Combine proxy varname configs into __docker_stack__proxy_configs"
   ansible.builtin.set_fact:
-    __docker_stack__proxy_configs: "{{ __docker_stack__proxy_configs|d({}) | combine({ item.name: lookup('vars', q('varnames','^__docker_stack__proxyspec__'+item.name.replace('-','_')+'$')|
-      first | d('') )|d({}) }) }}"
+    __docker_stack__proxy_configs: "{{ __docker_stack__proxy_configs | d({})
+      | combine({item.name: lookup('vars',
+        q('varnames', '^__docker_stack__proxyspec__' + item.name.replace('-','_') + '$') | first | d('') ) | d({})}) }}"
   loop: "{{ __docker_stack__proxy_services|d([]) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_configs"
@@ -410,10 +415,15 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__base__services"
+  ansible.builtin.debug:
+    var: __docker_stack__base__services
+    verbosity: 1
+
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_group_configs_tpl"
   ansible.builtin.debug:
     var: __docker_stack__service_group_configs_tpl
-#     verbosity: 2
+    verbosity: 1
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Combine app varname configs into __docker_stack__app_services"
   ansible.builtin.set_fact:

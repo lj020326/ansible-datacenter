@@ -42,67 +42,70 @@ vmware_host_datastores:
 vcenter_ipv4_address: "{{ ansible_default_ipv4.address | d(ansible_all_ipv4_addresses[0]) }}"
 # ansible_host: "{{ vcenter_ipv4_address }}"
 
-bootstrap_vsphere_dc__vcenter_domain: "{{ ca_domain }}"
-bootstrap_vsphere_dc__vcenter_fqdn: "{{ inventory_hostname_short }}.{{ bootstrap_vsphere_dc__vcenter_domain }}"
+bootstrap_vsphere__vcenter_domain: "{{ ca_domain }}"
+bootstrap_vsphere__vcenter_host: "{{ inventory_hostname_short }}.{{ bootstrap_vsphere__vcenter_domain }}"
 vcenter_ip: "{{ vcenter_ipv4_address }}"
 
 vcenter_vlan_id: 0
-bootstrap_vsphere_dc__vcenter_mgt_vlan_id: 0
-bootstrap_vsphere_dc__vcenter_mgt_vswitch: "vSwitch0"
-bootstrap_vsphere_dc__vcenter_mgt_network: "Management Network" # this portGroup will be created on the pESX with the vlan id specified in the
+bootstrap_vsphere__vcenter_mgt_vlan_id: 0
+bootstrap_vsphere__vcenter_mgt_vswitch: "vSwitch0"
+bootstrap_vsphere__vcenter_mgt_network: "Management Network" # this portGroup will be created on the pESX with the vlan id specified in the
 
-bootstrap_vsphere_dc__vcenter_cluster: "Management"
-# bootstrap_vsphere_dc__vcenter_cluster: "Physical"
+## set by the respective inventory cluster group
+# bootstrap_vsphere__vcenter_cluster: "Management"
+# bootstrap_vsphere__vcenter_cluster: "Physical"
 
-bootstrap_vsphere_dc__vcenter_network: "VM Network"
+bootstrap_vsphere__vcenter_network: "VM Network"
 
 dvs_uplink_vmnics:
   - vmnic0
 
-bootstrap_vsphere_dc__vcenter_dns_servers: "{{ dns_nameservers }}"
+bootstrap_vsphere__vcenter_dns_servers: "{{ dns_nameservers }}"
 
-bootstrap_vsphere_dc__vcenter_search_domains:
-  - "{{ bootstrap_vsphere_dc__vcenter_domain }}"
+bootstrap_vsphere__vcenter_search_domains:
+  - "{{ bootstrap_vsphere__vcenter_domain }}"
 
-bootstrap_vsphere_dc__vcenter_ntp_servers: "{{ bootstrap_vsphere_dc__vcenter_dns_servers }}"
+bootstrap_vsphere__vcenter_ntp_servers: "{{ bootstrap_vsphere__vcenter_dns_servers }}"
 
-# bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name: "AllVlansVSS"
-bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name: "nested-trunk"
-bootstrap_vsphere_dc__vcenter_nested_vss_vlan_id: "4095"
+# bootstrap_vsphere__vcenter_nested_vss_portgroup_name: "AllVlansVSS"
+bootstrap_vsphere__vcenter_nested_vss_portgroup_name: "nested-trunk"
+bootstrap_vsphere__vcenter_nested_vss_vlan_id: "4095"
 
-bootstrap_vsphere_dc__vcenter_clusters: # You can add, remove or rename clusters in this section, you can specify to which cluster specific nested ESXi to be connected to
+## You can add, remove or rename clusters in this section,
+## you can specify to which cluster specific nested ESXi to be connected
+bootstrap_vsphere__vcenter_clusters:
   Management:
-    ha: false
-    drs: false
-    vsan: false
+    enable_ha: false
+    enable_drs: false
+    enable_vsan: false
     ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_cluster_drs_module.html#parameter-drs_default_vm_behavior
 #    drs_default_vm_behavior: "partiallyAutomated"
     drs_default_vm_behavior: "manual"
     switch_name: "vSwitch0"
-    mgmt_portgroup: "{{ bootstrap_vsphere_dc__vcenter_network }}"
+    mgmt_portgroup: "{{ bootstrap_vsphere__vcenter_network }}"
 #    datastore: "esx02_ds1" # Datastore target for nested ESXi VMs
     datastore: "nfs_ds1" # Datastore target for nested ESXi VMs
     vmnic_physical_portgroup_assignment: # In vmnic order, these port groups must exist on the physical host
-      - "{{ bootstrap_vsphere_dc__vcenter_network }}"
-      - "{{ bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name }}"
+      - "{{ bootstrap_vsphere__vcenter_network }}"
+      - "{{ bootstrap_vsphere__vcenter_nested_vss_portgroup_name }}"
 
   Compute: # This name will by used in the nested vCenter
     # HA can only be enabled if there is are datastores accessible by all hosts.
-    ha: true
+    enable_ha: false
 #    ha_admission_control_enabled: false
 #    ha_host_monitoring_enabled: 'disabled'
-    drs: true
-    vsan: true
+    enable_drs: false
+    enable_vsan: false
 #    drs_default_vm_behavior: "partiallyAutomated"
     drs_default_vm_behavior: "manual"
     switch_name: "vSwitch0"
     # Settings below are assigned to each host in the cluster
-    mgmt_portgroup: "{{ bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name }}"
+    mgmt_portgroup: "{{ bootstrap_vsphere__vcenter_nested_vss_portgroup_name }}"
 #    mgmt_vlan: 0 # VLAN ID used to tag VMK0
-    mgmt_vlan: "{{ bootstrap_vsphere_dc__vcenter_nested_vss_vlan_id }}" # VLAN ID used to tag VMK0
+    mgmt_vlan: "{{ bootstrap_vsphere__vcenter_nested_vss_vlan_id }}" # VLAN ID used to tag VMK0
     cpu_cores: 4 # CPU count
     ram_in_gb: 16 # memory
-    hosting_cluster: "{{ bootstrap_vsphere_dc__vcenter_cluster }}" # the cluster where physical ESXi is connected to. The nested VMs will be deployed here
+    hosting_cluster: "{{ bootstrap_vsphere__vcenter_cluster }}" # the cluster where physical ESXi is connected to. The nested VMs will be deployed here
 
     # In order list of disks to assign to the nested host. All will be marked as SSD.
     # Datastore names will be automatically be pre-pended with the hostname. E.g esx1
@@ -118,12 +121,12 @@ bootstrap_vsphere_dc__vcenter_clusters: # You can add, remove or rename clusters
 #    datastore: "esx02_ds1" # Datastore target for nested ESXi VMs
     datastore: "nfs_ds1" # Datastore target for nested ESXi VMs
     vmnic_physical_portgroup_assignment: # In vmnic order, these port groups must exist on the physical host
-#      - "{{ bootstrap_vsphere_dc__vcenter_network }}"
-      - "{{ bootstrap_vsphere_dc__vcenter_nested_vss_portgroup_name }}"
+#      - "{{ bootstrap_vsphere__vcenter_network }}"
+      - "{{ bootstrap_vsphere__vcenter_nested_vss_portgroup_name }}"
       - "Nest"
 ##      - "TEP"
 
-bootstrap_vsphere_dc__vcenter_folders:
+bootstrap_vsphere__vcenter_folders:
   - name: templates
     type: vm
   - name: vm

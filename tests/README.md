@@ -125,15 +125,17 @@ $ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_s
 ### Run `tag-based` `site.yml` plays on hosts
 
 ```shell
-$ runme.sh site.yml -t deploy-cacerts -l admin01
-$ runme.sh site.yml -t bootstrap-linux -l admin01
-$ runme.sh site.yml -t bootstrap-webmin -l admin01
-$ runme.sh site.yml -t bootstrap-docker -l admin01
-$ runme.sh site.yml -t bootstrap-docker-stack -l admin01
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_control
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_openldap
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_jenkins_jcac
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_media
+## for control node certs - skip ansible_ping_test
+$ runme.sh -t bootstrap-pki -l ca_keystore site.yml
+$ runme.sh -t deploy-ca-certs --skip-tags=always site.yml
+$ runme.sh -t bootstrap-linux -l admin01 site.yml
+$ runme.sh -t bootstrap-webmin -l admin01 site.yml
+$ runme.sh -t bootstrap-docker -l admin01 site.yml
+$ runme.sh -t bootstrap-docker-stack -l admin01 site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_control site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_openldap site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_jenkins_jcac site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_media site.yml
 ```
 
 ### Run playbook

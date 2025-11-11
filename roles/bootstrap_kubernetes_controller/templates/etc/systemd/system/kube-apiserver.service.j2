@@ -1,0 +1,26 @@
+#jinja2: trim_blocks:False
+{%- macro cluster_hosts() -%}
+{%- for host in groups['bootstrap_kubernetes_controller__etcd'] -%}
+https://{{ hostvars[host]['ansible_' + bootstrap_kubernetes_controller__etcd_interface].ipv4.address }}:{{ bootstrap_kubernetes_controller__etcd_client_port }}{% if not loop.last %},{% endif %}
+{%- endfor -%}
+{%- endmacro -%}
+
+{%- set x=bootstrap_kubernetes_controller__apiserver_settings.__setitem__('etcd-servers',cluster_hosts()) -%}
+
+[Unit]
+Description=Kubernetes API Server
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart={{ bootstrap_kubernetes_controller__bin_dir }}/kube-apiserver \
+{%- for setting in bootstrap_kubernetes_controller__apiserver_settings|sort %}
+  --{{ setting }}={{ bootstrap_kubernetes_controller__apiserver_settings[setting] }} {% if not loop.last %}\{% endif %}
+{%- endfor %}
+{%- for setting in bootstrap_kubernetes_controller__service_options %}
+{{ setting }}
+{%- endfor %}
+
+[Install]
+WantedBy=multi-user.target

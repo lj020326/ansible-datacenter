@@ -33,7 +33,9 @@
     host_routes: "{{ item.1.host_routes | default(omit) }}"
   loop: "{{ openstack_cloud_networks | subelements('subnets', { 'skip_missing': true }) }}"
   register: os_subnets_results
-  failed_when: os_subnets_results.failed and not ( os_subnets_results.msg | regex_search("Current gateway ip .* already in use by port") )
+  failed_when:
+    - os_subnets_results.failed
+    - os_subnets_results.msg | regex_search("Current gateway ip .* already in use by port") is none
 
 #    - name: Display os subnets results
 #      ansible.builtin.debug:
@@ -50,8 +52,10 @@
     interfaces: "{{ item.interfaces }}"
   loop: "{{ openstack_cloud_routers }}"
   register: os_routers_results
-  #  failed_when: os_routers_results.failed and not ( os_routers_results.msg | regex_search("TypeError.* object is not subscriptable") )
-  failed_when: os_routers_results.failed and not ( os_routers_results.msg | regex_search("MODULE FAILURE\nSee stdout/stderr for the exact error") )
+  #  failed_when: os_routers_results.failed and os_routers_results.msg | regex_search("TypeError.* object is not subscriptable") is none
+  failed_when:
+    - os_routers_results.failed
+    - os_routers_results.msg | regex_search("MODULE FAILURE\nSee stdout/stderr for the exact error") is none
 
 #    - name: Create routers
 #      openstack.cloud.router:

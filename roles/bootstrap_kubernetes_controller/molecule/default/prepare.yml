@@ -1,0 +1,112 @@
+---
+
+- name: Update cache
+  hosts: k8s
+  remote_user: vagrant
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Update APT package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+- name: Harden hosts
+  hosts: all
+  remote_user: vagrant
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Setup harden_linux role
+      ansible.builtin.include_role:
+        name: githubixx.harden_linux
+
+- name: Setup Wireguard VPN
+  hosts: vpn
+  remote_user: vagrant
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Setup wireguard role
+      ansible.builtin.include_role:
+        name: githubixx.ansible_role_wireguard
+
+- name: Setup cfssl
+  hosts: bootstrap_kubernetes_controller__assets
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install cfssl
+      ansible.builtin.include_role:
+        name: githubixx.cfssl
+
+- name: Setup Kubernetes certificates
+  hosts: bootstrap_kubernetes_controller__assets
+  gather_facts: false
+  tasks:
+    - name: Generate etcd and K8s TLS certificates
+      ansible.builtin.include_role:
+        name: githubixx.kubernetes_ca
+
+    - name: Copy certificate files from assets to local host
+      ansible.posix.synchronize: # noqa: no-same-owner
+        mode: pull
+        src: "{{ bootstrap_kubernetes_controller__ca_conf_directory }}"
+        dest: "/tmp"
+
+- name: Setup etcd
+  hosts: bootstrap_kubernetes_controller__etcd
+  remote_user: vagrant
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Include etcd role
+      ansible.builtin.include_role:
+        name: githubixx.etcd
+
+- name: Setup Kubernetes client tooling
+  hosts: bootstrap_kubernetes_controller__assets
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Install kubectl
+      ansible.builtin.include_role:
+        name: githubixx.kubectl
+
+    - name: Install support packages
+      ansible.builtin.package:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - conntrack
+          - python3-pip
+
+    - name: Install kubernetes Python package
+      ansible.builtin.pip:
+        name: kubernetes
+        state: present
+
+- name: Setup HAProxy
+  hosts: ubuntu22
+  remote_user: vagrant
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Setup haproxy role
+      ansible.builtin.include_role:
+        name: githubixx.haproxy
+
+- name: Install CNI plugins and runc
+  hosts: k8s
+  remote_user: vagrant
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Include runc role
+      ansible.builtin.include_role:
+        name: githubixx.runc
+
+    - name: Include CNI role
+      ansible.builtin.include_role:
+        name: githubixx.cni

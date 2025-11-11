@@ -12,8 +12,8 @@ config.ansiblePlaybook = "./site.yml"
 config.ansibleVaultCredId = "ansible-vault-password-file"
 config.ansibleVault = "./vars/vault.yml"
 
-config.gitRepoUrl = "git@bitbucket.org:lj020326/ansible-datacenter.git"
-config.gitCredentialsId = 'bitbucket-ssh-jenkins'
+config.gitRepoUrl = "ssh://git@gitea.admin.dettonville.int:2222/infra/ansible-datacenter.git"
+config.gitCredentialsId = 'gitea-ssh-jenkins'
 config.gitRemoteBuildSummary = "ansible-datacenter"
 
 runAnsibleParamWrapper(config)

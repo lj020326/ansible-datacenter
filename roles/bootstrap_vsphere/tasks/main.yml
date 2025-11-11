@@ -1,0 +1,142 @@
+---
+- name: Initialize __nested_hosts_list and __nested_hosts_by_name
+  ansible.builtin.set_fact:
+    __nested_hosts_list: []
+    __nested_hosts_by_name: {}
+
+- name: Display esx_hosts_online minus node_offline
+  ansible.builtin.debug:
+    var: groups['vmware_physical_esx_host'] | difference(groups['node_offline'])
+
+- name: Display bootstrap_vsphere__vcenter_physical_esx_hosts
+  ansible.builtin.debug:
+    var: bootstrap_vsphere__vcenter_physical_esx_hosts
+
+- name: Set __esx_hosts_by_name
+  ansible.builtin.set_fact:
+    __esx_hosts_by_name: "{{ __esx_hosts_by_name | d({}) | combine({item.name: item}) }}"
+  loop: "{{ bootstrap_vsphere__vcenter_physical_esx_hosts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Display __esx_hosts_by_name
+  ansible.builtin.debug:
+    var: __esx_hosts_by_name
+
+#- name: Display bootstrap_vsphere__vcenter_physical_esx_hosts
+#  ansible.builtin.debug:
+#    var: bootstrap_vsphere__vcenter_physical_esx_hosts
+#
+#- name: Display vcenter_physical_portgroup_assignment
+#  ansible.builtin.debug:
+#    var: vcenter_physical_portgroup_assignment
+#    verbosity: 1
+#
+#- name: Display vcenter_physical_esx_defaults
+#  ansible.builtin.debug:
+#    var: vcenter_physical_esx_defaults
+#    verbosity: 1
+
+#- name: Display bootstrap_vsphere__vcenter_config
+#  ansible.builtin.debug:
+#    var: bootstrap_vsphere__vcenter_config
+
+#- ansible.builtin.debug:
+#    var: vcenter_node_info
+
+- name: "Display bootstrap_vsphere__vcenter_clusters"
+  ansible.builtin.debug:
+    var: bootstrap_vsphere__vcenter_clusters
+
+- name: Display bootstrap_vsphere__nested_hosts
+  ansible.builtin.debug:
+    var: bootstrap_vsphere__nested_hosts
+    verbosity: 1
+
+- name: Set __nested_hosts_list
+  ansible.builtin.set_fact:
+    __nested_hosts_list: "{{ __nested_hosts_list | d([])
+      + [bootstrap_vsphere__nested_esx_host_defaults | combine(item)] }}"
+  loop: "{{ bootstrap_vsphere__nested_hosts }}"
+
+- name: Set __nested_hosts_by_name
+  ansible.builtin.set_fact:
+    __nested_hosts_by_name: "{{ __nested_hosts_by_name | d({}) | combine({item.name: item}) }}"
+  loop: "{{ __nested_hosts_list }}"
+
+- name: Display __nested_hosts_list
+  ansible.builtin.debug:
+    var: __nested_hosts_list
+
+- name: "Display python runtime information before install pip libs"
+  ansible.builtin.debug:
+    msg:
+      - "ansible_version={{ ansible_version | d('') }}"
+      - "ansible_config_file={{ ansible_config_file | d('') }}"
+      - "discovered_interpreter_python={{ discovered_interpreter_python | d('') }}"
+      - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
+      - "ansible_playbook_python={{ ansible_playbook_python | d('') }}"
+      - "ansible_python_version={{ ansible_python_version | d('') }}"
+      - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('') }}"
+
+## ref: https://stackoverflow.com/questions/2589711/find-full-path-of-the-python-interpreter-python-executable
+- name: Get python exec path
+  changed_when: false
+  ansible.builtin.shell: |
+    {{ ansible_python_interpreter }} -c "import sys; print(print(sys.executable))"
+  register: __python_path_info
+
+- name: Display __python_path_info
+  ansible.builtin.debug:
+    var: __python_path_info.stdout_lines | first
+
+- name: Install vmware pip libs
+  when:
+    - bootstrap_vsphere__vcenter_python_pip_depends is defined
+    - not (bootstrap_vsphere__vcenter_python_pip_depends is none)
+  ansible.builtin.pip:
+    name: "{{ bootstrap_vsphere__vcenter_python_pip_depends }}"
+    state: present
+    virtualenv_command: python3 -m venv
+    extra_args: --user
+
+#- name: Install vmware pip libs
+#  when:
+#    - bootstrap_vsphere__vcenter_python_pip_depends is defined
+#    - not (bootstrap_vsphere__vcenter_python_pip_depends is none)
+#  community.general.pipx:
+#    name: "{{ bootstrap_vsphere__vcenter_python_pip_depends }}"
+#    state: present
+##    pip_args: "--no-cache-dir"
+
+- name: Prepare esxi hosts
+  ansible.builtin.include_tasks: prepare_esxi.yml
+
+- name: Deploy vcenter
+  ansible.builtin.include_tasks: deploy_vcenter.yml
+
+- name: Configure vcenter
+  ansible.builtin.include_tasks: configure_vcenter.yml
+
+- name: Connect esxi hosts to vcenter
+  ansible.builtin.include_tasks: connect_physical_esx_to_vc.yml
+
+- name: create nested ESXi hosts
+  when: __nested_hosts_list | d([]) | length > 0
+  block:
+    - name: Run prepare_esxi_installer_iso.yml
+      ansible.builtin.include_tasks: prepare_esxi_installer_iso.yml
+    - name: Run deploy_nested_vc_and_hosts.yml
+      ansible.builtin.include_tasks: deploy_nested_vc_and_hosts.yml
+
+    - name: Wait 5 minutes before start checking whether the hosts are ready
+      when: __nested_hosts_list | length > 5
+      ansible.builtin.pause:
+        minutes: "5"
+
+    - name: Run configure_nested_vcenter.yml
+      ansible.builtin.include_tasks: configure_nested_vcenter.yml
+
+- name: Run create_vds.yml
+  when: bootstrap_vsphere__vcenter_enable_vds|bool
+  ansible.builtin.include_tasks: create_vds.yml

@@ -18,7 +18,7 @@ ISCSI setup/testing notes/history:
 
 ```bash
     ## run from admin.example.int
-    git clone git@bitbucket.org:lj020326/ansible.iscsiadm.git
+    git clone ssh://git@gitea.admin.dettonville.int:2222/infra/ansible.iscsiadm.git
     cd ansible.iscsiadm/
 
   379  ansible-playbook -i hosts setup-datastores.yml
@@ -34,7 +34,7 @@ ISCSI setup/testing notes/history:
   394  ssh-keygen -R mail.example.int -f ~/.ssh/known_hosts
   410  ansible-playbook -i hosts setup-datastores.yml
   411  ansible-galaxy install debops.iscsi
-  413  git clone git@bitbucket.org:lj020326/ansible-iscsi.git
+  413  git clone ssh://git@gitea.admin.dettonville.int:2222/infra/ansible-iscsi.git
   414  cd ansible-iscsi/
   418  cd ansible-iscsi/
   425  ansible-galaxy install debops.iscsi
@@ -52,7 +52,7 @@ ISCSI setup/testing notes/history:
   452  cd ansible-iscsi/
   463  ansible-playbook -i hosts-static setup-iscsi-initiators.yml -K
   466  ansible-playbook -i hosts-static.yml setup-iscsi-initiators.yml -K
-  471  git clone git@bitbucket.org:lj020326/ansible-datacenter.git
+  471  git clone https://github.com/lj020326/ansible-datacenter.git
   472  cd ansible-datacenter/
   478  iscsiadm --mode session -P 3 | grep -i -e attached -e target
   506  cd ansible-datacenter/

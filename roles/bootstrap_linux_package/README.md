@@ -15,7 +15,7 @@ manager!
 ## Requirements
 
 - Hosts should be bootstrapped for ansible usage (have python,...)
-- Root privileges, eg `become: yes`
+- Root privileges, eg `become: true`
 
 ## Role Variables
 
@@ -109,7 +109,7 @@ None.
 - hosts: linux_servers
   roles:
   - role: bootstrap_linux_package
-    become: yes
+    become: true
     bootstrap_linux_package__package_list: 
       - name: htop
         brew: htop-osx

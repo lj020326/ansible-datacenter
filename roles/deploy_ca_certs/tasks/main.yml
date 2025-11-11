@@ -1,0 +1,132 @@
+---
+- name: "Include OS-specific variables"
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+        - "default.yml"
+      paths:
+        - "../vars"
+  loop_control:
+    label: "Including OS-specific variables for {{ ansible_distribution }}"
+
+- name: "Install required Python packages on the control node"
+  ansible.builtin.pip:
+    name:
+      - "python-hcl2"
+      - "requests"
+      - "hvac"
+  delegate_to: localhost
+  run_once: true
+
+- name: "Install Python pycurl library (required for validation script)"
+  ansible.builtin.package:
+    name: python3-pycurl
+    state: present
+
+- name: "Ensure local certificate and key directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+  loop:
+    - "{{ deploy_ca_certs__cacert_local_cert_dir }}"
+    - "{{ deploy_ca_certs__cacert_local_key_dir }}"
+
+# 1) INTERMEDIATE CERTIFICATE DEPLOYMENT
+- name: "Fetch and deploy intermediate CA certificate"
+  ansible.builtin.include_tasks: fetch_cert.yml
+  vars:
+    __cert_info:
+      type: "kv"
+      name: "{{ deploy_ca_certs__root_ca_configs.output_basename }}.pem"
+      common_name: "{{ deploy_ca_certs__root_ca_configs.common_name }}"
+      key_algo: "{{ deploy_ca_certs__root_ca_configs.key_algo }}"
+      key_size: "{{ deploy_ca_certs__root_ca_configs.key_size }}"
+      source_path: "{{ deploy_ca_certs__intermediate_ca_source_path }}"
+      local_cert_path: "{{ deploy_ca_certs__trust_ca_cacert_dir }}"
+
+# 2) SERVICE ROUTE CERTIFICATES
+- name: "Display deploy_ca_certs__ca_service_routes_list"
+  ansible.builtin.debug:
+    var: deploy_ca_certs__ca_service_routes_list
+    verbosity: 1
+
+- name: "Fetch and deploy service route certificates"
+  ansible.builtin.include_tasks: fetch_cert.yml
+  loop: "{{ deploy_ca_certs__ca_service_routes_list }}"
+  loop_control:
+    loop_var: current_service_route
+  vars:
+    __cert_info:
+      type: "pki"
+      name: "{{ current_service_route.route }}.crt"
+      common_name: "{{ current_service_route.route }}"
+      local_cert_path: "{{ deploy_ca_certs__cacert_local_cert_dir }}"
+      local_key_path: "{{ deploy_ca_certs__cacert_local_key_dir }}"
+
+# 3) HOST CERTIFICATE DEPLOYMENT
+- name: "Fetch and deploy host certificate"
+  ansible.builtin.include_tasks: fetch_cert.yml
+  vars:
+    __cert_info:
+      type: "pki"
+      name: "{{ ansible_fqdn }}.crt"
+      common_name: "{{ ansible_fqdn }}"
+      local_cert_path: "{{ deploy_ca_certs__cacert_local_cert_dir }}"
+      local_key_path: "{{ deploy_ca_certs__cacert_local_key_dir }}"
+
+# 4) EXTERNAL CERTIFICATES
+- name: "Retrieve external CA certificates from Vault"
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ deploy_ca_certs__vault_url }}"
+    token: "{{ deploy_ca_certs__vault_token }}"
+    engine_mount_point: "kv"
+    path: "trusted_external"
+  delegate_to: localhost
+  run_once: true
+  register: __external_ca_certs
+
+- name: "Fetch and deploy external CA certificates"
+  ansible.builtin.include_tasks: fetch_cert.yml
+  loop: "{{ __external_ca_certs.data.data.keys() | list }}"
+  loop_control:
+    loop_var: current_cert_name
+  vars:
+    __cert_info:
+      type: "kv"
+      name: "{{ current_cert_name }}"
+      source_content: "{{ __external_ca_certs.data.data[current_cert_name] }}"
+      local_cert_path: "{{ deploy_ca_certs__trust_ca_cacert_dir }}"
+
+- name: "Update system's CA trust store"
+  when: >
+    __intermediate_ca_has_changed
+    or __external_ca_deploy_result is defined
+    or __service_cert_results is defined
+    or __host_cert_result is defined
+  ansible.builtin.command: "{{ deploy_ca_certs__trust_ca_update_trust_cmd }}"
+  changed_when: true
+
+# 5) JAVA KEYSTORE MANAGEMENT
+- name: "Include Java keystore management tasks"
+  when: deploy_ca_certs__ca_java_keystore_enabled | bool
+  ansible.builtin.include_tasks: update_java_keystore.yml
+
+- name: "Deploy Python SSL validation script"
+  ansible.builtin.template:
+    src: "verify_ssl_connection.py.j2"
+    dest: "/usr/local/bin/verify_ssl_connection.py"
+    mode: '0755'
+
+- name: "Run Python SSL validation script"
+  ansible.builtin.command:
+    cmd: "python3 /usr/local/bin/verify_ssl_connection.py"
+  register: __ssl_validation_result
+  failed_when: __ssl_validation_result.rc != 0
+  changed_when: false
+
+- name: "Display validation script output"
+  ansible.builtin.debug:
+    msg: "{{ __ssl_validation_result.stdout_lines + __ssl_validation_result.stderr_lines }}"

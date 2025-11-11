@@ -47,18 +47,18 @@
 ##  args:
 ##    warn: False
 #  loop:
-#    - src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
-#      dest: "{{ cacert_certs_dir }}/{{ pki_caroot_cert }}"
+#    - src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_ca_root_cert }}"
+#      dest: "{{ cacert_certs_dir }}/{{ pki_ca_root_cert }}"
 #
-#- name: "Copy root cert [{{ pki_caroot_cert }}] to {{ cacert_local_cert_dir }}"
+#- name: "Copy root cert [{{ pki_ca_root_cert }}] to {{ cacert_local_cert_dir }}"
 #  ansible.builtin.copy:
 #    backup: true
 #    src: "{{ item.src }}"
 #    dest: "{{ item.dest }}"
 #    mode: "0644"
 #  loop:
-#    - src: "{{ cacert_certs_dir }}/{{ pki_caroot_cert }}"
-#      dest: "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+#    - src: "{{ cacert_certs_dir }}/{{ pki_ca_root_cert }}"
+#      dest: "{{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
 
 #- name: "Fetch root ca-cert to {{ cacert_local_cert_dir }}" # noqa: command-instead-of-module
 #  changed_when: false
@@ -68,20 +68,20 @@
 #    {{ ansible_ssh_user }}@{{ bootstrap_linux_caroot__keystore_host }}:{{ item.src }}
 #    {{ item.dest }}
 #  loop:
-#    - src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
-#      dest: "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+#    - src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_ca_root_cert }}"
+#      dest: "{{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
 
-- name: "Slurp up {{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
+- name: "Slurp up {{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_ca_root_cert }}"
   delegate_to: "{{ bootstrap_linux_caroot__keystore_host }}"
   ansible.builtin.slurp:
-    src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_caroot_cert }}"
+    src: "{{ cacert_keystore_base_dir }}/{{ ca_root_cn }}/{{ pki_ca_root_cert }}"
   register: __slurped_cert
 
 ## ref: https://codeblog.dotsandbrackets.com/private-registry-swarm/
-- name: "Copy slurped cert content to {{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+- name: "Copy slurped cert content to {{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
   ansible.builtin.copy:
     content: "{{ __slurped_cert.content | b64decode }}"
-    dest: "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+    dest: "{{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
     backup: true
     owner: root
     mode: "0644"
@@ -111,7 +111,7 @@
     remote_src: true
     mode: "0644"
   loop:
-    - src: "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+    - src: "{{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
       dest: "{{ ca_trust_info[ansible_os_family].ca_trust_cert_dir }}/{{ ca_root_cn }}.{{ ca_trust_info[ansible_os_family].ca_trust_cert_extension }}"
   register: trust_ca_cacertinstalled
 
@@ -151,11 +151,13 @@
       -alias {{ ca_root_cn }} \
       -file {{ item }}
   register: shell_cmd
-  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stderr | regex_search("Certificate not imported, alias .* already exists") )
-#  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
+  failed_when:
+    - shell_cmd.rc > 0
+    - shell_cmd.stderr | regex_search("Certificate not imported, alias .* already exists") is none
+#  failed_when: shell_cmd.rc > 0 and  shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") is none
 #  loop: "{{ ca_service_routes_list }}"
   loop:
-    - "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+    - "{{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
 
 #- name: "Add ca root cert to keystore - Debian method"
 #  when:
@@ -170,10 +172,10 @@
 #      -alias {{ ca_root_cn }} \
 #      -file {{ item }}
 #  register: shell_cmd
-#  failed_when: shell_cmd.rc > 0 and not ( shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") )
+#  failed_when: shell_cmd.rc > 0 and shell_cmd.stdout | regex_search("Certificate not imported, alias .* already exists") is none
 ##  loop: "{{ ca_service_routes_list }}"
 #  loop:
-#    - "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+#    - "{{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
 
 - name: "Add ca root cert to keystore - Debian method"
   when:
@@ -190,10 +192,10 @@
   register: shell_cmd_result
   failed_when: 
     - shell_cmd_result.rc > 0
-    - not ( shell_cmd_result.stdout | regex_search("Certificate not imported, alias .* already exists") )
+    - shell_cmd_result.stdout | regex_search("Certificate not imported, alias .* already exists") is none
 #  loop: "{{ ca_service_routes_list }}"
   loop:
-    - "{{ cacert_local_cert_dir }}/{{ pki_caroot_cert }}"
+    - "{{ cacert_local_cert_dir }}/{{ pki_ca_root_cert }}"
 
 - name: Display shell_cmd_result
   ansible.builtin.debug:

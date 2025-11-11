@@ -1,0 +1,71 @@
+---
+# This file handles the distribution and execution of Python-based validation tests.
+
+- name: "validate-python-certs : Set fact for Python's default SSL certificate file"
+  ansible.builtin.command: >-
+    python3 -c 'import ssl; print(ssl.get_default_verify_paths().openssl_cafile)'
+  register: __python_ssl_cert_file_path
+  changed_when: false
+
+- name: "validate-python-certs : Set fact for Python's SSL certificate directory"
+  ansible.builtin.set_fact:
+    __python_ssl_cert_dir: "{{ __python_ssl_cert_file_path.stdout | dirname }}"
+
+- name: "validate-python-certs : Ensure Python certs dir and test script dir exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ __python_ssl_cert_dir }}"
+    - "{{ deploy_ca_certs__python_validation_script_dir }}"
+
+- name: "validate-python-certs : Back up existing Python SSL certificate file"
+  ansible.builtin.copy:
+    src: "{{ __python_ssl_cert_file_path.stdout }}"
+    dest: "{{ __python_ssl_cert_file_path.stdout }}.bak"
+    remote_src: yes
+    mode: '0644'
+
+- name: "validate-python-certs : Copy enhanced system CA bundle to Python's SSL certificate path"
+  ansible.builtin.copy:
+    src: "{{ __deploy_ca_certs__trust_ca_cacert_dir }}/ca_chain.pem"
+    dest: "{{ __python_ssl_cert_file_path.stdout }}"
+    remote_src: yes
+    mode: '0644'
+
+- name: "validate-python-certs : Distribute Python validation script using `pycurl`"
+  ansible.builtin.copy:
+    src: "files/validate-cacerts.py"
+    dest: "{{ deploy_ca_certs__python_validation_script_dir }}/validate-cacerts.py"
+    mode: '0755'
+
+- name: "validate-python-certs : Distribute Python validation script using `urllib`"
+  ansible.builtin.copy:
+    src: "files/validate-cacerts-urllib.py"
+    dest: "{{ deploy_ca_certs__python_validation_script_dir }}/validate-cacerts-urllib.py"
+    mode: '0755'
+
+- name: "validate-python-certs : Run Python validation test with `pycurl`"
+  ansible.builtin.command: >-
+    {{ deploy_ca_certs__python_validation_script_dir }}/validate-cacerts.py
+    --ca_certs_file {{ __deploy_ca_certs__trust_ca_cacert_dir }}/ca_chain.pem
+    {{ deploy_ca_certs__validation_url }}
+  register: __python_pycurl_test_result
+  changed_when: false
+  failed_when: "'Connection failed' in __python_pycurl_test_result.stderr"
+
+- name: "validate-python-certs : Run Python validation test with `urllib`"
+  ansible.builtin.command: >-
+    {{ deploy_ca_certs__python_validation_script_dir }}/validate-cacerts-urllib.py
+    --ca_certs_file {{ __deploy_ca_certs__trust_ca_cacert_dir }}/ca_chain.pem
+    {{ deploy_ca_certs__validation_url }}
+  register: __python_urllib_test_result
+  changed_when: false
+  failed_when: "'Connection failed' in __python_urllib_test_result.stderr"
+
+- name: "validate-python-certs : Display Python validation test results"
+  ansible.builtin.debug:
+    msg:
+      - "Pycurl test result: {{ __python_pycurl_test_result.stdout }}"
+      - "Urllib test result: {{ __python_urllib_test_result.stdout }}"

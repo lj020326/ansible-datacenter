@@ -1,0 +1,199 @@
+---
+# Task file for ensuring Vault PKI secrets engine configuration
+# Called after intermediate CA cert creation for intermediate CA setup
+
+- name: "ensure-vault-pki-engine : Set facts for CA configuration"
+  ansible.builtin.set_fact:
+    __ca_pem_path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__vault_ca_cert_info.output_basename }}.pem"
+  delegate_to: localhost
+  run_once: true
+
+#- name: "ensure-vault-pki-engine : Read current intermediate CA certificate"
+#  community.hashi_vault.vault_read:
+#    url: "{{ bootstrap_pki__vault_url }}"
+#    token: "{{ bootstrap_pki__vault_token }}"
+#    path: "{{ bootstrap_pki__vault_mount_path }}/ca/pem"
+#    validate_certs: false
+#  register: __vault_ca_cert
+#  delegate_to: localhost
+#  run_once: true
+#  ignore_errors: true
+#
+#- name: "ensure-vault-pki-engine : Compare Vault CA certificate with local certificate"
+#  when:
+#    - __vault_ca_cert.data is defined
+#    - __vault_ca_cert.data.certificate is defined
+#  ansible.builtin.assert:
+#    that:
+#      - __vault_ca_cert.data.certificate == lookup('file', __ca_pem_path)
+#    fail_msg: "Vault intermediate CA certificate does not match local certificate"
+
+## addresses the error where the community.hashi_vault.vault_read module failed to handle the raw PEM response
+## from the Vault /ca/pem endpoint, causing a Value of unknown type: <class 'requests.models.Response'> error
+- name: "ensure-vault-pki-engine : Read current intermediate CA certificate"
+  ansible.builtin.uri:
+    url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_mount_path }}/ca/pem"
+    method: GET
+    headers:
+      X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+    validate_certs: false
+    return_content: true
+    status_code: [200, 404]
+  register: __vault_ca_cert
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "ensure-vault-pki-engine : Debug missing Vault PKI mount"
+  when: __vault_ca_cert.status | default(0) == 404
+  ansible.builtin.debug:
+    msg: "Vault PKI mount at {{ bootstrap_pki__vault_mount_path }} does not exist yet. It will be created in subsequent tasks."
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Slurp intermediate CA certificate from target host"
+  ansible.builtin.slurp:
+    src: "{{ __ca_pem_path }}"
+  register: __intermediate_ca_cert_content
+  delegate_to: "{{ inventory_hostname }}"
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Compare Vault CA certificate with local certificate"
+  when: __vault_ca_cert.status | default(0) == 200
+  ansible.builtin.assert:
+    that:
+      - __vault_ca_cert.content | trim == __intermediate_ca_cert_content.content | b64decode | trim
+    fail_msg: "Vault intermediate CA certificate does not match local certificate"
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Check if Intermediate CA PKI secrets engine exists"
+  community.hashi_vault.vault_read:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "sys/mounts/{{ bootstrap_pki__vault_mount_path }}"
+    validate_certs: false
+  register: __pki_mount_status
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "ensure-vault-pki-engine : Display __pki_mount_status"
+  ansible.builtin.debug:
+    var: __pki_mount_status
+
+- name: "ensure-vault-pki-engine : Set fact for PKI mount existence"
+  ansible.builtin.set_fact:
+    __pki_mount_exists: "{{ (not __pki_mount_status.failed | default(true)) and __pki_mount_status.data is defined and __pki_mount_status.data.type == 'pki' }}"
+
+- name: "ensure-vault-pki-engine : Debug PKI mount status"
+  ansible.builtin.debug:
+    msg: "PKI Mount '{{ bootstrap_pki__vault_mount_path }}' exists: {{ __pki_mount_exists }}"
+
+- name: "ensure-vault-pki-engine : Enable PKI secrets engine in Vault"
+  when: not __pki_mount_exists
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "sys/mounts/{{ bootstrap_pki__vault_mount_path }}"
+    data:
+      type: pki
+      description: "PKI secrets engine for {{ bootstrap_pki__vault_mount_path }}"
+      config:
+        default_lease_ttl: "{{ bootstrap_pki__ca_cert_duration_default }}"
+        max_lease_ttl: "{{ bootstrap_pki__ca_cert_duration_default }}"
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Configure CRL distribution points"
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "{{ bootstrap_pki__vault_mount_path }}/config/urls"
+    data:
+      issuing_certificates: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_mount_path }}/ca"
+      crl_distribution_points: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_mount_path }}/crl"
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Import intermediate CA certificate"
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "{{ bootstrap_pki__vault_mount_path }}/intermediate/set-signed"
+    data:
+      certificate: "{{ __intermediate_ca_cert_content.content | b64decode }}"
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+
+#- name: "ensure-vault-pki-engine : Verify Vault token capabilities"
+#  community.hashi_vault.vault_token_capabilities:
+#    url: "{{ bootstrap_pki__vault_url }}"
+#    token: "{{ bootstrap_pki__vault_token }}"
+#    path: "{{ item }}"
+#    validate_certs: false
+#  loop:
+#    - "sys/mounts/{{ bootstrap_pki__vault_mount_path }}"
+#    - "{{ bootstrap_pki__vault_mount_path }}/intermediate/set-signed"
+#    - "{{ bootstrap_pki__vault_mount_path }}/roles"
+#  register: __token_capabilities
+#  delegate_to: localhost
+#  run_once: true
+
+## ref: https://openbao.org/api-docs/system/capabilities/
+## bootstrap_pki__vault_verify_token_capabilities is a list of tokens to perform capabilities verification
+- name: "ensure-vault-pki-engine : Verify Vault token capabilities"
+  when: bootstrap_pki__vault_verify_token_capabilities | length > 0
+  ansible.builtin.uri:
+    url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_api_version }}/sys/capabilities"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      token: "{{ item }}"
+      paths: ["*"]
+    validate_certs: false
+    return_content: true
+    status_code: [200, 204]
+  loop: "{{ bootstrap_pki__vault_verify_token_capabilities }}"
+  loop_control:
+    extended: true
+    label: "Token Iteration {{ ansible_loop.index }}"
+  register: __token_capabilities
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "ensure-vault-pki-engine : Display __token_capabilities.results"
+  ansible.builtin.debug:
+    var: __token_capabilities.results
+    verbosity: 1
+
+- name: "ensure-vault-pki-engine : Debug token capabilities"
+  ansible.builtin.debug:
+    msg: "Token capabilities for {{ item.item }}: {{ item.json.capabilities
+      | default('failed: ' + (item.msg | default('unknown error'))) }}"
+  loop: "{{ __token_capabilities.results }}"
+  when: __token_capabilities.results is defined
+  delegate_to: localhost
+  run_once: true
+
+#- name: "ensure-vault-pki-engine : Assert token has required capabilities"
+#  ansible.builtin.assert:
+#    that:
+#      - "'create' in item.json.data.capabilities"
+#      - "'update' in item.json.data.capabilities"
+#    fail_msg: "Vault token lacks required permissions for PKI engine configuration"
+#  loop: "{{ __token_capabilities.results }}"
+
+- name: "ensure-vault-pki-engine : Configure PKI roles in Vault"
+  ansible.builtin.include_tasks: ensure_vault_pki_roles.yml
+  loop: "{{ bootstrap_pki__vault_roles }}"
+  loop_control:
+    loop_var: __current_role
+  run_once: true

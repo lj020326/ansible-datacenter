@@ -61,16 +61,6 @@
     - docker_stack__setup_admin_scripts
   ansible.builtin.include_tasks: setup-admin-scripts.yml
 
-- name: Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml
-  when:
-    - docker_stack__action == 'setup'
-    - (role_path + '/tasks/apps/' + (__container_service_name|replace('-','_')) + '/pre-start.yml') is file
-  #    - __app_config_task_map[__container_service_name].pre_start|d(False)
-  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ (__container_service_name|replace('-','_')) }}/pre-start.yml"
-  loop: "{{ __docker_stack__app_services }}"
-  loop_control:
-    loop_var: __container_service_name
-
 #######################
 ## the following plays utilize the `community.docker` modules
 ## the `community.docker` modules require the target host python interpreter environment to be configured
@@ -138,6 +128,20 @@
 
         - name: Setup docker stack services
           ansible.builtin.include_tasks: setup-service-configs.yml
+
+- name: Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml
+  when:
+    - docker_stack__action == 'setup'
+    - (role_path + '/tasks/apps/' + (__container_service_name|replace('-','_')) + '/pre-start.yml') is file
+  #    - __app_config_task_map[__container_service_name].pre_start|d(False)
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ (__container_service_name|replace('-','_')) }}/pre-start.yml"
+  loop: "{{ __docker_stack__app_services }}"
+  loop_control:
+    loop_var: __container_service_name
+
+- name: Trigger container logs on failure
+  when: ansible_failed_task is defined
+  ansible.builtin.meta: flush_handlers
 
 - name: Run compose action
   when: not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool

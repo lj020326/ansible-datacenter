@@ -1,12 +1,36 @@
 ---
+- name: Get current cfssl version
+  ansible.builtin.command: "{{ cfssl_bin_directory }}/cfssl version"
+  register: cfssl_current_version_output
+  changed_when: false
+  failed_when: false
+
+- name: Display cfssl_current_version_output.stdout
+  ansible.builtin.debug:
+    var: cfssl_current_version_output.stdout | d('')
+
+- name: Set fact with current cfssl version
+  when: cfssl_current_version_output.stdout | d('') | regex_search('Version:') is defined
+  ansible.builtin.set_fact:
+    cfssl_current_version: "{{ cfssl_current_version_output.stdout | regex_search('Version: (\\S+)', '\\1') | first }}"
+
+- name: Display cfssl_current_version
+  ansible.builtin.debug:
+    var: cfssl_current_version|d('')
+
+- name: Display cfssl_version
+  ansible.builtin.debug:
+    var: cfssl_version
+
 - name: Downloading cfssl binaries
+  when: cfssl_current_version | d('') != cfssl_version
   ansible.builtin.get_url:
-    url: https://github.com/cloudflare/cfssl/releases/download/v{{ cfssl_version }}/{{ item }}_{{ cfssl_version }}_{{ cfssl_os }}_{{ cfssl_arch }}
+    url: "https://github.com/cloudflare/cfssl/releases/download/v{{ cfssl_version }}/{{ item }}_{{ cfssl_version }}_{{ cfssl_os }}_{{ cfssl_arch }}"
     dest: "{{ cfssl_bin_directory }}/{{ item }}"
     mode: "0755"
     owner: "{{ cfssl_owner }}"
     group: "{{ cfssl_group }}"
-    checksum: sha256:{{ cfssl_checksum_url }}
+    checksum: "sha256:{{ cfssl_checksum_url }}"
     validate_certs: false
   loop:
     - cfssl
@@ -29,10 +53,11 @@
     verbosity: 2
 
 - name: Set __cfssl_files
+  when: __cfssl_file_get is defined
   ansible.builtin.set_fact:
     __cfssl_files: __cfssl_file_get.results | map(attribute='dest') | list
 
 - name: Display __cfssl_files
+  when: __cfssl_files is defined
   ansible.builtin.debug:
     var: __cfssl_files
-#    verbosity: 1

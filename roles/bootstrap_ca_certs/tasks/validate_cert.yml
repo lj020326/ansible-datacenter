@@ -1,0 +1,285 @@
+---
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __bootstrap_ca_certs__cert_configs"
+  ansible.builtin.debug:
+    var: __bootstrap_ca_certs__cert_configs
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Initialize certificate validation results"
+  ansible.builtin.set_fact:
+    __cert_validation_results:
+      failed: false
+      exceptions: []
+      missing_cert: false
+      missing_key: false
+      expiration_check_failed: false
+      info_check_failed: false
+      signature_check_failed: false
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Validate certificate info for {{ __cert_file_path }}"
+  ansible.builtin.debug:
+    msg: "Perform validations for {{ __cert_file_path }}"
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Check if certificate file exists"
+  ansible.builtin.stat:
+    path: "{{ __cert_file_path }}"
+  register: __cert_file_stat
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Check if private key file exists"
+  ansible.builtin.stat:
+    path: "{{ __key_file_path }}"
+  register: __key_file_stat
+
+# 1) Check for CA cert existence
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set validation failed if certificate is missing"
+  when: not __cert_file_stat.stat.exists
+  ansible.builtin.set_fact:
+    __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+      'failed': true,
+      'missing_cert': true,
+      'exceptions': (__cert_validation_results.exceptions | default([])) + ['cert file ' + __cert_file_path + ' does not exist']
+    }) }}"
+
+# 2) Check for CA key existence
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set validation failed if key is missing"
+  when: not __key_file_stat.stat.exists
+  ansible.builtin.set_fact:
+    __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+      'failed': true,
+      'missing_key': true,
+      'exceptions': (__cert_validation_results.exceptions | default([])) + ['key file ' + __key_file_path + ' does not exist']
+    }) }}"
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results #1/2"
+  ansible.builtin.debug:
+    var: __cert_validation_results
+
+# 3) Check if certificate expiration within defined threshold
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Check certificate expiration date for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  when:
+    - __cert_file_stat.stat.exists | d(False)
+    - not __cert_validation_results.failed
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Run openssl checkend command"
+      changed_when: false
+      failed_when: false
+      ansible.builtin.command: >
+        openssl x509 -checkend {{ bootstrap_ca_certs__ca_cert_expiration_panic_threshold }}
+          -noout -in {{ __cert_file_path }}
+      register: __cert_validity_exp_date_check_result
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validity_exp_date_check_result"
+      ansible.builtin.debug:
+        var: __cert_validity_exp_date_check_result
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set expiration check result"
+      when: __cert_validity_exp_date_check_result.failed | d(True)
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'expiration_check_failed': true,
+          'exceptions': (__cert_validation_results.exceptions | default([])) + ['certificate expires soon (within panic threshold)']
+        }) }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results #3"
+      ansible.builtin.debug:
+        var: __cert_validation_results
+
+# 4) Check if CA cert info is valid (using community.crypto.x509_certificate_info)
+# Ensure community.crypto collection is installed: ansible-galaxy collection install community.crypto
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Get certificate info for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  when:
+    - __cert_file_stat.stat.exists | d(False)
+    - not __cert_validation_results.failed
+  community.crypto.x509_certificate_info:
+    path: "{{ __cert_file_path }}"
+  register: __bootstrap_ca_certs__cacert_result
+  ignore_errors: true
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __bootstrap_ca_certs__cacert_result (debug)"
+  when: bootstrap_ca_certs__display_cacert_result | bool
+  ansible.builtin.debug:
+    var: __bootstrap_ca_certs__cacert_result
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert cert info is valid and not expired"
+  when:
+    - not __bootstrap_ca_certs__cacert_result.failed | d(True)
+    - not __bootstrap_ca_certs__cacert_result.skipped | d(False)
+    - not __cert_validation_results.failed
+  block:
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate subject common name matches expected"
+      ansible.builtin.assert:
+        that:
+          - __bootstrap_ca_certs__cacert_result.subject.commonName == __bootstrap_ca_certs__cert_configs.common_name
+        fail_msg: "Certificate subject common name mismatch: Expected '{{
+          __bootstrap_ca_certs__cert_configs.common_name }}', Got '{{ __bootstrap_ca_certs__cacert_result.subject.commonName }}'"
+        quiet: true
+      register: __assert_subject_cn
+      ignore_errors: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if subject CN mismatch"
+      when: __assert_subject_cn.failed | d(False) | bool
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'info_check_failed': true,
+          'exceptions': (__cert_validation_results.exceptions | default([])) + [__assert_subject_cn.msg]
+        }) }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate not expired"
+      ansible.builtin.assert:
+        that: not __bootstrap_ca_certs__cacert_result.expired
+        fail_msg: "Certificate '{{ __bootstrap_ca_certs__cert_configs.common_name }}' is expired according to x509_certificate_info."
+        quiet: true
+      register: __assert_expired
+      ignore_errors: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if certificate is expired"
+      when: __assert_expired.failed | d(False) | bool
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'info_check_failed': true,
+          'expiration_check_failed': true,
+          'exceptions': (__cert_validation_results.exceptions | default([])) + [__assert_expired.msg]
+        }) }}"
+
+    # Note: Checking issuer details requires knowing the expected issuer based on signerName.
+    # This example asserts if it's not a root CA and a signer is specified.
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate issuer common name matches signer (if not root)"
+      when:
+        - __bootstrap_ca_certs__cert_configs.cert_type != "root"
+        - __bootstrap_ca_certs__cert_configs.signerName is defined and __bootstrap_ca_certs__cert_configs.signerName | d('') | length > 0
+      ansible.builtin.assert:
+        that:
+          - __bootstrap_ca_certs__cacert_result.issuer.commonName == __bootstrap_ca_certs__cert_configs.signerName
+        fail_msg: "Certificate issuer common name mismatch: Expected '{{
+          __bootstrap_ca_certs__cert_configs.signerName }}', Got '{{ __bootstrap_ca_certs__cacert_result.issuer.commonName }}'"
+        quiet: true
+      register: __assert_issuer_cn
+      ignore_errors: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if issuer CN mismatch"
+      when: __assert_issuer_cn.failed | d(False) | bool
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'info_check_failed': true,
+          'exceptions': (__cert_validation_results.exceptions | default([])) + [__assert_issuer_cn.msg]
+        }) }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate key_algo matches expected"
+      ansible.builtin.assert:
+        that:
+          - __bootstrap_ca_certs__cacert_result.public_key_type|lower == __bootstrap_ca_certs__cert_configs.key_algo|lower
+        fail_msg: "Certificate key type mismatch: Expected '{{
+          __bootstrap_ca_certs__cert_configs.key_algo }}', Got '{{ __bootstrap_ca_certs__cacert_result.public_key_type }}'"
+        quiet: true
+      register: __assert_key_algo
+      ignore_errors: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if key_size mismatch"
+      when: __assert_key_algo.failed | d(False) | bool
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'info_check_failed': true,
+          'exceptions': (__cert_validation_results.exceptions | default([])) + [__assert_key_algo.msg]
+        }) }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate key_algo matches expected"
+      ansible.builtin.assert:
+        that:
+          - __bootstrap_ca_certs__cacert_result.public_key_data.size == __bootstrap_ca_certs__cert_configs.key_size
+        fail_msg: "Certificate key size mismatch: Expected '{{
+          __bootstrap_ca_certs__cert_configs.key_size }}', Got '{{ __bootstrap_ca_certs__cacert_result.public_key_data.size }}'"
+        quiet: true
+      register: __assert_key_algo
+      ignore_errors: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if key_algo mismatch"
+      when: __assert_key_algo.failed | d(False) | bool
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'info_check_failed': true,
+          'exceptions': (__cert_validation_results.exceptions | default([])) + [__assert_key_algo.msg]
+        }) }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results #4"
+      ansible.builtin.debug:
+        var: __cert_validation_results
+
+#  # If __bootstrap_ca_certs__cacert_result failed to retrieve info (e.g., malformed cert)
+#- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if certificate info retrieval failed"
+#  when:
+#    - __bootstrap_ca_certs__cacert_result.failed | d(True)
+#  ansible.builtin.set_fact:
+#    __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+#      'failed': true,
+#      'info_check_failed': true,
+#      'exceptions': (__cert_validation_results.exceptions | default([])) + ['failed to retrieve certificate information']
+#    }) }}"
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results"
+  ansible.builtin.debug:
+    var: __cert_validation_results
+
+# 5) Check if CA cert signature is valid
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Check if CA cert signature is valid for {{
+    __bootstrap_ca_certs__cert_configs.common_name }}"
+  when:
+    - __bootstrap_ca_certs__cert_configs.cert_type | d('') != "root"
+    - __cert_file_stat.stat.exists | d(False)
+    - __signer_cert_chain_path | d('') | length > 0
+    - not __cert_validation_results.failed
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Validate signed by ca signer certs using openssl verify"
+      changed_when: false
+      failed_when: false
+      ansible.builtin.command: >
+        openssl verify -CAfile
+        {{ __signer_cert_chain_path }}
+        {{ __cert_file_path }}
+      register: __cert_validity_signer
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validity_signer (debug)"
+      ansible.builtin.debug:
+        var: __cert_validity_signer
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set signature check result"
+      when: __cert_validity_signer.failed
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'signature_check_failed': true,
+          'exceptions': (__cert_validation_results.exceptions | default([])) + ['invalid certificate signature']
+        }) }}"
+
+  # Ensure __cert_validation_results.signature_check_failed is explicitly set to true if block is skipped due to missing __signer_cert_chain_path
+  always:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set signature_check_failed to true if conditions not met for signature validation"
+      when:
+        - __bootstrap_ca_certs__cert_configs.cert_type | d('') != "root"
+        - (not __cert_file_stat.stat.exists | d(False) or __signer_cert_chain_path | d('') | length == 0)
+      ansible.builtin.set_fact:
+        __cert_validation_results: "{{ __cert_validation_results | default({}) | combine({
+          'failed': true,
+          'signature_check_failed': true
+        }) }}"
+
+
+# Final determination if certificate needs to be created/recreated
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __missing_or_invalid_cert fact based on validation results"
+  ansible.builtin.set_fact:
+    __missing_or_invalid_cert: >-
+      {{
+        __bootstrap_ca_certs__cert_configs.force_create | bool or
+        __cert_validation_results.failed
+      }}
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display final __missing_or_invalid_cert status"
+  ansible.builtin.debug:
+    msg: "Final status for '{{ __bootstrap_ca_certs__cert_configs.common_name
+      }}' - Needs creation/recreation: {{ __missing_or_invalid_cert }} (Reasons: {{
+      __cert_validation_results.exceptions | join(', ') }})"

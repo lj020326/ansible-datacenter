@@ -49,21 +49,21 @@ entryPoints:
 #    address: ":8080"
 
   ssh:
-    address: ":{{ docker_stack__traefik_ssh }}"
+    address: ":{{ docker_stack__traefik__ssh }}"
 
   ping:
     address: ":8082"
 
   http:
-    address: ":{{ docker_stack__traefik_http }}"
+    address: ":{{ docker_stack__traefik__http }}"
 
   https:
-    address: ":{{ docker_stack__traefik_https }}"
+    address: ":{{ docker_stack__traefik__https_port }}"
     forwardedHeaders:
       trustedIPs:
-        - 192.168.0.0/16
-        - 172.0.0.0/8
-        - 10.0.0.0/8
+        - "{{ docker_stack__host_network }}"
+#        - 192.168.0.0/16
+#        - 172.0.0.0/8
 
     http:
       tls:
@@ -71,12 +71,12 @@ entryPoints:
 {% if docker_stack__enable_cert_resolver|d(False) %}
         ## Add dns-cloudflare as default certresolver for all services.
         ## Also enables TLS and no need to specify on individual services
-        certresolver: {{ __docker_stack__base__traefik_certresolver }}
+        certresolver: {{ __docker_stack__traefik__certresolver }}
 {% endif %}
         domains:
           - main: "{{ docker_stack__internal_domain }}"
             sans: "*.{{ docker_stack__internal_domain }}"
-{% if docker_stack__setup_external_site|d(False) %}
+{% if docker_stack__enable_external_route|d(False) %}
           - main: "{{ docker_stack__external_domain }}"
             sans: "*.{{ docker_stack__external_domain }}"
 {% endif %}
@@ -127,8 +127,8 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "admin@dettonville.com"
-      storage: "/etc/traefik/acme/{{ __docker_stack__base__traefik_certresolver_acme_file_prod }}"
+      email: "{{ docker_stack__acme_email }}"
+      storage: "/etc/traefik/acme/{{ __docker_stack__traefik__certresolver_acme_file_prod }}"
 #      entryPoint: "https"
 #      acmeLogging: true
       #create certificate when container is created
@@ -145,8 +145,8 @@ certificatesResolvers:
 
   letsencrypt-qa:
     acme:
-      email: "admin@dettonville.com"
-      storage: "/etc/traefik/acme/{{ __docker_stack__base__traefik_certresolver_acme_file_qa }}"
+      email: "{{ docker_stack__acme_email }}"
+      storage: "/etc/traefik/acme/{{ __docker_stack__traefik__certresolver_acme_file_qa }}"
 #      acmeLogging: true
 
       ## staging mode: https://github.com/containous/traefik/issues/3468
@@ -157,6 +157,16 @@ certificatesResolvers:
         # To delay DNS check and reduce LE hitrate
         delayBeforeCheck: 90
 
+  ## ref: https://mattedwards.org/2024/04/using-step-ca-certificates-with-traefik/
+  stepca:
+    acme:
+      email: "{{ docker_stack__acme_email }}"
+      storage: "/etc/traefik/acme/stepca-acme.json"
+      caServer: "{{ __docker_stack__traefik__certresolver_stepca_url }}/acme/acme/directory"
+      certificatesDuration: {{ __docker_stack__traefik__certresolver_stepca_certificates_duration }}
+      tlsChallenge: true
+      httpChallenge:
+        entryPoint: insecure
 
 #  dns-cloudflare:
 #    acme:
@@ -165,4 +175,4 @@ certificatesResolvers:
 #      dnsChallenge:
 #        provider: cloudflare
 #        resolvers: 1.1.1.1:53,1.0.0.1:53
-#        delayBeforeCheck: 90 # To delay DNS check and reduce LE hitrate
+#        delayBeforeCheck: 90 # To delay DNS check and reduce LE hit-rate

@@ -1,0 +1,714 @@
+---
+- name: Gather instance facts
+  ansible.builtin.setup:
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  loop: "{{ groups[bootstrap_kubernetes_ca__ca_controller_nodes_group]
+    | union(groups[bootstrap_kubernetes_ca__ca_worker_nodes_group])
+    | union(groups[bootstrap_kubernetes_ca__ca_etcd_nodes_group])
+    | difference(groups[bootstrap_kubernetes_ca__offline_nodes_group]) }}"
+
+- name: Set __bootstrap_kubernetes_ca__ca_controller_nodes_group_online
+  ansible.builtin.set_fact:
+    __bootstrap_kubernetes_ca__ca_controller_nodes_group_online: "{{
+      groups[bootstrap_kubernetes_ca__ca_controller_nodes_group] |
+      difference(groups[bootstrap_kubernetes_ca__offline_nodes_group]) }}"
+
+- name: Display ansible_default_ipv4.address for controller nodes
+  ansible.builtin.debug:
+    var: hostvars[item].ansible_default_ipv4.address
+  loop: "{{ __bootstrap_kubernetes_ca__ca_controller_nodes_group_online }}"
+
+- name: Generate list of IP addresses and hostnames needed for Kubernetes API server certificate
+  ansible.builtin.set_fact:
+    __bootstrap_kubernetes_ca__api_hosts: |-
+      {%+ set all_hosts = [] %}
+      {% for item in __bootstrap_kubernetes_ca__ca_controller_nodes_group_online -%}
+      {%+ set _ = all_hosts.append(hostvars[item].ansible_default_ipv4.address | default(lookup('community.dns.lookup', item))) %}
+      {%+ set _ = all_hosts.append(hostvars[item]["ansible_" + hostvars[item]["bootstrap_kubernetes_ca__interface"]].ipv4.address) %}
+      {%+ set _ = all_hosts.append(item) %}
+      {%+ set _ = all_hosts.append(hostvars[item]["ansible_hostname"]) %}
+      {% endfor %}
+      {% for item in bootstrap_kubernetes_ca__apiserver_cert_hosts -%}
+      {%+ set _ = all_hosts.append(item) %}
+      {% endfor %}
+      {{ all_hosts | unique | join(',') -}}
+
+- name: Display __bootstrap_kubernetes_ca__api_hosts
+  ansible.builtin.debug:
+    var: __bootstrap_kubernetes_ca__api_hosts
+#    verbosity: 2
+
+- name: Set __bootstrap_kubernetes_ca__ca_etcd_nodes_group_online
+  ansible.builtin.set_fact:
+    __bootstrap_kubernetes_ca__ca_etcd_nodes_group_online: "{{
+      groups[bootstrap_kubernetes_ca__ca_etcd_nodes_group] |
+      difference(groups[bootstrap_kubernetes_ca__offline_nodes_group]) }}"
+
+- name: Display ansible_default_ipv4.address for etcd nodes
+  ansible.builtin.debug:
+    var: hostvars[item].ansible_default_ipv4.address
+  loop: "{{ __bootstrap_kubernetes_ca__ca_etcd_nodes_group_online }}"
+
+- name: Generate list of IP addresses and hostnames needed for etcd certificate
+  ansible.builtin.set_fact:
+    __bootstrap_kubernetes_ca__etcd_hosts: |-
+      {%+ set all_hosts = [] %}
+      {% for item in __bootstrap_kubernetes_ca__ca_etcd_nodes_group_online -%}
+      {%+ set _ = all_hosts.append(hostvars[item].ansible_default_ipv4.address | default(lookup('community.dns.lookup', item))) %}
+      {%+ set _ = all_hosts.append(hostvars[item]["ansible_" + hostvars[item]["bootstrap_kubernetes_ca__interface"]].ipv4.address) %}
+      {%+ set _ = all_hosts.append(item) %}
+      {%+ set _ = all_hosts.append(hostvars[item]["ansible_hostname"]) %}
+      {% endfor %}
+      {% for item in bootstrap_kubernetes_ca__etcd_cert_hosts -%}
+      {%+ set _ = all_hosts.append(item) %}
+      {% endfor %}
+      {{ all_hosts | unique | join(',') -}}
+
+- name: Output of hostnames/IPs used for etcd certificate
+  ansible.builtin.debug:
+    var: __bootstrap_kubernetes_ca__etcd_hosts
+#    verbosity: 2
+
+- name: Create directory for CA and certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_conf_directory_perm }}"
+    state: directory
+
+- name: Create etcd CA configuration file
+  ansible.builtin.template:
+    src: "ca-etcd-config.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-etcd-config.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create Kubernetes API server CA configuration file
+  ansible.builtin.template:
+    src: "ca-k8s-apiserver-config.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-k8s-apiserver-config.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the etcd CA certificate request file (CSR)
+  ansible.builtin.template:
+    src: "ca-etcd-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-etcd-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the Kubernetes API server CA certificate request file (CSR)
+  ansible.builtin.template:
+    src: "ca-k8s-apiserver-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-k8s-apiserver-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Generate the etcd certificate authority (CA) and private key
+  when: not bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -initca ca-etcd-csr.json \
+    | cfssljson -bare ca-etcd
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-etcd-key.pem"
+
+- name: Generate the etcd certificate authority (CA) and private key (signed by root CA)
+  when: bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca={{ bootstrap_kubernetes_ca__root_ca_cert_path }} \
+      -ca-key={{ bootstrap_kubernetes_ca__root_ca_key_path }} \
+      -config=ca-etcd-config.json \
+      -profile=etcd_signing \
+      ca-etcd-csr.json \
+    | cfssljson -bare ca-etcd
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-etcd-key.pem"
+
+- name: Set file permissions for etcd CA and private key file
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - ca-etcd.pem
+    - ca-etcd-key.pem
+    - ca-etcd.csr
+
+- name: Generate Kubernetes API server certificate authority (CA) and private key
+  when: not bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -initca ca-k8s-apiserver-csr.json \
+    | cfssljson -bare ca-k8s-apiserver
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-k8s-apiserver-key.pem"
+
+- name: Generate Kubernetes API server certificate authority (CA) and private key (signed by root CA)
+  when: bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca={{ bootstrap_kubernetes_ca__root_ca_cert_path }} \
+      -ca-key={{ bootstrap_kubernetes_ca__root_ca_key_path }} \
+      -config=ca-k8s-apiserver-config.json \
+      -profile=k8s_signing \
+      ca-k8s-apiserver-csr.json \
+    | cfssljson -bare ca-k8s-apiserver
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-k8s-apiserver-key.pem"
+
+- name: Set file permissions for Kubernetes API server CA and private key
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - ca-k8s-apiserver.pem
+    - ca-k8s-apiserver-key.pem
+    - ca-k8s-apiserver.csr
+
+- name: Create the etcd server CSR file
+  ansible.builtin.template:
+    src: "cert-etcd-server-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-etcd-server-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the etcd peer CSR file
+  ansible.builtin.template:
+    src: "cert-etcd-peer-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-etcd-peer-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the Kubernetes API server key CSR file
+  ansible.builtin.template:
+    src: "cert-k8s-apiserver-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-apiserver-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the admin user key CSR file
+  ansible.builtin.template:
+    src: "cert-admin-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-admin-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the kube-proxy key CSR file
+  ansible.builtin.template:
+    src: "cert-k8s-proxy-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-proxy-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the worker key CSR files
+  ansible.builtin.template:
+    src: "cert-worker-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item }}-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+  with_inventory_hostnames:
+    - "{{ bootstrap_kubernetes_ca__ca_worker_nodes_group }}"
+  vars:
+    worker_host: "{{ item }}"
+
+- name: Create the kube-controller-manager key CSR file
+  ansible.builtin.template:
+    src: "cert-k8s-controller-manager-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-controller-manager-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the kube-controller-manager service-account key CSR file
+  ansible.builtin.template:
+    src: "cert-k8s-controller-manager-sa-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-controller-manager-sa-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Create the kube-scheduler key CSR file
+  ansible.builtin.template:
+    src: "cert-k8s-scheduler-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-scheduler-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+
+- name: Generate TLS server certificate for etcd
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-etcd.pem \
+      -ca-key=ca-etcd-key.pem \
+      -config=ca-etcd-config.json \
+      -hostname={{ __bootstrap_kubernetes_ca__etcd_hosts }} \
+      -profile=server \
+      cert-etcd-server-csr.json \
+    | cfssljson -bare cert-etcd-server
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-etcd-server-key.pem"
+
+- name: Set file permissions for etcd server certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-etcd-server.pem
+    - cert-etcd-server-key.pem
+    - cert-etcd-server.csr
+
+- name: Generate TLS peer certificate for etcd
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-etcd.pem \
+      -ca-key=ca-etcd-key.pem \
+      -config=ca-etcd-config.json \
+      -hostname={{ __bootstrap_kubernetes_ca__etcd_hosts }} \
+      -profile=peer \
+      cert-etcd-peer-csr.json \
+    | cfssljson -bare cert-etcd-peer
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-etcd-peer-key.pem"
+
+- name: Set file permissions for etcd peer certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-etcd-peer.pem
+    - cert-etcd-peer-key.pem
+    - cert-etcd-peer.csr
+
+- name: Generate TLS certificate for Kubernetes API server
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-k8s-apiserver.pem \
+      -ca-key=ca-k8s-apiserver-key.pem \
+      -config=ca-k8s-apiserver-config.json \
+      -hostname={{ __bootstrap_kubernetes_ca__api_hosts }} \
+      -profile=kubernetes \
+      cert-k8s-apiserver-csr.json \
+    | cfssljson -bare cert-k8s-apiserver
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-apiserver-key.pem"
+
+- name: Set file permissions for Kubernetes API server certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-k8s-apiserver.pem
+    - cert-k8s-apiserver-key.pem
+    - cert-k8s-apiserver.csr
+
+- name: Generate TLS certificate for admin user
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-k8s-apiserver.pem \
+      -ca-key=ca-k8s-apiserver-key.pem \
+      -config=ca-k8s-apiserver-config.json \
+      -profile=kubernetes cert-admin-csr.json \
+    | cfssljson -bare cert-admin
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-admin-key.pem"
+
+- name: Set file permissions for admin user certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-admin.pem
+    - cert-admin-key.pem
+    - cert-admin.csr
+
+- name: Generate TLS certificates for Kubernetes worker hosts (kubelet)
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-k8s-apiserver.pem \
+      -ca-key=ca-k8s-apiserver-key.pem \
+      -config=ca-k8s-apiserver-config.json \
+      -hostname={{ hostvars[item]['ansible_hostname'] }},{{ hostvars[item]['ansible_default_ipv4']['address'] }},{{ hostvars[item]['ansible_' + hostvars[item]['bootstrap_kubernetes_ca__interface']].ipv4.address }} \
+      -profile=kubernetes \
+      cert-{{ item }}-csr.json \
+    | cfssljson -bare cert-{{ item }}
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item }}-key.pem"
+  with_inventory_hostnames:
+    - "{{ bootstrap_kubernetes_ca__ca_worker_nodes_group }}"
+
+- name: Set file permissions for Kubernetes worker certificate files (1/3)
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item }}.pem"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  with_inventory_hostnames:
+    - "{{ bootstrap_kubernetes_ca__ca_worker_nodes_group }}"
+
+- name: Set file permissions for Kubernetes worker certificate files (2/3)
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item }}-key.pem"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  with_inventory_hostnames:
+    - "{{ bootstrap_kubernetes_ca__ca_worker_nodes_group }}"
+
+- name: Set file permissions for Kubernetes worker certificate files (3/3)
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item }}.csr"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  with_inventory_hostnames:
+    - "{{ bootstrap_kubernetes_ca__ca_worker_nodes_group }}"
+
+- name: Generate TLS certificate for kube-proxy
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-k8s-apiserver.pem \
+      -ca-key=ca-k8s-apiserver-key.pem \
+      -config=ca-k8s-apiserver-config.json \
+      -profile=kubernetes \
+      cert-k8s-proxy-csr.json \
+    | cfssljson -bare cert-k8s-proxy
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-proxy-key.pem"
+
+- name: Set file permissions for kube-proxy certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-k8s-proxy.pem
+    - cert-k8s-proxy-key.pem
+    - cert-k8s-proxy.csr
+
+
+- name: Generate TLS certificate for kube-controller-manager
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-k8s-apiserver.pem \
+      -ca-key=ca-k8s-apiserver-key.pem \
+      -config=ca-k8s-apiserver-config.json \
+      -profile=kubernetes \
+      cert-k8s-controller-manager-csr.json \
+    | cfssljson -bare cert-k8s-controller-manager
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-controller-manager-key.pem"
+
+- name: Set file permissions for kube-controller-manager certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-k8s-controller-manager.pem
+    - cert-k8s-controller-manager-key.pem
+    - cert-k8s-controller-manager.csr
+
+- name: Generate TLS certificate for kube-controller-manager service account
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-k8s-apiserver.pem \
+      -ca-key=ca-k8s-apiserver-key.pem \
+      -config=ca-k8s-apiserver-config.json \
+      -profile=kubernetes \
+      cert-k8s-controller-manager-sa-csr.json \
+    | cfssljson -bare cert-k8s-controller-manager-sa
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-controller-manager-sa-key.pem"
+
+- name: Set file permissions for kube-controller-manager service account certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-k8s-controller-manager-sa.pem
+    - cert-k8s-controller-manager-sa-key.pem
+    - cert-k8s-controller-manager-sa.csr
+
+- name: Generate TLS certificate for kube-scheduler
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-k8s-apiserver.pem \
+      -ca-key=ca-k8s-apiserver-key.pem \
+      -config=ca-k8s-apiserver-config.json \
+      -profile=kubernetes \
+      cert-k8s-scheduler-csr.json \
+    | cfssljson -bare cert-k8s-scheduler
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-k8s-scheduler-key.pem"
+
+- name: Set file permissions for kube-scheduler certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop:
+    - cert-k8s-scheduler.pem
+    - cert-k8s-scheduler-key.pem
+    - cert-k8s-scheduler.csr
+
+- name: Create CSR files for etcd clients
+  ansible.builtin.template:
+    src: "cert-etcd-client-csr.json.j2"
+    dest: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item }}-csr.json"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+  loop: "{{ bootstrap_kubernetes_ca__etcd_additional_clients }}"
+  when: bootstrap_kubernetes_ca__etcd_additional_clients is defined
+
+- name: Generate certificates for etcd clients
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca-etcd.pem \
+      -ca-key=ca-etcd-key.pem \
+      -config=ca-etcd-config.json \
+      -hostname="" \
+      -profile=client \
+      cert-{{ item }}-csr.json \
+    | cfssljson -bare cert-{{ item }}
+  loop: "{{ bootstrap_kubernetes_ca__etcd_additional_clients }}"
+  when: bootstrap_kubernetes_ca__etcd_additional_clients is defined
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}"
+    creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item }}-key.pem"
+
+- name: Set file permissions for etcd client certificate files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item[0] }}{{ item[1] }}"
+    owner: "{{ bootstrap_kubernetes_ca__ca_certificate_owner }}"
+    group: "{{ bootstrap_kubernetes_ca__ca_certificate_group }}"
+    mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
+    modification_time: "preserve"
+    access_time: "preserve"
+  loop: "{{ bootstrap_kubernetes_ca__etcd_additional_clients | product(['.pem', '-key.pem', '.csr']) | list }}"
+  when: bootstrap_kubernetes_ca__etcd_additional_clients is defined
+
+### store kubernetes certs and keys in vault
+- name: Read etcd CA cert and key
+  ansible.builtin.slurp:
+    src: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+  loop:
+    - ca-etcd.pem
+    - ca-etcd-key.pem
+  register: __etcd_ca_files
+
+- name: Store etcd CA in OpenBao
+  when: __etcd_ca_files.results[0].changed or __etcd_ca_files.results[1].changed
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_kubernetes_ca__vault_url }}"
+    auth_method: token
+    token: "{{ bootstrap_kubernetes_ca__vault_token }}"
+    engine_mount_point: "kv"
+    path: "{{ bootstrap_kubernetes_ca__vault_kv_path }}/etcd"
+    data:
+      cert: "{{ __etcd_ca_files.results[0].content | b64decode }}"
+      key: "{{ __etcd_ca_files.results[1].content | b64decode }}"
+
+- name: Read Kubernetes API CA cert and key
+  ansible.builtin.slurp:
+    src: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+  loop:
+    - ca-k8s-apiserver.pem
+    - ca-k8s-apiserver-key.pem
+  register: k8s_ca_files
+
+- name: Store Kubernetes API CA in OpenBao
+  when: k8s_ca_files.results[0].changed or k8s_ca_files.results[1].changed
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_kubernetes_ca__vault_url }}"
+    auth_method: token
+    token: "{{ bootstrap_kubernetes_ca__vault_token }}"
+    engine_mount_point: "kv"
+    path: "{{ bootstrap_kubernetes_ca__vault_kv_path }}/k8s-apiserver"
+    data:
+      cert: "{{ k8s_ca_files.results[0].content | b64decode }}"
+      key: "{{ k8s_ca_files.results[1].content | b64decode }}"
+
+- name: Read etcd server cert and key
+  ansible.builtin.slurp:
+    src: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+  loop:
+    - cert-etcd-server.pem
+    - cert-etcd-server-key.pem
+  register: etcd_server_files
+
+- name: Store etcd server cert in OpenBao
+  when: etcd_server_files.results[0].changed or etcd_server_files.results[1].changed
+  delegate_to: localhost
+  connection: local
+  run_once: true
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_kubernetes_ca__vault_url }}"
+    auth_method: token
+    token: "{{ bootstrap_kubernetes_ca__vault_token }}"
+    engine_mount_point: "kv"
+    path: "{{ bootstrap_kubernetes_ca__vault_kv_path }}/etcd-server"
+    data:
+      cert: "{{ etcd_server_files.results[0].content | b64decode }}"
+      key: "{{ etcd_server_files.results[1].content | b64decode }}"
+
+- name: Read etcd peer cert and key
+  ansible.builtin.slurp:
+    src: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/{{ item }}"
+  loop:
+    - cert-etcd-peer.pem
+    - cert-etcd-peer-key.pem
+  register: etcd_peer_files
+
+- name: Store etcd peer cert in OpenBao
+  when: etcd_peer_files.results[0].changed or etcd_peer_files.results[1].changed
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_kubernetes_ca__vault_url }}"
+    auth_method: token
+    token: "{{ bootstrap_kubernetes_ca__vault_token }}"
+    engine_mount_point: "kv"
+    path: "{{ bootstrap_kubernetes_ca__vault_kv_path }}/etcd-peer"
+    data:
+      cert: "{{ etcd_peer_files.results[0].content | b64decode }}"
+      key: "{{ etcd_peer_files.results[1].content | b64decode }}"
+
+- name: Read additional etcd client certs and keys
+  when: bootstrap_kubernetes_ca__etcd_additional_clients is defined
+  ansible.builtin.slurp:
+    src: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/cert-{{ item[0] }}-{{ item[1].suffix }}"
+  loop: "{{ bootstrap_kubernetes_ca__etcd_additional_clients | product(suffixes) | list }}"
+  loop_control:
+    loop_var: item
+    label: "client: {{ item[0] }}, suffix: {{ item[1].suffix }}"
+  vars:
+    suffixes:
+      - { suffix: "pem" }
+      - { suffix: "key.pem" }
+  register: etcd_client_files
+
+- name: Store additional etcd client certs in OpenBao
+  when:
+    - bootstrap_kubernetes_ca__etcd_additional_clients is defined
+    - (etcd_client_files.results | selectattr('item.0', 'equalto', item)
+        | selectattr('changed', 'equalto', true) | list | length > 0)
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_kubernetes_ca__openbao_url }}"
+    auth_method: token
+    token: "{{ bootstrap_kubernetes_ca__openbao_token }}"
+    engine_mount_point: "kv"
+    path: "{{ bootstrap_kubernetes_ca__openbao_kv_path }}/etcd-client/{{ item }}"
+    data:
+      cert: "{{ etcd_client_files.results | selectattr('item.0', 'equalto', item) | selectattr('item.1.suffix', 'equalto', 'pem') | first | attr('content') | b64decode }}"
+      key: "{{ etcd_client_files.results | selectattr('item.0', 'equalto', item) | selectattr('item.1.suffix', 'equalto', 'key.pem') | first | attr('content') | b64decode }}"
+  loop: "{{ bootstrap_kubernetes_ca__etcd_additional_clients }}"

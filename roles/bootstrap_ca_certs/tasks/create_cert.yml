@@ -1,0 +1,482 @@
+---
+# This task file handles the local generation of certificates and keys using CFSSL.
+# It is called by main.yml for root, other intermediate CAs, and leaf certificates.
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Set path to certificate and key for validation"
+  ansible.builtin.set_fact:
+    __cert_file_path: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}.pem"
+    __key_file_path: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}-key.pem"
+    # Determine the path for the signer's certificate chain if it's a signed cert
+    __signer_cert_chain_path: >-
+      {% if __bootstrap_ca_certs__cert_configs.cert_type != "root" %}
+        {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_cert_name }}
+      {% else %}
+        ''
+      {% endif %}
+  delegate_to: localhost
+  run_once: true
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Run validation for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  ansible.builtin.include_tasks: validate_cert.yml
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Display validation result for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  ansible.builtin.debug:
+    msg: "Certificate '{{ __bootstrap_ca_certs__cert_configs.common_name }}' needs to be created/recreated: {{ __missing_or_invalid_cert }}"
+
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Ensure certificate directory exists for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  when: __missing_or_invalid_cert | bool
+  ansible.builtin.file:
+    path: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}"
+    state: directory
+    mode: '0755'
+
+# --- Root CA Specific Steps ---
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Root CA certificate and key for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  when:
+    - __bootstrap_ca_certs__cert_configs.cert_type == "root"
+    - __missing_or_invalid_cert | bool
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Root CA CSR JSON configuration"
+      ansible.builtin.template:
+        src: ca_csr.json.j2
+        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }}"
+        mode: '0644'
+      vars:
+        __bootstrap_ca_certs__ca_key_algo: "{{ __bootstrap_ca_certs__cert_configs.key_algo | d(bootstrap_ca_certs__key_algo) }}"
+        __bootstrap_ca_certs__ca_key_size: "{{ __bootstrap_ca_certs__cert_configs.key_size | d(bootstrap_ca_certs__key_size) }}"
+        __bootstrap_ca_certs__ca_common_name: "{{ __bootstrap_ca_certs__cert_configs.common_name }}"
+        __bootstrap_ca_certs__ca_country: "{{ __bootstrap_ca_certs__cert_configs.country }}"
+        __bootstrap_ca_certs__ca_state: "{{ __bootstrap_ca_certs__cert_configs.state }}"
+        __bootstrap_ca_certs__ca_locality: "{{ __bootstrap_ca_certs__cert_configs.locality }}"
+        __bootstrap_ca_certs__ca_organization: "{{ __bootstrap_ca_certs__cert_configs.organization }}"
+        __bootstrap_ca_certs__ca_organizational_unit: "{{ __bootstrap_ca_certs__cert_configs.organizational_unit }}"
+        __bootstrap_ca_certs__ca_email_address: "{{ __bootstrap_ca_certs__cert_configs.email }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Root CA signing profile JSON"
+      ansible.builtin.template:
+        src: ca_signing_profile.json.j2
+        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }}"
+        mode: '0644'
+      vars:
+        __bootstrap_ca_certs__ca_root_profile: "{{ bootstrap_ca_certs__cfssl_root_profile }}"
+        __bootstrap_ca_certs__ca_intermediate_profile: "{{ bootstrap_ca_certs__cfssl_intermediate_profile }}"
+        __bootstrap_ca_certs__ca_server_profile: "{{ bootstrap_ca_certs__cfssl_server_profile }}"
+        __bootstrap_ca_certs__ca_client_profile: "{{ bootstrap_ca_certs__cfssl_client_profile }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to generate Root CA cert and key"
+      ansible.builtin.shell: >
+        set -o errexit; \
+        set -o pipefail; \
+        cfssl gencert \
+            -initca {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }} \
+            | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+- name: "ensure-vault-pki-engine : Slurp CA certificate from target host"
+  ansible.builtin.slurp:
+    src: "{{ __cert_file_path }}"
+  register: __cert_file_content
+  delegate_to: "{{ inventory_hostname }}"
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Slurp CA key from target host"
+  ansible.builtin.slurp:
+    src: "{{ __key_file_path }}"
+  register: __key_file_content
+  delegate_to: "{{ inventory_hostname }}"
+  run_once: true
+
+# --- Vault Integration for Root CA ---
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Enable PKI secrets engine for Root CA (if enabled)"
+  when: bootstrap_ca_certs__vault_enabled | bool
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Display bootstrap_ca_certs__vault_token"
+      ansible.builtin.debug:
+        var: bootstrap_ca_certs__vault_token
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Enable PKI secrets engine for Root CA"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/sys/mounts/pki"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body: '{"type": "pki", "description": "PKI secrets engine for Root CA"}'
+        status_code: [200, 204, 400]
+        return_content: true
+        validate_certs: false
+      failed_when:
+        - __bootstrap_ca_certs__vault_mount_result.content | d('') | regex_search('address already in use') is none
+        - __bootstrap_ca_certs__vault_mount_result.status not in [200, 204]
+      register: __bootstrap_ca_certs__vault_mount_result
+#      ignore_errors: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Tune PKI mount for Root CA"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/sys/mounts/pki/tune"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body: '{"max_lease_ttl": "{{ bootstrap_ca_certs__cfssl_root_profile.expiry }}"}'
+        status_code: [200, 204]
+        return_content: true
+        validate_certs: false
+
+    - name: "ensure-vault-pki-engine : Slurp intermediate CA certificate from target host"
+      when:
+        - __bootstrap_ca_certs__cert_configs.cert_type == "root"
+      block:
+        - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Write Root CA to PKI engine"
+          delegate_to: localhost
+          connection: local
+          run_once: true
+          ansible.builtin.uri:
+            # Using set-signed for external root
+            url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki/root/set-signed"
+            method: POST
+            headers:
+              X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+              Content-Type: "application/json"
+            body_format: json
+            body:
+              certificate: "{{ __cert_file_content.content | b64decode }}"
+              private_key: "{{ __key_file_content.content | b64decode }}"
+            status_code: [200, 204]
+            return_content: true
+            validate_certs: false
+
+        - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Set CRL and issuing certificates URLs for Root CA"
+          delegate_to: localhost
+          connection: local
+          run_once: true
+          ansible.builtin.uri:
+            url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki/config/urls"
+            method: POST
+            headers:
+              X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+              Content-Type: "application/json"
+            body_format: json
+            body:
+              issuing_certificates: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki/ca"
+              crl_distribution_points: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki/crl"
+            status_code: [200, 204]
+            validate_certs: false
+
+        # --- Store Root CA in KV2 ---
+        - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Store Root CA cert and key in Vault KV2"
+          delegate_to: localhost
+          connection: local
+          run_once: true
+          community.hashi_vault.vault_kv2_write:
+            url: "{{ bootstrap_ca_certs__vault_url }}"
+            token: "{{ bootstrap_ca_certs__vault_token }}"
+            engine_mount_point: "kv"
+            path: "{{ bootstrap_ca_certs__vault_kv_path }}/root_ca"
+            data:
+              certificate: "{{ __cert_file_content.content | b64decode }}"
+              private_key: "{{ __key_file_content.content | b64decode }}"
+            validate_certs: false
+
+# --- Intermediate CA Specific Steps ---
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Intermediate CA certificate and key for {{
+  __bootstrap_ca_certs__cert_configs.common_name }}"
+  when:
+    - __bootstrap_ca_certs__cert_configs.cert_type == "intermediate"
+    - __missing_or_invalid_cert | bool
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Intermediate CA CSR JSON configuration"
+      ansible.builtin.template:
+        src: ca_csr.json.j2
+        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }}"
+        mode: '0644'
+      vars:
+        __bootstrap_ca_certs__ca_key_algo: "{{ __bootstrap_ca_certs__cert_configs.key_algo | d(bootstrap_ca_certs__key_algo) }}"
+        __bootstrap_ca_certs__ca_key_size: "{{ __bootstrap_ca_certs__cert_configs.key_size | d(bootstrap_ca_certs__key_size) }}"
+        __bootstrap_ca_certs__ca_common_name: "{{ __bootstrap_ca_certs__cert_configs.common_name }}"
+        __bootstrap_ca_certs__ca_country: "{{ __bootstrap_ca_certs__cert_configs.country }}"
+        __bootstrap_ca_certs__ca_state: "{{ __bootstrap_ca_certs__cert_configs.state }}"
+        __bootstrap_ca_certs__ca_locality: "{{ __bootstrap_ca_certs__cert_configs.locality }}"
+        __bootstrap_ca_certs__ca_organization: "{{ __bootstrap_ca_certs__cert_configs.organization }}"
+        __bootstrap_ca_certs__ca_organizational_unit: "{{ __bootstrap_ca_certs__cert_configs.organizational_unit }}"
+        __bootstrap_ca_certs__ca_email_address: "{{ __bootstrap_ca_certs__cert_configs.email }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Intermediate CA signing profile JSON"
+      ansible.builtin.template:
+        src: ca_signing_profile.json.j2
+        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }}"
+        mode: '0644'
+      vars:
+        __bootstrap_ca_certs__ca_root_profile: "{{ bootstrap_ca_certs__cfssl_root_profile }}"
+        __bootstrap_ca_certs__ca_intermediate_profile: "{{ bootstrap_ca_certs__cfssl_intermediate_profile }}"
+        __bootstrap_ca_certs__ca_server_profile: "{{ bootstrap_ca_certs__cfssl_server_profile }}"
+        __bootstrap_ca_certs__ca_client_profile: "{{ bootstrap_ca_certs__cfssl_client_profile }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to generate Intermediate CA CSR"
+      ansible.builtin.shell: >
+        set -o errexit;
+        set -o pipefail;
+        cfssl genkey \
+            {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }} \
+            | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to sign Intermediate CA certificate"
+      ansible.builtin.shell: >
+        set -o errexit;
+        set -o pipefail;
+        cfssl sign \
+            -ca {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_cert_name }} \
+            -ca-key {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_key_name }} \
+            -config {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }} \
+            -profile {{ __bootstrap_ca_certs__cert_configs.profile_name }} \
+            {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}.csr \
+            | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+# --- Vault PKI Engine Integration for Intermediate CA ---
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Enable PKI secrets engine for intermediate CA (if enabled)"
+  when: bootstrap_ca_certs__vault_enabled | bool
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Enable PKI secrets engine for intermediate CA"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/sys/mounts/pki_int"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          type: "pki"
+          description: "PKI secrets engine for Intermediate CA"
+        status_code: [200, 204, 400]
+        return_content: true
+        validate_certs: false
+      failed_when:
+        - __bootstrap_ca_certs__vault_int_mount_result.content | d('') | regex_search('address already in use') is none
+        - __bootstrap_ca_certs__vault_int_mount_result.status not in [200, 204]
+      register: __bootstrap_ca_certs__vault_int_mount_result
+#          ignore_errors: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Tune PKI mount for Intermediate CA"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/sys/mounts/pki_int/tune"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          max_lease_ttl: "{{ bootstrap_ca_certs__cfssl_intermediate_profile.expiry }}"
+        status_code: [200, 204]
+        return_content: true
+        validate_certs: false
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Write Intermediate CA certificate and key to PKI engine"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki_int/intermediate/set-signed"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          certificate: "{{ __cert_file_content.content | b64decode }}"
+          private_key: "{{ __key_file_content.content | b64decode }}"
+        status_code: [200, 204]
+        return_content: true
+        validate_certs: false
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Set CRL and issuing certificates URLs for Intermediate CA"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki_int/config/urls"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          issuing_certificates: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki_int/ca"
+          crl_distribution_points: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki_int/crl"
+        status_code: [200, 204]
+        validate_certs: false
+
+    # --- Store Intermediate CA in KV2 ---
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Store Intermediate CA cert and key in Vault KV2"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      community.hashi_vault.vault_kv2_write:
+        url: "{{ bootstrap_ca_certs__vault_url }}"
+        token: "{{ bootstrap_ca_certs__vault_token }}"
+        engine_mount_point: "kv"
+        path: "{{ bootstrap_ca_certs__vault_kv_path }}/intermediate/{{
+          __bootstrap_ca_certs__cert_configs.common_name | regex_replace('\\.', '_') }}"
+        data:
+          certificate: "{{ __cert_file_content.content | b64decode }}"
+          private_key: "{{ __key_file_content.content | b64decode }}"
+        validate_certs: false
+
+# --- Service/Host Leaf Certificate Specific Steps ---
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Leaf Certificate for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  when:
+    - __bootstrap_ca_certs__cert_configs.cert_type in ["service", "node"]
+    - __missing_or_invalid_cert | bool
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate CSR JSON configuration"
+      ansible.builtin.template:
+        src: generic_csr.json.j2
+        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }}"
+        mode: '0644'
+      vars:
+        __bootstrap_ca_certs__ca_key_algo: "{{ __bootstrap_ca_certs__cert_configs.key_algo | d(bootstrap_ca_certs__key_algo) }}"
+        __bootstrap_ca_certs__ca_key_size: "{{ __bootstrap_ca_certs__cert_configs.key_size | d(bootstrap_ca_certs__key_size) }}"
+        __bootstrap_ca_certs__ca_common_name: "{{ __bootstrap_ca_certs__cert_configs.common_name }}"
+        __bootstrap_ca_certs__ca_country: "{{ bootstrap_ca_certs__country }}"
+        __bootstrap_ca_certs__ca_state: "{{ bootstrap_ca_certs__state }}"
+        __bootstrap_ca_certs__ca_locality: "{{ bootstrap_ca_certs__locality }}"
+        __bootstrap_ca_certs__ca_organization: "{{ bootstrap_ca_certs__organization }}"
+        __bootstrap_ca_certs__ca_organizational_unit: "{{ bootstrap_ca_certs__organizational_unit }}"
+        __bootstrap_ca_certs__ca_email_address: "{{ __bootstrap_ca_certs__cert_configs.email }}"
+        __bootstrap_ca_certs__ca_alt_names: "{{ __bootstrap_ca_certs__cert_configs.alt_names
+          | map('regex_replace', '^(DNS|IP)\\.\\d+\\s*=\\s*', '') | list }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to generate CSR and Key"
+      ansible.builtin.shell: >
+        set -o errexit; \
+        set -o pipefail; \
+        cfssl genkey {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }} \
+            | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to sign certificate"
+      ansible.builtin.shell: >
+        set -o errexit; \
+        set -o pipefail; \
+        cfssl sign \
+            -ca {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_cert_name }} \
+            -ca-key {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_key_name }} \
+            -config {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }} \
+            -profile {{ __bootstrap_ca_certs__cert_configs.profile_name }} \
+            {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}.csr \
+            | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+# --- Vault PKI Engine Integration for Leaf Certificates ---
+- name: "{{ __bootstrap_ca_certs__log_prefix_create }} Define Vault role name for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+  when: bootstrap_ca_certs__vault_enabled | bool
+  block:
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Define Vault role name for {{ __bootstrap_ca_certs__cert_configs.common_name }}"
+      ansible.builtin.set_fact:
+        __bootstrap_ca_certs__vault_role_name: "{{ __bootstrap_ca_certs__cert_configs.common_name | regex_replace('\\.', '-') }}"
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Create Vault role for {{
+      __bootstrap_ca_certs__cert_configs.common_name }} (if enabled and not exists)"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki/roles/{{ __bootstrap_ca_certs__vault_role_name }}"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          allowed_domains: "{{ __bootstrap_ca_certs__cert_configs.common_name }}"
+          allow_subdomains: true
+          max_ttl: "{{ bootstrap_ca_certs__cfssl_server_profile.expiry }}"
+          key_type: "rsa"
+          key_bits: 2048
+          organization: "{{ bootstrap_ca_certs__organization }}"
+          organizational_unit: "{{ bootstrap_ca_certs__organizational_unit }}"
+          country: "{{ bootstrap_ca_certs__country }}"
+          province: "{{ bootstrap_ca_certs__state }}"
+          locality: "{{ bootstrap_ca_certs__locality }}"
+          enforce_hostnames: false
+          require_cn: true
+        status_code: [200, 204]
+        return_content: true
+        validate_certs: false
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Issue/Sign certificate for {{ __bootstrap_ca_certs__cert_configs.common_name }} via PKI engine"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_ca_certs__vault_url }}/{{ bootstrap_ca_certs__vault_api_version }}/pki/issue/{{ __bootstrap_ca_certs__vault_role_name }}"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          common_name: "{{ __bootstrap_ca_certs__cert_configs.common_name }}"
+          alt_names: "{{ __bootstrap_ca_certs__cert_configs.alt_names | map('regex_replace', '^(DNS|IP)\\.\\d+\\s*=\\s*', '') | join(',') }}"
+        status_code: [200]
+        return_content: true
+        validate_certs: false
+      register: __bootstrap_ca_certs__vault_issued_cert
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Save Vault issued certificate for {{
+      __bootstrap_ca_certs__cert_configs.common_name }} (local copy)"
+      when: __bootstrap_ca_certs__vault_issued_cert.json.data.certificate is defined
+      ansible.builtin.copy:
+        content: "{{ __bootstrap_ca_certs__vault_issued_cert.json.data.certificate }}"
+        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}_openbao.pem"
+        mode: '0644'
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Save Vault issued private key for {{
+      __bootstrap_ca_certs__cert_configs.common_name }} (local copy)"
+      when: __bootstrap_ca_certs__vault_issued_cert.json.data.private_key is defined
+      ansible.builtin.copy:
+        content: "{{ __bootstrap_ca_certs__vault_issued_cert.json.data.private_key }}"
+        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{
+          __bootstrap_ca_certs__cert_configs.output_basename }}_openbao-key.pem"
+        mode: '0600'
+
+    # --- Store Leaf Certificate in KV2 ---
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Store Leaf cert and key in Vault KV2"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      community.hashi_vault.vault_kv2_write:
+        url: "{{ bootstrap_ca_certs__vault_url }}"
+        token: "{{ bootstrap_ca_certs__vault_token }}"
+        engine_mount_point: "kv"
+        path: "{{ bootstrap_ca_certs__vault_kv_path }}/leaf/{{ __bootstrap_ca_certs__cert_configs.common_name | regex_replace('\\.', '_') }}"
+        data:
+          certificate: "{{ __cert_file_content.content | b64decode }}"
+          private_key: "{{ __key_file_content.content | b64decode }}"
+        state: present
+        validate_certs: false

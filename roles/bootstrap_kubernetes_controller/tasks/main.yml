@@ -1,26 +1,358 @@
 ---
-- name: Check if kubeadm has already run
-  ansible.builtin.stat:
-    path: /etc/kubernetes/pki/ca.key
-  register: kubeadm_ca
+- name: Create group that runs K8s Control Plane processes
+  when:
+    - bootstrap_kubernetes_controller__run_as_group != "root"
+  ansible.builtin.group:
+    name: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+    state: present
+    system: "{{ bootstrap_kubernetes_controller__run_as_group_system }}"
+    gid: "{{ bootstrap_kubernetes_controller__run_as_group_gid | default(omit) }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
 
-- name: Init cluster if needed
-  ansible.builtin.include_tasks: init.yml
-  when: not kubeadm_ca.stat.exists
-  run_once: true
+- name: Create user that runs K8s Control Plane processes
+  when:
+    - bootstrap_kubernetes_controller__run_as_user != "root"
+  ansible.builtin.user:
+    name: "{{ bootstrap_kubernetes_controller__run_as_user }}"
+    state: present
+    shell: "{{ bootstrap_kubernetes_controller__run_as_user_shell }}"
+    system: "{{ bootstrap_kubernetes_controller__run_as_user_system | bool }}"
+    create_home: "{{ bootstrap_kubernetes_controller__run_as_user_home is defined and bootstrap_kubernetes_controller__run_as_user_system != true }}"
+    home: "{{ bootstrap_kubernetes_controller__run_as_user_home | default(omit) }}"
+    uid: "{{ bootstrap_kubernetes_controller__run_as_user_uid | default(omit) }}"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
 
-- name: Enable and check kubelet service
-  ansible.builtin.systemd:
-    name: kubelet
-    daemon_reload: true
-    state: started
+- name: Create base directory for K8s services log files
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__log_base_dir }}"
+    state: directory
+    mode: "{{ bootstrap_kubernetes_controller__log_base_dir_mode }}"
+    owner: "{{ bootstrap_kubernetes_controller__run_as_user }}"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create directory to store kube-apiserver audit logs
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__apiserver_audit_log_dir }}"
+    state: directory
+    mode: "0750"
+    owner: "{{ bootstrap_kubernetes_controller__run_as_user }}"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create directory for K8s control plane binaries
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__bin_dir }}"
+    state: directory
+    mode: "0755"
+    owner: "root"
+    group: "root"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create control plane configuration base directory
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__conf_dir }}"
+    state: directory
+    mode: "0750"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create PKI directory
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__pki_dir }}"
+    state: directory
+    mode: "0750"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create kube-apiserver config directory
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__apiserver_conf_dir }}"
+    state: directory
+    mode: "0750"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create kube-controller-manager config directory
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__controller_manager_conf_dir }}"
+    state: directory
+    mode: "0750"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create kube-scheduler config directory
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__scheduler_conf_dir }}"
+    state: directory
+    mode: "0750"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Create kube-scheduler.yaml
+  ansible.builtin.template:
+    src: "templates/etc/kubernetes/controller/kube-scheduler/kube-scheduler.yaml.j2"
+    dest: "{{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kube-scheduler.yaml"
+    mode: "0440"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Copy etcd certificates
+  ansible.builtin.copy:
+    src: "{{ bootstrap_kubernetes_controller__ca_conf_directory }}/{{ item }}"
+    dest: "{{ bootstrap_kubernetes_controller__pki_dir }}/{{ item }}"
+    mode: "0440"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  loop: "{{ bootstrap_kubernetes_controller__etcd_certificates }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Copy Kubernetes certificates
+  ansible.builtin.copy:
+    src: "{{ bootstrap_kubernetes_controller__ca_conf_directory }}/{{ item }}"
+    dest: "{{ bootstrap_kubernetes_controller__pki_dir }}/{{ item }}"
+    mode: "0440"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  with_items:
+    - "{{ bootstrap_kubernetes_controller__certificates }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Downloading official Kubernetes binaries
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/v{{ bootstrap_kubernetes_controller__release }}/bin/linux/amd64/{{ item }}"
+    checksum: "sha512:https://dl.k8s.io/v{{ bootstrap_kubernetes_controller__release }}/bin/linux/amd64/{{ item }}.sha512"
+    dest: "{{ bootstrap_kubernetes_controller__bin_dir }}"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  with_items:
+    - "{{ bootstrap_kubernetes_controller__binaries }}"
+  notify:
+    - Restart kube-apiserver
+    - Restart kube-controller-manager
+    - Restart kube-scheduler
+  tags:
+    - k8s-controller
+
+- name: Create kube-scheduler kubeconfig
+  ansible.builtin.include_tasks:
+    file: "authconfig/kube-scheduler.yml"
+  tags:
+    - k8s-controller
+    - k8s-controller-auth-config-scheduler
+
+- name: Create kube-controller-manager kubeconfig
+  ansible.builtin.include_tasks:
+    file: "authconfig/kube-controller-manager.yml"
+  tags:
+    - k8s-controller
+    - k8s-controller-auth-config-controller-manager
+
+- name: Create admin user kubeconfig
+  ansible.builtin.include_tasks:
+    file: "authconfig/kube-admin-user.yml"
+  tags:
+    - k8s-controller
+    - k8s-controller-auth-config-admin-user
+
+- name: Create encryption-config.yaml
+  ansible.builtin.copy:
+    content: "{{ bootstrap_kubernetes_controller__apiserver_encryption_provider_config }}"
+    dest: "{{ bootstrap_kubernetes_controller__apiserver_conf_dir }}/encryption-config.yaml"
+    mode: "0660"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+  tags:
+    - k8s-controller
+    - k8s-controller-base
+
+- name: Combine bootstrap_kubernetes_controller__apiserver_settings and bootstrap_kubernetes_controller__apiserver_settings_user (if defined)
+  ansible.builtin.set_fact:
+    bootstrap_kubernetes_controller__apiserver_settings: "{{ bootstrap_kubernetes_controller__apiserver_settings | combine(bootstrap_kubernetes_controller__apiserver_settings_user | default({})) }}"
+  tags:
+    - k8s-controller
+
+- name: Create systemd unit file for kube-apiserver
+  ansible.builtin.template:
+    src: etc/systemd/system/kube-apiserver.service.j2
+    dest: /etc/systemd/system/kube-apiserver.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart kube-apiserver
+  tags:
+    - k8s-controller
+
+- name: Enable and start kube-apiserver
+  ansible.builtin.service:
+    name: kube-apiserver
     enabled: true
-  register: started_kubelet
+    state: started
+  tags:
+    - k8s-controller
 
-- name: Copy config file
-  ansible.builtin.fetch:
-    src: /etc/kubernetes/admin.conf
-    dest: "{{ lookup('env', 'HOME') }}/admin.conf"
-    flat: true
-  run_once: true
-  ignore_errors: true # noqa: ignore-errors
+- name: Combine bootstrap_kubernetes_controller__controller_manager_settings and bootstrap_kubernetes_controller__controller_manager_settings_user (if defined)
+  ansible.builtin.set_fact:
+    bootstrap_kubernetes_controller__controller_manager_settings: "{{ bootstrap_kubernetes_controller__controller_manager_settings | combine(bootstrap_kubernetes_controller__controller_manager_settings_user | default({})) }}"
+  tags:
+    - k8s-controller
+
+- name: Create systemd unit file for kube-controller-manager
+  ansible.builtin.template:
+    src: etc/systemd/system/kube-controller-manager.service.j2
+    dest: /etc/systemd/system/kube-controller-manager.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart kube-controller-manager
+  tags:
+    - k8s-controller
+
+- name: Enable and start kube-controller-manager
+  ansible.builtin.service:
+    name: kube-controller-manager
+    enabled: true
+    state: started
+  tags:
+    - k8s-controller
+
+- name: Combine bootstrap_kubernetes_controller__scheduler_settings and bootstrap_kubernetes_controller__scheduler_settings_user (if defined)
+  ansible.builtin.set_fact:
+    bootstrap_kubernetes_controller__scheduler_settings: "{{ bootstrap_kubernetes_controller__scheduler_settings | combine(bootstrap_kubernetes_controller__scheduler_settings_user | default({})) }}"
+  tags:
+    - k8s-controller
+
+- name: Create systemd unit file for kube-scheduler
+  ansible.builtin.template:
+    src: etc/systemd/system/kube-scheduler.service.j2
+    dest: /etc/systemd/system/kube-scheduler.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart kube-scheduler
+  tags:
+    - k8s-controller
+
+- name: Enable and start kube-scheduler
+  ansible.builtin.service:
+    name: kube-scheduler
+    enabled: true
+    state: started
+  tags:
+    - k8s-controller
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait 300 seconds for kube-apiserver to become ready
+  ansible.builtin.wait_for:
+    host: "{{ bootstrap_kubernetes_controller__api_endpoint_host }}"
+    port: "{{ bootstrap_kubernetes_controller__api_endpoint_port }}"
+    delay: 5
+  tags:
+    - k8s-controller
+
+- name: Apply kube-apiserver-to-kubelet ClusterRole and ClusterRoleBinding
+  tags:
+    - k8s-controller
+  block:
+    - name: Create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: bootstrap_kubernetes_controller__ctl__tmp_dir
+      delegate_to: "{{ bootstrap_kubernetes_controller__delegate_to }}"
+      changed_when: false
+
+    - name: Change temporary directory permissions
+      ansible.builtin.file:
+        path: "{{ bootstrap_kubernetes_controller__ctl__tmp_dir.path }}"
+        state: directory
+        mode: "0755"
+      run_once: true
+      delegate_to: "{{ bootstrap_kubernetes_controller__delegate_to }}"
+      changed_when: false
+
+    - name: Copy kube-apiserver-to-kubelet ClusterRole
+      ansible.builtin.template:
+        src: "rbac/kube-apiserver-to-kubelet_cluster_role.yaml.j2"
+        dest: "{{ bootstrap_kubernetes_controller__ctl__tmp_dir.path }}/kube-apiserver-to-kubelet_cluster_role.yaml"
+        mode: "0644"
+      run_once: true
+      delegate_to: "{{ bootstrap_kubernetes_controller__delegate_to }}"
+      changed_when: false
+
+    - name: Copy kube-apiserver-to-kubelet ClusterRoleBinding
+      ansible.builtin.template:
+        src: "rbac/kube-apiserver-to-kubelet_cluster_role_binding.yaml.j2"
+        dest: "{{ bootstrap_kubernetes_controller__ctl__tmp_dir.path }}/kube-apiserver-to-kubelet_cluster_role_binding.yaml"
+        mode: "0644"
+      run_once: true
+      delegate_to: "{{ bootstrap_kubernetes_controller__delegate_to }}"
+      changed_when: false
+
+    - name: Apply kube-apiserver-to-kubelet ClusterRole
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ bootstrap_kubernetes_controller__ctl__tmp_dir.path }}/kube-apiserver-to-kubelet_cluster_role.yaml"
+        kubeconfig: "{{ bootstrap_kubernetes_controller__admin_conf_dir }}/admin.kubeconfig"
+      run_once: true
+      delegate_to: "{{ bootstrap_kubernetes_controller__delegate_to }}"
+      changed_when: false
+
+    - name: Apply kube-apiserver-to-kubelet ClusterRoleBinding
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ bootstrap_kubernetes_controller__ctl__tmp_dir.path }}/kube-apiserver-to-kubelet_cluster_role_binding.yaml"
+        kubeconfig: "{{ bootstrap_kubernetes_controller__admin_conf_dir }}/admin.kubeconfig"
+      run_once: true
+      delegate_to: "{{ bootstrap_kubernetes_controller__delegate_to }}"
+      changed_when: false
+
+  always:
+    - name: Remove temporary files
+      ansible.builtin.file:
+        path: "{{ bootstrap_kubernetes_controller__ctl__tmp_dir.path }}"
+        state: absent
+      run_once: true
+      delegate_to: "{{ bootstrap_kubernetes_controller__delegate_to }}"
+      changed_when: false

@@ -1,0 +1,62 @@
+---
+- name: Converge
+  hosts: all
+  #become: true
+
+  vars:
+    bootstrap_kubernetes__pod_network:
+      cni: 'calico'
+      cidr: '192.168.0.0/16'
+
+    # Allow swap in test environments (hard to control in some envs).
+    bootstrap_kubernetes__config_kubelet_configuration:
+      cgroupDriver: "systemd"
+      failSwapOn: false
+      cgroupsPerQOS: true
+      enforceNodeAllocatable: ['pods']
+    containerd_config_cgroup_driver_systemd: true
+
+  pre_tasks:
+    - name: Update apt cache.
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 600
+      when: ansible_os_family == 'Debian'
+
+    - name: Ensure test dependencies are installed (RedHat).
+      ansible.builtin.package:
+        name: iproute
+        state: present
+      when: ansible_os_family == 'RedHat'
+
+    - name: Ensure test dependencies are installed (Debian).
+      ansible.builtin.package:
+        name: iproute2
+        state: present
+      when: ansible_os_family == 'Debian'
+
+    - name: Gather facts.
+      ansible.builtin.setup:
+
+  roles:
+    - role: bootstrap_docker
+    - role: bootstrap_kubernetes
+
+  post_tasks:
+    - name: Get cluster info.
+      ansible.builtin.command: kubectl cluster-info
+      changed_when: false
+      register: bootstrap_kubernetes__info
+
+    - name: Print cluster info.
+      ansible.builtin.debug:
+        var: bootstrap_kubernetes__info.stdout
+
+    - name: Get all running pods.
+      ansible.builtin.command: kubectl get pods --all-namespaces
+      changed_when: false
+      register: bootstrap_kubernetes__pods
+
+    - name: Print list of running pods.
+      ansible.builtin.debug:
+        var: bootstrap_kubernetes__pods.stdout
