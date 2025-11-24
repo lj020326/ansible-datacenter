@@ -3,7 +3,7 @@
 - name: Set mount facts
   ansible.builtin.set_fact:
     bootstrap_linux_systemd_mount__suffix: "{{ (item.type == 'swap') | ternary('swap', 'mount') }}"
-    bootstrap_linux_systemd_mount__item: "{{ item.where | default(item.what) }}"
+    bootstrap_linux_systemd_mount__item: "{{ item.where | d(item.what) }}"
 
 - name: Escape mount service file name
   ansible.builtin.command: systemd-escape -p --suffix="{{ bootstrap_linux_systemd_mount__suffix }}" "{{ bootstrap_linux_systemd_mount__item }}"
@@ -15,13 +15,13 @@
   ansible.builtin.file:
     path: "{{ item.where }}"
     state: directory
-    owner: "{{ item.owner | default(omit) }}"
-    group: "{{ item.group | default(omit) }}"
+    owner: "{{ item.owner | d(omit) }}"
+    group: "{{ item.group | d(omit) }}"
     mode: "0755"
   failed_when: false
   when:
     - item.where is defined
-    - item.state | default('unknown') != 'absent'
+    - item.state | d('unknown') != 'absent'
     - item.type != 'swap'
   tags:
     - systemd-mount
@@ -44,10 +44,10 @@
     owner: "root"
     group: "root"
     mode: "0640"
-    config_overrides: "{{ item.config_overrides | default({}) }}"
+    config_overrides: "{{ item.config_overrides | d({}) }}"
     config_type: "ini"
   when:
-    - item.state | default('unknown') != 'absent'
+    - item.state | d('unknown') != 'absent'
   tags:
     - systemd-mount
 
@@ -55,9 +55,9 @@
   ansible.builtin.systemd:
     daemon_reload: true
     name: "{{ mount_service_name.stdout }}"
-    enabled: "{{ item.enabled | default(true) }}"
+    enabled: "{{ item.enabled | d(true) }}"
   when:
-    - item.state | default('unknown') != 'absent'
+    - item.state | d('unknown') != 'absent'
 
 # NOTE(cloudnull): The systemd module is not used to start the
 #                  mount because we don't want to inadvertently
@@ -97,5 +97,5 @@
     enabled: false
     no_block: true
   when:
-    - item.state | default('unknown') == 'absent'
+    - item.state | d('unknown') == 'absent'
   notify: Remove mount

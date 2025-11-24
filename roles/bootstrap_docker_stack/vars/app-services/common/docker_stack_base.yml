@@ -70,8 +70,15 @@ __docker_stack__base__cacert_files:
 #  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cacert_file }}"
 #    dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_cacert_file }}"
 
+#__docker_stack__traefik__image_default: "traefik:latest"
+#__docker_stack__traefik__image_default: "traefik:v2.9.6"
+#__docker_stack__traefik__image_default: "traefik:v2.10.1"
+#__docker_stack__traefik__image_default: "traefik:v2.11.6"
+## ref: https://doc.traefik.io/traefik/v3.0/migration/v2-to-v3/#docker-docker-swarm
 #__docker_stack__traefik__image_default: "traefik:v3.1"
-__docker_stack__traefik__image_default: "traefik:v3.2"
+#__docker_stack__traefik__image_default: "traefik:v3.2"
+#__docker_stack__traefik__image_default: "traefik:v3.6"
+__docker_stack__traefik__image_default: "traefik:v3.6.1"
 __docker_stack__traefik__image: "{{ docker_stack__traefik__image | d(__docker_stack__traefik__image_default) }}"
 
 #__docker_stack__base__socket_image: fluencelabs/docker-socket-proxy:latest
@@ -158,7 +165,8 @@ __docker_stack__traefik__proxy_network_config: |-
   {% else %}
   {% set __ = _docker_stack__traefik__proxy_network_config.update(__docker_stack__traefik__proxy_network_config_standalone) %}
   {% endif %}
-  {{ _docker_stack__traefik__proxy_network_config | from_yaml }}
+  {{ _docker_stack__traefik__proxy_network_config }}
+#  {{ _docker_stack__traefik__proxy_network_config | from_yaml }}
 
 #docker_stack__traefik__proxy_network_info: "{{
 #  { docker_stack__network_name__traefik_proxy: __docker_stack__traefik__proxy_network_config } }}"
@@ -200,7 +208,8 @@ __docker_stack__base__default_network: |-
   {% else %}
   {% set __ = _docker_stack__base__default_network.update(__docker_stack__base__default_network_standalone) %}
   {% endif %}
-  {{ _docker_stack__base__default_network | from_yaml }}
+  {{ _docker_stack__base__default_network }}
+#  {{ _docker_stack__base__default_network | from_yaml }}
 
 __docker_stack__traefik__environment_internal:
   PUID: "{{ docker_stack__user_uid }}"
@@ -219,7 +228,8 @@ __docker_stack__traefik__environment: |-
   {% if docker_stack__enable_external_route %}
   {% set _ = _traefik_environment.update(__docker_stack__traefik__environment_external) %}
   {% endif %}
-  {{ _traefik_environment | from_yaml }}
+  {{ _traefik_environment }}
+#  {{ _traefik_environment | from_yaml }}
 
 ## ref: https://www.virtualizationhowto.com/2023/03/docker-compose-static-ip-configuration/
 ## ref: https://docs.docker.com/engine/network/tutorials/overlay/
@@ -235,16 +245,15 @@ __docker_stack__base__networks_socket_proxy:
 ##  ipam_config:
 ##    - subnet: 10.0.3.0/24
 
-## ref: https://docs.ansible.com/ansible/latest/collections/community/docker/docker_network_module.html#ansible-collections-community-docker-docker-network-module
+## ref: https://docs.ansible.com/ansible/latest/collections/community/docker/docker_network_module.html noqa: yaml[line-length]
 #__docker_stack__base__networks_default:
 #  default: "{{ __docker_stack__base__default_network }}"
 #  socket_proxy: "{{ __docker_stack__base__networks_socket_proxy }}"
 
-__docker_stack__base__networks_default: "{{ {
-    docker_stack__network_name__default: __docker_stack__base__default_network,
+__docker_stack__base__networks_default: "{{
+    {docker_stack__network_name__default: __docker_stack__base__default_network,
     docker_stack__network_name__socket_proxy: __docker_stack__base__networks_socket_proxy,
-    docker_stack__network_name__traefik_proxy: __docker_stack__traefik__proxy_network_config
-  } }}"
+    docker_stack__network_name__traefik_proxy: __docker_stack__traefik__proxy_network_config} }}"
 
 #__docker_stack__traefik__networks: "{{ __docker_stack__base__networks_default
 #  | combine( { docker_stack_proxy_network: { 'external': true } } ) }}"
@@ -264,12 +273,17 @@ docker_stack__appspec__base:
   volumes: "{{ __docker_stack__base__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__base__services | d({}) }}"
 
-__docker_stack__traefik__labels: "{{ docker_stack__traefik__labels | d(__docker_stack__traefik__labels_default) }}"
-__docker_stack__whoami__traefik_labels: "{{ docker_stack__whoami__traefik_labels | d(__docker_stack__whoami__traefik_labels_default) }}"
-__docker_stack__portainer__traefik_labels: "{{ docker_stack__portainer__traefik_labels | d(__docker_stack__portainer__traefik_labels_default) }}"
-__docker_stack__dozzle__traefik_labels: "{{ docker_stack__dozzle__traefik_labels | d(__docker_stack__dozzle__traefik_labels_default) }}"
+__docker_stack__traefik__labels: "{{ docker_stack__traefik__labels
+  | d(__docker_stack__traefik__labels_default) }}"
+__docker_stack__whoami__traefik_labels: "{{ docker_stack__whoami__traefik_labels
+  | d(__docker_stack__whoami__traefik_labels_default) }}"
+__docker_stack__portainer__traefik_labels: "{{ docker_stack__portainer__traefik_labels
+  | d(__docker_stack__portainer__traefik_labels_default) }}"
+__docker_stack__dozzle__traefik_labels: "{{ docker_stack__dozzle__traefik_labels
+  | d(__docker_stack__dozzle__traefik_labels_default) }}"
 
-__docker_stack__dozzle__environment: "{{ docker_stack__dozzle__environment | d(__docker_stack__dozzle__environment_default) }}"
+__docker_stack__dozzle__environment: "{{ docker_stack__dozzle__environment
+  | d(__docker_stack__dozzle__environment_default) }}"
 
 ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
 __docker_stack__base__services_internal:
@@ -324,10 +338,10 @@ __docker_stack__base__services_internal:
       endpoint_mode: dnsrr
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
-      #          - node.role == manager
-      #          - node.labels.proxy == true
-      #          - node.labels.traefik-public == true
+          - node.role == manager
+#          - node.hostname == {{ __docker_stack__traefik__host }}
+#          - node.labels.proxy == true
+#          - node.labels.traefik-public == true
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -397,8 +411,7 @@ __docker_stack__base__services_internal:
       #      mode: global
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -471,7 +484,7 @@ __docker_stack__base__services_internal:
       mode: global
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
+          - node.role == manager
   #      replicas: 1
   #      restart_policy:
   #        condition: on-failure
@@ -567,8 +580,7 @@ __docker_stack__base__services_internal:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -604,8 +616,7 @@ __docker_stack__base__services_internal:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -635,8 +646,7 @@ __docker_stack__base__services_external:
     deploy:
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -650,7 +660,8 @@ __docker_stack__base__services: |-
   {% if docker_stack__enable_external_route %}
   {% set _ = _base_docker_services.update(__docker_stack__base__services_external) %}
   {% endif %}
-  {{ _base_docker_services | from_yaml }}
+  {{ _base_docker_services }}
+#  {{ _base_docker_services | from_yaml }}
 
 #__docker_stack__base__services: |-
 #  {% set _base_docker_services = {} %}

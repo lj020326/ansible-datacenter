@@ -52,23 +52,38 @@
         __bootstrap_ca_certs__ca_organizational_unit: "{{ __bootstrap_ca_certs__cert_configs.organizational_unit }}"
         __bootstrap_ca_certs__ca_email_address: "{{ __bootstrap_ca_certs__cert_configs.email }}"
 
-    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Root CA signing profile JSON"
-      ansible.builtin.template:
-        src: ca_signing_profile.json.j2
-        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }}"
-        mode: '0644'
-      vars:
-        __bootstrap_ca_certs__ca_root_profile: "{{ bootstrap_ca_certs__cfssl_root_profile }}"
-        __bootstrap_ca_certs__ca_intermediate_profile: "{{ bootstrap_ca_certs__cfssl_intermediate_profile }}"
-        __bootstrap_ca_certs__ca_server_profile: "{{ bootstrap_ca_certs__cfssl_server_profile }}"
-        __bootstrap_ca_certs__ca_client_profile: "{{ bootstrap_ca_certs__cfssl_client_profile }}"
+#    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to generate Root CA cert and key"
+#      ansible.builtin.shell: >
+#        set -o errexit; \
+#        set -o pipefail; \
+#        cfssl gencert \
+#            -initca {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }} \
+#            | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
+#      args:
+#        executable: /bin/bash
+#      changed_when: true
 
-    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to generate Root CA cert and key"
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to generate Root CA key and CSR"
       ansible.builtin.shell: >
         set -o errexit; \
         set -o pipefail; \
         cfssl gencert \
-            -initca {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }} \
+            {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.csr_json_filename }} \
+            | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Self-sign Root CA certificate using custom profile"
+      ansible.builtin.shell: >
+        set -o errexit; \
+        set -o pipefail; \
+        cfssl sign \
+            -ca {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}.csr \
+            -ca-key {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}-key.pem \
+            -config {{ bootstrap_ca_certs__base_dir }}/ca_signing_profiles.json \
+            -profile root_ca \
+            {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}.csr \
             | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
       args:
         executable: /bin/bash
@@ -128,7 +143,7 @@
           X-Vault-Token: "{{ bootstrap_ca_certs__vault_token }}"
           Content-Type: "application/json"
         body_format: json
-        body: '{"max_lease_ttl": "{{ bootstrap_ca_certs__cfssl_root_profile.expiry }}"}'
+        body: '{"max_lease_ttl": "{{ bootstrap_ca_certs__cfssl_profile_root.expiry }}"}'
         status_code: [200, 204]
         return_content: true
         validate_certs: false
@@ -211,17 +226,6 @@
         __bootstrap_ca_certs__ca_organizational_unit: "{{ __bootstrap_ca_certs__cert_configs.organizational_unit }}"
         __bootstrap_ca_certs__ca_email_address: "{{ __bootstrap_ca_certs__cert_configs.email }}"
 
-    - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Generate Intermediate CA signing profile JSON"
-      ansible.builtin.template:
-        src: ca_signing_profile.json.j2
-        dest: "{{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }}"
-        mode: '0644'
-      vars:
-        __bootstrap_ca_certs__ca_root_profile: "{{ bootstrap_ca_certs__cfssl_root_profile }}"
-        __bootstrap_ca_certs__ca_intermediate_profile: "{{ bootstrap_ca_certs__cfssl_intermediate_profile }}"
-        __bootstrap_ca_certs__ca_server_profile: "{{ bootstrap_ca_certs__cfssl_server_profile }}"
-        __bootstrap_ca_certs__ca_client_profile: "{{ bootstrap_ca_certs__cfssl_client_profile }}"
-
     - name: "{{ __bootstrap_ca_certs__log_prefix_create }} Execute CFSSL to generate Intermediate CA CSR"
       ansible.builtin.shell: >
         set -o errexit;
@@ -240,7 +244,7 @@
         cfssl sign \
             -ca {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_cert_name }} \
             -ca-key {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_key_name }} \
-            -config {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }} \
+            -config {{ bootstrap_ca_certs__base_dir }}/ca_signing_profiles.json \
             -profile {{ __bootstrap_ca_certs__cert_configs.profile_name }} \
             {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}.csr \
             | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
@@ -287,7 +291,7 @@
           Content-Type: "application/json"
         body_format: json
         body:
-          max_lease_ttl: "{{ bootstrap_ca_certs__cfssl_intermediate_profile.expiry }}"
+          max_lease_ttl: "{{ bootstrap_ca_certs__cfssl_profile_intermediate.expiry }}"
         status_code: [200, 204]
         return_content: true
         validate_certs: false
@@ -384,7 +388,7 @@
         cfssl sign \
             -ca {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_cert_name }} \
             -ca-key {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.signer_key_name }} \
-            -config {{ __bootstrap_ca_certs__cert_configs.signer_ca_path }}/{{ __bootstrap_ca_certs__cert_configs.ca_config_name }} \
+            -config {{ bootstrap_ca_certs__base_dir }}/ca_signing_profiles.json \
             -profile {{ __bootstrap_ca_certs__cert_configs.profile_name }} \
             {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}.csr \
             | cfssljson -bare {{ __bootstrap_ca_certs__cert_configs.config_dir }}/{{ __bootstrap_ca_certs__cert_configs.output_basename }}
@@ -415,7 +419,7 @@
         body:
           allowed_domains: "{{ __bootstrap_ca_certs__cert_configs.common_name }}"
           allow_subdomains: true
-          max_ttl: "{{ bootstrap_ca_certs__cfssl_server_profile.expiry }}"
+          max_ttl: "{{ bootstrap_ca_certs__cfssl_profile_server.expiry }}"
           key_type: "rsa"
           key_bits: 2048
           organization: "{{ bootstrap_ca_certs__organization }}"

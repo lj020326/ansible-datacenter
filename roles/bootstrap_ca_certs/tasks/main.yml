@@ -19,8 +19,24 @@
       __bootstrap_ca_certs__ca_intermediate_certs_by_domain | d({}) | combine({item.domainName: item}) }}"
   loop: "{{ bootstrap_ca_certs__ca_intermediate_certs_list | d([]) }}"
 
+#- name: "Generate cfssl signing profiles json"
+#  ansible.builtin.template:
+#    src: ca_signing_profile.json.j2
+#    dest: "{{ bootstrap_ca_certs__base_dir }}/ca_signing_profiles.json"
+#    mode: '0644'
+#    owner: root
+#    group: root
+
+- name: "Generate cfssl signing profiles json"
+  ansible.builtin.copy:
+    content: "{{ bootstrap_ca_certs__cfssl_signing_profiles | to_nice_json }}"
+    dest: "{{ bootstrap_ca_certs__base_dir }}/ca_signing_profiles.json"
+    mode: '0644'
+    owner: root
+    group: root
+
 # --- Task 1: Initialize Root CA ---
-- name: Prepare Root CA configuration and create certificate
+- name: "Prepare Root CA configuration and create certificate"
   when: bootstrap_ca_certs__ca_init | bool
   ansible.builtin.include_tasks: create_cert.yml
   vars:
@@ -59,12 +75,12 @@
       common_name: "{{ current_intermediate_ca.commonName }}"
       domainName: "{{ current_intermediate_ca.domainName }}"
       signerName: "{{ current_intermediate_ca.signerName }}"
-      country: "{{ current_intermediate_ca.country | default(bootstrap_ca_certs__country) }}"
-      state: "{{ current_intermediate_ca.state | default(bootstrap_ca_certs__state) }}"
-      locality: "{{ current_intermediate_ca.locality | default(bootstrap_ca_certs__locality) }}"
-      organization: "{{ current_intermediate_ca.organization | default(bootstrap_ca_certs__organization) }}"
-      organizational_unit: "{{ current_intermediate_ca.organizationalUnit | default(bootstrap_ca_certs__organizational_unit) }}"
-      email: "{{ current_intermediate_ca.email | default(bootstrap_ca_certs__email) }}"
+      country: "{{ current_intermediate_ca.country | d(bootstrap_ca_certs__country) }}"
+      state: "{{ current_intermediate_ca.state | d(bootstrap_ca_certs__state) }}"
+      locality: "{{ current_intermediate_ca.locality | d(bootstrap_ca_certs__locality) }}"
+      organization: "{{ current_intermediate_ca.organization | d(bootstrap_ca_certs__organization) }}"
+      organizational_unit: "{{ current_intermediate_ca.organizationalUnit | d(bootstrap_ca_certs__organizational_unit) }}"
+      email: "{{ current_intermediate_ca.email | d(bootstrap_ca_certs__email) }}"
       base_dir: "{{ bootstrap_ca_certs__base_dir }}"
       config_dir: "{{ bootstrap_ca_certs__base_dir }}/{{ current_intermediate_ca.domainName | regex_replace('\\.', '_') }}"
       csr_json_filename: "{{ current_intermediate_ca.commonName | regex_replace('\\.', '_') }}_csr.json"
@@ -87,7 +103,7 @@
     __bootstrap_ca_certs__cert_configs:
       cert_type: "service"
       common_name: "{{ current_service_route.route }}"
-      alt_names: "{{ current_service_route.alt_names | default([]) }}"
+      alt_names: "{{ current_service_route.alt_names | d([]) }}"
       signerName: "{{ current_service_route.signerName }}"
       email: "{{ bootstrap_ca_certs__email }}"
       base_dir: "{{ bootstrap_ca_certs__base_dir }}"

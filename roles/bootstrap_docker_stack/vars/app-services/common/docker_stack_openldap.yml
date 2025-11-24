@@ -3,6 +3,9 @@
 __docker_stack__openldap__domain_default: "{{ docker_stack__internal_domain }}"
 __docker_stack__openldap__domain: "{{ docker_stack__openldap__domain | d(__docker_stack__openldap__domain_default) }}"
 
+__docker_stack__openldap__fqdn_default: "{{ docker_stack__internal_domain }}"
+__docker_stack__openldap__fqdn: "{{ docker_stack__openldap__fqdn | d(__docker_stack__openldap__fqdn_default) }}"
+
 #__docker_stack__openldap__image_default: "{{ docker_stack__registry__endpoint }}/openldap:latest"
 #__docker_stack__openldap__image_default: "osixia/openldap:1.4.0"
 __docker_stack__openldap__image_default: osixia/openldap:1.5.0
@@ -11,12 +14,12 @@ __docker_stack__openldap__image: "{{ docker_stack__openldap__image | d(__docker_
 
 __docker_stack__openldap__base_dir: "{{ docker_stack__dir }}/openldap"
 
-__docker_stack__openldap__cert_path_default: "{{ __docker_stack__openldap__base_dir }}/certs"
+__docker_stack__openldap__cert_path_default: "{{ __docker_stack__openldap__base_dir }}/slapd/certs"
 __docker_stack__openldap__cert_path: "{{ docker_stack__openldap__cert_path | d(__docker_stack__openldap__cert_path_default) }}"
 
-__docker_stack__openldap__cert: "{{ docker_stack__openldap__cert_file | d(__docker_stack__openldap__domain + '.pem') }}"
+__docker_stack__openldap__cert: "{{ docker_stack__openldap__cert_file | d(__docker_stack__openldap__fqdn + '.pem') }}"
 __docker_stack__openldap__certkey: "{{ docker_stack__openldap__key_file
-  | d(__docker_stack__openldap__domain + '-key.pem') }}"
+  | d(__docker_stack__openldap__fqdn + '-key.pem') }}"
 __docker_stack__openldap__ca_cert_bundle: ca-certificates.crt
 
 __docker_stack__openldap__tls_crt_filename: ldap.crt
@@ -424,15 +427,14 @@ __docker_stack__openldap__environment: "{{ docker_stack__openldap__environment |
   d(__docker_stack__openldap__environment_default) }}"
 
 __docker_stack__openldap__config_dirs:
-  - { path: "{{ __docker_stack__openldap__base_dir }}" }
-  #  - { path: "{{ __docker_stack__openldap__base_dir }}/other" }
-  - { path: "{{ __docker_stack__openldap__base_dir }}/environment" }
-  - { path: "{{ __docker_stack__openldap__base_dir }}/certs" }
-  - { path: "{{ __docker_stack__openldap__base_dir }}/ldif" }
-  - { path: "{{ __docker_stack__openldap__base_dir }}/schema" }
-  - { path: "{{ __docker_stack__openldap__base_dir }}/slapd" }
-  - { path: "{{ __docker_stack__openldap__base_dir }}/slapd/database" }
-  - { path: "{{ __docker_stack__openldap__base_dir }}/slapd/config" }
+  - path: "{{ __docker_stack__openldap__base_dir }}"
+  - path: "{{ __docker_stack__openldap__base_dir }}/environment"
+  - path: "{{ __docker_stack__openldap__base_dir }}/ldif"
+  - path: "{{ __docker_stack__openldap__base_dir }}/schema"
+  - path: "{{ __docker_stack__openldap__base_dir }}/slapd"
+  - path: "{{ __docker_stack__openldap__base_dir }}/slapd/certs"
+  - path: "{{ __docker_stack__openldap__base_dir }}/slapd/database"
+  - path: "{{ __docker_stack__openldap__base_dir }}/slapd/config"
 
 __docker_stack__openldap__config_files:
   - src: scripts/reset-openldap.sh
@@ -544,8 +546,7 @@ __docker_stack__openldap__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -622,8 +623,7 @@ __docker_stack__openldap__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__traefik__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -647,11 +647,11 @@ __docker_stack__openldap__domain_host_list: "{{ docker_stack__openldap__domain_h
 __docker_stack__openldap__domain_user_map_combined_yaml: |-
   {
   {% for user_key,user_config in __docker_stack__openldap__domain_user_map.items() %}
-    {% set _uid = user_config.uid|d(user_key) %}
+    {% set _uid = user_config.uid | d(user_key) %}
     {% set _uid_number_default = (range(100, 999) | random(seed=_uid))|int + 10000 %}
     {% set _uid_number = user_config.uid_number | d(_uid_number_default) %}
     {% set _gid_number = user_config.gid_number | d(_uid_number) %}
-    {% set _uid = user_config.uid|d(user_key) %}
+    {% set _uid = user_config.uid | d(user_key) %}
     {% set _dn = 'uid=' + _uid + ',' + __docker_stack__openldap__user_base_dn %}
     {% set _object_class_list = user_config.object_class_list | d(__docker_stack__openldap__domain_user_object_class_list_default) %}
     {% set _user_config = {'dn': _dn, 'object_class_list': _object_class_list} %}
@@ -675,7 +675,7 @@ __docker_stack__openldap__domain_user_map_combined: "{{ __docker_stack__openldap
 __docker_stack__openldap__domain_group_map_combined_yaml: |-
   {
   {% for group_key,group_config in __docker_stack__openldap__domain_group_map.items() %}
-    {% set _gid = group_config.gid|d(group_key) %}
+    {% set _gid = group_config.gid | d(group_key) %}
     {% set _gid_number_default = (range(100, 999) | random(seed=_gid)) | int + 10000 %}
     {% set _gid_number = group_config.gid_number | d(_gid_number_default) %}
     {% set _group_cn = group_config.cn | d(group_key) %}
@@ -715,7 +715,7 @@ __docker_stack__openldap__domain_host_map_yaml: |-
     {% set _dn = 'cn=' + _host_cn + ',' + __docker_stack__openldap__host_base_dn %}
     {% set _object_class_list = _host_ldap_config.object_class_list | d(__docker_stack__openldap__domain_host_object_class_list_default) %}
     {% set _host_config = {'dn': _dn, 'cn': _host_cn, 'object_class_list': _object_class_list} %}
-    {% if 'posixAccount' in _host_ldap_config.object_class_list|d(__docker_stack__openldap__domain_host_object_class_list_default) %}
+    {% if 'posixAccount' in _host_ldap_config.object_class_list | d(__docker_stack__openldap__domain_host_object_class_list_default) %}
       {% set __ = _host_config.update({'uid_number': _uid_number, 'gid_number': _gid_number}) %}
     {% endif %}
     {% if 'sambaSamAccount' in _object_class_list %}

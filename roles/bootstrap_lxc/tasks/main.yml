@@ -2,7 +2,7 @@
 # tasks file for bootstrap_lxc
 - name: Identify python interpreter and merge container_config
   ansible.builtin.set_fact:
-    ansible_python_interpreter: "{{ lookup('env', 'VIRTUAL_ENV') | default('/usr') }}/bin/python"
+    ansible_python_interpreter: "{{ lookup('env', 'VIRTUAL_ENV') | d('/usr') }}/bin/python"
     container_config: "{{ container_config }} + {{ travis_lxc_network_config }}"
 
 - name: Gather minimum subset of facts again with correct interpreter
@@ -55,7 +55,7 @@
 
     - name: Prepare a single LXC container per profile as a base container
       community.general.lxc_container:
-        name: "{{ item.prefix | default(_profile_data.prefix) }}base"
+        name: "{{ item.prefix | d(_profile_data.prefix) }}base"
         template: "{{ _template }}"
         template_options: "\
           --release {{ _release }}
@@ -71,7 +71,7 @@
           {% endif %}"
         container_config: "{{ container_config }}"
         state: stopped
-      environment: "{{ _profile_data.environment | default({}) }}"
+      environment: "{{ _profile_data.environment | d({}) }}"
       register: _base_ct_jobs
       async: 7200
       poll: 0
@@ -200,8 +200,8 @@
 
     - name: Create all of our test LXC containers via cloning
       community.general.lxc_container:
-        name: "{{ item.0.prefix | default(travis_lxc_profiles[item.0.profile].prefix) }}base"
-        clone_name: "{{ item.0.prefix | default(travis_lxc_profiles[item.0.profile].prefix) }}{{ item.1 }}"
+        name: "{{ item.0.prefix | d(travis_lxc_profiles[item.0.profile].prefix) }}base"
+        clone_name: "{{ item.0.prefix | d(travis_lxc_profiles[item.0.profile].prefix) }}{{ item.1 }}"
         clone_snapshot: "{{ True if lxc_use_overlayfs else False }}"
         backing_store: "{{ 'overlayfs' if lxc_use_overlayfs else 'dir' }}"
         state: stopped

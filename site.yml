@@ -74,7 +74,7 @@
         - not apply_common_groups_exclude|d(False)|bool
         - inventory_hostname in ansible_play_hosts
 
-- name: Display apply_common_groups derived group vars
+- name: Display important common group vars
   hosts: os_linux,os_windows,!node_offline
   tags:
     - always
@@ -96,6 +96,16 @@
 #          - "dc_network_site={{ dc_network_site|d('') }}"
 #          - "dc_network_location={{ dc_network_location|d('') }}"
 #          - "dc_network_segment={{ dc_network_segment|d('') }}"
+
+    - name: Display important ldap / domain variables
+      ansible.builtin.debug:
+        msg:
+          - netbase_hostname={{ netbase_hostname }}
+          - internal_domain={{ internal_domain }}
+          - ldap_internal_domain={{ ldap_internal_domain }}
+          - ldap_internal_domain_parts={{ ldap_internal_domain_parts }}
+          - ldap_internal_base_dn={{ ldap_internal_base_dn }}
+          - ldap_admin_dn={{ ldap_admin_dn }}
 
 - name: "Display important collection versions"
   hosts: os_linux,!node_offline
@@ -869,7 +879,6 @@
     - cacerts-distribute
     - cacerts-deploy
     - cacerts-update
-    - deploy-cacerts
     - deploy-ca-certs
   become: true
   roles:
@@ -881,6 +890,7 @@
   tags:
     - bootstrap-docker-stack
     - deploy-certs
+    - deploy-cacerts
   become: true
   roles:
     - role: deploy_cacerts
@@ -1294,8 +1304,8 @@
   hosts: localhost
   gather_facts: false
   environment:
-    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
-    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
     CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   tags:
     - bootstrap-ansible-controller
@@ -1307,8 +1317,8 @@
   hosts: localhost
   gather_facts: false
   environment:
-    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
-    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
     CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   tags:
     - remove-tower-resources
@@ -1329,7 +1339,9 @@
     - bootstrap-tower-resources
   gather_facts: false
   environment:
-    CONTROLLER_VERIFY_SSL: "false"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   roles:
     - role: bootstrap_awx_resources
 
@@ -1341,7 +1353,9 @@
     - remove-tower-resources
   gather_facts: false
   environment:
-    CONTROLLER_VERIFY_SSL: "false"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   roles:
     - role: bootstrap_awx_resources
       vars:

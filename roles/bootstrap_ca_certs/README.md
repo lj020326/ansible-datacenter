@@ -5,6 +5,8 @@
 
 The `bootstrap_ca_certs` Ansible role is designed to automate the comprehensive management of Public Key Infrastructure (PKI) certificates, facilitating a robust and secure certificate lifecycle within your infrastructure. It leverages `cfssl` for certificate generation and offers seamless integration with **Vault** for secure storage and dynamic issuance. This role streamlines the setup and maintenance of various certificate types, making it ideal for environments requiring a self-managed Certificate Authority (CA).
 
+Enhancement Note (Nov 2025): The role now ensures all certificates, including the self-signed Root CA, include the Authority Key Identifier (AKID) and Subject Key Identifier (SKI) extensions for compliance with strict TLS validators (e.g., Python 3.13's ssl module). This is achieved by using explicit genkey + sign for the Root CA (leveraging custom profiles) and adding extensions to CFSSL profiles.
+
 This role manages the following CA certificate types:
 
 1.  **Root CA**: The foundational trust anchor for your PKI.

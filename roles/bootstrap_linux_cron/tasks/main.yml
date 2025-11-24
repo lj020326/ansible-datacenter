@@ -15,11 +15,11 @@
 
 - name: Init __bootstrap_linux_cron__list
   ansible.builtin.set_fact:
-    __bootstrap_linux_cron__list: "{{ bootstrap_linux_cron__list|d([]) }}"
+    __bootstrap_linux_cron__list: "{{ bootstrap_linux_cron__list | d([]) }}"
 
 - name: Combine bootstrap_linux_cron__list__* vars into merged list
   ansible.builtin.set_fact:
-    __bootstrap_linux_cron__list: "{{ __bootstrap_linux_cron__list|d([]) + lookup('vars', item)|d([]) }}"
+    __bootstrap_linux_cron__list: "{{ __bootstrap_linux_cron__list | d([]) + lookup('vars', item) | d([]) }}"
   loop: "{{ lookup('varnames','^bootstrap_linux_cron__list__', wantlist=True) }}"
 
 - name: Display __bootstrap_linux_cron__list
@@ -33,7 +33,7 @@
 - name: Remove cron job files
   when:
     - item.state | d('') == "absent"
-    - item.cron_file | d()
+    - item.cron_file | d('') | length > 0
   ansible.builtin.file:
     path: /etc/cron.d/{{ item.cron_file }}
     state: absent
@@ -41,8 +41,8 @@
 
 - name: Ensure cron jobs using schedule array format [min, hour, day, month, weekday]
   when:
-    - item.name | d()
-    - item.schedule | d()
+    - item.name | d('') | length > 0
+    - item.schedule | d('') | length > 0
   ansible.builtin.cron:
     name: "{{ item.name }}"
     state: "{{ item.state | d(omit) }}"
@@ -60,8 +60,8 @@
 
 - name: Ensure cron jobs using standard module inputs
   when:
-    - item.job | d()
-    - not item.schedule | d()
+    - item.job | d('') | length > 0
+    - not item.schedule | d('') | length > 0
   ansible.builtin.cron:
     name: "{{ item.name | d(omit) }}"
     state: "{{ item.state | d(omit) }}"

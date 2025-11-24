@@ -6,8 +6,9 @@ docker_stack__service_groups__base:
 ## TODO: leave the min api version override here until this gets resolved in traefik
 ## ref: https://github.com/traefik/traefik/issues/12253
 ## ref: https://community.traefik.io/t/traefik-stops-working-it-uses-old-api-version-1-24/29019/4
+## docker exec traefik sh -c 'echo $DOCKER_MIN_API_VERSION'
 bootstrap_docker__daemon_environment:
-  - 'Environment=DOCKER_MIN_API_VERSION=1.24'
+  - "DOCKER_MIN_API_VERSION=1.24"
 
 docker_stack__ca_root_cn: "{{ ca_root_cn }}" # Common Name of the Root CA to fetch
 
@@ -100,12 +101,7 @@ docker_stack__ldap__port: "389"
 docker_stack__ldap__endpoint: "{{ docker_stack__ldap__host }}:{{ docker_stack__ldap__port }}"
 docker_stack__ldap__uri: "ldap://{{ docker_stack__ldap__endpoint }}"
 
-docker_stack__ldap__domain_parts: |
-  [
-    {% for domain in docker_stack__ldap__domain | split('.') %}
-    "dc={{ domain }}",
-    {% endfor %}
-  ]
+docker_stack__ldap__domain_parts: "{{ docker_stack__ldap__domain.split('.') | map('regex_replace', '^(.*)$', 'dc=\\1') | list }}"
 
 docker_stack__ldap__base_dn: "{{ docker_stack__ldap__domain_parts | join(',') }}"
 # docker_stack__ldap__base_dn: "{{ ldap_internal_base_dn }}"

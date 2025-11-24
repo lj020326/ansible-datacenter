@@ -9,7 +9,7 @@
     secureboot_enabled: "{{ secureboot_enabled if (secureboot_enabled is defined and secureboot_enabled) else false }}"
     network_adapter_type: "{{ 'e1000e' if (windows_has_inbox_driver is undefined or not windows_has_inbox_driver) else network_adapter_type }}"
     firmware: "{{ firmware if (firmware is defined and firmware) else 'efi' }}"
-    boot_disk_size_gb: "{{ [64, boot_disk_size_gb | default(64) | int] | max }}"
+    boot_disk_size_gb: "{{ [64, boot_disk_size_gb | d(64) | int] | max }}"
 
 - name: Set fact of the deploy VM test case name
   ansible.builtin.set_fact:
@@ -26,7 +26,7 @@
 # Generate unattend install iso file
 - name: Run create_unattend_install_iso.yml
   ansible.builtin.include_tasks: create_unattend_install_iso.yml
-  when: unattend_install_conf is defined and unattend_install_conf
+  when: unattend_install_conf | d('') | length > 0
 - ansible.builtin.debug:
     msg: unattend_install_conf is not defined or set to a file path, will not generate unattend iso file
   when: unattend_install_conf is undefined or not unattend_install_conf
@@ -68,7 +68,7 @@
         - name: Run ../../common/vm_set_boot_options.yml
           ansible.builtin.include_tasks: ../../common/vm_set_boot_options.yml
           vars:
-            secure_boot_enabled_set: "{{ secureboot_enabled | default(false) }}"
+            secure_boot_enabled_set: "{{ secureboot_enabled | d(false) }}"
             enter_bios_setup: true
         # Enable VBS
         - name: Run ../utils/win_enable_vbs_vm.yml

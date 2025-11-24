@@ -12,13 +12,13 @@
     url: "{{ jenkins_repo_url }}"
     dest: /etc/yum.repos.d/jenkins.repo
     mode: "0644"
-  when: jenkins_repo_url | default(false)
+  when: jenkins_repo_url | d(false)
 
 - name: Add Jenkins repo GPG key.
   ansible.builtin.rpm_key:
     state: present
     key: "{{ jenkins_repo_key_url }}"
-  when: jenkins_repo_url | default(false)
+  when: jenkins_repo_url | d(false)
 
 - name: Download specific Jenkins version.
   ansible.builtin.get_url:
@@ -37,7 +37,9 @@
   ansible.builtin.package:
     name: "/tmp/jenkins-{{ jenkins_version }}-1.1.noarch.rpm"
     state: present
-  when: jenkins_version is defined and specific_version.stat.exists
+  when:
+    - jenkins_version is not none
+    - specific_version.stat.exists
   notify: configure default users
 
 - name: Ensure Jenkins is installed.

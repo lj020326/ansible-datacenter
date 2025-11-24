@@ -16,11 +16,11 @@
 - name: "ensure-ca-cert[{{ __ca_cert_info.output_basename }}] : Set facts for CA configuration"
   ansible.builtin.set_fact:
     __ca_dir: "{{ bootstrap_pki__ca_dir }}"
-    __ca_basename: "{{ __ca_cert_info.output_basename | default('ca') }}"
-    __ca_pem_path: "{{ bootstrap_pki__ca_dir }}/{{ __ca_cert_info.output_basename | default('ca') }}.pem"
-    __ca_key_path: "{{ bootstrap_pki__ca_dir }}/{{ __ca_cert_info.output_basename | default('ca') }}-key.pem"
-    __ca_issuer_path: "{{ __ca_cert_info.ca_issuer_path | default(omit) }}"
-    __ca_issuer_key_path: "{{ __ca_cert_info.ca_issuer_key_path | default(omit) }}"
+    __ca_basename: "{{ __ca_cert_info.output_basename | d('ca') }}"
+    __ca_pem_path: "{{ bootstrap_pki__ca_dir }}/{{ __ca_cert_info.output_basename | d('ca') }}.pem"
+    __ca_key_path: "{{ bootstrap_pki__ca_dir }}/{{ __ca_cert_info.output_basename | d('ca') }}-key.pem"
+    __ca_issuer_path: "{{ __ca_cert_info.ca_issuer_path | d(omit) }}"
+    __ca_issuer_key_path: "{{ __ca_cert_info.ca_issuer_key_path | d(omit) }}"
     __ca_signing_profile: "{{ __ca_cert_info.ca_signing_profile | d('intermediate_ca') }}"
     __renewal_tolerance_days: "{{ __ca_cert_info.renewal_tolerance_days | d(bootstrap_pki__ca_renewal_tolerance_days) }}"
 
@@ -76,7 +76,7 @@
     - name: "ensure-ca-cert[{{ __ca_basename }}] : Validate CA certificate"
       dettonville.utils.x509_certificate_verify:
         path: "{{ __ca_pem_path }}"
-        issuer_ca_path: "{{ __ca_issuer_path | default(omit) }}"
+        issuer_ca_path: "{{ __ca_issuer_path | d(omit) }}"
         common_name: "{{ __ca_cert_info.common_name }}"
         organization: "{{ __ca_cert_info.organization | d(omit) }}"
         organizational_unit: "{{ __ca_cert_info.organizational_unit | d(omit) }}"
@@ -123,7 +123,7 @@
 
 - name: "ensure-ca-cert[{{ __ca_basename }}] : Set __create_new_ca_cert (with renewal check)"
   ansible.builtin.set_fact:
-    __create_new_ca_cert: "{{ bootstrap_pki__ca_reset_cert | default(false) | bool
+    __create_new_ca_cert: "{{ bootstrap_pki__ca_reset_cert | d(false) | bool
       or not __ca_pem_stat.stat.exists
       or __ca_verify_result.verify_failed | d(true) | bool }}"
 

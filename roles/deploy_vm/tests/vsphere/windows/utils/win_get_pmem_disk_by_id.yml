@@ -13,7 +13,8 @@
 - name: Run win_execute_cmd.yml
   ansible.builtin.include_tasks: win_execute_cmd.yml
   vars:
-    win_powershell_cmd: get-physicaldisk | where UniqueId -eq '{{ win_pmem_disk_unique_id }}' | select FriendlyName, UniqueId, HealthStatus, OperationalStatus, OperationalDetails,
+    win_powershell_cmd: get-physicaldisk | where UniqueId -eq '{{ win_pmem_disk_unique_id }}'
+      | select FriendlyName, UniqueId, HealthStatus, OperationalStatus, OperationalDetails,
       MediaType, Size | fl
 
 - name: Get persistent memory disk status
@@ -25,7 +26,8 @@
   block:
     - name: Set fact of persistent memory disk properties
       ansible.builtin.set_fact:
-        win_pmem_disk_result: "{{ win_pmem_disk_result | combine({disk_property.split(':')[0].strip(): disk_property.split(':')[1].strip()}) }}"
+        win_pmem_disk_result: "{{ win_pmem_disk_result
+          | combine({disk_property.split(':')[0].strip(): disk_property.split(':')[1].strip()}) }}"
       when: disk_property | length != 0 and disk_property.split(':') | length > 1
       loop: "{{ win_powershell_cmd_output.stdout_lines }}"
       loop_control:
@@ -36,7 +38,7 @@
     var: win_pmem_disk_result
 - name: Add persistent memory disk to the list
   ansible.builtin.set_fact:
-    win_pmem_disk_list: "{{ win_pmem_disk_list | default([]) + [win_pmem_disk_result] }}"
+    win_pmem_disk_list: "{{ win_pmem_disk_list | d([]) + [win_pmem_disk_result] }}"
   when:
     - win_pmem_disk_result | length != 0
-    - win_pmem_disk_result not in win_pmem_disk_list | default([])
+    - win_pmem_disk_result not in win_pmem_disk_list | d([])

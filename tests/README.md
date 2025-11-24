@@ -126,9 +126,13 @@ $ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_s
 
 ```shell
 ## for control node certs - skip ansible_ping_test
-$ runme.sh -t bootstrap-pki -l ca_keystore site.yml
+$ runme.sh -t bootstrap-ca-certs -l ca_keystore site.yml
 $ runme.sh -t deploy-ca-certs --skip-tags=always site.yml
+## no vault ca certs setup
+$ runme.sh -t bootstrap-certs -l ca_keystore site.yml
+$ runme.sh -t deploy-certs --skip-tags=always -l admin01 site.yml
 $ runme.sh -t bootstrap-linux -l admin01 site.yml
+$ runme.sh -t bootstrap-pip -l admin01 site.yml
 $ runme.sh -t bootstrap-webmin -l admin01 site.yml
 $ runme.sh -t bootstrap-docker -l admin01 site.yml
 $ runme.sh -t bootstrap-docker-stack -l admin01 site.yml
@@ -136,6 +140,7 @@ $ runme.sh -t bootstrap-docker-stack -l docker_stack_control site.yml
 $ runme.sh -t bootstrap-docker-stack -l docker_stack_openldap site.yml
 $ runme.sh -t bootstrap-docker-stack -l docker_stack_jenkins_jcac site.yml
 $ runme.sh -t bootstrap-docker-stack -l docker_stack_media site.yml
+$ runme.sh -vvv -t bootstrap-docker -l admin01 site.yml
 ```
 
 ### Run playbook
