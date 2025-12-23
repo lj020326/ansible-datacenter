@@ -1,0 +1,102 @@
+---
+- name: Register checksum of kube-scheduler original kubeconfig
+  ansible.builtin.stat:
+    path: "{{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kubeconfig"
+  register: bootstrap_kubernetes_controller__ctl__scheduler_kubeconfig_orig_stat
+
+- name: Generate kubeconfig for kube-scheduler (set-cluster)
+  ansible.builtin.shell: >
+    set -o errexit; \
+    kubectl config set-cluster {{ bootstrap_kubernetes_controller__config_cluster_name }} \
+      --certificate-authority={{ bootstrap_kubernetes_controller__pki_dir }}/ca-k8s-apiserver.pem \
+      --embed-certs=true \
+      --server=https://{{ bootstrap_kubernetes_controller__api_endpoint_host }}:{{ bootstrap_kubernetes_controller__api_endpoint_port }} \
+      --kubeconfig={{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kubeconfig
+  args:
+    executable: /bin/bash
+  register: bootstrap_kubernetes_controller__ctl__set_cluster_out
+  changed_when: false
+  failed_when: bootstrap_kubernetes_controller__ctl__set_cluster_out.rc != 0
+
+- name: Generate kubeconfig for kube-scheduler (set-cluster) - DEBUG OUTPUT
+  ansible.builtin.debug:
+    msg: "COMMAND:{{ bootstrap_kubernetes_controller__ctl__set_cluster_out.cmd }} | OUTPUT: {{ bootstrap_kubernetes_controller__ctl__set_cluster_out.stdout }}"
+    verbosity: 2
+
+- name: Generate kubeconfig for kube-scheduler (set-credentials)
+  ansible.builtin.shell: >
+    set -o errexit; \
+    kubectl config set-credentials system:kube-scheduler \
+      --client-certificate={{ bootstrap_kubernetes_controller__pki_dir }}/cert-k8s-scheduler.pem \
+      --client-key={{ bootstrap_kubernetes_controller__pki_dir }}/cert-k8s-scheduler-key.pem \
+      --embed-certs=true \
+      --kubeconfig={{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kubeconfig
+  args:
+    executable: /bin/bash
+  register: bootstrap_kubernetes_controller__ctl__set_credentials_out
+  changed_when: false
+  failed_when: bootstrap_kubernetes_controller__ctl__set_credentials_out.rc != 0
+
+- name: Generate kubeconfig for kube-scheduler (set-credentials) - DEBUG OUTPUT
+  ansible.builtin.debug:
+    msg: "COMMAND:{{ bootstrap_kubernetes_controller__ctl__set_credentials_out.cmd }} | OUTPUT: {{ bootstrap_kubernetes_controller__ctl__set_credentials_out.stdout }}"
+    verbosity: 2
+
+- name: Generate kubeconfig for kube-scheduler (set-context)
+  ansible.builtin.shell: >
+    set -o errexit; \
+    kubectl config set-context default \
+      --cluster={{ bootstrap_kubernetes_controller__config_cluster_name }} \
+      --user=system:kube-scheduler \
+      --kubeconfig={{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kubeconfig
+  args:
+    executable: /bin/bash
+  register: bootstrap_kubernetes_controller__ctl__set_context_out
+  changed_when: false
+  failed_when: bootstrap_kubernetes_controller__ctl__set_context_out.rc != 0
+
+- name: Generate kubeconfig for kube-scheduler (set-context) - DEBUG OUTPUT
+  ansible.builtin.debug:
+    msg: "COMMAND:{{ bootstrap_kubernetes_controller__ctl__set_context_out.cmd }} | OUTPUT: {{ bootstrap_kubernetes_controller__ctl__set_context_out.stdout }}"
+    verbosity: 2
+
+- name: Generate kubeconfig for kube-scheduler (use-context)
+  ansible.builtin.shell: >
+    set -o errexit; \
+    kubectl config use-context default \
+      --kubeconfig={{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kubeconfig
+  args:
+    executable: /bin/bash
+  register: bootstrap_kubernetes_controller__ctl__use_context_out
+  changed_when: false
+  failed_when: bootstrap_kubernetes_controller__ctl__use_context_out.rc != 0
+
+- name: Generate kubeconfig for kube-scheduler (use-context) - DEBUG OUTPUT
+  ansible.builtin.debug:
+    msg: "COMMAND:{{ bootstrap_kubernetes_controller__ctl__use_context_out.cmd }} | OUTPUT: {{ bootstrap_kubernetes_controller__ctl__use_context_out.stdout }}"
+    verbosity: 2
+
+- name: Set file permissions
+  ansible.builtin.file:
+    path: "{{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kubeconfig"
+    owner: "root"
+    group: "{{ bootstrap_kubernetes_controller__run_as_group }}"
+    mode: "0640"
+    modification_time: "preserve"
+    access_time: "preserve"
+
+- name: Register checksum of kube-scheduler current kubeconfig
+  ansible.builtin.stat:
+    path: "{{ bootstrap_kubernetes_controller__scheduler_conf_dir }}/kubeconfig"
+  register: bootstrap_kubernetes_controller__ctl__scheduler_kubeconfig_current_stat
+
+- name: Check if kubeconfig file changed
+  when:
+    - bootstrap_kubernetes_controller__ctl__scheduler_kubeconfig_orig_stat.stat.checksum is defined
+    - bootstrap_kubernetes_controller__ctl__scheduler_kubeconfig_orig_stat.stat.checksum != bootstrap_kubernetes_controller__ctl__scheduler_kubeconfig_current_stat.stat.checksum
+  ansible.builtin.debug:
+    msg: "kubeconfig file changed"
+  changed_when:
+    - bootstrap_kubernetes_controller__ctl__scheduler_kubeconfig_orig_stat.stat.checksum != bootstrap_kubernetes_controller__ctl__scheduler_kubeconfig_current_stat.stat.checksum
+  notify:
+    - Restart kube-scheduler

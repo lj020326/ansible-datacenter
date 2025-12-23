@@ -10,8 +10,10 @@
   when:
     - inventory_hostname not in groups['kvmhost']
     - inventory_hostname not in hostvars[bootstrap_kvm_infra__kvm_host].result_all_vms.list_vms
+  no_log: true
   ansible.builtin.stat:
-    path: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | default(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-boot.qcow2"
+    path: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path
+      | d(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-boot.qcow2"
   register: result_stat_boot
   delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
 
@@ -33,12 +35,12 @@
   ansible.builtin.command: >
     qemu-img create -f qcow2
     {% if item.name == 'boot' %}
-    -b {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | default(bootstrap_kvm_infra__host_image_path) }}/{{ bootstrap_kvm_infra__distro_image }} -F qcow2
+    -b {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | d(bootstrap_kvm_infra__host_image_path) }}/{{ bootstrap_kvm_infra__distro_image }} -F qcow2
     {% endif %}
-    {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | default(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-{{ item.name }}.qcow2
-    {{ item.size | default(bootstrap_kvm_infra__disk_size) }}G
+    {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | d(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-{{ item.name }}.qcow2
+    {{ item.size | d(bootstrap_kvm_infra__disk_size) }}G
   args:
-    creates: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | default(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-{{ item.name }}.qcow2"
+    creates: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | d(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-{{ item.name }}.qcow2"
   register: result_disk_create
   become: true
   delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
@@ -53,10 +55,10 @@
     - bootstrap_kvm_infra__state != "undefined"
     - item.bus is defined and item.bus == "nvme"
   ansible.builtin.file:
-    path: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | default(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-{{ item.name }}.qcow2"
-    owner: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_owner | default('root') }}"
-    group: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_group | default('qemu') }}"
-    mode: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_mode | default('0660') }}"
+    path: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | d(bootstrap_kvm_infra__host_image_path) }}/{{ inventory_hostname }}-{{ item.name }}.qcow2"
+    owner: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_owner | d('root') }}"
+    group: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_group | d('qemu') }}"
+    mode: "{{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_mode | d('0660') }}"
   become: true
   delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
   loop: "{{ bootstrap_kvm_infra__disks }}"
@@ -104,12 +106,12 @@
     - inventory_hostname not in hostvars[bootstrap_kvm_infra__kvm_host].result_all_vms.list_vms
     - bootstrap_kvm_infra__state != "undefined"
   ansible.builtin.shell: >
-    {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__mkiso_cmd | default(bootstrap_kvm_infra__mkiso_cmd) }} -J -l -R -V "cidata" -iso-level 4
-    -o {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | default(virt_infra_host_image_path) }}/{{ inventory_hostname }}-cloudinit.iso
+    {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__mkiso_cmd | d(bootstrap_kvm_infra__mkiso_cmd) }} -J -l -R -V "cidata" -iso-level 4
+    -o {{ hostvars[bootstrap_kvm_infra__kvm_host].bootstrap_kvm_infra__host_image_path | d(virt_infra_host_image_path) }}/{{ inventory_hostname }}-cloudinit.iso
     {{ result_tempdir.path }}/user-data
     {{ result_tempdir.path }}/meta-data
   args:
-    creates: "{{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | default(virt_infra_host_image_path) }}/{{ inventory_hostname }}-cloudinit.iso"
+    creates: "{{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | d(virt_infra_host_image_path) }}/{{ inventory_hostname }}-cloudinit.iso"
     executable: /bin/bash
   become: true
   delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"
@@ -134,11 +136,11 @@
   changed_when: false
   ansible.builtin.command: >
     virt-customize
-    -a {{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | default(virt_infra_host_image_path) }}/{{ inventory_hostname }}-boot.qcow2
+    -a {{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | d(virt_infra_host_image_path) }}/{{ inventory_hostname }}-boot.qcow2
     {% if virt_infra_sm_creds is defined and virt_infra_sm_creds %}
     --sm-register
     --sm-credentials {{ virt_infra_sm_creds }}
-    --sm-attach {{ virt_infra_sm_attach | default("auto") }}
+    --sm-attach {{ virt_infra_sm_attach | d("auto") }}
     {% endif %}
     --install qemu-guest-agent,cloud-init
   register: result_disk_deps
@@ -157,7 +159,7 @@
   changed_when: false
   ansible.builtin.command: >
     virt-customize
-    -a {{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | default(virt_infra_host_image_path) }}/{{ inventory_hostname }}-boot.qcow2
+    -a {{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | d(virt_infra_host_image_path) }}/{{ inventory_hostname }}-boot.qcow2
     {% if virt_infra_sm_creds is defined and virt_infra_sm_creds %}
     --sm-remove
     --sm-unregister
@@ -183,7 +185,7 @@
     {% if virt_infra_root_password is defined and virt_infra_root_password %}
     --root-password password:{{ virt_infra_root_password }}
     {% endif %}
-    --add {{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | default(virt_infra_host_image_path) }}/{{ inventory_hostname }}-boot.qcow2
+    --add {{ hostvars[bootstrap_kvm_infra__kvm_host].virt_infra_host_image_path | d(virt_infra_host_image_path) }}/{{ inventory_hostname }}-boot.qcow2
   register: result_disk_sysprep
   become: true
   delegate_to: "{{ bootstrap_kvm_infra__kvm_host }}"

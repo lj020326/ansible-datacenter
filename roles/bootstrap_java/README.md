@@ -29,7 +29,7 @@ None.
     - hosts: servers
       roles:
         - role: bootstrap_java
-          become: yes
+          become: true
 
 ## Example Playbook (install OpenJDK 8)
 

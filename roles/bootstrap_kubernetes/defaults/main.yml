@@ -1,16 +1,71 @@
 ---
-# Defaults file for bootstrap_kubernetes role
-bootstrap_kubernetes__version: "1.33.4-1.1"
-bootstrap_kubernetes__version_short: "1.33.4"
-bootstrap_kubernetes__pod_network_cidr: "192.168.0.0/16"
-bootstrap_kubernetes__user: "kubernetes" # Default user for Kubernetes admin access
 bootstrap_kubernetes__packages:
-  - apt-transport-https
-  - ca-certificates
-  - curl
-  - gnupg
-  - software-properties-common
-  - python3-apt
+  - name: kubelet
+    state: present
+  - name: kubectl
+    state: present
+  - name: kubeadm
+    state: present
+  - name: kubernetes-cni
+    state: present
 
-bootstrap_kubernetes__version_short_repo: "{{ bootstrap_kubernetes__version_short | regex_replace('\\.\\d+$', '') }}"
-bootstrap_kubernetes__apt_repo_url: "https://pkgs.k8s.io/core:/stable:/v{{ bootstrap_kubernetes__version_short_repo }}/deb/"
+bootstrap_kubernetes__version: '1.33'
+bootstrap_kubernetes__version_rhel_package: '1.33'
+
+bootstrap_kubernetes__role: control_plane
+
+# This is deprecated. Please use bootstrap_kubernetes__config_kubelet_configuration instead.
+bootstrap_kubernetes__kubelet_extra_args: ""
+
+bootstrap_kubernetes__kubeadm_init_extra_opts: ""
+bootstrap_kubernetes__join_command_extra_opts: ""
+bootstrap_kubernetes__allow_pods_on_control_plane: true
+bootstrap_kubernetes__pod_network:
+  # Flannel CNI.
+  cni: 'flannel'
+  cidr: '10.244.0.0/16'
+  # Calico CNI.
+  # cni: 'calico'
+  # cidr: '192.168.0.0/16'
+
+bootstrap_kubernetes__kubeadm_kubelet_config_file_path: '/etc/kubernetes/kubeadm-kubelet-config.yaml'
+
+bootstrap_kubernetes__config_kubeadm_apiversion: v1beta4
+kubenetes_config_kubelet_apiversion: v1beta1
+bootstrap_kubernetes__config_kubeproxy_apiversion: v1alpha1
+
+bootstrap_kubernetes__config_kubelet_configuration:
+  cgroupDriver: "systemd"
+
+bootstrap_kubernetes__config_init_configuration:
+  localAPIEndpoint:
+    advertiseAddress: "{{ bootstrap_kubernetes__apiserver_advertise_address | default(ansible_default_ipv4.address, true) }}"
+# if you use the next lines, remove the command line argument below
+# nodeRegistration:
+#    ignorePreflightErrors:
+#      - all
+
+bootstrap_kubernetes__config_cluster_configuration:
+  networking:
+    podSubnet: "{{ bootstrap_kubernetes__pod_network.cidr }}"
+  kubernetesVersion: "{{ bootstrap_kubernetes__version_kubeadm }}"
+
+bootstrap_kubernetes__config_kube_proxy_configuration: {}
+
+bootstrap_kubernetes__apiserver_advertise_address: ''
+bootstrap_kubernetes__version_kubeadm: 'stable-{{ bootstrap_kubernetes__version }}'
+bootstrap_kubernetes__ignore_preflight_errors: 'all'
+
+bootstrap_kubernetes__apt_release_channel: "stable"
+bootstrap_kubernetes__apt_repository: "https://pkgs.k8s.io/core:/{{ bootstrap_kubernetes__apt_release_channel }}:/v{{ bootstrap_kubernetes__version }}/deb/"
+
+bootstrap_kubernetes__yum_base_url: "https://pkgs.k8s.io/core:/stable:/v{{ bootstrap_kubernetes__version }}/rpm/"
+bootstrap_kubernetes__yum_gpg_key: "https://pkgs.k8s.io/core:/stable:/v{{ bootstrap_kubernetes__version }}/rpm/repodata/repomd.xml.key"
+bootstrap_kubernetes__yum_gpg_check: true
+bootstrap_kubernetes__yum_repo_gpg_check: true
+
+# Flannel config file.
+bootstrap_kubernetes__flannel_manifest_file: https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+
+# Calico config file.
+bootstrap_kubernetes__calico_manifest_file: https://projectcalico.docs.tigera.io/manifests/calico.yaml

@@ -19,24 +19,24 @@
     __docker_stack__compose_stopped: true
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Login to docker docker-registry"
-  when: docker_stack__registry_login | d(False)
+  when: docker_stack__registry__login | d(False)
   ansible.builtin.debug:
     msg:
-      - docker_stack__registry_login={{ docker_stack__registry_login }}
+      - docker_stack__registry__login={{ docker_stack__registry__login }}
       - docker_stack__action={{ docker_stack__action }}
-      - docker_stack__registry_endpoint={{ docker_stack__registry_endpoint }}
-      - docker_stack__registry_username={{ docker_stack__registry_username }}
+      - docker_stack__registry__endpoint={{ docker_stack__registry__endpoint }}
+      - docker_stack__registry__username={{ docker_stack__registry__username }}
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Login to docker docker-registry"
   #  ignore_errors: true
   when:
-    - docker_stack__registry_login | bool
+    - docker_stack__registry__login | bool
     - docker_stack__action in ['setup','start','restart','up']
   community.docker.docker_login:
-    registry: "{{ docker_stack__registry_endpoint }}"
-    username: "{{ docker_stack__registry_username }}"
-    password: "{{ docker_stack__registry_password }}"
-    tls_hostname: "{{ docker_stack__registry_endpoint | split(':') | first }}"
+    registry: "{{ docker_stack__registry__endpoint }}"
+    username: "{{ docker_stack__registry__username }}"
+    password: "{{ docker_stack__registry__password }}"
+    tls_hostname: "{{ docker_stack__registry__endpoint | split(':') | first }}"
     #    ca_cert: ""
     debug: true
     tls: true
@@ -45,9 +45,9 @@
   ansible.builtin.debug:
     msg:
       - "__docker_stack__compose_state: {{ __docker_stack__compose_state }}"
-      - "__docker_stack__compose_restarted: {{ __docker_stack__compose_restarted|d('') }}"
-      - "__docker_stack__compose_stopped: {{ __docker_stack__compose_stopped|d('') }}"
-      - "__docker_stack__service_groups: {{ __docker_stack__service_groups|d('') }}"
+      - "__docker_stack__compose_restarted: {{ __docker_stack__compose_restarted | d('') }}"
+      - "__docker_stack__compose_stopped: {{ __docker_stack__compose_stopped | d('') }}"
+      - "__docker_stack__service_groups: {{ __docker_stack__service_groups | d('') }}"
       - "__docker_stack__app_services: {{ __docker_stack__app_services }}"
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Start the docker stack"
@@ -56,7 +56,8 @@
     ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
     ## ref: https://askubuntu.com/questions/1508129/docker-compose-giving-containerconfig-errors-after-update-today
     - name: "{{ __docker_stack__log_prefix__run_compose }} Run docker-compose in {{ docker_stack__dir }}"
-      when: not docker_stack__swarm_mode|d(False)|bool
+      when: not docker_stack__swarm_mode | d(False) | bool
+      no_log: true
       community.docker.docker_compose_v2:
         project_src: "{{ docker_stack__dir }}"
         remove_orphans: "{{ docker_stack__remove_orphans }}"
@@ -70,7 +71,15 @@
       until: __compose_result is not failed
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Deploy docker stack in {{ docker_stack__dir }}"
-      when: docker_stack__swarm_mode|d(False)|bool
+      when: docker_stack__swarm_mode | d(False) | bool
+      no_log: true
+#      # Explicitly set DOCKER_HOST to the local Unix socket.
+#      # This prevents any conflicting DOCKER_HOST variable inherited from Jenkins
+#      # from disrupting the connection to control01's local Docker daemon.
+#      environment:
+#        DOCKER_HOST: unix:///var/run/docker.sock
+#        # Ensure the system PATH is correctly set for the root user session
+#        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       community.docker.docker_stack:
         name: "{{ docker_stack__compose_stack_name }}"
         compose: "{{ docker_stack__compose_stack_compose_file }}"
@@ -78,7 +87,12 @@
         state: "{{ __docker_stack__compose_state }}"
         resolve_image: "{{ docker_stack__compose_stack_resolve_image }}"
         with_registry_auth: true
-        detach: true
+#        detach: true
+#        docker_cli: /usr/bin/docker
+#        api_version: auto
+##        api_version: "{{ docker_stack__docker_api_version }}"
+##        docker_host: unix:///var/run/docker.sock
+##        docker_cli: /bin/docker
       register: __compose_result
       retries: 4
       delay: 30
@@ -87,7 +101,7 @@
   rescue:
     - name: "{{ __docker_stack__log_prefix__run_compose }} Display __compose_result"
       ansible.builtin.debug:
-        var: __compose_result
+        var: __compose_result | dettonville.utils.remove_dict_keys(['stack_spec_diff'])
         verbosity: 1
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Init __restart_docker"
@@ -95,9 +109,10 @@
         __restart_docker: false
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Set __restart_docker"
+      when: __compose_result.msg | regex_search('Failed to program NAT chain') is not none
+#      when: __compose_result.msg | regex_search("INVALID_ZONE .* docker") is not none
       ansible.builtin.set_fact:
-        #        __restart_docker: "{{ (__compose_result.msg | regex_search("INVALID_ZONE .* docker")) }}"
-        __restart_docker: "{{ (__compose_result.msg | regex_search('Failed to program NAT chain')) }}"
+        __restart_docker: true
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Display __restart_docker"
       ansible.builtin.debug:
@@ -119,7 +134,9 @@
 
         ## run docker compose
         ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
-        - name: "{{ __docker_stack__log_prefix__run_compose }} Retry to Run the services defined in docker-compose.yml"
+        - name: "{{ __docker_stack__log_prefix__run_compose }} Retry to Run docker-compose in {{ docker_stack__dir }}"
+          when: not docker_stack__swarm_mode | d(False) | bool
+          no_log: true
           community.docker.docker_compose_v2:
             project_src: "{{ docker_stack__dir }}"
             remove_orphans: "{{ docker_stack__remove_orphans }}"
@@ -128,11 +145,27 @@
             stopped: "{{ __docker_stack__compose_stopped | d(omit) }}"
           #    services: "{{ __docker_stack__app_services | d(omit) }}"
           register: __compose_result
-          retries: 3
-          delay: 20
+          retries: 4
+          delay: 30
           until: __compose_result is not failed
+
+        - name: "{{ __docker_stack__log_prefix__run_compose }} Retry to Deploy docker stack in {{ docker_stack__dir }}"
+          when: docker_stack__swarm_mode | d(False) | bool
+          no_log: true
+          community.docker.docker_stack:
+            name: "{{ docker_stack__compose_stack_name }}"
+            compose: "{{ docker_stack__compose_stack_compose_file }}"
+            prune: "{{ docker_stack__compose_stack_prune }}"
+            state: "{{ __docker_stack__compose_state }}"
+            resolve_image: "{{ docker_stack__compose_stack_resolve_image }}"
+            with_registry_auth: true
+          register: __compose_result
+          retries: 4
+          delay: 30
+          until: __compose_result is not failed
+
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Display __compose_result"
   ansible.builtin.debug:
-    var: __compose_result
+    var: __compose_result | dettonville.utils.remove_dict_keys(['stack_spec_diff'])
     verbosity: 1

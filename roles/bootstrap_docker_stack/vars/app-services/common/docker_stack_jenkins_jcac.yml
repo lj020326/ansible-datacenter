@@ -17,7 +17,7 @@ __docker_stack__jenkins_jcac__base_dir_default: "{{ __docker_stack__jenkins_jcac
 __docker_stack__jenkins_jcac__base_dir: "{{ docker_stack__jenkins_jcac__dir | d(__docker_stack__jenkins_jcac__base_dir_default) }}"
 
 __docker_stack__jenkins_jcac__traefik_host_default: jenkins.example.int
-__docker_stack__jenkins_jcac__host: "{{ docker_stack__jenkins_jcac__host | d(docker_stack__jenkins_host) | d(docker_stack__traefik_host) | d(__docker_stack__jenkins_jcac__traefik_host_default)
+__docker_stack__jenkins_jcac__host: "{{ docker_stack__jenkins_jcac__host | d(docker_stack__jenkins_host) | d(docker_stack__traefik__host) | d(__docker_stack__jenkins_jcac__traefik_host_default)
   }}"
 
 __docker_stack__jenkins_jcac__agent_base_dir_default: "{{ __docker_stack__jenkins_jcac__stack_dir }}/jenkins_agent"
@@ -44,24 +44,24 @@ __docker_stack__jenkins_jcac__agent_swarm_mode: true
 
 ## ref: https://www.jenkins.io/blog/2020/05/11/docker-windows-agents/
 #__docker_stack__jenkins_jcac__image_default: "jenkins/jenkins:lts"
-#__docker_stack__jenkins_jcac__image_default: "{{ docker_stack__registry_endpoint }}/docker-jenkins-jcac:build-131"
-__docker_stack__jenkins_jcac__image_default: "{{ docker_stack__registry_endpoint }}/docker-jenkins-jcac:latest"
+#__docker_stack__jenkins_jcac__image_default: "{{ docker_stack__registry__endpoint }}/docker-jenkins-jcac:build-131"
+__docker_stack__jenkins_jcac__image_default: "{{ docker_stack__registry__endpoint }}/docker-jenkins-jcac:latest"
 __docker_stack__jenkins_jcac__image: "{{ docker_stack__jenkins_jcac__image | d(__docker_stack__jenkins_jcac__image_default) }}"
 
-__docker_stack__jenkins_jcac__agent_image_default: "{{ docker_stack__registry_endpoint }}/jenkins-docker-cicd-agent:latest"
+__docker_stack__jenkins_jcac__agent_image_default: "{{ docker_stack__registry__endpoint }}/jenkins-docker-cicd-agent:latest"
 __docker_stack__jenkins_jcac__agent_image: "{{ docker_stack__jenkins_jcac__agent_image | d(__docker_stack__jenkins_jcac__agent_image_default) }}"
 
-__docker_stack__jenkins_jcac__swarm_agent_image_default: "{{ docker_stack__registry_endpoint }}/jenkins-swarm-agent:latest"
+__docker_stack__jenkins_jcac__swarm_agent_image_default: "{{ docker_stack__registry__endpoint }}/jenkins-swarm-agent:latest"
 __docker_stack__jenkins_jcac__swarm_agent_image: "{{ docker_stack__jenkins_swarm_agent_image | d(__docker_stack__jenkins_jcac__swarm_agent_image_default) }}"
 
-__docker_stack__jenkins_jcac__ldap_host: "{{ docker_stack__jenkins_jcac__ldap_host | d(docker_stack__ldap_host)}}"
-__docker_stack__jenkins_jcac__ldap_uri: "{{ docker_stack__jenkins_jcac__ldap_uri | d(docker_stack__ldap_uri) | d(docker_stack__ldap_host) }}"
-__docker_stack__jenkins_jcac__ldap_base_dn: "{{ docker_stack__jenkins_jcac__ldap_base_dn | d(docker_stack__ldap_base_dn) }}"
+__docker_stack__jenkins_jcac__ldap_host: "{{ docker_stack__jenkins_jcac__ldap_host | d(docker_stack__ldap__host)}}"
+__docker_stack__jenkins_jcac__ldap_uri: "{{ docker_stack__jenkins_jcac__ldap_uri | d(docker_stack__ldap__uri) | d(docker_stack__ldap__host) }}"
+__docker_stack__jenkins_jcac__ldap_base_dn: "{{ docker_stack__jenkins_jcac__ldap_base_dn | d(docker_stack__ldap__base_dn) }}"
 
-__docker_stack__jenkins_jcac__ldap_bind_user_dn_default: cn=readonly,{{ __docker_stack__jenkins_jcac__ldap_base_dn | d(docker_stack__ldap_user_base_dn) }}
-__docker_stack__jenkins_jcac__ldap_bind_user_dn: "{{ docker_stack__jenkins_jcac__ldap_bind_user_dn | d(docker_stack__ldap_bind_user_dn) | d(__docker_stack__jenkins_jcac__ldap_bind_user_dn_default)
+__docker_stack__jenkins_jcac__ldap_bind_user_dn_default: cn=readonly,{{ __docker_stack__jenkins_jcac__ldap_base_dn | d(docker_stack__ldap__user_base_dn) }}
+__docker_stack__jenkins_jcac__ldap_bind_user_dn: "{{ docker_stack__jenkins_jcac__ldap_bind_user_dn | d(docker_stack__ldap__bind_user_dn) | d(__docker_stack__jenkins_jcac__ldap_bind_user_dn_default)
   }}"
-__docker_stack__jenkins_jcac__ldap_bind_user_password: "{{ docker_stack__jenkins_jcac__ldap_bind_user_password | d(docker_stack__ldap_bind_user_password) }}"
+__docker_stack__jenkins_jcac__ldap_bind_user_password: "{{ docker_stack__jenkins_jcac__ldap_bind_user_password | d(docker_stack__ldap__bind_user_password) }}"
 
 #__docker_stack__jenkins_ssh_private_key: "{{ docker_stack__jenkins_ssh_private_key | d('') }}"
 #__docker_stack__jenkins_ssh_public_key: "{{ docker_stack__jenkins_ssh_public_key | d('') }}"
@@ -169,7 +169,10 @@ __docker_stack__jenkins_jcac__agent_min_num_executors: 4
 __docker_stack__jenkins_jcac__throttle_job_properties:
   categories:
     - categoryName: "docker_image_builds"
-      maxConcurrentTotal: 8
+      maxConcurrentTotal: 4
+      maxConcurrentPerNode: 2
+    - categoryName: "ansible_test"
+      maxConcurrentTotal: 4
       maxConcurrentPerNode: 2
 #      nodeLabeledPairs:
 #      - throttledNodeLabel: "docker"
@@ -178,11 +181,11 @@ __docker_stack__jenkins_jcac__throttle_job_properties:
 ## ref: https://stackoverflow.com/questions/39539559/ansible-procesor-count-vs-processor-cores-vs-processor-vcpus
 ## ref: github.com/ansible/ansible/pull/66569
 #__docker_stack__jenkins_jcac__agent_num_executors: "{{
-#  [ansible_processor_cores|d(1)*2, __docker_stack__jenkins_jcac__agent_min_num_executors] | max }}"
+#  [ansible_processor_cores | d(1)*2, __docker_stack__jenkins_jcac__agent_min_num_executors] | max }}"
 #__docker_stack__jenkins_jcac__agent_num_executors: "{{
-#  [ansible_processor_vcpus|d(1)*2, __docker_stack__jenkins_jcac__agent_min_num_executors] | max }}"
+#  [ansible_processor_vcpus | d(1)*2, __docker_stack__jenkins_jcac__agent_min_num_executors] | max }}"
 __docker_stack__jenkins_jcac__agent_num_executors: "{{ 
-  [ansible_processor_nproc|d(1)*4, __docker_stack__jenkins_jcac__agent_min_num_executors] | max }}"
+  [ansible_processor_nproc | d(1)*4, __docker_stack__jenkins_jcac__agent_min_num_executors] | max }}"
 
 #########
 ## Credential vars
@@ -383,8 +386,7 @@ __docker_stack__jenkins_jcac__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__jenkins_jcac__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

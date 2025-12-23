@@ -53,31 +53,31 @@
     - name: Install - Configure DNS resolver
       ipaclient_configure_dns_resolver:
         nameservers: "{{ ipaclient_dns_servers }}"
-        searchdomains: "{{ ipaserver_domain | default(ipaclient_domain) }}"
+        searchdomains: "{{ ipaserver_domain | d(ipaclient_domain) }}"
         state: present
 
 - name: Install - IPA client test
   ipaclient_test:
     ### basic ###
-    domain: "{{ ipaserver_domain | default(ipaclient_domain) | default(omit) }}"
-    servers: "{{ ipaclient_servers | default(omit) }}"
-    realm: "{{ ipaserver_realm | default(ipaclient_realm) | default(omit) }}"
-    hostname: "{{ ipaclient_hostname | default(ansible_facts['fqdn']) }}"
-    ntp_servers: "{{ ipaclient_ntp_servers | default(omit) }}"
-    ntp_pool: "{{ ipaclient_ntp_pool | default(omit) }}"
+    domain: "{{ ipaserver_domain | d(ipaclient_domain) | d(omit) }}"
+    servers: "{{ ipaclient_servers | d(omit) }}"
+    realm: "{{ ipaserver_realm | d(ipaclient_realm) | d(omit) }}"
+    hostname: "{{ ipaclient_hostname | d(ansible_facts['fqdn']) }}"
+    ntp_servers: "{{ ipaclient_ntp_servers | d(omit) }}"
+    ntp_pool: "{{ ipaclient_ntp_pool | d(omit) }}"
     no_ntp: "{{ ipaclient_no_ntp }}"
     force_ntpd: "{{ ipaclient_force_ntpd }}"
-    nisdomain: "{{ ipaclient_nisdomain | default(omit) }}"
+    nisdomain: "{{ ipaclient_nisdomain | d(omit) }}"
     no_nisdomain: "{{ ipaclient_no_nisdomain }}"
     kinit_attempts: "{{ ipaclient_kinit_attempts }}"
-    ca_cert_files: "{{ ipaclient_ca_cert_file | default(omit) }}"
+    ca_cert_files: "{{ ipaclient_ca_cert_file | d(omit) }}"
     configure_firefox: "{{ ipaclient_configure_firefox }}"
-    firefox_dir: "{{ ipaclient_firefox_dir | default(omit) }}"
-    ip_addresses: "{{ ipaclient_ip_addresses | default(omit) }}"
+    firefox_dir: "{{ ipaclient_firefox_dir | d(omit) }}"
+    ip_addresses: "{{ ipaclient_ip_addresses | d(omit) }}"
     all_ip_addresses: "{{ ipaclient_all_ip_addresses }}"
     on_controller: "{{ ipaclient_on_controller }}"
     ### sssd ###
-    enable_dns_updates: "{{ ipassd_enable_dns_updates | default(ipasssd_enable_dns_updates) }}"
+    enable_dns_updates: "{{ ipassd_enable_dns_updates | d(ipasssd_enable_dns_updates) }}"
   register: result_ipaclient_test
 
 - name: Install - Client deployment
@@ -93,8 +93,8 @@
     - name: Install - Configure NTP
       ipaclient_setup_ntp:
       ### basic ###
-        ntp_servers: "{{ result_ipaclient_test.ntp_servers | default(omit) }}"
-        ntp_pool: "{{ result_ipaclient_test.ntp_pool | default(omit) }}"
+        ntp_servers: "{{ result_ipaclient_test.ntp_servers | d(omit) }}"
+        ntp_pool: "{{ result_ipaclient_test.ntp_pool | d(omit) }}"
         no_ntp: "{{ ipaclient_no_ntp }}"
         # force_ntpd: "{{ ipaclient_force_ntpd }}"
         on_controller: "{{ ipaclient_on_controller }}"
@@ -121,7 +121,7 @@
         realm: "{{ result_ipaclient_test.realm }}"
         hostname: "{{ result_ipaclient_test.hostname }}"
         kdc: "{{ result_ipaclient_test.kdc }}"
-        kinit_attempts: "{{ ipaclient_kinit_attempts | default(omit) }}"
+        kinit_attempts: "{{ ipaclient_kinit_attempts | d(omit) }}"
       register: result_ipaclient_test_keytab
 
     - name: Install - Disable One-Time Password for client with working krb5.keytab
@@ -171,9 +171,9 @@
         - name: Install - Get One-Time Password for client enrollment
           no_log: true
           ipaclient_get_otp:
-            ipaadmin_principal: "{{ ipaadmin_principal | default(omit) }}"
-            ipaadmin_password: "{{ ipaadmin_password | default(omit) }}"
-            ipaadmin_keytab: "{{ keytab_temp.path | default(omit) }}"
+            ipaadmin_principal: "{{ ipaadmin_principal | d(omit) }}"
+            ipaadmin_password: "{{ ipaadmin_password | d(omit) }}"
+            ipaadmin_keytab: "{{ keytab_temp.path | d(omit) }}"
             hostname: "{{ result_ipaclient_test.hostname }}"
           register: result_ipaclient_get_otp
           delegate_to: "{{ result_ipaclient_test.servers[0] }}"
@@ -181,7 +181,7 @@
         - name: Install - Store the previously obtained OTP
           no_log: true
           ansible.builtin.set_fact:
-            ipaadmin_orig_password: "{{ ipaadmin_password | default(omit) }}"
+            ipaadmin_orig_password: "{{ ipaadmin_password | d(omit) }}"
             ipaadmin_password: "{{ result_ipaclient_get_otp.host['randompassword'] | d(omit) }}"
       rescue:
         - name: Install - Report error for OTP generation
@@ -202,7 +202,7 @@
       when: ipaclient_otp is defined
       no_log: true
       ansible.builtin.set_fact:
-        ipaadmin_orig_password: "{{ ipaadmin_password | default(omit) }}"
+        ipaadmin_orig_password: "{{ ipaadmin_password | d(omit) }}"
         ipaadmin_password: "{{ ipaclient_otp }}"
 
     - name: Install - Check keytab, principal and keytab
@@ -272,13 +272,13 @@
         realm: "{{ result_ipaclient_test.realm }}"
         basedn: "{{ result_ipaclient_test.basedn }}"
         hostname: "{{ result_ipaclient_test.hostname }}"
-        force_join: "{{ ipaclient_force_join | default(omit) }}"
+        force_join: "{{ ipaclient_force_join | d(omit) }}"
         principal: "{{ ipaadmin_principal if not ipaclient_use_otp | bool and ipaclient_keytab is not defined else omit }}"
-        password: "{{ ipaadmin_password | default(omit) }}"
-        keytab: "{{ ipaclient_keytab | default(omit) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        keytab: "{{ ipaclient_keytab | d(omit) }}"
         admin_keytab: "{{ ipaadmin_keytab if ipaadmin_keytab is defined and not ipaclient_use_otp | bool else omit }}"
-        # ca_cert_file: "{{ ipaclient_ca_cert_file | default(omit) }}"
-        kinit_attempts: "{{ ipaclient_kinit_attempts | default(omit) }}"
+        # ca_cert_file: "{{ ipaclient_ca_cert_file | d(omit) }}"
+        kinit_attempts: "{{ ipaclient_kinit_attempts | d(omit) }}"
         krb_name: "{{ result_ipaclient_temp_krb5.krb_name }}"
       register: result_ipaclient_join
 
@@ -335,11 +335,11 @@
             no_sshd: "{{ ipaclient_no_sshd }}"
             no_sudo: "{{ ipaclient_no_sudo }}"
             all_ip_addresses: "{{ ipaclient_all_ip_addresses }}"
-            fixed_primary: "{{ ipassd_fixed_primary | default(ipasssd_fixed_primary) }}"
-            permit: "{{ ipassd_permit | default(ipasssd_permit) }}"
-            enable_dns_updates: "{{ ipassd_enable_dns_updates | default(ipasssd_enable_dns_updates) }}"
-            preserve_sssd: "{{ ipassd_preserve_sssd | default(ipasssd_preserve_sssd) }}"
-            no_krb5_offline_passwords: "{{ ipassd_no_krb5_offline_passwords | default(ipasssd_no_krb5_offline_passwords) }}"
+            fixed_primary: "{{ ipassd_fixed_primary | d(ipasssd_fixed_primary) }}"
+            permit: "{{ ipassd_permit | d(ipasssd_permit) }}"
+            enable_dns_updates: "{{ ipassd_enable_dns_updates | d(ipasssd_enable_dns_updates) }}"
+            preserve_sssd: "{{ ipassd_preserve_sssd | d(ipasssd_preserve_sssd) }}"
+            no_krb5_offline_passwords: "{{ ipassd_no_krb5_offline_passwords | d(ipasssd_no_krb5_offline_passwords) }}"
 
         - name: Install - IPA API calls for remaining enrollment parts
           ipaclient_api:
@@ -370,23 +370,23 @@
             basedn: "{{ result_ipaclient_test.basedn }}"
             hostname: "{{ result_ipaclient_test.hostname }}"
             subject_base: "{{ result_ipaclient_api.subject_base }}"
-            principal: "{{ ipaadmin_principal | default(omit) }}"
+            principal: "{{ ipaadmin_principal | d(omit) }}"
             mkhomedir: "{{ ipaclient_mkhomedir }}"
             ca_enabled: "{{ result_ipaclient_api.ca_enabled }}"
             on_controller: "{{ ipaclient_on_controller }}"
             dnsok: "{{ result_ipaclient_test.dnsok }}"
-            enable_dns_updates: "{{ ipassd_enable_dns_updates | default(ipasssd_enable_dns_updates) }}"
+            enable_dns_updates: "{{ ipassd_enable_dns_updates | d(ipasssd_enable_dns_updates) }}"
             all_ip_addresses: "{{ ipaclient_all_ip_addresses }}"
-            ip_addresses: "{{ ipaclient_ip_addresses | default(omit) }}"
+            ip_addresses: "{{ ipaclient_ip_addresses | d(omit) }}"
             request_cert: "{{ ipaclient_request_cert }}"
-            preserve_sssd: "{{ ipassd_preserve_sssd | default(ipasssd_preserve_sssd) }}"
+            preserve_sssd: "{{ ipassd_preserve_sssd | d(ipasssd_preserve_sssd) }}"
             no_ssh: "{{ ipaclient_no_ssh }}"
             no_sshd: "{{ ipaclient_no_sshd }}"
             no_sudo: "{{ ipaclient_no_sudo }}"
             subid: "{{ ipaclient_subid }}"
-            fixed_primary: "{{ ipassd_fixed_primary | default(ipasssd_fixed_primary) }}"
-            permit: "{{ ipassd_permit | default(ipasssd_permit) }}"
-            no_krb5_offline_passwords: "{{ ipassd_no_krb5_offline_passwords | default(ipasssd_no_krb5_offline_passwords) }}"
+            fixed_primary: "{{ ipassd_fixed_primary | d(ipasssd_fixed_primary) }}"
+            permit: "{{ ipassd_permit | d(ipasssd_permit) }}"
+            no_krb5_offline_passwords: "{{ ipassd_no_krb5_offline_passwords | d(ipasssd_no_krb5_offline_passwords) }}"
             no_dns_sshfp: "{{ ipaclient_no_dns_sshfp }}"
             nosssd_files: "{{ result_ipaclient_test.nosssd_files }}"
             selinux_works: "{{ result_ipaclient_test.selinux_works }}"
@@ -404,19 +404,19 @@
           ipaclient_setup_automount:
             servers: "{{ result_ipaclient_test.servers }}"
             sssd: "{{ result_ipaclient_test.sssd }}"
-            automount_location: "{{ ipaclient_automount_location | default(omit) }}"
+            automount_location: "{{ ipaclient_automount_location | d(omit) }}"
 
         - name: Install - Configure firefox
           when: ipaclient_configure_firefox | bool
           ipaclient_setup_firefox:
-            firefox_dir: "{{ ipaclient_firefox_dir | default(omit) }}"
+            firefox_dir: "{{ ipaclient_firefox_dir | d(omit) }}"
             domain: "{{ result_ipaclient_test.domain }}"
 
         - name: Install - Configure NIS
           when: not ipaclient_no_nisdomain | bool
           ipaclient_setup_nis:
             domain: "{{ result_ipaclient_test.domain }}"
-            nisdomain: "{{ ipaclient_nisdomain | default(omit) }}"
+            nisdomain: "{{ ipaclient_nisdomain | d(omit) }}"
 
         - name: Remove temporary krb5.conf
           when: result_ipaclient_temp_krb5.krb_name is defined

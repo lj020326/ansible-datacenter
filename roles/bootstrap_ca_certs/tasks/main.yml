@@ -1,0 +1,192 @@
+---
+# Install necessary dependencies: CFSSL and OpenSSL
+- name: Ensure CFSSL, cfssljson, and OpenSSL are installed
+  ansible.builtin.include_role:
+    name: bootstrap_cfssl
+
+# Create the base directory for certificates
+- name: Create base certificate directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ bootstrap_ca_certs__base_dir }}"
+    state: directory
+    mode: '0755'
+
+# Set __bootstrap_ca_certs__ca_intermediate_certs_by_domain for quick lookup
+- name: Set __bootstrap_ca_certs__ca_intermediate_certs_by_domain
+  ansible.builtin.set_fact:
+    __bootstrap_ca_certs__ca_intermediate_certs_by_domain: "{{
+      __bootstrap_ca_certs__ca_intermediate_certs_by_domain | d({}) | combine({item.domainName: item}) }}"
+  loop: "{{ bootstrap_ca_certs__ca_intermediate_certs_list | d([]) }}"
+
+#- name: "Generate cfssl signing profiles json"
+#  ansible.builtin.template:
+#    src: ca_signing_profile.json.j2
+#    dest: "{{ bootstrap_ca_certs__base_dir }}/ca_signing_profiles.json"
+#    mode: '0644'
+#    owner: root
+#    group: root
+
+- name: "Generate cfssl signing profiles json"
+  ansible.builtin.copy:
+    content: "{{ bootstrap_ca_certs__cfssl_signing_profiles | to_nice_json }}"
+    dest: "{{ bootstrap_ca_certs__base_dir }}/ca_signing_profiles.json"
+    mode: '0644'
+    owner: root
+    group: root
+
+# --- Task 1: Initialize Root CA ---
+- name: "Prepare Root CA configuration and create certificate"
+  when: bootstrap_ca_certs__ca_init | bool
+  ansible.builtin.include_tasks: create_cert.yml
+  vars:
+    __bootstrap_ca_certs__cert_configs:
+      cert_type: "root"
+      key_algo: "{{ bootstrap_ca_certs__key_algo }}"
+      key_size: "{{ bootstrap_ca_certs__key_size }}"
+      common_name: "{{ bootstrap_ca_certs__ca_root_cn }}"
+      country: "{{ bootstrap_ca_certs__country }}"
+      state: "{{ bootstrap_ca_certs__state }}"
+      locality: "{{ bootstrap_ca_certs__locality }}"
+      organization: "{{ bootstrap_ca_certs__organization }}"
+      organizational_unit: "{{ bootstrap_ca_certs__organizational_unit }}"
+      email: "{{ bootstrap_ca_certs__email }}"
+      base_dir: "{{ bootstrap_ca_certs__base_dir }}"
+      config_dir: "{{ bootstrap_ca_certs__base_dir }}/root_ca"
+      csr_json_filename: "root_ca_csr.json"
+      output_basename: "ca"
+      profile_name: "root_ca"
+      signer_ca_path: ""
+      signer_cert_name: ""
+      signer_key_name: ""
+      ca_config_name: "ca_config.json"
+      force_create: "{{ bootstrap_ca_certs__ca_force_create }}"
+
+# --- Task 2: Create Intermediate Certificates ---
+- name: Prepare Intermediate CA configurations and create certificates
+  when: bootstrap_ca_certs__ca_intermediate_certs_list | length > 0
+  ansible.builtin.include_tasks: create_cert.yml
+  loop: "{{ bootstrap_ca_certs__ca_intermediate_certs_list }}"
+  loop_control:
+    loop_var: current_intermediate_ca
+  vars:
+    __bootstrap_ca_certs__cert_configs:
+      cert_type: "intermediate"
+      common_name: "{{ current_intermediate_ca.commonName }}"
+      domainName: "{{ current_intermediate_ca.domainName }}"
+      signerName: "{{ current_intermediate_ca.signerName }}"
+      country: "{{ current_intermediate_ca.country | d(bootstrap_ca_certs__country) }}"
+      state: "{{ current_intermediate_ca.state | d(bootstrap_ca_certs__state) }}"
+      locality: "{{ current_intermediate_ca.locality | d(bootstrap_ca_certs__locality) }}"
+      organization: "{{ current_intermediate_ca.organization | d(bootstrap_ca_certs__organization) }}"
+      organizational_unit: "{{ current_intermediate_ca.organizationalUnit | d(bootstrap_ca_certs__organizational_unit) }}"
+      email: "{{ current_intermediate_ca.email | d(bootstrap_ca_certs__email) }}"
+      base_dir: "{{ bootstrap_ca_certs__base_dir }}"
+      config_dir: "{{ bootstrap_ca_certs__base_dir }}/{{ current_intermediate_ca.domainName | regex_replace('\\.', '_') }}"
+      csr_json_filename: "{{ current_intermediate_ca.commonName | regex_replace('\\.', '_') }}_csr.json"
+      output_basename: "ca"
+      profile_name: "intermediate_ca"
+      signer_ca_path: "{{ bootstrap_ca_certs__base_dir }}/root_ca"
+      signer_cert_name: "ca.pem"
+      signer_key_name: "ca-key.pem"
+      ca_config_name: "ca_config.json"
+      force_create: "{{ bootstrap_ca_certs__ca_force_create }}"
+
+# --- Task 3: Create Service Route Certificates ---
+- name: Prepare Service Route configurations and create certificates
+  when: bootstrap_ca_certs__ca_service_routes_list | length > 0
+  ansible.builtin.include_tasks: create_cert.yml
+  loop: "{{ bootstrap_ca_certs__ca_service_routes_list }}"
+  loop_control:
+    loop_var: current_service_route
+  vars:
+    __bootstrap_ca_certs__cert_configs:
+      cert_type: "service"
+      common_name: "{{ current_service_route.route }}"
+      alt_names: "{{ current_service_route.alt_names | d([]) }}"
+      signerName: "{{ current_service_route.signerName }}"
+      email: "{{ bootstrap_ca_certs__email }}"
+      base_dir: "{{ bootstrap_ca_certs__base_dir }}"
+      config_dir: >-
+        {% if current_service_route.signerName == bootstrap_ca_certs__common_name %}
+          {{ bootstrap_ca_certs__base_dir }}/root_ca
+        {% else %}
+          {{ bootstrap_ca_certs__base_dir }}/{{ current_service_route.signerName | regex_replace('\\.', '_') }}
+        {% endif %}
+      csr_json_filename: "{{ current_service_route.route | regex_replace('\\.', '_') }}_csr.json"
+      output_basename: "{{ current_service_route.route | regex_replace('\\.', '_') }}"
+      profile_name: "server"
+      signer_ca_path: >-
+        {% if current_service_route.signerName == bootstrap_ca_certs__common_name %}
+          {{ bootstrap_ca_certs__base_dir }}/root_ca
+        {% else %}
+          {{ bootstrap_ca_certs__base_dir }}/{{ current_service_route.signerName | regex_replace('\\.', '_') }}
+        {% endif %}
+      signer_cert_name: "ca.pem"
+      signer_key_name: "ca-key.pem"
+      ca_config_name: "ca_config.json"
+      force_create: "{{ bootstrap_ca_certs__ca_force_create }}"
+
+# --- Task 4: Create Host Node Leaf Certificates ---
+- name: Prepare Host Node configurations and create certificates
+  when: bootstrap_ca_certs__ca_certify_node_list | length > 0
+  ansible.builtin.include_tasks: create_cert.yml
+  loop: "{{ bootstrap_ca_certs__ca_certify_node_list }}"
+  loop_control:
+    loop_var: __bootstrap_ca_certs__cert_node
+  vars:
+    node_common_name: "{{ hostvars[__bootstrap_ca_certs__cert_node]['bootstrap_ca_certs__common_name'] | d(__bootstrap_ca_certs__cert_node) }}"
+    node_ca_domain: "{{ hostvars[__bootstrap_ca_certs__cert_node]['bootstrap_ca_certs__domain'] | d('') }}"
+    node_fqdn: "{{ node_common_name }}{% if node_ca_domain %}.{{ node_ca_domain }}{% endif %}"
+    node_alt_names:
+      - "DNS.1 = {{ node_fqdn }}"
+      - "DNS.2 = {{ node_common_name }}"
+
+    node_signer_name: >-
+      {% if hostvars[__bootstrap_ca_certs__cert_node]['bootstrap_ca_certs__ca_signer_name'] is defined %}
+        {{ hostvars[__bootstrap_ca_certs__cert_node]['bootstrap_ca_certs__ca_signer_name'] }}
+      {% elif node_ca_domain is defined and node_ca_domain in __bootstrap_ca_certs__ca_intermediate_certs_by_domain %}
+        {{ __bootstrap_ca_certs__ca_intermediate_certs_by_domain[node_ca_domain].commonName }}
+      {% else %}
+        {{ bootstrap_ca_certs__common_name }}
+      {% endif %}
+
+    node_signer_ca_base_dir: >-
+      {% if node_ca_domain and node_ca_domain in __bootstrap_ca_certs__ca_intermediate_certs_by_domain %}
+        {{ bootstrap_ca_certs__base_dir }}/{{ node_ca_domain | regex_replace('\\.', '_') }}
+      {% else %}
+        {{ bootstrap_ca_certs__base_dir }}/root_ca
+      {% endif %}
+
+    __bootstrap_ca_certs__cert_configs:
+      cert_type: "node"
+      common_name: "{{ node_common_name }}"
+      alt_names: "{{ node_alt_names }}"
+      signerName: "{{ node_signer_name }}"
+      email: "{{ bootstrap_ca_certs__email }}"
+      base_dir: "{{ bootstrap_ca_certs__base_dir }}"
+      config_dir: "{{ node_signer_ca_base_dir }}"
+      csr_json_filename: "{{ node_common_name | regex_replace('\\.', '_') }}_csr.json"
+      output_basename: "{{ node_common_name | regex_replace('\\.', '_') }}"
+      profile_name: "server"
+      signer_ca_path: "{{ node_signer_ca_base_dir }}"
+      signer_cert_name: "ca.pem"
+      signer_key_name: "ca-key.pem"
+      ca_config_name: "ca_config.json"
+      force_create: "{{ bootstrap_ca_certs__ca_force_certify_nodes }}"
+
+# --- Cleanup ---
+- name: Clean up temporary CFSSL files
+  when: bootstrap_ca_certs__clean_up | bool
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ bootstrap_ca_certs__base_dir }}/**/*.csr"
+    - "{{ bootstrap_ca_certs__base_dir }}/**/*.json"
+    - "{{ bootstrap_ca_certs__base_dir }}/**/*.pem.tmp"
+  ignore_errors: true # noqa: ignore-errors
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+  no_log: true

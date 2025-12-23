@@ -235,7 +235,7 @@ Let's get that interface template out of the way. Feel free to skip this file
 (and leave it undefined in `group_vars/pve01`) otherwise. Here's one that I use:
 
 ```
-# {{ ansible_managed }}
+{{ 'Ansible managed' | comment(format="# {}") }}
 auto lo
 iface lo inet loopback
 

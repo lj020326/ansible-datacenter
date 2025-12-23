@@ -12,13 +12,14 @@
 - name: Set test case name
   when: ansible_play_name == "deploy_vm"
   ansible.builtin.set_fact:
-    current_testcase_name: "{{ deploy_casename | default(ansible_play_name) }}"
+    current_testcase_name: "{{ deploy_casename | d(ansible_play_name) }}"
 
 - name: Display testcase exception
   ansible.builtin.debug:
     msg: "Testcase: {{ current_testcase_name }} failed"
 
 - name: Check if current test case log folder exists
+  no_log: true
   ansible.builtin.stat:
     path: "{{ current_test_log_folder }}"
   register: current_test_folder_result
@@ -32,7 +33,7 @@
     dir_mode: "0777"
 
 - name: Run vm_take_snapshot.yml
-  when: vm_exists|d(False)|bool
+  when: vm_exists | d(False) | bool
   block:
     - name: Run vm_take_screenshot.yml
       ansible.builtin.include_tasks: vm_take_screenshot.yml
@@ -40,7 +41,7 @@
         vm_take_screenshot_local_path: "{{ current_test_log_folder }}"
 
     - name: Run esxi_download_datastore_file.yml
-      when: vm_dir_name|d('')|length > 0
+      when: vm_dir_name | d('') | length > 0
       ansible.builtin.include_tasks: esxi_download_datastore_file.yml
       vars:
         src_datastore: "{{ datastore }}"

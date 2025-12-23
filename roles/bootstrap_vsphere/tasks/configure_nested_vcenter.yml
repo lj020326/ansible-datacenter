@@ -1,0 +1,167 @@
+---
+- name: configure_nested_vcenter | Create Datacenter
+  community.vmware.vmware_datacenter:
+    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__nested_vcenter.datacenter }}"
+    state: present
+    validate_certs: false
+
+#- name: "configure_nested_vcenter | Create Clusters"
+#  vmware.vmware.cluster:
+#    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+#    username: "{{ bootstrap_vsphere__vcenter_username }}"
+#    password: "{{ bootstrap_vsphere__vcenter_password }}"
+#    datacenter: "{{ bootstrap_vsphere__nested_vcenter.datacenter }}"
+#    cluster: "{{ item.key }}"
+#    validate_certs: False
+#    enable_ha: "{{ item.value.ha.enabled }}"
+#    ha_admission_control_enabled: "{{ item.value.ha.admission_control_enabled }}"
+#    ha_host_monitoring: "{{ item.value.ha.ha_host_monitoring_enabled }}"
+#    enable_drs: "{{ item.value.drs }}"
+#    enable_vsan: False
+#  with_dict: "{{ bootstrap_vsphere__nested_clusters }}"
+
+#- name: "configure_nested_vcenter | Create Nested Clusters"
+#  vmware.vmware.cluster:
+#    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+#    username: "{{ bootstrap_vsphere__vcenter_username }}"
+#    password: "{{ bootstrap_vsphere__vcenter_password }}"
+#    datacenter: "{{ bootstrap_vsphere__nested_vcenter.datacenter }}"
+#    cluster: "{{ item.key }}"
+#    validate_certs: False
+#  with_dict: "{{ bootstrap_vsphere__nested_clusters }}"
+
+- name: configure_nested_vcenter | Configure Nested Cluster HA
+  vmware.vmware.cluster_ha:
+    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__nested_vcenter.datacenter }}"
+    cluster: "{{ item.key }}"
+    validate_certs: false
+    enable: "{{ item.value.enable_ha }}"
+    admission_control_cpu_reserve_percentage: "{{ item.value.admission_control_cpu_reserve_percentage | d(omit) }}"
+    admission_control_dedicated_hosts: "{{ item.value.admission_control_dedicated_hosts | d(omit) }}"
+    admission_control_failover_level: "{{ item.value.admission_control_failover_level | d(omit) }}"
+    admission_control_memory_reserve_percentage: "{{ item.value.admission_control_memory_reserve_percentage | d(omit) }}"
+    admission_control_policy: "{{ item.value.admission_control_policy | d(omit) }}"
+    host_isolation_response: "{{ item.value.host_isolation_response | d(omit) }}"
+    storage_apd_response: "{{ item.value.ha_storage_apd_response | d(omit) }}"
+    vm_monitoring: "{{ item.value.ha_vm_monitoring | d(omit) }}"
+  with_dict: "{{ bootstrap_vsphere__nested_clusters }}"
+
+- name: configure_nested_vcenter | Configure Clusters DRS
+  vmware.vmware.cluster_drs:
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    datacenter: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
+    cluster: "{{ item.key }}"
+    validate_certs: false
+    enable: "{{ item.value.enable_drs }}"
+    drs_default_vm_behavior: "{{ item.value.drs_default_vm_behavior | d(omit) }}"
+    drs_vmotion_rate: "{{ item.value.drs_vmotion_rate | d(omit) }}"
+    predictive_drs: "{{ item.value.predictive_drs | d(omit) }}"
+  with_dict: "{{ bootstrap_vsphere__nested_clusters }}"
+
+- name: configure_nested_vcenter | Add Nested ESXi Host to nested VCSA
+  vmware.vmware.esxi_host:
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    datacenter: "{{ vsphere_deploy__nested_vcenter.datacenter }}"
+    validate_certs: false
+    cluster: "{{ item.cluster }}"
+    #    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + bootstrap_vsphere__vcenter_domain) }}"
+    esxi_host_name: "{{ item.hostname }}"
+    esxi_username: "{{ bootstrap_vsphere__esxi_username }}"
+    esxi_password: "{{ bootstrap_vsphere__esxi_password }}"
+    state: present
+  no_log: true
+  loop: "{{ __nested_hosts_list }}"
+
+- name: configure_nested_vcenter | Add ESXi license and assign to the vESXi host
+  community.vmware.vcenter_license:
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    #    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + bootstrap_vsphere__vcenter_domain) }}"
+    esxi_hostname: "{{ item.hostname }}"
+    license: "{{ bootstrap_vsphere__vsphere_licenses[item.hostname] | d(bootstrap_vsphere__esxi_license) }}"
+    state: present
+    validate_certs: false
+  loop: "{{ __nested_hosts_list }}"
+
+## Build a list of each datastore to add to each host
+- name: configure_nested_vcenter | Build datastores to add
+  ansible.builtin.set_fact:
+    datastores_to_add: >-
+      [{% for host in __nested_hosts_list %}
+      {% for disk in bootstrap_vsphere__nested_clusters[host.cluster].nested_hosts_disks %}
+        {% if "create_datastore_name" in disk %}
+        {% if loop.index0 != 0 %}
+        {
+          "hostname": "{{ host.hostname | d(host.ip) | d(host.name + '.' + bootstrap_vsphere__vcenter_domain) }}",
+          "datastore_name": "{{disk.create_datastore_name}}-{{ host.name }}",
+          {% if "storage_channel_number" in disk %}
+          "storage_channel_number" : "{{ disk.storage_channel_number | d('0') }}",
+          {% endif %}
+          {% if "disk_target_position" in disk %}
+          "disk_target_position" : "{{ disk.disk_target_position | d(loop.index0) }}",
+          {% endif %}
+        },
+        {% endif %}
+        {% endif %}
+      {% endfor %}
+      {% endfor %}
+      ]
+  loop: "{{ __nested_hosts_list }}"
+
+- name: Display datastores_to_add
+  ansible.builtin.debug:
+    var: datastores_to_add
+
+- name: configure_nested_vcenter | Mount VMFS datastores to ESXi
+  community.vmware.vmware_host_datastore:
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    validate_certs: false
+    datastore_name: "{{ item.datastore_name }}"
+    datastore_type: vmfs
+    #    vmfs_device_name: "mpx.vmhba0:C0:T{{item.disk_target_position}}:L0"
+    vmfs_device_name: mpx.vmhba0:C{{ item.storage_channel_number | d('0') }}:T{{item.disk_target_position | d('0') }}:L0
+    vmfs_version: 6
+    esxi_hostname: "{{ item.hostname }}"
+    state: present
+  loop: "{{ datastores_to_add }}"
+
+- name: configure_nested_vcenter | Add resource pool to vCenter
+  community.vmware.vmware_resource_pool:
+    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    password: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    validate_certs: false
+    datacenter: "{{ nested_vcenter.datacenter }}"
+    cluster: "{{ item.0.cluster_name }}"
+    resource_pool: "{{ item.1 }}"
+    state: present
+  with_subelements:
+    - "{{ bootstrap_vsphere__resource_pools }}"
+    - resource_pool_name
+
+## moved the vds tasks to create_vds
+
+#- name: "configure_nested_vcenter | Create datastore a tag"
+#  community.vmware.vmware_tag:
+#    hostname: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+#    username: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    password: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+#    validate_certs: false
+#    tag_name: k8s-storage
+#    tag_description: "Tag for datastores used by K8s"
+#    state: present
+
+## Awaiting Ansible 2.10 to allow datastore tagging and creation of storage profiles.

@@ -1,0 +1,129 @@
+## ref: https://github.com/smallstep/cli/issues/386
+- name: Docker Stack | StepCA | pre-start | Deploy step-ca's signed intermediate CA cert and key
+  ansible.builtin.copy:
+    remote_src: "{{ item.remote_src | d(True) }}"
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    backup: true
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+    mode: "{{ item.mode | d('0644') }}"
+  loop:
+    - src: stepca/intermediate_ca.tpl
+      dest: "{{ __docker_stack__stepca__home_dir }}/templates/intermediate_ca.tpl"
+      remote_src: false
+    - src: "{{ __docker_stack__stepca__root_cacert }}"
+      dest: "{{ __docker_stack__stepca__home_dir }}/certs/root_ca.crt"
+#            - src: "{{ cacert_local_key_dir }}/ca.{{ docker_stack__internal_domain }}-key.pem"
+#              dest: "{{ __docker_stack__stepca__home_dir }}/secrets/root_ca_key"
+#              mode: "0660"
+
+- name: Docker Stack | StepCA | pre-start | login to docker docker-registry
+#  when: docker_stack__registry__login | bool
+  community.docker.docker_login:
+    registry: "{{ docker_registry }}"
+    username: "{{ docker_registry_username }}"
+    password: "{{ docker_registry_password }}"
+
+- name: Docker Stack | StepCA | pre-start | Generate step-ca CSR
+  no_log: true
+  community.docker.docker_container:
+    name: step-ca-csr
+    image: "{{ __docker_stack__stepca__image }}"
+    env:
+      STEPCA_GID: "{{ docker_stack__user_gid }}"
+      STEPCA_UID: "{{ docker_stack__user_uid }}"
+      DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
+      DEFAULT_CERT_VALIDITY: "{{ __docker_stack__stepca__default_cert_validity }}"
+      MAX_CERT_VALIDITY: "{{ __docker_stack__stepca__max_cert_validity }}"
+      PASSWORD: "{{ __docker_stack__stepca__password }}"
+      INTERMEDIATE_CA_NAME: "{{ __docker_stack__stepca__ca_name }}"
+      CREATE_CSR: "1"
+    volumes:
+      - "{{ __docker_stack__stepca__home_dir }}:/home/step"
+    detach: false
+    container_default_behavior: compatibility
+  register: __stepca_csr_docker_output
+
+- name: Docker Stack | StepCA | pre-start | Display __stepca_csr_docker_output results
+  ansible.builtin.debug:
+#            var: __stepca_csr_docker_output
+    var: __stepca_csr_docker_output.container.Output | d('')
+
+- name: Docker Stack | StepCA | pre-start | Setup cfssl profile for stepca
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - src: stepca/ca-config.json.j2
+      dest: "{{ __docker_stack__stepca__home_dir }}/ca-config.json"
+
+## ref: https://github.com/smallstep/certificates/blob/master/docs/questions.md#i-already-have-pki-in-place-can-i-use-this-with-my-own-root-certificate
+- name: Docker Stack | StepCA | pre-start | Remove old certs/keys from {{ __docker_stack__stepca__home_dir }}
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ __docker_stack__stepca__home_dir }}/secrets/root_ca_key"
+    - "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.csr"
+    - "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
+
+## ref: https://smallstep.com/docs/tutorials/intermediate-ca-new-ca
+## step certificate sign --profile intermediate-ca admin.johnson.int.csr \
+##   /usr/local/ssl/certs/ca.admin.johnson.int.pem \
+##   /usr/local/ssl/private/ca.admin.johnson.int-key.pem > admin.johnson.int.2.pem
+#        - name: "Docker Stack | StepCA | pre-start | Generating signed server certificate"
+#          changed_when: false
+#          ansible.builtin.shell: >-
+#            step sign \
+#              -profile intermediate-ca \
+#              {{ __docker_stack__stepca__home_dir }}/certs/intermediate.csr \
+#              {{ __docker_stack__stepca__root_cacert }} \
+#              {{ __docker_stack__stepca__root_cacert_key }} \
+#              > {{ docker_stack__internal_domain }}.pem
+#          args:
+#            chdir: "{{ __docker_stack__stepca__home_dir }}"
+#            creates: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
+
+- name: Docker Stack | StepCA | pre-start | Install cfssl
+  ansible.builtin.include_role:
+    name: bootstrap_cfssl
+
+- name: Docker Stack | StepCA | pre-start | Generating signed server certificate
+  changed_when: false
+  ansible.builtin.shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl sign \
+      -config={{ __docker_stack__stepca__home_dir }}/ca-config.json \
+      -profile=step-ca \
+      -ca={{ __docker_stack__stepca__root_cacert }} \
+      -ca-key={{ __docker_stack__stepca__root_cacert_key }} \
+      -csr {{ __docker_stack__stepca__home_dir }}/certs/intermediate.csr \
+      | cfssljson -bare {{ docker_stack__internal_domain }}
+  args:
+    executable: /bin/bash
+    chdir: "{{ __docker_stack__stepca__home_dir }}"
+    creates: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
+
+- name: Docker Stack | StepCA | pre-start | Deploy step-ca's signed intermediate CA cert and key
+  ansible.builtin.copy:
+    remote_src: true
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    backup: true
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+    mode: "{{ item.mode | d('0644') }}"
+  loop:
+    - src: "{{ __docker_stack__stepca__home_dir }}/{{ docker_stack__internal_domain }}.pem"
+      dest: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt"
+
+- name: Docker Stack | StepCA | pre-start | validate_cert | FINAL Validation of signed by ca signer certs
+  ansible.builtin.command: >
+    openssl verify -CAfile
+      {{ docker_stack__internal_ssl_cert_dir }}/ca.{{ docker_stack__internal_domain }}.chain.pem
+      {{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt
+  changed_when: false

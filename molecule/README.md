@@ -17,21 +17,25 @@ $ ansible-galaxy install --upgrade -r collections/requirements.molecule.txt
 ## To sync the latest image version
 
 ```shell
-$ docker-image-sync.sh redhat8-systemd-python
+$ docker-image-sync.sh redhat9-systemd-python
 ```
 
 ## Create molecule container
 
 ```shell
+## optional: set registry environment variable if using local/private registry
 $ export MOLECULE_IMAGE_REGISTRY=registry.example.int:5000
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug create -s bootstrap_linux
+$ #export MOLECULE_IMAGE_REGISTRY=media.johnson.int:5000
+## if internal OR non-public registry requiring login:
+$ docker login -u "${DOCKER_REGISTRY_USERNAME}" -p "${DOCKER_REGISTRY_PASSWORD}" "${DOCKER_REGISTRY_INTERNAL}"
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug create -s bootstrap_linux
 ```
 
 ### Handling 'Unable to contact the Docker daemon' error
 
 If you get the 'Unable to contact the Docker daemon' result when running molecule as follows:
 ```shell
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug converge -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug converge -s bootstrap_linux
 ...
 INFO     Confidence checks: 'docker'
 CRITICAL Unable to contact the Docker daemon. Please refer to https://docs.docker.com/config/daemon/ for managing the daemon
@@ -162,18 +166,18 @@ ref: https://www.jeffgeerling.com/blog/2024/newer-versions-ansible-dont-work-rhe
 ## Converge molecule container
 
 ```shell
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug converge -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug converge -s bootstrap_linux
 ```
 
 ## Test molecule container
 
 ```shell
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python \
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python \
   molecule --debug test -s bootstrap_linux --destroy never
 ```
 
 ```shell
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug test -s bootstrap_linux --destroy never
 ```
 
 ## Run molecule test
@@ -184,70 +188,73 @@ $ cd ansible-datacenter
 ## do this will reset any prior instance state(s) such that converge should create new instance
 ## ref: https://github.com/ansible-community/molecule/issues/3094#issuecomment-1157865556
 $ molecule destroy --all
-$ export MOLECULE_IMAGE_LABEL=redhat8
+$ export MOLECULE_IMAGE_LABEL=redhat9-systemd-python
 $ molecule create
 $ molecule login
 $ molecule --debug test -s bootstrap_linux_package
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule test -s bootstrap_linux --destroy never
 ## after several iterations - then finally remove it
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule destroy -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule destroy -s bootstrap_linux
 ```
 
 ## Typical role development cycle using molecule
 
 ```shell
 ## make sure no container exists first using `destroy` action
-$ tests/molecule_exec.sh centos8 destroy -s bootstrap_webmin
+$ tests/molecule_exec.sh centos9 destroy -s bootstrap_webmin
 ## develop role and apply/test on new container using `test` assuming tests have already been defined; otherwise, use `converge` action
-$ tests/molecule_exec.sh centos8 converge -s bootstrap_webmin
+$ tests/molecule_exec.sh centos9 converge -s bootstrap_webmin
 ## if issue occurs with role such that in-container/manual testing needs to be performed/done, log/bash into the container using `login` action
-$ tests/molecule_exec.sh centos8 login -s bootstrap_webmin
+$ tests/molecule_exec.sh centos9 login -s bootstrap_webmin
 ## assuming in-container/manual testing resolved the issue and the role has been updated with the necessary changes, 
 ## now re-apply the `converge` using the role on the existing container to validate that the changes work as expected (assume idempotent role)
-$ tests/molecule_exec.sh centos8 converge -s bootstrap_webmin
+$ tests/molecule_exec.sh centos9 converge -s bootstrap_webmin
 ## if successful, destroy and test again using clean container to verify that the role works from image start 
-$ tests/molecule_exec.sh centos8 destroy -s bootstrap_webmin
-$ tests/molecule_exec.sh centos8 converge -s bootstrap_webmin
+$ tests/molecule_exec.sh centos9 destroy -s bootstrap_webmin
+$ tests/molecule_exec.sh centos9 converge -s bootstrap_webmin
 ```
 
 ### converge/test on role 'bootstrap-linux'
 
 ```shell
-$ docker-image-sync.sh redhat8-systemd-python
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule converge -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule destroy -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule test -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule test -s bootstrap_linux_package --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule test -s bootstrap_docker --destroy never
+$ docker-image-sync.sh redhat9-systemd-python
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule converge -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule converge -s bootstrap_linux | tee -a molecule.log
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule destroy -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule test -s bootstrap_linux_package --destroy never | tee -a molecule.log
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule test -s bootstrap_docker --destroy never | tee -a molecule.log
 $ molecule destroy
 ```
 
 ### converge/test on role 'bootstrap-linux-package'
 
 ```shell
-$ docker-image-sync.sh redhat8-systemd-python
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule create
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
+$ docker-image-sync.sh redhat9-systemd-python
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule create
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule login
 $ molecule destroy
 ```
 
 ### converge/test on role 'bootstrap-docker'
 
 ```shell
-$ docker-image-sync.sh redhat8-systemd-python
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule create
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_docker --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule destroy -s bootstrap_docker
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule converge --destroy never
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule login
+$ docker-image-sync.sh centos9-systemd-python
+$ docker-image-sync.sh redhat9-systemd-python
+$ docker-image-sync.sh redhat9-systemd-python
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule create
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug test -s bootstrap_docker --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule destroy -s bootstrap_docker
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule converge --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule login
 $ molecule destroy --all
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python --debug converge
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python --debug converge
 $ molecule destroy --all
-$ MOLECULE_IMAGE_LABEL=ubuntu2004-systemd-python converge
+$ MOLECULE_IMAGE_LABEL=ubuntu2004-systemd-python converge | tee -a molecule.log
 $ molecule destroy --all
-$ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python --debug converge
+$ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python --debug converge | tee -a molecule.log
 
 ```
 
@@ -256,8 +263,8 @@ To log/bash into container
 ```shell
 $ molecule create
 $ molecule login
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
-$ tests/molecule_exec.sh centos8 login -s bootstrap_webmin
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule login
+$ tests/molecule_exec.sh centos9 login -s bootstrap_webmin
 ```
 
 ```shell
@@ -265,16 +272,16 @@ $ molecule destroy
 $ tests/molecule_exec.sh redhat7 converge
 $ tests/molecule_exec.sh redhat7 destroy
 ## OR 
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python redhat7 destroy
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python redhat7 destroy
 $ 
 $ tests/molecule_exec.sh ubuntu2204 converge -s bootstrap_linux
 $ tests/molecule_exec.sh ubuntu2204 converge -s bootstrap_pip
 $ tests/molecule_exec.sh ubuntu2204 converge -s bootstrap_docker
 $ tests/molecule_exec.sh debian8 converge
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge
+$ tests/molecule_exec.sh centos9 converge
 $ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
+$ tests/molecule_exec.sh centos9 --debug converge
 $ molecule destroy
 $ tests/molecule_exec.sh ubuntu2004 converge
 $ molecule destroy
@@ -283,20 +290,20 @@ $ tests/molecule_exec.sh ubuntu2204 --debug converge
 ```
 
 ```shell
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug converge -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug create -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug destroy -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug test -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug test -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug test -s bootstrap_docker --destroy never
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug verify -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule --debug verify -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug converge -s bootstrap_docker
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug destroy -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug test -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule destroy --all
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug converge -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug create -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule login -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug destroy -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug test -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug test -s bootstrap_docker --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug verify -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug verify -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug converge -s bootstrap_docker
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug destroy -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule destroy --all
 $ MOLECULE_IMAGE_LABEL=debian9-systemd-python MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap_linux
 $ MOLECULE_IMAGE_LABEL=debian9-systemd-python MOLECULE_DOCKER_COMMAND=/usr/sbin/init molecule --debug converge -s bootstrap_linux
 $ MOLECULE_IMAGE_LABEL=debian9-systemd-python molecule --debug -s bootstrap_linux destroy --all
@@ -304,34 +311,34 @@ $ MOLECULE_IMAGE_LABEL=debian9-systemd-python molecule --debug converge -s boots
 $ MOLECULE_IMAGE_LABEL=debian9-systemd-python molecule --debug destroy --all -s bootstrap_linux
 $ MOLECULE_IMAGE_LABEL=debian9-systemd-python molecule --debug destroy -s bootstrap_linux
 $ MOLECULE_IMAGE_LABEL=debian9-systemd-python molecule --debug destroy -s bootstrap_linux destroy
-$ MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap_linux
-$ MOLECULE_IMAGE=lj020326/centos8-systemd-python molecule --debug create -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE=media.johnson.int:5000/centos8-systemd-python molecule --debug create -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_REGISTRY=media.johnson.int:5000 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug create -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug -s bootstrap_linux converge
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug converge --all -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug converge -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug converge -s bootstrap_docker
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug converge -s bootstrap_docker --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug create -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug destroy --all
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug destroy --all -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug destroy --all -s bootstrap_docker
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug destroy -s bootstrap_linux
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug destroy -s bootstrap_docker
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_linux --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_docker --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule create
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule destroy
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule destroy --all
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
+$ MOLECULE_IMAGE=lj020326/centos9-systemd-python molecule --debug create -s bootstrap_linux
+$ MOLECULE_IMAGE=lj020326/centos9-systemd-python molecule --debug create -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE=media.johnson.int:5000/centos9-systemd-python molecule --debug create -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_REGISTRY=media.johnson.int:5000 MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug create -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python MOLECULE_DOCKER_COMMAND=/sbin/init molecule --debug converge -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug -s bootstrap_linux converge
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug converge --all -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug converge -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug converge -s bootstrap_docker
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug converge -s bootstrap_docker --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug create -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug destroy --all
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug destroy --all -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug destroy --all -s bootstrap_docker
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug destroy -s bootstrap_linux
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug destroy -s bootstrap_docker
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule --debug test -s bootstrap_docker --destroy never
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule create
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule destroy
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule destroy --all
+$ MOLECULE_IMAGE_LABEL=redhat9-systemd-python molecule login
 $ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python molecule --debug converge -s bootstrap_docker
 $ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python molecule destroy
 $ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python molecule destroy --all
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug destroy -s bootstrap_linux
-$ MOLECULE_IMAGE_REGISTRY=lj020326 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug create -s bootstrap_linux
-$ MOLECULE_IMAGE_REGISTRY=lj020326 MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule --debug test -s bootstrap_linux --destroy never
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug destroy -s bootstrap_linux
+$ MOLECULE_IMAGE_REGISTRY=lj020326 MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug create -s bootstrap_linux
+$ MOLECULE_IMAGE_REGISTRY=lj020326 MOLECULE_IMAGE_LABEL=centos9-systemd-python molecule --debug test -s bootstrap_linux --destroy never
 $ ansible-galaxy collection install -vvv -fr collections/requirements.molecule.yml 
 $ cat requirements.molecule.txt 
 $ echo $MOLECULE_IMAGE_LABEL
@@ -339,11 +346,11 @@ $ echo $MOLECULE_IMAGE_REGISTRY
 $ molecule --version
 $ molecule destroy
 $ molecule destroy --all
-$ molecule/docker-image-sync.sh centos7-systemd-python
-$ molecule/docker-image-sync.sh centos8-systemd-python
-$ molecule/docker-image-sync.sh media.johnson.int:5000/centos8-systemd-python
-$ molecule/docker-image-sync.sh centos8-systemd-python hub.docker.com
-$ molecule/docker-image-sync.sh centos8-systemd-python registry.hub.docker.com
-$ molecule/docker-image-sync.sh lj020326/centos8-systemd-python registry.hub.docker.com
-$ molecule/docker-image-sync.sh redhat8-systemd-python
+$ molecule/docker-image-sync.sh centos9-systemd-python
+$ molecule/docker-image-sync.sh centos9-systemd-python
+$ molecule/docker-image-sync.sh media.johnson.int:5000/centos9-systemd-python
+$ molecule/docker-image-sync.sh centos9-systemd-python hub.docker.com
+$ molecule/docker-image-sync.sh centos9-systemd-python registry.hub.docker.com
+$ molecule/docker-image-sync.sh lj020326/centos9-systemd-python registry.hub.docker.com
+$ molecule/docker-image-sync.sh redhat9-systemd-python
 ```

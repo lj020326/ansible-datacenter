@@ -1,0 +1,449 @@
+---
+# Consolidated task file for ensuring Root or Intermediate CA certificates
+# Input: __ca_cert_info dict with key_algo, key_size, common_name, country,
+# state_or_province, locality, organization, organizational_unit, email_address,
+# and optional ca_issuer_path (for intermediate CAs)
+
+- name: "ensure-ca-cert[{{ __ca_cert_info.cert_basename }}] : Validate __ca_cert_info input"
+  ansible.builtin.assert:
+    that:
+      - __ca_cert_info is defined
+      - __ca_cert_info.key_algo is defined
+      - __ca_cert_info.key_size is defined
+      - __ca_cert_info.common_name is defined
+    fail_msg: "Required __ca_cert_info fields (key_algo, key_size, common_name) are missing"
+
+- name: "ensure-ca-cert[{{ __ca_cert_info.cert_basename }}] : Set facts for CA configuration"
+  ansible.builtin.set_fact:
+    __ca_basename: "{{ __ca_cert_info.cert_basename | d('ca') }}"
+    __ca_pem_path: "{{ bootstrap_pki__ca_dir }}/{{ __ca_cert_info.cert_basename | d('ca') }}.pem"
+    __ca_key_path: "{{ bootstrap_pki__ca_dir }}/{{ __ca_cert_info.cert_basename | d('ca') }}-key.pem"
+    __ca_issuer_path: "{{ __ca_cert_info.ca_issuer_path | d('') }}"
+    __ca_issuer_key_path: "{{ __ca_cert_info.ca_issuer_key_path | d('') }}"
+    __ca_signing_profile: "{{ __ca_cert_info.ca_signing_profile | d('intermediate_ca') }}"
+    __renewal_tolerance_days: "{{ __ca_cert_info.renewal_tolerance_days | d(bootstrap_pki__ca_renewal_tolerance_days) }}"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Debug CA configuration"
+  when: bootstrap_pki__debug | bool
+  ansible.builtin.debug:
+    var: __ca_cert_info
+    verbosity: 1
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Set __tolerance_seconds"
+  ansible.builtin.set_fact:
+    __tolerance_seconds: "{{ __renewal_tolerance_days | int * 86400 }}"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Normalize key_algo for CA"
+  ansible.builtin.set_fact:
+    __normalized_key_algo: "{{ __ca_cert_info.key_algo | replace('ecdsa', 'ec') }}"
+    __normalized_key_algo_openssl: "{{ __ca_cert_info.key_algo | replace('ecdsa', 'ECC') }}"
+    __normalized_key_algo_vault: "{{ __ca_cert_info.key_algo | replace('ecdsa', 'ec') }}"
+    __normalized_key_algo_curve_openssl: "{{ 'secp256r1'
+      if __ca_cert_info.key_size == 256 else 'secp384r1'
+      if __ca_cert_info.key_size == 384 else 'secp521r1'
+      if __ca_cert_info.key_size == 521 else None }}"
+    __normalized_key_size_openssl: "{{ __ca_cert_info.key_size | d(omit) if __ca_cert_info.key_algo != 'ecdsa' else omit }}"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Display ca cert vars"
+  ansible.builtin.debug:
+    msg:
+      - "__ca_basename: {{ __ca_basename }}"
+      - "__ca_pem_path: {{ __ca_pem_path }}"
+      - "__ca_key_path: {{ __ca_key_path }}"
+      - "__ca_issuer_path: {{ __ca_issuer_path }}"
+      - "__ca_issuer_key_path: {{ __ca_issuer_key_path }}"
+      - "__ca_signing_profile: {{ __ca_signing_profile }}"
+      - "__renewal_tolerance_days: {{ __renewal_tolerance_days }}"
+      - "__normalized_key_algo: {{ __normalized_key_algo }}"
+      - "__normalized_key_algo_openssl: {{ __normalized_key_algo_openssl }}"
+      - "__normalized_key_algo_vault: {{ __normalized_key_algo_vault }}"
+      - "__normalized_key_algo_curve_openssl: {{ __normalized_key_algo_curve_openssl }}"
+      - "__normalized_key_size_openssl: {{ __normalized_key_size_openssl }}"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Check if CA certificate exists"
+  ansible.builtin.stat:
+    path: "{{ __ca_pem_path }}"
+  register: __ca_pem_stat
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Validate existing CA certificate properties"
+  when: __ca_pem_stat.stat.exists
+  block:
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Check if issuer CA certificate exists (for intermediate CA)"
+      when: __ca_issuer_path | d('') | length > 0
+      ansible.builtin.stat:
+        path: "{{ __ca_issuer_path }}"
+      register: __issuer_pem_stat
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Debug issuer CA stat (for intermediate CA)"
+      when:
+        - __ca_issuer_path | d('') | length > 0
+        - bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        var: __issuer_pem_stat
+        verbosity: 1
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Validate CA certificate"
+      dettonville.utils.x509_certificate_verify:
+        path: "{{ __ca_pem_path }}"
+        issuer_ca_path: "{{ __ca_issuer_path | d(omit) }}"
+        common_name: "{{ __ca_cert_info.common_name }}"
+        organization: "{{ __ca_cert_info.organization | d(omit) }}"
+        organizational_unit: "{{ __ca_cert_info.organizational_unit | d(omit) }}"
+        country: "{{ __ca_cert_info.country | d(omit) }}"
+        state_or_province: "{{ __ca_cert_info.state_or_province | d(omit) }}"
+        locality: "{{ __ca_cert_info.locality | d(omit) }}"
+#        email_address: "{{ __ca_cert_info.email_address | d(omit) }}"
+        key_algo: "{{ __normalized_key_algo }}"
+        key_size: "{{ __ca_cert_info.key_size }}"
+        validate_expired: true
+        validate_checkend: true
+        checkend_value: "{{ __tolerance_seconds }}"
+        logging_level: "DEBUG"
+      register: __ca_verify_result
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display __ca_verify_result"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        var: __ca_verify_result
+        verbosity: 1
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Get current CA certificate info"
+      community.crypto.x509_certificate_info:
+        path: "{{ __ca_pem_path }}"
+      register: __current_ca_signed_cert_info
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Set __current_cert_key_usage"
+      ansible.builtin.set_fact:
+        __current_cert_key_usage: "{{ __current_ca_signed_cert_info.key_usage | d([]) }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Debug __current_cert_key_usage"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        var: __current_cert_key_usage
+        verbosity: 1
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Assert CA certificate key usage is correct"
+      when: __ca_verify_result is not skipped
+      ansible.builtin.assert:
+        that:
+          - "'CRL Sign' in __current_cert_key_usage"
+          - "'Certificate Sign' in __current_cert_key_usage"
+        fail_msg: "CA certificate key usage does not include required values: CRL Sign, Certificate Sign"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Set __create_new_ca_cert (with renewal check)"
+  ansible.builtin.set_fact:
+    __create_new_ca_cert: "{{ bootstrap_pki__ca_reset_cert | d(false) | bool
+      or not __ca_pem_stat.stat.exists
+      or __ca_verify_result.verify_failed | d(true) | bool }}"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Display __create_new_ca_cert"
+  ansible.builtin.debug:
+    var: __create_new_ca_cert
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Clean up old CA backups"
+  when: bootstrap_pki__backup_retention_maximum_number is defined and bootstrap_pki__backup_retention_maximum_number | int > 0
+  block:
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Find all CA backup files"
+      ansible.builtin.find:
+        paths: "{{ bootstrap_pki__ca_dir | dirname }}"
+        patterns: "{{ __ca_basename }}.backup_*.tar.gz"
+        file_type: file
+      register: __backup_files
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Sort backup files by modification time (newest first)"
+      ansible.builtin.set_fact:
+        __sorted_backup_files: "{{ __backup_files.files | sort(attribute='mtime', reverse=true) }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Select backup files to delete"
+      ansible.builtin.set_fact:
+        __backups_to_delete: "{{ __sorted_backup_files[(bootstrap_pki__backup_retention_maximum_number | int) :]
+          | d([]) }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Remove excess CA backup files"
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ __backups_to_delete }}"
+      when: __backups_to_delete | length > 0
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Generate CA key and CSR with cfssl"
+  when: __create_new_ca_cert | bool
+  block:
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Backup current Intermediate CA files"
+      community.general.archive:
+        path:
+          - "{{ __ca_pem_path }}"
+          - "{{ __ca_key_path }}"
+        dest: "{{ bootstrap_pki__ca_dir | dirname }}/{{ __ca_basename }}.backup_{{ __timestamp }}.tar.gz"
+        format: gz
+        remove: true
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Generate CA CSR JSON configuration"
+      ansible.builtin.template:
+        src: ca_csr.json.j2
+        dest: "{{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}.csr.json"
+        owner: root
+        group: root
+        mode: "0600"
+        force: true
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Source CA CSR JSON"
+      no_log: true
+      ansible.builtin.slurp:
+        src: "{{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}.csr.json"
+      register: __ca_csr_json
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display CA CSR JSON"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        var: __ca_csr_json.content | b64decode | from_json | to_nice_json
+        verbosity: 1
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Generate CA key and certificate with cfssl"
+      when: __ca_cert_info.ca_issuer_path is not defined
+      ansible.builtin.shell: >
+        set -o errexit;
+        set -o pipefail;
+        cfssl gencert -initca {{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}.csr.json
+        | cfssljson -bare {{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}
+      args:
+        executable: /bin/bash
+        chdir: "{{ bootstrap_pki__ca_dir }}"
+        creates:
+          - "{{ __ca_pem_path }}"
+          - "{{ __ca_key_path }}"
+      register: __gencert_ca_result
+      changed_when: __gencert_ca_result.rc == 0
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Generate CA key and CSR with cfssl to be issuer signed"
+      when: __ca_issuer_path | d('') | length > 0
+      block:
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Generate CA key and CSR with cfssl"
+          ansible.builtin.shell: >
+            set -o errexit;
+            set -o pipefail;
+            cfssl genkey {{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}.csr.json
+            | cfssljson -bare {{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}
+          args:
+            executable: /bin/bash
+            chdir: "{{ bootstrap_pki__ca_dir }}"
+            creates: "{{ __ca_key_path }}"
+          register: __genkey_ca_result
+          changed_when: __genkey_ca_result.rc == 0
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Verify CA private key type"
+      community.crypto.openssl_privatekey_info:
+        path: "{{ __ca_key_path }}"
+      register: __new_ca_key_info
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Set new key info"
+      ansible.builtin.set_fact:
+        __new_key_type: "{{ __new_ca_key_info.type | lower }}"
+        __new_key_size: "{{ __new_ca_key_info.public_data.size
+          | d(__new_ca_key_info.public_data.exponent_size) | d('') }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Debug CA private key info"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        msg:
+          - "Key Type: {{ __new_ca_key_info.type }}"
+          - "Curve: {{ __new_ca_key_info.public_data.curve | d('N/A') }}"
+          - "Size: {{ __new_key_size }}"
+        verbosity: 1
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Assert CA private key info is correct"
+      ansible.builtin.assert:
+        that:
+          - __new_key_type == __normalized_key_algo_openssl | lower
+          - __new_key_size == __ca_cert_info.key_size
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Validate vault password for decryption"
+      when:
+        - bootstrap_pki__encrypt_root_ca_key | bool
+        - __genkey_ca_result is not skipped
+        - __ca_issuer_path | d('') | length > 0
+      ansible.builtin.assert:
+        that:
+          - bootstrap_pki__vault_password | length > 0
+        fail_msg: "bootstrap_pki__vault_password must be provided when bootstrap_pki__encrypt_root_ca_key is true"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Create temporary vault password file for decryption"
+      when:
+        - bootstrap_pki__encrypt_root_ca_key | bool
+        - __genkey_ca_result is not skipped
+        - __ca_issuer_path | d('') | length > 0
+      no_log: true
+      ansible.builtin.copy:
+        content: "{{ bootstrap_pki__vault_password }}"
+        dest: "/tmp/vault_password_{{ __timestamp }}"
+        owner: root
+        group: root
+        mode: "0600"
+      register: __vault_password_file
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Decrypt root CA key for signing (if encrypted)"
+      when:
+        - bootstrap_pki__encrypt_root_ca_key | bool
+        - __genkey_ca_result is not skipped
+        - __ca_issuer_path | d('') | length > 0
+      ansible.builtin.command: >
+        ansible-vault decrypt {{ __ca_issuer_key_path }}.vault
+        --output {{ __ca_issuer_key_path }}
+        --vault-password-file /tmp/vault_password_{{ __timestamp }}
+      args:
+        creates: "{{ __ca_issuer_key_path }}"
+      register: __decrypt_key_result
+      changed_when: __decrypt_key_result.rc == 0
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Sign CA CSR with Issuer CA using cfssl"
+      when:
+        - __genkey_ca_result is not skipped
+        - __ca_issuer_path | d('') | length > 0
+      block:
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Sign CA CSR with Issuer CA using cfssl"
+          ansible.builtin.shell: >
+            set -o errexit;
+            set -o pipefail;
+            cfssl sign -ca {{ __ca_issuer_path }} \
+            -ca-key {{ __ca_issuer_key_path }} \
+            -config {{ bootstrap_pki__ca_dir }}/ca-config.json \
+            -profile {{ __ca_signing_profile }} \
+            {{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}.csr \
+            | cfssljson -bare {{ bootstrap_pki__ca_dir }}/{{ __ca_basename }}
+          args:
+            executable: /bin/bash
+            chdir: "{{ bootstrap_pki__ca_dir }}"
+            creates: "{{ __ca_pem_path }}"
+          register: __ca_sign_result
+          changed_when: __ca_sign_result.rc == 0
+
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Remove decrypted root CA key after signing"
+          when:
+            - bootstrap_pki__encrypt_root_ca_key | bool
+            - __ca_sign_result is not skipped
+          ansible.builtin.file:
+            path: "{{ __ca_issuer_key_path }}"
+            state: absent
+
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Remove temporary vault password file after decryption"
+          when:
+            - bootstrap_pki__encrypt_root_ca_key | bool
+            - __ca_sign_result is not skipped
+          ansible.builtin.file:
+            path: "/tmp/vault_password_{{ __timestamp }}"
+            state: absent
+
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Verify CA certificate KeyUsage"
+          when: __ca_sign_result is not skipped
+          community.crypto.x509_certificate_info:
+            path: "{{ __ca_pem_path }}"
+          register: __new_ca_cert_info
+
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Set __new_cert_key_usage"
+          when: __ca_sign_result is not skipped
+          ansible.builtin.set_fact:
+            __new_cert_key_usage: "{{ __new_ca_cert_info.key_usage | d('') }}"
+
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Display __new_cert_key_usage"
+          when:
+            - __ca_sign_result is not skipped
+            - bootstrap_pki__debug | bool
+          ansible.builtin.debug:
+            var: __new_cert_key_usage
+            verbosity: 1
+
+        - name: "ensure-ca-cert[{{ __ca_basename }}] : Assert CA certificate key usage is correct"
+          when: __ca_sign_result is not skipped
+          ansible.builtin.assert:
+            that:
+              - "'CRL Sign' in __new_cert_key_usage"
+              - "'Certificate Sign' in __new_cert_key_usage"
+            fail_msg: "CA certificate key usage does not include required values: CRL Sign, Certificate Sign"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Get current CA cert properties"
+  community.crypto.x509_certificate_info:
+    path: "{{ __ca_pem_path }}"
+  register: __current_ca_cert_info
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert properties"
+  when: __current_ca_cert_info is defined
+  block:
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert properties"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        var: __current_ca_cert_info
+        verbosity: 2
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display __current_ca_cert_info.subject"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        var: __current_ca_cert_info.subject
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert issuer"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        var: __current_ca_cert_info.issuer
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert signature_algorithm"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        msg: "signature_algorithm: {{ __current_ca_cert_info.signature_algorithm }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert Key Usage"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        msg: "key_usage: {{ __current_ca_cert_info.key_usage }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert public_key_type"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        msg: "public_key_type: {{ __current_ca_cert_info.public_key_type | d('') }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert validity"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        msg: "Valid From: {{ __current_ca_cert_info.not_before }}, Valid To: {{ __current_ca_cert_info.not_after }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Display Current CA cert fingerprints"
+      when: bootstrap_pki__debug | bool
+      ansible.builtin.debug:
+        msg: "fingerprints: {{ __current_ca_cert_info.fingerprints | to_nice_json }}"
+
+- name: "ensure-ca-cert[{{ __ca_basename }}] : Manage certificate chain"
+  run_once: true
+  when: __ca_issuer_path | d('') | length > 0
+  block:
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Define chain file path"
+      ansible.builtin.set_fact:
+        __ca_chain_path: "{{ __ca_pem_path | regex_replace('\\.pem$', '.chain.pem') }}"
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Check if issuer has an existing chain"
+      ansible.builtin.stat:
+        path: "{{ __ca_issuer_path | regex_replace('\\.pem$', '.chain.pem') }}"
+      register: __issuer_chain_stat
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Read target cert"
+      ansible.builtin.slurp:
+        src: "{{ __ca_pem_path }}"
+      delegate_to: "{{ inventory_hostname }}"
+      register: __cert_content
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Read best available issuer content"
+      ansible.builtin.slurp:
+        # If the issuer has a .chain.pem, use it; otherwise use the issuer's .pem
+        src: "{{ (__issuer_chain_stat.stat.exists) | ternary(__issuer_chain_stat.stat.path, __ca_issuer_path) }}"
+      delegate_to: "{{ inventory_hostname }}"
+      register: __issuer_content
+
+    - name: "ensure-ca-cert[{{ __ca_basename }}] : Assemble certificate chain"
+      ansible.builtin.copy:
+        dest: "{{ __ca_chain_path }}"
+        content: |
+          {{ __cert_content.content | b64decode | trim }}
+          {{ __issuer_content.content | b64decode | trim }}
+        mode: '0644'
+      delegate_to: "{{ inventory_hostname }}"

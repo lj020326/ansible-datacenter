@@ -6,7 +6,7 @@ __docker_stack__jenkins__ansible_tool_python_interpreter_default: "python3"
 #__docker_stack__jenkins__ansible_tool_python_interpreter_default: "python3.10"
 #__docker_stack__jenkins__ansible_tool_python_interpreter_default: python3.11
 #__docker_stack__jenkins__ansible_tool_python_interpreter_default: python3.12
-__docker_stack__jenkins__ansible_tool_python_interpreter: "{{ docker_stack__jenkins__ansible_tool_python_interpreter 
+__docker_stack__jenkins__ansible_tool_python_interpreter: "{{ docker_stack__jenkins__ansible_tool_python_interpreter
   | d(__docker_stack__jenkins__ansible_tool_python_interpreter_default) }}"
 
 __docker_stack__jenkins__package_requirements:
@@ -17,8 +17,8 @@ __docker_stack__jenkins__base_dir_default: "{{ __docker_stack__jenkins__stack_di
 __docker_stack__jenkins__base_dir: "{{ docker_stack__jenkins__base_dir | d(__docker_stack__jenkins__base_dir_default) }}"
 
 __docker_stack__jenkins__traefik_host_default: jenkins.example.int
-__docker_stack__jenkins__host: "{{ docker_stack__jenkins__host | d(docker_stack__jenkins_host) | d(docker_stack__traefik_host) | d(__docker_stack__jenkins__traefik_host_default)
-  }}"
+__docker_stack__jenkins__host: "{{ docker_stack__jenkins__host | d(docker_stack__jenkins_host)
+  | d(docker_stack__traefik__host) | d(__docker_stack__jenkins__traefik_host_default) }}"
 
 __docker_stack__jenkins__agent_base_dir_default: "{{ __docker_stack__jenkins__stack_dir }}/jenkins_agent"
 __docker_stack__jenkins__agent_base_dir: "{{ docker_stack__jenkins__agent_base_dir | d(__docker_stack__jenkins__agent_base_dir_default) }}"
@@ -44,25 +44,25 @@ __docker_stack__jenkins__agent_swarm_mode: true
 
 ## ref: https://www.jenkins.io/blog/2020/05/11/docker-windows-agents/
 #__docker_stack__jenkins__image: "jenkins/jenkins:lts"
-#__docker_stack__jenkins__image_default: "{{ docker_stack__registry_endpoint }}/jenkins-docker:latest"
-__docker_stack__jenkins__image_default: "{{ docker_stack__registry_endpoint }}/docker-jenkins-jcac:latest"
-#__docker_stack__jenkins__image_default: "{{ docker_stack__registry_endpoint }}/jenkins-docker-jcac:latest"
+#__docker_stack__jenkins__image_default: "{{ docker_stack__registry__endpoint }}/jenkins-docker:latest"
+__docker_stack__jenkins__image_default: "{{ docker_stack__registry__endpoint }}/docker-jenkins-jcac:latest"
+#__docker_stack__jenkins__image_default: "{{ docker_stack__registry__endpoint }}/jenkins-docker-jcac:latest"
 __docker_stack__jenkins__image: "{{ docker_stack__jenkins__image | d(__docker_stack__jenkins__image_default) }}"
 
-__docker_stack__jenkins__agent_image_default: "{{ docker_stack__registry_endpoint }}/jenkins-docker-cicd-agent:latest"
+__docker_stack__jenkins__agent_image_default: "{{ docker_stack__registry__endpoint }}/jenkins-docker-cicd-agent:latest"
 __docker_stack__jenkins__agent_image: "{{ docker_stack__jenkins__agent_image | d(__docker_stack__jenkins__agent_image_default) }}"
 
-__docker_stack__jenkins__swarm_agent_image_default: "{{ docker_stack__registry_endpoint }}/jenkins-swarm-agent:latest"
+__docker_stack__jenkins__swarm_agent_image_default: "{{ docker_stack__registry__endpoint }}/jenkins-swarm-agent:latest"
 __docker_stack__jenkins__swarm_agent_image: "{{ docker_stack__jenkins_swarm_agent_image | d(__docker_stack__jenkins__swarm_agent_image_default) }}"
 
 __docker_stack__jenkins__ldap_host: "{{ docker_stack__jenkins__ldap_host | d('ldap.example.int:389')}}"
-__docker_stack__jenkins__ldap_uri: "{{ docker_stack__jenkins__ldap_uri | d(docker_stack__ldap_uri) | d(docker_stack__ldap_host) }}"
-__docker_stack__jenkins__ldap_base_dn: "{{ docker_stack__jenkins__ldap_base_dn | d(docker_stack__ldap_base_dn) }}"
+__docker_stack__jenkins__ldap_uri: "{{ docker_stack__jenkins__ldap_uri | d(docker_stack__ldap__uri) | d(docker_stack__ldap__host) }}"
+__docker_stack__jenkins__ldap_base_dn: "{{ docker_stack__jenkins__ldap_base_dn | d(docker_stack__ldap__base_dn) }}"
 
-__docker_stack__jenkins__ldap_bind_user_dn_default: cn=readonly,{{ __docker_stack__jenkins__ldap_base_dn | d(docker_stack__ldap_user_base_dn) }}
-__docker_stack__jenkins__ldap_bind_user_dn: "{{ docker_stack__jenkins__ldap_bind_user_dn | d(docker_stack__ldap_bind_user_dn) | d(__docker_stack__jenkins__ldap_bind_user_dn_default)
+__docker_stack__jenkins__ldap_bind_user_dn_default: cn=readonly,{{ __docker_stack__jenkins__ldap_base_dn | d(docker_stack__ldap__user_base_dn) }}
+__docker_stack__jenkins__ldap_bind_user_dn: "{{ docker_stack__jenkins__ldap_bind_user_dn | d(docker_stack__ldap__bind_user_dn) | d(__docker_stack__jenkins__ldap_bind_user_dn_default)
   }}"
-__docker_stack__jenkins__ldap_bind_user_password: "{{ docker_stack__jenkins__ldap_bind_user_password | d(docker_stack__ldap_bind_user_password) }}"
+__docker_stack__jenkins__ldap_bind_user_password: "{{ docker_stack__jenkins__ldap_bind_user_password | d(docker_stack__ldap__bind_user_password) }}"
 
 #__docker_stack__jenkins_ssh_private_key: "{{ docker_stack__jenkins_ssh_private_key | d('') }}"
 #__docker_stack__jenkins_ssh_public_key: "{{ docker_stack__jenkins_ssh_public_key | d('') }}"
@@ -176,7 +176,10 @@ __docker_stack__jenkins__agent_min_num_executors: 4
 __docker_stack__jenkins__throttle_job_properties:
   categories:
     - categoryName: "docker_image_builds"
-      maxConcurrentTotal: 8
+      maxConcurrentTotal: 4
+      maxConcurrentPerNode: 2
+    - categoryName: "ansible_test"
+      maxConcurrentTotal: 4
       maxConcurrentPerNode: 2
 #      nodeLabeledPairs:
 #      - throttledNodeLabel: "docker"
@@ -185,11 +188,11 @@ __docker_stack__jenkins__throttle_job_properties:
 ## ref: https://stackoverflow.com/questions/39539559/ansible-procesor-count-vs-processor-cores-vs-processor-vcpus
 ## ref: github.com/ansible/ansible/pull/66569
 #__docker_stack__jenkins__agent_num_executors: "{{
-#  [ansible_processor_cores|d(1)*2, __docker_stack__jenkins__agent_min_num_executors] | max }}"
+#  [ansible_processor_cores | d(1)*2, __docker_stack__jenkins__agent_min_num_executors] | max }}"
 #__docker_stack__jenkins__agent_num_executors: "{{
-#  [ansible_processor_vcpus|d(1)*2, __docker_stack__jenkins__agent_min_num_executors] | max }}"
+#  [ansible_processor_vcpus | d(1)*2, __docker_stack__jenkins__agent_min_num_executors] | max }}"
 __docker_stack__jenkins__agent_num_executors: "{{ 
-  [ansible_processor_nproc|d(1)*4, __docker_stack__jenkins__agent_min_num_executors] | max }}"
+  [ansible_processor_nproc | d(1)*4, __docker_stack__jenkins__agent_min_num_executors] | max }}"
 
 #########
 ## Credential vars
@@ -388,8 +391,7 @@ __docker_stack__jenkins__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__jenkins__host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

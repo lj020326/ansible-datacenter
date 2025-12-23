@@ -1,0 +1,23 @@
+---
+- name: "Docker Stack | openldap | pre-start | Check if {{ __docker_stack__openldap__tls_dh_param_path }} exists"
+  ansible.builtin.stat:
+    path: "{{ __docker_stack__openldap__cert_path }}/{{ __docker_stack__openldap__tls_dh_param_path }}"
+  register: __dhparam_pem_file
+
+- name: "Docker Stack | openldap | pre-start | Display __dhparam_pem_file.stat.exists"
+  ansible.builtin.debug:
+    var: __dhparam_pem_file.stat.exists
+
+- name: "Docker Stack | openldap | pre-start | Setup dhparam.pem"
+  when: not __dhparam_pem_file.stat.exists|bool
+  ansible.builtin.command: >
+    openssl dhparam -out {{ __docker_stack__openldap__cert_path }}/{{ __docker_stack__openldap__tls_dh_param_path }} 2048
+  changed_when: false
+  failed_when: false
+
+- name: "Docker Stack | openldap | pre-start | Set ownership of dhparam.pem"
+  ansible.builtin.file:
+    path: "{{ __docker_stack__openldap__cert_path }}/{{ __docker_stack__openldap__tls_dh_param_path }}"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"
+    state: file

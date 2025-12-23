@@ -3,11 +3,30 @@
 docker_stack__service_groups__base:
   - base
 
+## TODO: leave the min api version override here until this gets resolved in traefik
+## ref: https://github.com/traefik/traefik/issues/12253
+## ref: https://community.traefik.io/t/traefik-stops-working-it-uses-old-api-version-1-24/29019/4
+## docker exec traefik sh -c 'echo $DOCKER_MIN_API_VERSION'
+bootstrap_docker__daemon_environment:
+  - "DOCKER_MIN_API_VERSION=1.24"
+
+docker_stack__ca_root_cn: "{{ ca_root_cn }}" # Common Name of the Root CA to fetch
+
+## leave method local until vault fully setup
+docker_stack__cacerts__fetch_method: "local"
+
+docker_stack__cacerts__vault_url: "{{ vault_url }}"
+docker_stack__cacerts__vault_token: "{{ vault_token_root }}"
+
 # docker_stack__python_docker_interpreter: "{{ ansible_python_docker_interpreter }}"
 
 registry_domain: "{{ control_plane_domain }}"
 
 ca_service_route: "{{ docker_stack__internal_domain }}"
+
+docker_stack__acme_email: "admin@dettonville.com"
+docker_stack__host_network: "{{ gateway_ipv4_network_cidr }}"
+docker_stack__traefik__certresolver_stepca_url: "https://stepca.{{ docker_stack__internal_domain }}:8443"
 
 #bootstrap_docker__host_network_default_addr_pool: "{{ gateway_ipv4_network_cidr }}"
 bootstrap_docker__host_network_default_addr_pool: 172.19.0.0/16
@@ -19,6 +38,7 @@ ca_domains_hosted:
   - "{{ docker_stack__internal_domain }}"
 
 docker_stack__user_username: container-user
+docker_container_base_dir: "/home/{{ docker_stack__user_username }}/docker"
 
 # docker_stack__user_username: "adminuser"
 # docker_stack__user_group: "adminuser"
@@ -40,15 +60,13 @@ firewalld_ports__docker:
 
 # time_server: 0.pool.ntp.org
 # time_server: 192.168.0.1
-time_server: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
+time_server: "{{ gateway_ipv4 }}"
 
 # docker_stack__run_services: false
-# docker_stack__traefik_version: v1
-# docker_stack__traefik_certprovider_qa: true
+# docker_stack__traefik__version: v1
+# docker_stack__traefik__certprovider_qa: true
 
 docker_stack__script_dir: "/opt/scripts"
-
-# docker_stack__enable_external_route: true
 
 docker_stack__http_username: "{{ vault__docker_stack__http_username | d('') }}"
 docker_stack__http_password: "{{ vault__docker_stack__http_password | d('') }}"
@@ -59,8 +77,8 @@ docker_stack__enable_cacerts: true
 # docker_stack__ca_cert_bundle: "{{ ca_cert_bundle }}"
 # docker_stack__ca_java_keystore: "{{ ca_java_keystore }}"
 
-docker_stack__mysql_root_password: "{{ vault__docker_stack__mysql_root_password | d('') }}"
-docker_stack__grafana_admin_password: "{{ vault__docker_stack__grafana_admin_password | d('') }}"
+docker_stack__mysql__root_password: "{{ vault__docker_stack__mysql_root_password | d('') }}"
+docker_stack__grafana__admin_password: "{{ vault__docker_stack__grafana_admin_password | d('') }}"
 
 ############
 ## LDAP
@@ -76,37 +94,32 @@ user_plex_uid: "plex"
 user_plex_uid_number: 898
 user_plex_gid_number: 898
 
-docker_stack__ldap_domain: "{{ docker_stack__internal_root_domain }}"
-# docker_stack__ldap_domain: "{{ control_plane_domain }}"
+docker_stack__ldap__domain: "{{ docker_stack__internal_root_domain }}"
+# docker_stack__ldap__domain: "{{ control_plane_domain }}"
 
-docker_stack__ldap_host: "ldap.{{ docker_stack__ldap_domain }}"
-docker_stack__ldap_port: "389"
-docker_stack__ldap_endpoint: "{{ docker_stack__ldap_host }}:{{ docker_stack__ldap_port }}"
-docker_stack__ldap_uri: "ldap://{{ docker_stack__ldap_endpoint }}"
+docker_stack__ldap__host: "ldap.{{ docker_stack__ldap__domain }}"
+docker_stack__ldap__port: "389"
+docker_stack__ldap__endpoint: "{{ docker_stack__ldap__host }}:{{ docker_stack__ldap__port }}"
+docker_stack__ldap__uri: "ldap://{{ docker_stack__ldap__endpoint }}"
 
-docker_stack__ldap_domain_parts: |
-  [
-    {% for domain in docker_stack__ldap_domain | split('.') %}
-    "dc={{ domain }}",
-    {% endfor %}
-  ]
+docker_stack__ldap__domain_parts: "{{ docker_stack__ldap__domain.split('.') | map('regex_replace', '^(.*)$', 'dc=\\1') | list }}"
 
-docker_stack__ldap_base_dn: "{{ docker_stack__ldap_domain_parts | join(',') }}"
-# docker_stack__ldap_base_dn: "{{ ldap_internal_base_dn }}"
-docker_stack__ldap_user_base_dn: "ou=users,{{ docker_stack__ldap_base_dn }}"
-docker_stack__ldap_group_base_dn: "ou=groups,{{ docker_stack__ldap_base_dn }}"
-# docker_stack__ldap_user_base_dn: "{{ ldap_internal_user_search_base_dn }}"
-# docker_stack__ldap_search_user_dn: "{{ ldap_internal_search_user_dn }}"
+docker_stack__ldap__base_dn: "{{ docker_stack__ldap__domain_parts | join(',') }}"
+# docker_stack__ldap__base_dn: "{{ ldap_internal_base_dn }}"
+docker_stack__ldap__user_base_dn: "ou=users,{{ docker_stack__ldap__base_dn }}"
+docker_stack__ldap__group_base_dn: "ou=groups,{{ docker_stack__ldap__base_dn }}"
+# docker_stack__ldap__user_base_dn: "{{ ldap_internal_user_search_base_dn }}"
+# docker_stack__ldap__search_user_dn: "{{ ldap_internal_search_user_dn }}"
 
-docker_stack__ldap_root_password: "{{ ldap_root_password | d('password') }}"
-docker_stack__ldap_admin_password: "{{ ldap_admin_password | d('password') }}"
-docker_stack__ldap_config_password: "{{ ldap_config_password | d('passsword') }}"
-docker_stack__ldap_bind_user_username: "readonly"
-docker_stack__ldap_bind_user_password: "{{ ldap_readonly_password }}"
-# docker_stack__ldap_search_user_password: "{{ ldap_search_user_password }}"
+docker_stack__ldap__root_password: "{{ ldap_root_password | d('password') }}"
+docker_stack__ldap__admin_password: "{{ ldap_admin_password | d('password') }}"
+docker_stack__ldap__config_password: "{{ ldap_config_password | d('passsword') }}"
+docker_stack__ldap__bind_user_username: "readonly"
+docker_stack__ldap__bind_user_password: "{{ ldap_readonly_password }}"
+# docker_stack__ldap__search_user_password: "{{ ldap_search_user_password }}"
 
-# docker_stack__ldap_user_root_samba_nt_password: "{{ vault__ldap_domain_users['root'].sambaNTPassword }}"
-# docker_stack__ldap_user_root_password: "{{ vault__ldap_domain_users['root'].ssha_password }}"
+# docker_stack__ldap__user_root_samba_nt_password: "{{ vault__ldap_domain_users['root'].sambaNTPassword }}"
+# docker_stack__ldap__user_root_password: "{{ vault__ldap_domain_users['root'].ssha_password }}"
 
 ############
 ## STEPCA
@@ -114,19 +127,19 @@ docker_stack__ldap_bind_user_password: "{{ ldap_readonly_password }}"
 #stepca_root_ca_fingerprint: "{{ vault__stepca_root_ca_fingerprint | d('') }}"
 docker_stepca_enc_key: "{{ vault__docker_stepca_enc_key | d('') }}"
 
-docker_stack__redis_password: "{{ vault__docker_stack__redis_password | d('') }}"
+docker_stack__redis__password: "{{ vault__docker_stack__redis_password | d('') }}"
 
-docker_stack__gitea_lfs_jwt_secret: "{{ vault__docker_stack__gitea_lfs_jwt_secret | d('') }}"
-docker_stack__gitea_secret_key: "{{ vault__docker_stack__gitea_secret_key | d('') }}"
-docker_stack__gitea_internal_token: "{{ vault__docker_stack__gitea_internal_token | d('') }}"
-docker_stack__gitea_oauth_jwt_secret: "{{ vault__docker_stack__gitea_oauth_jwt_secret | d('') }}"
+docker_stack__gitea__lfs_jwt_secret: "{{ vault__docker_stack__gitea_lfs_jwt_secret | d('') }}"
+docker_stack__gitea__secret_key: "{{ vault__docker_stack__gitea_secret_key | d('') }}"
+docker_stack__gitea__internal_token: "{{ vault__docker_stack__gitea_internal_token | d('') }}"
+docker_stack__gitea__oauth_jwt_secret: "{{ vault__docker_stack__gitea_oauth_jwt_secret | d('') }}"
 
 docker_stack__healthchecks_email_su_password: "{{ vault__docker_stack__healthchecks_email_su_password | d('') }}"
 
-docker_stack__keycloak_user: "{{ vault__docker_stack__keycloak_user | d('') }}"
-docker_stack__keycloak_password: "{{ vault__docker_stack__keycloak_password | d('') }}"
+docker_stack__keycloak__user: "{{ vault__docker_stack__keycloak_user | d('') }}"
+docker_stack__keycloak__password: "{{ vault__docker_stack__keycloak_password | d('') }}"
 
-docker_stack__wordpress_db_password: "{{ vault__docker_stack__wordpress_db_password | d('') }}"
+docker_stack__wordpress__db_password: "{{ vault__docker_stack__wordpress_db_password | d('') }}"
 
 docker_stack__jenkins__mgr_pwd_secret: "{{ vault__docker_stack__jenkins_mgr_pwd_secret | d('') }}"
 # docker_stack__jenkins__agent_secret: "{{ vault__docker_stack__jenkins_agent_secret | d('') }}"
@@ -135,26 +148,26 @@ docker_stack__jenkins__agent_secret: "{{ vault__docker_stack__jenkins_agent_secr
 docker_stack__jenkins__swarm_username: "{{ jenkins_agent_username }}"
 docker_stack__jenkins__swarm_password: "{{ vault__jenkins_agent_password }}"
 
-docker_stack__keycloak_postgres_user: keycloak
-docker_stack__keycloak_postgres_password: "{{ vault__docker_stack__keycloak_postgres_password }}"
+docker_stack__keycloak__postgres_user: keycloak
+docker_stack__keycloak__postgres_password: "{{ vault__docker_stack__keycloak_postgres_password }}"
 
-docker_stack__gitea_postgres_password: "{{ vault__docker_stack__gitea_postgres_password }}"
+docker_stack__gitea__postgres_password: "{{ vault__docker_stack__gitea_postgres_password }}"
 
-docker_stack__vnc_passwd: "{{ vault__docker_stack__vnc_passwd }}"
+docker_stack__vnc__passwd: "{{ vault__docker_stack__vnc_passwd }}"
 
 docker_stack__jenkins__vmware_data_dir: /data/datacenter/vmware
 
 docker_stack__service_route_name: "{{ inventory_hostname_short }}"
 
 docker_stack__internal_ssl_cert_dir: "{{ cacert_local_cert_dir }}"
-docker_stack__internal_ssl_certkey_dir: "{{ cacert_local_key_dir }}"
+docker_stack__internal_ssl_key_dir: "{{ cacert_local_key_dir }}"
 
-docker_stack__stepca_ca_name: "stepca.{{ docker_stack__internal_domain }}"
+docker_stack__stepca__ca_name: "stepca.{{ docker_stack__internal_domain }}"
 
 docker_stack__smtp_host: "mail.johnson.int"
 docker_stack__smtp_port: 25
 
-docker_stack__archiva_smtp_host: "{{ docker_stack__smtp_host }}"
+docker_stack__archiva__smtp_host: "{{ docker_stack__smtp_host }}"
 
 docker_stack__gitlab_smtp_address: "{{ docker_stack__smtp_host }}"
 docker_stack__gitlab_smtp_port: "{{ docker_stack__smtp_port }}"
@@ -173,7 +186,7 @@ docker_stack__healthchecks_email_host: "{{ docker_stack__smtp_host }}"
 docker_stack__healthchecks_email_port: "{{ docker_stack__smtp_port }}"
 docker_stack__healthchecks_email_su_email: "{{ docker_stack__email_to }}"
 
-docker_stack__pgadmin_config_use_ldap: true
+docker_stack__pgadmin__use_ldap: true
 
 docker_stack__pgadmin_config_ldap_server_uri: "{{ ldap_internal_host }}"
 docker_stack__pgadmin_config_ldap_base_dn: "{{ ldap_internal_base_dn }}"
@@ -181,53 +194,53 @@ docker_stack__pgadmin_config_ldap_search_base_dn: "{{ ldap_internal_user_search_
 # docker_stack__pgadmin_config_ldap_search_filter: "(cn=*)"
 docker_stack__pgadmin_config_ldap_search_filter: "(objectClass=user)"
 
-stepca_acme_http_challenge_proxy_port: 8980
-deploy_cacerts__stepca_acme_http_challenge_proxy_port: "{{ stepca_acme_http_challenge_proxy_port }}"
+#stepca_acme_http_challenge_proxy_port: 8980
+#deploy_ca_certs__stepca_acme_http_challenge_proxy_port: "{{ stepca_acme_http_challenge_proxy_port }}"
 
-docker_stack__acme_http_challenge_proxy_port: "{{ stepca_acme_http_challenge_proxy_port }}"
+#docker_stack__acme_http_challenge_proxy_port: "{{ stepca_acme_http_challenge_proxy_port }}"
 
 # docker_stack__compose_http_timeout: 120
 docker_stack__compose_http_timeout: 240
 
 docker_source_images: []
 
-# docker_stack__stepca_image: "media.johnson.int:5000/docker-stepca:latest"
+# docker_stack__stepca__image: "media.johnson.int:5000/docker-stepca:latest"
 
 ##########
 ## other
 ##########
 docker_stack__vmware_data_dir: /data/datacenter/vmware
 
-# docker_stack__traefik_host: "{{ ansible_fqdn }}"
+# docker_stack__traefik__host: "{{ ansible_fqdn }}"
 
 ##########
 ## registry
 ##########
 docker_registry_login: true
 
-# docker_stack__registry_url: "https://{{ docker_stack__registry_endpoint }}/v2/"
+# docker_stack__registry__url: "https://{{ docker_stack__registry__endpoint }}/v2/"
 
-docker_stack__registry_login: true
+docker_stack__registry__login: true
 
-docker_stack__registry_name: "{{ docker_stack__internal_domain }}"
-docker_stack__registry_endpoint: "{{ docker_registry }}"
+docker_stack__registry__name: "{{ docker_stack__internal_domain }}"
+docker_stack__registry__endpoint: "{{ docker_registry }}"
 
-docker_stack__registry_username: "{{ docker_registry_username }}"
-docker_stack__registry_password: "{{ docker_registry_password }}"
+docker_stack__registry__username: "{{ docker_registry_username }}"
+docker_stack__registry__password: "{{ docker_registry_password }}"
 
-docker_stack__registry_service_common_name: "{{ docker_stack__internal_domain }}"
-docker_stack__registry_users: "{{ registry_users }}"
+docker_stack__registry__fqdn: "{{ docker_stack__internal_domain }}"
+docker_stack__registry__users: "{{ registry_users }}"
 
-docker_stack__registry_service_data_path: "/data/docker_registry_local"
+docker_stack__registry__data_path: "/data/docker_registry_local"
 
 #docker_stack__restart_stack_command: >
-#  cd /home/{{ docker_stack__user_username }}/docker &&
+#  cd {{ docker_container_base_dir }} &&
 #  docker-compose down &&
 #  systemctl restart docker &&
 #  docker-compose up -d
 
 docker_stack__restart_stack_command: >
-  /home/{{ docker_stack__user_username }}/docker/recreate-stack.sh
+  {{ docker_container_base_dir }}/recreate-stack.sh
 
 ## run 2:10 AM every day
 docker_stack__restart_stack_schedule: ["10", "2", "*", "*", "*"]

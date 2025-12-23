@@ -4,9 +4,9 @@
 
 ## example usage:
 ## source image from docker hub:
-## molecule/docker-image-sync.sh lj020326/centos8-systemd-python registry.hub.docker.com
+## molecule/docker-image-sync.sh lj020326/centos9-systemd-python registry.hub.docker.com
 ## source image from local:
-## molecule/docker-image-sync.sh centos8-systemd-python
+## molecule/docker-image-sync.sh centos9-systemd-python
 
 set -e
 BASE_IMAGE=${1:-registry}

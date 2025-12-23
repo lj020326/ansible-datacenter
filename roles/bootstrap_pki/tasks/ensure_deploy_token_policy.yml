@@ -1,0 +1,64 @@
+---
+# tasks/ensure_deploy_token_policy.yml
+# Ensures a Vault policy and token for deploy_pki_certs with read access to PKI/KV paths.
+# Uses vault_write for policy (fallback from vault_policy for reliability).
+
+- name: "ensure-deploy-token-policy : Define {{ bootstrap_pki__deploy_policy_name }} policy"
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "sys/policies/acl/{{ bootstrap_pki__deploy_policy_name }}"
+    data:
+      policy: |
+        # Read PKI intermediate (ca, config, roles)
+        path "{{ bootstrap_pki__vault_mount_path }}/*" {
+          capabilities = ["read"]
+        }
+        # Read external KV certs
+        path "{{ bootstrap_pki__vault_kv_mount_point }}/data/trusted_external/*" {
+          capabilities = ["read"]
+        }
+        # Read mounts and seal status (for validation)
+        path "sys/mounts" {
+          capabilities = ["read"]
+        }
+        path "sys/seal-status" {
+          capabilities = ["read"]
+        }
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+  register: __policy_result
+
+- name: "ensure-deploy-token-policy : Display policy result"
+  ansible.builtin.debug:
+    var: __policy_result
+    verbosity: 1
+
+- name: "ensure-deploy-token-policy : Ensure deploy token exists with policy"
+  community.hashi_vault.vault_token_create:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    display_name: "{{ bootstrap_pki__deploy_token_name }}"
+    policies: "{{ bootstrap_pki__deploy_token_policies }}"
+    ttl: "{{ bootstrap_pki__deploy_token_ttl }}"
+    renewable: "{{ bootstrap_pki__deploy_token_renewable | bool }}"
+    no_parent: true  # Orphan for security
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+  register: __deploy_token_result
+
+- name: "ensure-deploy-token-policy : Set deploy token fact (for chaining to deploy_pki_certs)"
+  when:
+    - __deploy_token_result.changed
+    - __deploy_token_result.auth is defined
+    - __deploy_token_result.auth.client_token is defined
+  ansible.builtin.set_fact:
+    bootstrap_pki__deploy_token_value: "{{ __deploy_token_result.auth.client_token | d(omit) }}"
+  no_log: true
+
+- name: "ensure-deploy-token-policy : Display deploy token creation"
+  when: __deploy_token_result.changed # noqa: no-handler
+  ansible.builtin.debug:
+    msg: "Deploy token '{{ bootstrap_pki__deploy_token_name }}' created/renewed (TTL: {{ bootstrap_pki__deploy_token_ttl }})"

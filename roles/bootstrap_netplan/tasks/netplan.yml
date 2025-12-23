@@ -1,5 +1,4 @@
 ---
-
 - name: "Set OS specific variables"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
@@ -11,7 +10,7 @@
 - name: "Install netplan packages"
   when:
     - bootstrap_netplan__check_install|bool
-    - bootstrap_netplan__packages|d([])|length>0
+    - bootstrap_netplan__packages | d([]) | length > 0
   ansible.builtin.package:
     name: "{{ bootstrap_netplan__packages }}"
     state: present
@@ -26,10 +25,9 @@
 - name: "Display bootstrap_netplan__configuration"
   ansible.builtin.debug:
     var: bootstrap_netplan__configuration
-#    verbosity: 1
 
-- name: "Ensure netplan configuration"
-  when: bootstrap_netplan__configuration|length>0
+- name: "Ensure custom netplan configuration"
+  when: bootstrap_netplan__configuration | length > 0
   ansible.builtin.template:
     src: config.yml.j2
     dest: "{{ bootstrap_netplan__config_file }}"
@@ -37,18 +35,16 @@
   become: true
   notify: netplan generate config
 
-- name: "Ensure DHCP netplan configuration"
-  when:
-    - bootstrap_netplan__configuration | length == 0
-    - __bootstrap_netplan__netplan_interfaces | length > 0
+- name: "Ensure netplan configuration"
+  when: bootstrap_netplan__configuration | length == 0
   block:
     - name: "Display __bootstrap_netplan__netplan_interfaces"
       ansible.builtin.debug:
         var: __bootstrap_netplan__netplan_interfaces
 
-    - name: "Ensure DHCP netplan configuration"
+    - name: "Ensure netplan configuration"
       ansible.builtin.template:
-        src: netplan-dhcp.yml.j2
+        src: netplan.yml.j2
         dest: "{{ bootstrap_netplan__config_file }}"
         mode: "0600"
       become: true

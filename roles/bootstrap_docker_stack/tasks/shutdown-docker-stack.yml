@@ -1,0 +1,26 @@
+---
+- name: "{{ __docker_stack__log_prefix__restart_daemon }} Shut down services defined in docker-compose.yml"
+  ignore_errors: true
+  when: not docker_stack__swarm_mode | d(False) | bool
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_stack__dir }}"
+    remove_orphans: "{{ docker_stack__remove_orphans }}"
+    state: absent
+  register: __compose_result
+  retries: 5
+  delay: 20
+  until: __compose_result is not failed
+
+- name: "{{ __docker_stack__log_prefix__restart_daemon }} Shut down stack services defined in docker-compose.yml"
+  when: docker_stack__swarm_mode | d(False) | bool
+  community.docker.docker_stack:
+    name: "{{ docker_stack__compose_stack_name }}"
+    compose: "{{ docker_stack__compose_stack_compose_file }}"
+    prune: "{{ docker_stack__remove_orphans }}"
+    state: absent
+    api_version: "{{ docker_stack__docker_api_version }}"
+    docker_host: unix:///var/run/docker.sock
+  register: __stack_result
+  retries: 3
+  delay: 20
+  until: __stack_result is not failed

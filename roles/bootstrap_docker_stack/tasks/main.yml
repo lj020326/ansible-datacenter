@@ -23,7 +23,7 @@
     var: docker_stack__firewalld_enabled
 
 - name: Setup firewalld config
-  when: docker_stack__firewalld_enabled | default(True) | bool
+  when: docker_stack__firewalld_enabled | d(True) | bool
   ansible.builtin.include_tasks: setup-firewalld.yml
 
 - name: Display docker_stack__action
@@ -61,15 +61,19 @@
     - docker_stack__setup_admin_scripts
   ansible.builtin.include_tasks: setup-admin-scripts.yml
 
-- name: Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml
-  when:
-    - docker_stack__action == 'setup'
-    - (role_path + '/tasks/apps/' + (__container_service_name|replace('-','_')) + '/pre-start.yml') is file
-  #    - __app_config_task_map[__container_service_name].pre_start|d(False)
-  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ (__container_service_name|replace('-','_')) }}/pre-start.yml"
-  loop: "{{ __docker_stack__app_services }}"
-  loop_control:
-    loop_var: __container_service_name
+- name: "Ensure Docker Python SDK is installed (Required for community.docker modules)"
+  ansible.builtin.pip:
+    name: docker
+    state: present
+
+- name: "Ensure permissions on Ansible Python Venv"
+  ansible.builtin.file:
+    path: /usr/local/lib/ansible/venv
+    owner: root
+    group: ansible
+    # Allow read/execute for group and others
+    mode: 'u=rwx,g=rx,o=rx'
+    recurse: true
 
 #######################
 ## the following plays utilize the `community.docker` modules
@@ -93,7 +97,7 @@
     - name: Display docker stack config results
       when:
         - item is defined
-        - item.failed|d(False)
+        - item.failed | d(False)
       ansible.builtin.debug:
         var: "{{ item }}"
       loop:
@@ -102,19 +106,21 @@
 
     - name: Set __restart_docker_service if secrets config failed
       when:
-        - item.failed|d(False)
-        - item.msg | regex_search('secret .* is in use by the following service')
+        - item.failed | d(False)
+        - item.msg | regex_search('secret .* is in use by the following service') is not none
       loop: "{{ __configure_docker_secrets.results | d([]) }}"
       ansible.builtin.set_fact:
         __restart_docker_service: true
 
     - name: Set __restart_docker_service if network config failed
       when:
-        - item.failed|d(False)
-        - (item.msg | regex_search('Failed to program NAT chain')) or (item.msg | regex_search('No such container')) or (item.msg | regex_search('.* network .* is
-          in use by service')) or (item.msg | regex_search('.* cannot program address .* in sandbox interface because it conflicts with existing route')) or (item.msg
-          | regex_search("INVALID_ZONE .* docker"))
-      loop: "{{ __configure_docker_networks.results | d([]) }}"
+        - item.failed | d(False)
+        - (item.msg | regex_search('Failed to program NAT chain') is not none) or
+          (item.msg | regex_search('No such container') is not none) or
+          (item.msg | regex_search('network .* is in use by service') is not none) or
+          (item.msg | regex_search('.* cannot program address .* because it conflicts with existing route') is not none) or
+          (item.msg | regex_search("INVALID_ZONE .* docker") is not none)
+      loop: "{{ __configure_docker_networks.results | d([]) + __network_check.results | d([]) }}"
       ansible.builtin.set_fact:
         __restart_docker_service: true
 
@@ -123,39 +129,52 @@
         var: __restart_docker_service
 
     - name: Re-emit failure
-      when: not __restart_docker_service|d(False)
+      when: not __restart_docker_service | d(False)
       vars:
         failed_task:
           result: "{{ ansible_failed_result }}"
       ansible.builtin.fail:
         msg: "{{ failed_task }}"
 
-    - name: Handle docker service exception by stopping services
+    - name: "Handle docker service exception by stopping services"
       when: __restart_docker_service
       block:
-        - name: "{{ __log_prefix_local }} Restart docker daemon"
+        - name: "Restart docker daemon"
           ansible.builtin.include_tasks: restart-docker-daemon.yml
 
         - name: Setup docker stack services
           ansible.builtin.include_tasks: setup-service-configs.yml
 
-- name: Run compose action
-  when: not docker_stack__swarm_mode|d(False)|bool or docker_stack__swarm_manager|d(False)|bool
-  ansible.builtin.include_tasks: run-compose-action.yml
-
-- name: Setup container configs
+- name: "Setup app PRE-START configs defined in tasks/apps/[__container_service_name]/pre-start.yml"
   when:
     - docker_stack__action == 'setup'
-    - __docker_stack__container_config_list|d([])|length > 0
+    - (role_path + '/tasks/apps/' + (__container_service_name | replace('-', '_')) + '/pre-start.yml') is file
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apps/{{ (__container_service_name | replace('-', '_')) }}/pre-start.yml"
+  loop: "{{ __docker_stack__app_services }}"
+  loop_control:
+    loop_var: __container_service_name
+
+- name: "Trigger container logs on failure"
+  when: ansible_failed_task is defined
+  ansible.builtin.meta: flush_handlers
+
+- name: "Run compose action"
+  when: not docker_stack__swarm_mode | d(False) | bool or docker_stack__swarm_manager | d(False) | bool
+  ansible.builtin.include_tasks: run-compose-action.yml
+
+- name: "Setup container configs"
+  when:
+    - docker_stack__action == 'setup'
+    - __docker_stack__container_config_list | d([]) | length > 0
   ansible.builtin.include_tasks: setup-container-configs.yml
   loop: "{{ __docker_stack__container_config_list }}"
   loop_control:
     loop_var: container_setup_info
 
 ## ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
-- name: Setup systemd service to start docker services
+- name: "Setup systemd service to start docker services"
   when:
     - docker_stack__action == 'setup'
     - docker_stack__setup_systemd_service|bool
-    - not docker_stack__swarm_mode|d(False)
+    - not docker_stack__swarm_mode | d(False)
   ansible.builtin.include_tasks: setup-systemd-service.yml

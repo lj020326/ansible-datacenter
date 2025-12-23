@@ -1,7 +1,7 @@
 ---
 - name: Caroot | Set caroot facts
   ansible.builtin.set_fact:
-    __bootstrap_certs__keystore_cert_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ bootstrap_certs__ca_root.domainName }}"
+    __bootstrap_certs__keystore_cert_dir: "{{ bootstrap_certs__keystore_base_dir }}/{{ bootstrap_certs__ca_root.domainName }}"
     __bootstrap_certs__ca_cert: "{{ bootstrap_certs__ca_root.domainName }}.pem"
     __bootstrap_certs__ca_csr: "{{ bootstrap_certs__ca_root.domainName }}.csr"
     __bootstrap_certs__ca_key: "{{ bootstrap_certs__ca_root.domainName }}-key.pem"
@@ -16,7 +16,17 @@
       - __bootstrap_certs__ca_key={{ __bootstrap_certs__ca_key }}
 
 - name: Create_caroot | Perform cacert validations
+  vars:
+    __bootstrap_certs__cert_node: "{{ bootstrap_certs__ca_root_cn }}"
   ansible.builtin.include_tasks: validate_cacerts.yml
+
+- name: "Caroot | Display __cert_validation_results.failed"
+  ansible.builtin.debug:
+    var: __cert_validation_results.failed
+
+- name: "Caroot | Display bootstrap_certs__ca_force_create"
+  ansible.builtin.debug:
+    var: bootstrap_certs__ca_force_create
 
 - name: Create_caroot | Create intermediate certificate authority key pair and CSR
   when: __cert_validation_results.failed|bool or bootstrap_certs__ca_force_create|bool
@@ -65,36 +75,65 @@
 #          emailAddress: "{{ bootstrap_certs__ca_root.email | d(omit) }}" # Added email_address
 #        subject_alt_names: [] # No subject alternative names for a root CA, typically
 
-    ## the following module does not support a number of critical parameters needed
+    ## the following module does not support a number of critical parameters (extension AKID) needed
     ## so we invoke openssl directly using shell instead
-    - name: Caroot | Generate root CA certificate
-      community.crypto.x509_certificate:
-        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
-        privatekey_path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
-        csr_path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_csr }}"
-        provider: selfsigned
-        selfsigned_digest: "{{ bootstrap_certs__ca_root_cert_digest }}"
-        # Set the cert validity
-        selfsigned_not_after: "+{{ bootstrap_certs__ca_root_cert_validity_days | int }}d"
+#    - name: Caroot | Generate root CA certificate
+#      community.crypto.x509_certificate:
+#        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+#        privatekey_path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
+#        csr_path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_csr }}"
+#        provider: selfsigned
+#        selfsigned_digest: "{{ bootstrap_certs__ca_root_cert_digest }}"
+#        # Set the cert validity
+#        selfsigned_not_after: "+{{ bootstrap_certs__ca_root_cert_validity_days | int }}d"
 
-#    - name: Caroot | Generate self-signed root CA certificate using OpenSSL command
-#      ansible.builtin.shell:
-#        cmd: |
-#          openssl req -x509 -new \
-#          -key "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}" \
-#          -out "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}" \
-#          -days "{{ bootstrap_certs__ca_root_cert_validity_days | int }}" \
-#          -sha256 \
-#          -subj "{{ bootstrap_certs__ca_root_subject }}" \
-#          -addext "basicConstraints=CA:TRUE" \
-#          -addext "keyUsage=digitalSignature,keyCertSign,cRLSign" \
-#          -addext "subjectKeyIdentifier=hash" \
-#          -addext "authorityKeyIdentifier=keyid:always"
-#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
-#      args:
-#        # Prevents shell module from attempting to use jinja2 templating on the command string,
-#        # ensuring the raw openssl command is passed
-#        executable: /bin/bash
+    - name: "Caroot | Create temporary OpenSSL config for root CA extensions"
+      when: __cert_validation_results.failed | bool or bootstrap_certs__ca_force_create | bool
+      ansible.builtin.copy:
+        content: |
+          [ req ]
+          distinguished_name = req_distinguished_name
+          x509_extensions = v3_ca
+          prompt = no
+
+          [ req_distinguished_name ]
+          CN = "{{ bootstrap_certs__ca_root.domainName | d(bootstrap_certs__ca_root.commonName) }}"
+          O = "{{ bootstrap_certs__ca_root.organization }}"
+          OU = "{{ bootstrap_certs__ca_root.organizationalUnit | d(omit) }}"
+          C = "{{ bootstrap_certs__ca_root.country | d(omit) }}"
+          ST = "{{ bootstrap_certs__ca_root.state | d(omit) }}"
+          L = "{{ bootstrap_certs__ca_root.locality | d(omit) }}"
+          emailAddress = "{{ bootstrap_certs__ca_root.email | d(omit) }}"
+
+          [ v3_ca ]
+          subjectKeyIdentifier = hash
+          authorityKeyIdentifier = keyid:always,issuer:always  # Self-references SKI for AKID
+          basicConstraints = critical, CA:TRUE, pathlen:{{ bootstrap_certs__ca_root_max_path_len }}
+          keyUsage = critical, digitalSignature, keyCertSign, cRLSign
+        dest: "{{ __bootstrap_certs__keystore_cert_dir }}/ca_config.conf"
+        mode: '0644'
+
+    - name: "Caroot | Generate self-signed root CA certificate using OpenSSL req -x509"
+      when: __cert_validation_results.failed | bool or bootstrap_certs__ca_force_create | bool
+      ansible.builtin.shell:
+        cmd: >
+          openssl req -x509
+          -new
+          -key "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_key }}"
+          -out "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+          -days "{{ bootstrap_certs__ca_root_cert_validity_days | int }}"
+          -{{ bootstrap_certs__ca_root_cert_digest | default('sha256') }}
+          -config "{{ __bootstrap_certs__keystore_cert_dir }}/ca_config.conf"
+          -extensions v3_ca
+      changed_when: true
+      args:
+        executable: /bin/bash
+
+    - name: Caroot | Clean up temporary config file
+      when: bootstrap_certs__clean_up | default(false) | bool
+      ansible.builtin.file:
+        path: "{{ __bootstrap_certs__keystore_cert_dir }}/ca_config.conf"
+        state: absent
 
     - name: Caroot | Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
       ansible.builtin.file:
@@ -106,10 +145,15 @@
         - dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
           mode: "644"
 
+    - name: Caroot | Clean up temporary CSR file (optional)
+      when: bootstrap_certs__clean_up | default(false) | bool
+      ansible.builtin.file:
+        path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_csr }}"
+        state: absent
+
 ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
 - name: Caroot | Get ca root certificate info
   community.crypto.x509_certificate_info:
-    #    path: /etc/ssl/crt/ansible.com.crt
     path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
   register: cacert_result
 
@@ -127,3 +171,9 @@
       - cacert_result.subject.organizationName == bootstrap_certs__ca_root.organization
       # has_expired
       - not cacert_result.expired
+      # Extensions: Verify AKID and other critical extensions are present
+      - cacert_result.authority_key_identifier is not none
+      - "'2.5.29.35' in cacert_result.extensions_by_oid"  # authorityKeyIdentifier (AKID)
+      - "'2.5.29.14' in cacert_result.extensions_by_oid"  # subjectKeyIdentifier (SKI)
+      - "'2.5.29.19' in cacert_result.extensions_by_oid"  # basicConstraints (CA:TRUE)
+      - "'2.5.29.15' in cacert_result.extensions_by_oid"  # keyUsage

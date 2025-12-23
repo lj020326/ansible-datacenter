@@ -1,0 +1,103 @@
+---
+# Main task file for bootstrap_pki role
+
+- name: "Gather date_time facts"
+  ansible.builtin.setup:
+    gather_subset:
+      - date_time
+
+- name: "Get current timestamp for backup"
+  ansible.builtin.set_fact:
+    __timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+#    __timestamp: "{{ ansible_date_time.iso8601 | regex_replace('[-:T]', '') | regex_replace('Z$', '') }}"
+#    __timestamp: "{{ ansible_date_time.iso8601_basic }}"
+  run_once: true
+
+- name: "Validate Vault PKI connectivity and token permissions"
+  ansible.builtin.include_tasks: validate_vault_pki.yml
+
+- name: "Ensure PKI CA directory exists with correct permissions"
+  run_once: true
+  ansible.builtin.file:
+    path: "{{ bootstrap_pki__ca_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: "Generate CA configuration JSON on the remote host"
+  run_once: true
+  ansible.builtin.template:
+    src: ca_config.json.j2
+    dest: "{{ bootstrap_pki__ca_dir }}/ca-config.json"
+    owner: root
+    group: root
+    mode: "0600"
+    force: true
+
+- name: "Debug ca-config.json"
+  when: bootstrap_pki__ca_reset_cert | bool
+  no_log: true
+  ansible.builtin.slurp:
+    src: "{{ bootstrap_pki__ca_dir }}/ca-config.json"
+  register: __ca_config_json
+
+- name: "Display ca-config.json"
+  when: bootstrap_pki__ca_reset_cert | bool
+  ansible.builtin.debug:
+    msg: "ca-config.json: {{ __ca_config_json.content | b64decode | from_json | to_nice_json }}"
+    verbosity: 1
+
+- name: "Ensure dependencies"
+  ansible.builtin.include_tasks: ensure_dependencies.yml
+
+- name: "Ensure Root CA certificate"
+  when: not bootstrap_pki__use_external_root_ca | bool
+  ansible.builtin.include_tasks: ensure_ca_cert.yml
+  vars:
+    __ca_cert_info: "{{ bootstrap_pki__root_ca_cert_info }}"
+
+- name: "Validate external Root CA certificate"
+  when: bootstrap_pki__use_external_root_ca | bool
+  ansible.builtin.assert:
+    that:
+      - bootstrap_pki__root_ca_cert_info.ca_issuer_path is defined
+      - bootstrap_pki__root_ca_cert_info.ca_issuer_key_path is defined
+    fail_msg: "External root CA certificate and key paths must be provided when bootstrap_pki__use_external_root_ca is true"
+
+- name: "Encrypt root ca key"
+  when: bootstrap_pki__encrypt_root_ca_key | bool
+  ansible.builtin.include_tasks: encrypt_root_ca_key.yml
+
+- name: "Ensure admin token exists"
+  when:
+    - bootstrap_pki__vault_ensure_admin_token | bool
+    - bootstrap_pki__vault_token is defined
+    - bootstrap_pki__vault_token | length > 0
+  ansible.builtin.include_tasks: ensure_admin_token.yml
+
+- name: "Ensure Intermediate CA certificate"
+  ansible.builtin.include_tasks: ensure_ca_cert.yml
+  vars:
+    __ca_cert_info: "{{ bootstrap_pki__vault_ca_cert_info }}"
+
+- name: "Ensure Vault PKI engine for Intermediate CA"
+  ansible.builtin.include_tasks: ensure_vault_pki_engine.yml
+
+- name: "ensure-vault-pki-engine : Validate PKI tokens in Vault"
+  ansible.builtin.include_tasks: validate_vault_pki_tokens.yml
+
+- name: "ensure-vault-pki-engine : Configure PKI roles in Vault"
+  ansible.builtin.include_tasks: ensure_vault_pki_roles.yml
+  loop: "{{ bootstrap_pki__vault_roles }}"
+  loop_control:
+    loop_var: __current_role
+
+- name: "Ensure deploy token policy and creation"
+  when: bootstrap_pki__deploy_token_name | length > 0
+  ansible.builtin.include_tasks: ensure_deploy_token_policy.yml
+
+# Setup external CA certificates in secret/trusted_external
+- name: "Setup external CA certificates"
+  when: bootstrap_pki__external_cas | length > 0
+  ansible.builtin.include_tasks: setup_external_cas.yml

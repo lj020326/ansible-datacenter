@@ -1,24 +1,26 @@
 ---
 
+__docker_stack__gitea__domain: "{{ docker_stack__internal_domain }}"
+__docker_stack__gitea__endpoint: "gitea.{{ __docker_stack__gitea__domain }}"
+
 __docker_stack__gitea__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
 __docker_stack__gitea__base_dir_default: "{{ __docker_stack__gitea__stack_dir }}/gitea"
 __docker_stack__gitea__base_dir: "{{ docker_stack__gitea__dir | d(__docker_stack__gitea__base_dir_default) }}"
 
-__docker_stack__gitea__http_port: "{{ docker_stack__gitea_http_port | d('3000') }}"
-__docker_stack__gitea__ssh_port: "{{ docker_stack__gitea_ssh_port | d('2222') }}"
+__docker_stack__gitea__http_port: "{{ docker_stack__gitea__http_port | d('3000') }}"
+__docker_stack__gitea__ssh_port: "{{ docker_stack__gitea__ssh_port | d('2222') }}"
 
 __docker_stack__gitea__postgres_port: "{{ docker_stack__postgres_port | d('5432') }}"
-__docker_stack__gitea__postgres_user: "{{ docker_stack__gitea_postgres_user | d('gitea') }}"
-__docker_stack__gitea__postgres_password: "{{ docker_stack__gitea_postgres_password | d('password') }}"
+__docker_stack__gitea__postgres_user: "{{ docker_stack__gitea__postgres_user | d('gitea') }}"
+__docker_stack__gitea__postgres_password: "{{ docker_stack__gitea__postgres_password | d('password') }}"
 
-__docker_stack__gitea__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__gitea__root_url: "https://gitea.{{ docker_stack__internal_domain }}{{ docker_stack__traefik__port }}/"
 
-__docker_stack__gitea__root_url: https://gitea.{{ __docker_stack__gitea__domain }}{{ docker_stack__traefik_https_suffix }}/
-
-__docker_stack__gitea__lfs_jwt_secret: "{{ docker_stack__gitea_lfs_jwt_secret | d('00000000001111111111') }}"
-__docker_stack__gitea__secret_key: "{{ docker_stack__gitea_secret_key | d('00000000001111111111') }}"
-__docker_stack__gitea__internal_token: "{{ docker_stack__gitea_internal_token | d('00000000001111111111') }}"
-__docker_stack__gitea__oauth_jwt_secret: "{{ docker_stack__gitea_oauth_jwt_secret | d('00000000001111111111') }}"
+__docker_stack__gitea__lfs_jwt_secret: "{{ docker_stack__gitea__lfs_jwt_secret | d('00000000001111111111') }}"
+__docker_stack__gitea__secret_key: "{{ docker_stack__gitea__secret_key | d('00000000001111111111') }}"
+__docker_stack__gitea__internal_token: "{{ docker_stack__gitea__internal_token | d('00000000001111111111') }}"
+__docker_stack__gitea__oauth_jwt_secret: "{{ docker_stack__gitea__oauth_jwt_secret | d('00000000001111111111') }}"
+__docker_stack__gitea__no_reply_address: "{{ docker_stack__gitea__no_reply_address | d('noreply@example.org') }}"
 
 __docker_stack__gitea__config_dirs:
   - path: "{{ __docker_stack__gitea__base_dir }}"
@@ -33,22 +35,14 @@ __docker_stack__gitea__firewalld_ports:
   - "{{ __docker_stack__gitea__ssh_port }}/tcp"
   - "{{ __docker_stack__gitea__http_port }}/tcp"
 
-docker_stack__appspec__gitea:
-  dirs: "{{ __docker_stack__gitea__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__gitea__config_files | d([]) }}"
-  templates: "{{ __docker_stack__gitea__config_tpls | d([]) }}"
-  firewalld_services: "{{ __docker_stack__gitea__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__gitea__firewalld_ports | d([]) }}"
-  docker_services: "{{ __docker_stack__gitea__services | d({}) }}"
-
 __docker_stack__gitea__environment_default:
   USER_UID: "{{ docker_stack__user_uid }}"
   USER_GID: "{{ docker_stack__user_gid }}"
   ROOT_URL: "{{ __docker_stack__gitea__root_url }}"
   DOMAIN: "{{ __docker_stack__gitea__domain }}"
   SSH_DOMAIN: "{{ __docker_stack__gitea__endpoint }}"
-  DB_TYPE: postgres
-  DB_HOST: postgres:{{ __docker_stack__gitea__postgres_port }}
+  DB_TYPE: "postgres"
+  DB_HOST: "postgres:{{ __docker_stack__gitea__postgres_port }}"
   DB_NAME: "{{ __docker_stack__gitea__postgres_user }}"
   DB_USER: "{{ __docker_stack__gitea__postgres_user }}"
   DB_PASSWD: "{{ __docker_stack__gitea__postgres_password }}"
@@ -61,15 +55,15 @@ __docker_stack__gitea__traefik_labels: "{{ docker_stack__gitea__traefik_labels |
 
 __docker_stack__gitea__services:
 
-#  ## ref: https://github.com/jwilder/dockerize
-#  ## ref: https://stackoverflow.com/a/72629559
-#  ## Wait for postgres to be usable
-#  check-gitea-db-started:
-##    image: jwilder/dockerize:0.6.1
-#    image: jwilder/dockerize:latest
-#    command: 'dockerize -wait=tcp://postgres:5432'
-#    depends_on:
-#      - postgres
+  ## ref: https://github.com/jwilder/dockerize
+  ## ref: https://stackoverflow.com/a/72629559
+  ## Wait for postgres to be usable
+  check-gitea-db-started:
+#    image: jwilder/dockerize:0.6.1
+    image: jwilder/dockerize:latest
+    command: 'dockerize -wait=tcp://postgres:5432'
+    depends_on:
+      - postgres
 
   ## ref: https://docs.gitea.com/installation/install-with-docker
   ## ref: https://git.habd.as/comfusion/high-tea/src/branch/master/docker-compose.yml
@@ -85,8 +79,8 @@ __docker_stack__gitea__services:
 #      postgres:
 #        condition: service_healthy
     depends_on:
-#      - check-gitea-db-started
-      - postgres
+      - check-gitea-db-started
+#      - postgres
     environment: "{{ __docker_stack__gitea__environment }}"
     #      restart: always
     restart: unless-stopped
@@ -118,20 +112,28 @@ __docker_stack__gitea__services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 280s
     deploy:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure
-        delay: 10s
+        delay: 40s
         max_attempts: 3
         window: 120s
       update_config:
         parallelism: 1
         delay: 10s
         order: stop-first
+
+docker_stack__appspec__gitea:
+  dirs: "{{ __docker_stack__gitea__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__gitea__config_files | d([]) }}"
+  templates: "{{ __docker_stack__gitea__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__gitea__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__gitea__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__gitea__networks | d({}) }}"
+  docker_services: "{{ __docker_stack__gitea__services | d({}) }}"

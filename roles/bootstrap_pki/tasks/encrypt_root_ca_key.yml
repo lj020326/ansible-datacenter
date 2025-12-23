@@ -1,0 +1,45 @@
+---
+- name: "encrypt-root-ca-key : Validate vault password is provided when encryption is enabled"
+  ansible.builtin.assert:
+    that:
+      - bootstrap_pki__vault_password | length > 0
+    fail_msg: "bootstrap_pki__vault_password must be provided when bootstrap_pki__encrypt_root_ca_key is true"
+
+- name: "encrypt-root-ca-key : Check if root CA key is already encrypted"
+  ansible.builtin.stat:
+    path: "{{ bootstrap_pki__encrypted_root_ca_key_path }}"
+  register: __encrypted_key_stat
+
+- name: "encrypt-root-ca-key : Create temporary vault password file"
+  when: not __encrypted_key_stat.stat.exists | d(false)
+  no_log: true
+  ansible.builtin.copy:
+    content: "{{ bootstrap_pki__vault_password }}"
+    dest: "/tmp/vault_password_{{ __timestamp }}"
+    owner: root
+    group: root
+    mode: "0600"
+  register: __vault_password_file
+
+- name: "encrypt-root-ca-key : Encrypt root CA key with Ansible Vault"
+  when: not __encrypted_key_stat.stat.exists | d(false)
+  ansible.builtin.command: >
+    ansible-vault encrypt {{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__root_ca_cert_info.cert_basename }}-key.pem
+    --output {{ bootstrap_pki__encrypted_root_ca_key_path }}
+    --vault-password-file /tmp/vault_password_{{ __timestamp }}
+  args:
+    creates: "{{ bootstrap_pki__encrypted_root_ca_key_path }}"
+  register: __encrypt_key_result
+  changed_when: __encrypt_key_result.rc == 0
+
+- name: "encrypt-root-ca-key : Remove temporary vault password file"
+  when: not __encrypted_key_stat.stat.exists | d(false)
+  ansible.builtin.file:
+    path: "/tmp/vault_password_{{ __timestamp }}"
+    state: absent
+
+- name: "encrypt-root-ca-key : Remove unencrypted root CA key"
+  when: not __encrypted_key_stat.stat.exists | d(false)
+  ansible.builtin.file:
+    path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__root_ca_cert_info.cert_basename }}-key.pem"
+    state: absent

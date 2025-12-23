@@ -9,7 +9,7 @@
 # - name: "Display cert info"
 #  ansible.builtin.debug:
 #    msg:
-#      - "bootstrap_certs__cacerts_base_dir={{ bootstrap_certs__cacerts_base_dir }}"
+#      - "bootstrap_certs__keystore_base_dir={{ bootstrap_certs__keystore_base_dir }}"
 #      - "bootstrap_certs__ca_domains_hosted={{ bootstrap_certs__ca_domains_hosted | to_nice_json }}"
 #      - "__bootstrap_certs__ca_intermediate_cert_list={{ __bootstrap_certs__ca_intermediate_cert_list | to_nice_json }}"
 #      - "bootstrap_certs__ca_service_routes_list={{ bootstrap_certs__ca_service_routes_list | to_nice_json }}"
@@ -29,15 +29,12 @@
 - name: "{{ __log_prefix_subtask }} Create config json"
   when: bootstrap_certs__ca_cert_type == "intermediate-ca"
   ansible.builtin.template:
-    #    backup: true
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
+    src: ca/ca-cacert-csr.json.j2
+    dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_info.commonName }}.json"
     mode: "0644"
-  loop:
-    - src: ca/ca-config.json.j2
-      dest: "{{ bootstrap_certs__cacerts_base_dir }}/ca-config.json"
-    - src: ca/ca-cacert-csr.json.j2
-      dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_info.commonName }}.json"
+    owner: root
+    group: root
+    #    backup: true
 
 - name: "{{ __log_prefix_subtask }} Generating server csr config file [{{ __bootstrap_certs__ca_cert_cn }}.json]"
   when: bootstrap_certs__ca_cert_type != "intermediate-ca"
@@ -45,6 +42,8 @@
     src: ca/ca-cert-csr.json.j2
     dest: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert_cn }}.json"
     mode: "0644"
+    owner: root
+    group: root
 
 ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
 ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
@@ -54,17 +53,20 @@
   block:
     - name: "{{ __log_prefix_subtask }} Generating signed server certificate {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
       changed_when: false
-      ansible.builtin.shell: |
+      ansible.builtin.shell: >
+        set -o errexit; \
+        set -o pipefail; \
         cfssl gencert \
-          --config={{ bootstrap_certs__cacerts_base_dir }}/ca-config.json \
-          -profile={{ __bootstrap_certs__cacert_csr_profile }} \
+          --config={{ bootstrap_certs__keystore_base_dir }}/ca_signing_profiles.json \
+          -profile={{ __bootstrap_certs__csr_profile }} \
           -ca={{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
           -ca-key={{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_key }} \
           {{ __bootstrap_certs__ca_cert_cn }}.json \
           | cfssljson -bare {{ __bootstrap_certs__ca_cert_cn }}
       args:
+        executable: /bin/bash
         chdir: "{{ __bootstrap_certs__keystore_cert_dir }}"
-    #        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
+#        creates: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
 
     - name: Changing perm to 644 for {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
       ansible.builtin.file:

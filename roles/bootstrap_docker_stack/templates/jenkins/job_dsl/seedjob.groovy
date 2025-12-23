@@ -34,7 +34,7 @@ def createSeedJob(String seedJobName, String jobsRepoUrl, String gitCredentialsI
         disabled(false)
         quietPeriod(0)
         logRotator { numToKeep(10) }
-        triggers { cron("H/15 * * * *") }
+//         triggers { cron("H/15 * * * *") }
 
         definition {
             cpsScm {

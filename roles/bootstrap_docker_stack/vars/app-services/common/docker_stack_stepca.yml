@@ -1,28 +1,58 @@
 ---
 
-__docker_stack__stepca__port: "{{ docker_stack__stepca_port | d('8443') }}"
-__docker_stack__stepca__dns_names: "{{ docker_stack__stepca_dns_names | d('localhost') }}"
-__docker_stack__stepca__default_cert_validity: "{{ docker_stack__stepca_default_cert_validity | d('720h') }}"
-__docker_stack__stepca__max_cert_validity: "{{ docker_stack__stepca_max_cert_validity | d('2160h') }}"
-__docker_stack__stepca__ca_name: "{{ docker_stack__stepca_ca_name | d('Intermediate CA Name') }}"
-#__docker_stack__stepca__intermediate_ca_name: "{{ docker_stack__stepca_ca_name | d('Intermediate CA Name') }}"
+__docker_stack__stepca__endpoint: "stepca.{{ docker_stack__internal_domain }}"
+
+## include the FQDN and IP address of the CA server
+__docker_stack__stepca__dns_name_list:
+  - "{{ __docker_stack__stepca__endpoint }}"
+  - "{{ docker_stack__internal_domain }}"
+  - "{{ ansible_default_ipv4.address }}"
+  - localhost
+  - 127.0.0.1
+
+__docker_stack__stepca__dns_names_default: "{{ __docker_stack__stepca__dns_name_list | join(',') }}"
+__docker_stack__stepca__dns_names: "{{ docker_stack__stepca__dns_names | d(__docker_stack__stepca__dns_names_default) }}"
+
+__docker_stack__stepca__port: "{{ docker_stack__stepca__port | d('8443') }}"
+__docker_stack__stepca__default_cert_validity: "{{ docker_stack__stepca__default_cert_validity | d('720h') }}"
+__docker_stack__stepca__max_cert_validity: "{{ docker_stack__stepca__max_cert_validity | d('2160h') }}"
+#__docker_stack__stepca__ca_name_default: Intermediate CA Name"
+__docker_stack__stepca__ca_name_default: "{{ __docker_stack__stepca__endpoint }}"
+__docker_stack__stepca__ca_name: "{{ docker_stack__stepca__ca_name | d('Intermediate CA Name') }}"
+#__docker_stack__stepca__intermediate_ca_name: "{{ docker_stack__stepca__ca_name | d('Intermediate CA Name') }}"
 __docker_stack__stepca__base_dir: "{{ docker_stack__dir }}/stepca"
 __docker_stack__stepca__home_dir: "{{ __docker_stack__stepca__base_dir }}/home"
 
-__docker_stack__stepca__password: NsZg!tlca8d?]lqaPHi?E..~>T!%Q(==
+__docker_stack__stepca__password: "{{ docker_stack__stepca__password | d('changeme') }}"
 
-__docker_stack__stepca__image: "{{ docker_stack__stepca_image | d(docker_stack__registry_endpoint + '/docker-stepca:latest') }}"
+#__docker_stack__stepca__image_default: "smallstep/step-ca:latest"
+#__docker_stack__stepca__image_default: "{{ docker_stack__registry__endpoint }}/docker-stepca:latest"
+#__docker_stack__stepca__image_default: "{{ docker_stack__registry__endpoint }}/docker-stepca:0.27.5"
+__docker_stack__stepca__image_default: "{{ docker_stack__registry__endpoint }}/docker-stepca:0.28.4"
+__docker_stack__stepca__image: "{{ docker_stack__stepca__image | d(__docker_stack__stepca__image_default) }}"
 
 #__docker_stack__stepca__root_cacert: "{{ docker_stack__internal_ssl_cert_dir }}/ca.{{ docker_stack__internal_domain }}.pem"
 #__docker_stack__stepca__root_cacert_key: "{{ cacert_local_key_dir }}/ca.{{ docker_stack__internal_domain }}-key.pem"
 #__docker_stack__stepca__cacert: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__internal_domain }}.pem"
 #__docker_stack__stepca__cacert_key: "{{ cacert_local_key_dir }}/{{ docker_stack__internal_domain }}-key.pem"
 
-__docker_stack__stepca__root_cacert: "{{ docker_stack__stepca_root_cacert | d('/usr/local/ssl/certs/ca-root.pem') }}"
-__docker_stack__stepca__root_cacert_key: "{{ docker_stack__stepca_root_cacert_key | d('/usr/local/ssl/private/ca-root-key.pem') }}"
+__docker_stack__stepca__root_cacert: "{{ docker_stack__stepca__root_cacert | d('/usr/local/ssl/certs/ca-root.pem') }}"
+__docker_stack__stepca__root_cacert_key: "{{ docker_stack__stepca__root_cacert_key | d('/usr/local/ssl/private/ca-root-key.pem') }}"
 
-__docker_stack__stepca__cacert: "{{ docker_stack__stepca_cacert | d('/usr/local/ssl/certs/localhost.pem') }}"
-__docker_stack__stepca__cacert_key: "{{ docker_stack__stepca_cacert_key | d('/usr/local/ssl/private/localhost-key.pem') }}"
+__docker_stack__stepca__cacert: "{{ docker_stack__stepca__cacert | d('/usr/local/ssl/certs/localhost.pem') }}"
+__docker_stack__stepca__cacert_key: "{{ docker_stack__stepca__cacert_key | d('/usr/local/ssl/private/localhost-key.pem') }}"
+
+__docker_stack__stepca__environment_default:
+  STEPCA_GID: "{{ docker_stack__user_gid }}"
+  STEPCA_UID: "{{ docker_stack__user_uid }}"
+  CA_NAME: "{{ __docker_stack__stepca__ca_name }}"
+  DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
+  DEFAULT_CERT_VALIDITY: "{{ __docker_stack__stepca__default_cert_validity }}"
+  MAX_CERT_VALIDITY: "{{ __docker_stack__stepca__max_cert_validity }}"
+  PASSWORD: "{{ __docker_stack__stepca__password }}"
+
+__docker_stack__stepca__environment: "{{ docker_stack__stepca__environment
+  | d(__docker_stack__stepca__environment_default) }}"
 
 __docker_stack__stepca__config_dirs:
   - { path: "{{ __docker_stack__stepca__base_dir }}" }
@@ -32,12 +62,26 @@ __docker_stack__stepca__config_dirs:
   - { path: "{{ __docker_stack__stepca__home_dir }}/secrets" }
   - { path: "{{ __docker_stack__stepca__home_dir }}/templates" }
 
+############################
+## the step-ca certs must be created specifically from the step-ca pre-start process AND signed by infra certs
+#__docker_stack__stepca__config_files:
+#  - src: "{{ __docker_stack__stepca__root_cacert }}"
+#    dest: "{{ __docker_stack__stepca__home_dir }}/certs/root_ca.crt"
+#  - src: "{{ __docker_stack__stepca__cacert }}"
+#    dest: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt"
+#  - src: "{{ __docker_stack__stepca__cacert_key }}"
+#    dest: "{{ __docker_stack__stepca__home_dir }}/secrets/intermediate_ca_key"
+#    mode: "0660"
+############################
+
 __docker_stack__stepca__config_tpls:
-  - { src: stepca/config-group.conf.j2, dest: "{{ __docker_stack__stepca__base_dir }}/group" }
-  - { src: jenkins/config-passwd.conf.j2, dest: "{{ __docker_stack__stepca__base_dir }}/passwd" }
+  - src: stepca/config-group.conf.j2
+    dest: "{{ __docker_stack__stepca__base_dir }}/group"
+  - src: jenkins/config-passwd.conf.j2
+    dest: "{{ __docker_stack__stepca__base_dir }}/passwd"
 
 #__docker_stack__stepca__firewalld_ports:
-#  - "{{ docker_stack__stepca_http_port }}/tcp"
+#  - "{{ docker_stack__stepca__http_port }}/tcp"
 
 #__docker_stack__stepca__config_tpls:
 #  - { src: "stepca/stepca.xml.j2", dest: "{{ docker_stack__dir }}/stepca/conf/stepca.xml" }
@@ -52,25 +96,18 @@ docker_stack__appspec__stepca:
   volumes: "{{ __docker_stack__stepca__volumes | d({}) }}"
   docker_services: "{{ __docker_stack__stepca__services | d({}) }}"
 
-__docker_stack__stepca__traefik_labels: "{{ docker_stack__stepca__traefik_labels | d(__docker_stack__stepca__traefik_labels_default) }}"
+__docker_stack__stepca__traefik_labels: "{{ docker_stack__stepca__traefik_labels
+  | d(__docker_stack__stepca__traefik_labels_default) }}"
 
 ## ref: https://github.com/Praqma/smallstep-ca-demo/blob/master/docker-compose.yaml
 __docker_stack__stepca__services:
 
   step-ca:
     image: "{{ __docker_stack__stepca__image }}"
-    #    image: smallstep/step-ca:latest
     container_name: step-ca
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
-    environment:
-      STEPCA_GID: "{{ docker_stack__user_gid }}"
-      STEPCA_UID: "{{ docker_stack__user_uid }}"
-      DNS_NAMES: "{{ __docker_stack__stepca__dns_names }}"
-      DEFAULT_CERT_VALIDITY: "{{ __docker_stack__stepca__default_cert_validity }}"
-      MAX_CERT_VALIDITY: "{{ __docker_stack__stepca__max_cert_validity }}"
-      PASSWORD: "{{ __docker_stack__stepca__password }}"
-      CA_NAME: "{{ __docker_stack__stepca__ca_name }}"
+    environment: "{{ __docker_stack__stepca__environment }}"
     ports:
 #      - "{{ __docker_stack__stepca__port }}:8443"
       - mode: "{{ __docker_stack__port_mode }}"
@@ -89,8 +126,7 @@ __docker_stack__stepca__services:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

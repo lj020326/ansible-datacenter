@@ -1,0 +1,44 @@
+---
+# tasks/setup_external_cas.yml
+# Fetches external CA certs and stores in secret/trusted_external (KV v1)
+
+- name: "setup-external-cas : Display external_cas config"
+  ansible.builtin.debug:
+    var: bootstrap_pki__external_cas
+    verbosity: 1
+  tags: external_cas
+
+- name: "setup-external-cas : Ensure {{ bootstrap_pki__vault_kv_mount_point }}/ KV is mounted"
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "sys/mounts/{{ bootstrap_pki__vault_kv_mount_point }}"
+    data:
+      type: "kv"
+      config:
+        # Setting KV secrets to effectively "indefinite" (static)
+        default_lease_ttl: "0h"
+        max_lease_ttl: "0h"
+        cas_required: false
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+  register: __kv_mount_result
+  failed_when: false  # Idempotent; may already exist
+
+- name: "setup-external-cas : Initialize external CA stored counter"
+  ansible.builtin.set_fact:
+    __external_ca_stored_count: 0
+  run_once: true
+
+- name: "setup-external-cas : Fetch and store external CA"
+  ansible.builtin.include_tasks: fetch_and_store_external_ca.yml
+  loop: "{{ bootstrap_pki__external_cas }}"
+  loop_control:
+    loop_var: __external_cert_info
+
+- name: "setup-external-cas : Summary of external CA setup"
+  ansible.builtin.debug:
+    msg: "External CAs configured: {{ bootstrap_pki__external_cas | length }} | Stored/Updated: {{ __external_ca_stored_count | d(0) }} new/updated"
+  when: bootstrap_pki__external_cas | length > 0
+  run_once: true

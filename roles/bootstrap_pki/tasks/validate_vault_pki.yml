@@ -1,0 +1,114 @@
+---
+- name: "validate-vault-pki : Display vault_config"
+  ansible.builtin.debug:
+    var: vault_config
+    verbosity: 2
+
+- name: "validate-vault-pki : Display bootstrap_pki__vault_url"
+  ansible.builtin.debug:
+    var: bootstrap_pki__vault_url | d('')
+
+- name: "validate-vault-pki : Display bootstrap_pki__vault_token"
+  ansible.builtin.debug:
+    var: bootstrap_pki__vault_token | d('')
+    verbosity: 2
+
+- name: "validate-vault-pki : Assert Vault PKI vars are set"
+  ansible.builtin.assert:
+    that:
+      - bootstrap_pki__vault_url | d('') | length > 0
+      - bootstrap_pki__vault_token | d('') | length > 0
+    fail_msg: bootstrap_pki__vault_url and bootstrap_pki__vault_token must be set
+
+- name: "validate-vault-pki : Check Vault seal status"
+  community.hashi_vault.vault_read:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "sys/seal-status"
+    validate_certs: false
+  register: __vault_seal_status
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Assert Vault is unsealed"
+  ansible.builtin.assert:
+    that: __vault_seal_status.data.sealed | bool == false
+    fail_msg: "Vault at {{ bootstrap_pki__vault_url }} is sealed. Please unseal it before running this role."
+
+- name: "validate-vault-pki : Set __required_paths"
+  ansible.builtin.set_fact:
+    __required_paths:
+      - "sys/mounts/{{ bootstrap_pki__vault_mount_path }}"
+      - "{{ bootstrap_pki__vault_mount_path }}/intermediate/set-signed"
+      - "{{ bootstrap_pki__vault_mount_path }}/roles/*"
+      - "{{ bootstrap_pki__vault_mount_path }}/config/urls"
+      - "auth/token/create"
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Verify token capabilities for PKI setup"
+  ansible.builtin.uri:
+    url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_api_version }}/sys/capabilities"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      token: "{{ bootstrap_pki__vault_token }}"
+      paths: "{{ __required_paths }}"
+    validate_certs: false
+    return_content: true
+    status_code: [200, 204]
+  register: __token_caps
+  ignore_errors: true
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Debug token capabilities"
+  ansible.builtin.debug:
+    var: __token_caps
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Fail on invalid token or API error"
+  when: __token_caps.status is not defined or __token_caps.status != 200
+  ansible.builtin.fail:
+    msg: |
+      Invalid or insufficient token for capabilities check.
+      Status: {{ __token_caps.status | d('N/A') }}
+      Message: {{ __token_caps.msg | d('No message') }}
+      Ensure the bootstrap_pki__vault_token is valid and has 'update' capability on 'sys/capabilities'.
+  delegate_to: localhost
+  run_once: true
+
+# Ensures root-like perms for mounts/tokens
+- name: "validate-vault-pki : Assert required capabilities for PKI setup"
+  ansible.builtin.assert:
+    that:
+      - "'root' in __token_caps.json.data[item]"
+    fail_msg: |
+      Token lacks required capabilities for path {{ item }}.
+      Required: root
+      Current capabilities for {{ item }}: {{ __token_caps.json.data[item] }}.
+      Ensure the token (e.g., root token) has sufficient permissions for PKI bootstrap.
+  loop: "{{ __required_paths }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Debug capabilities structure"
+  when: bootstrap_pki__debug | bool
+  ansible.builtin.debug:
+    var: __token_caps.json.data
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Additional capability verification"
+  when:
+    - __token_caps.status == 200
+    - bootstrap_pki__debug | bool
+  ansible.builtin.debug:
+    msg: "Path {{ item }} has capabilities: {{ __token_caps.json.data[item] }}"
+  loop: "{{ __required_paths }}"
+  delegate_to: localhost
+  run_once: true

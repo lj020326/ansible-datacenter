@@ -1,0 +1,85 @@
+---
+
+- name: "TEST x509_certificate_verify"
+  hosts: localhost
+  vars:
+    test_cert_basename: "ca-test.pem"
+    test_csr_basename: "ca-test.csr"
+    test_key_basename: "ca-test-key.pem"
+    test_common_name: "MyOrg Root CA"
+    test_key_algo: "rsa"
+    test_key_size: 4096
+    test_expected_result:
+      changed: false
+      failed: false
+      msg: All certificate validations passed successfully
+      valid: true
+  tasks:
+
+    - name: "Create __test_temp_dir"
+      ansible.builtin.include_tasks: tasks/create-test-temp-dir.yml
+
+    - name: "Set path info"
+      ansible.builtin.set_fact:
+        test_cert_path: "{{ __test_temp_dir }}/{{ test_cert_basename }}"
+        test_csr_path: "{{ __test_temp_dir }}/{{ test_csr_basename }}"
+        test_key_path: "{{ __test_temp_dir }}/{{ test_key_basename }}"
+
+    - name: "Create a private key for the test CA"
+      community.crypto.openssl_privatekey:
+        path: "{{ test_key_path }}"
+        type: "{{ test_key_algo | upper }}"
+        size: "{{ test_key_size }}"
+
+    - name: "Create a CSR for the test certificate"
+      community.crypto.openssl_csr:
+        path: "{{ test_csr_path }}"
+        privatekey_path: "{{ test_key_path }}"
+        common_name: "{{ test_common_name }}"
+        basic_constraints:
+          - CA:TRUE
+        basic_constraints_critical: true
+        key_usage:
+          - digitalSignature
+
+    - name: "Create a self-signed test certificate"
+      community.crypto.x509_certificate:
+        path: "{{ test_cert_path }}"
+        privatekey_path: "{{ test_key_path }}"
+        provider: selfsigned
+        csr_path: "{{ test_csr_path }}"
+      register: __create_cert_result
+
+    - name: "Display __create_cert_result"
+      ansible.builtin.debug:
+        var: __create_cert_result
+
+    - name: "Get properties of the newly created certificate"
+      community.crypto.x509_certificate_info:
+        path: "{{ test_cert_path }}"
+      register: __cert_info
+
+    - name: "Display __cert_info"
+      ansible.builtin.debug:
+        var: __cert_info
+
+    - name: "Validate existing Root CA properties"
+      dettonville.utils.x509_certificate_verify:
+        path: "{{ test_cert_path }}"
+        common_name: "{{ test_common_name }}"
+        key_algo: "{{ test_key_algo }}"
+        key_size: "{{ test_key_size }}"
+        validate_expired: true
+      register: __cert_verify_result
+
+    - name: "Display __cert_verify_result"
+      ansible.builtin.debug:
+        var: __cert_verify_result
+
+    - name: "Assert x509_certificate_verify returns the expected result"
+      ansible.builtin.assert:
+        that:
+          - __cert_verify_result.changed == test_expected_result.changed
+          - __cert_verify_result.failed == test_expected_result.failed
+          - __cert_verify_result.valid == test_expected_result.valid
+          - __cert_verify_result.msg == test_expected_result.msg

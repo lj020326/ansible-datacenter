@@ -1,0 +1,88 @@
+---
+- name: configure_vcenter | Add vCenter license
+  community.vmware.vcenter_license:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    license: "{{ bootstrap_vsphere__vcenter_license }}"
+    state: present
+    validate_certs: false
+
+- name: configure_vcenter | Create Datacenter
+  community.vmware.vmware_datacenter:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter_name: "{{ bootstrap_vsphere__vcenter_datacenter }}"
+    state: present
+    validate_certs: false
+
+## Although this module can manage DRS, HA and VSAN related configurations, this functionality is deprecated and will be removed in 2.12.
+## To manage DRS, HA and VSAN related configurations, use the new modules vmware_cluster_drs, vmware_cluster_ha and vmware_cluster_vsan
+## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_cluster_module.html
+- name: configure_vcenter | Create Clusters
+  vmware.vmware.cluster:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__vcenter_datacenter }}"
+    cluster: "{{ item.key }}"
+    validate_certs: false
+    state: present
+  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+- name: configure_vcenter | Configure Cluster DRS behavior
+  #  vmware_cluster:
+  vmware.vmware.cluster_drs:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__vcenter_datacenter }}"
+    cluster: "{{ item.key }}"
+    validate_certs: false
+    enable: "{{ item.value.enable_drs }}"
+    drs_default_vm_behavior: "{{ item.value.drs_default_vm_behavior | d(omit) }}"
+    drs_vmotion_rate: "{{ item.value.drs_vmotion_rate | d(omit) }}"
+    predictive_drs: "{{ item.value.predictive_drs | d(omit) }}"
+  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+# Need to disable HA until after vSAN is enabled and disks are claimed then re-enable
+- name: configure_vcenter | Disable Cluster HA
+  vmware.vmware.cluster_ha:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__vcenter_datacenter }}"
+    cluster: "{{ item.key }}"
+    validate_certs: false
+    enable: false
+  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+## this role requires installing the vsan SDK manually
+## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_cluster_vsan_module.html
+## ref: https://code.vmware.com/web/sdk/6.7.0/vsan-python
+#- name: "configure_vcenter | Disable Clusters vSAN"
+##  vmware.vmware.cluster_vsan:
+#  vmware.vmware.cluster_vsan:
+#    hostname: "{{ bootstrap_vsphere__vcenter_ip }}"
+#    username: "{{ bootstrap_vsphere__vcenter_username }}"
+#    password: "{{ bootstrap_vsphere__vcenter_password }}"
+#    datacenter: "{{ bootstrap_vsphere__vcenter_datacenter }}"
+#    cluster: "{{ item.key }}"
+#    validate_certs: False
+#    enable_vsan: False  # Hardcoded as we need to enable vSAN when the hosts are added to the cluster
+#  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+- name: configure_vcenter | Create a VM folder on given datacenter
+  vmware.vmware.folder:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__vcenter_datacenter }}"
+#    absolute_path: "/{{ bootstrap_vsphere__vcenter_datacenter }}/{{ item.type }}/{{ item.name }}"
+    relative_path: "{{ item.name }}"
+    folder_type: "{{ item.type }}"
+    state: present
+    validate_certs: false
+  loop: "{{ bootstrap_vsphere__vcenter_folders }}"
+  register: vm_folder_creation_result

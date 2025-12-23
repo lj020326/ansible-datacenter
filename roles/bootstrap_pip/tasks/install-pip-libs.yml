@@ -7,8 +7,8 @@
   when:
 #    - not __bootstrap_pip__system_pip_upgrade_enabled|bool
     - __bootstrap_pip_env.virtualenv is not defined
-    - __bootstrap_pip_env.pip_version|d('')=='latest'
-    - __bootstrap_pip_env.system|d(False)|bool
+    - __bootstrap_pip_env.pip_version | d('')=='latest'
+    - __bootstrap_pip_env.system | d(False) | bool
   ansible.builtin.package:
     name: "{{ bootstrap_pip__packages }}"
     state: latest
@@ -17,8 +17,8 @@
   when:
 #    - __bootstrap_pip__system_pip_upgrade_enabled|bool
     - __bootstrap_pip_env.virtualenv is not defined
-    - __bootstrap_pip_env.pip_version|d('')=='latest'
-    - not __bootstrap_pip_env.system|d(False)|bool
+    - __bootstrap_pip_env.pip_version | d('')=='latest'
+    - not __bootstrap_pip_env.system | d(False) | bool
   ansible.builtin.include_tasks: run-get-pip.yml
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv"
@@ -39,7 +39,7 @@
 
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Remove existing virtualenv if rebuilding venv"
       when:
-        - bootstrap_pip__env_force_rebuild|d(False)|bool
+        - bootstrap_pip__env_force_rebuild | d(False) | bool
         - __virtual_env_python != __bootstrap_pip__python_interpreter
       ansible.builtin.file:
         path: "{{ __bootstrap_pip_env.virtualenv }}"
@@ -62,14 +62,15 @@
             state: present
             umask: "0022"
             virtualenv: "{{ __bootstrap_pip_env.virtualenv }}"
-            virtualenv_site_packages: "{{ __bootstrap_pip_env.virtualenv_site_packages | d(True) }}"
+            virtualenv_site_packages: "{{ __bootstrap_pip_env.virtualenv_site_packages | d(omit) }}"
+#            virtualenv_site_packages: "{{ __bootstrap_pip_env.virtualenv_site_packages | d(True) }}"
 #            virtualenv_python: "{{ __bootstrap_pip_env.python_executable | d(__bootstrap_pip__python_executable) }}"
 #            virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(omit) }}"
             virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(__bootstrap_pip__virtualenv_command) }}"
           register: __pip_update_result
 
         - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up latest pip"
-          when: __bootstrap_pip_env.pip_version|d('')=='latest'
+          when: __bootstrap_pip_env.pip_version | d('')=='latest'
           ansible.builtin.pip:
             name: pip
             state: latest
@@ -81,7 +82,7 @@
           register: __pip_update_result
 
         - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Ensure pip version is at [{{ __bootstrap_pip_env.pip_version }}]"
-          when: __bootstrap_pip_env.pip_version|d('')!='latest'
+          when: __bootstrap_pip_env.pip_version | d('')!='latest'
           ansible.builtin.pip:
             name: pip=={{ __bootstrap_pip_env.pip_version }}
             state: present
@@ -101,7 +102,7 @@
           ansible.builtin.include_tasks: run-get-pip.yml
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Init __bootstrap_pip_env_libs_list_by_priority"
-  when: __bootstrap_pip__library_list_by_priority|d([])|length>0
+  when: __bootstrap_pip__library_list_by_priority | d([]) | length > 0
   block:
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display __bootstrap_pip__library_list_by_priority"
       ansible.builtin.debug:
@@ -112,14 +113,15 @@
         __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority }}"
 
 #- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
-#  when: __bootstrap_pip_env.libraries|d([])|length>0
+#  when: __bootstrap_pip_env.libraries | d([]) | length > 0
 #  ansible.builtin.set_fact:
-#    __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip_env_libs_list_by_priority | d({}) | combine({ (item.priority | default(bootstrap_pip__lib_priority_default)|int):
-#      { item.state | default(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
+#    __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip_env_libs_list_by_priority
+#    | d({}) | combine({ (item.priority | d(bootstrap_pip__lib_priority_default)|int):
+#      { item.state | d(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
 #  loop: "{{ __bootstrap_pip_env.libraries }}"
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
-  when: __bootstrap_pip_env.libraries|d([])|length > 0
+  when: __bootstrap_pip_env.libraries | d([]) | length > 0
   ansible.builtin.set_fact:
     __bootstrap_pip_env_libs_list_by_priority: >-
       {{ __bootstrap_pip_env_libs_list_by_priority | d({}) | combine({
@@ -141,7 +143,7 @@
     - not __bootstrap_pip_env.system|bool
     - __bootstrap_pip_env.virtualenv is defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
-    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys()|d([])|length>0
+    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | d([]) | length > 0
   environment: "{{ bootstrap_pip__venv_environment_vars | d({}) }}"
   ansible.builtin.pip:
     name: "{{ __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | list }}"
@@ -163,7 +165,7 @@
     - __bootstrap_pip_env.system|bool
     - __bootstrap_pip__system_pip_install_libs_allowed|bool
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
-    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys()|d([])|length>0
+    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | d([]) | length > 0
   #  environment: "{{ bootstrap_pip__venv_environment_vars | d({}) }}"
   environment:
     #    PATH: "$PATH:/usr/bin:/usr/local/bin"
@@ -185,10 +187,10 @@
 #- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Install python libraries into virtualenv"
 #  when:
 #    - __bootstrap_pip_env.virtualenv is defined
-#    - item.name | d()
+#    - item.name | d('') | length > 0
 #  ansible.builtin.pip:
 #    name: >
-#      {{ item.name }}{% if item.version|d('')|length>0 %}=={{ item.version }}{% endif %}
+#      {{ item.name }}{% if item.version | d('') | length > 0 %}=={{ item.version }}{% endif %}
 #    state: "{{ item.virtualenv_state | d('present') }}"
 #    umask: "0022"
 #    executable: "{{ __bootstrap_pip_env.pip_executable | d(omit) }}"

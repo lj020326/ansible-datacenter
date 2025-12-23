@@ -52,7 +52,7 @@
 - name: Ensure group exist with correct gid
   when:
     - item.gid is defined
-    - item.gid!=__getent_group[item.name][1]|d('')
+    - item.gid!=__getent_group[item.name][1] | d('')
   #  ignore_errors: true
   ansible.builtin.group:
     name: "{{ item.name }}"
@@ -62,7 +62,6 @@
   loop_control:
     label: "{{ item.name }}"
 
-## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-password-with-ansible
 - name: Add users with groups
   when: item.bootstrap_user | d(True) | bool
   no_log: true
@@ -75,7 +74,7 @@
     uid: "{{ item.uid | d(omit) }}"
     group: "{{ item.gid | d(omit) }}"
     groups: "{{ item.groups | d(omit) }}"
-    password: "{{ user_password | d(omit) }}"
+    password: "{{ final_password | d(omit) }}"
     generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
     ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
     ssh_key_file: "{{ item.ssh_key_file | d(omit) }}"
@@ -85,18 +84,24 @@
   loop_control:
     label: "{{ item.name }}"
   vars:
-    # Set a temporary variable for the password to handle conditional logic
-    user_password: >-
+    # 1. Define the input password (unhashed or pre-hashed)
+    input_password: >-
       {{ item.password | d(
           bootstrap_linux_user__credentials[item.name].hashed_password | d(
             bootstrap_linux_user__credentials[item.name].password | d(omit)
           )
         )
       }}
-    # Conditionally hash the password if it's not omit
-    hashed_password: >-
-      {{ user_password if user_password is string else omit }}
-    final_password: "{{ hashed_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+
+    # 2. Check if the password needs hashing
+    # If the input_password is a string AND does NOT look like a hash (e.g., starts with $), it will be hashed.
+    # Otherwise, it will be kept as is (if it's already hashed) or omitted (if it was omit).
+    final_password: >-
+      {%- if input_password is string and not input_password | regex_search('^\$(?:1|2[ayb]?|5|6)\$') -%}
+        {{ input_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}
+      {%- else -%}
+        {{ input_password }}
+      {%- endif -%}
 
 ## ref: https://github.com/lj020326/ansible-set-user-password-expire/blob/main/passwords-set-expire.yml
 - name: "Fetch user valid days from /etc/shadow"
@@ -137,7 +142,7 @@
     mode: "0755"
 
 - name: "Add to sudoers"
-  when: item.system|d(False)|bool
+  when: item.system | d(False) | bool
   no_log: true
   ansible.builtin.copy:
     dest: /etc/sudoers.d/{{ item.name }}
@@ -173,7 +178,7 @@
     verbosity: 1
 
 - name: "Add user SSH authorized keys"
-  #  no_log: true
+  no_log: true
   when:
     - bootstrap_linux_user__credentials is defined
     - bootstrap_linux_user__credentials[item.name] is defined
@@ -190,7 +195,7 @@
 #    var: __all_bootstrap_linux_user__list
 
 - name: "Add user SSH private key"
-  #  no_log: true
+  no_log: true
   when: bootstrap_linux_user__credentials[item.name].ssh_keypair.private is defined
   ansible.builtin.copy:
     content: "{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.private }}"
@@ -216,8 +221,8 @@
     label: "{{ item.name }}"
 
 - name: "Copy bash env files to home directory"
-  when: item.0.setup_bashenv|d(True)|bool
-  #  no_log: true
+  when: item.0.setup_bashenv | d(True) | bool
+  no_log: true
   ansible.builtin.copy:
     backup: true
     src: "{{ item.1 }}"
@@ -230,8 +235,8 @@
     label: Copy {{ item.1 | basename }} to {{ item.0.home_dir }}
 
 - name: "Template bash env files to home directory"
-  when: item.0.setup_bashenv|d(True)|bool
-  #  no_log: true
+  when: item.0.setup_bashenv | d(True) | bool
+  no_log: true
   ansible.builtin.template:
     backup: true
     src: "{{ item.1 }}"
@@ -239,6 +244,6 @@
     mode: "0644"
     owner: "{{ item.0.name }}"
     force: true
-  loop: "{{ __bootstrap_linux_user__list | product( lookup('fileglob', 'templates/bashenv/.*', wantlist=True)) | list }}"
+  loop: "{{ __bootstrap_linux_user__list | product(lookup('fileglob', 'templates/bashenv/.*', wantlist=True)) | list }}"
   loop_control:
     label: Copy {{ item.1 | basename }} to {{ item.0.home_dir }}

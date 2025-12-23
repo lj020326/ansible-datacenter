@@ -1,37 +1,214 @@
-# bootstrap_kubernetes
+# Ansible Role: Kubernetes
 
-## Important Considerations
+An Ansible Role that installs [Kubernetes](https://kubernetes.io) on Linux.
 
-**Kubernetes Version**: This role pins the Kubernetes version to 1.33.4-1.1 (latest patch as of August 2025, EOL ~June 2026). Check https://kubernetes.io/releases/ for the latest stable version compatible with kubeadm and kubelet. Ubuntu 24.04 ("Noble Numbat") uses modern APT keyrings.
+## Requirements
 
-**GPG Key Handling**: The role downloads the Kubernetes signing key (ID: 234654DA9A296436, valid until December 2026) and converts it to binary format. If "NO_PUBKEY" errors occur, verify:
-- Key file exists: `ls -l /etc/apt/keyrings/kubernetes-apt-keyring.gpg` (should be 0644).
-- Key integrity: `gpg --keyring /etc/apt/keyrings/kubernetes-apt-keyring.gpg --list-keys 234654DA9A296436`.
-- Repository file: `cat /etc/apt/sources.list.d/kubernetes.list` (should be `deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /`).
-- Manual fix: `curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg`.
+Requires a compatible [Container Runtime](https://kubernetes.io/docs/setup/production-environment/container-runtimes); recommended role for CRI installation: `geerlingguy.containerd`.
 
-**Kubernetes Admin User**: The role creates a user (default: `kubernetes`) for managing Kubernetes configurations. Override the username by setting `bootstrap_kubernetes__user` in your inventory or playbook vars. For example:
-  ```yaml
-  bootstrap_kubernetes__user: "k8sadmin"
-  ```
-  The role ensures the user exists with a home directory and bash shell.
+## Role Variables
 
-**CNI Plugin**: Installs Calico as the CNI plugin. For alternatives (e.g., Flannel, Cilium), modify the `Install Calico CNI` task.
+Available variables are listed below, along with default values (see `defaults/main.yml`):
 
-**Production Readiness**: This sets up a single-node cluster for testing/development. For production, use a multi-node setup with monitoring, storage, and networking.
+```yaml
+bootstrap_kubernetes__packages:
+  - name: kubelet
+    state: present
+  - name: kubectl
+    state: present
+  - name: kubeadm
+    state: present
+  - name: kubernetes-cni
+    state: present
+```
 
-**GPU Drivers**: This role does not install NVIDIA GPU drivers. Use a separate role for GPU support and the NVIDIA Container Toolkit.
+Kubernetes packages to be installed on the server. You can either provide a list of package names, or set `name` and `state` to have more control over whether the package is `present`, `absent`, `latest`, etc.
 
-**Troubleshooting**:
-- If "Final apt update" fails with "NO_PUBKEY":
-  - Check `ansible.log` for details (e.g., `NO_PUBKEY`, 403 Forbidden, or timeout).
-  - Verify key file: `ls -l /etc/apt/keyrings/kubernetes-apt-keyring.gpg`.
-  - Check key content: `gpg --keyring /etc/apt/keyrings/kubernetes-apt-keyring.gpg --list-keys 234654DA9A296436`.
-  - Inspect repository: `cat /etc/apt/sources.list.d/kubernetes.list`.
-  - Manually re-download key: `curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg`.
-  - Add key to APT: `sudo apt-key add /etc/apt/keyrings/kubernetes-apt-keyring.asc` (deprecated but can help diagnose).
-- Test connectivity: `curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key`.
-- Run playbook with verbose output: `ansible-playbook -i inventory/PROD site.yml -vvv`.
-- Check APT config: `cat /etc/apt/apt.conf.d/*` for conflicting settings.
-- Verify containerd configuration: `cat /etc/containerd/config.toml | grep -A 5 '\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options\]'` (should include `SystemdCgroup = true`).
-- Verify user creation: `id {{ bootstrap_kubernetes__user }}` to ensure the user exists.
+```yaml
+bootstrap_kubernetes__version: '1.32'
+bootstrap_kubernetes__version_rhel_package: '1.32'
+```
+
+The minor version of Kubernetes to install. The plain `bootstrap_kubernetes__version` is used to pin an apt package version on Debian, and as the Kubernetes version passed into the `kubeadm init` command (see `bootstrap_kubernetes__version_kubeadm`). The `bootstrap_kubernetes__version_rhel_package` variable must be a specific Kubernetes release, and is used to pin the version on Red Hat / CentOS servers.
+
+```yaml
+bootstrap_kubernetes__role: control_plane
+```
+
+Whether the particular server will serve as a Kubernetes `control_plane` (default) or `node`. The control plane will have `kubeadm init` run on it to intialize the entire K8s control plane, while `node`s will have `kubeadm join` run on them to join them to the `control_plane`.
+
+### Variables to configure kubeadm and kubelet with `kubeadm init` through a config file (recommended)
+
+With this role, `kubeadm init` will be run with `--config <FILE>`.
+
+```yaml
+bootstrap_kubernetes__kubeadm_kubelet_config_file_path: '/etc/kubernetes/kubeadm-kubelet-config.yaml'
+```
+
+Path for `<FILE>`. If the directory does not exist, this role will create it.
+
+The following variables are parsed as options to <FILE>. To understand its syntax, see [kubelet-integration](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration) and [kubeadm-config-file](https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-init/#config-file) . The skeleton (`apiVersion`, `kind`) of the config file will be created by this role, so do not define them within the variables. (See `templates/kubeadm-kubelet-config.j2`).
+
+```yaml
+bootstrap_kubernetes__config_init_configuration:
+  localAPIEndpoint:
+    advertiseAddress: "{{ bootstrap_kubernetes__apiserver_advertise_address | default(ansible_default_ipv4.address, true) }}"
+```
+
+Defines the options under `kind: InitConfiguration`. Including `bootstrap_kubernetes__apiserver_advertise_address` here is for backward-compatibilty to older versions of this role, where `bootstrap_kubernetes__apiserver_advertise_address` was used with a command-line-option.
+
+```yaml
+bootstrap_kubernetes__config_cluster_configuration:
+  networking:
+    podSubnet: "{{ bootstrap_kubernetes__pod_network.cidr }}"
+  kubernetesVersion: "{{ bootstrap_kubernetes__version_kubeadm }}"
+```
+
+Options under `kind: ClusterConfiguration`. Including `bootstrap_kubernetes__pod_network.cidr` and `bootstrap_kubernetes__version_kubeadm` here are for backward-compatibilty to older versions of this role, where they were used with command-line-options.
+
+```yaml
+bootstrap_kubernetes__config_kubelet_configuration:
+  cgroupDriver: systemd
+```
+
+Options to configure kubelet on any nodes in your cluster through the `kubeadm init` process. For syntax options read the [kubelet config file](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file) and [kubelet integration](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration) documentation.
+
+NOTE: This is the recommended way to do the kubelet-configuration. Most command-line-options are deprecated.
+
+NOTE: The recommended cgroupDriver depends on your [Container Runtime](https://kubernetes.io/docs/setup/production-environment/container-runtimes). When using this role with Docker instead of containerd, this value should be changed to `cgroupfs`.
+
+```yaml
+bootstrap_kubernetes__config_kube_proxy_configuration: {}
+```
+
+Options to configure kubelet's proxy configuration in the `KubeProxyConfiguration` section of the kubelet configuration.
+
+### Variables to configure kubeadm and kubelet through command-line-options
+
+```yaml
+bootstrap_kubernetes__kubelet_extra_args: ""
+bootstrap_kubernetes__kubelet_extra_args_config_file: /etc/default/kubelet
+```
+
+Extra args to pass to `kubelet` during startup. E.g. to allow `kubelet` to start up even if there is swap is enabled on your server, set this to: `"--fail-swap-on=false"`. Or to specify the node-ip advertised by `kubelet`, set this to `"--node-ip={{ ansible_host }}"`. **This option is deprecated. Please use `bootstrap_kubernetes__config_kubelet_configuration` instead.**
+
+```yaml
+bootstrap_kubernetes__kubeadm_init_extra_opts: ""
+```
+
+Extra args to pass to `kubeadm init` during K8s control plane initialization. E.g. to specify extra Subject Alternative Names for API server certificate, set this to: `"--apiserver-cert-extra-sans my-custom.host"`
+
+```yaml
+bootstrap_kubernetes__join_command_extra_opts: ""
+```
+
+Extra args to pass to the generated `kubeadm join` command during K8s node initialization. E.g. to ignore certain preflight errors like swap being enabled, set this to: `--ignore-preflight-errors=Swap`
+
+### Additional variables
+
+```yaml
+bootstrap_kubernetes__allow_pods_on_control_plane: true
+```
+
+Whether to remove the taint that denies pods from being deployed to the Kubernetes control plane. If you have a single-node cluster, this should definitely be `True`. Otherwise, set to `False` if you want a dedicated Kubernetes control plane which doesn't run any other pods.
+
+```yaml
+bootstrap_kubernetes__pod_network:
+  # Flannel CNI.
+  cni: 'flannel'
+  cidr: '10.244.0.0/16'
+  #
+  # Calico CNI.
+  # cni: 'calico'
+  # cidr: '192.168.0.0/16'
+  #
+  # Weave CNI.
+  # cni: 'weave'
+  # cidr: '192.168.0.0/16'
+```
+
+This role currently supports `flannel` (default), `calico` or `weave` for cluster pod networking. Choose only one for your cluster; converting between them is not done automatically and could result in broken networking; if you need to switch from one to another, it should be done outside of this role.
+
+```yaml
+bootstrap_kubernetes__apiserver_advertise_address: ''`
+bootstrap_kubernetes__version_kubeadm: 'stable-{{ bootstrap_kubernetes__version }}'`
+bootstrap_kubernetes__ignore_preflight_errors: 'all'
+```
+
+Options passed to `kubeadm init` when initializing the Kubernetes control plane. The `bootstrap_kubernetes__apiserver_advertise_address` defaults to `ansible_default_ipv4.address` if it's left empty.
+
+```yaml
+bootstrap_kubernetes__apt_release_channel: "stable"
+bootstrap_kubernetes__apt_repository: "https://pkgs.k8s.io/core:/{{ bootstrap_kubernetes__apt_release_channel }}:/v{{ bootstrap_kubernetes__version }}/deb/"
+```
+
+Apt repository options for Kubernetes installation.
+
+```yaml
+bootstrap_kubernetes__yum_base_url: "https://pkgs.k8s.io/core:/stable:/v{{ bootstrap_kubernetes__version }}/rpm/"
+bootstrap_kubernetes__yum_gpg_key: "https://pkgs.k8s.io/core:/stable:/v{{ bootstrap_kubernetes__version }}/rpm/repodata/repomd.xml.key"
+bootstrap_kubernetes__yum_gpg_check: true
+bootstrap_kubernetes__yum_repo_gpg_check: true
+```
+
+Yum repository options for Kubernetes installation. You can change `kubernete_yum_gpg_key` to a different url if you are behind a firewall or provide a trustworthy mirror. Usually in combination with changing `bootstrap_kubernetes__yum_base_url` as well.
+
+```yaml
+bootstrap_kubernetes__flannel_manifest_file: https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+```
+
+Flannel manifest file to apply to the Kubernetes cluster to enable networking. You can copy your own files to your server and apply them instead, if you need to customize the Flannel networking configuration.
+
+```yaml
+bootstrap_kubernetes__calico_manifest_file: https://projectcalico.docs.tigera.io/manifests/calico.yaml
+```
+
+Calico manifest file to apply to the Kubernetes cluster (if using Calico instead of Flannel).
+
+## Dependencies
+
+None.
+
+## Example Playbooks
+
+### Single node (control-plane-only) cluster
+
+```yaml
+- hosts: all
+
+  vars:
+    bootstrap_kubernetes__allow_pods_on_control_plane: true
+
+  roles:
+    - geerlingguy.docker
+    - geerlingguy.kubernetes
+```
+
+### Two or more nodes (single control-plane) cluster
+
+Control plane inventory vars:
+
+```yaml
+bootstrap_kubernetes__role: "control_plane"
+```
+
+Node(s) inventory vars:
+
+```yaml
+bootstrap_kubernetes__role: "node"
+```
+
+Playbook:
+
+```yaml
+- hosts: all
+
+  vars:
+    bootstrap_kubernetes__allow_pods_on_control_plane: true
+
+  roles:
+    - geerlingguy.docker
+    - geerlingguy.kubernetes
+```
+
+Then, log into the Kubernetes control plane, and run `kubectl get nodes` as root, and you should see a list of all the servers.

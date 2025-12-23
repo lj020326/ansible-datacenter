@@ -1,0 +1,27 @@
+---
+- name: "ensure-pki-roles : Display __current_role"
+  ansible.builtin.debug:
+    var: __current_role
+    verbosity: 1
+
+- name: "ensure-pki-roles : Configure role '{{ __current_role.name }}' in Vault PKI"
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "{{ bootstrap_pki__vault_mount_path }}/roles/{{ __current_role.name }}"
+    data:
+      allowed_domains: "{{ __current_role.allowed_domains }}"
+      allow_subdomains: "{{ __current_role.allow_subdomains | d(false) }}"
+      max_ttl: "{{ __current_role.max_ttl }}"
+      ttl: "{{ __current_role.ttl }}"
+      key_type: "{{ __current_role.key_type | d('rsa') | replace('ecdsa', 'ec') }}"
+      key_bits: "{{ __current_role.key_bits | d(2048) }}"
+      key_usage:
+        - "DigitalSignature"
+        - "KeyAgreement"
+        - "KeyEncipherment"
+      require_cn: true
+      generate_lease: false
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true

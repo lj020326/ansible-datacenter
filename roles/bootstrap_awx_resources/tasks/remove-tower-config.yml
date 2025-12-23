@@ -1,0 +1,306 @@
+---
+##
+## Remove SAML org-team maps
+##
+
+- name: Remove mappings from saml team-org map
+  when: tower_saml_team_org_maps | d([]) | length > 0
+  block:
+    - name: Create implied team maps from tower_teams
+      ansible.builtin.set_fact:
+        implied_team_org_maps: "{{ implied_team_org_maps | d([]) +  [ {'organization': item.organization, 'team': item.name } ] }}"
+      loop: "{{ tower_teams | d([]) }}"
+
+    - name: display implied_team_org_maps
+      ansible.builtin.debug:
+        var: implied_team_org_maps | d([])
+
+    - name: Get current the SAML settings
+      ansible.builtin.set_fact:
+        tower_saml_settings: "{{ lookup('awx.awx.api', 'settings/saml') }}"
+
+    - name: Get current the SAML team attributes
+      ansible.builtin.set_fact:
+        tower_saml_team_attr: "{{ tower_saml_settings['SOCIAL_AUTH_SAML_TEAM_ATTR'] }}"
+
+    - name: Get current the SAML team maps
+      ansible.builtin.set_fact:
+        tower_saml_team_maps_current: "{{ tower_saml_team_attr['team_org_map'] | d([]) }}"
+
+    - name: display tower_saml_team_maps_current
+      ansible.builtin.debug:
+        var: tower_saml_team_maps_current
+
+    - name: Set tower_saml_team_maps_remove_by_paired_key fact
+      ansible.builtin.set_fact:
+        tower_saml_team_maps_remove_by_paired_key: "{{ tower_saml_team_maps_remove_by_paired_key | d({}) | combine( { item.organization+'-'+item.team : item }
+          ) }}"
+      loop: "{{ tower_saml_team_org_maps + implied_team_org_maps | d([]) }}"
+
+    - name: display tower_saml_team_maps_remove_by_paired_key
+      ansible.builtin.debug:
+        var: tower_saml_team_maps_remove_by_paired_key
+
+    - name: Set tower_saml_team_maps_new_by_paired_key fact
+      when: item.organization+'-'+item.team not in tower_saml_team_maps_remove_by_paired_key
+      ansible.builtin.set_fact:
+        tower_saml_team_maps_new_by_paired_key: "{{ tower_saml_team_maps_new_by_paired_key | d({}) | combine( { item.organization+'-'+item.team : item } ) }}"
+      loop: "{{ tower_saml_team_maps_current }}"
+
+    - name: display tower_saml_team_maps_new_by_paired_key
+      ansible.builtin.debug:
+        var: tower_saml_team_maps_new_by_paired_key
+
+    - name: Create list of unique org-team maps
+      ansible.builtin.set_fact:
+        tower_saml_team_maps_new_uniq: "{{ tower_saml_team_maps_new_by_paired_key.values() }}"
+
+    - name: display tower_saml_team_maps_new_uniq
+      ansible.builtin.debug:
+        var: tower_saml_team_maps_new_uniq
+
+    - name: Set new SAML team map
+      awx.awx.settings:
+        settings:
+          SOCIAL_AUTH_SAML_TEAM_ATTR:
+            team_org_map: "{{ tower_saml_team_maps_new_uniq }}"
+
+##
+## Remove roles
+##
+
+- name: Flatten the list of roles
+  ansible.builtin.set_fact:
+    tower_role_list: "{{ _role_list|from_yaml }}"
+  vars:
+    _role_list: |-
+      {% for i in tower_organizations %}
+      {% if "teams" in i %}
+      {% for j in i.teams %}
+      {% if "roles" in j %}
+      {% for k in j.roles %}
+      - {{ k | combine({ 'team': j.name, 'state': bootstrap_awx_resources__state }) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of roles
+  ansible.builtin.set_fact:
+    tower_role_list: "{{ tower_role_list | d([]) + tower_roles | d([]) }}"
+
+- name: Set tower_role_list state
+  ansible.builtin.set_fact:
+    tower_role_list: "{{ tower_role_list | map('combine', {'state': bootstrap_awx_resources__state }) }}"
+
+- name: Display tower_role_list
+  ansible.builtin.debug:
+    var: tower_role_list
+
+- name: Remove roles
+  when: tower_role_list|length>0
+  awx.awx.role: "{{ item }}"
+  loop: "{{ tower_role_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
+
+##
+## Remove teams
+##
+
+- name: Flatten the list of organization teams
+  ansible.builtin.set_fact:
+    tower_team_list: "{{ _team_list | d([])|from_yaml }}"
+  vars:
+    _team_list: |-
+      {% for i in tower_organizations %}
+      {% if "teams" in i %}
+      {% for j in i.teams %}
+      {% set copy=j.copy() %}
+      {% set removed=copy.pop('roles') %}
+      - {{ { 'organization': i.name, 'state': bootstrap_awx_resources__state } | combine(copy) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of teams
+  ansible.builtin.set_fact:
+    tower_team_list: "{{ tower_team_list | d([]) + tower_teams | d([]) }}"
+
+- name: Set tower_team_list state
+  ansible.builtin.set_fact:
+    tower_team_list: "{{ tower_team_list | map('combine', {'state': bootstrap_awx_resources__state }) }}"
+
+- name: Display tower_team_list
+  ansible.builtin.debug:
+    var: tower_team_list
+
+- name: Remove teams
+  when: tower_team_list | d([]) | length > 0
+  awx.awx.team: "{{ item }}"
+  loop: "{{ tower_team_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
+
+##
+## Remove job_templates
+##
+
+- name: Flatten the list of templates
+  ansible.builtin.set_fact:
+    tower_template_list: "{{ _template_list | d([])|from_yaml }}"
+  vars:
+    _template_list: |-
+      {% for i in tower_organizations %}
+      {% if "projects" in i %}
+      {% for j in i.projects %}
+      {% if "job_templates" in j %}
+      {% for k in j.job_templates %}
+      - {{ k | combine( { 'organization': i.name, 'project': j.name, 'state': 'absent' } ) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of job_templates
+  ansible.builtin.set_fact:
+    tower_template_list: "{{ tower_template_list | d([]) + tower_templates | d([]) }}"
+
+- name: Set tower_template_list state
+  ansible.builtin.set_fact:
+    tower_template_list: "{{ tower_template_list | map('combine', {'state': bootstrap_awx_resources__state }) }}"
+
+- name: Display tower_template_list
+  ansible.builtin.debug:
+    var: tower_template_list
+
+- name: Remove project job templates
+  when: tower_template_list | d([]) | length > 0
+  awx.awx.job_template: "{{ item }}"
+  loop: "{{ tower_template_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
+
+##
+## Remove projects
+##
+
+- name: Flatten the list of organization projects
+  ansible.builtin.set_fact:
+    tower_project_list: "{{ _project_list | d([])|from_yaml }}"
+  vars:
+    _project_list: |-
+      {% for i in tower_organizations %}
+      {% if "projects" in i %}
+      {% for j in i.projects %}
+      {% set copy=j.copy() %}{% set removed=copy.pop('job_templates') %}
+      - {{ { 'organization': i.name, 'state': bootstrap_awx_resources__state } | combine(copy) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of projects
+  ansible.builtin.set_fact:
+    tower_project_list: "{{ tower_project_list | d([]) + tower_projects | d([]) }}"
+
+- name: Set tower_project_list state
+  ansible.builtin.set_fact:
+    tower_project_list: "{{ tower_project_list | map('combine', {'state': bootstrap_awx_resources__state }) }}"
+
+- name: Display tower_project_list
+  ansible.builtin.debug:
+    var: tower_project_list
+
+- name: Remove projects
+  when: tower_project_list | d([]) | length > 0
+  awx.awx.project: "{{ item }}"
+  loop: "{{ tower_project_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
+
+##
+## Remove inventories
+##
+
+- name: Flatten the list of organization inventories
+  ansible.builtin.set_fact:
+    tower_inventory_list: "{{ _inventory_list | d([])|from_yaml }}"
+  vars:
+    _inventory_list: |-
+      {% for i in tower_organizations %}
+      {% if "inventories" in i %}
+      {% for j in i.inventories %}
+      - {{ { 'organization': i.name, 'state': bootstrap_awx_resources__state } | combine(j) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of inventories
+  ansible.builtin.set_fact:
+    tower_inventory_list: "{{ tower_inventory_list | d([]) + tower_inventories | d([]) }}"
+
+- name: Set tower_inventory_list state
+  ansible.builtin.set_fact:
+    tower_inventory_list: "{{ tower_inventory_list | map('combine', {'state': bootstrap_awx_resources__state }) }}"
+
+- name: Display tower_inventory_list
+  ansible.builtin.debug:
+    var: tower_inventory_list
+
+- name: Remove inventories
+  when: tower_inventory_list | d([]) | length > 0
+  awx.awx.inventory: "{{ item }}"
+  loop: "{{ tower_inventory_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
+
+##
+## Remove credentials
+##
+
+- name: Flatten the list of organization credentials
+  ansible.builtin.set_fact:
+    tower_credential_list: "{{ _credential_list|from_yaml }}"
+  vars:
+    _credential_list: |-
+      {% for i in tower_organizations %}
+      {% if "credentials" in i %}
+      {% for j in i.credentials %}
+      - {{ { 'organization': i.name, 'state': bootstrap_awx_resources__state } | combine(j) }}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+
+- name: Combine lists of credentials
+  ansible.builtin.set_fact:
+    tower_credential_list: "{{ tower_credential_list | d([]) + tower_credentials | d([]) }}"
+
+- name: Set tower_credential_list state
+  ansible.builtin.set_fact:
+    tower_credential_list: "{{ tower_credential_list | map('combine', {'state': bootstrap_awx_resources__state }) }}"
+
+- name: Display tower_credential_list
+  ansible.builtin.debug:
+    var: tower_credential_list
+
+- name: Remove org credentials
+  awx.awx.credential: "{{ item }}"
+  changed_when: false
+  loop: "{{ tower_credential_list }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg
+
+##
+## Remove organizations
+##
+
+- name: Remove organizations
+  when: tower_organizations|length>0
+  awx.awx.organization:
+    name: "{{ item.name }}"
+    state: "{{ bootstrap_awx_resources__state }}"
+  loop: "{{ tower_organizations }}"
+  register: tower_cmd
+  failed_when: tower_cmd is failed and "not found" not in tower_cmd.msg

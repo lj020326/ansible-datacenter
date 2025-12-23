@@ -1,0 +1,153 @@
+---
+bootstrap_pki__vault_url: "https://vault.example.int"
+bootstrap_pki__vault_token: ""
+## verify capabilities for the following tokens
+bootstrap_pki__vault_verify_token_capabilities: []
+bootstrap_pki__vault_api_version: "v1"
+
+## Enable KV engine at this path
+#bootstrap_pki__vault_kv_mount_point: "kv"
+bootstrap_pki__vault_kv_mount_point: "secret"
+
+bootstrap_pki__vault_mount_path: "pki-intermediate"
+bootstrap_pki__vault_ca_root_path: "{{ bootstrap_pki__vault_mount_path }}/root"
+bootstrap_pki__use_external_root_ca: false
+bootstrap_pki__debug: false
+
+bootstrap_pki__vault_ensure_admin_token: false
+
+bootstrap_pki__ca_basename: "ca"
+bootstrap_pki__ca_common_name: "MyOrg Root CA"
+bootstrap_pki__ca_key_algo: "rsa"
+bootstrap_pki__ca_key_size: 4096
+bootstrap_pki__vault_ca_key_algo: "ecdsa"
+bootstrap_pki__vault_ca_key_size: 256
+
+bootstrap_pki__ca_cert_duration_root: "438000h" # 50 years
+bootstrap_pki__ca_cert_duration_intermediate: "87600h" # 10 years
+bootstrap_pki__ca_cert_duration_server: "87600h" # 10 years
+bootstrap_pki__ca_cert_duration_client: "87600h" # 10 years
+bootstrap_pki__ca_cert_duration_default: "87600h" # 10 years
+
+bootstrap_pki__root_ca_crl_expiry: "8760h" # 1 year
+
+bootstrap_pki__ca_dir: "/etc/pki/cacerts"
+bootstrap_pki__ca_reset_cert: false
+bootstrap_pki__backup_retention_maximum_number: 10
+bootstrap_pki__encrypt_root_ca_key: false
+bootstrap_pki__encrypted_root_ca_key_path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__root_ca_cert_info.cert_basename }}-key.pem.vault"
+bootstrap_pki__vault_password: ""
+
+# Admin token configuration
+bootstrap_pki__admin_token_display_name: "admin_user_token"
+bootstrap_pki__admin_token_policies: ["admin"]
+bootstrap_pki__admin_token_ttl: "87600h"  # 10 years, matching intermediate CA
+
+bootstrap_pki__root_ca_cert_info:
+  cert_basename: "{{ bootstrap_pki__ca_basename }}"
+  common_name: "{{ bootstrap_pki__ca_common_name }}"
+  country: "{{ bootstrap_pki__ca_country | d(omit) }}"
+  state: "{{ bootstrap_pki__ca_state | d(omit) }}"
+  locality: "{{ bootstrap_pki__ca_locality | d(omit) }}"
+  organization: "{{ bootstrap_pki__ca_organization | d(omit) }}"
+  organizational_unit: "{{ bootstrap_pki__ca_organizational_unit | d(omit) }}"
+  email_address: "{{ bootstrap_pki__ca_email_address | d(omit) }}"
+  key_algo: "{{ bootstrap_pki__ca_key_algo }}"
+  key_size: "{{ bootstrap_pki__ca_key_size }}"
+  renewal_tolerance_days: 30
+
+bootstrap_pki__vault_ca_cert_info:
+  cert_basename: "intermediate-ca"
+  csr_json_filename: "intermediate-ca-csr.json"
+  common_name: "MyOrg Intermediate CA"
+  country: "{{ bootstrap_pki__ca_country | d(omit) }}"
+  state: "{{ bootstrap_pki__ca_state | d(omit) }}"
+  locality: "{{ bootstrap_pki__ca_locality | d(omit) }}"
+  organization: "{{ bootstrap_pki__ca_organization | d(omit) }}"
+  organizational_unit: "{{ bootstrap_pki__ca_organizational_unit | d(omit) }}"
+  email_address: "{{ bootstrap_pki__ca_email_address | d(omit) }}"
+  key_algo: "{{ bootstrap_pki__vault_ca_key_algo }}"
+  key_size: "{{ bootstrap_pki__vault_ca_key_size }}"
+  ca_signing_profile: intermediate_ca
+  ca_issuer_path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__root_ca_cert_info.cert_basename }}.pem"
+  ca_issuer_key_path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__root_ca_cert_info.cert_basename }}-key.pem"
+  renewal_tolerance_days: 90
+
+bootstrap_pki__vault_roles:
+  - name: "web-server"
+    allowed_domains:
+      - "example.com"
+      - "sub.example.com"
+    allow_subdomains: true
+    key_type: "rsa"
+    key_bits: 2048
+    max_ttl: "720h"
+    ttl: "24h"
+  - name: internal-api
+    allowed_domains:
+      - api.internal
+    allow_subdomains: true
+    key_type: "ecdsa"
+    key_bits: 256
+    max_ttl: "720h"
+    ttl: "720h"
+
+# Default CA renewal tolerance in days
+bootstrap_pki__ca_renewal_tolerance_days: 30
+
+bootstrap_pki__ca_cfssl_profiles:
+  signing:
+    default:
+      expiry: "{{ bootstrap_pki__ca_cert_duration_default }}"
+    profiles:
+      intermediate_ca:
+        usages:
+          - cert sign
+          - crl sign
+        is_ca: true
+        ca_constraint:
+          is_ca: true
+          max_path_len: 1
+        expiry: "{{ bootstrap_pki__ca_cert_duration_intermediate }}"
+      server:
+        usages:
+          - signing
+          - digital signature
+          - key encipherment
+          - server auth
+        expiry: "{{ bootstrap_pki__ca_cert_duration_client }}"
+      client:
+        usages:
+          - signing
+          - digital signature
+          - key encipherment
+          - client auth
+        expiry: "{{ bootstrap_pki__ca_cert_duration_root }}"
+
+# External CA certificates to fetch and store in secret/trusted_external (KV v1)
+# Each item: name (KV key), fetch_method ("url" or "command"), url/command/local_path
+bootstrap_pki__external_cas:
+  - name: "lets-encrypt-isrg-root-x1"
+    fetch_method: "url"
+    url: "https://letsencrypt.org/certs/isrgrootx1.pem"
+    description: "ISRG Root X1 (Let's Encrypt)"
+  - name: "digicert-global-root-ca"
+    fetch_method: "url"
+    url: "https://cacerts.digicert.com/DigiCertGlobalRootCA.crt.pem"
+    description: "DigiCert Global Root CA"
+  - name: "globalsign-root-r46"
+    fetch_method: "command"
+    command: "curl -s https://secure.globalsign.com/cacert/rootr46.crt | openssl x509 -inform der -outform pem"  # Convert DER to PEM
+    description: "GlobalSign Root R46"
+  # Example custom: Fetch chain from host
+  # - name: "corporate-external-ca"
+  #   fetch_method: "command"
+  #   command: "openssl s_client -connect ca.corp.com:443 -showcerts | openssl x509 -outform PEM -out /tmp/corp-ca.pem && cat /tmp/corp-ca.pem"
+  #   description: "Corporate External CA (via openssl)"
+
+# Deploy token configuration (for deploy_pki_certs integration)
+bootstrap_pki__deploy_token_name: "deploy-ca"
+bootstrap_pki__deploy_policy_name: "deploy-ca"  # New: Configurable policy name
+bootstrap_pki__deploy_token_policies: ["{{ bootstrap_pki__deploy_policy_name }}"]  # Dynamic reference
+bootstrap_pki__deploy_token_ttl: "8760h"  # 1 year
+bootstrap_pki__deploy_token_renewable: true

@@ -25,8 +25,8 @@
     cloud: "{{ openstack_admin_cloud_name }}"
     name: "{{ item.name }}"
     state: present
-    project: "{{ item.project | default(omit) }}"
-    validate_certs: "{{ item.validate_certs | default(omit) }}"
+    project: "{{ item.project | d(omit) }}"
+    validate_certs: "{{ item.validate_certs | d(omit) }}"
   loop: "{{ openstack_cloud_security_groups }}"
   register: os_secgroup_results
 
@@ -37,14 +37,16 @@
 - name: Add OS security group rules
   openstack.cloud.security_group_rule:
     security_group: "{{ item.0.name }}"
-    protocol: "{{ item.1.protocol | default(omit) }}"
-    port_range_min: "{{ item.1.port_range_min | default(omit) }}"
-    port_range_max: "{{ item.1.port_range_max | default(omit) }}"
-    remote_ip_prefix: "{{ item.1.remote_ip_prefix | default(omit) }}"
-    validate_certs: "{{ item.1.validate_certs | default(omit) }}"
+    protocol: "{{ item.1.protocol | d(omit) }}"
+    port_range_min: "{{ item.1.port_range_min | d(omit) }}"
+    port_range_max: "{{ item.1.port_range_max | d(omit) }}"
+    remote_ip_prefix: "{{ item.1.remote_ip_prefix | d(omit) }}"
+    validate_certs: "{{ item.1.validate_certs | d(omit) }}"
   loop: "{{ openstack_cloud_security_groups | subelements('rules', { 'skip_missing': true }) }}"
   register: os_secgrouprule_results
-  failed_when: os_secgrouprule_results.failed and not ( os_secgrouprule_results.msg | regex_search("Security group rule already exists") )
+  failed_when:
+    - os_secgrouprule_results.failed
+    - os_secgrouprule_results.msg | regex_search("Security group rule already exists") is none
 
 - name: Display os secgroup rules results
   ansible.builtin.debug:

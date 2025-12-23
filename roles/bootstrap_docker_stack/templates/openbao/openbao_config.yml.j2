@@ -1,0 +1,67 @@
+policies:
+  admin:
+    hcl_content: |
+      path "*" {
+        capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+      }
+  {{ __docker_stack__openbao__deploy_policy_name }}:
+    hcl_content: |
+      path "{{ __docker_stack__openbao__pki_path }}/*" {
+        capabilities = ["read", "list"]
+      }
+      # issue/sign for deploys
+      path "{{ __docker_stack__openbao__pki_path }}/issue/*" {
+        capabilities = ["create", "update"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/issue/internal-api" {
+        capabilities = ["create", "update"]
+      }
+      # Add this to handle CSR signing specifically
+      path "{{ __docker_stack__openbao__pki_path }}/sign/*" {
+        capabilities = ["create", "update"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/config/*" {
+        capabilities = ["read"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/roles/*" {
+        capabilities = ["read"]
+      }
+      path "{{ __docker_stack__openbao__kv_path }}/data/trusted_external/*" {
+        capabilities = ["read"]
+      }
+      path "{{ __docker_stack__openbao__kv_path }}/metadata/trusted_external/*" {
+        capabilities = ["list"]
+      }
+      path "auth/token/lookup*" {
+        capabilities = ["read"]
+      }
+      path "sys/mounts" {
+        capabilities = ["read"]
+      }
+  user:
+    hcl_content: |
+      path "{{ __docker_stack__openbao__kv_path }}/*" {
+        capabilities = ["create", "read", "update", "delete", "list"]
+      }
+{%- raw %}
+      path "userpass/users/{{identity.entity.name}}" {
+        capabilities = ["read"]
+      }
+{% endraw %}
+
+users:
+  - display_name: test_user
+    password: test_password
+    policies:
+      - user
+
+tokens:
+  - display_name: admin
+    policies: ["admin"]
+    ttl: "87600h"  # 10y, matching CA
+  - display_name: deploy-ca
+    policies: ["deploy-ca"]
+    ttl: "87600h"
+  - display_name: test_user
+    policies: ["user"]
+    ttl: "168h"  # 1w

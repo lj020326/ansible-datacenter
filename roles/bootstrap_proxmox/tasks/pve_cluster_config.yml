@@ -14,18 +14,18 @@
 - name: Identify all clusters that the hosts in the specified group may be in
   when: "'_pve_active_cluster' in hostvars[item]"
   ansible.builtin.set_fact:
-    _pve_found_clusters: "{{ _pve_found_clusters | default([]) | intersect([hostvars[item]['_pve_active_cluster']]) }}"
+    _pve_found_clusters: "{{ _pve_found_clusters | d([]) | intersect([hostvars[item]['_pve_active_cluster']]) }}"
   loop: "{{ groups[pve_group] }}"
 
 - name: Ensure that hosts found are not in multiple existing clusters
   ansible.builtin.assert:
     that:
-      - (_pve_found_clusters | default([]) | length) <= 1
+      - (_pve_found_clusters | d([]) | length) <= 1
     msg: Some or all of the hosts in {{ pve_group }} appear to already be part of two or more different clusters, please ensure groups only have hosts meant to be
       in one single cluster.
 
 - name: Ensure that, if we find an existing cluster, that it matches the specified cluster name
-  when: (_pve_found_clusters | default([]) | length) == 1
+  when: (_pve_found_clusters | d([]) | length) == 1
   ansible.builtin.assert:
     that:
       - _pve_found_clusters[0] == pve_cluster_clustername
@@ -80,7 +80,7 @@
   changed_when: false
   ansible.builtin.command: >-
     ha-manager groupadd {{ item.name }}
-    -comment "{{ item.comment | default('') }}"
+    -comment "{{ item.comment | d('') }}"
     -nodes "{{ item.nodes }}"
     {% if 'nofailback' in item %}
     -nofailback {{ item.nofailback }}

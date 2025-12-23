@@ -1,0 +1,47 @@
+---
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Display bootstrap_docker__keystore_cert_host"
+  ansible.builtin.debug:
+    var: bootstrap_docker__keystore_cert_host
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Set cert path vars"
+  ansible.builtin.set_fact:
+    __docker_registry_remote_cert_path: "{{ bootstrap_docker__keystore_cert_base_dir }}/{{
+      __docker_registry_info.host }}/{{ __docker_registry_info.host }}.chain.pem"
+    __docker_registry_certdir: /etc/docker/certs.d/{{ __docker_registry_info.endpoint }}
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Set cert path vars"
+  ansible.builtin.set_fact:
+    __docker_registry_cert_path: "{{ __docker_registry_certdir }}/ca.crt"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Display __docker_registry_remote_cert_path"
+  ansible.builtin.debug:
+    var: __docker_registry_remote_cert_path
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Ensure {{ __docker_registry_certdir }} exists"
+  ansible.builtin.file:
+    path: "{{ __docker_registry_certdir }}"
+    state: directory
+    mode: "0755"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Display bootstrap_docker__keystore_python_interpreter"
+  ansible.builtin.debug:
+    var: bootstrap_docker__keystore_python_interpreter
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Slurp up {{ __docker_registry_remote_cert_path }}"
+  vars:
+    ansible_python_interpreter: "{{ bootstrap_docker__keystore_python_interpreter }}"
+  delegate_to: "{{ bootstrap_docker__keystore_cert_host }}"
+  no_log: true
+  ansible.builtin.slurp:
+    src: "{{ __docker_registry_remote_cert_path }}"
+  register: __slurped_cert
+
+## ref: https://codeblog.dotsandbrackets.com/private-registry-swarm/
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Copy slurped registry cert content to {{ __docker_registry_cert_path }}"
+  ansible.builtin.copy:
+    content: "{{ __slurped_cert.content | b64decode }}"
+    dest: "{{ __docker_registry_cert_path }}"
+    backup: true
+    #    owner: 'root'
+    #    group: 'root'
+    mode: "0644"

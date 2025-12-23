@@ -1,0 +1,30 @@
+---
+
+- name: Verify setup
+  hosts: test-assets
+  remote_user: vagrant
+  tasks:
+    - name: Fetch namespaces information
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: namespace
+        kubeconfig: "{{ bootstrap_kubernetes_worker__admin_conf_dir }}/admin.kubeconfig"
+      register: bootstrap_kubernetes_worker___namespaces_info
+
+    - name: Print namespaces
+      ansible.builtin.debug:
+        var: "{{ bootstrap_kubernetes_worker___namespaces_info | community.general.json_query(json_query) }}"
+      vars:
+        json_query: "length(resources)"
+      when: ansible_verbosity > 1
+
+    - name: Register namespaces count
+      ansible.builtin.set_fact:
+        bootstrap_kubernetes_worker___namespaces_count: "{{ bootstrap_kubernetes_worker___namespaces_info | community.general.json_query(json_query) }}"
+      vars:
+        json_query: "length(resources)"
+
+    - name: There should be four namespaces at least
+      ansible.builtin.assert:
+        that:
+          - bootstrap_kubernetes_worker___namespaces_count|int >= 4

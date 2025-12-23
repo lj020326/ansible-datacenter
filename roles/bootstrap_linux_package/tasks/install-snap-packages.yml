@@ -1,4 +1,35 @@
 ---
+- name: "{{ __bootstrap_linux_package__log_prefix_snap }} Ensure snapd is installed"
+  ansible.builtin.package:
+    name: snapd
+    state: present
+
+- name: "{{ __bootstrap_linux_package__log_prefix_snap }} Ensure snapd is started"
+  ansible.builtin.service:
+    name: snapd
+    state: started
+    enabled: true
+
+- name: "{{ __bootstrap_linux_package__log_prefix_snap }} Wait for snapd socket"
+  ansible.builtin.wait_for:
+    path: /run/snapd.socket
+    state: present
+
+- name: "{{ __bootstrap_linux_package__log_prefix_snap }} Check if snapd is functional"
+  ansible.builtin.command: snap version
+  register: __snap_check
+  failed_when: false
+  changed_when: false
+
+- name: "{{ __bootstrap_linux_package__log_prefix_snap }} Ensure snap packages are installed."
+  when:
+    - __snap_check.rc == 0
+    - __bootstrap_linux_package__snap_list | d([]) | length > 0
+  community.general.snap:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ __bootstrap_linux_package__snap_list }}"
+
 - name: "{{ __bootstrap_linux_package__log_prefix_snap }} Ensure snap packages are installed."
   community.general.snap:
     name: "{{ __bootstrap_linux_package__snap_list }}"

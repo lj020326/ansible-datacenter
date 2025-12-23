@@ -1,0 +1,170 @@
+---
+- name: "Include OS-specific variables"
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+        - "default.yml"
+      paths:
+        - "../vars"
+  loop_control:
+    label: "Including OS-specific variables for {{ ansible_distribution }}"
+
+- name: "Install required Python packages on the control node"
+  ansible.builtin.pip:
+    name:
+      - "python-hcl2"
+      - "requests"
+      - "hvac"
+  delegate_to: localhost
+  run_once: true
+
+- name: "Install Python pycurl library (required for validation script)"
+  ansible.builtin.package:
+    name: python3-pycurl
+    state: present
+
+- name: "Ensure local certificate and key directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+  loop:
+    - "{{ deploy_pki_certs__local_cert_dir }}"
+    - "{{ deploy_pki_certs__local_key_dir }}"
+
+- name: "Validate Vault PKI connectivity and token permissions"
+  ansible.builtin.include_tasks: validate_vault_pki.yml
+
+- name: "Initialize __ca_cert_has_changed"
+  ansible.builtin.set_fact:
+    __ca_cert_has_changed: false
+
+# 1) INTERMEDIATE CERTIFICATE DEPLOYMENT
+- name: "Fetch and deploy intermediate CA certificate"
+  ansible.builtin.include_tasks: fetch_cert.yml
+  vars:
+    __cert_info:
+      type: "intermediate_ca"
+      cert_name: "{{ deploy_pki_certs__root_ca_configs.cert_basename }}.{{ deploy_pki_certs__trust_cert_extension }}"
+      key_name: "{{ deploy_pki_certs__root_ca_configs.cert_basename }}.{{deploy_pki_certs__trust_key_extension }}"
+      common_name: "{{ deploy_pki_certs__root_ca_configs.common_name }}"
+      key_algo: "{{ deploy_pki_certs__root_ca_configs.key_algo }}"
+      key_size: "{{ deploy_pki_certs__root_ca_configs.key_size }}"
+      local_cert_path: "{{ deploy_pki_certs__trust_ca_cacert_dir }}"
+
+# 2) SERVICE ROUTE CERTIFICATES
+- name: "Display deploy_pki_certs__ca_service_routes_list"
+  ansible.builtin.debug:
+    var: deploy_pki_certs__ca_service_routes_list
+    verbosity: 1
+
+- name: "Fetch and deploy service route certificates"
+  ansible.builtin.include_tasks: fetch_cert.yml
+  loop: "{{ deploy_pki_certs__ca_service_routes_list }}"
+  loop_control:
+    loop_var: current_service_route
+  vars:
+    __cert_info:
+      type: "pki"
+      cert_name: "{{ current_service_route.route }}.{{ deploy_pki_certs__trust_cert_extension }}"
+      key_name: "{{ current_service_route.route }}.{{deploy_pki_certs__trust_key_extension }}"
+      common_name: "{{ current_service_route.route }}"
+      local_cert_path: "{{ deploy_pki_certs__local_cert_dir }}"
+      local_key_path: "{{ deploy_pki_certs__local_key_dir }}"
+
+# 3) HOST CERTIFICATE DEPLOYMENT
+- name: "Fetch and deploy host certificate"
+  ansible.builtin.include_tasks: fetch_cert.yml
+  vars:
+    __cert_info:
+      type: "pki"
+      cert_name: "{{ ansible_fqdn }}.{{ deploy_pki_certs__trust_cert_extension }}"
+      key_name: "{{ ansible_fqdn }}.{{deploy_pki_certs__trust_key_extension }}"
+      common_name: "{{ ansible_fqdn }}"
+      local_cert_path: "{{ deploy_pki_certs__local_cert_dir }}"
+      local_key_path: "{{ deploy_pki_certs__local_key_dir }}"
+
+# 4) EXTERNAL CERTIFICATES
+- name: "Fetch external CA certs keys from KV (metadata list)"
+  community.hashi_vault.vault_list:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "{{ deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external"
+    validate_certs: false
+  register: __external_ca_keys
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "Set __external_ca_keys_list to empty if fetch failed"
+  when: __external_ca_keys.failed | d(false)
+  ansible.builtin.set_fact:
+    __external_ca_keys_list: []
+
+- name: "Set __external_ca_keys_list from metadata keys"
+  when: not __external_ca_keys.failed | d(true)
+  ansible.builtin.set_fact:
+    __external_ca_keys_list: "{{ __external_ca_keys.data.data['keys'] | select('string') | list }}"
+
+- name: "Fetch and deploy external CA certificates"
+  when: __external_ca_keys_list | length > 0
+  ansible.builtin.include_tasks: fetch_cert.yml
+  loop: "{{ __external_ca_keys_list }}"
+  loop_control:
+    loop_var: current_cert_name
+  vars:
+    __cert_info:
+      type: "kv"
+      cert_name: "{{ current_cert_name }}.{{ deploy_pki_certs__trust_cert_extension }}"
+      key_name: "{{ current_cert_name }}.{{deploy_pki_certs__trust_key_extension }}"
+      source_path: "trusted_external/{{ current_cert_name }}"
+      local_cert_path: "{{ deploy_pki_certs__trust_ca_cacert_dir }}"
+
+#- name: "Aggregate external CA certificates for Java Keystore"
+#  community.hashi_vault.vault_kv2_get:
+#    url: "{{ deploy_pki_certs__vault_url }}"
+#    token: "{{ deploy_pki_certs__vault_token }}"
+#    mount_point: "{{ deploy_pki_certs__vault_kv_mount_path }}"
+#    path: "trusted_external/{{ item }}"
+#  loop: "{{ __external_ca_keys_list }}"
+#  register: __external_ca_fetch_results
+#  delegate_to: localhost
+#  run_once: true
+#
+#- name: "Set __external_ca_certs fact"
+#  ansible.builtin.set_fact:
+#    __external_ca_certs: "{{ __external_ca_fetch_results.results | map(attribute='secret') | list }}"
+
+- name: "Update system's CA trust store"
+  when: __ca_cert_has_changed | d(false)
+  ansible.builtin.command: "{{ deploy_pki_certs__trust_ca_update_trust_cmd }}"
+  changed_when: true
+
+# 5) JAVA KEYSTORE MANAGEMENT
+- name: "Include Java keystore management tasks"
+  when: deploy_pki_certs__java_keystore_enabled | bool
+  ansible.builtin.include_tasks: update_java_keystore.yml
+
+- name: "Deploy Python SSL validation script"
+  ansible.builtin.template:
+    src: "verify_ssl_connection.py.j2"
+    dest: "/usr/local/bin/verify_ssl_connection.py"
+    mode: '0755'
+
+- name: "Run Python SSL validation script"
+  ansible.builtin.command:
+    cmd: "python3 /usr/local/bin/verify_ssl_connection.py"
+  register: __ssl_validation_result
+  failed_when: __ssl_validation_result.rc != 0
+  changed_when: false
+
+- name: "Display validation script output"
+  ansible.builtin.debug:
+    msg: "{{ __ssl_validation_result.stdout_lines + __ssl_validation_result.stderr_lines }}"
+
+- name: "Summary: Certificate deployment changes"
+  when: __ssl_validation_result is defined
+  ansible.builtin.debug:
+    msg: "CA cert changed: {{ __ca_cert_has_changed | d('N/A') }} | Validation: {{ __ssl_validation_result.rc == 0 }}"
