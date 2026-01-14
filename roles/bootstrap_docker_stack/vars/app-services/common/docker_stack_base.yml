@@ -3,8 +3,12 @@
 __docker_stack__base__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
 
 #__docker_stack__traefik__host_default: "leader.example.int"
-__docker_stack__traefik__host_default: "{{ ansible_fqdn | d(inventory_hostname) }}"
-__docker_stack__traefik__host: "{{ docker_stack__traefik__host | d(docker_stack__traefik__host) | d(__docker_stack__traefik__host_default) }}"
+#__docker_stack__traefik__host_default: "{{ ansible_facts['fqdn'] | d(inventory_hostname) }}"
+__docker_stack__traefik__host_default: "{{ ansible_facts['fqdn'] | d(inventory_hostname) }}"
+__docker_stack__traefik__host: "{{ docker_stack__traefik__host | d(__docker_stack__traefik__host_default) }}"
+
+__docker_stack__traefik__node_default: "{{ inventory_hostname }}"
+__docker_stack__traefik__node: "{{ docker_stack__traefik__node | d(__docker_stack__traefik__host_default) }}"
 
 __docker_stack__traefik__certresolver_enable_qa: "{{ docker_stack__traefik__certprovider_qa | d(False) | bool }}"
 
@@ -59,16 +63,12 @@ __docker_stack__traefik__https_entrypoints: "{{ docker_stack__traefik__https_ent
 __docker_stack__base__cert_dump_dir_default: "{{ __docker_stack__base__stack_dir }}/shared/certs"
 __docker_stack__base__cert_dump_dir: "{{ docker_stack__external_ssl_cert_dir | d(__docker_stack__base__cert_dump_dir_default) }}"
 
-__docker_stack__base__cacert_files:
+__docker_stack__base__ca_cert_files:
   - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}"
     dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}"
   - src: "{{ docker_stack__internal_ssl_key_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}"
     dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}"
     mode: "0600"
-#  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_root_cacert_file }}"
-#    dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_root_cacert_file }}"
-#  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cacert_file }}"
-#    dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_cacert_file }}"
 
 #__docker_stack__traefik__image_default: "traefik:latest"
 #__docker_stack__traefik__image_default: "traefik:v2.9.6"
@@ -285,6 +285,8 @@ __docker_stack__dozzle__traefik_labels: "{{ docker_stack__dozzle__traefik_labels
 __docker_stack__dozzle__environment: "{{ docker_stack__dozzle__environment
   | d(__docker_stack__dozzle__environment_default) }}"
 
+__docker_stack__socket_proxy_mode: "{{ '1' if docker_stack__swarm_mode | d(false) else '0' }}"
+
 ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
 __docker_stack__base__services_internal:
   ######### FRONTENDS ##########
@@ -339,7 +341,7 @@ __docker_stack__base__services_internal:
       placement:
         constraints:
           - node.role == manager
-#          - node.hostname == {{ __docker_stack__traefik__host }}
+          - node.hostname == {{ __docker_stack__traefik__node }}
 #          - node.labels.proxy == true
 #          - node.labels.traefik-public == true
       replicas: 1
@@ -396,7 +398,7 @@ __docker_stack__base__services_internal:
       PLUGINS: 0
       SERVICES: 1 # Portainer
       SESSION: 0
-      SWARM: 0
+      SWARM: "{{ __docker_stack__socket_proxy_mode | int }}"
       SYSTEM: 0
       TASKS: 1 # Portainer
       VOLUMES: 1 # Portainer
@@ -408,10 +410,13 @@ __docker_stack__base__services_internal:
       CONTAINERS_DELETE: 1 # WatchTower
       IMAGES_DELETE: 1 # WatchTower
     deploy:
-      #      mode: global
+#      mode: global
+      mode: replicated
       placement:
         constraints:
           - node.role == manager
+          - node.hostname == {{ __docker_stack__traefik__node }}
+#          - node.hostname == {{ inventory_hostname }}
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -539,10 +544,13 @@ __docker_stack__base__services_internal:
     #        protocol: tcp
     #        mode: "{{ __docker_stack__port_mode }}"
     deploy:
-      mode: global
+      mode: replicated
       placement:
         constraints:
-          - node.platform.os == linux
+          - node.role == manager
+          - node.hostname == {{ __docker_stack__traefik__node }}
+#          - node.hostname == {{ inventory_hostname }}
+      replicas: 1
       labels:
         - traefik.enable=false
 
@@ -581,8 +589,8 @@ __docker_stack__base__services_internal:
       placement:
         constraints:
           - node.role == manager
-          - node.hostname == {{ inventory_hostname }}
-#          - node.hostname == {{ __docker_stack__traefik__host }}
+          - node.hostname == {{ __docker_stack__traefik__node }}
+#          - node.hostname == {{ inventory_hostname }}
       replicas: 1
       restart_policy:
         condition: on-failure

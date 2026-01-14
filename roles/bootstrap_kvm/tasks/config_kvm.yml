@@ -6,11 +6,11 @@
   check_mode: false
 
 - name: config_kvm | Set unix_sock_group
-  ansible.builtin.set_fact:
-    kvm_unix_sock_group: "{{ ('libvirtd' in getent_group) | ternary('libvirtd', 'libvirt') }}"
   when:
-    - getent_group is defined
-    - "'libvirt' in getent_group or 'libvirtd' in getent_group"
+    - ansible_facts['getent_group'] is defined
+    - "'libvirt' in ansible_facts['getent_group'] or 'libvirtd' in ansible_facts['getent_group']"
+  ansible.builtin.set_fact:
+    kvm_unix_sock_group: "{{ ('libvirtd' in ansible_facts['getent_group']) | ternary('libvirtd', 'libvirt') }}"
 
 - name: config_kvm | configuring kvm
   ansible.builtin.template:
@@ -32,7 +32,7 @@
   notify: restart {{ kvm_service_name }}
   when:
     - kvm_enable_tcp
-    - ansible_os_family == "Debian"
+    - ansible_facts['os_family'] == "Debian"
     - not ansible_check_mode
 
 - name: config_kvm | Configuring Qemu
@@ -45,5 +45,5 @@
   become: true
   notify: restart {{ kvm_service_name }}
   when:
-    - ansible_os_family == "Debian"
+    - ansible_facts['os_family'] == "Debian"
     - not ansible_check_mode

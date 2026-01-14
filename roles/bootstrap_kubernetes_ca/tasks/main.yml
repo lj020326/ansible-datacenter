@@ -14,9 +14,9 @@
       groups[bootstrap_kubernetes_ca__ca_controller_nodes_group] |
       difference(groups[bootstrap_kubernetes_ca__offline_nodes_group]) }}"
 
-- name: Display ansible_default_ipv4.address for controller nodes
+- name: Display ansible_facts['default_ipv4']['address'] for controller nodes
   ansible.builtin.debug:
-    var: hostvars[item].ansible_default_ipv4.address
+    var: hostvars[item]['ansible_facts']['default_ipv4']['address']
   loop: "{{ __bootstrap_kubernetes_ca__ca_controller_nodes_group_online }}"
 
 - name: Generate list of IP addresses and hostnames needed for Kubernetes API server certificate
@@ -24,7 +24,7 @@
     __bootstrap_kubernetes_ca__api_hosts: |-
       {%+ set all_hosts = [] %}
       {% for item in __bootstrap_kubernetes_ca__ca_controller_nodes_group_online -%}
-      {%+ set _ = all_hosts.append(hostvars[item].ansible_default_ipv4.address | default(lookup('community.dns.lookup', item))) %}
+      {%+ set _ = all_hosts.append(hostvars[item]['ansible_facts']['default_ipv4']['address'] | default(lookup('community.dns.lookup', item))) %}
       {%+ set _ = all_hosts.append(hostvars[item]["ansible_" + hostvars[item]["bootstrap_kubernetes_ca__interface"]].ipv4.address) %}
       {%+ set _ = all_hosts.append(item) %}
       {%+ set _ = all_hosts.append(hostvars[item]["ansible_hostname"]) %}
@@ -45,9 +45,9 @@
       groups[bootstrap_kubernetes_ca__ca_etcd_nodes_group] |
       difference(groups[bootstrap_kubernetes_ca__offline_nodes_group]) }}"
 
-- name: Display ansible_default_ipv4.address for etcd nodes
+- name: Display ansible_facts['default_ipv4']['address'] for etcd nodes
   ansible.builtin.debug:
-    var: hostvars[item].ansible_default_ipv4.address
+    var: hostvars[item]['ansible_facts']['default_ipv4']['address']
   loop: "{{ __bootstrap_kubernetes_ca__ca_etcd_nodes_group_online }}"
 
 - name: Generate list of IP addresses and hostnames needed for etcd certificate
@@ -55,7 +55,7 @@
     __bootstrap_kubernetes_ca__etcd_hosts: |-
       {%+ set all_hosts = [] %}
       {% for item in __bootstrap_kubernetes_ca__ca_etcd_nodes_group_online -%}
-      {%+ set _ = all_hosts.append(hostvars[item].ansible_default_ipv4.address | default(lookup('community.dns.lookup', item))) %}
+      {%+ set _ = all_hosts.append(hostvars[item]['ansible_facts']['default_ipv4']['address'] | default(lookup('community.dns.lookup', item))) %}
       {%+ set _ = all_hosts.append(hostvars[item]["ansible_" + hostvars[item]["bootstrap_kubernetes_ca__interface"]].ipv4.address) %}
       {%+ set _ = all_hosts.append(item) %}
       {%+ set _ = all_hosts.append(hostvars[item]["ansible_hostname"]) %}
@@ -111,7 +111,7 @@
     mode: "{{ bootstrap_kubernetes_ca__ca_file_perm }}"
 
 - name: Generate the etcd certificate authority (CA) and private key
-  when: not bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  when: not bootstrap_kubernetes_ca__use_existing_root_ca | bool
   ansible.builtin.shell: >
     set -o errexit; \
     set -o pipefail; \
@@ -124,7 +124,7 @@
     creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-etcd-key.pem"
 
 - name: Generate the etcd certificate authority (CA) and private key (signed by root CA)
-  when: bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  when: bootstrap_kubernetes_ca__use_existing_root_ca | bool
   ansible.builtin.shell: >
     set -o errexit; \
     set -o pipefail; \
@@ -154,7 +154,7 @@
     - ca-etcd.csr
 
 - name: Generate Kubernetes API server certificate authority (CA) and private key
-  when: not bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  when: not bootstrap_kubernetes_ca__use_existing_root_ca | bool
   ansible.builtin.shell: >
     set -o errexit; \
     set -o pipefail; \
@@ -167,7 +167,7 @@
     creates: "{{ bootstrap_kubernetes_ca__ca_conf_directory }}/ca-k8s-apiserver-key.pem"
 
 - name: Generate Kubernetes API server certificate authority (CA) and private key (signed by root CA)
-  when: bootstrap_kubernetes_ca__use_existing_root_ca|bool
+  when: bootstrap_kubernetes_ca__use_existing_root_ca | bool
   ansible.builtin.shell: >
     set -o errexit; \
     set -o pipefail; \
@@ -398,7 +398,7 @@
       -ca=ca-k8s-apiserver.pem \
       -ca-key=ca-k8s-apiserver-key.pem \
       -config=ca-k8s-apiserver-config.json \
-      -hostname={{ hostvars[item]['ansible_hostname'] }},{{ hostvars[item]['ansible_default_ipv4']['address'] }},{{ hostvars[item]['ansible_' + hostvars[item]['bootstrap_kubernetes_ca__interface']].ipv4.address }} \
+      -hostname={{ hostvars[item]['ansible_facts']['hostname'] }},{{ hostvars[item]['ansible_facts']['default_ipv4']['address'] }},{{ hostvars[item]['ansible_' + hostvars[item]['bootstrap_kubernetes_ca__interface']].ipv4.address }} \
       -profile=kubernetes \
       cert-{{ item }}-csr.json \
     | cfssljson -bare cert-{{ item }}

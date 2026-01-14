@@ -54,20 +54,20 @@
 #  delegate_to: localhost
 #  become: false
 #  community.crypto.x509_certificate_info:
-#    path: "{{ cacert_certs_dir }}/{{ inventory_hostname }}.pem"
-#  register: cacert_result
+#    path: "{{ ca_certs_dir }}/{{ inventory_hostname }}.pem"
+#  register: ca_result
 #
-#- name: Display cacert_result
+#- name: Display ca_result
 #  ansible.builtin.debug:
-#    var: cacert_result
+#    var: ca_result
 
 - name: Get idrac certificate serial number info
   delegate_to: localhost
   become: false
   vars:
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
-  ansible.builtin.command: openssl x509 -in {{ cacert_certs_dir }}/{{ hostname_name_full }}.pem -noout -serial
-  register: cacert_serial_result
+  ansible.builtin.command: openssl x509 -in {{ ca_certs_dir }}/{{ hostname_name_full }}.pem -noout -serial
+  register: ca_serial_result
   changed_when: false
 
 #- name: "Display idrac_cert_serial_result"
@@ -75,11 +75,11 @@
 
 - name: Get idrac cert serial number
   ansible.builtin.set_fact:
-    cacert_serial_number: "{{ cacert_serial_result.stdout | regex_replace('serial=','') }}"
+    ca_serial_number: "{{ ca_serial_result.stdout | regex_replace('serial=','') }}"
 
 - name: Upload cert key and cert
-  #  when: cacert_serial_number not in idrac_ssl_cert_info.stdout
-  when: cacert_serial_number not in idrac_ssl_cert_info.stdout
+  #  when: ca_serial_number not in idrac_ssl_cert_info.stdout
+  when: ca_serial_number not in idrac_ssl_cert_info.stdout
   delegate_to: localhost
   become: false
   vars:
@@ -87,25 +87,21 @@
   block:
     - name: Upload iDRAC SSL cert key
       changed_when: false
-      #      ansible.builtin.raw: "racadm -r {{ inventory_hostname }}.{{ ca_domain }} -i sslkeyupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}-key.pem"
-      #      ansible.builtin.raw: "racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} -i sslkeyupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}-key.pem"
       ansible.builtin.raw: |
-        racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} \
+        racadm -r {{ hostvars[inventory_hostname]['ansible_facts']['host'] }} \
         -u {{ idrac_user }} -p {{ idrac_password }} \
         sslkeyupload -t 1 \
-        -f {{ cacert_certs_dir }}/{{ inventory_hostname }}-key.pem
+        -f {{ ca_certs_dir }}/{{ inventory_hostname }}-key.pem
 
     - name: Upload iDRAC SSL cert
       #      delegate_to: localhost
       #      become: false
       changed_when: false
-      #      ansible.builtin.raw: "racadm -r {{ inventory_hostname }}.{{ ca_domain }} -i sslcertupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}.pem"
-      #      ansible.builtin.raw: "racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} -i sslcertupload -t 1 -f {{ cacert_certs_dir }}/{{ inventory_hostname }}.pem"
       ansible.builtin.raw: |
-        racadm -r {{ hostvars[inventory_hostname]['ansible_host'] }} \
+        racadm -r {{ hostvars[inventory_hostname]['ansible_facts']['host'] }} \
         -u {{ idrac_user }} -p {{ idrac_password }} \
         sslcertupload -t 1 \
-        -f {{ cacert_certs_dir }}/{{ hostname_name_full }}.pem
+        -f {{ ca_certs_dir }}/{{ hostname_name_full }}.pem
 
     #    - name: "Wait for the iDrac to reset after cert upload"
     #      delegate_to: localhost
@@ -115,7 +111,7 @@
     - name: Wait for the iDrac to reset after cert upload
       ansible.builtin.wait_for:
         port: 443
-        host: "{{ hostvars[inventory_hostname]['ansible_host'] }}"
+        host: "{{ hostvars[inventory_hostname]['ansible_facts']['host'] }}"
         delay: 20
         sleep: 30
         #        timeout: 1500

@@ -17,7 +17,7 @@ bootstrap_docker__ee_version: 24.09
 
 bootstrap_docker__k8s_mode: false
 
-bootstrap_docker__rhsm_channel: Example_Docker_Community_Edition_CE_Docker_CE_Stable_RHEL{{ ansible_distribution_major_version }}
+bootstrap_docker__rhsm_channel: Example_Docker_Community_Edition_CE_Docker_CE_Stable_RHEL{{ ansible_facts['distribution_major_version'] }}
 
 bootstrap_docker__deploy_registry_certs: true
 
@@ -43,20 +43,20 @@ bootstrap_docker__swarm_role: "{{ 'manager' if (bootstrap_docker__swarm_leader o
 
 bootstrap_docker__swarm_leave: false
 #bootstrap_docker__swarm_adv_addr: "0.0.0.0:2377"
-bootstrap_docker__swarm_adv_addr: "{{ ansible_default_ipv4.address }}"
+bootstrap_docker__swarm_adv_addr: "{{ ansible_facts['default_ipv4']['address'] }}"
 bootstrap_docker__swarm_managers: []
 
 #__bootstrap_docker__swarm_remote_addrs: []
 #__bootstrap_docker__swarm_remote_addrs: |-
 #  {% set remote_addresses = [] %}
-#  {% for swarm_host in (bootstrap_docker__swarm_managers | ansible.builtin.difference([ansible_fqdn])) %}
-#  {%   set _ = remote_addresses.append(hostvars[swarm_host]['ansible_default_ipv4']['address']) %}
+#  {% for swarm_host in (bootstrap_docker__swarm_managers | ansible.builtin.difference([ansible_facts['fqdn']])) %}
+#  {%   set _ = remote_addresses.append(hostvars[swarm_host]['ansible_facts']['default_ipv4']['address']) %}
 #  {% endfor %}
 #  {{ remote_addresses }}
 __bootstrap_docker__swarm_remote_addrs: |-
   {% set remote_addresses = [] %}
   {% for swarm_host in (bootstrap_docker__swarm_managers | ansible.builtin.difference([inventory_hostname])) %}
-  {%   set _swarm_manager_hostname = hostvars[swarm_host].ansible_fqdn | d(hostvars[swarm_host].ansible_host) %}
+  {%   set _swarm_manager_hostname = hostvars[swarm_host]['ansible_facts']['fqdn'] | d(hostvars[swarm_host]['ansible_facts']['host']) %}
   {%   set _ = remote_addresses.append(_swarm_manager_hostname) %}
   {% endfor %}
   {{ remote_addresses }}
@@ -162,7 +162,7 @@ bootstrap_docker__pip_executable: /usr/bin/pip3
 
 bootstrap_docker__update_exist_compose_version: false
 #bootstrap_docker__compose_version: "v2.11.1"
-bootstrap_docker__compose_arch: "{{ ansible_architecture }}"
+bootstrap_docker__compose_arch: "{{ ansible_facts['architecture'] }}"
 bootstrap_docker__compose_url_latest: https://github.com/docker/compose/releases/latest
 bootstrap_docker__compose_url: https://github.com/docker/compose/releases/download/{{ __bootstrap_docker__compose_version }}/docker-compose-linux-{{ bootstrap_docker__compose_arch
   }}
@@ -258,12 +258,12 @@ bootstrap_docker__additional_packages: []
 #
 #__bootstrap_docker__pip_packages: "{{ bootstrap_docker__pip_packages | d(bootstrap_docker__default_pip_packages) }}"
 
-## only override this when ansible_distribution should resolve to another value
+## only override this when ansible_facts['distribution'] should resolve to another value
 __bootstrap_docker__package_directory_override:
   redhat: centos
 
-__bootstrap_docker__package_directory: "{{ __bootstrap_docker__package_directory_override[ansible_distribution|lower] 
-  | d(ansible_distribution|lower) }}"
+__bootstrap_docker__package_directory: "{{ __bootstrap_docker__package_directory_override[ansible_distribution | lower] 
+  | d(ansible_distribution | lower) }}"
 
 ## __bootstrap_docker__package_directory is set to the os family
 bootstrap_docker__ce_repo_url: "https://download.docker.com/linux/{{ __bootstrap_docker__package_directory }}"
@@ -276,17 +276,17 @@ bootstrap_docker__apt_system_keyring_dir: /usr/share/keyrings
 
 bootstrap_docker__ce_repo_file_url: "{{ bootstrap_docker__ce_repo_url }}/docker-ce.repo"
 
-#bootstrap_docker__apt_repo_url: "deb [arch=amd64] {{ bootstrap_docker__ce_repo_url }} {{ ansible_distribution_release }} stable"
-#bootstrap_docker__apt_repo_url_edge: "deb [arch=amd64] {{ bootstrap_docker__ce_repo_url }} {{ ansible_distribution_release }} edge"
+#bootstrap_docker__apt_repo_url: "deb [arch=amd64] {{ bootstrap_docker__ce_repo_url }} {{ ansible_facts['distribution_release'] }} stable"
+#bootstrap_docker__apt_repo_url_edge: "deb [arch=amd64] {{ bootstrap_docker__ce_repo_url }} {{ ansible_facts['distribution_release'] }} edge"
 bootstrap_docker__apt_repo_url: "deb [arch=amd64 signed-by={{ 
   bootstrap_docker__apt_keyring_dir }}/docker.asc] {{ bootstrap_docker__ce_repo_url }} {{ 
-  ansible_distribution_release }} stable"
+  ansible_facts['distribution_release'] }} stable"
 
 bootstrap_docker__apt_repo_url_edge: "deb [arch=amd64 signed-by={{ 
     bootstrap_docker__apt_keyring_dir }}/docker.asc] {{ bootstrap_docker__ce_repo_url }} {{ 
-    ansible_distribution_release }} edge"
+    ansible_facts['distribution_release'] }} edge"
 
-bootstrap_docker__yum_repo_url: "{{ bootstrap_docker__ce_repo_url }}/{{ ansible_distribution_major_version }}/$basearch/edge"
+bootstrap_docker__yum_repo_url: "{{ bootstrap_docker__ce_repo_url }}/{{ ansible_facts['distribution_major_version'] }}/$basearch/edge"
 
 #bootstrap_docker__host_network_default_addr_pool: 10.0.0.0/24
 bootstrap_docker__host_network_default_addr_pool: 172.19.0.0/16
@@ -352,9 +352,9 @@ __bootstrap_docker__swarm_firewalld_ports:
 
 bootstrap_docker__keystore_cert_host: node01.example.int
 bootstrap_docker__keystore_cert_base_dir: /usr/share/ca-certs
-bootstrap_docker__keystore_python_interpreter: "{{ hostvars[cacert_keystore_inventory_host]['ansible_python_interpreter'] }}"
+bootstrap_docker__keystore_python_interpreter: "{{ hostvars[ca_keystore_inventory_host]['ansible_facts']['python_interpreter'] }}"
 
-bootstrap_docker__cacert_local_cert_dir: "{{ cacert_local_cert_dir }}"
+bootstrap_docker__ca_local_cert_dir: "{{ ca_local_cert_dir }}"
 bootstrap_docker__docker_registries: "{{ docker_registries }}"
 
 __bootstrap_docker__log_prefix_deploy_certs: Docker Registry | Deploy certs |

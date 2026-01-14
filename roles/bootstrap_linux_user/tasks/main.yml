@@ -12,7 +12,7 @@
 
 - name: Set __bootstrap_linux_user__list_minus_ansible_user
   ansible.builtin.set_fact:
-    __bootstrap_linux_user__list_minus_ansible_user: "{{ __bootstrap_linux_user__list 
+    __bootstrap_linux_user__list_minus_ansible_user: "{{ __bootstrap_linux_user__list
       | rejectattr('name','equalto', ansible_user) | list }}"
 
 - name: Display __bootstrap_linux_user__list_minus_ansible_user
@@ -109,15 +109,15 @@
     database: shadow
     split: ":"
 
-- name: "Display getent_shadow"
+- name: "Display ansible_facts['getent_shadow']"
   ansible.builtin.debug:
-    var: getent_shadow
+    var: ansible_facts['getent_shadow']
     verbosity: 1
 
 - name: "Assert password valid days is defined"
   when: item.password_valid_days is defined
   ansible.builtin.assert:
-    that: getent_shadow[item.name][3] is defined
+    that: ansible_facts['getent_shadow'][item.name][3] is defined
   loop: "{{ __bootstrap_linux_user__list }}"
   loop_control:
     label: "{{ item.name }}"
@@ -126,11 +126,10 @@
   #  when: item.stdout is defined and item.stdout != {{ user_password_valid_time }}
   when:
     - item.password_valid_days is defined
-    - getent_shadow[item.name][3] is defined
-    - getent_shadow[item.name][3] != item.password_valid_days
+    - ansible_facts['getent_shadow'][item.name][3] is defined
+    - ansible_facts['getent_shadow'][item.name][3] != item.password_valid_days
   changed_when: false
   ansible.builtin.command: chage -M "{{ item.password_valid_days }}" "{{ item.name }}"
-  #  loop: __getent_user_results.results
   loop: "{{ __bootstrap_linux_user__list }}"
   loop_control:
     label: "{{ item.name }}"
@@ -146,13 +145,14 @@
   no_log: true
   ansible.builtin.copy:
     dest: /etc/sudoers.d/{{ item.name }}
-    mode: "0644"
+    mode: "0440"
     content: |
       {{ item.name }}  ALL=(ALL) ALL
       {{ item.name }}  ALL=(ALL) NOPASSWD: ALL
       {{ item.name }}  ALL=(root) NOPASSWD:/usr/bin/supervisorctl
       Defaults !requiretty
       #
+    validate: /usr/sbin/visudo -cf %s
   loop: "{{ __bootstrap_linux_user__list }}"
   loop_control:
     label: "{{ item.name }}"

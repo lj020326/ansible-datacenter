@@ -49,7 +49,7 @@
 ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
 ## ref: https://gist.github.com/jdeathe/7f7bb957a4e8e0304f0df070f3cbcbee
 - name: "{{ __log_prefix_subtask }} Create signed certificate authority key pair and CSR"
-  when: __cert_validation_results.failed|bool or bootstrap_certs__ca_force_create|bool
+  when: __cert_validation_results.failed | bool or bootstrap_certs__ca_force_create | bool
   block:
     - name: "{{ __log_prefix_subtask }} Generating signed server certificate {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
       changed_when: false
@@ -75,7 +75,7 @@
 
     - name: "{{ __log_prefix_subtask }} Create server cert chain pem file for root signer [{{ __bootstrap_certs__ca_cert_chain }}]"
       changed_when: false
-      when: __bootstrap_certs__ca_signer_is_root|bool
+      when: __bootstrap_certs__ca_signer_is_root | bool
       ansible.builtin.shell: >-
         cat {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} \
           {{ bootstrap_certs__ca_root_cacerts_dir }}/{{ bootstrap_certs__ca_root_cert }} > {{ __bootstrap_certs__ca_cert_chain }}
@@ -85,7 +85,7 @@
 
     - name: "{{ __log_prefix_subtask }} Create server cert chain pem file for non-root signer [{{ __bootstrap_certs__ca_cert_chain }}]"
       changed_when: false
-      when: not __bootstrap_certs__ca_signer_is_root|bool
+      when: not __bootstrap_certs__ca_signer_is_root | bool
       ansible.builtin.shell: >-
         cat {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }} \
           {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert_chain }} \
@@ -129,33 +129,33 @@
 - name: "{{ __log_prefix_subtask }} Get ca certificate info"
   community.crypto.x509_certificate_info:
     path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
-  register: cacert_result
+  register: ca_result
 
-- name: "{{ __log_prefix_subtask }} Display cacert_result"
-  when: bootstrap_certs__display_cacert_result
+- name: "{{ __log_prefix_subtask }} Display ca_result"
+  when: bootstrap_certs__display_ca_result
   ansible.builtin.debug:
-    var: cacert_result
+    var: ca_result
 
 - name: "{{ __log_prefix_subtask }} Assert cert info for {{ __bootstrap_certs__cert_node }} is valid"
   ansible.builtin.assert:
     that:
       # issuer and issuer_strict
-      - cacert_result.issuer.organizationName == __bootstrap_certs__ca_signer_cert_info.organization
-      - cacert_result.issuer.commonName == __bootstrap_certs__ca_signer_cert_info.commonName
-      - cacert_result.subject.organizationName == __bootstrap_certs__ca_cert_info.organization
-      - cacert_result.subject.commonName == __bootstrap_certs__ca_cert_info.commonName
+      - ca_result.issuer.organizationName == __bootstrap_certs__ca_signer_cert_info.organization
+      - ca_result.issuer.commonName == __bootstrap_certs__ca_signer_cert_info.commonName
+      - ca_result.subject.organizationName == __bootstrap_certs__ca_cert_info.organization
+      - ca_result.subject.commonName == __bootstrap_certs__ca_cert_info.commonName
       # has_expired
-      - not cacert_result.expired
+      - not ca_result.expired
 
 - name: "{{ __log_prefix_subtask }} Validate signed by root cert"
   changed_when: false
-  when: __bootstrap_certs__ca_signer_is_root|bool
+  when: __bootstrap_certs__ca_signer_is_root | bool
   ansible.builtin.command: >-
     openssl verify -CAfile {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
       {{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}
 
 - name: "{{ __log_prefix_subtask }} Perform intermediate cert validations"
-  when: not __bootstrap_certs__ca_signer_is_root|bool
+  when: not __bootstrap_certs__ca_signer_is_root | bool
   block:
     - name: "{{ __log_prefix_subtask }} Validate server and intermediate cert chain"
       changed_when: false

@@ -6,11 +6,12 @@ vault_host: "control02"
 vault_config: "{{ vault__openbao_hosts[vault_host] }}"
 vault_url: "{{ vault_config.url }}"
 vault_token_root: "{{ vault_config.root_token }}"
-vault_token_admin: "{{ vault_config.tokens['admin'] | d('') }}"
+vault_token_admin: "{{ vault_config.tokens['admin']['value'] | d('') }}"
 
 ca_deploy_token_name: "deploy-ca"
 
-vault_token_deployca: "{{ vault_config.tokens[ca_deploy_token_name] | d('') }}"
+vault_token_accessor_deployca: "{{ vault_config.tokens[ca_deploy_token_name]['accessor'] | d('') }}"
+vault_token_deployca: "{{ vault_config.tokens[ca_deploy_token_name]['value'] | d('') }}"
 
 #vault_kv_mount_path: "kv"
 vault_kv_mount_path: "secret"
@@ -19,8 +20,10 @@ internal_subdomain: ""
 
 ca_root_cn: "ca-root"
 ca_root_domain: "{{ internal_root_domain }}"
-# ca_subdomain: "{{ dc_environment|d('') | upper }}"
+# ca_subdomain: "{{ dc_environment | d('') | upper }}"
 ca_subdomain: "{{ internal_subdomain | d('') }}"
+
+ca_root_cert_basename: "{{ ca_root_cn }}"
 
 ca_key_type: "rsa"
 ca_key_size: 4096
@@ -63,8 +66,11 @@ ca_certificate_ttl: "8760h" # 1 year
 ## Max TTL allowed (10y)
 ca_certificate_max_ttl: "87600h" # 1 year
 
-deploy_pki_certs__certificate_ttl: "{{ ca_certificate_ttl }}"
-deploy_pki_certs__certificate_max_ttl: "{{ ca_certificate_max_ttl }}"
+ca_cert_duration_root: "438000h" # 50 years
+ca_cert_duration_intermediate: "87600h" # 10 years
+ca_cert_duration_server: "87600h" # 10 years
+ca_cert_duration_client: "87600h" # 10 years
+ca_cert_duration_default: "87600h" # 10 years
 
 ca_cert_info:
   commonName: "{{ ca_signer_common_name }}"
@@ -93,27 +99,24 @@ stepca_host_url: "https://stepca.admin.dettonville.int/"
 #stepca_root_ca_fingerprint: "{{ vault__stepca_root_ca_fingerprint }}"
 #stepca_acme_http_challenge_proxy_port: 80
 
+ca_keystore_inventory_host_default: control01
+#ca_keystore_inventory_host_default: vcontrol01
+ca_keystore_inventory_host: "{{ groups['ca_keystore'][0] | d(ca_keystore_inventory_host_default) }}"
 
-cacert_keystore_inventory_host_default: control01
-#cacert_keystore_inventory_host_default: vcontrol01
-cacert_keystore_inventory_host: "{{ groups['ca_keystore'][0] | d(cacert_keystore_inventory_host_default) }}"
+# ca_keystore_host: "{{ ca_keystore_inventory_host }}"
+# ca_keystore_host: "{{ hostvars[groups['ca_keystore'][0]]['ansible_facts']['host'] | d(ca_keystore_inventory_host_default) }}"
+ca_keystore_host: "{{ hostvars[ca_keystore_inventory_host]['ansible_facts']['host'] }}"
+#ca_keystore_host: "{{ hostvars[ca_keystore_inventory_host]['ansible_facts']['default_ipv4']['address']
+#  | d(hostvars[host]['ansible_facts']['all_ipv4_addresses'] | first }}"
 
-# cacert_keystore_host: "{{ cacert_keystore_inventory_host }}"
-# cacert_keystore_host: "{{ hostvars[groups['ca_keystore'][0]]['ansible_host'] | d(cacert_keystore_inventory_host_default) }}"
-cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_host]['ansible_host'] }}"
-#cacert_keystore_host: "{{ hostvars[cacert_keystore_inventory_host]['ansible_default_ipv4']['address']
-#  | d(hostvars[host]['ansible_all_ipv4_addresses'] | first }}"
-cacert_keystore_dir: /etc/ssl/private
+ca_ssl_certs_dir: /etc/ssl/certs
+ca_ssl_keys_dir: /etc/ssl/private
 
-bootstrap_certs__keystore_host: "{{ cacert_keystore_host }}"
-bootstrap_certs__ca_key_dir: "{{ cacert_keystore_dir }}"
-bootstrap_linux_caroot__keystore_host: "{{ cacert_keystore_host }}"
-
-cacert_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
+ca_repo_url: "ssh://git@gitea.admin.{{ control_plane_domain }}:2222/infra/cacerts.git"
 # where to deploy the finalized cert files to on the ansible control node
-cacert_base_dir: "{{ '~/pki' | expanduser }}"
-cacert_certs_dir: "{{ cacert_base_dir }}/certs"
-cacert_keys_dir: "{{ cacert_base_dir }}/keys"
+ca_base_dir: "{{ '~/pki' | expanduser }}"
+#ca_certs_dir: "{{ ca_base_dir }}/certs"
+#ca_keys_dir: "{{ ca_base_dir }}/keys"
 
 ca_intermediate_certs_config:
   dettonville.int:
@@ -140,69 +143,83 @@ ca_intermediate_certs_config:
 #    ca_csr_profile: "domain"
 #    ca_csr_profile: "intermediate_ca"
 
+################################
+## CA certificate service routes
+## START of CA certificate domain and service routes definitions block
+ca_hosted_service_routes: >-
+  {{
+    query('varnames', '^ca_hosted_service_routes__')
+    | map('extract', hostvars[inventory_hostname])
+    | flatten
+  }}
+
+#ca_service_routes: >-
+#  {% set routes = [] %}
+#  {% for var_name in query('varnames', '^ca_hosted_service_routes__') %}
+#    {% set _ = routes.extend(lookup('vars', var_name)) %}
+#  {% endfor %}
+#  {{ routes | unique | sort }}
+
 ca_internal_domains_dynamic: "{{ groups['ca_domain']
   | map('extract', hostvars, ['internal_domain']) | select('defined') | unique }}"
-#ca_domains_dynamic: "{{ groups['ca_domain']
-#  | map('extract', hostvars, ['internal_domain', 'docker_stack__internal_domain']) | select('defined') | unique }}"
-ca_routes_dynamic: "{{ groups['ca_domain']
-  | map('extract', hostvars, ['ca_service_route']) | select('defined') | unique | d([]) }}"
+
+#ca_routes_dynamic: "{{ groups['ca_domain']
+#  | map('extract', hostvars, ['ca_service_route']) | select('defined') | unique | d([]) }}"
+
+ca_routes_dynamic: >-
+  {%- set all_routes = [] -%}
+  {%- for host in groups['ca_domain'] -%}
+    {%- set host_dict = hostvars[host] -%}
+    {%- for key in host_dict.keys() if key is match('^ca_hosted_service_routes__') -%}
+      {%- set _ = all_routes.extend(host_dict[key]) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {{ all_routes | unique | sort }}
 
 ca_domains_dynamic: "{{ ca_internal_domains_dynamic | d([]) + ca_routes_dynamic | d([]) }}"
 
-ca_intermediate_certs_list_dynamic_yaml: |
-  [
-    {% for domain in ca_domains_dynamic %}
-    {% if domain not in ca_intermediate_certs_config %}
-    {
-      'commonName': "ca.{{ domain }}",
-      'domainName': "{{ domain }}",
-      'signerName': "{{ 'ca.' + ('.').join(domain.split('.')[1::]) if domain.split('.') | count > 2 else ca_root_cn }}"
-    },
-    {% endif %}
-    {% endfor %}
-  ]
+ca_intermediate_certs_list_dynamic: >-
+  {%- set cert_list = [] -%}
+  {%- for domain in ca_domains_dynamic if domain not in ca_intermediate_certs_config -%}
+    {%- set _ = cert_list.append({
+      'commonName': 'ca.' ~ domain,
+      'domainName': domain,
+      'signerName': ('ca.' ~ domain.split('.')[1:] | join('.')) if domain.split('.') | count > 2 else ca_root_cn
+    }) -%}
+  {%- endfor -%}
+  {{ cert_list }}
 
-#ca_intermediate_certs_list_dynamic_yaml:
-#  {% for domain in ca_domains_dynamic %}
-#  {% if domain not in ca_intermediate_certs_config %}
-#  - commonName: "ca.{{ domain }}"
-#    domainName: "{{ domain }}"
-#    signerName: "{{ 'ca.' + ('.').join(domain.split('.')[1::]) if domain.split('.')|count>2 else ca_root_cn }}"
-#  {% endif %}
-#  {% endfor %}
-
-ca_intermediate_certs_list_dynamic: "{{ ca_intermediate_certs_list_dynamic_yaml | from_yaml }}"
-
-# ca_intermediate_certs_list: "{{ ca_intermediate_certs_list_static + ca_intermediate_certs_list_dynamic_yaml }}"
-#ca_intermediate_certs_list: "{{ ca_intermediate_certs_config.values() | d([]) | list
-#  + ca_intermediate_certs_list_dynamic_yaml }}"
 ca_intermediate_certs_list: "{{ (ca_intermediate_certs_config.values() | d([]) | list)
   + ca_intermediate_certs_list_dynamic }}"
 
-# stepca_root_list: "{{ ca_intermediate_certs_list_static }}"
+ca_service_routes_list: >-
+  {%- set list = [] -%}
+  {%- for domain in ca_routes_dynamic -%}
+    {%- set _ = list.append({
+      'route': domain,
+      'signerName': 'ca.' ~ domain
+    }) -%}
+  {%- endfor -%}
+  {{ list }}
 
-ca_service_routes_list_yaml: |
-  [
-    {% for domain in ca_routes_dynamic %}
-    {
-      'route': "{{ domain }}",
-      'signerName': "ca.{{ domain }}"
-    },
-    {% endfor %}
-  ]
+## END of CA domain and service routes definitions block
+################################
 
-ca_service_routes_list: "{{ ca_service_routes_list_yaml | from_yaml }}"
-
-hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
-cacert_keystore_base_dir_orig: /usr/share/ca-certs
-cacert_keystore_base_dir: "/etc/ansible/cacerts"
+ca_keystore_base_dir_orig: /usr/share/ca-certs
+ca_keystore_base_dir: "/etc/ansible/cacerts"
 
 ca_java_keystore_enabled: true
 ca_java_keystore_pass: changeit
 
-pki_ca_root_cert: "{{ ca_root_cn }}.pem"
-pki_ca_root_key: "{{ ca_root_cn }}-key.pem"
-pki_ca_dir: "/etc/pki/cacerts"
+ca_renew_threshold_days: 30  # Renew if < this days left
+
+# Renew if < this days left
+ca_cert_renewal_tolerance_days: 30
+
+
+pki_ca_root_cert: "{{ ca_root_cert_basename }}.pem"
+pki_ca_root_key: "{{ ca_root_cert_basename }}-key.pem"
+pki_ca_certs_dir: "/etc/pki/cacerts"
 pki_ca_key_type: "ecdsa"
 pki_ca_key_size: 256
 
@@ -211,8 +228,8 @@ pki_ca_key_size: 256
 pki_vault_ca_common_name: "Dettonville Vault CA"
 pki_vault_ca_cert_basename: "dettonville-vault-ca"
 
-pki_ca_root_cert_path: "{{ pki_ca_dir }}/{{ pki_ca_root_cert }}"
-pki_ca_root_key_path: "{{ pki_ca_dir }}/{{ pki_ca_root_key }}"
+pki_ca_root_cert_path: "{{ pki_ca_certs_dir }}/{{ pki_ca_root_cert }}"
+pki_ca_root_key_path: "{{ pki_ca_certs_dir }}/{{ pki_ca_root_key }}"
 
 pki_vault_ca_cert_configs:
   cert_basename: "{{ pki_vault_ca_cert_basename }}"
@@ -228,11 +245,12 @@ pki_vault_ca_cert_configs:
   ca_issuer_path: "{{ pki_ca_root_cert_path }}"
   ca_issuer_key_path: "{{ pki_ca_root_key_path }}"
 
-pki_cacert_deploy_role_name: "internal-api"
+pki_ca_deploy_role_name: "internal-api"
 
 #pki_intermediate_ca_vault_path: "pki_int"
 pki_ca_vault_mount_path: "pki-intermediate"
 
+########################
 ## COALESCE global cert-auth (ca) vars to role specific deploy_pki_certs vars
 deploy_pki_certs__vault_enabled: true
 deploy_pki_certs__vault_url: "{{ vault_url }}"
@@ -241,21 +259,38 @@ deploy_pki_certs__vault_token: "{{ vault_token_deployca }}"
 
 deploy_pki_certs__vault_mount_path: "{{ pki_ca_vault_mount_path }}"
 deploy_pki_certs__vault_kv_mount_path: "{{ vault_kv_mount_path }}"
-deploy_pki_certs__vault_pki_cert_role_name: "{{ pki_cacert_deploy_role_name }}"
+deploy_pki_certs__vault_pki_cert_role_name: "{{ pki_ca_deploy_role_name }}"
 
-deploy_pki_certs__root_ca_configs: "{{ pki_vault_ca_cert_configs }}"
+deploy_pki_certs__vault_cert_configs: "{{ pki_vault_ca_cert_configs }}"
+deploy_pki_certs__vault_cert_basename: "{{ pki_vault_ca_cert_basename }}"
 
-deploy_pki_certs__hostname_full: "{{ hostname_name_full }}"
-deploy_pki_certs__vault_pki_ca_cert_basename: "{{ pki_vault_ca_cert_basename }}"
+#deploy_pki_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(False) }}"
+#deploy_pki_certs__ca_reset_local_certs: false
 
-deploy_pki_certs__ca_force_create: "{{ ca_force_create | d(False) }}"
-deploy_pki_certs__ca_force_distribute_nodes: "{{ ca_force_distribute_nodes | d(False) }}"
-deploy_pki_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(False) }}"
+#deploy_pki_certs__ca_force_deploy: true
+#deploy_pki_certs__ca_force_create: true
 
-#deploy_pki_certs__keystore_cert_base_dir: "{{ cacert_keystore_base_dir }}"
+deploy_pki_certs__ca_host_cn: "{{ hostname_name_full }}"
 
-deploy_pki_certs__local_cert_dir: "{{ cacert_local_cert_dir }}"
-deploy_pki_certs__local_key_dir: "{{ cacert_local_key_dir }}"
+deploy_pki_certs__ca_cert_renewal_tolerance_days: "{{ ca_cert_renewal_tolerance_days }}"
+
+deploy_pki_certs__ca_cert_duration_root: "{{ ca_cert_duration_root }}"
+deploy_pki_certs__ca_cert_duration_intermediate: "{{ ca_cert_duration_intermediate }}"
+
+deploy_pki_certs__certificate_ttl: "{{ ca_certificate_ttl }}"
+deploy_pki_certs__certificate_max_ttl: "{{ ca_certificate_max_ttl }}"
+
+deploy_pki_certs__ca_root_cert_basename: "{{ ca_root_cert_basename }}"
+deploy_pki_certs__ca_root_cn: "{{ ca_root_cn }}"
+
+#deploy_pki_certs__keystore_cert_base_dir: "{{ ca_keystore_base_dir }}"
+
+deploy_pki_certs__local_cert_dir: "{{ ca_local_cert_dir }}"
+deploy_pki_certs__local_key_dir: "{{ ca_local_key_dir }}"
+
+deploy_pki_certs__ca_service_routes_list: "{{ ca_hosted_service_routes }}"
+
+deploy_pki_certs__pre_deploy_verify_fail_fast: true
 
 deploy_pki_certs__java_keystore_enabled: "{{ ca_java_keystore_enabled }}"
 deploy_pki_certs__java_keystore_pass: "{{ ca_java_keystore_pass }}"
@@ -268,44 +303,20 @@ deploy_pki_certs__java_keystore_pass: "{{ ca_java_keystore_pass }}"
 #
 #deploy_pki_certs__ca_provisioner: "acme"
 
-# deploy_pki_certs__ca_service_routes_list: "{{ ca_service_routes_list }}"
-deploy_pki_certs__ca_service_routes_list: |
-  {% set _hosted_ca_service_route_list = [] %}
-  {% for _ca_service_route in ca_service_routes_list %}
-  {% if _ca_service_route.route in ca_domains_hosted %}
-  {%   set _ = _hosted_ca_service_route_list.append(_ca_service_route) %}
-  {% endif %}
-  {% endfor %}
-  {{ _hosted_ca_service_route_list }}
-
-# deploy_pki_certs__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
-deploy_pki_certs__ca_intermediate_certs_list: |
-  {% set _hosted_ca_intermediate_certs_list = [] %}
-  {% for _ca_certinfo in ca_intermediate_certs_list %}
-  {% if _ca_certinfo.domainName in ca_domains_hosted %}
-  {%   set _ = _hosted_ca_intermediate_certs_list.append(_ca_certinfo) %}
-  {% endif %}
-  {% endfor %}
-  {{ _hosted_ca_intermediate_certs_list }}
-
-deploy_pki_certs__external_cacerts:
-  - https://files.pythonhosted.org
-  - https://pypi.org
-
-
+########################
 ## COALESCE global cert-auth (ca) vars to role specific deploy_ca_certs vars
 #deploy_ca_certs__stepca_acme_http_challenge_proxy_port: "{{ stepca_acme_http_challenge_proxy_port }}"
-deploy_ca_certs__ca_key_dir: "{{ cacert_keystore_dir }}"
+deploy_ca_certs__ca_key_dir: "{{ ca_ssl_keys_dir }}"
 deploy_ca_certs__hostname_full: "{{ hostname_name_full }}"
-deploy_ca_certs__keystore_host: "{{ cacert_keystore_host }}"
-deploy_ca_certs__keystore_inventory_hostname: "{{ cacert_keystore_inventory_host }}"
-deploy_ca_certs__keystore_python_interpreter: "{{ hostvars[cacert_keystore_inventory_host]['ansible_python_interpreter'] }}"
+deploy_ca_certs__keystore_host: "{{ ca_keystore_host }}"
+deploy_ca_certs__keystore_inventory_hostname: "{{ ca_keystore_inventory_host }}"
+deploy_ca_certs__keystore_python_interpreter: "{{ hostvars[ca_keystore_inventory_host]['ansible_facts']['python_interpreter'] }}"
 
 deploy_ca_certs__ca_force_create: "{{ ca_force_create | d(False) }}"
 deploy_ca_certs__ca_force_distribute_nodes: "{{ ca_force_distribute_nodes | d(False) }}"
 deploy_ca_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(False) }}"
 
-deploy_ca_certs__keystore_cert_base_dir: "{{ cacert_keystore_base_dir_orig }}"
+deploy_ca_certs__keystore_cert_base_dir: "{{ ca_keystore_base_dir_orig }}"
 deploy_ca_certs__stepca_host_url: "{{ stepca_host_url }}"
 #deploy_ca_certs__stepca_root_ca_fingerprint: "{{ stepca_root_ca_fingerprint }}"
 
@@ -313,8 +324,8 @@ deploy_ca_certs__ca_root_cn: "{{ ca_root_cn }}"
 
 deploy_ca_certs__pki_ca_root_cert: "{{ pki_ca_root_cert }}"
 
-deploy_ca_certs__local_cert_dir: "{{ cacert_local_cert_dir }}"
-deploy_ca_certs__local_key_dir: "{{ cacert_local_key_dir }}"
+deploy_ca_certs__local_cert_dir: "{{ ca_local_cert_dir }}"
+deploy_ca_certs__local_key_dir: "{{ ca_local_key_dir }}"
 
 deploy_ca_certs__ca_java_keystore_enabled: "{{ ca_java_keystore_enabled }}"
 deploy_ca_certs__ca_java_keystore_pass: "{{ ca_java_keystore_pass }}"

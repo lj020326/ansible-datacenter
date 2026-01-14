@@ -94,11 +94,9 @@ The docker runtime environment is expected to be already prepared in a prior pla
 | docker_stack__smtp_host                      | no       | "mail.example.int"                                                                |                            |
 | docker_stack__ssl_external_cert_file         | no       | "{{ docker_stack__external_domain }}.pem"                                         |                            |
 | docker_stack__ssl_external_privatekey_file   | no       | "{{ docker_stack__external_domain }}-key.pem"                                     |                            |
-| docker_stack__ssl_internal_cacert_file       | no       | "ca.{{ docker_stack__internal_domain }}.pem"                                      |                            |
 | docker_stack__ssl_internal_cert_file         | no       | "{{ docker_stack__internal_domain }}.pem"                                         |                            |
 | docker_stack__ssl_internal_csr_file          | no       | "{{ docker_stack__internal_domain }}.csr"                                         |                            |
 | docker_stack__ssl_internal_privatekey_file   | no       | "{{ docker_stack__internal_domain }}-key.pem"                                     |                            |
-| docker_stack__ssl_internal_root_cacert_file  | no       | "ca.{{ docker_stack__internal_root_domain }}.pem"                                 |                            |
 | docker_stack__swarm_leader_host              | no       | leader.example.int                                                                |                            |
 | docker_stack__swarm_manager                  | no       | false                                                                             |                            |
 | docker_stack__swarm_mode                     | no       | no                                                                                |                            |

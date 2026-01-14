@@ -182,7 +182,7 @@ bootstrap_etcd__service_options:
   - CapabilityBoundingSet=~CAP_SYS_PTRACE
 
 bootstrap_etcd__settings:
-  "name": "{{ ansible_hostname }}"
+  "name": "{{ ansible_facts['hostname'] }}"
   "cert-file": "{{ bootstrap_etcd__conf_dir }}/cert-etcd-server.pem"
   "key-file": "{{ bootstrap_etcd__conf_dir }}/cert-etcd-server-key.pem"
   "trusted-ca-file": "{{ bootstrap_etcd__conf_dir }}/ca-etcd.pem"

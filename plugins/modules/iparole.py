@@ -105,7 +105,7 @@ EXAMPLES = """
 # pylint: disable=wrong-import-position
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.ansible_freeipa_module import \
     IPAAnsibleModule, gen_add_del_lists, compare_args_ipa, \
     gen_intersection_list, ensure_fqdn

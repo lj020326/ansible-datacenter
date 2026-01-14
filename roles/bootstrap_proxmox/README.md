@@ -244,7 +244,7 @@ iface enp2s0f0 inet manual
 
 auto vmbr0
 iface vmbr0 inet static
-    address {{ lookup('dig', ansible_fqdn) }}
+    address {{ lookup('dig', ansible_facts['fqdn']) }}
     gateway 10.4.0.1
     netmask 255.255.255.0
     bridge_ports enp2s0f0
@@ -254,7 +254,7 @@ iface vmbr0 inet static
 allow-hotplug enp2s0f1
 auto enp2s0f1
 iface enp2s0f1 inet static
-    address {{ lookup('dig', ansible_hostname + "-clusternet.local") }}
+    address {{ lookup('dig', ansible_facts['hostname'] + "-clusternet.local") }}
     netmask 255.255.255.0
 ```
 
@@ -396,7 +396,7 @@ pve_zfs_enabled: no # Specifies whether or not to install and configure ZFS pack
 # pve_zfs_zed_email: "" # Should be set to an email to receive ZFS notifications
 pve_ceph_enabled: false # Specifies wheter or not to install and configure Ceph packages. See below for an example configuration.
 pve_ceph_repository_line: "deb http://download.proxmox.com/debian/ceph-nautilus buster main" # apt-repository configuration. Will be automatically set for 5.x and 6.x (Further information: https://pve.proxmox.com/wiki/Package_Repositories)
-pve_ceph_network: "{{ (ansible_default_ipv4.network +'/'+ ansible_default_ipv4.netmask) | ansible.utils.ipaddr('net') }}" # Ceph public network
+pve_ceph_network: "{{ (ansible_default_ipv4.network +'/'+ ansible_facts['default_ipv4']['netmask']) | ansible.utils.ipaddr('net') }}" # Ceph public network
 # pve_ceph_cluster_network: "" # Optional, if the ceph cluster network is different from the public network (see https://pve.proxmox.com/pve-docs/chapter-pveceph.html#pve_ceph_install_wizard)
 pve_ceph_mon_group: "{{ pve_group }}" # Host group containing all Ceph monitor hosts
 pve_ceph_mds_group: "{{ pve_group }}" # Host group containing all Ceph metadata server hosts
@@ -427,7 +427,7 @@ PVE version. They should be IPv4 or IPv6 addresses. For more information, refer
 to the [Cluster Manager][pvecm-network] chapter in the PVE Documentation.
 
 ```
-# pve_cluster_addr0: "{{ ansible_default_ipv4.address }}"
+# pve_cluster_addr0: "{{ ansible_facts['default_ipv4']['address'] }}"
 # pve_cluster_addr1: "another interface's IP address or hostname"
 ```
 

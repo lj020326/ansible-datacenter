@@ -12,10 +12,38 @@
   ansible.builtin.debug:
     var: deploy_pki_certs__vault_url | d('')
 
-- name: "validate-vault-pki : Display deploy_pki_certs__vault_token"
+- name: "validate-vault-pki : Display deploy_pki_certs__vault_token length"
   ansible.builtin.debug:
-    msg: "Token: {{ deploy_pki_certs__vault_token | length }} chars (censored)"
-    verbosity: 2
+    msg: "Token Length: {{ deploy_pki_certs__vault_token | length }} chars (censored)"
+    verbosity: 1
+
+- name: "validate-vault-pki : Verify token policies"
+  no_log: true
+  community.hashi_vault.vault_read:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "auth/token/lookup-self"
+    validate_certs: false
+  register: __token_lookup
+  ignore_errors: true  # Proceed even if lookup fails (e.g., insufficient perms)
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __token_lookup"
+  ansible.builtin.debug:
+    var: __token_lookup | dettonville.utils.redact_sensitive_values
+    verbosity: 1
+
+- name: "validate-vault-pki : Fail if token lacks deploy-ca policy"
+  ansible.builtin.assert:
+    that:
+      - __token_lookup is success
+      - "'deploy-ca' in (__token_lookup.data.data.policies | default([]))"  # Note: Nested .data.data for vault_read
+    fail_msg: |
+      Deploy token lacks 'deploy-ca' policy.
+      Attached policies: {{ __token_lookup.data.data.policies | default([]) | to_nice_yaml }}.
+      Raw lookup error: {{ __token_lookup.msg | default('N/A') }}.
+  run_once: true
 
 - name: "validate-vault-pki : Assert Vault PKI vars are set"
   ansible.builtin.assert:
@@ -28,6 +56,7 @@
     fail_msg: "Missing required Vault vars: URL, token, mount paths, or role name."
 
 - name: "validate-vault-pki : Check Vault seal status"
+  no_log: true
   community.hashi_vault.vault_read:
     url: "{{ deploy_pki_certs__vault_url }}"
     token: "{{ deploy_pki_certs__vault_token }}"
@@ -43,6 +72,7 @@
     fail_msg: "Vault at {{ deploy_pki_certs__vault_url }} is sealed. Please unseal it before running this role."
 
 - name: "validate-vault-pki : List existing mounts"
+  no_log: true
   community.hashi_vault.vault_read:
     url: "{{ deploy_pki_certs__vault_url }}"
     token: "{{ deploy_pki_certs__vault_token }}"
@@ -139,9 +169,9 @@
       Accept: "application/pem-certificate"
     method: GET
     return_content: true
-    validate_certs: false
     status_code: 200
     body_format: raw
+    validate_certs: false
   register: __pki_ca_test
   delegate_to: localhost
   run_once: true
@@ -187,6 +217,7 @@
   run_once: true
 
 - name: "validate-vault-pki : Read PKI paths (native engine, JSON only)"
+  no_log: true
   community.hashi_vault.vault_read:
     url: "{{ deploy_pki_certs__vault_url }}"
     token: "{{ deploy_pki_certs__vault_token }}"
@@ -207,6 +238,7 @@
   run_once: true
 
 - name: "validate-vault-pki : List KV trusted_external folder (metadata)"
+  no_log: true
   community.hashi_vault.vault_list:
     url: "{{ deploy_pki_certs__vault_url }}"
     token: "{{ deploy_pki_certs__vault_token }}"

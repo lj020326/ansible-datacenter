@@ -1,0 +1,296 @@
+---
+# Fetches and deploys static certificates (pre-existing in Vault PKI or KV).
+# Types: 'pki_ca', 'kv'.
+# Requires the following variable:
+# __cert_info:
+#   type: 'pki_ca', 'pki_service_route', 'pki_host' or 'kv'
+#   kv_prefix: The KV path prefix in Vault (e.g., 'trusted_internal/trusted_external')
+#   cert_name: The name of the certificate.
+#   common_name: The common name (for PKI only).
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __cert_info"
+  ansible.builtin.debug:
+    var: __cert_info
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Assert required __cert_info content"
+  ansible.builtin.assert:
+    that:
+      - __cert_info.type | d('') | length > 0
+      - __cert_info.cert_name | d('') | length > 0
+      - __cert_info.kv_prefix | d('') | length > 0
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Assert __cert_info.common_name for pki"
+  when: __cert_info.type == 'pki_ca'
+  ansible.builtin.assert:
+    that:
+      - __cert_info.common_name | d('') | length > 0
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Assert type is static"
+  ansible.builtin.assert:
+    that: __cert_info.type in ['pki_ca', 'kv']
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Initialize certificate state"
+  ansible.builtin.set_fact:
+    __needs_content_fetch: false
+    __needs_new_pki_issuance: false
+    __kv_cache_path: "pki_cache/{{ __cert_info.common_name | d(__cert_info.cert_name) | replace('.', '_') }}"
+    __kv_source_path: "{{ __cert_info.kv_prefix }}/{{ __cert_info.cert_name }}"
+    __cert_filename: "{{ __cert_info.cert_name }}.{{ deploy_pki_certs__ca_cert_extension }}"
+    __cert_trust_filename: "{{ __cert_info.cert_name }}.{{ __deploy_pki_certs__trust_cert_extension }}"
+    __cert_chain_name: "{{ __cert_info.cert_name }}.chain.{{ deploy_pki_certs__ca_cert_extension }}"
+    __key_name: "{{ __cert_info.cert_name }}-key.{{ deploy_pki_certs__ca_cert_extension }}"
+    __ca_path: ""
+    __fetched_cert_content: ""
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Set __ca_path for pki_ca"
+  when: __cert_info.type == "pki_ca"
+  ansible.builtin.set_fact:
+    __ca_path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __deploy_pki_certs__ca_root_cert_name }}"
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Check if certificate file exists"
+  no_log: true
+  ansible.builtin.stat:
+    path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
+  register: __cert_stat
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __cert_stat.stat.exists"
+  ansible.builtin.debug:
+    var: __cert_stat.stat.exists
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Initialize __cert_needs_update"
+  ansible.builtin.set_fact:
+    __cert_needs_update: "{{ (not __cert_stat.stat.exists) }}"
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Validate local cert/key"
+  when: __cert_stat.stat.exists
+  block:
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Get local certificate info"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
+      register: __local_cert_info
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __local_cert_info"
+      ansible.builtin.debug:
+        var: __local_cert_info
+        verbosity: 1
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Validate local certificate/key"
+      no_log: true
+      dettonville.utils.x509_certificate_verify:
+        path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
+        # Only verify private key if __key_path is defined and the file exists
+        private_key_path: "{{ __key_path | d(omit) }}"
+        ca_path: "{{ __ca_path | d(omit) }}"
+        common_name: "{{ __cert_info.common_name | d(omit) }}"
+        organization: "{{ __cert_info.organization | d(omit) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit) }}"
+        country: "{{ __cert_info.country | d(omit) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit) }}"
+        locality: "{{ __cert_info.locality | d(omit) }}"
+#        email_address: "{{ __cert_info.email_address | d(omit) }}"
+        key_algo: "{{ __openssl_key_algo | d(omit) }}"
+        key_size: "{{ __openssl_key_size | d(omit) }}"
+        validate_expired: true
+        validate_checkend: true
+        checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
+      register: __local_verify_result
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __local_verify_result"
+      ansible.builtin.debug:
+        var: __local_verify_result
+
+# ===============================================================
+# CONTENT FETCH PHASE
+# ===============================================================
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Fetch PKI CA"
+  when: __cert_info.type == "pki_ca"
+  block:
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Fetch PKI CA certificate"
+      no_log: true
+      ansible.builtin.uri:
+        url: "{{ deploy_pki_certs__vault_url }}/v1/{{ deploy_pki_certs__vault_mount_path }}/ca/pem"
+        headers: { X-Vault-Token: "{{ deploy_pki_certs__vault_token }}" }
+        return_content: true
+        validate_certs: false
+      register: __ca_uri_res
+      delegate_to: localhost
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __ca_uri_res"
+      ansible.builtin.debug:
+        var: __ca_uri_res
+        verbosity: 1
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Fetch KV cert"
+  when: __cert_info.type == "kv"
+  block:
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Fetch KV certificate"
+      no_log: true
+      community.hashi_vault.vault_kv2_get:
+        url: "{{ deploy_pki_certs__vault_url }}"
+        token: "{{ deploy_pki_certs__vault_token }}"
+        mount_point: "{{ deploy_pki_certs__vault_kv_mount_path }}"
+        path: "{{ __kv_source_path }}"
+        validate_certs: false
+      register: __pki_kv_res
+      delegate_to: localhost
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __pki_kv_res"
+      ansible.builtin.debug:
+        var: __pki_kv_res
+        verbosity: 1
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Set __fetched_cert_content"
+  no_log: true
+  ansible.builtin.set_fact:
+    __fetched_cert_content: "{{ __ca_uri_res.content | d(__pki_kv_res.secret.certificate) }}"
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __fetched_cert_content"
+  ansible.builtin.debug:
+    var: __fetched_cert_content
+    verbosity: 1
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Assert __fetched_cert_content defined"
+  ansible.builtin.assert:
+    that: __fetched_cert_content | d('') | length > 0
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Get fetched certificate info"
+  no_log: true
+  community.crypto.x509_certificate_info:
+    content: "{{ __fetched_cert_content }}"
+  register: __fetched_cert_info
+  delegate_to: localhost
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __fetched_cert_info"
+  ansible.builtin.debug:
+    var: __fetched_cert_info
+    verbosity: 1
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Compare Fingerprints"
+  when: __cert_stat.stat.exists
+  ansible.builtin.set_fact:
+    __cert_needs_update: "{{ __local_cert_info.fingerprints.sha256 != __fetched_cert_info.fingerprints.sha256 }}"
+
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __cert_needs_update"
+  ansible.builtin.debug:
+    var: __cert_needs_update
+    
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display deploy_pki_certs__ca_force_deploy"
+  ansible.builtin.debug:
+    var: deploy_pki_certs__ca_force_deploy
+
+# ===============================================================
+# DEPLOYMENT PHASE (DRY)
+# ===============================================================
+- name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Deploy files to target"
+  when: __cert_needs_update or deploy_pki_certs__ca_force_deploy
+  block:
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Pre-deployment verification"
+      no_log: true
+      dettonville.utils.x509_certificate_verify:
+        content: "{{ __fetched_cert_content | b64encode }}"
+        ca_path: "{{ __ca_path | d(omit) }}"
+        common_name: "{{ __cert_info.common_name | d(omit) }}"
+        validate_expired: true
+        validate_checkend: true
+        checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
+      register: __pre_deploy_verify
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __pre_deploy_verify"
+      ansible.builtin.debug:
+        var: __pre_deploy_verify
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : ALERT - Verification Warning"
+      # Change: Trigger an alert message if the verification returned a failure
+      when:
+        - __pre_deploy_verify.failed is defined
+        - __pre_deploy_verify.failed or __pre_deploy_verify.verify_failed | d(false)
+      ansible.builtin.debug:
+        msg: |
+          [WARNING]: Certificate verification failed for {{ __cert_info.cert_name }}!
+          Reason: {{ __pre_deploy_verify.msg | d('Unknown verification error') }}
+          The certificate was deployed, but it may be invalid, expired, or mismatched with its key.
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Assert pre-deployment verification test not failed"
+      when: deploy_pki_certs__pre_deploy_verify_fail_fast | bool
+      ansible.builtin.assert:
+        that:
+          - not __pre_deploy_verify.failed
+          - not __pre_deploy_verify.verify_failed
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Write certificate to {{ deploy_pki_certs__local_cert_dir }}"
+      ansible.builtin.copy:
+        content: "{{ __fetched_cert_content }}"
+        dest: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
+        mode: '0644'
+        owner: root
+        group: root
+        backup: true
+      register: __cert_copy_res
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : determine if is CA"
+      no_log: true
+      dettonville.utils.x509_certificate_verify:
+        content: "{{ __fetched_cert_content | b64encode }}"
+        validate_is_ca: true
+      register: __verify_is_ca
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __verify_is_ca"
+      ansible.builtin.debug:
+        var: __verify_is_ca
+
+    # Only CAs
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Deploy certificate to OS Trust Store (Only CAs)"
+      when: __verify_is_ca.verify_results.is_ca | d(false)
+      ansible.builtin.copy:
+        content: "{{ __fetched_cert_content }}"
+        dest: "{{ __deploy_pki_certs__trust_ca_cert_dir }}/{{ __cert_trust_filename }}"
+        mode: '0644'
+        owner: root
+        group: root
+        backup: false
+      register: __cert_copy_trust_res
+
+    - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Post-deployment block"
+      # Only run if a change was actually made to the local files
+    #  when: __cert_copy_res.changed | d(false) # noqa: no-handler
+      when: deploy_pki_certs__ca_force_deploy or __cert_copy_res.changed | d(false) # noqa: no-handler
+      block:
+    
+        - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Update system's CA trust store"
+          when:
+            - __cert_info.type == "pki_ca"
+            - __verify_is_ca.verify_results.is_ca | d(false)
+          block:
+            - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Update system's CA trust store"
+              no_log: true
+              ansible.builtin.command: "{{ __deploy_pki_certs__trust_ca_update_trust_cmd }}"
+              register: __update_system_ca_trust_store_res
+              changed_when: true
+    
+            - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __update_system_ca_trust_store_res"
+              ansible.builtin.debug:
+                var: __update_system_ca_trust_store_res
+                verbosity: 1
+    
+        - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Ensure CA cert is present in the Java keystore"
+          when: deploy_pki_certs__java_keystore_enabled | bool
+          no_log: true
+          community.general.java_cert:
+            keystore_path: "{{ __deploy_pki_certs__java_keystore }}"
+            keystore_pass: "{{ __deploy_pki_certs__java_keystore_pass }}"
+            cert_alias: "{{ __deploy_pki_certs__vault_cert_basename }}"
+            cert_path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
+            owner: root
+            group: root
+            state: present
+          register: __update_keystore_result
+    
+        - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Display __update_keystore_result"
+          ansible.builtin.debug:
+            var: __update_keystore_result
+            verbosity: 1
+    
+        - name: "fetch-static-cert[{{ __cert_info.cert_name }}] : Global Change Trigger"
+          ansible.builtin.set_fact:
+            __ca_cert_has_changed: true

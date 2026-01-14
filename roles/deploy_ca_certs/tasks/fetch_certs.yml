@@ -8,7 +8,7 @@
       - deploy_ca_certs__ca_key_dir={{ deploy_ca_certs__ca_key_dir }}
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Remove all existing old CA certs and keys"
-  when: deploy_ca_certs__ca_reset_local_certs|bool
+  when: deploy_ca_certs__ca_reset_local_certs | bool
   ansible.builtin.file:
     state: absent
     path: "{{ item }}"
@@ -58,16 +58,16 @@
     - src: "{{ deploy_ca_certs__keystore_cert_base_dir }}/{{ deploy_ca_certs__ca_root_cn }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
       dest: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
 
-- name: "{{ __deploy_ca_certs__log_prefix_fetch }} Copy root cert to {{ __deploy_ca_certs__trust_ca_cacert_dir }} for importing"
+- name: "{{ __deploy_ca_certs__log_prefix_fetch }} Copy root cert to {{ __deploy_ca_certs__trust_ca_cert_dir }} for importing"
   ansible.builtin.copy:
     src: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
-    dest: "{{ __deploy_ca_certs__trust_ca_cacert_dir }}/{{ deploy_ca_certs__ca_root_cn }}.{{ deploy_ca_certs__trust_ca_cert_extension }}"
+    dest: "{{ __deploy_ca_certs__trust_ca_cert_dir }}/{{ deploy_ca_certs__ca_root_cn }}.{{ deploy_ca_certs__trust_ca_cert_extension }}"
     remote_src: true
-    force: "{{ item.force | d('true') }}"
-    mode: "{{ item.mode | d('0755') }}"
-    owner: "{{ item.owner | d('root') }}"
-    group: "{{ item.owner | d('root') }}"
-    backup: "{{ item.backup | d(omit) }}"
+    force: true
+    mode: '0644'
+    owner: root
+    group: root
+    backup: true
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Update CA trust: {{ __deploy_ca_certs__trust_ca_update_trust_cmd }}"
   changed_when: false
@@ -127,21 +127,25 @@
     - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Add intermediate certs to __cert_from_to_list"
       when: item.domainName in __deploy_ca_certs__ca_fetch_domains_list
       ansible.builtin.set_fact:
-        __cert_from_to_list: "{{ __cert_from_to_list | d([]) + [ { 'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.domainName + '/' + item.commonName + '.pem',
-          'dest': deploy_ca_certs__local_cert_dir + '/' + item.commonName + '.pem' }, { 'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.domainName
-          + '/' + item.commonName + '.chain.pem', 'dest': deploy_ca_certs__local_cert_dir + '/' + item.commonName + '.chain.pem' }, { 'src': deploy_ca_certs__keystore_cert_base_dir
-          + '/' + item.domainName + '/' + item.commonName + '-key.pem', 'dest': deploy_ca_certs__local_key_dir + '/' + item.commonName + '-key.pem', 'owner':
-          'root', 'group': 'root', 'mode': '0600' } ] }}"
+        __cert_from_to_list: "{{ __cert_from_to_list | d([]) +
+          [{'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.domainName + '/' + item.commonName + '.pem',
+            'dest': deploy_ca_certs__local_cert_dir + '/' + item.commonName + '.pem'},
+            {'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.domainName + '/' + item.commonName + '.chain.pem',
+            'dest': deploy_ca_certs__local_cert_dir + '/' + item.commonName + '.chain.pem'},
+            {'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.domainName + '/' + item.commonName + '-key.pem',
+            'dest': deploy_ca_certs__local_key_dir + '/' + item.commonName + '-key.pem', 'owner': 'root', 'group': 'root', 'mode': '0600'}] }}"
       loop: "{{ __deploy_ca_certs__ca_intermediate_cert_list }}"
 
     ## ref: https://unix.stackexchange.com/posts/175673/timeline
     - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Add route certs to __cert_from_to_list"
       ansible.builtin.set_fact:
-        __cert_from_to_list: "{{ __cert_from_to_list | d([]) + [ { 'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.route + '/' + item.route + '.pem', 'dest':
-          deploy_ca_certs__local_cert_dir + '/' + item.route + '.pem' }, { 'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.route + '/' + item.route
-          + '.chain.pem', 'dest': deploy_ca_certs__local_cert_dir + '/' + item.route + '.chain.pem' }, { 'src': deploy_ca_certs__keystore_cert_base_dir + '/'
-          + item.route + '/' + item.route + '-key.pem', 'dest': deploy_ca_certs__local_key_dir + '/' + item.route + '-key.pem', 'owner': 'root', 'group': 'root',
-          'mode': '0600' } ] }}"
+        __cert_from_to_list: "{{ __cert_from_to_list | d([]) +
+          [{'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.route + '/' + item.route + '.pem',
+          'dest': deploy_ca_certs__local_cert_dir + '/' + item.route + '.pem'},
+          {'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.route + '/' + item.route + '.chain.pem',
+          'dest': deploy_ca_certs__local_cert_dir + '/' + item.route + '.chain.pem'},
+          {'src': deploy_ca_certs__keystore_cert_base_dir + '/' + item.route + '/' + item.route + '-key.pem',
+          'dest': deploy_ca_certs__local_key_dir + '/' + item.route + '-key.pem', 'owner': 'root', 'group': 'root', 'mode': '0600'}] }}"
       loop: "{{ deploy_ca_certs__ca_service_routes_list }}"
 
     - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Display __cert_from_to_list"

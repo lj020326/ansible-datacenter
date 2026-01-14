@@ -26,7 +26,7 @@ from ansible import context
 from ansible import constants as C
 from ansible.playbook.task_include import TaskInclude
 from ansible.plugins.callback import CallbackBase
-from ansible.module_utils._text import to_bytes, to_native, to_text
+from ansible.module_utils.common.text.converters import to_bytes, to_native, to_text
 
 if sys.version_info.major == 2:
     reload(sys)

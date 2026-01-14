@@ -29,7 +29,7 @@
     var: bootstrap_certs__ca_force_create
 
 - name: Create_caroot | Create intermediate certificate authority key pair and CSR
-  when: __cert_validation_results.failed|bool or bootstrap_certs__ca_force_create|bool
+  when: __cert_validation_results.failed | bool or bootstrap_certs__ca_force_create | bool
   block:
     - name: Caroot | Create domain configuration directories
       ansible.builtin.file:
@@ -155,25 +155,25 @@
 - name: Caroot | Get ca root certificate info
   community.crypto.x509_certificate_info:
     path: "{{ __bootstrap_certs__keystore_cert_dir }}/{{ __bootstrap_certs__ca_cert }}"
-  register: cacert_result
+  register: ca_result
 
 - name: Caroot | Display ca root cert info
   ansible.builtin.debug:
-    var: cacert_result
+    var: ca_result
 
 - name: Caroot | Assert CA root cert info is valid
   ansible.builtin.assert:
     that:
       # issuer and issuer_strict
-      - cacert_result.issuer.commonName == bootstrap_certs__ca_root.commonName
-      - cacert_result.issuer.organizationName == bootstrap_certs__ca_root.organization
-      - cacert_result.subject.commonName == bootstrap_certs__ca_root.commonName
-      - cacert_result.subject.organizationName == bootstrap_certs__ca_root.organization
+      - ca_result.issuer.commonName == bootstrap_certs__ca_root.commonName
+      - ca_result.issuer.organizationName == bootstrap_certs__ca_root.organization
+      - ca_result.subject.commonName == bootstrap_certs__ca_root.commonName
+      - ca_result.subject.organizationName == bootstrap_certs__ca_root.organization
       # has_expired
-      - not cacert_result.expired
+      - not ca_result.expired
       # Extensions: Verify AKID and other critical extensions are present
-      - cacert_result.authority_key_identifier is not none
-      - "'2.5.29.35' in cacert_result.extensions_by_oid"  # authorityKeyIdentifier (AKID)
-      - "'2.5.29.14' in cacert_result.extensions_by_oid"  # subjectKeyIdentifier (SKI)
-      - "'2.5.29.19' in cacert_result.extensions_by_oid"  # basicConstraints (CA:TRUE)
-      - "'2.5.29.15' in cacert_result.extensions_by_oid"  # keyUsage
+      - ca_result.authority_key_identifier is not none
+      - "'2.5.29.35' in ca_result.extensions_by_oid"  # authorityKeyIdentifier (AKID)
+      - "'2.5.29.14' in ca_result.extensions_by_oid"  # subjectKeyIdentifier (SKI)
+      - "'2.5.29.19' in ca_result.extensions_by_oid"  # basicConstraints (CA:TRUE)
+      - "'2.5.29.15' in ca_result.extensions_by_oid"  # keyUsage

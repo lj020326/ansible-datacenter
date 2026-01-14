@@ -25,7 +25,7 @@
     ## KVM host
     - name: "KVM host only: Get distro and network devices to validate guest configs"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       ansible.builtin.setup:
         gather_subset:
           - '!all'
@@ -43,12 +43,12 @@
     # Load distro specific vars here
     - name: "KVM host only: Load distro specific vars"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
-      ansible.builtin.include_vars: "{{ ansible_distribution.split(' ', 1)[0] | lower }}.yml"
+        - bootstrap_kvm_infra__is_kvm_host | bool
+      ansible.builtin.include_vars: "{{ ansible_facts['distribution'].split(' ', 1)[0] | lower }}.yml"
 
     - name: "KVM host only: Install KVM and libvirtd packages"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       ansible.builtin.package:
         name: "{{ bootstrap_kvm_infra__host_pkgs_kvm }}"
         state: present
@@ -61,7 +61,7 @@
 
     - name: "KVM host only: Advise unable to install KVM and libvirtd packages"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - result_libvirtd_install.failed
       ansible.builtin.set_fact:
         validations_failed: "{{ validations_failed
@@ -70,7 +70,7 @@
 
     - name: "KVM host only: Install required packages"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       ansible.builtin.package:
         name: "{{ bootstrap_kvm_infra__host_pkgs_deps }}"
         state: present
@@ -83,14 +83,14 @@
 
     - name: "KVM host only: Advise unable to install packages"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - result_deps_install.failed
       ansible.builtin.set_fact:
         validations_failed: "{{ validations_failed | d([]) + ['KVM host: Failed to install deps'] }}"
 
     - name: "KVM host only: Test for required programs"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       ansible.builtin.shell: 'hash {{ item }} 2>/dev/null'
       become: true
       register: result_deps
@@ -107,7 +107,7 @@
     # Else we get permissions denied on NVMe disk images
     - name: "KVM host only: Set libvirtd security driver"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       ansible.builtin.lineinfile:
         path: /etc/libvirt/qemu.conf
         insertafter: '^#security_driver ='
@@ -118,7 +118,7 @@
 
     - name: "KVM host only: Restart libvirtd if config changed"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - result_qemuconf.changed
       ansible.builtin.service:
         name: "libvirtd"
@@ -130,7 +130,7 @@
 
     - name: "KVM host only: Ensure libvirtd is running"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       ansible.builtin.service:
         name: "libvirtd"
         state: started
@@ -141,7 +141,7 @@
 
     - name: "KVM host only: Advise unable to start libvirtd"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - result_libvirtd.failed
       ansible.builtin.set_fact:
         validations_failed: "{{ validations_failed | d([]) + ['KVM host: Failed to start and enable libvirtd'] }}"
@@ -149,7 +149,7 @@
     # TODO: use this? 'virt-host-validate qemu'
     - name: "KVM host only: Test that we can talk to libvirtd"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       community.libvirt.virt:
         command: list_vms
         uri: "{{ bootstrap_kvm_infra__host_libvirt_url }}"
@@ -159,7 +159,7 @@
 
     - name: "KVM host only: Advise libvirtd not contactable"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - result_libvirtd.list_vms is not defined
       ansible.builtin.set_fact:
         validations_failed: "{{ validations_failed | d([]) + ['KVM host: libvirtd connection failed on KVM host'] }}"
@@ -168,7 +168,7 @@
     # Else we get permissions denied on NVMe disk images
     - name: "KVM host only: Enable access to NVMe drives in apparmor"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - bootstrap_kvm_infra__security_driver is defined and bootstrap_kvm_infra__security_driver == "apparmor"
       become: true
       ansible.builtin.lineinfile:
@@ -178,7 +178,7 @@
 
     - name: "KVM host only: Restart apparmor if config changed"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - bootstrap_kvm_infra__security_driver is defined and bootstrap_kvm_infra__security_driver == "apparmor"
         - result_apparmor_conf.changed
       become: true
@@ -191,7 +191,7 @@
 
     - name: "KVM host only: Ensure system package of virtualbmc is removed"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - bootstrap_kvm_infra__vbmc and bootstrap_kvm_infra__vbmc_pip
       ansible.builtin.package:
         name: "python3-virtualbmc"
@@ -205,7 +205,7 @@
 
     - name: "KVM host only: Advise unable to remove virtualbmc host package"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - bootstrap_kvm_infra__vbmc and virt_infra_vbmc_pip
         - result_vbmc_remove.failed
       ansible.builtin.set_fact:
@@ -213,7 +213,7 @@
 
     - name: "KVM host only: Install virtualbmc with pip"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc and virt_infra_vbmc_pip
       become: true
       ansible.builtin.pip:
@@ -226,7 +226,7 @@
 
     - name: "KVM host only: Advise unable to install virtualbmc"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc and virt_infra_vbmc_pip
         - result_vbmc_pip.failed
       ansible.builtin.set_fact:
@@ -234,7 +234,7 @@
 
     - name: "KVM host only: Create virtualbmc service file"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc and virt_infra_vbmc_pip
       become: true
       ansible.builtin.template:
@@ -246,7 +246,7 @@
 
     - name: "KVM host only: Advise unable to create virtualbmc service"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc and virt_infra_vbmc_pip
         - result_vbmc_service.failed
       ansible.builtin.set_fact:
@@ -254,7 +254,7 @@
 
     - name: "KVM host only: Create virtualbmc config directory"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc and virt_infra_vbmc_pip
       ansible.builtin.file:
         path: /etc/virtualbmc
@@ -265,7 +265,7 @@
 
     - name: "KVM host only: Create virtualbmc run directory"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc and virt_infra_vbmc_pip
       become: true
       ansible.builtin.file:
@@ -276,7 +276,7 @@
 
     - name: "KVM host only: Create config for virtualbmc"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc and virt_infra_vbmc_pip
       become: true
       ansible.builtin.template:
@@ -287,7 +287,7 @@
 
     - name: "KVM host only: Ensure virtualbmc is running"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc
       become: true
       ansible.builtin.systemd:
@@ -300,7 +300,7 @@
 
     - name: "KVM host only: Advise unable to start virtualbmc"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc
         - result_virtualbmc.failed is defined and result_virtualbmc.failed
       ansible.builtin.set_fact:
@@ -308,7 +308,7 @@
 
     - name: "KVM host only: Get virtual BMC list"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - virt_infra_vbmc
         - result_virtualbmc.failed is defined and not result_virtualbmc.failed
       changed_when: false
@@ -321,7 +321,7 @@
 
     - name: Advise when deps are not installed
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - item.rc != 0
       ansible.builtin.set_fact:
         validations_failed: "{{ validations_failed | d([]) + [ 'KVM host: ' +  item.item + ' not found on KVM host, please install'] }}"
@@ -329,7 +329,7 @@
 
     - name: "KVM host only: Get list of supported os-variants"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
       ansible.builtin.command: osinfo-query os
       register: result_osinfo
       ignore_errors: true
@@ -337,7 +337,7 @@
 
     - name: "KVM host only: Advise os variants not available"
       when:
-        - bootstrap_kvm_infra__is_kvm_host|bool
+        - bootstrap_kvm_infra__is_kvm_host | bool
         - result_osinfo.rc is defined
         - result_osinfo.rc != 0
       ansible.builtin.set_fact:
@@ -412,7 +412,7 @@
       when:
         - inventory_hostname not in groups['kvmhost']
         - item.type is defined and item.type == "bridge"
-        - item.name not in hostvars[bootstrap_kvm_infra__kvm_host].ansible_interfaces
+        - item.name not in hostvars[bootstrap_kvm_infra__kvm_host]['ansible_facts']['interfaces']
       ansible.builtin.set_fact:
         validations_failed: "{{ validations_failed | d([]) + [ item.name + ' bridge interface missing on KVM host'] }}"
       loop: "{{ virt_infra_networks }}"

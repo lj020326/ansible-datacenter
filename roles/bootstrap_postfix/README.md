@@ -25,8 +25,8 @@ The state in which the Postfix service should be after this role runs, and wheth
 Options for values `inet_interfaces` and `inet_protocols` in the `main.cf` file.
 
  * `bootstrap_postfix__install` [default: `[postfix, mailutils, libsasl2-2, sasl2-bin, libsasl2-modules]`]: Packages to install
- * `bootstrap_postfix__hostname` [default: `{{ ansible_fqdn }}`]: Host name, used for `myhostname` and in `mydestination`
- * `bootstrap_postfix__mailname` [default: `{{ ansible_fqdn }}`]: Mail name (in `/etc/mailname`), used for `myorigin`
+ * `bootstrap_postfix__hostname` [default: `{{ ansible_facts['fqdn'] }}`]: Host name, used for `myhostname` and in `mydestination`
+ * `bootstrap_postfix__mailname` [default: `{{ ansible_facts['fqdn'] }}`]: Mail name (in `/etc/mailname`), used for `myorigin`
 
  * `bootstrap_postfix__compatibility_level` [optional]: With backwards compatibility turned on (the compatibility_level value is less than the Postfix built-in value), Postfix looks for settings that are left at their implicit default value, and logs a message when a backwards-compatible default setting is required (e.g. `2`, `Postfix >= 3.0`)
 

@@ -13,13 +13,13 @@
       when: inventory_hostname in ansible_play_hosts_all
       block:
         - name: Ping test via module ping
-          when: ansible_os_family|d('')|lower in ['debian', 'redhat']
+          when: ansible_facts['os_family'] | d('') | lower in ['debian', 'redhat']
           action: ansible.builtin.ping
           register: ping_test
           changed_when: false
 
         - name: Ping test via module win_ping
-          when: ansible_os_family|d('')|lower is search('windows')
+          when: ansible_facts['os_family'] | d('') | lower is search('windows')
           action: ansible.windows.win_ping
           register: winping_test
           changed_when: false
@@ -27,8 +27,8 @@
         - name: Ping test via module net_ping
           delegate_to: localhost
           when:
-            - not (ansible_os_family|d('')|lower in ['debian', 'redhat'])
-            - not (ansible_os_family|d('')|lower is search('windows'))
+            - not (ansible_os_family | d('') | lower in ['debian', 'redhat'])
+            - not (ansible_os_family | d('') | lower is search('windows'))
           ansible.netcommon.net_ping:
             dest: "{{ ansible_host }}"
           register: netping_test
@@ -44,9 +44,9 @@
         - name: Setting ping_failed[1]
           delegate_to: localhost
           when:
-            - not item.skipped|d(false)
+            - not item.skipped | d(false)
           ansible.builtin.set_fact:
-            ping_failed: "{{ item.unreachable|d(item.failed)|d(true) }}"
+            ping_failed: "{{ item.unreachable | d(item.failed) | d(true) }}"
           loop:
             - "{{ ping_test }}"
             - "{{ winping_test }}"
@@ -85,7 +85,7 @@
 
                 - name: Setting ping_failed[2]
                   ansible.builtin.set_fact:
-                    ping_failed: "{{ bash_connectivity_test.unreachable|d(bash_connectivity_test.failed)|d(true) }}"
+                    ping_failed: "{{ bash_connectivity_test.unreachable | d(bash_connectivity_test.failed) | d(true) }}"
 
     - name: Display ping_failed
       ansible.builtin.debug:
@@ -96,9 +96,9 @@
       run_once: true # noqa: run-once[task]
       block:
         - name: Set unreachable_hosts
-          when: hostvars[item].ping_failed|d(true)
+          when: hostvars[item].ping_failed | d(true)
           ansible.builtin.set_fact:
-            unreachable_hosts: "{{ unreachable_hosts|d([]) + [item] }}"
+            unreachable_hosts: "{{ unreachable_hosts | d([]) + [item] }}"
           loop: "{{ ansible_play_hosts_all }}"
 
         - name: Display pre-check connection info
@@ -106,10 +106,10 @@
             msg:
               - ansible_play_hosts_all={{ ansible_play_hosts_all }}
               - ansible_play_hosts={{ ansible_play_hosts }}
-              - unreachable_hosts={{ unreachable_hosts|d([]) }}
+              - unreachable_hosts={{ unreachable_hosts | d([]) }}
 
         - name: Add unreachable_hosts to group 'node_offline'
-          when: unreachable_hosts|d([])|length>0
+          when: unreachable_hosts | d([])|length>0
           ansible.builtin.add_host:
             name: "{{ item }}"
             groups: node_offline

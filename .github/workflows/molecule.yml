@@ -31,8 +31,8 @@ jobs:
           - amd64
 #          - arm64
         image:
-          ## NOTE: removing all RHEL based dists that do not support Python3.7+
-          ## ref: https://github.com/ansible/ansible/issues/82068
+          # Testing all platform versions is impractical. Only test the newest and
+          # oldest versions of each that we support
 #          - centos7-systemd-python
 #          - centos8-systemd-python
           - centos9-systemd-python
@@ -48,26 +48,6 @@ jobs:
 #          - fedora-systemd-python
         scenario:
           - bootstrap_linux
-#          - default
-#        include:
-#          - distro: centos7
-#            image: centos7-systemd-python
-#          - distro: centos8
-#            image: centos8-systemd-python
-#          - distro: redhat7
-#            image: redhat7-systemd-python
-#          - distro: redhat8
-#            image: redhat8-systemd-python
-#          - distro: debian9
-#            image: debian9-systemd-python
-#          - distro: debian10
-#            image: debian10-systemd-python
-#          - distro: ubuntu1804
-#            image: ubuntu1804-systemd-python
-#          - distro: ubuntu2004
-#            image: ubuntu2004-systemd-python
-#          - distro: ubuntu2204
-#            image: ubuntu2204-systemd-python
 
     steps:
       - name: Check out the codebase.
@@ -107,3 +87,21 @@ jobs:
 #          ## ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
 #          MOLECULE_DOCKER_GROUP: ${{ matrix.inventory_group || 'molecule_docker_linux_github' }}
         working-directory: "${{ github.repository }}"
+
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.versions.ansible }}-python-${{ matrix.versions.python }}
+          path: |
+            ansible_collections/dettonville/utils/tests/output/junit/
+            ansible_collections/dettonville/utils/tests/output/coverage/
+            ansible_collections/dettonville/utils/tests/output/reports/
+          retention-days: 7
+
+      - name: Publish Unit Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: |
+            ansible_collections/dettonville/utils/tests/output/junit/*.xml

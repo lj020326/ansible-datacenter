@@ -16,28 +16,42 @@ dependency:
     requirements-file: collections/requirements.molecule.yml
 driver:
   name: docker
-lint: |
-  set -e
-  yamllint .
-  ansible-lint .
+#lint: |
+#  set -e
+#  yamllint .
+#  ansible-lint .
 
+## ref: https://molecule.readthedocs.io/en/stable/configuration.html#platforms
+## ref: https://github.com/robertdebock/ansible-role-python_pip/blob/master/molecule/default/molecule.yml
+## ref: https://github.com/marketplace/actions/test-ansible-roles-with-molecule
+## ref: https://stackoverflow.com/questions/53847122/where-docker-default-registry-url-is-configured
 platforms:
-  - name: ${MOLECULE_IMAGE_LABEL:-centos9-systemd-python}
+  - name: ${MOLECULE_IMAGE_LABEL:-centos9-systemd-python}-${MOLECULE_PLATFORM:-amd64}-${MOLECULE_BUILD_ID:-local}
     image: ${MOLECULE_IMAGE_REGISTRY:-lj020326}/${MOLECULE_IMAGE_LABEL:-centos9-systemd-python}:${MOLECULE_IMAGE_TAG:-latest}
+#    image: ${MOLECULE_IMAGE_REGISTRY:-docker.io}/${MOLECULE_IMAGE_LABEL:-lj020326/centos9-systemd-python}:${MOLECULE_IMAGE_TAG:-latest}
     #    command: ${MOLECULE_DOCKER_COMMAND:-""}
     #    command: ${MOLECULE_DOCKER_COMMAND:-/sbin/init}
+    #    command: ${MOLECULE_DOCKER_COMMAND:-"/usr/bin/init"}
     command: ${MOLECULE_DOCKER_COMMAND:-"/lib/systemd/systemd"}
-    tmpfs:
-      - /run
-      - /tmp
-    capabilities:
-      - SYS_ADMIN
-      - NET_ADMIN
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    platform: ${MOLECULE_PLATFORM:-amd64}
+    ## ref: https://github.com/docker/for-mac/issues/6073
+    ## ref: https://github.com/moby/moby/issues/30723
+    ## ref: https://unix.stackexchange.com/questions/683073/rocky-linux-container-with-systemd-on-macos
     privileged: true
     pre_build_image: true
     cgroupns_mode: host
+    tmpfs:
+      - /run
+      - /run/lock
+      # Ensure /tmp has enough space for apt extracts
+      - /tmp:rw,size=1G
+      #- /tmp
+    capabilities:
+      - SYS_ADMIN
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     groups:
       - ${MOLECULE_DOCKER_GROUP:-molecule_docker_linux}
 
@@ -46,6 +60,10 @@ provisioner:
   name: ansible
   lint:
     name: ansible-lint
+  config_options:
+    defaults:
+      remote_tmp: /tmp/ansible
+#      remote_tmp: /tmp
   env:
     ## ref: https://stackoverflow.com/questions/61856958/molecule-test-roles-from-other-directory
     ANSIBLE_ROLES_PATH: ../../roles
@@ -53,6 +71,8 @@ provisioner:
   #    v: true
   ##    vvv: true
   playbooks:
+    destroy: ../shared/destroy.yml
+    create: ../shared/create.yml
     prepare: ../shared/prepare.yml
     converge: ${MOLECULE_PLAYBOOK:-converge.yml}
   inventory:
@@ -64,17 +84,26 @@ scenario:
   name: bootstrap_ntp
   ## ref: https://blog.florianlopes.io/testing-ansible-roles-and-playbooks-with-molecule/
   test_sequence:
-    #    - lint
+#    - lint
     - cleanup
     - dependency
     - syntax
     - create
     - prepare
     - converge
-    #    - idempotence
+#    - idempotence
     - verify
-    - cleanup
+#    - cleanup
     - destroy
 
 verifier:
   name: ansible
+  env:
+    ANSIBLE_CALLBACKS_ENABLED: "junit"  # Enable JUnit callback (string)
+    JUNIT_OUTPUT_DIR: "${MOLECULE_TEST_RESULTS_DIRECTORY:-../../.test-reports}"   # Output dir (creates if missing; string)
+    # Optional: Customize with strings (defaults to "false"/"true")
+    JUNIT_FAIL_ON_CHANGE: "false"       # "true" to fail on changed tasks
+    JUNIT_FAIL_ON_IGNORE: "false"       # "true" to fail on ignored errors
+    JUNIT_INCLUDE_SETUP_TASKS_IN_REPORT: "false"  # "true" to include setup tasks in report
+#  options:
+#    $D: "-v" # Example of other options

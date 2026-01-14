@@ -68,8 +68,8 @@ The following variables can be configured in your playbook or `vars` files.
 | `bootstrap_pki__admin_token_display_name` | `"admin_user_token"`   | Display name for the admin token to create/check.                                                                                              |
 | `bootstrap_pki__admin_token_policies`  | `["admin"]`                 | Policies to attach to the admin token.                                                                                                         |
 | `bootstrap_pki__admin_token_ttl`       | `"87600h"`                  | TTL for the admin token (10 years by default).                                                                                                 |
-| `bootstrap_pki__root_ca_cert_info`     | `{ ... }`                   | Dictionary for root CA configuration. See details below.                                                                                       |
-| `bootstrap_pki__vault_ca_cert_info` | `{ ... }`                | Dictionary for intermediate CA configuration. See details below.                                                                               |
+| `bootstrap_pki__ca_root_cert_info`     | `{ ... }`                   | Dictionary for root CA configuration. See details below.                                                                                       |
+| `bootstrap_pki__vault_cert_configs` | `{ ... }`                | Dictionary for intermediate CA configuration. See details below.                                                                               |
 | `bootstrap_pki__ca_cert_duration_root` | `"438000h"`                 | The validity period for the root CA certificate (50 years by default).                                                                         |
 | `bootstrap_pki__ca_cert_duration_intermediate` | `"87600h"`          | The validity period for intermediate CA certificates (10 years by default).                                                                    |
 | `bootstrap_pki__ca_cert_duration_server` | `"87600h"`                | The validity period for server CA certificates (10 years by default).                                                                          |
@@ -107,7 +107,7 @@ bootstrap_pki__vault_roles:
     ttl: "24h"
 ```
 
-### `bootstrap_pki__root_ca_cert_info`
+### `bootstrap_pki__ca_root_cert_info`
 
 | Key                   | Default Value         | Description                                                    |
 |-----------------------|-----------------------|----------------------------------------------------------------|
@@ -122,7 +122,7 @@ bootstrap_pki__vault_roles:
 | `organizational_unit` | (none)                | Optional organizational unit (OU).                             |
 | `email_address`       | (none)                | Optional email address.                                        |
 
-### `bootstrap_pki__vault_ca_cert_info`
+### `bootstrap_pki__vault_cert_configs`
 
 | Key                   | Default Value         | Description                                                    |
 |-----------------------|-----------------------|----------------------------------------------------------------|
@@ -140,7 +140,7 @@ bootstrap_pki__vault_roles:
 | `ca_issuer_key_path`  | `/etc/pki/cacerts/ca-key.pem` | Path to the root CA private key for signing the intermediate CA. |
 
 ### Key Algorithm Choice (RSA vs ECDSA)
-For the Intermediate CA (`bootstrap_pki__vault_ca_cert_info.key_algo`), ECDSA ("ecdsa") with a 256-bit key (secp256r1 curve) is the default and recommended for most modern setups. It provides equivalent security to RSA 3072-4096 bits but with better performance, smaller keys, and lower computational overhead. RSA is still secure and compatible but is bulkier and slower. Use RSA if you need broad legacy compatibility; otherwise, stick with ECDSA for efficiency and future-proofing. To enforce the default, avoid overriding in playbooks/inventory.
+For the Intermediate CA (`bootstrap_pki__vault_cert_configs.key_algo`), ECDSA ("ecdsa") with a 256-bit key (secp256r1 curve) is the default and recommended for most modern setups. It provides equivalent security to RSA 3072-4096 bits but with better performance, smaller keys, and lower computational overhead. RSA is still secure and compatible but is bulkier and slower. Use RSA if you need broad legacy compatibility; otherwise, stick with ECDSA for efficiency and future-proofing. To enforce the default, avoid overriding in playbooks/inventory.
 
 -----
 

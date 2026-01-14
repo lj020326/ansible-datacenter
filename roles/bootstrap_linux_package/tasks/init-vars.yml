@@ -1,21 +1,21 @@
 ---
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Set __os_dist"
   ansible.builtin.set_fact:
-    __os_dist: "{{ ansible_distribution | lower }}"
+    __os_dist: "{{ ansible_facts['distribution'] | lower }}"
 
-- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include {{ ansible_pkg_mgr }} specific variables"
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include {{ ansible_facts['pkg_mgr'] }} specific variables"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - files:
-        - "{{ ansible_pkg_mgr }}.yml"
+        - "{{ ansible_facts['pkg_mgr'] }}.yml"
       skip: true
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include {{ __os_dist }} specific variables"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ __os_dist }}-{{ ansible_facts['distribution_major_version'] }}.yml"
     - "{{ __os_dist }}.yml"
-    - "{{ ansible_os_family | lower }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include rhsm/{{ __os_dist }} specific variables if defined"
@@ -23,9 +23,9 @@
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - files:
-        - rhsm/{{ __os_dist }}-{{ ansible_distribution_major_version }}.yml
+        - rhsm/{{ __os_dist }}-{{ ansible_facts['distribution_major_version'] }}.yml
         - rhsm/{{ __os_dist }}.yml
-        - rhsm/{{ ansible_os_family | lower }}.yml
+        - rhsm/{{ ansible_facts['os_family'] | lower }}.yml
         - rhsm/default.yml
       skip: true
 
@@ -156,11 +156,14 @@
   ansible.builtin.debug:
     msg: "{{ lookup('varnames', role_snap_list_var_regex, wantlist=True) }}"
 
-- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Coalesce lists from {{ role_snap_list_var_prefix }}* vars into merged list"
-  ansible.builtin.set_fact:
-    __bootstrap_linux_package__snap_list: "{{ __bootstrap_linux_package__snap_list | d([]) + lookup('vars', item) | d([]) | sort | unique }}"
-  loop: "{{ lookup('varnames', role_snap_list_var_regex, wantlist=True) }}"
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Initialize snap lists"
+  when: bootstrap_linux_package__install_snap_libs
+  block:
+    - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Coalesce lists from {{ role_snap_list_var_prefix }}* vars into merged list"
+      ansible.builtin.set_fact:
+        __bootstrap_linux_package__snap_list: "{{ __bootstrap_linux_package__snap_list | d([]) + lookup('vars', item) | d([]) | sort | unique }}"
+      loop: "{{ lookup('varnames', role_snap_list_var_regex, wantlist=True) }}"
 
-- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__snap_list"
-  ansible.builtin.debug:
-    var: __bootstrap_linux_package__snap_list
+    - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__snap_list"
+      ansible.builtin.debug:
+        var: __bootstrap_linux_package__snap_list

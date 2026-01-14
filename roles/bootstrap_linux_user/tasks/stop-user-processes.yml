@@ -1,16 +1,24 @@
 ---
-- name: Stop-user-processes | Get running user processes for {{ current_user.name }}
+- name: Stop-user-processes[{{ current_user.name }}] | Get running user processes
   when: current_user.name is defined
   ansible.builtin.shell: "ps -u {{ current_user.name }} -o pid= || true"
   changed_when: false
   register: __user_processes
 
-- name: Stop-user-processes | Kill processes for {{ current_user.name }}
+- name: Stop-user-processes[{{ current_user.name }}] | Kill processes gracefully
   when: __user_processes.stdout | d('') | length > 0
+  ansible.builtin.command: "kill -15 {{ item }}"
+  loop: "{{ __user_processes.stdout.split() }}"
   changed_when: true
+  failed_when: false
+
+- name: Stop-user-processes[{{ current_user.name }}] | Force kill remaining processes
+  when: __user_processes.stdout | d('') | length > 0
   ansible.builtin.command: "kill -9 {{ item }}"
   loop: "{{ __user_processes.stdout.split() }}"
+  changed_when: true
   register: __kill_result
-  failed_when:
-    - __kill_result is failed
-    - __kill_result.stderr | regex_search("No such process") is none
+  failed_when: false
+#  failed_when:
+#    - __kill_result is failed
+#    - __kill_result.stderr | regex_search("No such process") is none

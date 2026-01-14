@@ -16,17 +16,17 @@ Available variables are listed below (located in `defaults/main.yml`):
 ```yaml
 bootstrap_inspec__app: inspec
 bootstrap_inspec__version: 4.29.3
-bootstrap_inspec__debian_os: "{{ ansible_distribution|lower }}"
-bootstrap_inspec__debian_os_version: "{{ ansible_distribution_major_version }}"
+bootstrap_inspec__debian_os: "{{ ansible_facts['distribution']|lower }}"
+bootstrap_inspec__debian_os_version: "{{ ansible_facts['distribution_major_version'] }}"
 bootstrap_inspec__debian_os_arch: amd64
 bootstrap_inspec__debian_dl_url: "https://packages.chef.io/files/stable/{{ bootstrap_inspec__app }}/{{ bootstrap_inspec__version }}/{{ bootstrap_inspec__debian_os }}/{{ bootstrap_inspec__debian_os_version }}/{{ bootstrap_inspec__app }}_{{ bootstrap_inspec__version }}-1_{{ bootstrap_inspec__debian_os_arch }}.deb"
-bootstrap_inspec__ubuntu_os: "{{ ansible_distribution|lower }}"
-bootstrap_inspec__ubuntu_os_version: "{{ ansible_distribution_version}}"
+bootstrap_inspec__ubuntu_os: "{{ ansible_facts['distribution']|lower }}"
+bootstrap_inspec__ubuntu_os_version: "{{ ansible_facts['distribution_version']}}"
 bootstrap_inspec__ubuntu_os_arch: amd64
 bootstrap_inspec__ubuntu_dl_url: "https://packages.chef.io/files/stable/{{ bootstrap_inspec__app }}/{{ bootstrap_inspec__version }}/{{ bootstrap_inspec__debian_os }}/{{ bootstrap_inspec__debian_os_version }}/{{ bootstrap_inspec__app }}_{{ bootstrap_inspec__version }}-1_{{ bootstrap_inspec__debian_os_arch }}.deb"
 bootstrap_inspec__el_os: el
 bootstrap_inspec__el_os_arch: x86_64
-bootstrap_inspec__el_os_version: "{{ ansible_distribution_major_version }}"
+bootstrap_inspec__el_os_version: "{{ ansible_facts['distribution_major_version'] }}"
 bootstrap_inspec__el_dl_url: "https://packages.chef.io/files/stable/{{ bootstrap_inspec__app }}/{{ bootstrap_inspec__version }}/{{ bootstrap_inspec__el_os }}/{{ bootstrap_inspec__inspec_el_os_version }}/{{ inspec_app }}-{{ inspec_version }}-1.el{{ bootstrap_inspec__inspec_el_os_version }}.{{ bootstrap_inspec__inspec_el_os_arch }}.rpm"
 bootstrap_inspec__inspec_el_disable_gpg_check: no
 bootstrap_inspec__inspec_el_rpm_key_url: "https://packages.chef.io/chef.asc"

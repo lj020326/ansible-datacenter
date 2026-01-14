@@ -8,9 +8,9 @@
 
 - name: "Get current timestamp for backup"
   ansible.builtin.set_fact:
-    __timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
-#    __timestamp: "{{ ansible_date_time.iso8601 | regex_replace('[-:T]', '') | regex_replace('Z$', '') }}"
-#    __timestamp: "{{ ansible_date_time.iso8601_basic }}"
+    __timestamp: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+#    __timestamp: "{{ ansible_facts['date_time']['iso8601'] | regex_replace('[-:T]', '') | regex_replace('Z$', '') }}"
+#    __timestamp: "{{ ansible_facts['date_time']['iso8601_basic'] }}"
   run_once: true
 
 - name: "Validate Vault PKI connectivity and token permissions"
@@ -35,35 +35,13 @@
     mode: "0600"
     force: true
 
-- name: "Debug ca-config.json"
-  when: bootstrap_pki__ca_reset_cert | bool
-  no_log: true
-  ansible.builtin.slurp:
-    src: "{{ bootstrap_pki__ca_dir }}/ca-config.json"
-  register: __ca_config_json
-
-- name: "Display ca-config.json"
-  when: bootstrap_pki__ca_reset_cert | bool
-  ansible.builtin.debug:
-    msg: "ca-config.json: {{ __ca_config_json.content | b64decode | from_json | to_nice_json }}"
-    verbosity: 1
-
 - name: "Ensure dependencies"
   ansible.builtin.include_tasks: ensure_dependencies.yml
 
 - name: "Ensure Root CA certificate"
-  when: not bootstrap_pki__use_external_root_ca | bool
   ansible.builtin.include_tasks: ensure_ca_cert.yml
   vars:
-    __ca_cert_info: "{{ bootstrap_pki__root_ca_cert_info }}"
-
-- name: "Validate external Root CA certificate"
-  when: bootstrap_pki__use_external_root_ca | bool
-  ansible.builtin.assert:
-    that:
-      - bootstrap_pki__root_ca_cert_info.ca_issuer_path is defined
-      - bootstrap_pki__root_ca_cert_info.ca_issuer_key_path is defined
-    fail_msg: "External root CA certificate and key paths must be provided when bootstrap_pki__use_external_root_ca is true"
+    __ca_cert_info: "{{ bootstrap_pki__ca_root_cert_info }}"
 
 - name: "Encrypt root ca key"
   when: bootstrap_pki__encrypt_root_ca_key | bool
@@ -79,13 +57,10 @@
 - name: "Ensure Intermediate CA certificate"
   ansible.builtin.include_tasks: ensure_ca_cert.yml
   vars:
-    __ca_cert_info: "{{ bootstrap_pki__vault_ca_cert_info }}"
+    __ca_cert_info: "{{ bootstrap_pki__vault_cert_configs }}"
 
 - name: "Ensure Vault PKI engine for Intermediate CA"
   ansible.builtin.include_tasks: ensure_vault_pki_engine.yml
-
-- name: "ensure-vault-pki-engine : Validate PKI tokens in Vault"
-  ansible.builtin.include_tasks: validate_vault_pki_tokens.yml
 
 - name: "ensure-vault-pki-engine : Configure PKI roles in Vault"
   ansible.builtin.include_tasks: ensure_vault_pki_roles.yml
@@ -97,7 +72,30 @@
   when: bootstrap_pki__deploy_token_name | length > 0
   ansible.builtin.include_tasks: ensure_deploy_token_policy.yml
 
+- name: "Ensure {{ bootstrap_pki__vault_kv_mount_point }}/ KV is mounted"
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "sys/mounts/{{ bootstrap_pki__vault_kv_mount_point }}"
+    data:
+      type: "kv"
+      config:
+        # Setting KV secrets to effectively "indefinite" (static)
+        default_lease_ttl: "0h"
+        max_lease_ttl: "0h"
+        cas_required: false
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+  register: __kv_mount_result
+  failed_when: false  # Idempotent; may already exist
+
+# Initialize trusted_internal path for internal certs
+- name: "Initialize trusted_internal KV path"
+  when: bootstrap_pki__initialize_trusted_internal | d(true) | bool
+  ansible.builtin.include_tasks: ensure_trusted_internal.yml
+
 # Setup external CA certificates in secret/trusted_external
-- name: "Setup external CA certificates"
+- name: "Setup trusted external CA KV mount and external CA certificates"
   when: bootstrap_pki__external_cas | length > 0
-  ansible.builtin.include_tasks: setup_external_cas.yml
+  ansible.builtin.include_tasks: ensure_trusted_external.yml

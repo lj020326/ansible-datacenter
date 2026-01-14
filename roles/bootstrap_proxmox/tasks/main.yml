@@ -31,7 +31,7 @@
   ansible.builtin.blockinfile:
     dest: /etc/hosts
     marker: "# {mark} ANSIBLE MANAGED: Proxmox Cluster Hosts"
-    content: "{% for host in groups[pve_group] %}{{ hostvars[host].pve_cluster_addr0 }} {{ hostvars[host].ansible_fqdn }} {{ hostvars[host].ansible_hostname }}\n\n
+    content: "{% for host in groups[pve_group] %}{{ hostvars[host].pve_cluster_addr0 }} {{ hostvars[host]['ansible_facts']['fqdn'] }} {{ hostvars[host]['ansible_facts']['hostname'] }}\n\n
       {% endfor %}"
 
 - name: Remove conflicting lines in hosts files
@@ -51,12 +51,12 @@
     backup: true
   loop: "{{ groups[pve_group] }}"
   vars:
-    _correct_line: "{{ hostvars[item].pve_cluster_addr0 }} {{ hostvars[item].ansible_fqdn }} {{ hostvars[item].ansible_hostname }}"
+    _correct_line: "{{ hostvars[item].pve_cluster_addr0 }} {{ hostvars[item]['ansible_facts']['fqdn'] }} {{ hostvars[item]['ansible_facts']['hostname'] }}"
     _correct_ip: "{{ hostvars[item].pve_cluster_addr0 }}"
     _match_hosts: >-
       [
-        "{{ hostvars[item].ansible_fqdn }}",
-        "{{ hostvars[item].ansible_hostname }}"
+        "{{ hostvars[item]['ansible_facts']['fqdn'] }}",
+        "{{ hostvars[item]['ansible_facts']['hostname'] }}"
       ]
 
 - name: Ensure gpg is installed
@@ -130,12 +130,12 @@
         filename: pve-enterprise
         state: absent
       loop:
-        - deb https://enterprise.proxmox.com/debian {{ ansible_distribution_release }} pve-enterprise
-        - deb https://enterprise.proxmox.com/debian/pve {{ ansible_distribution_release }} pve-enterprise
+        - deb https://enterprise.proxmox.com/debian {{ ansible_facts['distribution_release'] }} pve-enterprise
+        - deb https://enterprise.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-enterprise
 
     - name: Remove subscription check wrapper function in web UI
       ansible.posix.patch:
-        src: 00_remove_checked_command_{{ ansible_distribution_release }}.patch
+        src: 00_remove_checked_command_{{ ansible_facts['distribution_release'] }}.patch
         basedir: /
         strip: 1
         backup: true
@@ -158,7 +158,7 @@
 
 - name: "[TEMPFIX] Fix cluster joins on PVE 6"
   when:
-    - ansible_distribution_release == 'buster'
+    - ansible_facts['distribution_release'] == 'buster'
     - pve_cluster_enabled | bool
   ansible.posix.patch:
     src: 01_pass_correct_format_for_linkX.patch

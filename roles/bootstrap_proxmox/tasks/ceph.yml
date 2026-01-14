@@ -1,7 +1,7 @@
 # This is an Ansible version of what "pveceph install" actually does
 ---
 - name: Install custom Ceph systemd service
-  when: ansible_distribution_release == 'stretch'
+  when: ansible_facts['distribution_release'] == 'stretch'
   block:
     - name: Install custom Ceph systemd service
       ansible.builtin.copy:
@@ -30,7 +30,7 @@
     - name: Create initial Ceph monitor
       ansible.builtin.command: pveceph mon create
       args:
-        creates: /var/lib/ceph/mon/ceph-{{ ansible_hostname }}/
+        creates: /var/lib/ceph/mon/ceph-{{ ansible_facts['hostname'] }}/
       register: _ceph_initial_mon
 
     - name: Fail if initial monitor creation failed
@@ -42,7 +42,7 @@
   when: inventory_hostname != groups[pve_ceph_mon_group][0]
   ansible.builtin.command: pveceph mon create
   args:
-    creates: /var/lib/ceph/mon/ceph-{{ ansible_hostname }}/
+    creates: /var/lib/ceph/mon/ceph-{{ ansible_facts['hostname'] }}/
 
 - name: Create os datastores
   tags: create_osd
@@ -183,7 +183,7 @@
   when: inventory_hostname in groups[pve_ceph_mds_group] and pve_ceph_fs
   ansible.builtin.command: pveceph mds create
   args:
-    creates: /var/lib/ceph/mds/ceph-{{ ansible_hostname }}
+    creates: /var/lib/ceph/mds/ceph-{{ ansible_facts['hostname'] }}
   register: _ceph_mds_create
 
 - name: Wait for standby MDS
@@ -265,7 +265,7 @@
     path: "{{ item.mountpoint }}"
     src: |-
       {% for h in groups[pve_ceph_mon_group] -%}
-      {{ hostvars[h].ansible_all_ipv4_addresses | ansible.utils.ipaddr(pve_ceph_network) | first -}}
+      {{ hostvars[h]['ansible_facts']['all_ipv4_addresses'] | ansible.utils.ipaddr(pve_ceph_network) | first -}}
       {{ loop.last | ternary("", ",") -}}
       {% endfor %}:/
     fstype: ceph

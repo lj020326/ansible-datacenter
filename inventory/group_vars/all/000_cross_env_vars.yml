@@ -56,8 +56,8 @@ dc_machine_address_list_ipv4: "{{ ansible_facts.all_ipv4_addresses
     | d(ansible_facts | d({}) | community.general.json_query('interfaces[*].ipv4.address'))
     | d([]) }}"
 
-## dc_machine_ipv4_default: "{{ ansible_default_ipv4.address|d(ansible_all_ipv4_addresses | first }}"
-dc_machine_ipv4: "{{ ansible_default_ipv4.address
+## dc_machine_ipv4_default: "{{ ansible_facts['default_ipv4']['address'] | d(ansible_facts['all_ipv4_addresses'] | first }}"
+dc_machine_ipv4: "{{ ansible_facts['default_ipv4']['address']
   | d(dc_machine_dns_ipv4) | d(dc_machine_address_list_ipv4 | first) }}"
 dc_machine_ip: "{{ dc_machine_ipv4 }}"
 
@@ -160,7 +160,7 @@ bind_tsig_keys:
 ## Ansible PING test exclude tags
 ############
 
-## tags_excluded_from_ping_test: []
+# List of tags that should never trigger a ping test
 tags_excluded_from_ping_test:
   - bootstrap-ansible-user
   - deploy-vm
@@ -170,9 +170,18 @@ tags_excluded_from_ping_test:
   - bootstrap-vmware-esxi
 
 ## ref: https://stackoverflow.com/questions/62701036/filter-out-elements-from-list-if-matching-multiple-patterns
-run_tags_included_ping_test: "{{ ansible_run_tags | reject('match', '(' +  tags_excluded_from_ping_test | join('|') + ')') | list }}"
+# Logic Improvements:
+# 1. Included: Only tags that are in ansible_run_tags BUT NOT in the exclusion list
+#run_tags_included_ping_test: "{{ ansible_run_tags | difference(tags_excluded_from_ping_test) }}"
+run_tags_included_ping_test: "{{ (ansible_run_tags | default(['all'])) | difference(tags_excluded_from_ping_test) }}"
+#run_tags_included_ping_test: "{{ ansible_run_tags | reject('match', '(' +  tags_excluded_from_ping_test | join('|') + ')') | list }}"
+
+# 2. Excluded: The overlap between what was requested and what is forbidden
 run_tags_excluded_ping_test: "{{ ansible_run_tags | intersect(tags_excluded_from_ping_test) }}"
-ping_exclude: "{{ run_tags_excluded_ping_test|length==ansible_run_tags|length }}"
+
+# 3. Boolean: True if all requested tags are in the excluded list
+ping_exclude: "{{ run_tags_included_ping_test | length == 0 }}"
+#ping_exclude: "{{ (run_tags_excluded_ping_test | length) == (ansible_run_tags | length) }}"
 
 apply_os_groups_exclude: "{{ ping_exclude }}"
 
@@ -205,11 +214,12 @@ internal_domain: "{{
 hostname_internal_domain: "{{ internal_domain }}"
 #hostname_internal_domain: "{{ internal_root_domain }}"
 
+#hostname_name_full: "{{ ansible_facts['fqdn'] }}"
 hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
 hostname_name_short: "{{ inventory_hostname_short }}"
 
 netbase_hostname: "{{
-  hostname_name_full if (inventory_hostname.split('.')[0] not in ['localhost','127'])
+  hostname_name_full if (inventory_hostname.split('.')[0] not in ['localhost', '127'])
   else inventory_hostname }}"
 
 ## keep this out of all.yml for the molecule docker provisioner testing
@@ -374,11 +384,6 @@ ca_root:
   organization: "Dettonville LLC"
   organizationalUnit: "Research"
   email: "admin@dettonville.com"
-
-ca_root_cn: "ca-root"
-
-pki_ca_root_cert: "{{ ca_root_cn }}.pem"
-pki_ca_root_key: "{{ ca_root_cn }}-key.pem"
 
 trust_ca_cert_extension: "pem"
 

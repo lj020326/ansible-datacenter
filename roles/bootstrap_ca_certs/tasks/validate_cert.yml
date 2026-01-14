@@ -94,27 +94,27 @@
     - not __cert_validation_results.failed
   community.crypto.x509_certificate_info:
     path: "{{ __cert_file_path }}"
-  register: __bootstrap_ca_certs__cacert_result
+  register: __bootstrap_ca_certs__ca_result
   ignore_errors: true
 
-- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __bootstrap_ca_certs__cacert_result (debug)"
-  when: bootstrap_ca_certs__display_cacert_result | bool
+- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __bootstrap_ca_certs__ca_result (debug)"
+  when: bootstrap_ca_certs__display_ca_result | bool
   ansible.builtin.debug:
-    var: __bootstrap_ca_certs__cacert_result
+    var: __bootstrap_ca_certs__ca_result
 
 - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert cert info is valid and not expired"
   when:
-    - not __bootstrap_ca_certs__cacert_result.failed | d(True)
-    - not __bootstrap_ca_certs__cacert_result.skipped | d(False)
+    - not __bootstrap_ca_certs__ca_result.failed | d(True)
+    - not __bootstrap_ca_certs__ca_result.skipped | d(False)
     - not __cert_validation_results.failed
   block:
 
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate subject common name matches expected"
       ansible.builtin.assert:
         that:
-          - __bootstrap_ca_certs__cacert_result.subject.commonName == __bootstrap_ca_certs__cert_configs.common_name
+          - __bootstrap_ca_certs__ca_result.subject.commonName == __bootstrap_ca_certs__cert_configs.common_name
         fail_msg: "Certificate subject common name mismatch: Expected '{{
-          __bootstrap_ca_certs__cert_configs.common_name }}', Got '{{ __bootstrap_ca_certs__cacert_result.subject.commonName }}'"
+          __bootstrap_ca_certs__cert_configs.common_name }}', Got '{{ __bootstrap_ca_certs__ca_result.subject.commonName }}'"
         quiet: true
       register: __assert_subject_cn
       ignore_errors: true
@@ -130,7 +130,7 @@
 
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate not expired"
       ansible.builtin.assert:
-        that: not __bootstrap_ca_certs__cacert_result.expired
+        that: not __bootstrap_ca_certs__ca_result.expired
         fail_msg: "Certificate '{{ __bootstrap_ca_certs__cert_configs.common_name }}' is expired according to x509_certificate_info."
         quiet: true
       register: __assert_expired
@@ -154,9 +154,9 @@
         - __bootstrap_ca_certs__cert_configs.signerName is defined and __bootstrap_ca_certs__cert_configs.signerName | d('') | length > 0
       ansible.builtin.assert:
         that:
-          - __bootstrap_ca_certs__cacert_result.issuer.commonName == __bootstrap_ca_certs__cert_configs.signerName
+          - __bootstrap_ca_certs__ca_result.issuer.commonName == __bootstrap_ca_certs__cert_configs.signerName
         fail_msg: "Certificate issuer common name mismatch: Expected '{{
-          __bootstrap_ca_certs__cert_configs.signerName }}', Got '{{ __bootstrap_ca_certs__cacert_result.issuer.commonName }}'"
+          __bootstrap_ca_certs__cert_configs.signerName }}', Got '{{ __bootstrap_ca_certs__ca_result.issuer.commonName }}'"
         quiet: true
       register: __assert_issuer_cn
       ignore_errors: true
@@ -173,9 +173,9 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate key_algo matches expected"
       ansible.builtin.assert:
         that:
-          - __bootstrap_ca_certs__cacert_result.public_key_type|lower == __bootstrap_ca_certs__cert_configs.key_algo|lower
+          - __bootstrap_ca_certs__ca_result.public_key_type | lower == __bootstrap_ca_certs__cert_configs.key_algo | lower
         fail_msg: "Certificate key type mismatch: Expected '{{
-          __bootstrap_ca_certs__cert_configs.key_algo }}', Got '{{ __bootstrap_ca_certs__cacert_result.public_key_type }}'"
+          __bootstrap_ca_certs__cert_configs.key_algo }}', Got '{{ __bootstrap_ca_certs__ca_result.public_key_type }}'"
         quiet: true
       register: __assert_key_algo
       ignore_errors: true
@@ -192,9 +192,9 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate key_algo matches expected"
       ansible.builtin.assert:
         that:
-          - __bootstrap_ca_certs__cacert_result.public_key_data.size == __bootstrap_ca_certs__cert_configs.key_size
+          - __bootstrap_ca_certs__ca_result.public_key_data.size == __bootstrap_ca_certs__cert_configs.key_size
         fail_msg: "Certificate key size mismatch: Expected '{{
-          __bootstrap_ca_certs__cert_configs.key_size }}', Got '{{ __bootstrap_ca_certs__cacert_result.public_key_data.size }}'"
+          __bootstrap_ca_certs__cert_configs.key_size }}', Got '{{ __bootstrap_ca_certs__ca_result.public_key_data.size }}'"
         quiet: true
       register: __assert_key_algo
       ignore_errors: true
@@ -212,10 +212,10 @@
       ansible.builtin.debug:
         var: __cert_validation_results
 
-#  # If __bootstrap_ca_certs__cacert_result failed to retrieve info (e.g., malformed cert)
+#  # If __bootstrap_ca_certs__ca_result failed to retrieve info (e.g., malformed cert)
 #- name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if certificate info retrieval failed"
 #  when:
-#    - __bootstrap_ca_certs__cacert_result.failed | d(True)
+#    - __bootstrap_ca_certs__ca_result.failed | d(True)
 #  ansible.builtin.set_fact:
 #    __cert_validation_results: "{{ __cert_validation_results | d({}) | combine({
 #      'failed': true,
