@@ -1,6 +1,21 @@
 ---
 
-ansible_managed: "Ansible managed: {file} modified on %Y-%m-%d %H:%M:%S by {uid} on {host}"
+#ansible_managed: "Ansible managed: {file} modified on %Y-%m-%d %H:%M:%S by {uid} on {host}"
+ansible_managed: "Ansible managed: {file} modified on %Y-%m-%d %H:%M:%S"
+
+controller_host: control02
+controller_verify_ssl: false
+controller_oauth_token: "{{ vault__aac_token | d('') }}"
+
+tower_host: tower.dettonville.int
+#tower_verify_ssl: false
+#tower_env: prod
+#tower_oauth_token: "{{ vault__aac_token }}"
+
+## Credentials Vault Key
+vault_password: "{{ vault__tower_management_vault_password }}"
+
+controller_validate_credentials: no
 
 ############
 ## DNS related vars
@@ -41,8 +56,8 @@ dc_machine_address_list_ipv4: "{{ ansible_facts.all_ipv4_addresses
     | d(ansible_facts | d({}) | community.general.json_query('interfaces[*].ipv4.address'))
     | d([]) }}"
 
-## dc_machine_ipv4_default: "{{ ansible_default_ipv4.address|d(ansible_all_ipv4_addresses | first }}"
-dc_machine_ipv4: "{{ ansible_default_ipv4.address
+## dc_machine_ipv4_default: "{{ ansible_facts['default_ipv4']['address'] | d(ansible_facts['all_ipv4_addresses'] | first }}"
+dc_machine_ipv4: "{{ ansible_facts['default_ipv4']['address']
   | d(dc_machine_dns_ipv4) | d(dc_machine_address_list_ipv4 | first) }}"
 dc_machine_ip: "{{ dc_machine_ipv4 }}"
 
@@ -92,6 +107,8 @@ ansible_password__linux: "{{ vault__ansible_password__linux | d('') }}"
 ansible_password__windows: "{{ vault__ansible_password__windows | d('') }}"
 ansible_ssh_private_key: "{{ vault__ansible_ssh_private_key | d('') }}"
 ansible_ssh_public_key: "{{ vault__ansible_ssh_public_key | d('') }}"
+#ansible_ssh_common_args: "-o IdentitiesOnly=yes -o userknownhostsfile=/dev/null"
+
 admin_ssh_private_key: "{{ vault__admin_ssh_private_key | d('') }}"
 admin_ssh_public_key: "{{ vault__admin_ssh_public_key | d('') }}"
 
@@ -106,7 +123,7 @@ bootstrap_linux_user__credentials: "{{ vault__user_credentials }}"
 bootstrap_linux_docker_user_hash_seed: "{{ vault__bootstrap_linux_docker_user_hash_seed | d('') }}"
 bootstrap_postfix__recipient_target: "{{ vault__postfix_recipient_target | d('') }}"
 
-bootstrap_vsphere_dc__vsphere_deploy_iso_hash_seed: "{{ vault__vsphere_deploy_iso_hash_seed | d('') }}"
+bootstrap_vsphere__vsphere_deploy_iso_hash_seed: "{{ vault__vsphere_deploy_iso_hash_seed | d('') }}"
 harden_os_linux__grub_secure_boot: "{{ vault__harden_linux_os_grub_secure_boot | d('') }}"
 bind_admin_password: "{{ vault__bind_admin_password | d('') }}"
 bind_tsig_keys_secret: "{{ vault__bind_tsig_keys_secret | d('') }}"
@@ -143,7 +160,7 @@ bind_tsig_keys:
 ## Ansible PING test exclude tags
 ############
 
-## tags_excluded_from_ping_test: []
+# List of tags that should never trigger a ping test
 tags_excluded_from_ping_test:
   - bootstrap-ansible-user
   - deploy-vm
@@ -153,9 +170,18 @@ tags_excluded_from_ping_test:
   - bootstrap-vmware-esxi
 
 ## ref: https://stackoverflow.com/questions/62701036/filter-out-elements-from-list-if-matching-multiple-patterns
-run_tags_included_ping_test: "{{ ansible_run_tags | reject('match', '(' +  tags_excluded_from_ping_test | join('|') + ')') | list }}"
+# Logic Improvements:
+# 1. Included: Only tags that are in ansible_run_tags BUT NOT in the exclusion list
+#run_tags_included_ping_test: "{{ ansible_run_tags | difference(tags_excluded_from_ping_test) }}"
+run_tags_included_ping_test: "{{ (ansible_run_tags | default(['all'])) | difference(tags_excluded_from_ping_test) }}"
+#run_tags_included_ping_test: "{{ ansible_run_tags | reject('match', '(' +  tags_excluded_from_ping_test | join('|') + ')') | list }}"
+
+# 2. Excluded: The overlap between what was requested and what is forbidden
 run_tags_excluded_ping_test: "{{ ansible_run_tags | intersect(tags_excluded_from_ping_test) }}"
-ping_exclude: "{{ run_tags_excluded_ping_test|length==ansible_run_tags|length }}"
+
+# 3. Boolean: True if all requested tags are in the excluded list
+ping_exclude: "{{ run_tags_included_ping_test | length == 0 }}"
+#ping_exclude: "{{ (run_tags_excluded_ping_test | length) == (ansible_run_tags | length) }}"
 
 apply_os_groups_exclude: "{{ ping_exclude }}"
 
@@ -176,9 +202,9 @@ control_planes:
 control_plane_domain: "{{ control_planes.baremetal }}"
 control_plane_domain_vm: "{{ control_planes.vmware }}"
 
-internal_subdomain: "{{ dc_environment|d('') | upper }}"
+internal_subdomain: "{{ dc_environment | d('') | upper }}"
 internal_domain: "{{
-  internal_root_domain if internal_subdomain|d('')==''
+  internal_root_domain if internal_subdomain | d('') == ''
   else internal_subdomain + '.' + internal_root_domain }}"
 # internal_parent_domain: "{{ ('.').join(internal_domain.split('.')[1::]) }}"
 
@@ -188,11 +214,12 @@ internal_domain: "{{
 hostname_internal_domain: "{{ internal_domain }}"
 #hostname_internal_domain: "{{ internal_root_domain }}"
 
+#hostname_name_full: "{{ ansible_facts['fqdn'] }}"
 hostname_name_full: "{{ inventory_hostname_short }}.{{ hostname_internal_domain }}"
 hostname_name_short: "{{ inventory_hostname_short }}"
 
 netbase_hostname: "{{
-  hostname_name_full if (inventory_hostname.split('.')[0] not in ['localhost','127'])
+  hostname_name_full if (inventory_hostname.split('.')[0] not in ['localhost', '127'])
   else inventory_hostname }}"
 
 ## keep this out of all.yml for the molecule docker provisioner testing
@@ -217,7 +244,7 @@ gateway_ipv4_netmask: "{{ gateway_ipv4_network_cidr | ansible.utils.ipaddr('netm
 ############
 ## LDAP host vars
 ############
-ldap_host_uid_number: "{{ (range(1000, 9999) | random(seed=inventory_hostname))|int + 50000 }}"
+ldap_host_uid_number: "{{ (range(1000, 9999) | random(seed=inventory_hostname)) | int + 50000 }}"
 ldap_host_config:
   uid_number: "{{ ldap_host_uid_number }}"
   gid_number: 515
@@ -228,18 +255,17 @@ ldap_host_config:
 
 ldap_root_password: "{{ vault__ldap_root_password }}"
 ldap_config_password: "{{ vault__ldap_config_password }}"
+
 ldap_admin_password: "{{ vault__ldap_admin_password }}"
+
+ldap_readonly_user: "true"
+ldap_readonly_username: "readonly"
 ldap_readonly_password: "{{ vault__ldap_readonly_password }}"
 
 # ldap_internal_domain: "johnson.int"
 ldap_internal_domain: "{{ internal_domain }}"
 
-ldap_internal_domain_parts: |
-  [
-    {% for domain in ldap_internal_domain.split('.') %}
-    "dc={{ domain }}",
-    {% endfor %}
-  ]
+ldap_internal_domain_parts: "{{ ldap_internal_domain.split('.') | map('regex_replace', '^(.*)$', 'dc=\\1') | list }}"
 
 # ldap_internal_base_dn: "dc=johnson,dc=int"
 # ldap_internal_base_dn: "dc={{ ldap_internal_domain.split('.')[-2] }},dc={{ ldap_internal_domain.split('.')[-1] }}"
@@ -247,15 +273,13 @@ ldap_internal_base_dn: "{{ ldap_internal_domain_parts | join(',') }}"
 
 ldap_internal_user_search_base_dn: "ou=users,{{ ldap_internal_base_dn }}"
 ldap_internal_search_user_dn: "cn=search,{{ ldap_internal_base_dn }}"
-ldap_search_user_password: "{{ vault__ldap_base_users['search'].ssha_password }}"
+ldap_search_user_password: "{{ vault__ldap_base_user_search_password_ssha }}"
 
 ldap_internal_host: "ldap.{{ ldap_internal_domain }}:389"
 ldap_internal_uri: "ldap://{{ ldap_internal_host }}"
 
 ldap_admin_dn: "cn=admin,{{ ldap_internal_base_dn }}"
 ldap_admin_pw: "{{ ldap_admin_password }}"
-
-ldap_readonly_username: "readonly"
 
 ldap_internal_organisation: "Johnsonville LLC"
 
@@ -269,7 +293,7 @@ ldap_internal:
   ldap_base_dn: "{{ ldap_internal_base_dn }}"
   ldap_admin_password: "{{ ldap_admin_password }}"
   ldap_readonly_user: "true"
-  ldap_readonly_username: "readonly"
+  ldap_readonly_username: "{{ ldap_readonly_username }}"
   ldap_readonly_password: "{{ ldap_readonly_password }}"
   ldap_config_password: "{{ ldap_config_password }}"
 
@@ -283,6 +307,7 @@ ldap_external:
   ldap_readonly_password: "{{ ldap_readonly_password }}"
   ldap_config_password: "{{ ldap_config_password }}"
 
+ldap_base: "{{ ldap_internal_base_dn }}"
 ldap_domain: "{{ ldap_internal_domain }}"
 ldap_host: "ldap.{{ ldap_domain }}"
 ldap_port: "389"
@@ -359,11 +384,6 @@ ca_root:
   organization: "Dettonville LLC"
   organizationalUnit: "Research"
   email: "admin@dettonville.com"
-
-ca_root_cn: "ca-root"
-
-pki_caroot_cert: "{{ ca_root_cn }}.pem"
-pki_caroot_key: "{{ ca_root_cn }}-key.pem"
 
 trust_ca_cert_extension: "pem"
 

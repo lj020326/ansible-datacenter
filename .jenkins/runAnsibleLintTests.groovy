@@ -1,3 +1,13 @@
 #!/usr/bin/env groovy
 
-runAnsibleLint()
+Map config = [:]
+
+config.ansibleLintArgs = "-v"
+// config.ansibleLintPaths = [
+//     'inventory/',
+//     'roles/',
+//     'playbooks/',
+//     '.'
+// ]
+
+runAnsibleLint(config)

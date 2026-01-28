@@ -40,7 +40,9 @@
   #  ansible.builtin.shell: "vim-cmd hostsvc/maintenance_mode_enter"
   ansible.builtin.command: esxcli system maintenanceMode set -e true
   register: shell_cmd
-  failed_when: shell_cmd.rc >= 0 and not ( shell_cmd.stdout | regex_search("Maintenance mode is already enabled") )
+  failed_when:
+    - shell_cmd.rc >= 0
+    - shell_cmd.stdout | regex_search("Maintenance mode is already enabled") is none
   changed_when: false
 
 - name: Display shell_cmd
@@ -48,11 +50,11 @@
     var: shell_cmd
 
 - name: Install vmware upgrade using local bundle at {{ vmware_iso_dir }}/{{ vmware_target_dist }}
-  when: vmware_use_local|bool
+  when: vmware_use_local | bool
   block:
     #    ## ref: https://itspyworld.blogspot.com/2020/03/update-vmware-esxi-hosts-with-ansible.html
     #    - name: "Update ESX software profile using local repo"
-    #      when: vmware_use_local|bool==True
+    #      when: vmware_use_local | bool==True
     #      ansible.builtin.shell: "esxcli software profile update -d {{ vmware_iso_dir }}/{{ vmware_target_dist }} -p {{ vmware_target_profile }}"
 
     - name: list profiles in bundle
@@ -92,7 +94,7 @@
          and update_res.stdout_lines[3].endswith('VIBsRemoved.string[] = '))
 
 - name: Fetch vmware upgrade from patch depot
-  when: not vmware_use_local|bool
+  when: not vmware_use_local | bool
   block:
     - name: Enable httpclient
       ansible.builtin.command: esxcli network firewall ruleset set -e true -r httpClient
@@ -147,7 +149,7 @@
 # ...
 # esxcli system maintenanceMode set --enable false
 - name: initiate host reboot
-  when: will_reboot|bool
+  when: will_reboot | bool
   block:
     - name: initiate host reboot
       ansible.builtin.command: /bin/reboot
@@ -155,7 +157,7 @@
 
     - name: wait for host to shut down
       ansible.builtin.wait_for:
-        host: "{{ ansible_fqdn }}"
+        host: "{{ ansible_facts['fqdn'] }}"
         port: 22
         state: stopped
         delay: 20
@@ -163,7 +165,7 @@
 
     - name: wait for host to boot
       ansible.builtin.wait_for:
-        host: "{{ ansible_fqdn }}"
+        host: "{{ ansible_facts['fqdn'] }}"
         port: 22
         state: started
         delay: 30

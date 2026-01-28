@@ -6,9 +6,9 @@
 - name: Set distribution specific vars
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
-    - "{{ ansible_distribution | lower }}.yml"
-    - "{{ ansible_os_family | lower }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
 
 - name: Installing Packages required by python
@@ -19,6 +19,7 @@
 #    update_cache: true
 
 - name: Check for existing python install
+  no_log: true
   ansible.builtin.stat:
     path: "{{ __bootstrap_python__python_bin_path }}"
   register: __python_path
@@ -35,6 +36,7 @@
 
 - name: Check for existing python src dir
   when: not __python_path.stat.exists
+  no_log: true
   ansible.builtin.stat:
     path: "{{ __bootstrap_python__source_dir }}"
   register: bootstrap_python__source_dir_path
@@ -81,6 +83,7 @@
 #  become_method: ansible.builtin.sudo
 
 - name: Check for existing pip
+  no_log: true
   ansible.builtin.stat:
     path: /usr/local/bin/pip{{ __bootstrap_python__python_major_version }}
   register: __pip_path
@@ -91,7 +94,7 @@
   ansible.builtin.include_tasks: install-pip.yml
 
 - name: Create symbolic links to /usr/local/bin
-  when: bootstrap_python__setup_symlinks|d(False)|bool
+  when: bootstrap_python__setup_symlinks | d(false) | bool
   ansible.builtin.file:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"

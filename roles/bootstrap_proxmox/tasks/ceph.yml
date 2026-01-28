@@ -1,7 +1,7 @@
 # This is an Ansible version of what "pveceph install" actually does
 ---
 - name: Install custom Ceph systemd service
-  when: ansible_distribution_release == 'stretch'
+  when: ansible_facts['distribution_release'] == 'stretch'
   block:
     - name: Install custom Ceph systemd service
       ansible.builtin.copy:
@@ -30,7 +30,7 @@
     - name: Create initial Ceph monitor
       ansible.builtin.command: pveceph mon create
       args:
-        creates: /var/lib/ceph/mon/ceph-{{ ansible_hostname }}/
+        creates: /var/lib/ceph/mon/ceph-{{ ansible_facts['hostname'] }}/
       register: _ceph_initial_mon
 
     - name: Fail if initial monitor creation failed
@@ -42,7 +42,7 @@
   when: inventory_hostname != groups[pve_ceph_mon_group][0]
   ansible.builtin.command: pveceph mon create
   args:
-    creates: /var/lib/ceph/mon/ceph-{{ ansible_hostname }}/
+    creates: /var/lib/ceph/mon/ceph-{{ ansible_facts['hostname'] }}/
 
 - name: Create os datastores
   tags: create_osd
@@ -64,7 +64,7 @@
 
     - name: Determine ceph volumes Step1
       ansible.builtin.set_fact:
-        _existing_ceph_volumes_tmp: "{{ _existing_ceph_volumes_tmp + item.stdout 
+        _existing_ceph_volumes_tmp: "{{ _existing_ceph_volumes_tmp + item.stdout
           | from_json | community.general.json_query('*[].devices[]') }}"
       loop: "{{ _ceph_volume_data.results }}"
       tags: ceph_volume
@@ -101,7 +101,7 @@
       changed_when: false
       ansible.builtin.command: >-
         ceph osd crush rule create-replicated
-        {{ item.name }} default {{ item.type | default ("host") }} {{ item.class | default("") }}
+        {{ item.name }} default {{ item.type | default ("host") }} {{ item.class | d("") }}
       when: item.name not in _ceph_crush.stdout_lines
       loop: "{{ pve_ceph_crush_rules }}"
 
@@ -121,14 +121,14 @@
           rule {{item.name}} {
           \g<space>id \g<id>
           \g<space>type \g<r_type>
-          \g<space>min_size {{ (pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].min_size | default("\g<min>") | trim }}
-          \g<space>max_size {{ (pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].max_size | default("\g<max>") | trim }}
-          {%- if ((pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].class | default(False)) -%}
+          \g<space>min_size {{ (pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].min_size | d("\g<min>") | trim }}
+          \g<space>max_size {{ (pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].max_size | d("\g<max>") | trim }}
+          {%- if ((pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].class | d(false)) -%}
             \g<space>step take default class {{ (pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].class }}
           {%- else -%}
             \g<space>step take default\g<class>
           {%- endif -%}
-          \g<space>step \g<choose> firstn 0 type {{ (pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].type | default("\g<type>") | trim }}
+          \g<space>step \g<choose> firstn 0 type {{ (pve_ceph_crush_rules | selectattr("name", "match", item.name) | list)[0].type | d("\g<type>") | trim }}
           \g<space>step emit\n}
       loop: "{{ pve_ceph_crush_rules }}"
       register: _crushmap
@@ -183,7 +183,7 @@
   when: inventory_hostname in groups[pve_ceph_mds_group] and pve_ceph_fs
   ansible.builtin.command: pveceph mds create
   args:
-    creates: /var/lib/ceph/mds/ceph-{{ ansible_hostname }}
+    creates: /var/lib/ceph/mds/ceph-{{ ansible_facts['hostname'] }}
   register: _ceph_mds_create
 
 - name: Wait for standby MDS
@@ -265,7 +265,7 @@
     path: "{{ item.mountpoint }}"
     src: |-
       {% for h in groups[pve_ceph_mon_group] -%}
-      {{ hostvars[h].ansible_all_ipv4_addresses | ansible.utils.ipaddr(pve_ceph_network) | first -}}
+      {{ hostvars[h]['ansible_facts']['all_ipv4_addresses'] | ansible.utils.ipaddr(pve_ceph_network) | first -}}
       {{ loop.last | ternary("", ",") -}}
       {% endfor %}:/
     fstype: ceph

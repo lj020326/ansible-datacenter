@@ -65,7 +65,7 @@ Copy the roles included to your Ansible roles directory, then use as below.
         ct_current_release: tags/v1.1.0
         trillian_current_release: master
         # Required. Place your CA in
-        # secret/certificates/{{ ansible_fqdn }}/issuing
+        # secret/certificates/{{ ansible_facts['fqdn'] }}/issuing
         issuing_ca_crtname: name.pem
         issuing_ca_keyname: name.key
         # Required.

@@ -8,11 +8,17 @@ __docker_stack__jenkins__environment_default:
   JENKINS_OPTS: --prefix=/jenkins
   JAVA_OPTS: -Djava.awt.headless=true -Djavax.net.ssl.trustStore=/var/lib/jenkins/cacerts -Djavax.net.ssl.trustStorePassword=changeit
 
-__docker_stack__jenkins__traefik_labels_default:
-  - traefik.enable=true
-  - traefik.http.routers.jenkins.entrypoints=https
-  - traefik.http.routers.jenkins.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/jenkins`)
-  - traefik.http.routers.jenkins_insecure.entrypoints=http
-  - traefik.http.routers.jenkins_insecure.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/jenkins`)
-  - traefik.http.routers.jenkins_insecure.middlewares=https-only@file
-  - traefik.http.services.jenkins.loadbalancer.server.port=8080
+__docker_stack__jenkins__traefik_labels_base_default:
+  - "traefik.enable=true"
+  - "traefik.http.routers.jenkins.entrypoints=https"
+  - "traefik.http.routers.jenkins.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/jenkins`)"
+  - "traefik.http.routers.jenkins_insecure.entrypoints=http"
+  - "traefik.http.routers.jenkins_insecure.rule=Host(`{{ docker_stack__internal_domain }}`) && PathPrefix(`/jenkins`)"
+  - "traefik.http.routers.jenkins_insecure.middlewares=https-only@file"
+  - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+
+__docker_stack__jenkins__traefik_labels_default: >-
+  {{
+    __docker_stack__jenkins__traefik_labels_base_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}

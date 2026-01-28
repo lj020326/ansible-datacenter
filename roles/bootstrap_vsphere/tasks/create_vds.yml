@@ -1,0 +1,162 @@
+---
+- name: create_vds | Create Distributed Switch
+  community.vmware.vmware_dvswitch:
+    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__nested_vcenter.datacenter }}"
+    validate_certs: false
+    switch: "{{ item.name }}"
+    version: "{{ item.switch_version }}"
+    mtu: "{{ item.mtu }}"
+    uplink_quantity: "{{ item.uplink_quantity }}"
+    discovery_proto: "{{ item.discovery_proto | d(omit) }}"
+    discovery_operation: "{{ item.discovery_operation | d(omit) }}"
+    state: present
+  loop: "{{ bootstrap_vsphere__distributed_switches }}"
+  register: vds
+
+- name: create_vds | Create Management Portgroup to all physical esx hosts
+  community.vmware.vmware_dvs_portgroup:
+    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    validate_certs: false
+    portgroup_name: "{{ item.name }}"
+    switch_name: "{{ item.switch_name }}"
+    vlan_id: "{{ item.vlan_id }}"
+    num_ports: "{{ item.num_ports | d('8') }}"
+    portgroup_type: earlyBinding
+    state: present
+  loop: "{{ bootstrap_vsphere__distributed_port_groups }}"
+
+- name: create_vds | Add Management Network VM Portgroups to clusters
+  community.vmware.vmware_portgroup:
+    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    validate_certs: false
+    cluster_name: "{{ item.0.key }}"
+    switch_name: "{{ item.0.value.switch_name }}"
+    #    portgroup_name: "{{ item.value.vswitch0_port_group_name }}"
+    #    portgroup_name: "{{ item.value.portgroup }}"
+    portgroup_name: "{{ item.1 }}"
+    vlan_id: "{{ item.0.value.mgmt_vlan }}"
+  #  with_dict: "{{ bootstrap_vsphere__nested_clusters }}"
+  with_subelements:
+    - "{{ bootstrap_vsphere__nested_clusters | dict2items }}"
+    - value.vmnic_physical_portgroup_assignment
+
+#- name: "configure_nested_vcenter | Migrate uplinks to the VDS"
+- name: configure_nested_vcenter | Add hosts to the VDS
+  community.vmware.vmware_dvs_host:
+    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ __esx_hosts_by_name[item.1].hostname }}"
+    switch_name: "{{ item.0.name }}"
+    #    vmnics: "{{ item.0.vmnics }}"
+    vmnics: "{{ __esx_hosts_by_name[item.1].dvs_uplink_vmnics | d(item.0.vmnics) }}"
+    state: present
+  with_subelements:
+    - "{{ bootstrap_vsphere__distributed_switches }}"
+    - hosts
+
+#####
+
+#- name: "create_vds | Create vMotion vmk1"
+#  community.vmware.vmware_vmkernel:
+#    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+#    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + bootstrap_vsphere__vcenter_domain) }}"
+#    username: "{{ bootstrap_vsphere__vcenter_username }}"
+#    password: "{{ bootstrap_vsphere__vcenter_password }}"
+#    state: present
+#    portgroup_name: vMotion
+#    dvswitch_name: "ComputeEdgeVDS"
+#    validate_certs: False
+#    enable_vmotion: true
+#    network:
+#      type: 'static'
+#      ip_address: "{{ item.vmotion_ip }}"
+#      subnet_mask: "{{ bootstrap_vsphere__vmotion_mask }}"
+#  loop: "{{ __nested_hosts_list }}"
+#
+#- name: "create_vds | Create vSAN vmk2"
+#  community.vmware.vmware_vmkernel:
+#    hostname: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+#    username: "{{ bootstrap_vsphere__vcenter_username }}"
+#    password: "{{ bootstrap_vsphere__vcenter_password }}"
+#    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + bootstrap_vsphere__vcenter_domain) }}"
+#    state: present
+#    enable_vsan: true
+#    portgroup_name: vSAN
+#    dvswitch_name: "ComputeEdgeVDS"
+#    validate_certs: False
+#    network:
+#      type: 'static'
+#      ip_address: "{{ item.vsan_ip }}"
+#      subnet_mask: "{{ bootstrap_vsphere__vsan_mask }}"
+#  loop: "{{ __nested_hosts_list }}"
+
+- name: create_vds | Enable vSAN
+  when: item.value.vsan | bool
+  enable_vsan:
+    vcenter: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    user: "{{ bootstrap_vsphere__vcenter_username }}"
+    passwd: "{{ bootstrap_vsphere__vcenter_password }}"
+    cluster: "{{ item.key }}"
+  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+- name: create_vds | Claim disks for vSAN
+  when: item.value.vsan | bool
+  claim_vsan_disks:
+    vcenter: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    user: "{{ bootstrap_vsphere__vcenter_username }}"
+    passwd: "{{ bootstrap_vsphere__vcenter_password }}"
+    cluster: "{{ item.key }}"
+  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+- name: create_vds | Clear vSAN errors for unsupported hardware
+  clear_vsan_errors:
+    vcenter: "{{ bootstrap_vsphere__nested_vcenter.hostname }}"
+    user: "{{ bootstrap_vsphere__vcenter_username }}"
+    passwd: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+
+#- name: "create_vds | Enable HA on the clusters"
+#  when: item.value.ha | bool
+#  community.vmware.enable_ha:
+#    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+#    user: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+#    passwd: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+#    cluster: "{{ item.key }}"
+#  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+- name: create_vds | Enable HA on the clusters
+  when: item.value.ha | bool
+  vmware.vmware.cluster_ha:
+    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    user: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    passwd: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
+    cluster: "{{ item.key }}"
+    validate_certs: false
+    enable: "{{ item.value.enable_ha }}"
+    admission_control_cpu_reserve_percentage: "{{ item.value.admission_control_cpu_reserve_percentage | d(omit) }}"
+    admission_control_dedicated_hosts: "{{ item.value.admission_control_dedicated_hosts | d(omit) }}"
+    admission_control_failover_level: "{{ item.value.admission_control_failover_level | d(omit) }}"
+    admission_control_memory_reserve_percentage: "{{ item.value.admission_control_memory_reserve_percentage | d(omit) }}"
+    admission_control_policy: "{{ item.value.admission_control_policy | d(omit) }}"
+    host_isolation_response: "{{ item.value.host_isolation_response | d(omit) }}"
+    storage_apd_response: "{{ item.value.ha_storage_apd_response | d(omit) }}"
+    vm_monitoring: "{{ item.value.ha_vm_monitoring | d(omit) }}"
+  with_dict: "{{ bootstrap_vsphere__vcenter_clusters }}"
+
+- name: create_vds | Wait 3 minutes before clearing the errors
+  ansible.builtin.pause:
+    minutes: "3"
+
+- name: create_vds | Clear errors
+  clear_vsan_errors:
+    vcenter: "{{ vsphere_deploy__nested_vcenter.hostname }}"
+    user: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].username }}"
+    passwd: "{{ vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"

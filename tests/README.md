@@ -125,15 +125,27 @@ $ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_s
 ### Run `tag-based` `site.yml` plays on hosts
 
 ```shell
-$ runme.sh site.yml -t deploy-cacerts -l admin01
-$ runme.sh site.yml -t bootstrap-linux -l admin01
-$ runme.sh site.yml -t bootstrap-webmin -l admin01
-$ runme.sh site.yml -t bootstrap-docker -l admin01
-$ runme.sh site.yml -t bootstrap-docker-stack -l admin01
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_control
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_openldap
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_jenkins_jcac
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_media
+## for control node certs - skip ansible_ping_test
+$ runme.sh -t bootstrap-pki -l ca_keystore site.yml
+## OR run manual cert creation using cfssl
+$ runme.sh -t bootstrap-ca-certs -l ca_keystore site.yml
+$ runme.sh -t deploy-ca-certs -l admin01 site.yml
+$ UPGRADE_GALAXY_COLLECTIONS=1 runme.sh -v -t deploy-ca-certs -l admin01 site.yml
+$ runme.sh -t deploy-ca-certs --skip-tags=always site.yml
+$ runme.sh -t bootstrap-docker-admin -l docker_stack_control_admin site.yml
+## no vault ca certs setup
+$ runme.sh -t bootstrap-certs -l ca_keystore site.yml
+$ runme.sh -t deploy-certs --skip-tags=always -l admin01 site.yml
+$ runme.sh -t bootstrap-linux -l admin01 site.yml
+$ runme.sh -t bootstrap-pip -l admin01 site.yml
+$ runme.sh -t bootstrap-webmin -l admin01 site.yml
+$ runme.sh -t bootstrap-docker -l admin01 site.yml
+$ runme.sh -t bootstrap-docker-stack -l admin01 site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_control site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_openldap site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_jenkins_jcac site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_media site.yml
+$ runme.sh -vvv -t bootstrap-docker -l admin01 site.yml
 ```
 
 ### Run playbook
@@ -257,10 +269,10 @@ $ molecule destroy
 $ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
 $ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule converge --destroy never
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule login
+$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule converge --destroy never
+$ MOLECULE_IMAGE_LABEL=centos8-systemd-python molecule login
 $ molecule destroy
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python --debug converge
+$ MOLECULE_IMAGE_LABEL=centos9-systemd-python --debug converge
 $ molecule destroy
 $ MOLECULE_IMAGE_LABEL=ubuntu2004-systemd-python converge
 $ molecule destroy

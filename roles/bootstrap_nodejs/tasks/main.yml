@@ -5,15 +5,15 @@
   vars:
     __os_lookup_params:
       files:
-        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version | lower }}.yml"
-        - "{{ ansible_distribution | lower }}-{{ ansible_distribution | lower }}.yml"
-        - "{{ ansible_distribution | lower }}.yml"
-        - "{{ ansible_os_family | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
       paths:
         - "{{ role_path }}/vars"
 
-- name: Run setup-{{ ansible_os_family }}.yml
-  ansible.builtin.include_tasks: "setup-{{ ansible_os_family | lower }}.yml"
+- name: Run setup-{{ ansible_facts['os_family'] }}.yml
+  ansible.builtin.include_tasks: "setup-{{ ansible_facts['os_family'] | lower }}.yml"
 
 - name: Define nodejs_install_npm_user
   ansible.builtin.set_fact:
@@ -33,12 +33,12 @@
     src: npm.sh.j2
     dest: /etc/profile.d/npm.sh
     mode: "0644"
-  when: nodejs_generate_etc_profile|bool
+  when: nodejs_generate_etc_profile | bool
 
 - name: Ensure npm global packages are installed.
   community.general.npm:
-    name: "{{ item.name | default(item) }}"
-    version: "{{ item.version | default('latest') }}"
+    name: "{{ item.name | d(item) }}"
+    version: "{{ item.version | d('latest') }}"
     global: true
     state: latest
   environment:
@@ -50,4 +50,4 @@
 - name: Install packages defined in a given package.json.
   community.general.npm:
     path: "{{ nodejs_package_json_path }}"
-  when: nodejs_package_json_path is defined and nodejs_package_json_path
+  when: nodejs_package_json_path | d('') | length > 0

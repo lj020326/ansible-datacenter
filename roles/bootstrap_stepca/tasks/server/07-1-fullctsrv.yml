@@ -57,7 +57,7 @@
 
     - name: Generating log signing key
       community.crypto.openssl_privatekey:
-        path: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/' + item + '.key' }}"
+        path: "{{ secret + '/certificates/' + ansible_facts['fqdn'] + '/ctlog/' + item + '.key' }}"
         type: ECC
         curve: secp256r1
       loop: "{{ __new_prefixes }}"
@@ -67,28 +67,28 @@
       changed_when: false
       ansible.builtin.command:
         cmd: openssl ec -in {{ item }}.key -pubout -out {{ item }}.pub
-        chdir: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog' }}"
+        chdir: "{{ secret + '/certificates/' + ansible_facts['fqdn'] + '/ctlog' }}"
       loop: "{{ __new_prefixes }}"
       delegate_to: 127.0.0.1
 
     #    - name: Obtaining log signing public key
     #      community.crypto.openssl_publickey:
-    #        path: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/' + item + '.pub' }}"
-    #        privatekey_path: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/' + item + '.key' }}"
+    #        path: "{{ secret + '/certificates/' + ansible_facts['fqdn'] + '/ctlog/' + item + '.pub' }}"
+    #        privatekey_path: "{{ secret + '/certificates/' + ansible_facts['fqdn'] + '/ctlog/' + item + '.key' }}"
     #      loop: "{{ __new_prefixes }}"
     #      delegate_to: 127.0.0.1
 
     - name: Removing removed log signing key
       ansible.builtin.file:
-        path: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/' + item }}"
+        path: "{{ secret + '/certificates/' + ansible_facts['fqdn'] + '/ctlog/' + item }}"
         state: absent
       loop: "{{ __remove_prefixes | product(['key', 'pub']) | map('join', '.') | list }}"
       delegate_to: 127.0.0.1
 
     - name: Synchronizing log signing keys
-      ansible.posix.synchronize:
+      ansible.posix.synchronize: # noqa: no-same-owner
         dest: "{{ ct_install_root + '/signing_keys/' }}"
-        src: "{{ secret + '/certificates/' + ansible_fqdn + '/ctlog/' }}"
+        src: "{{ secret + '/certificates/' + ansible_facts['fqdn'] + '/ctlog/' }}"
         archive: false
         compress: false
         delete: true
@@ -147,11 +147,11 @@
     after: "{{ item }}"
     before: submitFinalCert
     regexp: "@@TOBEREPLACED@@"
-    replace: "{{ lookup('file', secret + '/certificates/' + ansible_fqdn + '/ctlog/' + item + '.pub') | decap_pem }}"
+    replace: "{{ lookup('file', secret + '/certificates/' + ansible_facts['fqdn'] + '/ctlog/' + item + '.pub') | decap_pem }}"
   loop: "{{ __stay_prefixes + __new_prefixes | d([]) }}"
 
 - name: Copying accepting CA certificate file
   ansible.builtin.copy:
-    src: "{{ secret + '/certificates/' + ansible_fqdn + '/issuing/' + issuing_ca_crtname }}"
+    src: "{{ secret + '/certificates/' + ansible_facts['fqdn'] + '/issuing/' + issuing_ca_crtname }}"
     dest: "{{ ct_install_root + '/config/' + issuing_ca_crtname }}"
     mode: "0644"

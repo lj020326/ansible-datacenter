@@ -16,7 +16,7 @@ Example usage:
   roles:
     - role: ansible_ping_test
       when:
-        - not ping_exclude|d(False)|bool
+        - not ping_exclude | d(False) | bool
         - inventory_hostname in ansible_play_hosts
 
 ```

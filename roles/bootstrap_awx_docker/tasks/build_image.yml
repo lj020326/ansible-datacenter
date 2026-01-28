@@ -5,12 +5,13 @@
   when: awx_version is not defined
 
 - name: Verify awx-logos directory exists for official install
+  when: awx_official | d(false) | bool
+  no_log: true
   ansible.builtin.stat:
     path: ../../awx-logos
   #  delegate_to: localhost
   register: logosdir
   failed_when: logosdir.stat.isdir is not defined or not logosdir.stat.isdir
-  when: awx_official|default(false)|bool
 
 - name: Copy logos for inclusion in sdist
   ansible.builtin.copy:
@@ -18,7 +19,7 @@
     dest: ../awx/ui/client/
     mode: "0644"
   #  delegate_to: localhost
-  when: awx_official|default(false)|bool
+  when: awx_official | d(false) | bool
 
 - name: Set sdist file name
   ansible.builtin.set_fact:
@@ -29,6 +30,7 @@
     msg: "{{ awx_sdist_file }}"
 
 - name: Stat distribution file
+  no_log: true
   ansible.builtin.stat:
     path: ../dist/{{ awx_sdist_file }}
   #  delegate_to: localhost
@@ -50,22 +52,22 @@
       dockerfile: Dockerfile.sdist
       pull: false
       args:
-        http_proxy: "{{ awx_http_proxy | default('') }}"
-        https_proxy: "{{ awx_https_proxy | default('') }}"
-        no_proxy: "{{ awx_no_proxy | default('') }}"
+        http_proxy: "{{ awx_http_proxy | d('') }}"
+        https_proxy: "{{ awx_https_proxy | d('') }}"
+        no_proxy: "{{ awx_no_proxy | d('') }}"
     name: awx_sdist_builder
     tag: "{{ awx_version }}"
     source: build
     force_source: true
   #  delegate_to: localhost
-  when: awx_use_container_for_build|default(true)|bool
+  when: awx_use_container_for_build | d(true) | bool
 
 - name: Build AWX distribution using container
   community.docker.docker_container:
     env:
-      http_proxy: "{{ awx_http_proxy | default('') }}"
-      https_proxy: "{{ awx_https_proxy | default('') }}"
-      no_proxy: "{{ awx_no_proxy | default('') }}"
+      http_proxy: "{{ awx_http_proxy | d('') }}"
+      https_proxy: "{{ awx_https_proxy | d('') }}"
+      no_proxy: "{{ awx_no_proxy | d('') }}"
     image: awx_sdist_builder:{{ awx_version }}
     name: awx_sdist_builder
     container_default_behavior: compatibility
@@ -75,7 +77,7 @@
     volumes:
       - ../:/awx:Z
   #  delegate_to: localhost
-  when: awx_use_container_for_build|default(true)|bool
+  when: awx_use_container_for_build | d(true) | bool
 
 - name: Build AWX distribution locally
   changed_when: false
@@ -83,19 +85,19 @@
   args:
     chdir: ..
   #  delegate_to: localhost
-  when: not awx_use_container_for_build|default(true)|bool
+  when: not awx_use_container_for_build | d(true) | bool
 
 - name: Set docker build base path
   ansible.builtin.set_fact:
-    docker_base_path: "{{ awx_local_base_config_path|default('/tmp') }}/docker-image"
+    docker_base_path: "{{ awx_local_base_config_path | d('/tmp') }}/docker-image"
 
 - name: Set awx_web image name
   ansible.builtin.set_fact:
-    awx_web_image: "{{ awx_web_image|default('awx_web') }}"
+    awx_web_image: "{{ awx_web_image | d('awx_web') }}"
 
 - name: Set awx_task image name
   ansible.builtin.set_fact:
-    awx_task_image: "{{ awx_task_image|default('awx_task') }}"
+    awx_task_image: "{{ awx_task_image | d('awx_task') }}"
 
 - name: Ensure directory exists
   ansible.builtin.file:
@@ -198,9 +200,9 @@
       dockerfile: Dockerfile
       pull: false
       args:
-        http_proxy: "{{ awx_http_proxy | default('') }}"
-        https_proxy: "{{ awx_https_proxy | default('') }}"
-        no_proxy: "{{ awx_no_proxy | default('') }}"
+        http_proxy: "{{ awx_http_proxy | d('') }}"
+        https_proxy: "{{ awx_https_proxy | d('') }}"
+        no_proxy: "{{ awx_no_proxy | d('') }}"
     name: "{{ awx_web_image }}"
     tag: "{{ awx_version }}"
     source: build
@@ -214,9 +216,9 @@
       dockerfile: Dockerfile.task
       pull: false
       args:
-        http_proxy: "{{ awx_http_proxy | default('') }}"
-        https_proxy: "{{ awx_https_proxy | default('') }}"
-        no_proxy: "{{ awx_no_proxy | default('') }}"
+        http_proxy: "{{ awx_http_proxy | d('') }}"
+        https_proxy: "{{ awx_https_proxy | d('') }}"
+        no_proxy: "{{ awx_no_proxy | d('') }}"
     name: "{{ awx_task_image }}"
     tag: "{{ awx_version }}"
     source: build
@@ -235,5 +237,5 @@
   ansible.builtin.file:
     path: "{{ docker_base_path }}"
     state: absent
-  when: cleanup_docker_base|default(True)|bool
+  when: cleanup_docker_base | d(true) | bool
 #  delegate_to: localhost

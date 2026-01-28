@@ -77,14 +77,14 @@
 - name: Install - Replica installation test
   ipareplica_test:
     ### basic ###
-    # dm_password: "{{ ipadm_password | default(omit) }}"
-    # password: "{{ ipaadmin_password | default(omit) }}"
-    ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
-    domain: "{{ ipareplica_domain | default(ipaserver_domain) | default(omit) }}"
-    servers: "{{ ipareplica_servers | default(omit) }}"
-    realm: "{{ ipareplica_realm | default(ipaserver_realm) | default(omit) }}"
-    hostname: "{{ ipareplica_hostname | default(ansible_facts['fqdn']) }}"
-    ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+    # dm_password: "{{ ipadm_password | d(omit) }}"
+    # password: "{{ ipaadmin_password | d(omit) }}"
+    ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
+    domain: "{{ ipareplica_domain | d(ipaserver_domain) | d(omit) }}"
+    servers: "{{ ipareplica_servers | d(omit) }}"
+    realm: "{{ ipareplica_realm | d(ipaserver_realm) | d(omit) }}"
+    hostname: "{{ ipareplica_hostname | d(ansible_facts['fqdn']) }}"
+    ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
     hidden_replica: "{{ ipareplica_hidden_replica }}"
     skip_mem_check: "{{ not ipareplica_mem_check }}"
     ### server ###
@@ -93,22 +93,22 @@
     setup_kra: "{{ ipareplica_setup_kra }}"
     setup_dns: "{{ ipareplica_setup_dns }}"
     no_pkinit: "{{ ipareplica_no_pkinit }}"
-    dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | default(omit) }}"
+    dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | d(omit) }}"
     ### ssl certificate ###
-    dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
-    http_cert_files: "{{ ipareplica_http_cert_files | default([]) }}"
-    pkinit_cert_files: "{{ ipareplica_pkinit_cert_files | default([]) }}"
+    dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
+    http_cert_files: "{{ ipareplica_http_cert_files | d([]) }}"
+    pkinit_cert_files: "{{ ipareplica_pkinit_cert_files | d([]) }}"
     ### client ###
     no_ntp: "{{ ipaclient_no_ntp }}"
-    ntp_servers: "{{ ipaclient_ntp_servers | default([]) }}"
-    ntp_pool: "{{ ipaclient_ntp_pool | default(omit) }}"
+    ntp_servers: "{{ ipaclient_ntp_servers | d([]) }}"
+    ntp_pool: "{{ ipaclient_ntp_pool | d(omit) }}"
     ### dns ###
     no_reverse: "{{ ipareplica_no_reverse }}"
     auto_reverse: "{{ ipareplica_auto_reverse }}"
-    forwarders: "{{ ipareplica_forwarders | default([]) }}"
+    forwarders: "{{ ipareplica_forwarders | d([]) }}"
     no_forwarders: "{{ ipareplica_no_forwarders }}"
     auto_forwarders: "{{ ipareplica_auto_forwarders }}"
-    forward_policy: "{{ ipareplica_forward_policy | default(omit) }}"
+    forward_policy: "{{ ipareplica_forward_policy | d(omit) }}"
     no_dnssec_validation: "{{ ipareplica_no_dnssec_validation }}"
   register: result_ipareplica_test
 
@@ -126,9 +126,9 @@
       when: not result_ipareplica_test.client_enrolled
       vars:
         state: present
-        ipaclient_domain: "{{ result_ipareplica_test.domain | default(omit) }}"
-        ipaclient_realm: "{{ result_ipareplica_test.realm | default(omit) }}"
-        ipaclient_servers: "{{ ipareplica_servers | default(omit) }}"
+        ipaclient_domain: "{{ result_ipareplica_test.domain | d(omit) }}"
+        ipaclient_realm: "{{ result_ipareplica_test.realm | d(omit) }}"
+        ipaclient_servers: "{{ ipareplica_servers | d(omit) }}"
         ipaclient_hostname: "{{ result_ipareplica_test.hostname }}"
         ipaclient_install_packages: "{{ ipareplica_install_packages }}"
       ansible.builtin.include_role:
@@ -166,13 +166,13 @@
     - name: Install - Replica preparation
       ipareplica_prepare:
       ### basic ###
-        password: "{{ ipaadmin_password | default(omit) }}"
-        ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
         domain: "{{ result_ipareplica_test.domain }}"
         realm: "{{ result_ipareplica_test.realm }}"
         hostname: "{{ result_ipareplica_test.hostname }}"
-        principal: "{{ ipaadmin_principal | default(omit) }}"
-        ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+        principal: "{{ ipaadmin_principal | d(omit) }}"
+        ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
         no_host_dns: "{{ ipareplica_no_host_dns }}"
         ### replica ###
         setup_adtrust: "{{ result_ipareplica_test.setup_adtrust }}"
@@ -180,39 +180,39 @@
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         setup_dns: "{{ ipareplica_setup_dns }}"
         ### ssl certificate ###
-        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
-        dirsrv_cert_name: "{{ ipareplica_dirsrv_cert_name | default(omit) }}"
-        dirsrv_pin: "{{ ipareplica_dirsrv_pin | default(omit) }}"
-        http_cert_files: "{{ ipareplica_http_cert_files | default([]) }}"
-        http_cert_name: "{{ ipareplica_http_cert_name | default(omit) }}"
-        http_pin: "{{ ipareplica_http_pin | default(omit) }}"
-        pkinit_cert_files: "{{ ipareplica_pkinit_cert_files | default([]) }}"
-        pkinit_cert_name: "{{ ipareplica_pkinit_cert_name | default(omit) }}"
-        pkinit_pin: "{{ ipareplica_pkinit_pin | default(omit) }}"
+        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
+        dirsrv_cert_name: "{{ ipareplica_dirsrv_cert_name | d(omit) }}"
+        dirsrv_pin: "{{ ipareplica_dirsrv_pin | d(omit) }}"
+        http_cert_files: "{{ ipareplica_http_cert_files | d([]) }}"
+        http_cert_name: "{{ ipareplica_http_cert_name | d(omit) }}"
+        http_pin: "{{ ipareplica_http_pin | d(omit) }}"
+        pkinit_cert_files: "{{ ipareplica_pkinit_cert_files | d([]) }}"
+        pkinit_cert_name: "{{ ipareplica_pkinit_cert_name | d(omit) }}"
+        pkinit_pin: "{{ ipareplica_pkinit_pin | d(omit) }}"
         ### client ###
-        keytab: "{{ ipaclient_keytab | default(omit) }}"
-        mkhomedir: "{{ ipaclient_mkhomedir | default(omit) }}"
-        force_join: "{{ ipaclient_force_join | default(omit) }}"
-        no_ntp: "{{ ipaclient_no_ntp | default(omit) }}"
-        ssh_trust_dns: "{{ ipaclient_ssh_trust_dns | default(omit) }}"
+        keytab: "{{ ipaclient_keytab | d(omit) }}"
+        mkhomedir: "{{ ipaclient_mkhomedir | d(omit) }}"
+        force_join: "{{ ipaclient_force_join | d(omit) }}"
+        no_ntp: "{{ ipaclient_no_ntp | d(omit) }}"
+        ssh_trust_dns: "{{ ipaclient_ssh_trust_dns | d(omit) }}"
         no_ssh: false
         no_sshd: false
         no_dns_sshfp: false
         ### dns ###
         allow_zone_overlap: "{{ ipareplica_allow_zone_overlap }}"
-        reverse_zones: "{{ ipareplica_reverse_zones | default([]) }}"
+        reverse_zones: "{{ ipareplica_reverse_zones | d([]) }}"
         no_reverse: "{{ ipareplica_no_reverse }}"
         auto_reverse: "{{ ipareplica_auto_reverse }}"
-        forwarders: "{{ ipareplica_forwarders | default([]) }}"
+        forwarders: "{{ ipareplica_forwarders | d([]) }}"
         no_forwarders: "{{ ipareplica_no_forwarders }}"
         auto_forwarders: "{{ ipareplica_auto_forwarders }}"
-        forward_policy: "{{ ipareplica_forward_policy | default(omit) }}"
+        forward_policy: "{{ ipareplica_forward_policy | d(omit) }}"
         no_dnssec_validation: "{{ ipareplica_no_dnssec_validation }}"
         ### ad trust ###
         enable_compat: "{{ ipareplica_enable_compat }}"
-        netbios_name: "{{ ipareplica_netbios_name | default(omit) }}"
-        rid_base: "{{ ipareplica_rid_base | default(omit) }}"
-        secondary_rid_base: "{{ ipareplica_secondary_rid_base | default(omit) }}"
+        netbios_name: "{{ ipareplica_netbios_name | d(omit) }}"
+        rid_base: "{{ ipareplica_rid_base | d(omit) }}"
+        secondary_rid_base: "{{ ipareplica_secondary_rid_base | d(omit) }}"
         ### additional ###
         server: "{{ result_ipareplica_test.server }}"
         skip_conncheck: "{{ ipareplica_skip_conncheck }}"
@@ -233,7 +233,7 @@
     - name: Install - Create dirman password
       no_log: true
       ipareplica_master_password:
-        master_password: "{{ ipareplica_master_password | default(omit) }}"
+        master_password: "{{ ipareplica_master_password | d(omit) }}"
       register: result_ipareplica_master_password
 
     - name: Install - Set dirman password
@@ -248,13 +248,13 @@
     - name: Install - Install CA certs
       ipareplica_install_ca_certs:
       ### basic ###
-        dm_password: "{{ ipadm_password | default(omit) }}"
-        password: "{{ ipaadmin_password | default(omit) }}"
-        ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
+        dm_password: "{{ ipadm_password | d(omit) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
         domain: "{{ result_ipareplica_test.domain }}"
         realm: "{{ result_ipareplica_test.realm }}"
         hostname: "{{ result_ipareplica_test.hostname }}"
-        ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+        ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
         no_host_dns: "{{ ipareplica_no_host_dns }}"
         ### replica ###
         setup_adtrust: "{{ result_ipareplica_test.setup_adtrust }}"
@@ -263,7 +263,7 @@
         ### server ###
         setup_ca: "{{ ipareplica_setup_ca }}"
         ### ssl certificate ###
-        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
+        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
         ### client ###
         force_join: "{{ ipaclient_force_join }}"
         ### additional ###
@@ -285,22 +285,22 @@
     - name: Install - Setup DS
       ipareplica_setup_ds:
       ### basic ###
-        dm_password: "{{ ipadm_password | default(omit) }}"
-        password: "{{ ipaadmin_password | default(omit) }}"
-        ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
+        dm_password: "{{ ipadm_password | d(omit) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
         domain: "{{ result_ipareplica_test.domain }}"
         realm: "{{ result_ipareplica_test.realm }}"
         hostname: "{{ result_ipareplica_test.hostname }}"
-        ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+        ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
         no_host_dns: "{{ ipareplica_no_host_dns }}"
         ### replica ###
         setup_adtrust: "{{ result_ipareplica_test.setup_adtrust }}"
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         setup_dns: "{{ ipareplica_setup_dns }}"
         no_pkinit: "{{ ipareplica_no_pkinit }}"
-        dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | default(omit) }}"
+        dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | d(omit) }}"
         ### ssl certificate ###
-        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
+        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
         ### client ###
         force_join: "{{ ipaclient_force_join }}"
         ### additional ###
@@ -324,20 +324,20 @@
     - name: Install - Create IPA conf
       ipareplica_create_ipa_conf:
       ### basic ###
-        dm_password: "{{ ipadm_password | default(omit) }}"
-        password: "{{ ipaadmin_password | default(omit) }}"
-        ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
+        dm_password: "{{ ipadm_password | d(omit) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
         domain: "{{ result_ipareplica_test.domain }}"
         realm: "{{ result_ipareplica_test.realm }}"
         hostname: "{{ result_ipareplica_test.hostname }}"
-        ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+        ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
         no_host_dns: "{{ ipareplica_no_host_dns }}"
         ### replica ###
         setup_adtrust: "{{ result_ipareplica_test.setup_adtrust }}"
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         setup_dns: "{{ ipareplica_setup_dns }}"
         ### ssl certificate ###
-        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
+        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
         ### client ###
         force_join: "{{ ipaclient_force_join }}"
         ### additional ###
@@ -377,20 +377,20 @@
       when: result_ipareplica_test.change_master_for_certmonger
       ipareplica_create_ipa_conf:
       ### basic ###
-        dm_password: "{{ ipadm_password | default(omit) }}"
-        password: "{{ ipaadmin_password | default(omit) }}"
-        ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
+        dm_password: "{{ ipadm_password | d(omit) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
         domain: "{{ result_ipareplica_test.domain }}"
         realm: "{{ result_ipareplica_test.realm }}"
         hostname: "{{ result_ipareplica_test.hostname }}"
-        ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+        ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
         no_host_dns: "{{ ipareplica_no_host_dns }}"
         ### replica ###
         setup_adtrust: "{{ result_ipareplica_test.setup_adtrust }}"
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         setup_dns: "{{ ipareplica_setup_dns }}"
         ### ssl certificate ###
-        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
+        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
         ### client ###
         force_join: "{{ ipaclient_force_join }}"
         ### additional ###
@@ -415,7 +415,7 @@
         setup_ca: "{{ ipareplica_setup_ca }}"
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         no_pkinit: "{{ ipareplica_no_pkinit }}"
-        dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | default(omit) }}"
+        dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | d(omit) }}"
         ### certificate system ###
         subject_base: "{{ result_ipareplica_prepare.subject_base }}"
         ### additional ###
@@ -453,20 +453,20 @@
       when: result_ipareplica_test.change_master_for_certmonger
       ipareplica_create_ipa_conf:
       ### basic ###
-        dm_password: "{{ ipadm_password | default(omit) }}"
-        password: "{{ ipaadmin_password | default(omit) }}"
-        ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
+        dm_password: "{{ ipadm_password | d(omit) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
         domain: "{{ result_ipareplica_test.domain }}"
         realm: "{{ result_ipareplica_test.realm }}"
         hostname: "{{ result_ipareplica_test.hostname }}"
-        ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+        ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
         no_host_dns: "{{ ipareplica_no_host_dns }}"
         ### replica ###
         setup_adtrust: "{{ result_ipareplica_test.setup_adtrust }}"
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         setup_dns: "{{ ipareplica_setup_dns }}"
         ### ssl certificate ###
-        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
+        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
         ### client ###
         force_join: "{{ ipaclient_force_join }}"
         ### additional ###
@@ -527,7 +527,7 @@
         setup_ca: "{{ ipareplica_setup_ca }}"
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         no_pkinit: "{{ ipareplica_no_pkinit }}"
-        pki_config_override: "{{ ipareplica_pki_config_override | default(omit) }}"
+        pki_config_override: "{{ ipareplica_pki_config_override | d(omit) }}"
         ### certificate system ###
         subject_base: "{{ result_ipareplica_prepare.subject_base }}"
         ### additional ###
@@ -571,7 +571,7 @@
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         no_pkinit: "{{ ipareplica_no_pkinit }}"
         no_ui_redirect: "{{ ipareplica_no_ui_redirect }}"
-        dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | default(omit) }}"
+        dirsrv_config_file: "{{ ipareplica_dirsrv_config_file | d(omit) }}"
         ### certificate system ###
         subject_base: "{{ result_ipareplica_prepare.subject_base }}"
         ### additional ###
@@ -588,22 +588,22 @@
       when: result_ipareplica_test.setup_kra
       ipareplica_setup_kra:
       ### basic ###
-        dm_password: "{{ ipadm_password | default(omit) }}"
-        password: "{{ ipaadmin_password | default(omit) }}"
-        ip_addresses: "{{ ipareplica_ip_addresses | default([]) }}"
+        dm_password: "{{ ipadm_password | d(omit) }}"
+        password: "{{ ipaadmin_password | d(omit) }}"
+        ip_addresses: "{{ ipareplica_ip_addresses | d([]) }}"
         domain: "{{ result_ipareplica_test.domain }}"
         realm: "{{ result_ipareplica_test.realm }}"
         hostname: "{{ result_ipareplica_test.hostname }}"
-        ca_cert_files: "{{ ipareplica_ca_cert_files | default([]) }}"
+        ca_cert_files: "{{ ipareplica_ca_cert_files | d([]) }}"
         no_host_dns: "{{ ipareplica_no_host_dns }}"
-        pki_config_override: "{{ ipareplica_pki_config_override | default(omit) }}"
+        pki_config_override: "{{ ipareplica_pki_config_override | d(omit) }}"
         ### replica ###
         setup_adtrust: "{{ result_ipareplica_test.setup_adtrust }}"
         setup_ca: "{{ ipareplica_setup_ca }}"
         setup_kra: "{{ result_ipareplica_test.setup_kra }}"
         setup_dns: "{{ ipareplica_setup_dns }}"
         ### ssl certificate ###
-        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | default([]) }}"
+        dirsrv_cert_files: "{{ ipareplica_dirsrv_cert_files | d([]) }}"
         ### client ###
         force_join: "{{ ipaclient_force_join }}"
         ### certificate system ###
@@ -692,8 +692,8 @@
         ### certificate system ###
         subject_base: "{{ result_ipareplica_prepare.subject_base }}"
         ### dns ###
-        zonemgr: "{{ ipareplica_zonemgr | default(omit) }}"
-        forwarders: "{{ ipareplica_forwarders | default([]) }}"
+        zonemgr: "{{ ipareplica_zonemgr | d(omit) }}"
+        forwarders: "{{ ipareplica_forwarders | d([]) }}"
         forward_policy: "{{ result_ipareplica_prepare.forward_policy if result_ipareplica_prepare.forward_policy is not none else omit }}"
         no_dnssec_validation: "{{ ipareplica_no_dnssec_validation }}"
         ### additional ###

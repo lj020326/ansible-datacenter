@@ -1,0 +1,189 @@
+---
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Fetch __deploy_ca_certs__stepca_root_ca_fingerprint"
+  when: not deploy_ca_certs__stepca_root_ca_fingerprint is defined
+#      run_once: true
+  block:
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Display deploy_ca_certs__stepca_host_url"
+      ansible.builtin.debug:
+        var: deploy_ca_certs__stepca_host_url
+
+    ## ref: https://smallstep.com/blog/embarrassingly-easy-certificates-on-aws-azure-gcp/
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Set __deploy_ca_certs__stepca_root_ca_fingerprint_result"
+#          run_once: true
+#          ansible.builtin.shell: |
+#            curl -k -s {{ deploy_ca_certs__stepca_host_url }}/1.0/roots | jq -r '.crts[0]' | sed -r '/^\s*$/d'
+      ansible.builtin.uri:
+        url: "{{ deploy_ca_certs__stepca_host_url }}1.0/roots"
+#            method: GET
+        validate_certs: false
+        return_content: true
+        body_format: json
+        follow_redirects: none
+        status_code:
+          - 200
+          - 201
+      register: __deploy_ca_certs__stepca_root_ca_fingerprint_result
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Display __deploy_ca_certs__stepca_root_ca_fingerprint_result"
+      ansible.builtin.debug:
+        var: __deploy_ca_certs__stepca_root_ca_fingerprint_result
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Set __deploy_ca_certs__stepca_root_ca_fingerprint_encoded"
+      ansible.builtin.set_fact:
+        __deploy_ca_certs__stepca_root_ca_fingerprint_encoded: "{{
+          __deploy_ca_certs__stepca_root_ca_fingerprint_result['json']['crts'][0] | trim }}"
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Display __deploy_ca_certs__stepca_root_ca_fingerprint_encoded"
+      ansible.builtin.debug:
+        var: __deploy_ca_certs__stepca_root_ca_fingerprint_encoded
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Ensure /tmp/stepca_root_ca_fingerprint_encoded.txt"
+      ansible.builtin.copy:
+        dest: /tmp/stepca_root_ca_fingerprint_encoded.txt
+        content: "{{ __deploy_ca_certs__stepca_root_ca_fingerprint_encoded }}"
+        mode: "0600"
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Get __deploy_ca_certs__stepca_root_ca_fingerprint_decoded"
+      changed_when: false
+      ansible.builtin.shell: |
+        step certificate fingerprint /tmp/stepca_root_ca_fingerprint_encoded.txt
+#            step certificate fingerprint <\(echo {{ __deploy_ca_certs__stepca_root_ca_fingerprint_encoded | quote }}\)
+#            step certificate fingerprint <(echo {{ __deploy_ca_certs__stepca_root_ca_fingerprint_encoded | quote }})
+#              <(curl -k -s https://stepca.example.int/1.0/roots | jq -r '.crts[0]' | sed -r '/^\s*$/d')
+      register: __deploy_ca_certs__stepca_root_ca_fingerprint_decoded
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Display __deploy_ca_certs__stepca_root_ca_fingerprint_decoded"
+      ansible.builtin.debug:
+        var: __deploy_ca_certs__stepca_root_ca_fingerprint_decoded
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Set __deploy_ca_certs__stepca_root_ca_fingerprint"
+      ansible.builtin.set_fact:
+        __deploy_ca_certs__stepca_root_ca_fingerprint: "{{ __deploy_ca_certs__stepca_root_ca_fingerprint_decoded.stdout }}"
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Validate __deploy_ca_certs__stepca_root_ca_fingerprint defined"
+  ansible.builtin.assert:
+    that: __deploy_ca_certs__stepca_root_ca_fingerprint is defined
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Check if {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }} exists"
+  no_log: true
+  ansible.builtin.stat:
+    path: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
+  register: __ca_root_result
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} check host cert info"
+  when: deploy_ca_certs__validate_certs | d(true) | bool
+  block:
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Check if {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.pem exists"
+      no_log: true
+      ansible.builtin.stat:
+        path: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.pem"
+      register: ca_cert_result
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Check if {{
+        deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.chain.pem exists"
+      no_log: true
+      ansible.builtin.stat:
+        path: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.chain.pem"
+      register: ca_certbundle_result
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Check if {{ deploy_ca_certs__local_key_dir }}/{{ deploy_ca_certs__hostname_full }}-key.pem exists"
+      no_log: true
+      ansible.builtin.stat:
+        path: "{{ deploy_ca_certs__local_key_dir }}/{{ deploy_ca_certs__hostname_full }}-key.pem"
+      register: ca_key_result
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Validate cacerts by querying {{ deploy_ca_certs__stepca_host_url }}health"
+  ignore_errors: true
+  ## ref: https://stackoverflow.com/a/66865493
+  environment:
+    SSL_CERT_FILE: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
+  ansible.builtin.uri:
+    url: "{{ deploy_ca_certs__stepca_host_url }}health"
+    method: GET
+    status_code: 200
+    validate_certs: true
+    return_content: false
+    ca_path: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
+  register: __step_get_result
+
+## ref: https://smallstep.com/docs/step-ca/getting-started#initialize-your-certificate-authority
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Bootstrap step cli configuration"
+  changed_when: false
+  ansible.builtin.command: |
+    step ca bootstrap --force --ca-url {{ deploy_ca_certs__stepca_host_url }} \
+      --fingerprint {{ __deploy_ca_certs__stepca_root_ca_fingerprint }}
+
+#    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Fetch root cert/key from stepca to {{ deploy_ca_certs__local_cert_dir }}"
+##      when: not __ca_root_result.stat.exists
+#      ansible.builtin.command: |
+#        step ca root {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}
+#      changed_when: false
+#
+#    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Copy root cert to {{ __deploy_ca_certs__trust_ca_cert_dir }} for importing"
+#      copy_remotely:
+#        src: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
+#        dest: "{{ __deploy_ca_certs__trust_ca_cert_dir }}/{{ deploy_ca_certs__ca_root_cn }}.{{ deploy_ca_certs__trust_ca_cert_extension }}"
+#
+#    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Update CA trust: {{ __deploy_ca_certs__trust_ca_update_trust_cmd }}"
+#      changed_when: false
+#      ansible.builtin.command: "{{ __deploy_ca_certs__trust_ca_update_trust_cmd }}"
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Validate root cert"
+  when: deploy_ca_certs__validate_certs | d(true) | bool
+  block:
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Display ansible_python_interpreter"
+      ansible.builtin.debug:
+        var: ansible_python_interpreter
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Validate cacerts by querying {{ deploy_ca_certs__stepca_host_url }}health"
+      #      ignore_errors: true
+      ## ref: https://stackoverflow.com/a/66865493
+      environment:
+        SSL_CERT_FILE: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
+      ansible.builtin.uri:
+        url: "{{ deploy_ca_certs__stepca_host_url }}health"
+        method: GET
+        status_code: 200
+        validate_certs: true
+        return_content: false
+        ca_path: "{{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }}"
+      register: __step_get_result
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Fetch host cert and key"
+  when: deploy_ca_certs__deploy_host_certs | d(true) | bool
+  block:
+    - name: Get firewalld service status
+      ansible.builtin.systemd:
+        name: firewalld
+      register: __firewalld_service_state
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Temporarily permit traffic on port {{
+        __deploy_ca_certs__stepca_acme_http_challenge_proxy_port }}/tcp in order to perform stepca host verification"
+      when: __firewalld_service_state.status.ActiveState | d('')=='active'
+      ansible.posix.firewalld:
+        port: "{{ __deploy_ca_certs__stepca_acme_http_challenge_proxy_port }}/tcp"
+        state: enabled
+
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Deploy cert/key to {{ deploy_ca_certs__local_cert_dir }}"
+      when: not (ca_cert_result.stat.exists and ca_key_result.stat.exists)
+      changed_when: false
+      ansible.builtin.command: >-
+        step ca certificate {{ deploy_ca_certs__hostname_full }} \
+          {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.pem \
+          {{ deploy_ca_certs__local_key_dir }}/{{ deploy_ca_certs__hostname_full }}-key.pem \
+          --provisioner {{ deploy_ca_certs__ca_provisioner }} \
+          --http-listen :{{ __deploy_ca_certs__stepca_acme_http_challenge_proxy_port }}
+
+- name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Create bundle"
+  when: deploy_ca_certs__create_cert_bundle | d(true) | bool
+  block:
+    - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Create cert bundle from stepca to {{ deploy_ca_certs__local_cert_dir }}"
+      when: not (ca_certbundle_result.stat.exists and ca_key_result.stat.exists)
+      ansible.builtin.command: >-
+        step certificate bundle \
+          {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.pem \
+          {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__pki_ca_root_cert }} \
+          {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.chain.pem
+      changed_when: false

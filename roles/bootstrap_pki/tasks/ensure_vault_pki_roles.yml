@@ -1,0 +1,60 @@
+---
+- name: "ensure-pki-roles[{{ __current_role.name }}] : Display __current_role"
+  ansible.builtin.debug:
+    var: __current_role
+    verbosity: 1
+
+- name: "ensure-pki-roles[{{ __current_role.name }}] : Configure role in Vault PKI"
+  no_log: true
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "{{ bootstrap_pki__vault_mount_path }}/roles/{{ __current_role.name }}"
+    data:
+      allow_glob_domains: "{{ __current_role.allow_glob_domains | d(omit) }}"
+      allow_ip_sans: "{{ __current_role.allow_ip_sans | d(omit) }}"
+      allow_localhost: "{{ __current_role.allow_localhost | d(omit) }}"
+      allow_subdomains: "{{ __current_role.allow_subdomains | d(omit) }}"
+      allow_wildcard_certificates: "{{ __current_role.allow_wildcard_certificates | d(omit) }}"
+      allowed_domains: "{{ __current_role.allowed_domains }}"
+      allowed_other_sans: "{{ __current_role.allowed_other_sans | default(omit) }}"
+      client_flag: "{{ __current_role.client_flag | d(true) }}"
+      country: "{{ __current_role.country | default(omit) }}"
+      generate_lease: "{{ __current_role.generate_lease | d(omit) }}"
+      issuer_ref: "{{ __current_role.issuer_ref | d(omit) }}"
+      key_bits: "{{ __current_role.key_bits | d(256) }}"
+      key_type: "{{ __current_role.key_type | d('ec') }}"
+      key_usage: "{{ __current_role.key_usage | d(omit) }}"
+      locality: "{{ __current_role.locality | default(omit) }}"
+      max_ttl: "{{ __current_role.max_ttl | d(omit) }}"
+      organization: "{{ __current_role.organization | default(omit) }}"
+      ou: "{{ __current_role.organizational_unit | default(omit) }}"
+      province: "{{ __current_role.province | default(omit) }}"
+      require_cn: "{{ __current_role.require_cn | d(omit) }}"
+      server_flag: "{{ __current_role.server_flag | d(true) }}"
+      ttl: "{{ __current_role.ttl | d(omit) }}"
+    validate_certs: false
+  register: __pki_role_result
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-pki-roles[{{ __current_role.name }}] : Display role update result"
+  ansible.builtin.debug:
+    var: __pki_role_result
+    verbosity: 1
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-pki-roles[{{ __current_role.name }}] : Assert role created successfully"
+  ansible.builtin.assert:
+    that:
+      - not __pki_role_result.failed
+      - __pki_role_result.data.data.allowed_domains | d([]) | length > 0
+    success_msg: "PKI role '{{ __current_role.name }}' configured successfully."
+    fail_msg: |
+      Failed to configurePKI role '{{ __current_role.name }}'.
+      Errors: {{ __pki_role_result.errors | default('None') }}
+      Data keys: {{ __pki_role_result.data.data.keys() | list }}
+      Check token perms on {{ bootstrap_pki__vault_mount_path }}/roles/*.
+  delegate_to: localhost
+  run_once: true

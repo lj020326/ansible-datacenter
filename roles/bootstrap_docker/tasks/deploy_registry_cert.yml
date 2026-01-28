@@ -1,0 +1,36 @@
+---
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Display __docker_registry_info"
+  ansible.builtin.debug:
+    var: __docker_registry_info
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Set __docker_registry_certdir"
+  ansible.builtin.set_fact:
+    __docker_registry_certdir: /etc/docker/certs.d/{{ __docker_registry_info.endpoint }}
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Display __docker_registry_certdir"
+  ansible.builtin.debug:
+    var: __docker_registry_certdir
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Set cert path vars"
+  ansible.builtin.set_fact:
+    __docker_registry_cert_path: "{{ __docker_registry_certdir }}/ca.crt"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Display __docker_registry_cert_path"
+  ansible.builtin.debug:
+    var: __docker_registry_cert_path
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Ensure {{ __docker_registry_certdir }} exists"
+  ansible.builtin.file:
+    path: "{{ __docker_registry_certdir }}"
+    state: directory
+    mode: "0755"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_certs }} Copy host cert chain to {{ __docker_registry_cert_path }}"
+  ansible.builtin.copy:
+    src: "{{ bootstrap_docker__ca_local_cert_dir }}/{{ __docker_registry_info.host }}.chain.pem"
+    dest: "{{ __docker_registry_cert_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true

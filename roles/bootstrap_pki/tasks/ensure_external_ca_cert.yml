@@ -1,0 +1,322 @@
+---
+# Per-item logic for fetching and storing a single external CA (uses {{ __external_cert_info }} from outer loop)
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch Certificate content"
+  block:
+    # 1. Fetch via local path
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from local path"
+      when: __external_cert_info.local_path | d('') | length > 0
+      block:
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from local path"
+          no_log: true
+          ansible.builtin.slurp:
+            src: "{{ __external_cert_info.local_path }}"
+          register: __local_cert_slurp
+          changed_when: false
+
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __local_cert_slurp"
+          ansible.builtin.debug:
+            var: __local_cert_slurp
+            verbosity: 1
+
+    # 2. Fetch via host cert retrieval (direct host connection)
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch directly from host ssl connection"
+      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "host"
+      block:
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate 'host' defined when fetch_method is 'host'"
+          ansible.builtin.assert:
+            that: __external_cert_info.host | d('') | length > 0
+            fail_msg: "Required __external_cert_info.host field missing when __external_cert_info.fetch_method=='host'"
+
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from host via community.crypto.get_certificate"
+          no_log: true
+          community.crypto.get_certificate:
+            host: "{{ __external_cert_info.host.split(':')[0] }}"
+            port: "{{ __external_cert_info.host.split(':')[1] | d(443) }}"
+            get_certificate_chain: true
+          register: __crypto_module_fetch
+          delegate_to: localhost
+
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __crypto_module_fetch"
+          ansible.builtin.debug:
+            var: __crypto_module_fetch
+            verbosity: 1
+
+    # 3. Existing: Fetch via custom command
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch via command" # noqa: command-instead-of-shell
+      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "command"
+      block:
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate 'command' defined when fetch_method is 'command'"
+          ansible.builtin.assert:
+            that: __external_cert_info.command | d('') | length > 0
+            fail_msg: "Required __external_cert_info.command field missing when __external_cert_info.fetch_method=='command'"
+
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch via command" # noqa: command-instead-of-shell
+          no_log: true
+          ansible.builtin.shell: "{{ __external_cert_info.command }}"  # shell for piping/features
+          register: __cmd_cert_fetch
+          changed_when: false
+          args:
+            creates: "/tmp/{{ __external_cert_info.name }}-ca.pem"  # Temp file if cmd outputs to file
+
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __cmd_cert_fetch"
+          ansible.builtin.debug:
+            var: __cmd_cert_fetch
+            verbosity: 1
+
+    # 4. Existing: Fetch via direct URL
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from URL"
+      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "url"
+      block:
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate 'url' defined when fetch_method is 'url'"
+          ansible.builtin.assert:
+            that: __external_cert_info.url | d('') | length > 0
+            fail_msg: "Required __external_cert_info.url field missing when __external_cert_info.fetch_method=='url'"
+
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from URL"
+          no_log: true
+          ansible.builtin.uri:
+            url: "{{ __external_cert_info.url }}"
+            method: GET
+            return_content: true
+            # For self-signed/public; adjust if needed
+            validate_certs: false
+            status_code: 200
+            headers:
+              User-Agent: "Ansible-Bootstrap-PKI/1.0"
+          register: __url_cert_fetch
+          changed_when: false
+          retries: 2  # Basic retry for transient network issues
+          delay: 5
+
+        - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __url_cert_fetch"
+          ansible.builtin.debug:
+            var: __url_cert_fetch
+            verbosity: 1
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set PEM content fact"
+  when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) != "host"
+  block:
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set PEM content fact"
+      no_log: true
+      ansible.builtin.set_fact:
+        __cert_pem_content: >-
+          {{
+            (__local_cert_slurp.content | b64decode)
+            | d(__cmd_cert_fetch.stdout)
+            | d(__url_cert_fetch.content)
+            | d('')
+          }}
+
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __cert_pem_content"
+      ansible.builtin.debug:
+        var: __cert_pem_content
+        verbosity: 1
+
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Split PEM blocks into list"
+      no_log: true
+      ansible.builtin.set_fact:
+        __cert_pem_blocks: >-
+          {{
+            __cert_pem_content
+            | regex_findall('(?s)-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----')
+            | list
+          }}
+      delegate_to: localhost
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set PEM blocks for host method"
+  when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "host"
+  no_log: true
+  ansible.builtin.set_fact:
+    __cert_pem_blocks: "{{ __crypto_module_fetch.verified_chain | default([]) }}"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __cert_pem_blocks"
+  ansible.builtin.debug:
+    var: __cert_pem_blocks
+    verbosity: 1
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __cert_pem_blocks length"
+  ansible.builtin.debug:
+    var: __cert_pem_blocks | length
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Extract root certificate from chain"
+  ansible.builtin.set_fact:
+    # If multiple certs in chain, extract the last (self-signed root)
+    # if single cert: assume it's the root
+    __root_cert_content: "{{ __cert_pem_blocks | last }}"
+    __chain_length: "{{ __cert_pem_blocks | length }}"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate __root_cert_content"
+  no_log: true
+  community.crypto.x509_certificate_info:
+    content: "{{ __root_cert_content }}"  # Single PEM block
+  register: __root_cert_info
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __root_cert_info"
+  ansible.builtin.debug:
+    var: __root_cert_info
+    verbosity: 1
+
+#- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Parse each cert in chain"
+#  community.crypto.x509_certificate_info:
+#    content: "{{ item }}"  # Single PEM block
+#  loop: "{{ __cert_pem_blocks }}"
+##  loop_control:
+##    extended: true
+##    label: "Certificate {{ ansible_loop.index }} of {{ __cert_pem_blocks | length }}"
+#  register: __parsed_chain
+#
+#- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __parsed_chain"
+#  ansible.builtin.debug:
+#    var: __parsed_chain
+#
+#- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Extract root certificate from chain"
+#  ansible.builtin.set_fact:
+#    # If multiple certs in chain, extract the last (self-signed root)
+#    # if single cert: assume it's the root
+#    __root_cert_info: "{{ __parsed_chain.results | last }}"
+#    __chain_length: "{{ __parsed_chain.results | length }}"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set certificate derived facts"
+  ansible.builtin.set_fact:
+    __is_self_signed: "{{ __root_cert_info.subject_ordered == __root_cert_info.issuer_ordered }}"
+    __cert_description: "{{ __external_cert_info.description
+      | d(__root_cert_info.subject.commonName) | d('External CA Certificate') }}"
+    __cert_identifier: "{{ __root_cert_info.subject.commonName
+      | d('unknown') | lower | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
+    __ski_slug: "{{ __root_cert_info.subject_key_identifier
+      | d('default') | regex_replace('[:]', '') | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display hybrid identifier"
+  ansible.builtin.debug:
+    msg: "Hybrid ID for {{ __external_cert_info.name }}: {{ __cert_identifier }}"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate root is self-signed"
+#  when: __is_self_signed | bool
+  ansible.builtin.assert:
+    that:
+      - __root_cert_info.subject is defined
+      - __is_self_signed
+    fail_msg: >-
+      No valid self-signed root found in chain for {{ __cert_identifier }}.
+      Chain length: {{ __chain_length }}. Consider manual root fetch or updating fetch_method.
+    success_msg: "Extracted root cert for {{ __cert_identifier }} (chain length: {{ __chain_length }})"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate external root is active CA cert"
+  no_log: true
+  dettonville.utils.x509_certificate_verify:
+    content: "{{ __root_cert_content | b64encode }}"
+    validate_is_ca: true
+    validate_expired: true
+    validate_checkend: true
+    checkend_value: "{{ __bootstrap_pki__tolerance_seconds | int }}"
+    logging_level: "DEBUG"
+  register: __external_root_cert_verify
+
+- name: "Display __external_root_cert_verify"
+  ansible.builtin.debug:
+    var: __external_root_cert_verify
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate root is CA cert"
+  ansible.builtin.assert:
+    that: not __external_root_cert_verify.verify_failed
+    fail_msg: >-
+      No valid CA root found in chain for {{ __cert_identifier }}.
+      Chain length: {{ __chain_length }}. Consider manual root fetch or updating fetch_method.
+    success_msg: "Extracted valid root CA cert for {{ __cert_identifier }} (chain length: {{ __chain_length }})"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display fetched cert info"
+  ansible.builtin.debug:
+    msg:
+      - "Fetched {{ __cert_identifier }}: {{ __root_cert_info.subject.commonName | d('N/A') }}"
+      - "Valid To: {{ __root_cert_info.not_after }}"
+      - "Description: {{ __cert_description }}"
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Read existing KV value"
+  no_log: true
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+    path: "trusted_external/{{ __cert_identifier }}"
+    validate_certs: false
+  register: __existing_kv
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+# ===============================================================
+# FINGERPRINT VALIDATION & COMPARISON
+# ===============================================================
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Get Existing Vault Cert Fingerprint"
+  when: not __existing_kv.failed | d(true)
+  no_log: true
+  community.crypto.x509_certificate_info:
+    content: "{{ __existing_kv.data.data.certificate }}"
+  register: __existing_cert_info
+  delegate_to: localhost
+  ignore_errors: true
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Determine if update is required"
+  ansible.builtin.set_fact:
+    __external_ca_needs_update: >-
+      {{
+        __existing_kv.failed | d(true) or
+        __existing_cert_info.failed | d(true) or
+        not (__root_cert_info.fingerprints is defined
+          and __existing_cert_info.fingerprints is defined
+          and __root_cert_info.fingerprints.sha256 == __existing_cert_info.fingerprints.sha256)
+      }}
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Skip if unchanged"
+  when: not __external_ca_needs_update
+  ansible.builtin.debug:
+    msg: "External CA {{ __cert_identifier }} already up-to-date in Vault (Fingerprint match)."
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Warn if no valid root to store"
+  when: not __is_self_signed | bool
+  ansible.builtin.debug:
+    msg: >-
+      [WARNING]: Storing {{ __cert_identifier }}: No valid self-signed root extracted (chain: {{ __chain_length | d(0) }} certs).
+      Fallback to last cert in chain; verify manually.
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Store cert in Vault KV"
+  when: __external_ca_needs_update | bool
+  no_log: true
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+    path: "trusted_external/{{ __cert_identifier }}"
+    data:
+      certificate: "{{ __root_cert_content }}"
+      description: "{{ __cert_description }}"
+      identifier: "{{ __cert_identifier }}"  # Full hybrid
+      ski_slug: "{{ __ski_slug }}"
+      source_config_item: "{{ __external_cert_info.name | default('unknown') }}"
+      common_name: "{{ __root_cert_info.subject.commonName | d(omit) }}"
+      serial_number: "{{ __root_cert_info.serial_number | d(omit) }}"
+      subject_key_identifier: "{{ __root_cert_info.subject_key_identifier | d(omit) }}"
+      fingerprint_sha256: "{{ __root_cert_info.fingerprints.sha256 | d(omit) }}"
+      chain_length: "{{ __chain_length | d(0) }}"
+      is_self_signed: "{{ __is_self_signed | d(false) }}"
+      not_after: "{{ __root_cert_info.not_after }}"
+      fetched_at: "{{ ansible_facts['date_time']['iso8601'] }}"
+    validate_certs: false
+  register: __kv_put_result
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Log storage result"
+  ansible.builtin.debug:
+    msg: >-
+      Stored root cert for {{ __cert_identifier }} in Vault KV {{
+      bootstrap_pki__vault_kv_mount_point }}/trusted_external.
+      Chain length was {{ __chain_length | d(0) }}; root is self-signed: {{ __is_self_signed | d(false) }}.
+      Stored: {{ __kv_put_result.changed | ternary('Yes (new/updated)', 'No (unchanged)') | d('Skipped') }}
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Increment stored counter if changed"
+  when: __kv_put_result.changed | d(false) # noqa: no-handler
+  ansible.builtin.set_fact:
+    __external_ca_stored_count: "{{ (__external_ca_stored_count | default(0)) | int + 1 }}"

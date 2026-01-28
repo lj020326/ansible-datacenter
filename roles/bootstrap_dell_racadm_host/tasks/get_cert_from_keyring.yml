@@ -1,11 +1,11 @@
 ---
-- name: Get_certs_from_keyring:{{ inventory_hostname }} | Ensure {{ cacert_certs_dir }} exists
+- name: Get_certs_from_keyring:{{ inventory_hostname }} | Ensure {{ ca_certs_dir }} exists
   become: false
   delegate_to: localhost
   vars:
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
   ansible.builtin.file:
-    path: "{{ cacert_certs_dir }}"
+    path: "{{ ca_certs_dir }}"
     state: directory
     mode: "0755"
 #    owner: "{{ ansible_local_user }}"
@@ -14,42 +14,42 @@
 #    recurse: true
 
 - name: Get_certs_from_keyring:{{ inventory_hostname }} | Copy certs to local/controller distribution dir
-  delegate_to: "{{ cacert_keystore_host }}"
+  delegate_to: "{{ bootstrap_dell_racadm_host__ca_keystore_host }}"
   block:
 
     - name: Get_certs_from_keyring:{{ inventory_hostname }} | Copy certs from ca_keyring to ansible machine for distribution
       vars:
-        ansible_remote_user: "{{ ansible_keyring_user }}"
+        ansible_remote_user: "{{ bootstrap_dell_racadm_host__keystore_user }}"
       ansible.builtin.fetch:
-        src: "{{ cacert_keystore_base_dir }}/{{ ca_domain }}/{{ hostname_name_full }}.pem"
-        dest: "{{ cacert_certs_dir }}/{{ hostname_name_full }}.pem"
+        src: "{{ bootstrap_dell_racadm_host__ca_keystore_base_dir }}/{{ ca_domain }}/{{ hostname_name_full }}.pem"
+        dest: "{{ ca_certs_dir }}/{{ hostname_name_full }}.pem"
         mode: "644"
         flat: true
 
     - name: Get_certs_from_keyring:{{ inventory_hostname }} | Update private key for distribution
       ansible.builtin.file:
-        path: "{{ cacert_keystore_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
+        path: "{{ bootstrap_dell_racadm_host__ca_keystore_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
+        owner: "{{ bootstrap_dell_racadm_host__ansible_user }}"
+        group: "{{ bootstrap_dell_racadm_host__ansible_user }}"
         #        mode: "640"
         #        mode: og+rw
         mode: og+r
 
     - name: Get_certs_from_keyring:{{ inventory_hostname }} | Copy private keys from ca_keyring to ansible machine for distribution
       vars:
-        ansible_remote_user: "{{ ansible_keyring_user }}"
+        ansible_remote_user: "{{ bootstrap_dell_racadm_host__keystore_user }}"
       ansible.builtin.fetch:
-        src: "{{ cacert_keystore_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
-        dest: "{{ cacert_certs_dir }}/{{ inventory_hostname }}-key.pem"
+        src: "{{ bootstrap_dell_racadm_host__ca_keystore_base_dir }}/{{ ca_domain }}/{{ inventory_hostname }}-key.pem"
+        dest: "{{ ca_certs_dir }}/{{ inventory_hostname }}-key.pem"
         mode: "600"
         flat: true
 
 #    - name: "Get_certs_from_keyring:{{ inventory_hostname }} | Copy ca root certs"
 #      vars:
-#        remote_user: "{{ ansible_keyring_user }}"
+#        remote_user: "{{ bootstrap_dell_racadm_host__keystore_user }}"
 #      ansible.builtin.fetch:
 #        src: "{{ ca_root_cacerts_dir }}/{{ item }}"
-#        dest: "{{ cacert_certs_dir }}/{{ item }}"
+#        dest: "{{ ca_certs_dir }}/{{ item }}"
 #        mode: "644"
 #        flat: true
 #      loop:

@@ -1,0 +1,26 @@
+---
+# tasks/ensure_dependencies.yml
+
+- name: "ensure-dependencies : Ensure OpenSSL is installed"
+  become: true
+  ansible.builtin.package:
+    name: openssl
+    state: present
+
+# Install necessary dependencies: CFSSL and OpenSSL
+- name: "ensure-dependencies : Ensure CFSSL, cfssljson are installed"
+  ansible.builtin.include_role:
+    name: bootstrap_cfssl
+
+- name: "ensure-dependencies : Verify cfssl is installed"
+  ansible.builtin.command: "cfssl version"
+  register: __cfssl_check
+  changed_when: false
+  failed_when: __cfssl_check.rc != 0
+
+- name: "ensure-dependencies : Verify ansible-vault is installed if encryption enabled"
+  when: bootstrap_pki__encrypt_root_ca_key | bool
+  ansible.builtin.command: ansible-vault --version
+  register: __ansible_vault_check
+  changed_when: false
+  failed_when: __ansible_vault_check.rc != 0

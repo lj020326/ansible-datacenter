@@ -1,0 +1,46 @@
+---
+# Post-deployment validation tasks
+
+- name: "validate-pki-certs : Deploy validation script"
+  ansible.builtin.template:
+    src: validate_certs.sh.j2
+    dest: "{{ bootstrap_pki__ca_dir }}/validate_certs.sh"
+    mode: '0755'
+    backup: false
+  changed_when: true
+
+- name: "validate-pki-certs : Set quiet flag"
+  when: ansible_verbosity < 1
+  ansible.builtin.set_fact:
+    _quiet_flag: "--quiet"
+
+- name: "validate-pki-certs : Run validation script"
+  environment:
+    PATH: "{{ ansible_facts.env.PATH }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    TERM: "dumb"
+  ansible.builtin.shell:
+    cmd: >-
+      {{ bootstrap_pki__ca_dir }}/validate_certs.sh
+      {{ bootstrap_pki__validation_args | default('') | trim | split(' ') | join(' ') }}
+      {{ _quiet_flag | d('') }}
+    executable: /bin/bash  # Ensure bash for script
+  register: __cert_validation_output
+  changed_when: false  # Validation is read-only
+  failed_when: __cert_validation_output.rc != 0
+  # Optional: Don't halt playbook
+  ignore_errors: "{{ bootstrap_pki__validation_fail_fast | default(false) | bool }}"
+
+- name: "validate-pki-certs : Display validation output"
+  ansible.builtin.debug:
+    var: __cert_validation_output
+    verbosity: 1
+
+- name: "validate-pki-certs : Display validation output"
+  when: >-
+    __cert_validation_output.stdout | d('') | length > 0
+    or __cert_validation_output.stderr | d('') | length > 0
+  ansible.builtin.debug:
+    msg: |
+      STDOUT: {{ __cert_validation_output.stdout }}
+      STDERR: {{ __cert_validation_output.stderr | default('None') }}
+      RC: {{ __cert_validation_output.rc }}

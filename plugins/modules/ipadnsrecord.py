@@ -944,7 +944,7 @@ RETURN = """
 """
 
 
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.ansible_freeipa_module import \
     IPAAnsibleModule, is_ipv4_addr, is_ipv6_addr, ipalib_errors
 try:

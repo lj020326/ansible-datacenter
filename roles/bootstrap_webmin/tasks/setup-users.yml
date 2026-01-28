@@ -11,14 +11,14 @@
   no_log: true
   ansible.builtin.user:
     name: "{{ item.username }}"
-    password: "{{ item.password|d(omit) | password_hash('sha512',65534 | random(seed=bootstrap_webmin__user_hash_seed) | string) }}"
+    password: "{{ item.password | d(omit) | password_hash('sha512',65534 | random(seed=bootstrap_webmin__user_hash_seed) | string) }}"
     uid: "{{ item.uid | d(omit) }}"
     group: "{{ bootstrap_webmin__user_group }}"
     update_password: on_create
     state: present
     createhome: true
     shell: "{{ bootstrap_webmin__user_shell | d(omit) }}"
-    groups: "{{ bootstrap_webmin__user_groups[ansible_distribution] | join(',') }}"
+    groups: "{{ bootstrap_webmin__user_groups[ansible_facts['distribution']] | join(',') }}"
     append: true
     home: "{{ bootstrap_docker__user_home | d(omit) }}"
   loop: "{{ bootstrap_webmin__users }}"
@@ -46,7 +46,7 @@
 - name: Webmin | Set webmin user passwords
   environment:
     PERL_MM_USE_DEFAULT: "{{ bootstrap_webmin__perl_mm_use_default }}"
-  #  no_log: true
+  no_log: true
   ansible.builtin.command: "{{ bootstrap_webmin__base_dir }}/changepass.pl /etc/webmin {{ item.username }} '{{ item.password }}'"
   loop: "{{ bootstrap_webmin__users }}"
   register: __set_webmin_user_passwords_result

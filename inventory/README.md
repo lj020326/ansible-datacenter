@@ -41,11 +41,11 @@ ansible-inventory -i ./inventory/DEV/ --graph testgroup_linux
 #### Check correct hosts appear in the test hosts/groups 
 
 ```shell
-ansible-inventory -i DEV/ --host testhost1s1.dev.example.int
-ansible-inventory -i DEV/ --yaml --host testhost1s1.dev.example.int
-ansible-inventory -i DEV/ --graph testgroup_linux
-ansible-inventory -i DEV/ --graph testgroup_ntp
-ansible-inventory -i DEV/ --graph dmz
+ansible-inventory -i inventory/DEV/ --host testhost1s1.dev.example.int
+ansible-inventory -i inventory/DEV/ --yaml --host testhost1s1.dev.example.int
+ansible-inventory -i inventory/DEV/ --graph testgroup_linux
+ansible-inventory -i inventory/DEV/ --graph testgroup_ntp
+ansible-inventory -i inventory/DEV/ --graph dmz
 ```
 
 #### Check the host variable values are correctly set  
@@ -53,37 +53,90 @@ ansible-inventory -i DEV/ --graph dmz
 Variable value/state query based on group:
 
 ```shell
-$ ansible -i PROD/ -m debug -a var=ansible_host admin01
-$ ansible -i PROD/ -m debug -a var=group_names admin01
-$ ansible -i DEV/ -m debug -a var=internal_domain control01
-$ ansible -i DEV/ -m debug -a var=ansible_python_interpreter control01
-$ ansible -i DEV/ -m debug -a var=ansible_python_interpreter control01
-$ ansible -i PROD/ -m debug -a var=bootstrap_linux_package_list__jenkins_agent
-$ ansible -i PROD/ -m debug -a var=docker_stack__environment control01
-$ ansible -i DEV/ -m debug -a var=group_names testgroup_linux
-$ ansible -i DEV/ -m debug -a var=group_names testgroup_ntp
-$ ansible -i DEV/ -m debug -a var=group_names testgroup_ntp_server
-$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
-$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
-$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
-$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
+$ ansible -i inventory/PROD/ -m debug -a var=ansible_host admin01
+$ ansible -i inventory/PROD/ -m debug -a var=group_names admin01
+$ ansible -i inventory/DEV/ -m debug -a var=internal_domain control01
+$ ansible -i inventory/DEV/ -m debug -a var=ansible_python_interpreter control01
+$ ansible -i inventory/DEV/ -m debug -a var=ansible_python_interpreter control01
+$ ansible -i inventory/PROD/ -m debug -a var=bootstrap_linux_package_list__jenkins_agent
+$ ansible -i inventory/PROD/ -m debug -a var=docker_stack__environment control01
+$ ansible -i inventory/DEV/ -m debug -a var=group_names testgroup_linux
+$ ansible -i inventory/DEV/ -m debug -a var=group_names testgroup_ntp
+$ ansible -i inventory/DEV/ -m debug -a var=group_names testgroup_ntp_server
+$ ansible -i inventory/DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
+$ ansible -i inventory/DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
+$ ansible -i inventory/DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
+$ ansible -i inventory/DEV/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
 ## there is an alias to simplify this (it uses '-i PROD' by default)
 $ ansibledebugvar control01 group_names
+```
+
+More `ansibledebugvar` examples:
+```shell
+$ ansibledebugvar localhost groups[\'docker_stack_admin\']
+$ ansibledebugvar admin01 group_names
+$ ansibledebugvar admin01 ca_domain
+$ ansibledebugvar admin01 ca_subdomain
+$ ansibledebugvar admin01 docker_stack__service_route_name
+$ ansibledebugvar admin01 docker_stack__subdomain
+$ ansibledebugvar admin01 docker_stack__internal_root_domain
+$ ansibledebugvar admin01,admin02 hostvars[\'admin01\'][\'ansible_host\']
+$ ansibledebugvar admin01,admin02 hostvars[\'admin01\'][\'ansible_host\']
+$ ansibledebugvar admin02 bootstrap_docker__swarm_leader_host
+$ ansibledebugvar admin02 groups[\'vmware_vcenter\']
+$ ansibledebugvar admin02 hostvars[\'esx01\'][\'ansible_host\']
+$ ansibledebugvar admin02 hostvars[bootstrap_docker__swarm_leader_host][\'ansible_host\']
+$ ansibledebugvar admin02 hostvars[bootstrap_docker__swarm_leader_host][\'ansible_host\']
+$ ansibledebugvar admin02 hostvars[bootstrap_docker__swarm_leader_host][\'ansible_host\']
+$ ansibledebugvar admin02 hostvars[bootstrap_docker__swarm_leader_host][\'hostname\']
+$ ansibledebugvar admin02 hostvars[groups[\'vmware_vcenter\'][0]]
+$ ansibledebugvar admin02 hostvars[groups[\'vmware_vcenter\']]
+$ ansibledebugvar control01 deploy_pki_certs__ca_service_routes_list
+$ ansibledebugvar control01 group_names
+$ ansibledebugvar control02 ca_domains_dynamic
+$ ansibledebugvar control02 ca_hosted_service_routes
+$ ansibledebugvar control02 ca_intermediate_certs_list
+$ ansibledebugvar control02 ca_intermediate_certs_list_dynamic
+$ ansibledebugvar control02 ca_internal_domains_dynamic
+$ ansibledebugvar control02 ca_routes_dynamic
+$ ansibledebugvar control02 ca_service_routes_list
+$ ansibledebugvar control02 deploy_pki_certs__ca_service_routes_list
+$ ansibledebugvar control02 group_names
+$ ansibledebugvar control02 groups[\'docker_stack\']
+$ ansibledebugvar control02 groups[\'docker\']
+$ ansibledebugvar control02 groups[\'node_offline\']
+$ ansibledebugvar control02 groups[\'docker\']
+$ ansibledebugvar control02 groups[\'docker\']
+$ ansibledebugvar control02 groups[\'docker\']
+$ ansibledebugvar esx01 group_names
+$ ansibledebugvar esx01 netbase_hostname
+$ ansibledebugvar localhost bootstrap_vmware_datastores__hostname
+$ ansibledebugvar localhost group_names
+$ ansibledebugvar media02 ca_domains_dynamic
+$ ansibledebugvar media02 ca_hosted_service_routes
+$ ansibledebugvar media02 ca_intermediate_certs_list_dynamic
+$ ansibledebugvar media02 ca_routes_dynamic
+$ ansibledebugvar miedia02 ca_hosted_service_routes
+$ ansibledebugvar vcenter7 ansible_host
+$ ansibledebugvar vcenter7 group_names
+$ ansibledebugvar vcenter7 hostname
+$ ansibledebugvar vcenter7 netbase_hostname
 ```
 
 Query multiple variables based on group:
 
 ```shell
-$ ansible -i DEV/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
+$ ansible -i inventory/DEV/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
 ```
 
 Query vaulted variable
 
 ```shell
-$ PROJECT_DIR="$( git rev-parse --show-toplevel )"
-$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_abc123_dev
-$ ansible -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_abc123
-$ ansible -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
+$ REPO_DIR="$( git rev-parse --show-toplevel )"
+$ ansible -e @./vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=ansible_user app_abc123_dev
+$ ansible -e @./vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=ansible_user app_abc123
+$ ansible -e @vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
+$ ansible -e @./vars/vault.yml --vault-password-file ~/.vault_pass -i inventory/PROD/ -m debug -a var=vault__ansible_ssh_private_key app_abc123
 ## there is an alias to simplify this (it uses '-i PROD' by default)
 $ ansibledebugvar control01 group_names
 ```
@@ -91,19 +144,21 @@ $ ansibledebugvar control01 group_names
 Query with vault and vars files variables (e.g., `./test-vars.yml`) 
 
 ```shell
-$ PROJECT_DIR="$( git rev-parse --show-toplevel )"
+$ REPO_DIR="$( git rev-parse --show-toplevel )"
 $ ansible -e @./vars/vault.yml -e @test-vars.yml \
     --vault-password-file \
-    ${PROJECT_DIR}/.vault_pass \
-    -i DEV/ \
+    ${REPO_DIR}/.vault_pass \
+    -i inventory/DEV/ \
     -m debug \
     -a var=vault_platform \
     testd1s4.example.int
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=test_component_cyberark_base_url localhost
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=docker_stack_ldap_host testd1s4.example.int
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_cdata_sync_sandbox
-$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=ansible_user app_tableau
-$ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${PROJECT_DIR}/.vault_pass -i DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
+$ ansible -e @./vars/vault.yml --vault-password-file ~/.vault_pass -i inventory/PROD/ -m debug -a var=ansible_ssh_private_key control01.example.int
+$ ansible host01.example.int -i inventory -m shell -a "for var in foobar baz; do echo '$var: {{ hostvars[inventory_hostname][var] }}'; done"
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=test_component_cyberark_base_url localhost
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=docker_stack_ldap_host testd1s4.example.int
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=ansible_user app_cdata_sync_sandbox
+$ ansible -e @test-vars.yml -e @./vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=ansible_user app_tableau
+$ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${REPO_DIR}/.vault_pass -i inventory/DEV/ -m debug -a var=vault__ldap_readonly_password testgroup_linux
 ```
 
 
@@ -111,7 +166,7 @@ $ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${PROJECT_D
 
 Group based query:
 ```shell
-ansible -i DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_linux
+ansible -i inventory/DEV/ -m debug -a var=bootstrap_ntp_servers testgroup_linux
 ntp1s1.qa.example.int | SUCCESS => {
     "bootstrap_ntp_servers": [
         "us.pool.ntp.org",
@@ -152,15 +207,15 @@ testhost3s4.dev.example.int | SUCCESS => {
 Query hosts for intersecting groups:
 
 ```shell
-$ ansible -i DEV/ -m debug -a var=group_names dmz:\&lnx_all
-$ ansible -i DEV/ -m debug -a var=group_names dmz:\&testgroup_linux
-$ ansible -i DEV/ -m debug -a var=group_names dmz:\&testgroup_linux:\&ntp
+$ ansible -i inventory/DEV/ -m debug -a var=group_names dmz:\&lnx_all
+$ ansible -i inventory/DEV/ -m debug -a var=group_names dmz:\&testgroup_linux
+$ ansible -i inventory/DEV/ -m debug -a var=group_names dmz:\&testgroup_linux:\&ntp
 
 ```
 
 Host based query:
 ```shell
-ansible -i DEV/ -m debug -a var=group_names testhostp1s*
+ansible -i inventory/DEV/ -m debug -a var=group_names testhostp1s*
 testhost1s4.example.int | SUCCESS => {
     "group_names": [
         "examplegroup"
@@ -237,7 +292,7 @@ ansible -i ./inventory/DEV/SITE1/ -m debug -a var=ntp_servers ntp_client
 
 Query by group name:
 ```shell
-ansible-inventory -i DEV/ --graph examplegroup
+ansible-inventory -i inventory/DEV/ --graph examplegroup
 @examplegroup:
   |--testhost1s1.example.int
   |--testhost1s4.example.int
@@ -246,7 +301,7 @@ ansible-inventory -i DEV/ --graph examplegroup
 
 Other examples:
 ```shell
-ansible-inventory -i DEV/SITE1/ --graph ntp
+ansible-inventory -i inventory/DEV/SITE1/ --graph ntp
 @ntp:
   |--@ntp_client:
   |  |--@environment_test:
@@ -261,7 +316,7 @@ ansible-inventory -i DEV/SITE1/ --graph ntp
 
 
 ```shell
-ansible-inventory -i DEV/ --graph ntp
+ansible-inventory -i inventory/DEV/ --graph ntp
 @ntp:
   |--@ntp_client:
   |  |--@environment_test:

@@ -1,5 +1,5 @@
 #jinja2: trim_blocks: True, lstrip_blocks: True
-{{ ansible_managed | comment }}
+{{ 'Ansible managed' | comment(format="# {}") }}
 
 ######################
 ## ldap content template inspired by
@@ -11,7 +11,7 @@
 
 dn: cn={{ _uid }},{{ __docker_stack__openldap__base_dn }}
 changetype: add
-    {% if _user_config.object_class_list|d([])|length > 0 %}
+    {% if _user_config.object_class_list | d([]) | length > 0 %}
         {% for object_class in _user_config.object_class_list %}
 objectClass: {{ object_class }}
         {% endfor %}
@@ -30,10 +30,10 @@ description: {{ _user_config.description | d(_uid) }}
 {% endfor %}
 
 ## LDAP Org Units (OUs)
-{% if __docker_stack__openldap__domain_ou_map|d({})|dict2items|length>0 %}
+{% if __docker_stack__openldap__domain_ou_map | d({}) | dict2items | length > 0 %}
     {% for ou,ou_config in __docker_stack__openldap__domain_ou_map.items() %}
 
-        {% set _ou = ou_config.ou|d(ou) %}
+        {% set _ou = ou_config.ou | d(ou) %}
         {% if ou_config.parent_ou is defined %}
             {% set _ou_dn = 'ou='+_ou+','+ou_config.parent_ou+','+__docker_stack__openldap__base_dn %}
         {% else %}
@@ -72,11 +72,11 @@ sambaRefuseMachinePwdChange: 0
 ## LDAP Domain Users
 {% for _user_key,_user_config in __docker_stack__openldap__domain_user_map_combined.items() %}
 
-    {% set _uid = _user_config.uid|d(_user_key) %}
+    {% set _uid = _user_config.uid | d(_user_key) %}
 dn: {{ _user_config.dn }}
 changetype: add
     {% set _object_class_list = _user_config.object_class_list %}
-    {% if _object_class_list|d([])|length > 0 %}
+    {% if _object_class_list | d([]) | length > 0 %}
         {% for object_class in _object_class_list %}
 objectClass: {{ object_class }}
         {% endfor %}
@@ -127,7 +127,7 @@ sambaAcctFlags: {{ _user_config.samba.account_flags }}
 sambaAcctFlags: [XU         ]
         {% endif %}
 sambaDomainName: {{ __docker_stack__openldap__domain }}
-        {% if _user_config.home_dir|d('') != '/nonexistent' %}
+        {% if _user_config.home_dir | d('') != '/nonexistent' %}
 sambaHomeDrive: H:
 sambaHomePath: {{ __docker_stack__openldap__user_smb_profile_base }}\{{ _uid }}
 sambaProfilePath: \\%L\profiles\{{ _uid }}
@@ -154,7 +154,7 @@ sshPublicKey: {{ _user_config.ssh_public_key }}
 dn: {{ _group_config.dn }}
 changetype: add
     {% set _object_class_list = _group_config.object_class_list %}
-    {% if _object_class_list|d([])|length > 0 %}
+    {% if _object_class_list | d([]) | length > 0 %}
         {% for _object_class in _object_class_list %}
 objectClass: {{ _object_class }}
         {% endfor %}
@@ -183,12 +183,12 @@ sudoOption: {{ _sudo_option }}
     {% if _group_config.memberURL is defined %}
 memberURL: {{ _group_config.memberURL }}
     {% endif %}
-    {% if _group_config.memberDnList|d([])|length > 0 %}
+    {% if _group_config.memberDnList | d([]) | length > 0 %}
         {% for _uid in _group_config.memberDnList %}
 member: uid={{ _uid }},{{ __docker_stack__openldap__user_base_dn }}
         {% endfor %}
     {% endif %}
-    {% if _group_config.memberUidList|d([])|length > 0 %}
+    {% if _group_config.memberUidList | d([]) | length > 0 %}
         {% for _uid in _group_config.memberUidList %}
 memberUid: {{ _uid }}
         {% endfor %}
@@ -197,14 +197,14 @@ memberUid: {{ _uid }}
         {% set _group_samba_sid = _group_config.samba.sid %}
 sambaSID: {{ _group_samba_sid }}
 sambaGroupType: {{ _group_config.samba.group_type | d(2) }}
-        {% if _group_config.samba.users|d([])|length > 0 %}
+        {% if _group_config.samba.users | d([]) | length > 0 %}
             {% for _uid in _group_config.samba.users %}
                 {% set _user_config = __docker_stack__openldap__domain_user_map_combined[_uid] %}
                 {% set _user_samba_sid = _user_config.samba.sid %}
 sambaSIDList: {{ _user_samba_sid }}
             {% endfor %}
         {% endif %}
-        {% if _group_config.samba.groups|d([])|length > 0 %}
+        {% if _group_config.samba.groups | d([]) | length > 0 %}
             {% for _gid in _group_config.samba.groups %}
                 {% set _samba_group_config = __docker_stack__openldap__domain_group_map_combined[_gid] %}
                 {% set _group_samba_sid = _samba_group_config.samba.sid %}
@@ -215,13 +215,13 @@ sambaSIDList: {{ _group_samba_sid }}
 {% endfor %}
 
 ## LDAP domain hosts
-{% if __docker_stack__openldap__domain_host_map|d({})|dict2items|length>0 %}
+{% if __docker_stack__openldap__domain_host_map | d({}) | dict2items | length > 0 %}
     {% for _host_cn,_host_config in __docker_stack__openldap__domain_host_map.items() %}
 
 dn: {{ _host_config.dn }}
 changetype: add
         {% set _object_class_list = _host_config.object_class_list %}
-        {% if _object_class_list|d([])|length > 0 %}
+        {% if _object_class_list | d([]) | length > 0 %}
             {% for _object_class in _object_class_list %}
 objectClass: {{ _object_class }}
             {% endfor %}

@@ -10,17 +10,17 @@
 
 - name: OS-HARDEN-RESTART-ssh
   ansible.builtin.service:
-    name: "{{ ssh_service}}"
+    name: "{{ ssh_service }}"
     state: restarted
 
 - name: OS-HARDEN-RELOAD-sysctl.conf
-  when: harden_os_linux__reload_sysctl_conf_handler|bool
+  when: harden_os_linux__reload_sysctl_conf_handler | bool
   ansible.builtin.command: /sbin/sysctl -p
   changed_when: false
   register: __sysctl_command_result
   failed_when:
     - __sysctl_command_result is failed
-    - not ( __sysctl_command_result.stderr | regex_search("cannot stat /proc/sys/fs/may_detach_mounts.* No such file or directory") )
+    - __sysctl_command_result.stderr | regex_search("cannot stat /proc/sys/fs/may_detach_mounts.* No such file or directory") is none
 
 - name: OS-HARDEN-FLUSH-routes
   ansible.builtin.command: /sbin/sysctl -w net.ipv4.route.flush=1
@@ -36,16 +36,16 @@
 
 - name: OS-HARDEN-GRUB2-mkconfig
   when: >
-    not (ansible_virtualization_type is defined and
-          (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
+    not (ansible_facts['virtualization_type'] is defined and
+          (ansible_facts['virtualization_type'] == "lxc" or ansible_facts['virtualization_type'] == "docker")
         )
   ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
   changed_when: false
 
 - name: OS-HARDEN-UPDATE-grub
   when: >
-    not (ansible_virtualization_type is defined and
-          (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
+    not (ansible_facts['virtualization_type'] is defined and
+          (ansible_facts['virtualization_type'] == "lxc" or ansible_facts['virtualization_type'] == "docker")
         )
   ansible.builtin.command: update-grub
   changed_when: false

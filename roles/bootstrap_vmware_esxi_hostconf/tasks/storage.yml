@@ -52,7 +52,7 @@
 # delete extra files manually if required
 - name: (storage) check that all wrongly named datastores are empty
   when:
-    - esx_rename_datastores|bool
+    - esx_rename_datastores | bool
     - devinfo_by_path[item.key].dev in fsinfo_by_dev
     - fsinfo_by_dev[devinfo_by_path[item.key].dev].name != item.value
   ansible.builtin.assert:
@@ -63,7 +63,7 @@
 
 - name: (storage) rename datastores
   when:
-    - esx_rename_datastores|bool
+    - esx_rename_datastores | bool
     - devinfo_by_path[item.key].dev in fsinfo_by_dev
     - fsinfo_by_dev[devinfo_by_path[item.key].dev].name != item.value
     - usage_by_fs[fsinfo_by_dev[devinfo_by_path[item.key].dev].name].usage == "0"
@@ -73,7 +73,7 @@
 
 - name: (storage) show missed datastores on vacant LUNs
   when:
-    - esx_create_datastores|bool
+    - esx_create_datastores | bool
     - devinfo_by_path[item.key].dev not in fsinfo_by_dev
   ansible.builtin.debug:
     msg: will partition and newfs {{ item.key }} ({{ devinfo_by_path[item.key].dev }})
@@ -84,7 +84,7 @@
 # on errors like "not all space is used": try "partedUtil fix /dev/disks/naa.NNN"
 - name: (storage) make sure partition tables on vacant LUNs are empty
   when:
-    - esx_create_datastores|bool
+    - esx_create_datastores | bool
     - devinfo_by_path[item.key].dev not in fsinfo_by_dev
   ansible.builtin.shell: |
     [[ $(partedUtil getptbl /dev/disks/{{ devinfo_by_path[item.key].dev }} | wc -l) == 2 ]]
@@ -94,7 +94,7 @@
 
 - name: (storage) create gpt labels on vacant LUNs
   when:
-    - esx_create_datastores|bool
+    - esx_create_datastores | bool
     - devinfo_by_path[item.key].dev not in fsinfo_by_dev
   changed_when: false
   ansible.builtin.command: partedUtil mklabel /dev/disks/{{ devinfo_by_path[item.key].dev }} gpt
@@ -102,7 +102,7 @@
 
 - name: (storage) partition vacant LUNs
   when:
-    - esx_create_datastores|bool
+    - esx_create_datastores | bool
     - devinfo_by_path[item.key].dev not in fsinfo_by_dev
   changed_when: false
   ansible.builtin.shell: >
@@ -113,7 +113,7 @@
 
 - name: (storage) create VMFS on vacant LUNs
   when:
-    - esx_create_datastores|bool
+    - esx_create_datastores | bool
     - devinfo_by_path[item.key].dev not in fsinfo_by_dev
   changed_when: false
   ansible.builtin.command: vmkfstools -C vmfs5 -b 1m -S {{ item.value }} /dev/disks/{{ devinfo_by_path[item.key].dev }}:1

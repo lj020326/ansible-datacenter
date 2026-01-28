@@ -1,0 +1,244 @@
+#
+# Ansible managed
+#
+
+##########
+## ref: https://github.com/docker/compose/issues/11628
+## version is only informative since a long time ago now. You can use loose options and you don't need it, check the spec:
+## https://github.com/compose-spec/compose-spec/blob/main/spec.md#version-and-name-top-level-elements
+
+networks:
+  net:
+    driver: overlay
+    attachable: true
+    ipam:
+      config:
+        - subnet: 172.20.10.0/24
+
+  socket_proxy:
+    driver: overlay
+    attachable: true
+    name: socket_proxy
+    ipam:
+      config:
+        - subnet: 172.20.11.0/24
+
+  traefik_public:
+    external: true
+
+
+services:
+  ########################
+  ## BASE GROUP SERVICES
+  ## https://doc.traefik.io/traefik/v3.6/setup/swarm/
+  traefik:
+#    image: traefik:v3.6.7
+    image: traefik:v3.6
+    environment:
+      ## app envs
+      PGID: '1102'
+      PUID: '1102'
+      TZ: America/New_York
+    depends_on:
+      - socket-proxy
+    networks:
+      - traefik_public
+      - socket_proxy
+    ports:
+      - protocol: tcp
+        published: 80
+        target: 80
+        mode: host
+      - protocol: tcp
+        published: 443
+        target: 443
+        mode: host
+    deploy:
+#      endpoint_mode: dnsrr
+#      endpoint_mode: vip
+      mode: global
+#      mode: replicated
+#      placement:
+#        constraints:
+#          - node.role == manager
+#      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 3
+        window: 60s
+      update_config:
+        order: start-first
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+        - "traefik.http.routers.http-catchall.entrypoints=http"
+        - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+        - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
+        - "traefik.http.routers.http-catchall.priority=1"
+        - "traefik.http.routers.ping.entrypoints=https"
+        - "traefik.http.routers.ping.rule=Host(`traefik.admin.prod.dettonville.int`) && PathPrefix(`/ping`)"
+        - "traefik.http.routers.ping.service=ping@internal"
+        - "traefik.http.routers.traefik-rtr.service=api@internal"
+        - "traefik.http.routers.traefik-rtr.entrypoints=https"
+        - "traefik.http.routers.traefik-rtr.rule=Host(`traefik.admin.prod.dettonville.int`)"
+        - "traefik.http.services.api.loadbalancer.server.port=8080"
+        - "traefik.swarm.lbswarm=true"
+        - "traefik.swarm.network=traefik_public"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/container-user/docker/traefik:/etc/traefik
+      - /home/container-user/docker/traefik/certs:/certs
+      - /home/container-user/docker/shared:/shared
+
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    hostname: socket-proxy
+    environment:
+      ## app envs
+      AUTH: 0
+      BUILD: 0
+      COMMIT: 0
+      CONFIGS: 0
+      CONTAINERS: 1
+      CONTAINERS_CREATE: 1
+      CONTAINERS_DELETE: 1
+      CONTAINERS_START: 1
+      CONTAINERS_UPDATE: 1
+      DELETE: 1
+      DISTRIBUTION: 0
+      EVENTS: 1
+      EXEC: 0
+      IMAGES: 1
+      IMAGES_DELETE: 1
+      INFO: 1
+      LOG_LEVEL: debug
+      NETWORKS: 1
+      NODES: 1
+      PING: 1
+      PLUGINS: 0
+      POST: 1
+      SECRETS: 0
+      SERVICES: 1
+      SESSION: 0
+      SWARM: 1
+      SYSTEM: 0
+      TASKS: 1
+      VERSION: 1
+      VOLUMES: 1
+    networks:
+      - socket_proxy
+    ports:
+#      - 2375:2375
+      - target: 2375
+        published: 2375
+        protocol: tcp
+#        mode: host
+    deploy:
+#      endpoint_mode: dnsrr
+#      mode: replicated
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+#      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        order: stop-first
+        parallelism: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # use curl based testing to test specific swarm endpoints:
+  #  root@admin.prod:[docker]$ curl --resolve whoami.admin.prod.dettonville.int:443:10.0.7.20 https://whoami.admin.prod.dettonville.int
+  #  Hostname: 3455e0edc73a
+  #  IP: 127.0.0.1
+  #  IP: ::1
+  #  IP: 172.16.1.93
+  #  IP: 172.19.0.5
+  #  IP: 172.20.12.10
+  #  RemoteAddr: 172.20.12.6:57998
+  #  GET / HTTP/1.1
+  #  Host: whoami.admin.prod.dettonville.int
+  #  User-Agent: curl/8.5.0
+  #  Accept: */*
+  #  Accept-Encoding: gzip
+  #  X-Forwarded-For: 172.19.0.1
+  #  X-Forwarded-Host: whoami.admin.prod.dettonville.int
+  #  X-Forwarded-Port: 443
+  #  X-Forwarded-Proto: https
+  #  X-Forwarded-Server: 85b516941465
+  #  X-Real-Ip: 172.19.0.1
+  whoami:
+    image: containous/whoami
+    networks:
+      - traefik_public
+    ports:
+      - protocol: tcp
+        published: 9080
+        target: 80
+#        mode: host
+    deploy:
+      mode: global
+#      endpoint_mode: dnsrr
+#      endpoint_mode: vip
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        delay: 10s
+        order: start-first
+        parallelism: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.swarm.lbswarm=true"
+#        - "traefik.swarm.network=traefik_public"
+        - "traefik.http.routers.whoami.entrypoints=https"
+        - "traefik.http.routers.whoami.rule=Host(`whoami.admin.prod.dettonville.cloud`) || Host(`whoami.admin.prod.dettonville.int`)"
+        - "traefik.http.services.whoami.loadbalancer.server.port=80"
+
+  dozzle:
+    image: amir20/dozzle:latest
+    environment:
+      ## app envs
+      DOCKER_HOST: tcp://socket-proxy:2375
+      DOZZLE_FILTER: status=running
+      DOZZLE_LEVEL: info
+      DOZZLE_MODE: swarm
+    networks:
+      - traefik_public
+      - socket_proxy
+    ports:
+      - protocol: tcp
+        published: 8080
+        target: 8080
+#        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      mode: replicated
+#      endpoint_mode: dnsrr
+#      endpoint_mode: vip
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      labels:
+        - "traefik.enable=true"
+        - "traefik.swarm.lbswarm=true"
+#        - "traefik.swarm.network=traefik_public"
+        - "traefik.http.routers.dozzle-rtr.entrypoints=https"
+        - "traefik.http.routers.dozzle-rtr.rule=Host(`dozzle.admin.prod.dettonville.int`)"
+        - "traefik.http.routers.dozzle-rtr.service=dozzle-svc"
+        - "traefik.http.services.dozzle-svc.loadbalancer.server.port=8080"

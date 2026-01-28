@@ -1,0 +1,408 @@
+---
+
+- name: "Gather date_time facts"
+  ansible.builtin.setup:
+    gather_subset:
+      - date_time
+  run_once: true
+
+- name: "Get current timestamp for backup"
+  ansible.builtin.set_fact:
+    __timestamp: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+#    __timestamp: "{{ ansible_facts['date_time']['iso8601'] | regex_replace('[-:T]', '') | regex_replace('Z$', '') }}"
+#    __timestamp: "{{ ansible_facts['date_time']['iso8601_basic'] }}"
+  run_once: true
+
+- name: "Include OS-specific variables"
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+        - "main.yml"
+  loop_control:
+    label: "Including OS-specific variables for {{ ansible_facts['distribution'] }}"
+
+- name: "Install required Python packages on the control node"
+  ansible.builtin.pip:
+    name:
+      - "python-hcl2"
+      - "requests"
+      - "hvac"
+  delegate_to: localhost
+  run_once: true
+
+- name: "Install Python crypto libraries for certificate validation (pyopenssl + cryptography)"
+  ansible.builtin.package:
+    name: "{{ __deploy_pki_certs__python_packages }}"
+    state: present
+  register: __crypto_pkg_install
+
+- name: "Assert crypto libraries installed successfully"
+  when: not __crypto_pkg_install.skipped | default(true)
+  ansible.builtin.assert:
+    that:
+      - not __crypto_pkg_install.failed | default(false)
+      # One per package
+      - __crypto_pkg_install.results | length == __deploy_pki_certs__python_packages | length
+    success_msg: "System crypto libs (python3-pyopenssl, python3-cryptography) installed for cert validation."
+    fail_msg: |
+      Failed to install crypto Python libs via package manager on {{ inventory_hostname }}.
+      Error: {{ __crypto_pkg_install.msg | default('Unknown') }}
+      Run manually: sudo dnf/yum/apt install python3-pyopenssl python3-cryptography
+      (Repo check: {{ ansible_facts['pkg_mgr'] }}).
+
+#- name: "Install Python crypto libraries for certificate validation (pyopenssl + cryptography)"
+#  ansible.builtin.pip:
+#    name:
+#      - pyopenssl
+#      # Core dep for pyopenssl
+#      - cryptography
+#    state: present
+#    # Respects ansible_python_interpreter
+#    executable: "{{ ansible_python_interpreter | default('python3') }}"
+#    extra_args: "--no-cache-dir"
+#    #extra_args: "--user"  # Non-root if needed; remove if root-only
+#  become: true
+#  register: __crypto_pip_install
+##  # Graceful if pip fails (e.g., no internet)
+##  ignore_errors: true
+#
+#- name: "Assert crypto libraries installed successfully"
+#  when: not __crypto_pip_install.skipped | default(true)
+#  ansible.builtin.assert:
+#    that:
+#      - not __crypto_pip_install.failed | default(false)
+#      - "'pyopenssl' in __crypto_pip_install.results[0].name | default([])"
+#      - "'cryptography' in __crypto_pip_install.results[1].name | default([])"
+#    success_msg: "Crypto libs (pyopenssl, cryptography) installed for cert validation."
+#    fail_msg: |
+#      Failed to install crypto Python libs on {{ inventory_hostname }}.
+#      Error: {{ __crypto_pip_install.msg | default('Unknown') }}
+#      Run manually: sudo pip3 install pyopenssl cryptography
+#      Or check ansible_python_interpreter: {{ ansible_python_interpreter }}.
+
+- name: "Remove all existing CA certs and keys if reset"
+  when: deploy_pki_certs__ca_reset_local_certs | bool
+  block:
+    - name: "Backup all existing CA certs and keys"
+      community.general.archive:
+        path:
+          - "{{ deploy_pki_certs__local_cert_dir }}"
+          - "{{ deploy_pki_certs__local_key_dir }}"
+        dest: "{{ deploy_pki_certs__local_cert_dir | dirname }}/pki_ca_certs.backup_{{ __timestamp }}.tar.gz"
+        format: gz
+        remove: true
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: "Remove all existing CA certs and keys"
+      ansible.builtin.file:
+        state: absent
+        path: "{{ item }}"
+      loop:
+        - "{{ deploy_pki_certs__local_cert_dir }}"
+        - "{{ deploy_pki_certs__local_key_dir }}"
+
+- name: "Reset all existing CA certs in {{ __deploy_pki_certs__trust_ca_cert_dir }}"
+  when: (deploy_pki_certs__ca_reset_local_certs or deploy_pki_certs__ca_reset_trust_certs) | bool
+  block:
+    - name: "Backup all existing CA certs in {{ __deploy_pki_certs__trust_ca_cert_dir }}"
+      community.general.archive:
+        path: "{{ __deploy_pki_certs__trust_ca_cert_dir }}"
+        dest: "{{ __deploy_pki_certs__trust_ca_cert_dir | dirname }}/pki_trust_certs.backup_{{ __timestamp }}.tar.gz"
+        format: gz
+        remove: false
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: "Find all files in the trust CA directory {{ __deploy_pki_certs__trust_ca_cert_dir }}"
+      ansible.builtin.find:
+        paths: "{{ __deploy_pki_certs__trust_ca_cert_dir }}"
+        file_type: any
+        recurse: false
+      register: __found_files
+
+    - name: "Remove the contents of {{ __deploy_pki_certs__trust_ca_cert_dir }}"
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ __found_files.files }}"
+      when: __found_files.matched > 0
+
+- name: "Ensure local certificate and key directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+  loop:
+    - "{{ deploy_pki_certs__local_cert_dir }}"
+    - "{{ deploy_pki_certs__local_key_dir }}"
+
+- name: "Validate Vault PKI connectivity and token permissions"
+  ansible.builtin.include_tasks: validate_vault_pki.yml
+
+- name: "Initialize __ca_cert_has_changed"
+  ansible.builtin.set_fact:
+    __ca_cert_has_changed: false
+
+# 1) CA ROOT CERTIFICATE DEPLOYMENT
+- name: "Fetch and deploy root CA certificate (kv -> static)"
+  ansible.builtin.include_tasks: fetch_static_cert.yml
+  vars:
+    __cert_info:
+      type: "kv"
+      kv_prefix: "trusted_internal"
+      cert_name: "{{ deploy_pki_certs__ca_root_cert_basename }}"
+      common_name: "{{ deploy_pki_certs__ca_root_cn }}"
+
+- name: "Display __ca_cert_has_changed for root cert"
+  ansible.builtin.debug:
+    var: __ca_cert_has_changed
+
+- name: "Post root cert deployment - Update system's CA trust store if root cert changed"
+  when: __ca_cert_has_changed | d(false)
+  block:
+    - name: "Get deployed root cert info"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __deploy_pki_certs__ca_root_cert_name }}"
+      register: __root_cert_info
+
+    - name: "Display __root_cert_info"
+      ansible.builtin.debug:
+        var: __root_cert_info
+
+    - name: "Root cert verification"
+      no_log: true
+      dettonville.utils.x509_certificate_verify:
+        path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __deploy_pki_certs__ca_root_cert_name }}"
+        common_name: "{{ deploy_pki_certs__ca_root_cn }}"
+        validate_is_ca: true
+        validate_expired: true
+        validate_checkend: true
+        checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
+      register: __root_cert_verify
+
+    - name: "Display __root_cert_verify"
+      ansible.builtin.debug:
+        var: __root_cert_verify
+
+    - name: "Extract date components from not_after"
+      ansible.builtin.set_fact:
+        __not_after_clean: "{{ __root_cert_info.not_after[:-1] }}"  # Strip Z
+        __year: "{{ __root_cert_info.not_after[0:4] }}"
+        __month: "{{ __root_cert_info.not_after[4:6] }}"
+        __day: "{{ __root_cert_info.not_after[6:8] }}"
+        __hour: "{{ __root_cert_info.not_after[8:10] }}"
+        __minute: "{{ __root_cert_info.not_after[10:12] }}"
+        __second: "{{ __root_cert_info.not_after[12:14] }}"
+      changed_when: false
+
+    - name: "Compute root CA expiry epoch"
+      ansible.builtin.command: >-
+        date -d "{{ __year }}-{{ __month }}-{{ __day }} {{ __hour }}:{{ __minute }}:{{ __second }}" +%s
+      register: __expiry_epoch_raw
+      changed_when: false
+
+    - name: "Display __expiry_epoch_raw"
+      ansible.builtin.debug:
+        var: __expiry_epoch_raw
+        verbosity: 1
+
+    # Set facts for expiry and tolerance (simple ints for assert)
+    - name: "Set root CA expiry and tolerance epochs"
+      ansible.builtin.set_fact:
+        __expiry_epoch: "{{ __expiry_epoch_raw.stdout | int }}"
+        __tolerance_days: "{{ deploy_pki_certs__ca_cert_renewal_tolerance_days | default(30) | int }}"
+
+    - name: "Set __tolerance_epoch"
+      ansible.builtin.set_fact:
+        __tolerance_epoch: "{{ (ansible_facts['date_time']['epoch'] | int) + (86400 * __tolerance_days) }}"
+
+    - name: "Display computed epochs (debug)"
+      ansible.builtin.debug:
+        msg: >-
+          Root expiry epoch: {{ __expiry_epoch | d('') }} ({{ __root_cert_info.not_after }})
+          | Tolerance: {{ __tolerance_days | d('') }} days (epoch: {{ __tolerance_epoch | d('') }})
+        verbosity: 1
+
+    - name: "Fail if root invalid (e.g., not CA or expires < tolerance days)"
+      ansible.builtin.assert:
+        that:
+          - "'CA:TRUE' in __root_cert_info.basic_constraints"  # Explicit CA check
+          - "not __root_cert_verify.verify_failed | d(true)"   # Your verify result
+          - "__expiry_epoch > __tolerance_epoch"               # Expiry check (fails if <= tolerance)
+        fail_msg: >-
+          Root CA invalid: {{ __root_cert_info.subject.commonName }}
+          (constraints: {{ __root_cert_info.basic_constraints }} |
+          verify failed: {{ __root_cert_verify.verify_failed | d('N/A') }} |
+          expiry epoch {{ __expiry_epoch }} <= tolerance epoch {{ __tolerance_epoch }} ({{
+            __tolerance_days }} days from {{ ansible_facts['date_time']['date'] }}))
+        success_msg: "Root CA valid: {{ __root_cert_info.subject.commonName }} (expires {{ __root_cert_info.not_after }} > {{ __tolerance_days }} days)"
+
+    - name: "Post root cert deployment - Update system's CA trust store since root cert changed"
+      ansible.builtin.command: "{{ __deploy_pki_certs__trust_ca_update_trust_cmd }}"
+      changed_when: true
+
+# 2) PKI VAULT CERTIFICATE DEPLOYMENT (pki_ca -> static)
+- name: "Fetch and deploy intermediate CA certificate (pki_ca -> static)"
+  ansible.builtin.include_tasks: fetch_static_cert.yml
+  vars:
+    __cert_info:
+      type: "pki_ca"
+      kv_prefix: "trusted_internal"
+      cert_name: "{{ __deploy_pki_certs__vault_cert_basename }}"
+      common_name: "{{ deploy_pki_certs__vault_cert_configs.common_name }}"
+      key_type: "{{ deploy_pki_certs__vault_cert_configs.key_type }}"
+      key_size: "{{ deploy_pki_certs__vault_cert_configs.key_size }}"
+
+# 3) SERVICE ROUTE CERTIFICATES (pki_service_route -> dynamic)
+- name: "Display deploy_pki_certs__ca_service_routes_list"
+  ansible.builtin.debug:
+    var: deploy_pki_certs__ca_service_routes_list
+
+- name: "Fetch and deploy service route certificates (pki_service_route -> dynamic)"
+  ansible.builtin.include_tasks: fetch_dynamic_cert.yml
+  loop: "{{ deploy_pki_certs__ca_service_routes_list }}"
+  loop_control:
+    loop_var: __current_service_route
+  vars:
+    __cert_info:
+      log_prefix: "{{ __current_service_route }}"
+      type: "pki_service_route"
+      kv_prefix: "trusted_internal"
+      cert_name: "{{ __current_service_route }}"
+      common_name: "{{ __current_service_route }}"
+
+# 4) HOST CERTIFICATE DEPLOYMENT (pki_host -> dynamic)
+- name: "Fetch and deploy host certificate (pki_host -> dynamic)"
+  # Check if the FQDN is already handled by a service route to prevent overwrites
+  when: deploy_pki_certs__ca_host_cn not in deploy_pki_certs__ca_service_routes_list
+  ansible.builtin.include_tasks: fetch_dynamic_cert.yml
+  vars:
+    __cert_info:
+      log_prefix: "host-cert"
+      type: "pki_host"
+      kv_prefix: "trusted_internal"
+      cert_name: "{{ deploy_pki_certs__ca_host_cn }}"
+      common_name: "{{ deploy_pki_certs__ca_host_cn }}"
+
+## 5) INTERNAL TRUSTED CERTIFICATES (kv -> static)
+- name: "List all trusted internal certificates"
+  community.hashi_vault.vault_list:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "{{ deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_internal"
+    validate_certs: false
+  register: __internal_ca_keys
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "Display __internal_ca_keys"
+  ansible.builtin.debug:
+    var: __internal_ca_keys
+  delegate_to: localhost
+  run_once: true
+
+- name: "Set __internal_ca_keys_list to empty if fetch failed"
+  when: __internal_ca_keys.failed | d(false)
+  ansible.builtin.set_fact:
+    __internal_ca_keys_list: []
+  delegate_to: localhost
+  run_once: true
+
+- name: "Display deploy_pki_certs__ca_service_routes_list"
+  ansible.builtin.debug:
+    var: deploy_pki_certs__ca_service_routes_list
+    verbosity: 1
+
+# CRITICAL: Skip the certificate if it was already deployed (e.g., root cert CN, host cert CN and host's service route CN)
+- name: "Set __internal_ca_keys_list from metadata keys"
+  when: not __internal_ca_keys.failed | d(true)
+  ansible.builtin.set_fact:
+    __internal_ca_keys_list: >-
+      {{
+        __internal_ca_keys.data.data['keys']
+        | select('string')
+        | reject('equalto', deploy_pki_certs__ca_placeholder_name)
+        | reject('equalto', deploy_pki_certs__ca_root_cert_basename)
+        | reject('equalto', deploy_pki_certs__ca_host_cn)
+        | reject('in', deploy_pki_certs__ca_service_routes_list)
+        | list
+      }}
+
+- name: "Deploy Trusted Internal Certificates (kv -> static)"
+  when: __internal_ca_keys_list | length > 0
+  ansible.builtin.include_tasks: fetch_static_cert.yml
+  loop: "{{ __internal_ca_keys_list }}"
+  loop_control:
+    loop_var: __current_cert_name
+  vars:
+    # Logic: Only deploy if the route is NOT the one owned by this specific host
+    __cert_info:
+      type: "kv"
+      kv_prefix: "trusted_internal"
+      cert_name: "{{ __current_cert_name }}"
+      common_name: "{{ __current_cert_name }}"
+
+# 6) EXTERNAL CERTIFICATES (kv -> static)
+- name: "Fetch external CA certs keys from KV (metadata list)"
+  community.hashi_vault.vault_list:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "{{ deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external"
+    validate_certs: false
+  register: __external_ca_keys
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "Display __external_ca_keys"
+  ansible.builtin.debug:
+    var: __external_ca_keys
+  delegate_to: localhost
+  run_once: true
+
+- name: "Set __external_ca_keys_list to empty if fetch failed"
+  when: __external_ca_keys.failed | d(false)
+  ansible.builtin.set_fact:
+    __external_ca_keys_list: []
+
+- name: "Set __external_ca_keys_list from metadata keys"
+  when: not __external_ca_keys.failed | d(true)
+  ansible.builtin.set_fact:
+    __external_ca_keys_list: >-
+      {{
+        __external_ca_keys.data.data['keys']
+        | select('string')
+        | reject('in', deploy_pki_certs__ca_placeholder_name)
+        | list
+      }}
+
+- name: "Fetch and deploy external CA certificates (kv -> static)"
+  when: __external_ca_keys_list | length > 0
+  ansible.builtin.include_tasks: fetch_static_cert.yml
+  loop: "{{ __external_ca_keys_list }}"
+  loop_control:
+    loop_var: __current_cert_name
+  vars:
+    __cert_info:
+      type: "kv"
+      kv_prefix: "trusted_external"
+      cert_name: "{{ __current_cert_name }}"
+
+- name: "Post-deployment : Update system's CA trust store"
+  when: __ca_cert_has_changed | d(false)
+  ansible.builtin.command: "{{ __deploy_pki_certs__trust_ca_update_trust_cmd }}"
+  changed_when: true
+
+- name: "Post-deployment : Validate Vault PKI certificates"
+  when: deploy_pki_certs__validation_enabled | default(true) | bool
+#  when:
+#    - deploy_pki_certs__validation_enabled | default(true) | bool
+#    - __ca_cert_has_changed | default(false)  # Only if certs changed
+  ansible.builtin.include_tasks: validate_pki_certs.yml

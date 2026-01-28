@@ -1,0 +1,29 @@
+{{ 'Ansible managed' | comment(format="# {}") }}
+network:
+  version: {{ bootstrap_netplan__configuration['network']['version'] | default('2') }}
+  renderer: {{ bootstrap_netplan__renderer }}
+  ethernets:
+    {{ bootstrap_netplan__ethernet_primary_interface }}:
+      match:
+        macaddress: "{{ bootstrap_netplan__ethernet_primary_mac }}"
+{% if bootstrap_netplan__ethernet_primary_interface != bootstrap_netplan__ethernet_interface_name %}
+      set-name: "{{ bootstrap_netplan__ethernet_interface_name }}"
+{% endif %}
+{% if bootstrap_netplan__static_addresses | length > 0 %}
+      addresses:
+        {{ bootstrap_netplan__static_addresses | to_nice_yaml | indent(8) }}
+{% else %}
+      dhcp4: {{ bootstrap_netplan__dhcp4 | default('true') }}
+      dhcp6: {{ bootstrap_netplan__dhcp6 | default('true') }}
+      ## ref: https://www.oxcrag.net/2019/02/07/creating-a-working-ubuntu-18-04-vmware-template/
+      dhcp-identifier: mac
+{% endif %}
+{% if bootstrap_netplan__nameservers | length > 0 %}
+      nameservers:
+        addresses:
+          {{ bootstrap_netplan__nameservers | to_nice_yaml | indent(10) }}
+{% endif %}
+{% if bootstrap_netplan__routes | length > 0 %}
+      routes:
+        {{ bootstrap_netplan__routes | to_nice_yaml | indent(8) }}
+{% endif %}

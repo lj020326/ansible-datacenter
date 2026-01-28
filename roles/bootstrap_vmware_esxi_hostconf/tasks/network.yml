@@ -28,11 +28,11 @@
 - name: (network) check that deleted portgroups are free from clients
   when: item not in esxi_portgroups
   ansible.builtin.assert:
-    that: (portgroups[item].clients|int == 0)
+    that: (portgroups[item].clients | int == 0)
   loop: "{{ portgroups.keys() }}"
 
 - name: (network) delete extra portgroups
-  when: (item.key not in esxi_portgroups) and (item.value.clients|int == 0)
+  when: (item.key not in esxi_portgroups) and (item.value.clients | int == 0)
   changed_when: false
   ansible.builtin.command: "{{ pgmod }} remove -p '{{ item.key }}' -v {{ item.value.vswitch | d(esx_vswitch_def) }}"
   with_dict: "{{ portgroups }}"
@@ -41,7 +41,7 @@
   #   label: "{{ item.key }}"
 
 - name: (network) set vlan tags to correct values
-  when: (item.key not in portgroups) or (item.value.tag != portgroups[item.key]['tag']|int)
+  when: (item.key not in portgroups) or (item.value.tag != portgroups[item.key]['tag'] | int)
   changed_when: false
   ansible.builtin.command: "{{ pgmod }} set -p '{{ item.key }}' --vlan-id {{ item.value.tag }}"
   with_dict: "{{ esxi_portgroups }}"
@@ -54,7 +54,7 @@
   check_mode: false
 
 - name: (network) block BPDUs from guests
-  when: 1 != bpdu_block_res.stdout|int
+  when: 1 != bpdu_block_res.stdout | int
   changed_when: false
   ansible.builtin.command: esxcli system settings advanced set -o /Net/BlockGuestBPDU -i 1
 
@@ -81,7 +81,7 @@
     - name: (network) calculate vmotion addr
       ansible.builtin.set_fact:
         # be careful not to include "." in RE: \1 became \1241 :)
-        vmotion_addr: "{{ ip_by_nic['vmk0'].address | regex_replace('^(\\d+\\.\\d+)\\.\\d+', '\\1.' + (esx_vmotion_subnet_number|string)) }}"
+        vmotion_addr: "{{ ip_by_nic['vmk0'].address | regex_replace('^(\\d+\\.\\d+)\\.\\d+', '\\1.' + (esx_vmotion_subnet_number | string)) }}"
 
     - name: (network) set ip address on vMotion interface
       when: ip_by_nic[esx_vmotion_iface_name]['address'] != vmotion_addr

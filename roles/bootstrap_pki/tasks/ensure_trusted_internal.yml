@@ -1,0 +1,221 @@
+---
+# Ensures the trusted_internal KV path exists (creates dummy placeholder).
+
+- name: "ensure-trusted-internal : Display trusted_internal config"
+  ansible.builtin.debug:
+    msg: "Initializing trusted_internal KV path under {{ bootstrap_pki__vault_kv_mount_point }} (for internal certs)."
+
+- name: "ensure-trusted-internal : Check if trusted_internal path exists"
+  community.hashi_vault.vault_list:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_internal"
+    validate_certs: false
+  register: __trusted_internal_check
+  delegate_to: localhost
+  ignore_errors: true
+
+- name: "ensure-trusted-internal : Display __trusted_internal_check"
+  ansible.builtin.debug:
+    var: __trusted_internal_check
+    verbosity: 1
+
+- name: "ensure-trusted-internal : Reset trusted_internal contents"
+  when:
+    - not __trusted_internal_check.failed
+    - bootstrap_pki__ca_reset_trusted_kv_internal | bool
+  block:
+    - name: "Set __internal_ca_keys_list from metadata keys"
+      ansible.builtin.set_fact:
+        __internal_ca_keys_list: >-
+          {{
+            __trusted_internal_check.data.data['keys']
+            | select('string')
+            | list
+          }}
+
+    - name: "ensure-trusted-internal : Display __internal_ca_keys_list"
+      ansible.builtin.debug:
+        var: __internal_ca_keys_list
+        verbosity: 1
+
+    - name: "ensure-trusted-internal : Delete existing internal CA secrets"
+      when: __internal_ca_keys_list | length > 0
+      block:
+        - name: "ensure-trusted-internal : Delete existing internal CA secrets"
+          no_log: true
+          community.hashi_vault.vault_kv2_delete:
+            url: "{{ bootstrap_pki__vault_url }}"
+            token: "{{ bootstrap_pki__vault_token }}"
+            mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+            path: "trusted_internal/{{ item }}"
+            validate_certs: false
+          loop: "{{ __internal_ca_keys_list | default([]) }}"
+          delegate_to: localhost
+          run_once: true
+
+        - name: "ensure-trusted-internal : Hard-delete internal CA secrets metadata"
+          no_log: true
+          ansible.builtin.uri:
+            url: >-
+              {{ bootstrap_pki__vault_url }}/v1/{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_internal/{{ item }}
+            method: DELETE
+            headers:
+              X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+            validate_certs: false
+            status_code: [200, 204, 404]  # 204=success, 404=already gone (idempotent)
+            return_content: false
+          loop: "{{ __internal_ca_keys_list | default([]) }}"
+          delegate_to: localhost
+          run_once: true
+          register: __metadata_delete_results
+          ignore_errors: true  # Graceful on already-deleted
+
+        - name: "ensure-trusted-internal : Display __metadata_delete_results"
+          ansible.builtin.debug:
+            var: __metadata_delete_results
+            verbosity: 1
+
+        - name: "ensure-trusted-internal : Log reset"
+          ansible.builtin.debug:
+            msg: >-
+              Hard-reset trusted_internal: soft-deleted data for {{ __internal_ca_keys_list | length | default(0) }} entries,
+              hard-deleted metadata for {{ __metadata_delete_results.results
+                | selectattr('status', 'in', [200, 204]) | list | length | default(0) }}.
+          run_once: true
+
+        - name: "ensure-trusted-internal : Verify trusted_internal is empty post-reset"
+          community.hashi_vault.vault_list:
+            url: "{{ bootstrap_pki__vault_url }}"
+            token: "{{ bootstrap_pki__vault_token }}"
+            path: "{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_internal"
+            validate_certs: false
+          register: __post_reset_check
+          delegate_to: localhost
+          ignore_errors: true
+          run_once: true
+
+        - name: "ensure-trusted-internal : Log post-reset verification"
+          ansible.builtin.debug:
+            msg: "trusted_internal now has {{ __post_reset_check.data.data.keys | default([]) | select('string') | length }} keys remaining."
+          run_once: true
+
+- name: "ensure-trusted-internal : Create placeholder if path missing"
+  when:
+    - __trusted_internal_check is failed
+    - __trusted_internal_check.msg | regex_search("The path '.*/trusted_internal' doesn't seem to exist") is not none
+  no_log: true
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+    path: "trusted_internal/{{ bootstrap_pki__ca_placeholder_name }}"
+    data:
+      description: "Placeholder to initialize trusted_internal path (remove after populating with real internal certs)"
+      initialized_at: "{{ ansible_facts['date_time']['iso8601'] }}"
+    validate_certs: false
+  register: __placeholder_result
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-trusted-internal : Log initialization result"
+  ansible.builtin.debug:
+    msg: >-
+      trusted_internal path {% if __placeholder_result.changed | d(false) %}initialized (placeholder created){% else %}already exists{% endif %}.
+      Ready for internal cert storage/listing in deploy_pki_certs.
+
+- name: "ensure-trusted-internal : Read Root CA certificate"
+  no_log: true
+  ansible.builtin.slurp:
+    src: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__ca_root_cert_info.cert_basename }}.pem"
+  register: __local_ca_root_cert_content
+  delegate_to: "{{ inventory_hostname }}"
+  run_once: true
+
+- name: "ensure-trusted-internal : Display __local_ca_root_cert_content"
+  ansible.builtin.debug:
+    var: __local_ca_root_cert_content
+    verbosity: 1
+
+- name: "ensure-trusted-internal : Set __root_cert_content"
+  ansible.builtin.set_fact:
+    __root_cert_content: "{{ __local_ca_root_cert_content.content | b64decode | trim }}"
+
+- name: "ensure-trusted-internal : Validate __local_ca_root_cert_content"
+  no_log: true
+  community.crypto.x509_certificate_info:
+    content: "{{ __root_cert_content }}"  # Single PEM block
+  register: __root_cert_info
+
+- name: "ensure-trusted-internal : Display __root_cert_info"
+  ansible.builtin.debug:
+    var: __root_cert_info
+    verbosity: 1
+
+- name: "ensure-trusted-internal : Fetch existing Root CA from KV"
+  no_log: true
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+    path: "trusted_internal/{{ __bootstrap_pki__root_cert_basename }}"
+    validate_certs: false
+  register: __existing_kv_root_cert
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true  # Treat missing path as "changed"
+
+- name: "ensure-trusted-internal : Extract existing KV fingerprint"
+  ansible.builtin.set_fact:
+    __existing_fingerprint: "{{ __existing_kv_root_cert.data.data.fingerprint_sha256 | d('') }}"
+  run_once: true
+  changed_when: false
+
+- name: "ensure-trusted-internal : Compare fingerprints (debug)"
+  ansible.builtin.debug:
+    msg: >-
+      Local fingerprint: {{ __root_cert_info.fingerprints.sha256 }}
+      | KV fingerprint: {{ __existing_fingerprint }}
+      | Match: {{ __existing_fingerprint == __root_cert_info.fingerprints.sha256 }}
+    verbosity: 1
+  run_once: true
+
+- name: "ensure-trusted-internal : Store Root CA in KV for deployment (only if changed)"
+  when: >
+    __existing_kv_root_cert is failed
+    or __existing_kv_root_cert.data.data is not defined
+    or __existing_fingerprint != __root_cert_info.fingerprints.sha256
+  no_log: true
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+    path: "trusted_internal/{{ __bootstrap_pki__root_cert_basename }}"
+    data:
+      certificate: "{{ __root_cert_content }}"
+      common_name: "{{ __root_cert_info.subject.commonName | d(omit) }}"
+      serial_number: "{{ __root_cert_info.serial_number | d(omit) }}"
+      subject_key_identifier: "{{ __root_cert_info.subject_key_identifier | d(omit) }}"
+      fingerprint_sha256: "{{ __root_cert_info.fingerprints.sha256 | d(omit) }}"
+      initialized_at: "{{ ansible_facts['date_time']['iso8601'] }}"
+    validate_certs: false
+  register: __pki_write_trusted_root_cert
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-trusted-internal : Log KV update result"
+  ansible.builtin.debug:
+    msg: >-
+      Root CA KV {% if __pki_write_trusted_root_cert.changed | d(false) %}updated (version {{
+        __pki_write_trusted_root_cert.raw.data.version }}){% else %}unchanged (skipped){% endif %}.
+      Fingerprint match: {{ __existing_fingerprint == __root_cert_info.fingerprints.sha256 }}.
+  run_once: true
+
+- name: "ensure-trusted-internal : __pki_write_trusted_root_cert"
+  ansible.builtin.debug:
+    var: __pki_write_trusted_root_cert
+    verbosity: 1
+
+- name: "ensure-trusted-internal : __pki_write_trusted_root_cert"
+  ansible.builtin.debug:
+    var: __pki_write_trusted_root_cert

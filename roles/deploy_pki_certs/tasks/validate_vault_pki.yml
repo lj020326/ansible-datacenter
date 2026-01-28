@@ -1,0 +1,296 @@
+---
+- name: "validate-vault-pki : Display vault_config"
+  ansible.builtin.debug:
+    msg:
+      - "Vault URL: {{ deploy_pki_certs__vault_url }}"
+      - "Mount Path: {{ deploy_pki_certs__vault_mount_path }}"
+      - "KV Mount: {{ deploy_pki_certs__vault_kv_mount_path }}"
+      - "Host Cert Role Name: {{ deploy_pki_certs__vault_pki_host_role_name }}"
+    verbosity: 2
+
+- name: "validate-vault-pki : Display deploy_pki_certs__vault_url"
+  ansible.builtin.debug:
+    var: deploy_pki_certs__vault_url | d('')
+
+- name: "validate-vault-pki : Display deploy_pki_certs__vault_token length"
+  ansible.builtin.debug:
+    msg: "Token Length: {{ deploy_pki_certs__vault_token | length }} chars (censored)"
+    verbosity: 1
+
+- name: "validate-vault-pki : Verify token policies"
+  no_log: true
+  community.hashi_vault.vault_read:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "auth/token/lookup-self"
+    validate_certs: false
+  register: __token_lookup
+  ignore_errors: true  # Proceed even if lookup fails (e.g., insufficient perms)
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __token_lookup"
+  ansible.builtin.debug:
+    var: __token_lookup | dettonville.utils.redact_sensitive_values
+    verbosity: 1
+
+- name: "validate-vault-pki : Fail if token lacks deploy-ca policy"
+  ansible.builtin.assert:
+    that:
+      - __token_lookup is success
+      - "'deploy-ca' in (__token_lookup.data.data.policies | default([]))"  # Note: Nested .data.data for vault_read
+    fail_msg: |
+      Deploy token lacks 'deploy-ca' policy.
+      Attached policies: {{ __token_lookup.data.data.policies | default([]) | to_nice_yaml }}.
+      Raw lookup error: {{ __token_lookup.msg | default('N/A') }}.
+  run_once: true
+
+- name: "validate-vault-pki : Assert Vault PKI vars are set"
+  ansible.builtin.assert:
+    that:
+      - deploy_pki_certs__vault_url | length > 0
+      - deploy_pki_certs__vault_token | length > 0
+      - deploy_pki_certs__vault_mount_path | length > 0
+      - deploy_pki_certs__vault_kv_mount_path | length > 0
+      - deploy_pki_certs__vault_pki_host_role_name | length > 0
+    fail_msg: "Missing required Vault vars: URL, token, mount paths, or role name."
+
+- name: "validate-vault-pki : Check Vault seal status"
+  no_log: true
+  community.hashi_vault.vault_read:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "sys/seal-status"
+    validate_certs: false
+  register: __vault_seal_status
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Assert Vault is unsealed"
+  ansible.builtin.assert:
+    that: __vault_seal_status.data.sealed | bool == false
+    fail_msg: "Vault at {{ deploy_pki_certs__vault_url }} is sealed. Please unseal it before running this role."
+  run_once: true
+  delegate_to: localhost
+
+- name: "validate-vault-pki : List existing mounts"
+  no_log: true
+  community.hashi_vault.vault_read:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "sys/mounts"
+    validate_certs: false
+  register: __mounts_result
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __mounts_result"
+  ansible.builtin.debug:
+    var: __mounts_result
+    verbosity: 2
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Fail if mounts list inaccessible"
+  when: __mounts_result.failed | d(true)
+  ansible.builtin.fail:
+    msg: "Cannot list Vault mounts. Check token policy for 'read' on sys/mounts."
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __mounts_result.data.keys()"
+  ansible.builtin.debug:
+    var: __mounts_result.data.keys() | d([]) | list
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Initialize __required_pki_paths"
+  ansible.builtin.set_fact:
+    __required_pki_paths:
+      - "{{ deploy_pki_certs__vault_mount_path }}/ca"
+      - "{{ deploy_pki_certs__vault_mount_path }}/config/urls"
+      - "{{ deploy_pki_certs__vault_mount_path }}/roles/{{ deploy_pki_certs__vault_pki_host_role_name }}"
+      - "{{ deploy_pki_certs__vault_kv_mount_path }}/data/trusted_external"
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Set __real_mount_regex_pattern"
+  ansible.builtin.set_fact:
+    __real_mount_regex_pattern: "^({{ deploy_pki_certs__vault_mount_path
+      | regex_escape() | d('') }}|{{ deploy_pki_certs__vault_kv_mount_path
+      | regex_escape() | d('') }})/?$"
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __real_mount_regex_pattern"
+  ansible.builtin.debug:
+    var: __real_mount_regex_pattern
+    verbosity: 1
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Extract real mount prefixes (stripped)"
+  ansible.builtin.set_fact:
+    __real_mount_prefixes: "{{ __mounts_result.data | dict2items | map(attribute='key')
+      | select('match', __real_mount_regex_pattern) | list }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __real_mount_prefixes"
+  ansible.builtin.debug:
+    var: __real_mount_prefixes
+    verbosity: 1
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Set __required_pki_paths (filtered by existing mounts)"
+  when: __real_mount_prefixes | d([]) | length > 0
+  ansible.builtin.set_fact:
+    __required_pki_paths: >-
+      {{
+        __required_pki_paths
+        | select('match', '^(' ~ (__real_mount_prefixes | map('regex_escape') | join('|')) ~ ')')
+        | list
+      }}
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __required_pki_paths"
+  ansible.builtin.debug:
+    var: __required_pki_paths | d([]) | list
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Fail if no required mounts found (run bootstrap_pki)"
+  when: __required_pki_paths | d([]) | length == 0
+  ansible.builtin.fail:
+    msg: |
+      No required mounts found for PKI deployment (expected: {{
+        deploy_pki_certs__vault_mount_path }}, {{ deploy_pki_certs__vault_kv_mount_path }}).
+      Available mounts: {{ __real_mount_prefixes | default(__mounts_result.data.keys() | default([])) }}.
+      This indicates bootstrap_pki role has not been run or failed.
+      Run: ansible-playbook -t bootstrap_pki site.yml -l <vault_host> to setup Vault PKI.
+      Debug: Check bootstrap_pki logs for mount/CA/role creation errors.
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Test /ca endpoint accessibility (PEM via uri)"
+  ansible.builtin.uri:
+    url: "{{ deploy_pki_certs__vault_url }}/{{
+      deploy_pki_certs__vault_api_version }}/{{ deploy_pki_certs__vault_mount_path }}/ca/pem"
+    headers:
+      X-Vault-Token: "{{ deploy_pki_certs__vault_token }}"
+      Accept: "application/pem-certificate"
+    method: GET
+    return_content: true
+    status_code: 200
+    body_format: raw
+    validate_certs: false
+  register: __pki_ca_test
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "validate-vault-pki : Debug __pki_ca_test (on failure)"
+  when: __pki_ca_test.failed | d(false)
+  ansible.builtin.debug:
+    var: __pki_ca_test
+    verbosity: 1
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Assert CA is actually populated"
+  ansible.builtin.assert:
+    that:
+      - "__pki_ca_test is succeeded"
+      - "__pki_ca_test.status == 200"
+      - "__pki_ca_test.content is defined"
+      - "'BEGIN CERTIFICATE' in __pki_ca_test.content"
+    fail_msg: |
+      Vault PKI /ca/pem fetch failed or empty.
+      Status: {{ __pki_ca_test.status | d('N/A') }}
+      Failed: {{ __pki_ca_test.failed | d(false) }}
+      Content Preview: {{ __pki_ca_test.content | d('EMPTY') | truncate(100) }}
+      Run with -vvv for full response.
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Set __json_pki_paths (exclude PEM /ca)"
+  ansible.builtin.set_fact:
+    __json_pki_paths: "{{ __required_pki_paths
+      | select('match', '^' ~ deploy_pki_certs__vault_mount_path ~ '/')
+      | reject('equalto', deploy_pki_certs__vault_mount_path ~ '/ca')
+      | list }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Display __json_pki_paths"
+  ansible.builtin.debug:
+    var: __json_pki_paths
+    verbosity: 1
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Read PKI paths (native engine, JSON only)"
+  no_log: true
+  community.hashi_vault.vault_read:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "{{ item }}"
+    validate_certs: false
+  loop: "{{ __json_pki_paths }}"
+  register: __pki_read_tests
+  ignore_errors: true
+  changed_when: false  # Tests only
+  run_once: true
+  delegate_to: localhost
+
+- name: "validate-vault-pki : Display __pki_read_tests"
+  when: __pki_read_tests.failed | d(false)
+  ansible.builtin.debug:
+    var: __pki_read_tests
+    verbosity: 1
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : List KV trusted_external folder (metadata)"
+  no_log: true
+  community.hashi_vault.vault_list:
+    url: "{{ deploy_pki_certs__vault_url }}"
+    token: "{{ deploy_pki_certs__vault_token }}"
+    path: "{{ deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external"
+    validate_certs: false
+  register: __kv_list_test
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+  changed_when: false
+
+- name: "validate-vault-pki : Display __kv_list_test"
+  when: __kv_list_test.failed | d(false)
+  ansible.builtin.debug:
+    var: __kv_list_test
+    verbosity: 1
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Assert required read capabilities for PKI/KV endpoints"
+  ansible.builtin.assert:
+    that:
+      - ( __pki_read_tests.results | d([]) | selectattr('failed', 'equalto', true) | list | length ) == 0
+      - not ( __kv_list_test.failed | d(true) )
+    success_msg: "All required PKI/KV read paths accessible."
+    fail_msg: >-
+      Read access failed for PKI: {{
+        (__pki_read_tests.results | d([]) | selectattr('failed', 'equalto', true) | map(attribute='item') | list) | default('none') }}.
+      KV folder list failed: {{ 'yes' if __kv_list_test.failed | d(false) else 'no' }} (path: {{
+        deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external).
+      Policy 'deploy-ca' needs:
+        path "{{ deploy_pki_certs__vault_mount_path }}/*" { capabilities = ["read", "list"] }
+        path "{{ deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external" { capabilities = ["list"] }  # For KV v2 folder listing
+        path "{{ deploy_pki_certs__vault_kv_mount_path }}/data/trusted_external/*" { capabilities = ["read"] }  # For individual keys
+      Debug: curl -H "X-Vault-Token: $TOKEN" -X POST {{ deploy_pki_certs__vault_url }}/{{ deploy_pki_certs__vault_api_version
+        }}/sys/capabilities -d '{"from_token": true, "paths": ["{{ deploy_pki_certs__vault_mount_path
+        }}/config/urls", "{{ deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external"]}'.
+  run_once: true
+  delegate_to: localhost

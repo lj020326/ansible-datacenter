@@ -13,7 +13,7 @@
 
 - name: Wait for VM power status to '{{ expected_power_status }}'
   community.vmware.vmware_guest_info:
-    validate_certs: "{{ validate_certs | default(false) }}"
+    validate_certs: "{{ validate_certs | d(false) }}"
     hostname: "{{ vsphere_host_name }}"
     username: "{{ vsphere_host_user }}"
     password: "{{ vsphere_host_user_password }}"
@@ -22,13 +22,13 @@
     name: "{{ vm_name }}"
   register: vm_power_gather_facts
   until:
-    - vm_power_gather_facts.instance.hw_power_status | default('') == expected_power_status
+    - vm_power_gather_facts.instance.hw_power_status | d('') == expected_power_status
   retries: "{{ ((wait_power_state_timeout | int) / 5) | int }}"
   delay: 5
   ignore_errors: true
 
 - name: Display gathered VM facts
-  when: enable_debug|d(False)|bool
+  when: enable_debug | d(false) | bool
   ansible.builtin.debug:
     var: vm_power_gather_facts
 
@@ -41,7 +41,7 @@
     fail_msg: >-
       It's timed out to wait for VM power status became '{{ expected_power_status }}'
       in {{ wait_power_state_timeout }} seconds.
-      Current VM power status is '{{ vm_power_gather_facts.instance.hw_power_status | default("") }}'.
+      Current VM power status is '{{ vm_power_gather_facts.instance.hw_power_status | d("") }}'.
 
 # Pause 10 seconds after get expected VM power state to avoid power state
 # conflict issues

@@ -5,12 +5,12 @@
     src: "{{ jenkins_admin_password_file }}"
   register: adminpasswordfile
   no_log: true
-  when: jenkins_admin_password_file | default(false)
+  when: jenkins_admin_password_file | d(false)
   tags: ['skip_ansible_lint']
 
 - name: Set Jenkins admin password fact.
   ansible.builtin.set_fact:
-    jenkins_admin_password: "{{ adminpasswordfile['stdout'] | default(jenkins_admin_password) }}"
+    jenkins_admin_password: "{{ adminpasswordfile['stdout'] | d(jenkins_admin_password) }}"
   no_log: true
 
 # Update Jenkins so that plugin updates don't fail.
@@ -43,8 +43,8 @@
 
 - name: Install Jenkins plugins using password.
   community.general.jenkins_plugin:
-    name: "{{ item.name | default(item) }}"
-    version: "{{ item.version | default(omit) }}"
+    name: "{{ item.name | d(item) }}"
+    version: "{{ item.version | d(omit) }}"
     jenkins_home: "{{ jenkins_home }}"
     url_username: "{{ jenkins_admin_username }}"
     url_password: "{{ jenkins_admin_password }}"
@@ -55,7 +55,7 @@
     url: "http://{{ jenkins_hostname }}:{{ jenkins_http_port }}{{ jenkins_url_prefix }}"
     with_dependencies: "{{ jenkins_plugins_install_dependencies }}"
   loop: "{{ jenkins_plugins }}"
-  when: jenkins_admin_password | default(false)
+  when: jenkins_admin_password | d(false)
   notify: restart jenkins
   tags: ['skip_ansible_lint']
   register: plugin_result

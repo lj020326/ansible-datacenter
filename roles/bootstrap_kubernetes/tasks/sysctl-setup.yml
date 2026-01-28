@@ -1,0 +1,29 @@
+---
+- name: Ensure procps is installed.
+  when: >
+    ansible_facts['distribution'] != 'Debian'
+    or ansible_facts['distribution_major_version'] | int < 10
+  ansible.builtin.package:
+    name: "{{ bootstrap_kubernetes__procps_package }}"
+    state: present
+
+- name: Ensure module br_netfilter is loaded
+  when: not ansible_facts['virtualization_type'] == "docker"
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+    persistent: present
+
+# See: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#letting-iptables-see-bridged-traffic
+- name: Let iptables see bridged traffic.
+  when: >
+    ( ansible_facts['os_family'] != 'Debian'
+      or ansible_facts['distribution_major_version'] | int < 10
+    ) and not ansible_facts['virtualization_type'] == "docker"
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '1'
+    state: present
+  loop:
+    - net.bridge.bridge-nf-call-iptables
+    - net.bridge.bridge-nf-call-ip6tables

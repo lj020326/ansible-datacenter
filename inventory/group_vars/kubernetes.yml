@@ -1,2 +1,50 @@
 ---
 bootstrap_docker__k8s_mode: true
+
+bootstrap_pip__env_list__docker:
+  - virtualenv: "{{ ansible_virtualenv }}"
+    libraries:
+      - docker
+      - kubernetes
+
+bootstrap_kubernetes_controller__sysctl_config:
+  - net.ipv4.ip_forward: 1
+
+# bootstrap_kubernetes_controller__firewalld_ports:
+firewalld_ports__kube:
+  - "6783/tcp"
+  - "10250/tcp"
+  - "10255/tcp"
+  - "30000-32767/tcp"
+
+## set to be consistent with group_vars/common_groups_os_linux.yml
+bootstrap_kubernetes_ca__interface: "{{ bootstrap_netplan__ethernet_interface_name }}"
+bootstrap_kubernetes_controller__interface: "{{ bootstrap_netplan__ethernet_interface_name }}"
+bootstrap_kubernetes_worker__interface: "{{ bootstrap_netplan__ethernet_interface_name }}"
+
+bootstrap_kubernetes_controller__controller_ip: "{{
+  hostvars[groups['kubernetes_controller'][0]]['ansible_facts']['default_ipv4'].address
+  | default(groups['kubernetes_controller'] | first) }}"
+bootstrap_kubernetes_controller__controller_host: "{{ groups['kubernetes_controller'] | first }}"
+
+bootstrap_kubernetes_worker__controller_ip: "{{ hostvars[groups['kubernetes_controller'][0]]['ansible_facts']['default_ipv4'].address
+  | default(groups['kubernetes_controller'] | first) }}"
+bootstrap_kubernetes_worker__controller_host: "{{ groups['kubernetes_controller'] | first }}"
+
+bootstrap_cni__controller_host: "{{ groups['kubernetes_controller'] | first }}"
+
+bootstrap_kubernetes_controller__api_endpoint_host: "{%
+  set controller_host = groups['kubernetes_controller'][0] %}{{ hostvars[controller_host]['ansible_'
+  + hostvars[controller_host]['kubernetes_interface']].ipv4.address }}"
+
+bootstrap_kubernetes_controller__admin_api_endpoint_host: "{%
+  set controller_host = groups['kubernetes_controller'][0] %}{{ hostvars[controller_host]['ansible_'
+  + hostvars[controller_host]['kubernetes_interface']].ipv4.address }}"
+
+bootstrap_kubernetes_worker__worker_api_endpoint_host: "{%
+  set controller_host = groups['bootstrap_kubernetes_worker__controller'][0] %}{{ hostvars[controller_host]['ansible_'
+  + hostvars[controller_host]['bootstrap_kubernetes_worker__interface']].ipv4.address }}"
+
+bootstrap_kubernetes_ca__ca_conf_directory: "{{ ca_local_cert_dir }}"
+bootstrap_kubernetes_controller__ca_conf_directory: "{{ ca_local_cert_dir }}"
+bootstrap_kubernetes_worker__ca_conf_directory: "{{ ca_local_cert_dir }}"

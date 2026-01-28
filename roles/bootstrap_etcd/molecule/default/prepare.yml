@@ -1,0 +1,36 @@
+---
+
+- name: Setup cfssl
+  hosts: etcd_assets
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Include cfssl role
+      ansible.builtin.include_role:
+        name: githubixx.cfssl
+
+- name: Update cache
+  hosts: kubernetes_etcd
+  remote_user: vagrant
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Update APT package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+- name: Setup TLS certificates for etcd
+  hosts: etcd_assets
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Include kubernetes_ca role to generate TLS certificate files for etcd
+      ansible.builtin.include_role:
+        name: githubixx.kubernetes_ca
+
+    - name: Copy certificate files from assets to local host
+      ansible.posix.synchronize: # noqa: no-same-owner
+        mode: pull
+        src: "{{ bootstrap_etcd__ca_conf_directory }}"
+        dest: "/tmp"

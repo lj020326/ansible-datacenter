@@ -5,9 +5,12 @@
 class FilterModule:
     @staticmethod
     def add_home(_user_list):
+        if not _user_list:
+            return []
         for user in _user_list:
-            if 'home_dir' not in user:
-                user['home_dir']='/home/{0}'.format(user['name'])
+            # Ensure we are dealing with a dictionary
+            if isinstance(user, dict) and 'home_dir' not in user and 'name' in user:
+                user['home_dir'] = '/home/{0}'.format(user['name'])
 
         return _user_list
 

@@ -64,15 +64,16 @@
   ansible.builtin.set_fact:
     existing_vhba_bus_number: "{{ item.key }}"
     existing_device_key: "{{ item.value['controller_disks_devicekey'] }}"
-    existing_vbha_found: "{{ true if (vhba_type_name_map[existing_vhba_type] == item.value['controller_summary'] or (' '.join([vhba_type_name_map[existing_vhba_type],
+    existing_vbha_found: "{{ true if (vhba_type_name_map[existing_vhba_type]
+      == item.value['controller_summary'] or (' '.join([vhba_type_name_map[existing_vhba_type],
       item.key]) == item.value['controller_summary'])) else false }}"
   with_dict: "{{ disk_controller_facts_data['scsi'] if is_scsi_vhba else disk_controller_facts_data[existing_vhba_type] }}"
 
 - name: Set fact of disks attached to controller are full
   when: >
-    (existing_device_key|length == 15 and is_scsi_vhba) or
-    (existing_device_key|length == 15 and existing_vhba_type == 'nvme') or
-    (existing_device_key|length == 30 and existing_vhba_type == 'sata')
+    (existing_device_key | length == 15 and is_scsi_vhba) or
+    (existing_device_key | length == 15 and existing_vhba_type == 'nvme') or
+    (existing_device_key | length == 30 and existing_vhba_type == 'sata')
   ansible.builtin.set_fact:
     disk_full_existing_vhba: true
 
@@ -88,15 +89,15 @@
 
     - name: Sanitize the device key list of existing disk
       ansible.builtin.set_fact:
-        existing_device_key: "{% for item in existing_device_key %}{{ item|int % 1000 }} {% endfor %}"
+        existing_device_key: "{% for item in existing_device_key %}{{ item | int % 1000 }} {% endfor %}"
 
     - name: Set fact of the new disk unit number
       when: not new_disk_unit_number_got
       ansible.builtin.set_fact:
         new_disk_unit_number: "{{ item }}"
-        new_disk_unit_number_got: "{{ true if (item + (valid_max_unit_number + 1) * existing_vhba_bus_number|int)|string not in existing_device_key.split() else false
-          }}"
-      loop: "{{ range(0, (valid_max_unit_number + 1))|list }}"
+        new_disk_unit_number_got: "{{ true if (item + (valid_max_unit_number + 1) * existing_vhba_bus_number | int)
+          | string not in existing_device_key.split() else false }}"
+      loop: "{{ range(0, (valid_max_unit_number + 1)) | list }}"
 
 - name: Display summary vhba info
   ansible.builtin.debug:

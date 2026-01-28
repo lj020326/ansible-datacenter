@@ -1,14 +1,14 @@
 ---
 - name: Install Samba client packages
   ansible.builtin.package:
-    name: "{{ samba_client_packages[ansible_distribution] }}"
+    name: "{{ samba_client_packages[ansible_facts['distribution']] }}"
     state: present
 
 - name: Copy smb configuration files
   ansible.builtin.template:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    mode: "{{ item.mode | default('0664') }}"
+    mode: "{{ item.mode | d('0664') }}"
     owner: "{{ item.owner }}"
     group: "{{ item.group }}"
   loop:
@@ -19,7 +19,7 @@
       group: root
 
 - name: Ensure mount dirs exist
-  when: samba_mounts is defined and samba_mounts|length > 0
+  when: samba_mounts | d([]) | length > 0
   ansible.builtin.file:
     path: "{{ item.name }}"
     state: directory
@@ -29,7 +29,7 @@
 ## ref: https://stackoverflow.com/questions/25977410/adding-an-fstab-option-using-ansible
 ## ref: https://medium.com/@rohansadale/mounting-and-un-mounting-a-volume-in-ansible-37ebf64e3334
 - name: Add samba mounts to fstab
-  when: samba_mounts is defined and samba_mounts|length > 0
+  when: samba_mounts | d([]) | length > 0
   ansible.posix.mount:
     name: "{{ item.name }}"
     src: "{{ item.src }}"

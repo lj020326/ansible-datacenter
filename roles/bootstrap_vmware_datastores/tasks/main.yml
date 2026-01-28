@@ -1,8 +1,8 @@
 ---
-- name: Install common pip libs
+- name: Install common pip libs # noqa: package-latest
   when:
     - bootstrap_vmware_datastores__python_pip_depends is defined
-    - not(bootstrap_vmware_datastores__python_pip_depends is none))
+    - not (bootstrap_vmware_datastores__python_pip_depends is none)
   ansible.builtin.pip:
     name: "{{ bootstrap_vmware_datastores__python_pip_depends }}"
     state: latest
@@ -19,15 +19,15 @@
 - name: Remove/Unmount Datastores
   when: bootstrap_vmware_datastores__unmount_datastores_first
   community.vmware.vmware_host_datastore:
-    hostname: "{{ vcenter_hostname }}"
-    username: "{{ vcenter_username }}"
-    password: "{{ vcenter_password }}"
+    hostname: "{{ bootstrap_vmware_datastores__hostname }}"
+    username: "{{ bootstrap_vmware_datastores__username }}"
+    password: "{{ bootstrap_vmware_datastores__password }}"
     validate_certs: false
-    esxi_hostname: "{{ hostvars[item.1].ansible_host }}"
+    esxi_hostname: "{{ hostvars[item.1]['ansible_host'] }}"
     datastore_name: "{{ item.0.name }}"
     state: absent
   #  delegate_to: localhost
-  loop: "{{ bootstrap_vmware_datastores__host_datastores | subelements('esxi_hosts', { 'skip_missing': true }) }}"
+  loop: "{{ bootstrap_vmware_datastores__host_datastores | subelements('esxi_hosts', {'skip_missing': true}) }}"
   loop_control:
     label: "{{ item.1 }}"
 
@@ -36,16 +36,16 @@
     ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_host_datastore_module.html
     - name: Mount NFS datastores
       community.vmware.vmware_host_datastore:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
+        hostname: "{{ bootstrap_vmware_datastores__hostname }}"
+        username: "{{ bootstrap_vmware_datastores__username }}"
+        password: "{{ bootstrap_vmware_datastores__password }}"
         validate_certs: false
         datastore_name: "{{ item.0.name }}"
         datastore_type: "{{ item.0.type }}"
         nfs_server: "{{ item.0.server }}"
         nfs_path: "{{ item.0.path }}"
         nfs_ro: false
-        esxi_hostname: "{{ hostvars[item.1].ansible_host | d(omit) }}"
+        esxi_hostname: "{{ hostvars[item.1]['ansible_host'] | d(omit) }}"
         state: present
       loop: "{{ bootstrap_vmware_datastores__host_datastores | subelements('esxi_hosts', {'skip_missing': true}) }}"
       loop_control:
@@ -60,12 +60,12 @@
     - name: Unmount datastore for problem hosts
       when: item.failed
       community.vmware.vmware_host_datastore:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
+        hostname: "{{ bootstrap_vmware_datastores__hostname }}"
+        username: "{{ bootstrap_vmware_datastores__username }}"
+        password: "{{ bootstrap_vmware_datastores__password }}"
         validate_certs: false
         datastore_name: "{{ item.item.0.name }}"
-        esxi_hostname: "{{ hostvars[item.item.1].ansible_host | d(omit) }}"
+        esxi_hostname: "{{ hostvars[item.item.1]['ansible_host'] | d(omit) }}"
         state: absent
       loop: "{{ vmware_mount_status.results }}"
       loop_control:
@@ -74,16 +74,16 @@
     - name: Remount datastore for problem hosts
       when: item.failed
       community.vmware.vmware_host_datastore:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
+        hostname: "{{ bootstrap_vmware_datastores__hostname }}"
+        username: "{{ bootstrap_vmware_datastores__username }}"
+        password: "{{ bootstrap_vmware_datastores__password }}"
         validate_certs: false
         datastore_name: "{{ item.item.0.name }}"
         datastore_type: "{{ item.item.0.type }}"
         nfs_server: "{{ item.item.0.server }}"
         nfs_path: "{{ item.item.0.path }}"
         nfs_ro: false
-        esxi_hostname: "{{ hostvars[item.item.1].ansible_host | d(omit) }}"
+        esxi_hostname: "{{ hostvars[item.item.1]['ansible_host'] | d(omit) }}"
         state: present
       loop: "{{ vmware_mount_status.results }}"
       loop_control:

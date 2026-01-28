@@ -1,38 +1,30 @@
+---
 name: Molecule Tests
+permissions:
+  contents: read
+  checks: write
 
 ## ref: https://github.com/marketplace/actions/ansible-molecule
 on:
-  ## ref: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#workflow_dispatch
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  # Schedule updates (once daily)
-  schedule:
-    ## Daily Docker Image Rebuild (3:29pm daily)
-    - cron: '29 15 * * *'
+  workflow_call:  # allow this workflow to be called from other workflows
+  workflow_dispatch:  # allow this workflow to be called from user
 
 jobs:
-  run-molecule-tests:
-    name: Molecule
+  molecule_test_platforms:
+    name: Run Molecule Platform Tests
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       ## ref: https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
-      max-parallel: 4
-#      max-parallel: 2
+#      max-parallel: 4
 
       matrix:
         architecture:
           - amd64
 #          - arm64
         image:
-          ## NOTE: removing all RHEL based dists that do not support Python3.7+
-          ## ref: https://github.com/ansible/ansible/issues/82068
+          # Testing all platform versions is impractical. Only test the newest and
+          # oldest versions of each that we support
 #          - centos7-systemd-python
 #          - centos8-systemd-python
           - centos9-systemd-python
@@ -48,37 +40,18 @@ jobs:
 #          - fedora-systemd-python
         scenario:
           - bootstrap_linux
-#          - default
-#        include:
-#          - distro: centos7
-#            image: centos7-systemd-python
-#          - distro: centos8
-#            image: centos8-systemd-python
-#          - distro: redhat7
-#            image: redhat7-systemd-python
-#          - distro: redhat8
-#            image: redhat8-systemd-python
-#          - distro: debian9
-#            image: debian9-systemd-python
-#          - distro: debian10
-#            image: debian10-systemd-python
-#          - distro: ubuntu1804
-#            image: ubuntu1804-systemd-python
-#          - distro: ubuntu2004
-#            image: ubuntu2004-systemd-python
-#          - distro: ubuntu2204
-#            image: ubuntu2204-systemd-python
 
     steps:
-      - name: Check out the codebase.
-        uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v6
         with:
           path: "${{ github.repository }}"
 
       - name: Set up Python 3.
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.x'
+          python-version: '3.12'
+          #python-version: '3.x'
 
       ## ref: https://molecule.readthedocs.io/installation/#pip
       ## ref: https://github.com/ansible-community/molecule-plugins
@@ -106,3 +79,32 @@ jobs:
 #          ## ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
 #          MOLECULE_DOCKER_GROUP: ${{ matrix.inventory_group || 'molecule_docker_linux_github' }}
         working-directory: "${{ github.repository }}"
+
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.image }}-${{ matrix.scenario }}
+          path: .tests-reports/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publish Unit Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: .tests-reports/*.xml
+
+  # This job does nothing and is only used for the branch protection
+  # or multi-stage CI jobs, like making sure that all tests pass before
+  # a publishing job is started.
+  platform-check:
+    if: always()
+    needs:
+      - molecule_test_platforms
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}

@@ -1,0 +1,216 @@
+---
+
+__docker_stack__openbao__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__openbao__base_dir_default: "{{ __docker_stack__openbao__stack_dir }}/openbao"
+__docker_stack__openbao__base_dir: "{{ docker_stack__openbao__dir | d(__docker_stack__openbao__base_dir_default) }}"
+
+__docker_stack__openbao__home_dir: "{{ __docker_stack__openbao__base_dir }}/home"
+
+__docker_stack__openbao__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+
+__docker_stack__openbao__init_file: "{{ __docker_stack__openbao__base_dir }}/init.txt"
+
+# Enable TLS in prod
+__docker_stack__openbao__tls_disable: true
+
+# https://github.com/openbao/openbao/blob/main/scripts/docker/Dockerfile
+#__docker_stack__openbao__image: "openbao/openbao:latest"
+#__docker_stack__openbao__image: "ghcr.io/openbao/openbao:latest"
+#__docker_stack__openbao__image_default: "{{ docker_stack__registry__endpoint }}/openbao-ansible:2.3.2"
+__docker_stack__openbao__image_default: "lj020326/openbao-ansible:2.3.2"
+__docker_stack__openbao__image: "{{ docker_stack__openbao__image | d(__docker_stack__openbao__image_default) }}"
+
+__docker_stack__openbao__container_home_dir: "/vault"
+
+# Config directory
+#__docker_stack__openbao__config_dir: /openbao/config
+__docker_stack__openbao__config_dir: "{{ __docker_stack__openbao__container_home_dir }}/config"
+
+# Data/storage directory (for file backend)
+#__docker_stack__openbao__data_dir: "/openbao/file"
+__docker_stack__openbao__data_dir: "{{ __docker_stack__openbao__container_home_dir }}/file"
+
+# Logs directory
+#__docker_stack__openbao__logs_dir: "/openbao/logs"
+__docker_stack__openbao__logs_dir: "{{ __docker_stack__openbao__container_home_dir }}/logs"
+
+# Plugins directory
+#__docker_stack__openbao__plugins_dir: "/etc/openbao/plugins"
+#__docker_stack__openbao__plugins_dir: "/openbao/plugins"
+__docker_stack__openbao__plugins_dir: "{{ __docker_stack__openbao__container_home_dir }}/plugins"
+
+## Match your CA ttl
+## default TTL for new tokens (10y)
+__docker_stack__openbao__token_ttl_default: "87600h"
+__docker_stack__openbao__token_ttl: "{{ docker_stack__openbao__token_ttl
+  | d(__docker_stack__openbao__token_ttl_default) }}"
+## Max TTL allowed (100y)
+__docker_stack__openbao__token_max_ttl_default: "876000h"
+__docker_stack__openbao__token_max_ttl: "{{ docker_stack__openbao__token_max_ttl
+  | d(__docker_stack__openbao__token_max_ttl_default) }}"
+
+__docker_stack__openbao__ui: true
+__docker_stack__openbao__log_level: "info"
+#__docker_stack__openbao__log_level: "debug"
+
+__docker_stack__openbao__deploy_policy_name_default: "deploy-ca"
+__docker_stack__openbao__deploy_policy_name: "{{ docker_stack__openbao__deploy_policy_name
+  | d(__docker_stack__openbao__deploy_policy_name_default) }}"
+
+# Host address
+#__docker_stack__openbao__host_addr_default: "openbao.{{ __docker_stack__openbao__domain }}"
+__docker_stack__openbao__host_addr_default: "vault.{{ __docker_stack__openbao__domain }}"
+__docker_stack__openbao__host_addr: "{{ docker_stack__openbao__host_addr
+  | d(__docker_stack__openbao__host_addr_default) }}"
+
+__docker_stack__openbao__root_url: "https://{{ __docker_stack__openbao__host_addr }}{{ docker_stack__traefik__port }}/"
+__docker_stack__openbao__cluster_url: "https://{{ __docker_stack__openbao__host_addr }}{{ docker_stack__traefik__port }}/"
+
+# Listener bind ports
+__docker_stack__openbao__bind_http_port: "{{ docker_stack__openbao__bind_http_port | d('8200') }}"
+__docker_stack__openbao__bind_cluster_port: "{{ docker_stack__openbao__bind_cluster_port | d('8201') }}"
+
+# Listener bind address
+__docker_stack__openbao__bind_addr: "0.0.0.0"
+__docker_stack__openbao__internal_addr: "127.0.0.1"
+
+# API address (for client access)
+__docker_stack__openbao__internal_api_url: "http://{{ __docker_stack__openbao__internal_addr }}:{{ __docker_stack__openbao__bind_http_port }}"
+
+# Cluster address
+__docker_stack__openbao__internal_cluster_url: "http://{{ __docker_stack__openbao__internal_addr }}:{{ __docker_stack__openbao__bind_cluster_port }}"
+
+cluster_addr: "http://0.0.0.0:8201"
+
+# Storage backend (file for single-node; change to 'raft' for HA)
+__docker_stack__openbao__storage_backend: "file"
+__docker_stack__openbao__storage_path: "{{ __docker_stack__openbao__data_dir }}"
+
+# Init options (key shares/threshold)
+__docker_stack__openbao__init_shares: 1  # For dev; increase for prod
+__docker_stack__openbao__init_threshold: 1
+
+# Enable KV v2 engine at this path
+__docker_stack__openbao__kv_path_default: "secret"
+__docker_stack__openbao__kv_path: "{{ docker_stack__openbao__kv_path
+  | d(__docker_stack__openbao__kv_path_default) }}"
+
+# Enable PKI engine at this path
+#__docker_stack__openbao__pki_path: "pki"
+__docker_stack__openbao__pki_path: "pki-intermediate"
+
+# User/group for OpenBao process
+__docker_stack__openbao__user: "openbao"
+__docker_stack__openbao__group: "openbao"
+
+# Dev mode (insecure, auto-unseal; for testing only)
+__docker_stack__openbao__dev_mode: false
+
+__docker_stack__openbao__config:
+  # This should match your external URL
+  api_addr: "{{ __docker_stack__openbao__root_url }}"
+  # For HA, if applicable
+  cluster_addr: "{{ __docker_stack__openbao__cluster_url }}"
+  storage:
+    file:
+      path: "{{ __docker_stack__openbao__data_dir }}"
+  listener:
+    tcp:
+      address: "[::]:{{ __docker_stack__openbao__bind_http_port }}"
+      cluster_address: "[::]:{{ __docker_stack__openbao__bind_cluster_port }}"
+      tls_disable: "{{ __docker_stack__openbao__tls_disable }}"
+#      tls_cert_file: "{{ __docker_stack__openbao__config_dir }}/cert.pem"
+#      tls_key_file: "{{ __docker_stack__openbao__config_dir }}/key.pem"
+  default_lease_ttl: "{{ __docker_stack__openbao__token_ttl }}"
+  max_lease_ttl: "{{ __docker_stack__openbao__token_max_ttl }}"
+  ui: "{{ __docker_stack__openbao__ui }}"
+  log_level: "{{ __docker_stack__openbao__log_level | d(omit) }}"
+
+__docker_stack__openbao__config_dirs:
+  - path: "{{ __docker_stack__openbao__base_dir }}"
+  - path: "{{ __docker_stack__openbao__home_dir }}"
+  - path: "{{ __docker_stack__openbao__home_dir }}/file"
+  - path: "{{ __docker_stack__openbao__home_dir }}/config"
+  - path: "{{ __docker_stack__openbao__home_dir }}/logs"
+  - path: "{{ __docker_stack__openbao__home_dir }}/plugins"
+
+__docker_stack__openbao__config_tpls:
+#  - src: openbao/config.hcl.j2
+#    dest: "{{ __docker_stack__openbao__base_dir }}/config/config.hcl"
+  - src: openbao/openbao.env.j2
+    dest: "{{ __docker_stack__openbao__base_dir }}/openbao.env"
+  - src: openbao/config-group.conf.j2
+    dest: "{{ __docker_stack__openbao__base_dir }}/group"
+  - src: openbao/config-passwd.conf.j2
+    dest: "{{ __docker_stack__openbao__base_dir }}/passwd"
+  - src: openbao/local.json.j2
+    dest: "{{ __docker_stack__openbao__home_dir }}/config/local.json"
+  - src: openbao/openbao_config.yml.j2
+    dest: "{{ __docker_stack__openbao__home_dir }}/config/openbao_config.yml"
+
+__docker_stack__openbao__cred_ansible_vault_password: "{{ docker_stack__openbao__cred_ansible_vault_password
+  | d('CHANGEME123') }}"
+
+__docker_stack__openbao__secrets:
+  - name: ansible_vault_password
+    value: "{{ __docker_stack__openbao__cred_ansible_vault_password }}"
+
+__docker_stack__openbao__firewalld_ports:
+  - "{{ __docker_stack__openbao__bind_http_port }}/tcp"
+
+docker_stack__appspec__openbao:
+  dirs: "{{ __docker_stack__openbao__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__openbao__config_files | d([]) }}"
+  templates: "{{ __docker_stack__openbao__config_tpls | d([]) }}"
+  secrets: "{{ __docker_stack__openbao__secrets | d({}) }}"
+  firewalld_services: "{{ __docker_stack__openbao__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__openbao__firewalld_ports | d([]) }}"
+  docker_services: "{{ __docker_stack__openbao__services | d({}) }}"
+
+__docker_stack__openbao__traefik_labels: "{{ docker_stack__openbao__traefik_labels
+  | d(__docker_stack__openbao__traefik_labels_default) }}"
+
+__docker_stack__openbao__services:
+
+  ## https://hub.docker.com/r/openbao/openbao
+  ## https://github.com/openbao/openbao/blob/main/scripts/docker/Dockerfile
+  ## https://github.com/open-horizon/devops/blob/master/mgmt-hub/docker-compose.yml
+  openbao:
+    container_name: openbao
+    image: "{{ __docker_stack__openbao__image }}"
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    env_file:
+      - openbao/openbao.env
+    secrets:
+      - ansible_vault_password
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__openbao__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__openbao__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__openbao__home_dir }}:{{ __docker_stack__openbao__container_home_dir }}"
+#      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+    ports:
+      - "{{ __docker_stack__openbao__bind_http_port }}:{{ __docker_stack__openbao__bind_http_port }}"
+    labels: "{{ __docker_stack__openbao__traefik_labels }}"
+    healthcheck:
+      test: ["CMD-SHELL", "openbao_info --is-vault-ready"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      mode: replicated
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first

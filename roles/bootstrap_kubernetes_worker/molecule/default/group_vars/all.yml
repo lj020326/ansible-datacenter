@@ -1,0 +1,186 @@
+---
+
+# Use "systemd-timesyncd" for time services. It's available by default.
+harden_linux_ntp: "systemd-timesyncd"
+
+# Password for user "root" and "vagrant" is "vagrant" in both cases. As
+# "vagrant" user is available in every Vagrant Ubuntu Box just use it.
+harden_linux_root_password: "$6$rounds=656000$mysecretsalt$fpyQ9hMON6iKKuM0Rz10WZKNJR4OkQTVfBmd4SPrJPsU9XmgQGRtogcUnFB5FLRIitswuQFr6Tr8Mos9l7Ojm0"
+harden_linux_deploy_user: "vagrant"
+harden_linux_deploy_user_password: "$6$rounds=656000$mysecretsalt$fpyQ9hMON6iKKuM0Rz10WZKNJR4OkQTVfBmd4SPrJPsU9XmgQGRtogcUnFB5FLRIitswuQFr6Tr8Mos9l7Ojm0"
+harden_linux_deploy_user_home: "/home/vagrant"
+harden_linux_deploy_user_uid: "1000"
+harden_linux_deploy_user_shell: "/bin/bash"
+
+# Enable IP forwarding for IPv4 and IPv6
+harden_linux_sysctl_settings_user:
+  "net.ipv4.ip_forward": 1
+  "net.ipv6.conf.default.forwarding": 1
+  "net.ipv6.conf.all.forwarding": 1
+
+# Let SSHd listen on port 22, allow password authentication and allow "root"
+# login. The last two settings are not recommended for production use but for
+# this test deployment it's okay as it makes debugging easier and faster.
+harden_linux_sshd_settings_user:
+  "^Port ": "Port 22"
+  "^PasswordAuthentication": "PasswordAuthentication yes"
+  "^PermitRootLogin": "PermitRootLogin yes"
+
+# Enable logging for UFW.
+harden_linux_ufw_logging: 'on'
+
+# Set the default forward policy to "ACCEPT".
+harden_linux_ufw_defaults_user:
+  "^DEFAULT_FORWARD_POLICY": 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+
+# Don't block SSH logins from the following networks even login attempts fail
+# for a few times.
+harden_linux_sshguard_whitelist:
+  - "127.0.0.0/8"
+  - "::1/128"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+
+# Directory where the etcd certificates are stored on the Ansible controller
+# host. Certificate files for etcd will be copied from this directory to
+# the etcd nodes.
+bootstrap_etcd__ca_conf_directory: "{{ bootstrap_kubernetes_worker__ca_conf_directory }}"
+# Directory where the etcd certificates are stored on the etcd hosts.
+bootstrap_etcd__conf_dir: "/etc/etcd"
+# Interface where the etcd service is listening on.
+bootstrap_etcd__interface: "{{ bootstrap_kubernetes_worker__interface }}"
+# A few additional settings for etcd.
+bootstrap_etcd__settings_user:
+  "heartbeat-interval": "250"
+  "election-timeout": "2500"
+# Host names and IP addresses in the etcd certificates.
+bootstrap_etcd__cert_hosts:
+  - localhost
+  - 127.0.0.1
+
+# Directory where the Kubernetes certificates are stored on the Ansible
+# controller host.
+bootstrap_kubernetes_worker__ca_conf_directory: "/tmp/k8s-ca"
+# Permissions for the Kubernetes CA directory.
+bootstrap_kubernetes_worker__ca_conf_directory_perm: "0700"
+# Permissions for the Kubernetes CA files.
+bootstrap_kubernetes_worker__ca_file_perm: "0600"
+# Owner of the Kubernetes CA files.
+bootstrap_kubernetes_worker__ca_certificate_owner: "vagrant"
+# Group of the Kubernetes CA files.
+bootstrap_kubernetes_worker__ca_certificate_group: "vagrant"
+
+# Interface where the Kubernetes control plane services are listening on.
+bootstrap_kubernetes_worker__interface: "wg0"
+# Interface where the etcd daemons listening on.
+bootstrap_kubernetes_worker__ctl_bootstrap_etcd__interface: "{{ bootstrap_etcd__interface }}"
+
+# Delegate tasks like creating the Kubernetes CA certificates to the following
+# host. This host also communicates with the "kube-apiserver" if required
+# for certain tasks.
+bootstrap_kubernetes_worker__ctl_delegate_to: "test-assets"
+
+# Directory where the Kubernetes certificates are stored on the Ansible
+# controller host and where the Ansible can find them to be copied to the
+# Kubernetes control plane nodes.
+bootstrap_kubernetes_worker__ctl_ca_conf_directory: "{{ bootstrap_kubernetes_worker__ca_conf_directory }}"
+
+# The name of the Kubernetes cluster.
+bootstrap_kubernetes_worker__config_cluster_name: "k8s"
+
+# Directory where "admin.kubeconfig" (the credentials file) for the "admin"
+# user is stored
+bootstrap_kubernetes_worker__admin_conf_dir: "{{ '~/k8s/configs' | expanduser }}"
+# Permissions for the directory specified in "bootstrap_kubernetes_worker__admin_conf_dir"
+bootstrap_kubernetes_worker__admin_conf_dir_perm: "0700"
+# Owner of the directory specified in "bootstrap_kubernetes_worker__admin_conf_dir" and for
+# "admin.kubeconfig" stored in this directory.
+bootstrap_kubernetes_worker__admin_conf_owner: "root"
+# Group of the directory specified in "bootstrap_kubernetes_worker__admin_conf_dir" and for
+# "admin.kubeconfig" stored in this directory.
+bootstrap_kubernetes_worker__admin_conf_group: "root"
+
+# Run Kubernetes control plane services as the following user.
+bootstrap_kubernetes_worker__run_as_user: "k8s"
+# Run Kubernetes control plane services as the following group.
+bootstrap_kubernetes_worker__run_as_group: "k8s"
+
+# Key used for encrypting secrets (encryption at-rest) by the
+# "kube-apiserver".
+bootstrap_kubernetes_worker__encryption_config_key: "Y29uZmlndXJhdGlvbjIyCg=="
+
+# Additional settings for the "kube-apiserver".
+bootstrap_kubernetes_worker__apiserver_settings_user:
+  "enable-aggregator-routing": "true"
+
+bootstrap_kubernetes_worker__worker_kubelet_settings:
+  "config": "{{ bootstrap_kubernetes_worker__worker_kubelet_conf_dir }}/kubelet-config.yaml"
+  "node-ip": "{{ hostvars[inventory_hostname]['ansible_' + bootstrap_kubernetes_worker__interface].ipv4.address }}"
+  "kubeconfig": "{{ bootstrap_kubernetes_worker__worker_kubelet_conf_dir }}/kubeconfig"
+  "seccomp-default": ""
+
+# Directory for the "runc" binaries
+runc_bin_directory: "/usr/local/sbin"
+
+# Directory to store the "containerd" archive after download
+containerd_tmp_directory: "/tmp"
+
+# Don't use "etcd" for Cilium
+cilium_etcd_enabled: "false"
+# Delegate Cilium tasks that needs to communicate with the Kubernetes API
+# server to the following host.
+cilium_delegate_to: "test-assets"
+# Show debug output for Cilium Helm commands.
+cilium_helm_show_commands: true
+
+# Delegate tasks to create CoreDNS K8s resources to this host.
+coredns_delegate_to: "test-assets"
+
+# Common name for "etcd" certificate authority certificates.
+bootstrap_kubernetes_ca__ca_etcd_csr_cn: "etcd"
+bootstrap_kubernetes_ca__ca_etcd_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_ca__ca_etcd_csr_key_size: "384"
+
+# Common name for "kube-apiserver" certificate authority certificate.
+bootstrap_kubernetes_ca__ca_apiserver_csr_cn: "kubernetes"
+bootstrap_kubernetes_ca__ca_apiserver_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_ca__ca_apiserver_csr_key_size: "384"
+
+# Common names for "etcd" server, peer and client certificates.
+bootstrap_kubernetes_ca__etcd_server_csr_cn: "etcd-server"
+bootstrap_kubernetes_ca__etcd_server_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_ca__etcd_server_csr_key_size: "384"
+
+bootstrap_kubernetes_ca__etcd_peer_csr_cn: "etcd-peer"
+bootstrap_kubernetes_ca__etcd_peer_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_ca__etcd_peer_csr_key_size: "384"
+
+bootstrap_kubernetes_ca__etcd_client_csr_cn_prefix: "etcd-client"
+bootstrap_kubernetes_ca__etcd_client_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_ca__etcd_client_csr_key_size: "384"
+
+# Common names for kube-apiserver, admin and kube-controller-manager certificates.
+bootstrap_kubernetes_worker__apiserver_csr_cn: "k8s-apiserver"
+bootstrap_kubernetes_worker__apiserver_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_worker__apiserver_csr_key_size: "384"
+
+bootstrap_kubernetes_worker__admin_csr_cn: "k8s-admin"
+bootstrap_kubernetes_worker__admin_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_worker__admin_csr_key_size: "384"
+
+bootstrap_kubernetes_worker__worker_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_worker__worker_csr_key_size: "384"
+
+bootstrap_kubernetes_worker__controller_manager_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_worker__controller_manager_csr_key_size: "384"
+
+bootstrap_kubernetes_worker__scheduler_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_worker__scheduler_csr_key_size: "384"
+
+bootstrap_kubernetes_worker__controller_manager_sa_csr_cn: "k8s-service-accounts"
+bootstrap_kubernetes_worker__controller_manager_sa_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_worker__controller_manager_sa_csr_key_size: "384"
+
+bootstrap_kubernetes_worker__kube_proxy_csr_key_algo: "ecdsa"
+bootstrap_kubernetes_worker__kube_proxy_csr_key_size: "384"

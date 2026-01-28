@@ -1,6 +1,6 @@
 ---
 
-- name: "{{ __bootstrap_docker__log_prefix_compose }} Install docker-compose package from package manager {{ ansible_pkg_mgr }}"
+- name: "{{ __bootstrap_docker__log_prefix_compose }} Install docker-compose package from package manager {{ ansible_facts['pkg_mgr'] }}"
   when: bootstrap_docker__compose_package is defined
   ansible.builtin.package:
     state: present
@@ -76,7 +76,7 @@
 
 - name: "{{ __bootstrap_docker__log_prefix_compose }} Set __replace_docker_compose"
   when: >
-    __bootstrap_docker__installed_compose_version.failed|d(False)
+    __bootstrap_docker__installed_compose_version.failed | d(false)
     or __bootstrap_docker__compose_current_version is not defined
     or (__bootstrap_docker__compose_current_version | length == 0)
   ansible.builtin.set_fact:
@@ -85,13 +85,13 @@
 - name: "{{ __bootstrap_docker__log_prefix_compose }} Set __replace_docker_compose"
   when:
     - bootstrap_docker__compose_version is defined
-    - bootstrap_docker__update_exist_compose_version|d(False)|bool
+    - bootstrap_docker__update_exist_compose_version | d(false) | bool
     - (__bootstrap_docker__compose_version | regex_replace('v', '')) not in __bootstrap_docker__compose_current_version
   ansible.builtin.set_fact:
     __replace_docker_compose: true
 
 - name: "{{ __bootstrap_docker__log_prefix_compose }} Replace existing docker-compose"
-  when: __replace_docker_compose|bool
+  when: __replace_docker_compose | bool
   block:
     - name: "{{ __bootstrap_docker__log_prefix_compose }} Delete existing docker-compose version if it's different."
       ansible.builtin.file:
@@ -126,12 +126,12 @@
 #- name: "{{ __bootstrap_docker__log_prefix_compose }} Install Python docker packages"
 #  ansible.builtin.pip:
 #    name: >
-#      {{ item.name }}{% if item.version|d() %}=={{ item.version }}{% endif %}
+#      {{ item.name }}{% if item.version | d() %}=={{ item.version }}{% endif %}
 #    state: "{{ item.state | d('present') }}"
 #    extra_args: "--user"
 #    executable: "{{ bootstrap_docker__pip_executable }}"
 #  loop: "{{ __bootstrap_docker__pip_packages }}"
-#  when: item.name | d()
+#  when: item.name | d('') | length > 0
 #
 #- name: "{{ __bootstrap_docker__log_prefix_compose }} pip self-update"
 #  ansible.builtin.pip:
@@ -145,12 +145,12 @@
 #- name: "{{ __bootstrap_docker__log_prefix_compose }} Install Python docker packages into docker-python virtualenv"
 #  ansible.builtin.pip:
 #    name: >
-#      {{ item.name }}{% if item.version|d('')|length>0 %}=={{ item.version }}{% endif %}
+#      {{ item.name }}{% if item.version | d('') | length > 0 %}=={{ item.version }}{% endif %}
 #    state: "{{ item.virtualenv_state | d('present') }}"
 #    virtualenv: "{{ bootstrap_docker__pip_virtualenv }}"
 #    virtualenv_command: "{{ bootstrap_docker__python_virtualenv_command }}"
 #  loop: "{{ __bootstrap_docker__pip_packages }}"
-#  when: item.name | d()
+#  when: item.name | d('') | length > 0
 #  environment:
 #    SETUPTOOLS_USE_DISTUTILS: stdlib
 #

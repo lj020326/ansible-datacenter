@@ -26,7 +26,7 @@
 - name: "{{ __bootstrap_docker__log_prefix_network }} Set __bootstrap_docker__ingress_network_invalid if network.Ingress false"
   when:
     - __docker_network_info_result.network.Ingress is defined
-    - not __docker_network_info_result.network.Ingress|bool
+    - not __docker_network_info_result.network.Ingress | bool
   ansible.builtin.set_fact:
     __bootstrap_docker__ingress_network_invalid: true
 
@@ -50,21 +50,28 @@
     var: __bootstrap_docker__ingress_network_invalid
 
 - name: "{{ __bootstrap_docker__log_prefix_network }} Get docker info"
-  community.docker.docker_stack_info:
+  community.docker.docker_host_info:
   register: __docker_info_result
+
+#- name: "{{ __bootstrap_docker__log_prefix_network }} Get docker info"
+#  community.docker.docker_stack_info:
+#  register: __docker_info_result
+#  until: not __docker_info_result.failed
+#  retries: 5
+#  delay: 5
 
 - name: "{{ __bootstrap_docker__log_prefix_network }} Remove and rejoin swarm node"
   when:
-    - not bootstrap_docker__swarm_leader|bool
+    - not bootstrap_docker__swarm_leader | bool
     - __docker_network_info_result.exists
-    - __bootstrap_docker__ingress_network_invalid|bool
+    - __bootstrap_docker__ingress_network_invalid | bool
   ansible.builtin.include_tasks: swarm_node_rejoin.yml
 
 ## ref: https://stackoverflow.com/questions/59007780/container-running-on-docker-swarm-not-accessible-from-outside
 - name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
   when:
-    - bootstrap_docker__swarm_leader|bool
-    - __bootstrap_docker__ingress_network_invalid|bool
+    - bootstrap_docker__swarm_leader | bool
+    - __bootstrap_docker__ingress_network_invalid | bool
   block:
 
     - name: "{{ __bootstrap_docker__log_prefix_network }} Remove ingress network {{ bootstrap_docker__ingress_network }}"
@@ -136,7 +143,7 @@
         state: restarted
 
 - name: "{{ __bootstrap_docker__log_prefix_network }} Ensure ingress network"
-  when: __bootstrap_docker__ingress_network_invalid|bool
+  when: __bootstrap_docker__ingress_network_invalid | bool
   block:
 #    ## ref: The module right now only handles plain docker networks
 #    ## ref: https://github.com/ansible-collections/community.docker/issues/69

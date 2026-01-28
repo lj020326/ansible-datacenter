@@ -1,0 +1,36 @@
+---
+
+# ---- DEPRECATED ----------------
+#
+# Most of the bootstrap_kubernetes__kubelet_extra_args are deprecated. See https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet for details.
+# Use the bootstrap_kubernetes__kubelet_config variable instead, which will be used to create the kubelet config file.
+
+- name: Check for existence of kubelet environment file. (deprecated)
+  ansible.builtin.stat:
+    path: '{{ bootstrap_kubernetes__kubelet_environment_file_path }}'
+  register: kubelet_environment_file
+
+- name: Set facts for KUBELET_EXTRA_ARGS task if environment file exists. (deprecated)
+  when: kubelet_environment_file.stat.exists
+  ansible.builtin.set_fact:
+    kubelet_args_path: '{{ bootstrap_kubernetes__kubelet_environment_file_path }}'
+    kubelet_args_line: "{{ 'KUBELET_EXTRA_ARGS=' + bootstrap_kubernetes__kubelet_extra_args }}"
+    kubelet_args_regexp: '^KUBELET_EXTRA_ARGS='
+
+- name: Set facts for KUBELET_EXTRA_ARGS task if environment file doesn't exist. (deprecated)
+  when: not kubelet_environment_file.stat.exists
+  ansible.builtin.set_fact:
+    kubelet_args_path: '/etc/systemd/system/kubelet.service.d/10-kubeadm.conf'
+    kubelet_args_line: "{{ 'Environment=\"KUBELET_EXTRA_ARGS=' + bootstrap_kubernetes__kubelet_extra_args + '\"' }}"
+    kubelet_args_regexp: '^Environment="KUBELET_EXTRA_ARGS='
+
+- name: Configure KUBELET_EXTRA_ARGS. (deprecated)
+  when: bootstrap_kubernetes__kubelet_extra_args | length > 0
+  ansible.builtin.lineinfile:
+    path: '{{ kubelet_args_path }}'
+    line: '{{ kubelet_args_line }}'
+    regexp: '{{ kubelet_args_regexp }}'
+    state: present
+    mode: "0644"
+  register: kubelet_extra_args
+  notify: restart kubelet

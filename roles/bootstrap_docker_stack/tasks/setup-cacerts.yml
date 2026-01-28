@@ -3,16 +3,17 @@
   ansible.builtin.file:
     state: directory
     path: "{{ item.path }}"
-    mode: "{{ item.mode | default(omit) }}"
+    mode: "{{ item.mode | d(omit) }}"
   loop:
     - path: "{{ docker_stack__internal_ssl_cert_dir }}"
-    - path: "{{ docker_stack__internal_ssl_certkey_dir }}"
+    - path: "{{ docker_stack__internal_ssl_key_dir }}"
       mode: "0600"
 
-- name: "{{ __docker_stack__log_prefix__setup_cacert }} Setup the internal cert for traefik internal routes"
+- name: "{{ __docker_stack__log_prefix__setup_cacert }} Setup the internal cert for traefik internal routes (local)"
+  when: __docker_stack__cacerts__fetch_method == "local"
   block:
-    #    - name: "{{ __docker_stack__log_prefix__setup_cacert }} Remove all existing old CA cert keys from {{ docker_stack__traefik_version }}/certs/"
-    #      ansible.builtin.shell: "/bin/rm -rf {{ docker_stack__traefik_version }}/certs/*"
+    #    - name: "{{ __docker_stack__log_prefix__setup_cacert }} Remove all existing old CA cert keys from {{ docker_stack__traefik__version }}/certs/"
+    #      ansible.builtin.shell: "/bin/rm -rf {{ docker_stack__traefik__version }}/certs/*"
 
     ## copy from cacerts created by cacert play
     ## ref: http://www.mydailytutorials.com/ansible-template-module-examples/
@@ -22,20 +23,64 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
         #        force: "{{ item.force | d(omit) }}"
-        force: "{{ item.force | d(True) }}"
+        force: "{{ item.force | d(true) }}"
         backup: true
         mode: "{{ item.mode | d('0666') }}"
         owner: "{{ docker_stack__user_username }}"
         group: "{{ docker_stack__user_group }}"
-      loop: "{{ __docker_stack__base__cacert_files | d([]) }}"
-#      loop:
-##        - { src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_root_cacert_file }}", dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_root_cacert_file }}" }
-##        - { src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cacert_file }}", dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_cacert_file }}" }
-#        - { src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ docker_stack__ssl_internal_cert_file }}", dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}" }
-#        - { src: "{{ docker_stack__internal_ssl_certkey_dir }}/{{ docker_stack__ssl_internal_privatekey_file }}", dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}", mode: "0600" }
+      loop: "{{ __docker_stack__base__ca_cert_files | d([]) }}"
+
+- name: "{{ __docker_stack__log_prefix__setup_cacert }} Setup the internal cert for traefik internal routes (vault)"
+  when: __docker_stack__cacerts__fetch_method == "vault"
+  block:
+
+    - name: "{{ __docker_stack__log_prefix__setup_cacert }} Display vault info"
+      ansible.builtin.debug:
+        msg:
+          - "__docker_stack__cacerts__vault_url = {{ __docker_stack__cacerts__vault_url }}"
+#          - "__docker_stack__cacerts__vault_token = {{ __docker_stack__cacerts__vault_token }}"
+
+    - name: "{{ __docker_stack__log_prefix__setup_cacert }} Retrieve {{ docker_stack__internal_domain }} (Vault/OpenBao KV2)"
+      delegate_to: localhost
+      connection: local
+      run_once: true
+      community.hashi_vault.vault_kv2_get:
+        url: "{{ __docker_stack__cacerts__vault_url }}"
+        token: "{{ __docker_stack__cacerts__vault_token }}"
+        engine_mount_point: "kv"
+        # mount_point: "{{ __docker_stack__cacerts__vault_kv_mount_point }}"
+        path: "{{ __docker_stack__cacerts__vault_kv_path }}/leaf/{{ docker_stack__internal_domain | regex_replace('\\.', '_') }}"
+        validate_certs: false
+      register: __service_cert_kv_data
+
+    - name: "{{ __docker_stack__log_prefix__setup_cacert }} Set __certificate and __certificate_key variables"
+      no_log: true
+      ansible.builtin.set_fact:
+        __certificate: "{{ __service_cert_kv_data.data.certificate }}"
+        __certificate_key: "{{ __service_cert_kv_data.data.private_key }}"
+
+#    - name: "{{ __docker_stack__log_prefix__setup_cacert }} Remove all existing old CA cert keys from {{ docker_stack__traefik__version }}/certs/"
+#      ansible.builtin.shell: "/bin/rm -rf {{ docker_stack__traefik__version }}/certs/*"
+
+    - name: "{{ __docker_stack__log_prefix__setup_cacert }} Copy ca service route certs sourced from PKI api (OpenBao KV2) to traefik"
+      no_log: true
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ item.dest }}"
+        force: "{{ item.force | d(omit) }}"
+        backup: true
+        mode: "{{ item.mode | d('0644') }}"
+        owner: "{{ docker_stack__user_username }}"
+        group: "{{ docker_stack__user_group }}"
+      with_items:
+        - content: "{{ __certificate }}"
+          dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_cert_file }}"
+        - content: "{{ __certificate_key }}"
+          dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_internal_privatekey_file }}"
+          mode: "0600"
 
 - name: "{{ __docker_stack__log_prefix__setup_cacert }} Setup the external cert for traefik internal routes"
-  when: docker_stack__enable_external_route|bool
+  when: docker_stack__enable_external_route | bool
   block:
     - name: Get_cert_repo | Check if ACME external cert exist in {{ docker_stack__external_ssl_cert_dir }}
       ansible.builtin.stat:
@@ -58,9 +103,9 @@
         group: "{{ docker_stack__user_group }}"
       loop:
         - src: "{{ docker_stack__external_ssl_cert_dir }}/cert.pem"
-          dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_external_cert_file }}"
+          dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_external_cert_file }}"
         - src: "{{ docker_stack__external_ssl_cert_dir }}/key.pem"
-          dest: "{{ __docker_stack__base__traefik_dir }}/certs/{{ docker_stack__ssl_external_privatekey_file }}"
+          dest: "{{ __docker_stack__traefik__dir }}/certs/{{ docker_stack__ssl_external_privatekey_file }}"
           mode: "0600"
 
 - name: "{{ __docker_stack__log_prefix__setup_cacert }} Setup the external ACME cert for traefik external routes"
@@ -69,7 +114,7 @@
     - name: "{{ __docker_stack__log_prefix__setup_cacert }} Ensure acme.json file exists"
       ansible.builtin.copy:
         content: ""
-        dest: "{{ __docker_stack__base__traefik_dir }}/acme/{{ __docker_stack__base__traefik_certresolver_acme_file }}"
+        dest: "{{ __docker_stack__traefik__dir }}/acme/{{ __docker_stack__traefik__certresolver_acme_file }}"
         force: "{{ item.force | d(omit) }}"
         owner: "{{ docker_stack__user_username }}"
         group: "{{ docker_stack__user_group }}"
@@ -79,7 +124,7 @@
     ## set correct perms on acme.json
     - name: "{{ __docker_stack__log_prefix__setup_cacert }} Ensure acme.json has correct perms"
       ansible.builtin.file:
-        path: "{{ __docker_stack__base__traefik_dir }}/acme/{{ __docker_stack__base__traefik_certresolver_acme_file }}"
+        path: "{{ __docker_stack__traefik__dir }}/acme/{{ __docker_stack__traefik__certresolver_acme_file }}"
         owner: "{{ docker_stack__user_username }}"
         group: "{{ docker_stack__user_group }}"
         mode: "0600"

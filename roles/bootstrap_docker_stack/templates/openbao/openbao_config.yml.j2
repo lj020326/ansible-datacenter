@@ -1,0 +1,94 @@
+policies:
+  admin:
+    hcl_content: |
+      path "*" {
+        capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+      }
+  {{ __docker_stack__openbao__deploy_policy_name }}:
+    hcl_content: |
+      path "{{ __docker_stack__openbao__pki_path }}/*" {
+        capabilities = ["read", "list"]
+      }
+      # issue/sign for deploys
+      path "{{ __docker_stack__openbao__pki_path }}/issue/*" {
+        capabilities = ["create", "update"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/issue/internal-api" {
+        capabilities = ["create", "update"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/issue/internal-service-route" {
+        capabilities = ["create", "update"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/issue/internal-host" {
+        capabilities = ["create", "update"]
+      }
+      # Add this to handle CSR signing specifically
+      path "{{ __docker_stack__openbao__pki_path }}/sign/*" {
+        capabilities = ["create", "update"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/config/*" {
+        capabilities = ["read", "list"]
+      }
+      path "{{ __docker_stack__openbao__pki_path }}/roles/*" {
+        capabilities = ["read", "list"]
+      }
+      # Allow full access to the PKI KV Cache
+      path "{{ __docker_stack__openbao__kv_path }}/data/pki_cache/*" {
+        capabilities = ["create", "read", "update", "list"]
+      }
+      # If using KV version 1, or for listing metadata in KV version 2
+      path "{{ __docker_stack__openbao__kv_path }}/metadata/pki_cache/*" {
+        capabilities = ["read", "list"]
+      }
+      path "{{ __docker_stack__openbao__kv_path }}/data/trusted_external/*" {
+        capabilities = ["read", "list"]
+      }
+      path "{{ __docker_stack__openbao__kv_path }}/metadata/trusted_external/*" {
+        capabilities = ["read", "list"]
+      }
+      # Allow full access to the PKI KV to dynamically store created service route and host certificates
+      path "{{ __docker_stack__openbao__kv_path }}/data/trusted_internal/*" {
+        capabilities = ["create", "read", "update", "list"]
+      }
+      path "{{ __docker_stack__openbao__kv_path }}/metadata/trusted_internal/*" {
+        capabilities = ["create", "read", "update", "list"]
+      }
+      path "auth/token/lookup*" {
+        capabilities = ["read"]
+      }
+      path "sys/mounts" {
+        capabilities = ["read", "list"]
+      }
+      path "sys/mounts/*" {
+        capabilities = ["read", "list"]
+      }
+      path "sys/seal-status" {
+        capabilities = ["read"]
+      }
+  user:
+    hcl_content: |
+      path "{{ __docker_stack__openbao__kv_path }}/*" {
+        capabilities = ["create", "read", "update", "delete", "list"]
+      }
+{%- raw %}
+      path "userpass/users/{{identity.entity.name}}" {
+        capabilities = ["read"]
+      }
+{% endraw %}
+
+users:
+  - display_name: test_user
+    password: test_password
+    policies:
+      - user
+
+tokens:
+  - display_name: admin
+    policies: ["admin"]
+    ttl: "87600h"  # 10y, matching CA
+  - display_name: deploy-ca
+    policies: ["deploy-ca"]
+    ttl: "87600h"
+  - display_name: test_user
+    policies: ["user"]
+    ttl: "168h"  # 1w
