@@ -35,7 +35,9 @@
   ansible.builtin.set_fact:
     __cert_needs_kv_fetch: false
     __cert_needs_pki_update: false
+    __is_signing_cert: "{{ (__cert_info.type | d('') == 'pki_signing') | bool }}"
     __is_route_cert: "{{ (__cert_info.type | d('') == 'pki_service_route') | bool }}"
+    __is_host_cert: "{{ (__cert_info.type | d('') == 'pki_host') | bool }}"
     __kv_cache_path: "pki_cache/{{ __cert_info.common_name | d(__cert_info.cert_name) | replace('.', '_') }}"
     __kv_source_path: "{{ __cert_info.kv_prefix }}/{{ __cert_info.cert_name }}"
     __cert_filename: "{{ __cert_info.cert_name }}.{{ deploy_pki_certs__ca_cert_extension }}"
@@ -44,18 +46,27 @@
     __key_name: "{{ __cert_info.cert_name }}-key.{{ deploy_pki_certs__ca_cert_extension }}"
     __key_path: ""
     __ca_path: ""
+    __pki_issue_path: "{{ __deploy_pki_certs__vault_pki_type_to_role_mappings[__cert_info.type] }}"
+    __pki_key_usage: ""
     __pki_cert_content: ""
     __pki_key_content: ""
     __pki_chain_content: ""
-    __pki_issue_path: "{{ deploy_pki_certs__vault_pki_host_role_name }}"
+    __pki_ip_sans: []
     __pki_alt_names:
       - "{{ __cert_info.common_name }}"
+
+- name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __pki_key_usage used to validate cert key_usage"
+  when: __is_signing_cert | bool
+  ansible.builtin.set_fact:
+    __pki_key_usage:
+      - 'KeyCertSign'
+      - 'CRLSign'
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Translate cfssl to openssl for cert verification"
   when: __ca_cert_info.key_type | d('') | length > 0
   ansible.builtin.set_fact:
     __openssl_key_type: "{{ __ca_cert_info.key_type | replace('ecdsa', 'ec') }}"
-    __openssl_key_size: "{{ __ca_cert_info.key_size | d(omit) if __ca_cert_info.key_type != 'ecdsa' else omit }}"
+    __openssl_key_size: "{{ __ca_cert_info.key_size | d(omit, true) if __ca_cert_info.key_type != 'ecdsa' else omit }}"
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __ca_path"
   when: __cert_info.type in deploy_pki_certs__vault_pki_kv_types
@@ -67,13 +78,20 @@
   ansible.builtin.debug:
     var: __is_route_cert
 
-- name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __pki_issue_path"
-  when: __is_route_cert
+- name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __pki_alt_names"
+  when: __is_route_cert | bool
   ansible.builtin.set_fact:
-    __pki_issue_path: "{{ deploy_pki_certs__vault_pki_service_route_role_name }}"
     __pki_alt_names:
       - "*.{{ __cert_info.common_name }}"
       - "{{ __cert_info.common_name }}"
+  run_once: true
+  delegate_to: localhost
+
+
+- name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __pki_alt_names"
+  when: __is_host_cert | bool
+  ansible.builtin.set_fact:
+    __pki_ip_sans: [ '127.0.0.1' ]
   run_once: true
   delegate_to: localhost
 
@@ -122,17 +140,19 @@
       dettonville.utils.x509_certificate_verify:
         path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
         # Only verify private key if __key_path is defined and the file exists
-        private_key_path: "{{ __key_path | d(omit) }}"
-        ca_path: "{{ __ca_path | d(omit) }}"
-        common_name: "{{ __cert_info.common_name | d(omit) }}"
-        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit) }}"
-        organization: "{{ __cert_info.organization | d(omit) }}"
-        organizational_unit: "{{ __cert_info.organizational_unit | d(omit) }}"
-        country: "{{ __cert_info.country | d(omit) }}"
-        state_or_province: "{{ __cert_info.state_or_province | d(omit) }}"
-        locality: "{{ __cert_info.locality | d(omit) }}"
-        key_type: "{{ __openssl_key_type | d(omit) }}"
-        key_size: "{{ __openssl_key_size | d(omit) }}"
+        private_key_path: "{{ __key_path | d(omit, true) }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
+        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit, true) }}"
+        organization: "{{ __cert_info.organization | d(omit, true) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit, true) }}"
+        country: "{{ __cert_info.country | d(omit, true) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit, true) }}"
+        locality: "{{ __cert_info.locality | d(omit, true) }}"
+        key_type: "{{ __openssl_key_type | d(omit, true) }}"
+        key_size: "{{ __openssl_key_size | d(omit, true) }}"
+        key_usage: "{{ __pki_key_usage | d(omit, true) }}"
+#        validate_is_ca: "{{ __is_signing_cert }}"
         validate_expired: true
         validate_checkend: true
         checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
@@ -161,17 +181,19 @@
       dettonville.utils.x509_certificate_verify:
         path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_chain_filename }}"
         # Only verify private key if __key_path is defined and the file exists
-        private_key_path: "{{ __key_path | d(omit) }}"
-        ca_path: "{{ __ca_path | d(omit) }}"
-        common_name: "{{ __cert_info.common_name | d(omit) }}"
-        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit) }}"
-        organization: "{{ __cert_info.organization | d(omit) }}"
-        organizational_unit: "{{ __cert_info.organizational_unit | d(omit) }}"
-        country: "{{ __cert_info.country | d(omit) }}"
-        state_or_province: "{{ __cert_info.state_or_province | d(omit) }}"
-        locality: "{{ __cert_info.locality | d(omit) }}"
-        key_type: "{{ __openssl_key_type | d(omit) }}"
-        key_size: "{{ __openssl_key_size | d(omit) }}"
+        private_key_path: "{{ __key_path | d(omit, true) }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
+        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit, true) }}"
+        organization: "{{ __cert_info.organization | d(omit, true) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit, true) }}"
+        country: "{{ __cert_info.country | d(omit, true) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit, true) }}"
+        locality: "{{ __cert_info.locality | d(omit, true) }}"
+        key_type: "{{ __openssl_key_type | d(omit, true) }}"
+        key_size: "{{ __openssl_key_size | d(omit, true) }}"
+        key_usage: "{{ __pki_key_usage | d(omit, true) }}"
+#        validate_is_ca: "{{ __is_signing_cert }}"
         validate_expired: true
         validate_checkend: true
         checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
@@ -205,21 +227,21 @@
     validate_certs: false
   register: __kv_cache_res
   ignore_errors: true
-  run_once: "{{ __is_route_cert }}"
+  run_once: "{{ (__is_route_cert or __is_signing_cert) | bool }}"
   delegate_to: localhost
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __kv_cache_res"
   ansible.builtin.debug:
     var: __kv_cache_res
     verbosity: 1
-  run_once: "{{ __is_route_cert }}"
+  run_once: "{{ (__is_route_cert or __is_signing_cert) | bool }}"
   delegate_to: localhost
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __cert_needs_pki_update if kv fetch failed"
   when: __kv_cache_res.failed
   ansible.builtin.set_fact:
     __cert_needs_pki_update: true
-  run_once: "{{ __is_route_cert }}"
+  run_once: "{{ (__is_route_cert or __is_signing_cert) | bool }}"
   delegate_to: localhost
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Validate KV Cache certificate"
@@ -243,16 +265,20 @@
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Validate KV Cache certificate"
       no_log: true
       dettonville.utils.x509_certificate_verify:
-        content: "{{ __kv_cache_res.secret.certificate | b64encode }}"
-        private_key_content: "{{ __kv_cache_res.secret.private_key | b64encode }}"
-        ca_path: "{{ __ca_path | d(omit) }}"
-        common_name: "{{ __cert_info.common_name | d(omit) }}"
-        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit) }}"
-        organization: "{{ __cert_info.organization | d(omit) }}"
-        organizational_unit: "{{ __cert_info.organizational_unit | d(omit) }}"
-        country: "{{ __cert_info.country | d(omit) }}"
-        state_or_province: "{{ __cert_info.state_or_province | d(omit) }}"
-        locality: "{{ __cert_info.locality | d(omit) }}"
+        content: "{{ __kv_cache_res.secret.certificate }}"
+        private_key_content: "{{ __kv_cache_res.secret.private_key }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
+        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit, true) }}"
+        organization: "{{ __cert_info.organization | d(omit, true) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit, true) }}"
+        country: "{{ __cert_info.country | d(omit, true) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit, true) }}"
+        locality: "{{ __cert_info.locality | d(omit, true) }}"
+        key_type: "{{ __openssl_key_type | d(omit, true) }}"
+        key_size: "{{ __openssl_key_size | d(omit, true) }}"
+        key_usage: "{{ __pki_key_usage | d(omit, true) }}"
+#        validate_is_ca: "{{ __is_signing_cert }}"
         validate_expired: true
         validate_checkend: true
         checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
@@ -319,11 +345,11 @@
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Generate New if Local/Cache Invalid"
   when: __cert_needs_pki_update
-  run_once: "{{ __is_route_cert | bool }}"
-  delegate_to: localhost
+  run_once: "{{ (__is_route_cert or __is_signing_cert) | bool }}"
   block:
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Issue dynamic PKI cert from Vault"
       no_log: "{{ not (deploy_pki_certs__enable_debug_mode | default(false)) }}"
+      delegate_to: localhost
       community.hashi_vault.vault_pki_generate_certificate:
         url: "{{ deploy_pki_certs__vault_url }}"
         token: "{{ deploy_pki_certs__vault_token }}"
@@ -331,7 +357,7 @@
         role_name: "{{ __pki_issue_path }}"
         common_name: "{{ __cert_info.common_name }}"
         alt_names: "{{ __pki_alt_names | d([]) | join(',') | d(omit, true) }}"
-        ip_sans: "{{ __cert_info.ip_sans | d(['127.0.0.1']) | join(',') }}"
+        ip_sans: "{{ __pki_ip_sans | d([]) | join(',') | d(omit, true) }}"
         other_sans: "{{ __cert_info.other_sans | d([]) | join(',') | d(omit, true) }}"
         ttl: "{{ __cert_info.ttl | d(deploy_pki_certs__certificate_ttl) }}"
         validate_certs: false
@@ -386,10 +412,65 @@
       register: __new_cert_info
       delegate_to: localhost
 
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __new_cert_info.serial_number"
+      ansible.builtin.debug:
+        var: __new_cert_info.serial_number
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display Formatted Serial Number"
+      ansible.builtin.debug:
+        msg: >-
+          {{ '%0.2x' | format(__new_cert_info.serial_number)
+             | regex_findall('..')
+             | join(':') }}
+
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __new_cert_info"
       ansible.builtin.debug:
         var: __new_cert_info
         verbosity: 1
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : New cert verification"
+      no_log: true
+      dettonville.utils.x509_certificate_verify:
+        content: "{{ __pki_gen_cert }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
+        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit, true) }}"
+        organization: "{{ __cert_info.organization | d(omit, true) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit, true) }}"
+        country: "{{ __cert_info.country | d(omit, true) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit, true) }}"
+        locality: "{{ __cert_info.locality | d(omit, true) }}"
+        key_type: "{{ __openssl_key_type | d(omit, true) }}"
+        key_size: "{{ __openssl_key_size | d(omit, true) }}"
+        key_usage: "{{ __pki_key_usage | d(omit, true) }}"
+#        validate_is_ca: "{{ __is_signing_cert }}"
+        validate_expired: true
+        validate_checkend: true
+        checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
+        logging_level: "DEBUG"
+      register: __new_cert_verify
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __new_cert_verify.verify_failed"
+      ansible.builtin.debug:
+        var: __new_cert_verify.verify_failed | d(true)
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __new_cert_verify when failed"
+      when: __new_cert_verify.verify_failed | d(true)
+      ansible.builtin.debug:
+        var: __new_cert_verify
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __new_cert_verify"
+      when: not (__new_cert_verify.verify_failed | d(true))
+      ansible.builtin.debug:
+        var: __new_cert_verify
+        verbosity: 1
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Assert new cert verification test not failed"
+      when: deploy_pki_certs__new_cert_verify_fail_fast | bool
+      ansible.builtin.assert:
+        that:
+          - not __new_cert_verify.failed
+          - not __new_cert_verify.verify_failed
 
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Update KV Cache"
       no_log: true
@@ -475,6 +556,26 @@
     var: __pki_chain_content
     verbosity: 1
 
+- name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Verify signing certificate"
+  when: __is_signing_cert | bool
+  block:
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Get signing certificate key usage / ext usage"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        content: "{{ __pki_cert_content }}"
+      register: __signing_cert_info
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __signing_cert_info"
+      ansible.builtin.debug:
+        var: __signing_cert_info
+        verbosity: 1
+
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Assert signing certificate has expected key usage"
+      ansible.builtin.assert:
+        that:
+          - "'Certificate Sign' in __signing_cert_info.key_usage"
+        fail_msg: "Signing certificate is missing DigitalSignature key usage"
+
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display deploy_pki_certs__ca_force_deploy"
   ansible.builtin.debug:
     var: deploy_pki_certs__ca_force_deploy
@@ -488,15 +589,18 @@
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Pre-deployment verification"
       no_log: true
       dettonville.utils.x509_certificate_verify:
-        content: "{{ __pki_cert_content | b64encode }}"
-        ca_path: "{{ __ca_path | d(omit) }}"
-        common_name: "{{ __cert_info.common_name | d(omit) }}"
-        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit) }}"
-        organization: "{{ __cert_info.organization | d(omit) }}"
-        organizational_unit: "{{ __cert_info.organizational_unit | d(omit) }}"
-        country: "{{ __cert_info.country | d(omit) }}"
-        state_or_province: "{{ __cert_info.state_or_province | d(omit) }}"
-        locality: "{{ __cert_info.locality | d(omit) }}"
+        content: "{{ __pki_cert_content }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
+        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit, true) }}"
+        organization: "{{ __cert_info.organization | d(omit, true) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit, true) }}"
+        country: "{{ __cert_info.country | d(omit, true) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit, true) }}"
+        locality: "{{ __cert_info.locality | d(omit, true) }}"
+        key_type: "{{ __openssl_key_type | d(omit, true) }}"
+        key_size: "{{ __openssl_key_size | d(omit, true) }}"
+        key_usage: "{{ __pki_key_usage | d(omit, true) }}"
         validate_expired: true
         validate_checkend: true
         checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
@@ -516,17 +620,6 @@
       ansible.builtin.debug:
         var: __pre_deploy_verify
         verbosity: 1
-
-    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : ALERT - Verification Warning"
-      # Change: Trigger an alert message if the verification returned a failure
-      when:
-        - __pre_deploy_verify.failed is defined
-        - __pre_deploy_verify.failed or __pre_deploy_verify.verify_failed | d(false)
-      ansible.builtin.debug:
-        msg: |
-          [WARNING]: Certificate verification failed for {{ __cert_info.cert_name }}!
-          Reason: {{ __pre_deploy_verify.msg | d('Unknown verification error') }}
-          The certificate was deployed, but it may be invalid, expired, or mismatched with its key.
 
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Assert pre-deployment verification test not failed"
       when: deploy_pki_certs__pre_deploy_verify_fail_fast | bool
@@ -555,7 +648,8 @@
         backup: true
       register: __key_copy_res
 
-    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Write certificate chain to {{ deploy_pki_certs__local_cert_dir }}"
+    - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Write certificate chain to {{
+        deploy_pki_certs__local_cert_dir }}"
       when: __pki_chain_content | length > 0
       no_log: true
       ansible.builtin.copy:
@@ -579,15 +673,18 @@
       dettonville.utils.x509_certificate_verify:
 #        path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
         path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_chain_filename }}"
-        ca_path: "{{ __ca_path | d(omit) }}"
-        private_key_path: "{{ __key_path | d(omit) }}"
-        common_name: "{{ __cert_info.common_name | d(omit) }}"
-        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit) }}"
-        organization: "{{ __cert_info.organization | d(omit) }}"
-        organizational_unit: "{{ __cert_info.organizational_unit | d(omit) }}"
-        country: "{{ __cert_info.country | d(omit) }}"
-        state_or_province: "{{ __cert_info.state_or_province | d(omit) }}"
-        locality: "{{ __cert_info.locality | d(omit) }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        private_key_path: "{{ __key_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
+        subject_alt_names: "{{ __cert_info.subject_alt_names | d(__pki_alt_names) | d(omit, true) }}"
+        organization: "{{ __cert_info.organization | d(omit, true) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit, true) }}"
+        country: "{{ __cert_info.country | d(omit, true) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit, true) }}"
+        locality: "{{ __cert_info.locality | d(omit, true) }}"
+        key_type: "{{ __openssl_key_type | d(omit, true) }}"
+        key_size: "{{ __openssl_key_size | d(omit, true) }}"
+        key_usage: "{{ __pki_key_usage | d(omit, true) }}"
         validate_expired: true
         validate_checkend: true
         checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"

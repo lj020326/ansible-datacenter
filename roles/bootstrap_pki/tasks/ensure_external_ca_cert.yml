@@ -205,7 +205,7 @@
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate external root is active CA cert"
   no_log: true
   dettonville.utils.x509_certificate_verify:
-    content: "{{ __root_cert_content | b64encode }}"
+    content: "{{ __root_cert_content }}"
     validate_is_ca: true
     validate_expired: true
     validate_checkend: true
@@ -213,9 +213,20 @@
     logging_level: "DEBUG"
   register: __external_root_cert_verify
 
-- name: "Display __external_root_cert_verify"
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __external_root_cert_verify.verify_failed"
+  ansible.builtin.debug:
+    var: __external_root_cert_verify.verify_failed | d(true)
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __external_root_cert_verify when failed"
+  when: __external_root_cert_verify.verify_failed | d(true)
   ansible.builtin.debug:
     var: __external_root_cert_verify
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __external_root_cert_verify"
+  when: not (__external_root_cert_verify.verify_failed | d(true))
+  ansible.builtin.debug:
+    var: __external_root_cert_verify
+    verbosity: 1
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate root is CA cert"
   ansible.builtin.assert:
@@ -249,24 +260,38 @@
 # FINGERPRINT VALIDATION & COMPARISON
 # ===============================================================
 
-- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Get Existing Vault Cert Fingerprint"
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Get Vault KV Cert Fingerprint"
   when: not __existing_kv.failed | d(true)
   no_log: true
   community.crypto.x509_certificate_info:
     content: "{{ __existing_kv.data.data.certificate }}"
-  register: __existing_cert_info
+  register: __kv_cert_info
   delegate_to: localhost
   ignore_errors: true
+
+- name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Compare cert fingerprint with KV"
+  when: __kv_cert_info is defined
+  block:
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __kv_cert_info"
+      ansible.builtin.debug:
+        var: __kv_cert_info
+        verbosity: 1
+
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set __fingerprint_match_failed"
+      ansible.builtin.set_fact:
+        __fingerprint_match_failed: "{{ __root_cert_info.fingerprints.sha256 != __kv_cert_info.fingerprints.sha256 }}"
+
+    - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __fingerprint_match_failed"
+      ansible.builtin.debug:
+        var: __fingerprint_match_failed
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Determine if update is required"
   ansible.builtin.set_fact:
     __external_ca_needs_update: >-
       {{
         __existing_kv.failed | d(true) or
-        __existing_cert_info.failed | d(true) or
-        not (__root_cert_info.fingerprints is defined
-          and __existing_cert_info.fingerprints is defined
-          and __root_cert_info.fingerprints.sha256 == __existing_cert_info.fingerprints.sha256)
+        __kv_cert_info.failed | d(true) or
+        __fingerprint_match_failed | d(true)
       }}
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Skip if unchanged"

@@ -108,24 +108,24 @@ An example playbook for initializing the Root CA:
   become: true
   vars:
     bootstrap_certs__ca_intermediate_certs_list:
-      - commonName: "ca.dettonville.int"
-        domainName: "dettonville.int"
-        signerName: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
+      - common_name: "ca.dettonville.int"
+        domain_name: "dettonville.int"
+        issuer_name: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
         country: US
         state: "New York"
         locality: "NYC"
         organization: "Dettonville Internal"
-        organizationalUnit: "Research & Technology"
+        organizational_unit: "Research & Technology"
         email: "admin@dettonville.int"
     
-      - commonName: "ca.johnson.int"
-        domainName: "johnson.int"
-        signerName: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
+      - common_name: "ca.johnson.int"
+        domain_name: "johnson.int"
+        issuer_name: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
         country: US
         state: "North Carolina"
         locality: "Raleigh"
         organization: "Johnsonville Internal"
-        organizationalUnit: "Mostly Impractical"
+        organizational_unit: "Mostly Impractical"
         email: "admin@johnson.int"
   roles:
     - role: bootstrap_certs
@@ -141,12 +141,12 @@ An example playbook for initializing the Root CA:
   vars:
     bootstrap_certs__ca_service_routes_list:
       - route: "admin.dettonville.int"
-        signerName: "ca.dettonville.int" # Signed by the intermediate CA
+        issuer_name: "ca.dettonville.int" # Signed by the intermediate CA
         alt_names:
           - "DNS.1 = admin.dettonville.int"
           - "IP.1 = 10.0.0.10"
       - route: "app.dettonville.int"
-        signerName: "ca.dettonville.int"
+        issuer_name: "ca.dettonville.int"
         alt_names:
           - "DNS.1 = app.dettonville.int"
           - "DNS.2 = app-alias.dettonville.int"

@@ -57,8 +57,8 @@ ca_signer_name: "{{ 'ca.' + ('.').join(ca_signer_domain_name.split('.')[1::])
 ca_country: US
 ca_state: "New Jersey"
 ca_locality: "Trenton"
-ca_organization: "Example Internal"
-ca_organizational_unit: "Research & Technology" # noqa: var-naming[pattern]
+ca_organizational_unit: "Platform Technology"
+ca_organization: "Dettonville Internal"
 #ca_email: "admin@{{ ca_signer_domain_name }}"
 ca_email: "admin@{{ ca_domain }}"
 # ca_csr_profile: "domain"
@@ -77,14 +77,14 @@ ca_cert_duration_client: "87600h" # 10 years
 ca_cert_duration_default: "87600h" # 10 years
 
 ca_cert_info:
-  commonName: "{{ ca_signer_common_name }}"
-  domainName: "{{ ca_signer_domain_name }}"
-  signerName: "{{ ca_signer_name }}"
+  common_name: "{{ ca_signer_common_name }}"
+  domain_name: "{{ ca_signer_domain_name }}"
+  issuer_name: "{{ ca_signer_name }}"
   country: "{{ ca_country }}"
   state: "{{ ca_state }}"
   locality: "{{ ca_locality }}"
   organization: "{{ ca_organization }}"
-  organizationalUnit: "{{ ca_organizational_unit }}"
+  organizational_unit: "{{ ca_organizational_unit }}"
   email: "{{ ca_email }}"
 
 ldap_domain_sid_root: "{{ vault__ldap_domain_sid_root }}"
@@ -122,34 +122,39 @@ ca_base_dir: "{{ '~/pki' | expanduser }}"
 #ca_certs_dir: "{{ ca_base_dir }}/certs"
 #ca_keys_dir: "{{ ca_base_dir }}/keys"
 
-ca_service_route_ou: "Platform Technology"
-ca_service_route_org: "Dettonville Internal"
+ca_service_route_org: "{{ ca_organization }}"
+ca_service_route_ou: "{{ ca_organizational_unit }}"
 
 ca_service_route_key_type: "ec"  # Or "rsa" for 4096-bit fallback
 ca_service_route_key_bits: 256  # 4096 for RSA
 
+ca_signing_org: "{{ ca_organization }}"
+ca_signing_ou: "{{ ca_organizational_unit }}"
+
+ca_signing_key_type: "ec"  # Or "rsa" for 4096-bit fallback
+ca_signing_key_bits: 256  # 4096 for RSA
 
 ca_intermediate_certs_config:
   dettonville.int:
-    commonName: "ca.dettonville.int"
-    domainName: "dettonville.int"
-    signerName: "{{ ca_root_cn }}"
+    common_name: "ca.dettonville.int"
+    domain_name: "dettonville.int"
+    issuer_name: "{{ ca_root_cn }}"
     country: US
     state: "New York"
     locality: "NYC"
     organization: "Dettonville Internal"
-    organizationalUnit: "Research & Technology"
+    organizational_unit: "Research & Technology"
     email: "admin@dettonville.int"
 
   johnson.int:
-    commonName: "ca.johnson.int"
-    domainName: "johnson.int"
-    signerName: "{{ ca_root_cn }}"
+    common_name: "ca.johnson.int"
+    domain_name: "johnson.int"
+    issuer_name: "{{ ca_root_cn }}"
     country: US
     state: "North Carolina"
     locality: "Raleigh"
     organization: "Johnsonville Internal"
-    organizationalUnit: "Mostly Impractical"
+    organizational_unit: "Mostly Impractical"
     email: "admin@johnson.int"
 #    ca_csr_profile: "domain"
 #    ca_csr_profile: "intermediate_ca"
@@ -193,29 +198,36 @@ ca_domains_dynamic: "{{ ca_internal_domains_dynamic | d([]) + ca_service_routes_
 ca_internal_api_domain: "api.{{ ca_root_domain }}"
 ca_internal_api_domains: "{{ [ca_internal_api_domain] + ca_service_routes_dynamic }}"
 
+ca_hosted_issuer_certs_list: >-
+  {%- set _hosted_issuer_list = [] -%}
+  {%- for domain in ca_hosted_service_routes -%}
+    {%- set _ = _hosted_issuer_list.append('ca.' ~ domain) -%}
+  {%- endfor -%}
+  {{ _hosted_issuer_list }}
+
 ca_intermediate_certs_list_dynamic: >-
-  {%- set cert_list = [] -%}
+  {%- set _ca_cert_list = [] -%}
   {%- for domain in ca_domains_dynamic if domain not in ca_intermediate_certs_config -%}
-    {%- set _ = cert_list.append({
-      'commonName': 'ca.' ~ domain,
-      'domainName': domain,
-      'signerName': ('ca.' ~ domain.split('.')[1:] | join('.')) if domain.split('.') | count > 2 else ca_root_cn
+    {%- set _ = _ca_cert_list.append({
+      'common_name': 'ca.' ~ domain,
+      'domain_name': domain,
+      'issuer_name': ('ca.' ~ domain.split('.')[1:] | join('.')) if domain.split('.') | count > 2 else ca_root_cn
     }) -%}
   {%- endfor -%}
-  {{ cert_list }}
+  {{ _ca_cert_list }}
 
 ca_intermediate_certs_list: "{{ (ca_intermediate_certs_config.values() | d([]) | list)
   + ca_intermediate_certs_list_dynamic }}"
 
 ca_service_routes_issuer_list: >-
-  {%- set list = [] -%}
+  {%- set _issuer_list = [] -%}
   {%- for domain in ca_service_routes_dynamic -%}
-    {%- set _ = list.append({
+    {%- set _ = _issuer_list.append({
       'route': domain,
-      'signerName': 'ca.' ~ domain
+      'issuer_name': 'ca.' ~ domain
     }) -%}
   {%- endfor -%}
-  {{ list }}
+  {{ _issuer_list }}
 
 ## END of CA domain and service routes definitions block
 ################################
@@ -231,40 +243,43 @@ ca_renew_threshold_days: 30  # Renew if < this days left
 # Renew if < this days left
 ca_cert_renewal_tolerance_days: 30
 
+####################################
+# CA Vault PKI Configuration
+####################################
+ca_vault_pki_root_cert: "{{ ca_root_cert_basename }}.pem"
+ca_vault_pki_root_key: "{{ ca_root_cert_basename }}-key.pem"
+ca_vault_pki_certs_dir: "/etc/pki/cacerts"
+ca_vault_pki_key_type: "ecdsa"
+ca_vault_pki_key_size: 256
 
-pki_ca_root_cert: "{{ ca_root_cert_basename }}.pem"
-pki_ca_root_key: "{{ ca_root_cert_basename }}-key.pem"
-pki_ca_certs_dir: "/etc/pki/cacerts"
-pki_ca_key_type: "ecdsa"
-pki_ca_key_size: 256
+#ca_vault_pki_common_name: "Dettonville Intermediate CA"
+#ca_vault_pki_cert_basename: "intermediate-ca"
+ca_vault_pki_common_name: "Dettonville Vault CA"
+ca_vault_pki_cert_basename: "dettonville-vault-ca"
 
-#pki_vault_ca_common_name: "Dettonville Intermediate CA"
-#pki_vault_ca_cert_basename: "intermediate-ca"
-pki_vault_ca_common_name: "Dettonville Vault CA"
-pki_vault_ca_cert_basename: "dettonville-vault-ca"
+ca_vault_pki_root_cert_path: "{{ ca_vault_pki_certs_dir }}/{{ ca_vault_pki_root_cert }}"
+ca_vault_pki_root_key_path: "{{ ca_vault_pki_certs_dir }}/{{ ca_vault_pki_root_key }}"
 
-pki_ca_root_cert_path: "{{ pki_ca_certs_dir }}/{{ pki_ca_root_cert }}"
-pki_ca_root_key_path: "{{ pki_ca_certs_dir }}/{{ pki_ca_root_key }}"
-
-pki_vault_ca_cert_configs:
-  cert_basename: "{{ pki_vault_ca_cert_basename }}"
-  common_name: "{{ pki_vault_ca_common_name }}"
-  key_type: "{{ pki_ca_key_type }}"
-  key_size: "{{ pki_ca_key_size }}"
+ca_vault_pki_cert_configs:
+  cert_basename: "{{ ca_vault_pki_cert_basename }}"
+  common_name: "{{ ca_vault_pki_common_name }}"
+  key_type: "{{ ca_vault_pki_key_type }}"
+  key_size: "{{ ca_vault_pki_key_size }}"
   country: "{{ ca_country }}"
   state: "{{ ca_state }}"
   locality: "{{ ca_locality }}"
   organization: "{{ ca_organization }}"
   organizational_unit: "{{ ca_organizational_unit }}"
   email_address: "{{ ca_email }}"
-  ca_issuer_path: "{{ pki_ca_root_cert_path }}"
-  ca_issuer_key_path: "{{ pki_ca_root_key_path }}"
+  ca_issuer_path: "{{ ca_vault_pki_root_cert_path }}"
+  ca_issuer_key_path: "{{ ca_vault_pki_root_key_path }}"
 
-pki_ca_deploy_host_role_name: "internal-host"
-pki_ca_deploy_route_role_name: "internal-service-route"
+ca_vault_pki_deploy_host_role_name: "internal-host"
+ca_vault_pki_deploy_route_role_name: "internal-service-route"
+ca_vault_pki_deploy_signing_role_name: "internal-signing"
 
 #pki_intermediate_ca_vault_path: "pki_int"
-pki_ca_vault_mount_path: "pki-intermediate"
+ca_vault_pki_vault_mount_path: "pki-intermediate"
 
 ########################
 ## COALESCE global cert-auth (ca) vars to role specific deploy_pki_certs vars
@@ -273,13 +288,14 @@ deploy_pki_certs__vault_url: "{{ vault_url }}"
 deploy_pki_certs__vault_token: "{{ vault_token_deployca }}"
 #deploy_pki_certs__vault_token: "{{ vault_token_root }}"
 
-deploy_pki_certs__vault_mount_path: "{{ pki_ca_vault_mount_path }}"
+deploy_pki_certs__vault_mount_path: "{{ ca_vault_pki_vault_mount_path }}"
 deploy_pki_certs__vault_kv_mount_path: "{{ vault_kv_mount_path }}"
-deploy_pki_certs__vault_pki_host_role_name: "{{ pki_ca_deploy_host_role_name }}"
-deploy_pki_certs__vault_pki_service_route_role_name: "{{ pki_ca_deploy_route_role_name }}"
+deploy_pki_certs__vault_pki_service_route_role_name: "{{ ca_vault_pki_deploy_route_role_name }}"
+deploy_pki_certs__vault_pki_signing_role_name: "{{ ca_vault_pki_deploy_signing_role_name }}"
+deploy_pki_certs__vault_pki_host_role_name: "{{ ca_vault_pki_deploy_host_role_name }}"
 
-deploy_pki_certs__vault_cert_configs: "{{ pki_vault_ca_cert_configs }}"
-deploy_pki_certs__vault_cert_basename: "{{ pki_vault_ca_cert_basename }}"
+deploy_pki_certs__vault_cert_configs: "{{ ca_vault_pki_cert_configs }}"
+deploy_pki_certs__vault_cert_basename: "{{ ca_vault_pki_cert_basename }}"
 
 #deploy_pki_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(false) }}"
 #deploy_pki_certs__ca_reset_local_certs: false
@@ -308,6 +324,7 @@ deploy_pki_certs__local_cert_dir: "{{ ca_local_cert_dir }}"
 deploy_pki_certs__local_key_dir: "{{ ca_local_key_dir }}"
 
 deploy_pki_certs__ca_service_routes_list: "{{ ca_hosted_service_routes }}"
+deploy_pki_certs__ca_signing_certs_list: "{{ ca_hosted_issuer_certs_list }}"
 
 deploy_pki_certs__pre_deploy_verify_fail_fast: true
 
@@ -341,7 +358,7 @@ deploy_ca_certs__stepca_host_url: "{{ stepca_host_url }}"
 
 deploy_ca_certs__ca_root_cn: "{{ ca_root_cn }}"
 
-deploy_ca_certs__pki_ca_root_cert: "{{ pki_ca_root_cert }}"
+deploy_ca_certs__pki_ca_root_cert: "{{ ca_vault_pki_root_cert }}"
 
 deploy_ca_certs__local_cert_dir: "{{ ca_local_cert_dir }}"
 deploy_ca_certs__local_key_dir: "{{ ca_local_key_dir }}"
@@ -367,16 +384,18 @@ deploy_ca_certs__ca_service_routes_list: |
   {% endfor %}
   {{ _hosted_ca_service_route_list }}
 
-# deploy_ca_certs__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
-deploy_ca_certs__ca_intermediate_certs_list: |
-  {% set _hosted_ca_intermediate_certs_list = [] %}
-  {% for _ca_certinfo in ca_intermediate_certs_list %}
-  {% if _ca_certinfo.domainName in ca_domains_hosted %}
-  {%   set _ = _hosted_ca_intermediate_certs_list.append(_ca_certinfo) %}
-  {% endif %}
+# deploy_ca_certs__ca_signing_certs_list: "{{ ca_intermediate_certs_list }}"
+deploy_ca_certs__ca_signing_certs_list: |
+  {% set _hosted_ca_signing_certs_list = [] %}
+  {% for _ca_cert_info in ca_intermediate_certs_list %}
+  {%   set _pki_cert_info = {} %}
+  {%   if _ca_cert_info.domain_name in ca_domains_hosted %}
+  {%     set _ = _pki_cert_info.update({'common_name': _ca_cert_info.common_name}) %}
+  {%     set _ = _hosted_ca_signing_certs_list.append(_pki_cert_info) %}
+  {%   endif %}
   {% endfor %}
-  {{ _hosted_ca_intermediate_certs_list }}
+  {{ _hosted_ca_signing_certs_list }}
 
-deploy_ca_certs__external_cacerts:
+deploy_ca_certs__external_ca_cert_list:
   - https://files.pythonhosted.org
   - https://pypi.org

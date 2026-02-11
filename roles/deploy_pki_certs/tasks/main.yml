@@ -259,7 +259,25 @@
       key_type: "{{ deploy_pki_certs__vault_cert_configs.key_type }}"
       key_size: "{{ deploy_pki_certs__vault_cert_configs.key_size }}"
 
-# 3) SERVICE ROUTE CERTIFICATES (pki_service_route -> dynamic)
+# 3) SIGNING CERTIFICATES (pki_signing -> dynamic)
+- name: "Display deploy_pki_certs__ca_signing_certs_list"
+  ansible.builtin.debug:
+    var: deploy_pki_certs__ca_signing_certs_list
+
+- name: "Fetch and deploy signing certificates (pki_signing -> dynamic)"
+  ansible.builtin.include_tasks: fetch_dynamic_cert.yml
+  loop: "{{ deploy_pki_certs__ca_signing_certs_list }}"
+  loop_control:
+    loop_var: __current_signing_cn
+  vars:
+    __cert_info:
+      log_prefix: "{{ __current_signing_cn }}"
+      type: "pki_signing"
+      kv_prefix: "trusted_internal"
+      cert_name: "{{ __current_signing_cn }}"
+      common_name: "{{ __current_signing_cn }}"
+
+# 4) SERVICE ROUTE CERTIFICATES (pki_service_route -> dynamic)
 - name: "Display deploy_pki_certs__ca_service_routes_list"
   ansible.builtin.debug:
     var: deploy_pki_certs__ca_service_routes_list
@@ -277,7 +295,7 @@
       cert_name: "{{ __current_service_route }}"
       common_name: "{{ __current_service_route }}"
 
-# 4) HOST CERTIFICATE DEPLOYMENT (pki_host -> dynamic)
+# 5) HOST CERTIFICATE DEPLOYMENT (pki_host -> dynamic)
 - name: "Fetch and deploy host certificate (pki_host -> dynamic)"
   # Check if the FQDN is already handled by a service route to prevent overwrites
   when: deploy_pki_certs__ca_host_cn not in deploy_pki_certs__ca_service_routes_list
@@ -290,7 +308,7 @@
       cert_name: "{{ deploy_pki_certs__ca_host_cn }}"
       common_name: "{{ deploy_pki_certs__ca_host_cn }}"
 
-## 5) INTERNAL TRUSTED CERTIFICATES (kv -> static)
+## 6) INTERNAL TRUSTED CERTIFICATES (kv -> static)
 - name: "List all trusted internal certificates"
   community.hashi_vault.vault_list:
     url: "{{ deploy_pki_certs__vault_url }}"
@@ -349,7 +367,7 @@
       cert_name: "{{ __current_cert_name }}"
       common_name: "{{ __current_cert_name }}"
 
-# 6) EXTERNAL CERTIFICATES (kv -> static)
+# 7) EXTERNAL CERTIFICATES (kv -> static)
 - name: "Fetch external CA certs keys from KV (metadata list)"
   community.hashi_vault.vault_list:
     url: "{{ deploy_pki_certs__vault_url }}"

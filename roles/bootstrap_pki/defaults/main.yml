@@ -91,10 +91,15 @@ __bootstrap_pki__vault_cert_basename_default: "{{ bootstrap_pki__vault_cert_conf
 __bootstrap_pki__vault_cert_basename: "{{ bootstrap_pki__vault_cert_basename
   | d(__bootstrap_pki__vault_cert_basename_default) }}"
 
+# ──────────────────────────────────────────────────────────────────────────────
 # PKI Host Cert Role Defaults
+# ──────────────────────────────────────────────────────────────────────────────
 bootstrap_pki__vault_pki_host_role_name: "internal-host"
 
+# ──────────────────────────────────────────────────────────────────────────────
 # PKI Service Route Cert Role Defaults
+# ──────────────────────────────────────────────────────────────────────────────
+
 #bootstrap_pki__enable_service_routes: true
 bootstrap_pki__vault_pki_service_route_role_name: "internal-service-route"
 bootstrap_pki__vault_pki_service_route_domains: ["admin.johnson.int"]  # Add more: ["admin.johnson.int", "app.johnson.int"]
@@ -109,56 +114,108 @@ bootstrap_pki__vault_roles_allowed_domains:
   - "example.com"
   - "sub.example.com"
 
+# ──────────────────────────────────────────────────────────────────────────────
+# PKI Signing Cert Role Defaults
+# ──────────────────────────────────────────────────────────────────────────────
+
+bootstrap_pki__vault_pki_signing_role_name: "internal-signing"
+
+# 1 year – adjust per policy
+bootstrap_pki__vault_pki_signing_ttl: "8760h"
+# 2 years
+bootstrap_pki__vault_pki_signing_max_ttl: "17520h"
+bootstrap_pki__vault_pki_signing_key_type: "ecdsa"
+bootstrap_pki__vault_pki_signing_key_bits: 384
+
+bootstrap_pki__vault_pki_signing_ou: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+bootstrap_pki__vault_pki_signing_org: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+
+# You can also add allowed_domains if needed (usually empty for pure signing certs)
+bootstrap_pki__vault_pki_signing_allowed_domains: []
+
+bootstrap_pki__role_config__service_route:
+  name: "{{ bootstrap_pki__vault_pki_service_route_role_name }}"
+  allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
+  # Adds 127.0.0.1
+  allow_ip_sans: true
+  allow_subdomains: true
+  allow_wildcard_certificates: true
+  client_flag: true
+  server_flag: true
+  key_type: "ecdsa"
+  key_bits: 256
+  max_ttl: "720h"
+  ttl: "720h"
+  organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+  organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+  key_usage:
+    - "DigitalSignature"
+    - "KeyAgreement"
+    - "KeyEncipherment"
+
+bootstrap_pki__role_config__signing_cert:
+  name: "{{ bootstrap_pki__vault_pki_signing_role_name }}"
+  allowed_domains: "{{ bootstrap_pki__vault_pki_signing_allowed_domains }}"
+  allow_ip_sans: false
+  allow_subdomains: true
+  allow_wildcard_certificates: false
+  allow_other_sans: false
+  client_flag: false               # usually not client auth
+  server_flag: false               # usually not server auth
+  key_type: "{{ bootstrap_pki__vault_pki_signing_key_type }}"
+  key_bits: "{{ bootstrap_pki__vault_pki_signing_key_bits }}"
+  max_ttl: "{{ bootstrap_pki__vault_pki_signing_max_ttl }}"
+  ttl: "{{ bootstrap_pki__vault_pki_signing_ttl }}"
+  organizational_unit: "{{ bootstrap_pki__vault_pki_signing_ou }}"
+  organization: "{{ bootstrap_pki__vault_pki_signing_org }}"
+  key_usage:
+    - "CertSign" # keyCertSign – required to sign other certs
+    - "CrlSign" # required / recommended to sign CRLs
+  ext_key_usage: []
+#  ## Optional – if you also want the cert to sign OCSP responses
+#  ext_key_usage:
+#    - "OCSPSigning"            # 1.3.6.1.5.5.7.3.9
+
+bootstrap_pki__role_config__web_server:
+  name: "web-server"
+  allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
+  allow_ip_sans: true
+  allow_subdomains: true
+  key_type: "rsa"
+  key_bits: 2048
+  max_ttl: "720h"
+  ttl: "24h"
+  organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+  organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+  key_usage:
+    - "DigitalSignature"
+    - "KeyAgreement"
+    - "KeyEncipherment"
+
+bootstrap_pki__role_config__host_cert:
+  name: "{{ bootstrap_pki__vault_pki_host_role_name }}"
+  allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
+  # Host-specific; no loopback needed
+  allow_ip_sans: true
+  allow_subdomains: true
+  allow_wildcard_certificates: false
+  # For mTLS if needed
+  client_flag: true
+  server_flag: false
+  max_ttl: "720h"
+  ttl: "720h"
+  organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+  organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+  key_usage:
+    - "DigitalSignature"
+    - "KeyAgreement"
+    - "KeyEncipherment"
+
 bootstrap_pki__vault_roles:
-  - name: "web-server"
-    allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
-    allow_ip_sans: true
-    allow_subdomains: true
-    key_type: "rsa"
-    key_bits: 2048
-    max_ttl: "720h"
-    ttl: "24h"
-    organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
-    organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
-    key_usage:
-      - "DigitalSignature"
-      - "KeyAgreement"
-      - "KeyEncipherment"
-  - name: "{{ bootstrap_pki__vault_pki_service_route_role_name }}"
-    allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
-    # Adds 127.0.0.1
-    allow_ip_sans: true
-    allow_subdomains: true
-    allow_wildcard_certificates: true
-    client_flag: true
-    server_flag: true
-    key_type: "ecdsa"
-    key_bits: 256
-    max_ttl: "720h"
-    ttl: "720h"
-    organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
-    organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
-    key_usage:
-      - "DigitalSignature"
-      - "KeyAgreement"
-      - "KeyEncipherment"
-  - name: "{{ bootstrap_pki__vault_pki_host_role_name }}"
-    allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
-    # Host-specific; no loopback needed
-    allow_ip_sans: true
-    allow_subdomains: true
-    allow_wildcard_certificates: false
-    # For mTLS if needed
-    client_flag: true
-    server_flag: false
-    max_ttl: "720h"
-    ttl: "720h"
-    organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
-    organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
-    key_usage:
-      - "DigitalSignature"
-      - "KeyAgreement"
-      - "KeyEncipherment"
+  - "{{ bootstrap_pki__role_config__service_route }}"
+  - "{{ bootstrap_pki__role_config__signing_cert }}"
+  - "{{ bootstrap_pki__role_config__host_cert }}"
+  - "{{ bootstrap_pki__role_config__web_server }}"
 
 # Default CA renewal tolerance in days
 bootstrap_pki__ca_cert_renewal_tolerance_days: 30
