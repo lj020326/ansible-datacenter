@@ -1,9 +1,9 @@
 #!/bin/bash -eu
 
-MOLECULE_IMAGE_LABELS="centos7"
+MOLECULE_IMAGE_LIST="centos:10 centos:9"
 
-for MOLECULE_IMAGE_LABEL in $MOLECULE_IMAGE_LABELS; do
-  echo "*** $MOLECULE_IMAGE_LABEL"
+for MOLECULE_IMAGE_LABEL in $MOLECULE_IMAGE_LIST; do
+  echo "*** $MOLECULE_IMAGE"
   export MOLECULE_IMAGE_LABEL
   molecule test
 done

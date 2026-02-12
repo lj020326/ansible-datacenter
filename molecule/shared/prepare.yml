@@ -40,13 +40,30 @@
       ansible.builtin.debug:
         var: ansible_facts.distribution_version
 
-    - name: Display ansible_facts.pkg_mgr
-      ansible.builtin.debug:
-        var: ansible_facts.pkg_mgr
-
     - name: Display ansible_facts.service_mgr
       ansible.builtin.debug:
         var: ansible_facts.service_mgr
+
+    - name: Get systemd status # noqa command-instead-of-module
+      ansible.builtin.command: systemctl is-system-running
+      register: systemctl_status
+      changed_when: false
+      failed_when: systemctl_status.rc > 1
+
+    - name: Display systemctl_status
+      ansible.builtin.debug:
+        var: systemctl_status
+
+    - name: Assert systemctl_status is running
+      ansible.builtin.assert:
+        that: >
+          'running' in systemctl_status.stdout | d('') or
+          'starting' in systemctl_status.stdout | d('') or
+          'degraded' in systemctl_status.stdout | d('')
+
+    - name: Display ansible_facts.pkg_mgr
+      ansible.builtin.debug:
+        var: ansible_facts.pkg_mgr
 
     - name: Force upgrade systemd # noqa: package-latest
       when: ansible_facts.pkg_mgr == 'apt'
