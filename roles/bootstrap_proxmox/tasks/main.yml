@@ -31,7 +31,7 @@
   ansible.builtin.blockinfile:
     dest: /etc/hosts
     marker: "# {mark} ANSIBLE MANAGED: Proxmox Cluster Hosts"
-    content: "{% for host in groups[pve_group] %}{{ hostvars[host].pve_cluster_addr0 }} {{ hostvars[host].ansible_fqdn }} {{ hostvars[host].ansible_hostname }}\n\n
+    content: "{% for host in groups[pve_group] %}{{ hostvars[host].pve_cluster_addr0 }} {{ hostvars[host]['ansible_facts']['fqdn'] }} {{ hostvars[host]['ansible_host'] }}\n\n
       {% endfor %}"
 
 - name: Remove conflicting lines in hosts files
@@ -51,12 +51,12 @@
     backup: true
   loop: "{{ groups[pve_group] }}"
   vars:
-    _correct_line: "{{ hostvars[item].pve_cluster_addr0 }} {{ hostvars[item].ansible_fqdn }} {{ hostvars[item].ansible_hostname }}"
+    _correct_line: "{{ hostvars[item].pve_cluster_addr0 }} {{ hostvars[item]['ansible_facts']['fqdn'] }} {{ hostvars[item]['ansible_host'] }}"
     _correct_ip: "{{ hostvars[item].pve_cluster_addr0 }}"
     _match_hosts: >-
       [
-        "{{ hostvars[item].ansible_fqdn }}",
-        "{{ hostvars[item].ansible_hostname }}"
+        "{{ hostvars[item]['ansible_facts']['fqdn'] }}",
+        "{{ hostvars[item]['ansible_host'] }}"
       ]
 
 - name: Ensure gpg is installed
@@ -130,12 +130,12 @@
         filename: pve-enterprise
         state: absent
       loop:
-        - deb https://enterprise.proxmox.com/debian {{ ansible_distribution_release }} pve-enterprise
-        - deb https://enterprise.proxmox.com/debian/pve {{ ansible_distribution_release }} pve-enterprise
+        - deb https://enterprise.proxmox.com/debian {{ ansible_facts['distribution_release'] }} pve-enterprise
+        - deb https://enterprise.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-enterprise
 
     - name: Remove subscription check wrapper function in web UI
       ansible.posix.patch:
-        src: 00_remove_checked_command_{{ ansible_distribution_release }}.patch
+        src: 00_remove_checked_command_{{ ansible_facts['distribution_release'] }}.patch
         basedir: /
         strip: 1
         backup: true
@@ -158,7 +158,7 @@
 
 - name: "[TEMPFIX] Fix cluster joins on PVE 6"
   when:
-    - ansible_distribution_release == 'buster'
+    - ansible_facts['distribution_release'] == 'buster'
     - pve_cluster_enabled | bool
   ansible.posix.patch:
     src: 01_pass_correct_format_for_linkX.patch
@@ -178,30 +178,30 @@
   proxmox_role:
     name: "{{ item.name }}"
     privileges: "{{ item.privileges }}"
-    state: "{{ item.state | default('present') }}"
+    state: "{{ item.state | d('present') }}"
   loop: "{{ pve_roles }}"
 
 - name: Configure Proxmox groups
   when: not pve_cluster_enabled or (pve_cluster_enabled | bool and inventory_hostname == groups[pve_group][0])
   proxmox_group:
     name: "{{ item.name }}"
-    state: "{{ item.state | default('present') }}"
-    comment: "{{ item.comment | default(omit) }}"
+    state: "{{ item.state | d('present') }}"
+    comment: "{{ item.comment | d(omit) }}"
   loop: "{{ pve_groups }}"
 
 - name: Configure Proxmox user accounts
   when: not pve_cluster_enabled | bool or (pve_cluster_enabled | bool and inventory_hostname == groups[pve_group][0])
   proxmox_user:
     name: "{{ item.name }}"
-    state: "{{ item.state | default('present') }}"
-    enable: "{{ item.enable | default(omit) }}"
-    groups: "{{ item.groups | default([]) }}"
-    comment: "{{ item.comment | default(omit) }}"
-    email: "{{ item.email | default(omit) }}"
-    firstname: "{{ item.firstname | default(omit) }}"
-    lastname: "{{ item.lastname | default(omit) }}"
-    password: "{{ item.password | default(omit) }}"
-    expire: "{{ item.expire | default(omit) }}"
+    state: "{{ item.state | d('present') }}"
+    enable: "{{ item.enable | d(omit) }}"
+    groups: "{{ item.groups | d([]) }}"
+    comment: "{{ item.comment | d(omit) }}"
+    email: "{{ item.email | d(omit) }}"
+    firstname: "{{ item.firstname | d(omit) }}"
+    lastname: "{{ item.lastname | d(omit) }}"
+    password: "{{ item.password | d(omit) }}"
+    expire: "{{ item.expire | d(omit) }}"
   loop: "{{ pve_users }}"
 
 - name: Configure Proxmox ACLs
@@ -209,9 +209,9 @@
   proxmox_acl:
     path: "{{ item.path }}"
     roles: "{{ item.roles }}"
-    state: "{{ item.state | default('present') }}"
-    groups: "{{ item.groups | default([]) }}"
-    users: "{{ item.users | default([]) }}"
+    state: "{{ item.state | d('present') }}"
+    groups: "{{ item.groups | d([]) }}"
+    users: "{{ item.users | d([]) }}"
   loop: "{{ pve_acls }}"
 
 - name: Configure Proxmox Storage
@@ -219,27 +219,28 @@
   proxmox_storage:
     name: "{{ item.name }}"
     type: "{{ item.type }}"
-    disable: "{{ item.disable | default(False) }}"
-    path: "{{ item.path | default(omit) }}"
-    content: "{{ item.content | default([]) }}"
-    nodes: "{{ item.nodes | default(omit) }}"
-    username: "{{ item.username | default(omit) }}"
-    pool: "{{ item.pool | default(omit) }}"
-    monhost: "{{ item.monhost | default(omit) }}"
-    maxfiles: "{{ item.maxfiles | default(omit) }}"
-    krbd: "{{ item.krbd | default(omit) }}"
-    state: "{{ item.state | default('present') }}"
-    server: "{{ item.server | default(omit) }}"
-    export: "{{ item.export | default(omit) }}"
-    options: "{{ item.options | default(omit) }}"
-    vgname: "{{ item.vgname | default(omit) }}"
-    thinpool: "{{ item.thinpool | default(omit) }}"
+    disable: "{{ item.disable | d(false) }}"
+    path: "{{ item.path | d(omit) }}"
+    content: "{{ item.content | d([]) }}"
+    nodes: "{{ item.nodes | d(omit) }}"
+    username: "{{ item.username | d(omit) }}"
+    pool: "{{ item.pool | d(omit) }}"
+    monhost: "{{ item.monhost | d(omit) }}"
+    maxfiles: "{{ item.maxfiles | d(omit) }}"
+    krbd: "{{ item.krbd | d(omit) }}"
+    state: "{{ item.state | d('present') }}"
+    server: "{{ item.server | d(omit) }}"
+    export: "{{ item.export | d(omit) }}"
+    options: "{{ item.options | d(omit) }}"
+    vgname: "{{ item.vgname | d(omit) }}"
+    thinpool: "{{ item.thinpool | d(omit) }}"
   loop: "{{ pve_storages }}"
 
 - name: Check datacenter.cfg exists
   when:
     - not pve_cluster_enabled | bool or (pve_cluster_enabled | bool and inventory_hostname == groups[pve_group][0])
     - pve_datacenter_cfg | length > 0
+  no_log: true
   ansible.builtin.stat:
     path: /etc/pve/datacenter.cfg
   register: _datacenter_cfg

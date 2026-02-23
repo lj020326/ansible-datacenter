@@ -1,0 +1,47 @@
+name: Keep GitHub Actions Alive
+on:
+  # Allows manual triggering
+  workflow_dispatch:
+  # Run once a week, well before the 60-day deadline
+  schedule:
+    # Run every Sunday at 00:00 UTC
+    - cron: '0 0 * * SUN'
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+
+    # Required permission to interact with the GitHub API to re-enable workflows
+    permissions:
+      # Critical: allows enabling workflows
+      actions: write
+
+    steps:
+      # Use API to re-enable workflows (clean, no commit)
+      - name: Re-enable workflows via GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # List all workflows that are disabled (by user or inactivity)
+          # Note: GitHub API doesn't have direct ?state=disabled filter, so we fetch all and grep jq
+          disabled_workflows=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/workflows" \
+            | jq -r '.workflows[] | select(.state != "active") | .id')
+
+          if [ -z "$disabled_workflows" ]; then
+            echo "No disabled workflows found. This is normal if nothing is disabled yet."
+            exit 0
+          fi
+
+          count=0
+          for wf_id in $disabled_workflows; do
+            gh api \
+              -X PUT \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/actions/workflows/$wf_id/enable"
+            echo "Enabled workflow ID: $wf_id"
+            ((count++))
+          done
+
+          echo "Re-enabled $count workflow(s)."

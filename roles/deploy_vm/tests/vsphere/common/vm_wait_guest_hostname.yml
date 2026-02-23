@@ -22,7 +22,7 @@
     hostname: "{{ vsphere_host_name }}"
     username: "{{ vsphere_host_user }}"
     password: "{{ vsphere_host_user_password }}"
-    validate_certs: "{{ validate_certs | default(false) }}"
+    validate_certs: "{{ validate_certs | d(false) }}"
     datacenter: "{{ vsphere_host_datacenter }}"
     folder: "{{ vm_folder }}"
     name: "{{ vm_name }}"
@@ -32,13 +32,13 @@
   retries: "{{ ((vm_get_hostname_timeout | int) / 5) | int }}"
   register: vm_guest_facts
   until:
-    - vm_guest_facts.instance.guest.toolsRunningStatus | default('') == "guestToolsRunning"
-    - vm_guest_facts.instance.guest.hostName | default('')
+    - vm_guest_facts.instance.guest.toolsRunningStatus | d('') == "guestToolsRunning"
+    - vm_guest_facts.instance.guest.hostName | d('')
     - (not wait_guest_hostname) or (wait_guest_hostname and wait_guest_hostname == vm_guest_facts.instance.guest.hostName)
   ignore_errors: true
 
 - name: Display the retrieved guest info
-  when: enable_debug|d(False)|bool
+  when: enable_debug | d(false) | bool
   ansible.builtin.debug:
     var: vm_guest_facts
 
@@ -53,8 +53,8 @@
       - ((not wait_guest_hostname) or (wait_guest_hostname and wait_guest_hostname == vm_guest_facts.instance.guest.hostName))
     fail_msg: >-
       It's timed out for VMware Tools collecting guest OS hostname in {{ vm_get_hostname_timeout }} seconds.
-      Current VMware Tools running status is '{{ vm_guest_facts.instance.guest.toolsRunningStatus | default("") }}'
-      and guest OS hostname is '{{ vm_guest_facts.instance.guest.hostName | default("") }}'.
+      Current VMware Tools running status is '{{ vm_guest_facts.instance.guest.toolsRunningStatus | d("") }}'
+      and guest OS hostname is '{{ vm_guest_facts.instance.guest.hostName | d("") }}'.
 
 - name: Print VM guest OS hostname
   ansible.builtin.debug:

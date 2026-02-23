@@ -13,16 +13,19 @@ repo_download="https://$repo_host"
 repo_download_prerelease="https://rc.download.webmin.dev"
 repo_download_unstable="https://download.webmin.dev"
 repo_key="developers-key.asc"
-repo_key_download="$repo_download/$repo_key"
+repo_key_server="$repo_download"
 repo_key_suffix="webmin-developers"
+repo_key_name="Webmin Developers"
 repo_name="webmin-stable"
 repo_name_prerelease="webmin-prerelease"
 repo_name_unstable="webmin-unstable"
+repo_rpm_pathname="/download/newkey/yum"
+repo_deb_pathname="/download/newkey/repository"
 repo_component="main"
 repo_dist="stable"
 repo_section="contrib"
-repo_description="Webmin Releases"
-repo_description_prerelease="Webmin Prerelease"
+repo_description="Webmin Stable"
+repo_description_prerelease="Webmin Pre-release"
 repo_description_unstable="Webmin Unstable"
 install_check_binary="/usr/bin/webmin"
 install_message="Webmin and Usermin can be installed with:"
@@ -34,7 +37,7 @@ repo_auth_pass=""
 repo_mode="stable"
 
 download_curl="/usr/bin/curl"
-download="$download_curl -f -s -L -O"
+download="$download_curl -q -f -sS -L -O"
 force_setup=0
 
 # Colors
@@ -58,14 +61,18 @@ General options:
 
 Repository types:
   --stable                   Set up the stable repo, built with extra testing
-  --prerelease               Set up the prerelease repo built from latest tag
+  --prerelease               Set up the pre-release repo built from latest tag
   --unstable                 Set up unstable repo built from the latest commit
 
 Repository configuration:
   --host=<host>              Main repository host
-  --prerelease-host=<host>   Prerelease repository host
+  --repo-rpm-path=<path>     Repository path for RPM-based systems
+  --repo-deb-path=<path>     Repository path for DEB-based systems
+  --prerelease-host=<host>   Pre-release repository host
   --unstable-host=<host>     Unstable repository host
   --key=<key>                Repository signing key file
+  --key-server=<url>         Repository signing key download server
+  --key-name=<name>          Repository key name for display
   --key-suffix=<suffix>      Repository key suffix for file naming
   --auth-user=<user>         Repository authentication username
   --auth-pass=<pass>         Repository authentication password
@@ -107,14 +114,24 @@ process_args() {
   for arg in "$@"; do
     case "$arg" in
       --stable) repo_mode="stable" ;;
-      --prerelease|--rc) repo_mode="prerelease" ;;
+      --prerelease|--pre-release|--rc) repo_mode="prerelease" ;;
       --unstable|--testing|-t) repo_mode="unstable" ;;
       -f|--force) force_setup=1 ;;
       -h|--help) usage ;;
       --host=*)
         repo_host="${arg#*=}"
         repo_download="https://$repo_host"
-        repo_key_download="$repo_download/$repo_key"
+        repo_key_server="$repo_download"
+        ;;
+      --repo-rpm-path=*)
+        repo_rpm_pathname="${arg#*=}"
+        [ "$repo_rpm_pathname" = "/" ] && repo_rpm_pathname=""
+        repo_rpm_pathname_set=1
+        ;;
+      --repo-deb-path=*)
+        repo_deb_pathname="${arg#*=}"
+        [ "$repo_deb_pathname" = "/" ] && repo_deb_pathname=""
+        repo_deb_pathname_set=1
         ;;
       --prerelease-host=*)
         repo_download_prerelease="https://${arg#*=}"
@@ -124,7 +141,14 @@ process_args() {
         ;;
       --key=*)
         repo_key="${arg#*=}"
-        repo_key_download="$repo_download/$repo_key"
+        ;;
+      --key-server=*)
+        key_server="${arg#*=}"
+        key_server="${key_server%/}"
+        repo_key_server="$key_server"
+        ;;
+      --key-name=*)
+        repo_key_name="${arg#*=}"
         ;;
       --key-suffix=*)
         repo_key_suffix="${arg#*=}"
@@ -143,14 +167,14 @@ process_args() {
         ;;
       --name=*)
         base_name="${arg#*=}"
-        repo_name="$base_name"
+        repo_name="${base_name}-stable"
         repo_name_prerelease="${base_name}-prerelease"
         repo_name_unstable="${base_name}-unstable"
         ;;
       --description=*)
         base_description="${arg#*=}"
-        repo_description="$base_description Releases"
-        repo_description_prerelease="${base_description} Prerelease"
+        repo_description="$base_description Stable"
+        repo_description_prerelease="${base_description} Pre-release"
         repo_description_unstable="${base_description} Unstable"
         ;;
       --component=*)
@@ -289,18 +313,22 @@ set_os_variables() {
 }
 
 ask_confirmation() {
-    repo_desc_formatted=$(echo "$active_repo_description" | \
-      sed 's/\([^ ]*\)\(.*\)/\1\L\2/')
+  # Format description so only the first word keeps its case and the rest is
+  # lowercased
+  repo_desc_formatted=$(echo "$active_repo_description" | \
+    sed 's/\([^ ]*\)\(.*\)/\1\L\2/')
+
+  # Show special messages for prerelease and unstable repos
   case "$repo_mode" in
     prerelease)
       printf \
-"\e[47;1;31;82mPrerelease builds are automated from the latest tagged release\e[0m\n"
+"\e[48;5;236;38;5;208;1mPre-release builds are automated from the latest tagged release\e[0m\n"
       ;;
     unstable)
       printf \
-"\e[47;1;31;82mUnstable builds are automated experimental versions designed for\e[0m\n"
-    printf \
-"\e[47;1;31;82mdevelopment, often containing critical bugs and breaking changes\e[0m\n"
+"\e[48;5;236;38;5;160;1mUnstable builds are automated experimental versions designed for\e[0m\n"
+      printf \
+"\e[48;5;236;38;5;160;1mdevelopment, often containing critical bugs and breaking changes\e[0m\n"
       ;;
   esac
   if [ "$force_setup" != "1" ]; then
@@ -381,10 +409,16 @@ enforce_package_priority() {
 }
 
 download_key() {
-  rm -f "/tmp/$repo_key"
-  echo "  Downloading Webmin developers key .."
-  download_out=$($download "$repo_key_download" 2>&1)
-  post_status $? "$(echo "$download_out" | tr '\n' ' ')"
+  echo "  Downloading $repo_key_name key .."
+  for key in $repo_key; do
+    rm -f "/tmp/$key"
+    download_out=$($download "$repo_key_server/$key" 2>&1)
+    if [ $? -ne 0 ]; then
+      post_status 1 "$(printf '%s : %s' "$repo_key_server/$key" "$download_out" | tr '\n' ' ')"
+    fi
+  done
+
+  post_status 0 ""
 }
 
 rpm_repo_prefs() {
@@ -397,8 +431,24 @@ rpm_repo_prefs() {
 }
 
 setup_repos() {
+  # Format description so only the first word keeps its case and the rest is
+  # lowercased
   repo_desc_formatted=$(echo "$active_repo_description" | \
       sed 's/\([^ ]*\)\(.*\)/\1\L\2/')
+
+  # Defaults for unstable and prerelease repos when no custom paths are set
+  case "$repo_mode" in
+    prerelease|unstable)
+      if [ -z "$repo_rpm_pathname_set" ]; then
+        repo_rpm_pathname=""
+        repo_rpm_pathname_set=1
+      fi
+      if [ -z "$repo_deb_pathname_set" ]; then
+        repo_deb_pathname=""
+        repo_deb_pathname_set=1
+      fi
+      ;;
+  esac
 
   # Construct auth URL if credentials provided
   repo_auth_url="$active_repo_download"
@@ -410,11 +460,18 @@ setup_repos() {
 
   case "$package_type" in
     rpm)
-      echo "  Installing Webmin developers key .."
-      rpm --import "$repo_key"
+      echo "  Installing $repo_key_name key .."
       mkdir -p "/etc/pki/rpm-gpg"
-      cp -f "$repo_key" \
-        "/etc/pki/rpm-gpg/RPM-GPG-KEY-$repo_key_suffix"
+      combined_key="/etc/pki/rpm-gpg/RPM-GPG-KEY-$repo_key_suffix"
+      # Build a single keyring file from all the key files, making sure each key
+      # ends with a newline so armor blocks stay separated
+      {
+        for key in $repo_key; do
+          cat "$key"
+          printf '\n'
+        done
+      } > "$combined_key"
+      rpm --import "$combined_key"
       echo "  .. done"
       # Configure packages extra preferences if given
       if [ -n "$repo_pkg_prefs" ]; then
@@ -444,14 +501,14 @@ setup_repos() {
       fi
       # Configure the repository
       echo "  Setting up ${repo_desc_formatted} repository .."
-      if [ "$repo_mode" = "stable" ]; then
-        repo_url="$active_repo_download/download/newkey/yum"
+      if [ -z "$repo_rpm_pathname_set" ]; then
+        repo_url="$active_repo_download$repo_rpm_pathname"
       else
-        repo_url="$repo_auth_url"
+        repo_url="$repo_auth_url$repo_rpm_pathname"
       fi
       repo_extra_opts_caller=$(rpm_repo_prefs)
       cat << EOF > "$rpm_repo_file"
-[$active_repo_name-noarch]
+[$active_repo_name]
 name=$active_repo_description
 baseurl=$repo_url
 enabled=1
@@ -472,11 +529,19 @@ EOF
       rm -f \
 "/usr/share/keyrings/debian-$repo_key_suffix.gpg" \
 "/usr/share/keyrings/$repoid_debian_like-$repo_key_suffix.gpg"
-      echo "  Installing Webmin developers key .."
-      gpg --import "$repo_key" 1>/dev/null 2>&1
-      gpg --dearmor < "$repo_key" \
-        > "/usr/share/keyrings/$repoid_debian_like-$repo_key_suffix.gpg"
+      echo "  Installing $repo_key_name key .."
+      combined_keyring="/usr/share/keyrings/$repoid_debian_like-$repo_key_suffix.gpg"
+      # Build a single keyring file from all the key files, making sure each key
+      # ends with a newline so armor blocks stay separated
+      {
+        for key in $repo_key; do
+          cat "$key"
+          printf '\n'
+        done
+      } | gpg --dearmor > "$combined_keyring"
       post_status $?
+      # Set correct permissions on the repo key in case the system uses a restrictive umask
+      chmod 644 "/usr/share/keyrings/$repoid_debian_like-$repo_key_suffix.gpg"
       sources_list=$(grep -v "$repo_host" /etc/apt/sources.list)
       echo "$sources_list" > /etc/apt/sources.list
       # Configure packages priority if provided
@@ -523,12 +588,12 @@ EOF
       fi
       # Configure the repository
       echo "  Setting up ${repo_desc_formatted} repository .."
-      if [ "$repo_mode" = "stable" ]; then
+      if [ -z "$repo_deb_pathname_set" ]; then
         repo_line="deb [signed-by=/usr/share/keyrings/$repoid_debian_like-$repo_key_suffix.gpg] \
-$active_repo_download/download/newkey/repository $repo_dist $repo_section"
+$active_repo_download$repo_deb_pathname $repo_dist $repo_section"
       else
         repo_line="deb [signed-by=/usr/share/keyrings/$repoid_debian_like-$repo_key_suffix.gpg] \
-$active_repo_download $repo_dist $repo_component"
+$active_repo_download$repo_deb_pathname $repo_dist $repo_component"
       fi
       echo "$repo_line" > "$debian_repo_file"
 

@@ -13,11 +13,14 @@
 - name: Webmin | Download webmin modules
   ansible.builtin.get_url:
     url: "{{ item.url }}"
-    dest: "{{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
+    dest: "{{ __webmin_downloads_tempdir.path }}/{{ item.url | basename }}"
     validate_certs: false
     mode: "0644"
   loop: "{{ bootstrap_webmin__modules }}"
   register: __webmin_modules_download_result
+  until: __webmin_modules_download_result is succeeded
+  retries: 3
+  delay: 10
 
 - name: Webmin | Display __webmin_modules_download_result
   ansible.builtin.debug:
@@ -28,7 +31,7 @@
 - name: Webmin | Install webmin modules
   environment:
     PERL_MM_USE_DEFAULT: "{{ bootstrap_webmin__perl_mm_use_default }}"
-  ansible.builtin.command: "{{ bootstrap_webmin__base_dir }}/install-module.pl {{ __webmin_downloads_tempdir.path }}/{{ item.url|basename }}"
+  ansible.builtin.command: "{{ bootstrap_webmin__base_dir }}/install-module.pl {{ __webmin_downloads_tempdir.path }}/{{ item.url | basename }}"
   loop: "{{ bootstrap_webmin__modules }}"
   register: __webmin_modules_install_result
   notify: Restart webmin

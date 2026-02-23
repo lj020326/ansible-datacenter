@@ -2,23 +2,23 @@
 - name: Add the OS specific varibles
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
+    - "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_major_version']}}.yml"
+    - "{{ ansible_facts['distribution'] }}.yml"
+    - "{{ ansible_facts['os_family'] }}.yml"
     - default.yml
 
 # Setup/install OS specific tasks.
 - name: Include specific tasks for the OS family
-  ansible.builtin.include_tasks: setup-{{ ansible_os_family }}.yml
+  ansible.builtin.include_tasks: setup-{{ ansible_facts['os_family'] }}.yml
 
 ## ref: https://github.com/ome/ansible-role-network/blob/master/tasks/main.yml
 - name: Create the network configuration file for network interface devices
   ansible.builtin.template:
     backup: true
-    src: ifcfg_{{ ansible_os_family }}.j2
+    src: ifcfg_{{ ansible_facts['os_family'] }}.j2
     dest: "{{ net_path }}/ifcfg-{{ item.device }}"
     mode: "0644"
-  loop: "{{ bootstrap_linux_network_interfaces | default([]) }}"
+  loop: "{{ bootstrap_linux_network_interfaces | d([]) }}"
   notify:
     - restart network
   register: ifcfg_result

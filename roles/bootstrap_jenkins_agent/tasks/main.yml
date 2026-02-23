@@ -2,9 +2,9 @@
 - name: Set OS specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution|lower() }}-{{ ansible_distribution_major_version|lower() }}.yml"
-    - "{{ ansible_distribution|lower() }}.yml"
-    - "{{ ansible_os_family|lower() }}.yml"
+    - "{{ ansible_facts['distribution'] | lower() }}-{{ ansible_facts['distribution_major_version'] | lower() }}.yml"
+    - "{{ ansible_facts['distribution'] | lower() }}.yml"
+    - "{{ ansible_facts['os_family'] | lower() }}.yml"
     - default.yml
 
 - name: Display primary role input variables
@@ -19,17 +19,90 @@
       - jenkins_agent__remoting_dir={{ jenkins_agent__remoting_dir }}
 
 - name: Register agent node with Jenkins controller
-  when: jenkins_agent__register_with_controller|d(True)|bool
+  when: jenkins_agent__register_with_controller | d(true) | bool
   delegate_to: localhost
   vars:
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
   ansible.builtin.import_tasks: register_agent.yml
 
-- name: Running Jenkins Agent install tasks for {{ ansible_os_family|lower() }}
-  ansible.builtin.include_tasks: "{{ task_file }}"
-  with_first_found:
-    - "{{ ansible_distribution|lower() }}-{{ ansible_distribution_major_version|lower() }}.yml"
-    - "{{ ansible_distribution|lower() }}.yml"
-    - "{{ ansible_os_family|lower() }}.yml"
-  loop_control:
-    loop_var: task_file
+- name: Set agent password from registration
+  when:
+    - jenkins_agent__register_with_controller | bool
+    - hostvars['localhost'] is defined
+    - hostvars['localhost']['__jenkins_agent__password'] is defined
+  ansible.builtin.set_fact:
+    __jenkins_agent__password: "{{ hostvars['localhost']['__jenkins_agent__password'] | default('') }}"
+
+- name: Add a jenkins group
+  ansible.builtin.group:
+    name: jenkins
+    state: present
+
+- name: Add a jenkins user
+  ansible.builtin.user:
+    name: jenkins
+    state: present
+
+- name: Add jenkins user to jenkins user groups
+  when: jenkins_agent__jenkins_user_groups | d([]) | length > 0
+  ansible.builtin.user:
+    name: jenkins
+    groups: "{{ jenkins_agent__jenkins_user_groups }}"
+    append: true
+    state: present
+
+- name: Create Jenkins-Agent directory
+  ansible.builtin.file:
+    path: "{{ jenkins_agent__path }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure Jenkins Agent config directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ jenkins_agent__systemd_path }}"
+    - "{{ jenkins_agent__path }}"
+    - "{{ jenkins_agent__work_dir }}"
+    - "{{ jenkins_agent__remoting_dir }}"
+
+- name: Download the Jenkins Agent
+  ansible.builtin.get_url:
+    url: "{{ jenkins_agent__download_url }}"
+    dest: "{{ jenkins_agent__path }}"
+    owner: jenkins
+    group: jenkins
+    validate_certs: "{{ jenkins_agent__validate_certs }}"
+    mode: "0755"
+  notify:
+    - Restart Jenkins Agent service
+  register: jenkins_agent_jar
+
+- name: Ensure {{ jenkins_agent__password_file }} file exists
+  when:
+    - jenkins_agent__password_file is defined
+    - __jenkins_agent__password is defined
+  ansible.builtin.template:
+    src: jenkins-agent-password.conf.j2
+    dest: "{{ jenkins_agent__password_file }}"
+    owner: jenkins
+    group: jenkins
+    mode: "0400"
+    backup: true
+  notify: Restart Jenkins Agent service
+
+- name: Ensure Jenkins Agent service definition
+  ansible.builtin.template:
+    src: jenkins-agent.service.j2
+    dest: "{{ jenkins_agent__systemd_service_dir }}/{{ jenkins_agent__service_name }}.service"
+    mode: "0644"
+    force: "{{ jenkins_agent__service_force_update | bool }}"
+  notify:
+    - Reload Systemd
+    - Restart Jenkins Agent service
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+  no_log: true

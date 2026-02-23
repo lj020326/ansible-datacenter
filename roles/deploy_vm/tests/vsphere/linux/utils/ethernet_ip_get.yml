@@ -28,7 +28,7 @@
         ethernets: {}
 
     - name: Get IPv4 address of {{ eth_dev | default('all ethernet interfaces') }}
-      ansible.builtin.shell: ip -br addr show {{ eth_dev | default('') }} | grep -v lo | grep -v virbr | awk 'BEGIN { FS="[ |/]+" } {print $1,$2,$3,$4}'
+      ansible.builtin.shell: ip -br addr show {{ eth_dev | d('') }} | grep -v lo | grep -v virbr | awk 'BEGIN { FS="[ |/]+" } {print $1,$2,$3,$4}'
       register: result
       delegate_to: "{{ vm_guest_ip }}"
 
@@ -46,7 +46,7 @@
       ansible.builtin.debug:
         var: ethernets
 - name: Get IP address in guest
-  when: all_ip is defined and all_ip
+  when: all_ip | d('') | length > 0
   block:
     - name: Get IP in guest
       ansible.builtin.shell: ip -br addr show | grep -v lo  | grep -v virbr | awk '{OFS="\n";i=3; while (i<=NF) {print $i; i++}}' | grep '/' | cut -d '/' -f 1
@@ -59,4 +59,4 @@
 
     - ansible.builtin.debug:
         var: all_ip_in_guest
-      when: enable_debug|d(False)|bool
+      when: enable_debug | d(false) | bool

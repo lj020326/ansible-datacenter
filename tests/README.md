@@ -125,15 +125,27 @@ $ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_s
 ### Run `tag-based` `site.yml` plays on hosts
 
 ```shell
-$ runme.sh site.yml -t deploy-cacerts -l admin01
-$ runme.sh site.yml -t bootstrap-linux -l admin01
-$ runme.sh site.yml -t bootstrap-webmin -l admin01
-$ runme.sh site.yml -t bootstrap-docker -l admin01
-$ runme.sh site.yml -t bootstrap-docker-stack -l admin01
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_control
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_openldap
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_jenkins_jcac
-$ runme.sh site.yml -t bootstrap-docker-stack -l docker_stack_media
+## for control node certs - skip ansible_ping_test
+$ runme.sh -t bootstrap-pki -l ca_keystore site.yml
+## OR run manual cert creation using cfssl
+$ runme.sh -t bootstrap-ca-certs -l ca_keystore site.yml
+$ runme.sh -t deploy-ca-certs -l admin01 site.yml
+$ UPGRADE_GALAXY_COLLECTIONS=1 runme.sh -v -t deploy-ca-certs -l admin01 site.yml
+$ runme.sh -t deploy-ca-certs --skip-tags=always site.yml
+$ runme.sh -t bootstrap-docker-admin -l docker_stack_control_admin site.yml
+## no vault ca certs setup
+$ runme.sh -t bootstrap-certs -l ca_keystore site.yml
+$ runme.sh -t deploy-certs --skip-tags=always -l admin01 site.yml
+$ runme.sh -t bootstrap-linux -l admin01 site.yml
+$ runme.sh -t bootstrap-pip -l admin01 site.yml
+$ runme.sh -t bootstrap-webmin -l admin01 site.yml
+$ runme.sh -t bootstrap-docker -l admin01 site.yml
+$ runme.sh -t bootstrap-docker-stack -l admin01 site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_control site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_openldap site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_jenkins_jcac site.yml
+$ runme.sh -t bootstrap-docker-stack -l docker_stack_media site.yml
+$ runme.sh -vvv -t bootstrap-docker -l admin01 site.yml
 ```
 
 ### Run playbook
@@ -248,41 +260,41 @@ The molecule tests below use the [python enabled docker systemd images defined h
 $ git clone https://github.com/lj020326/ansible-datacenter.git
 $ cd ansible-datacenter
 $ pip install -r requirements.molecule.txt
-$ export MOLECULE_IMAGE_LABEL=redhat7
+$ export MOLECULE_IMAGE=systemd-python-redhat:10
 $ molecule create
 $ molecule login
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package
+$ MOLECULE_IMAGE=systemd-python-redhat:9 molecule --debug test -s bootstrap-linux-package
 $ molecule --debug test -s bootstrap-linux-package
 $ molecule destroy
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap-linux-package --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
+$ MOLECULE_IMAGE=systemd-python-redhat:9 molecule --debug test -s bootstrap-linux-package --destroy never
+$ MOLECULE_IMAGE=systemd-python-redhat:9 molecule login
 $ molecule destroy
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule converge --destroy never
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule login
+$ MOLECULE_IMAGE=systemd-python-centos:10 molecule converge --destroy never
+$ MOLECULE_IMAGE=systemd-python-centos:10 molecule login
 $ molecule destroy
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python --debug converge
+$ MOLECULE_IMAGE=systemd-python-centos:9 --debug converge
 $ molecule destroy
-$ MOLECULE_IMAGE_LABEL=ubuntu2004-systemd-python converge
+$ MOLECULE_IMAGE=systemd-python-ubuntu:24.04 converge
 $ molecule destroy
-$ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python --debug converge
+$ MOLECULE_IMAGE=systemd-python-ubuntu:22.04 --debug converge
 
 ```
 
 Testing with scenarios:
 ```shell
-$ tests/molecule_exec.sh centos7 converge
+$ tests/molecule_exec.sh systemd-python-centos:10 converge
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap-linux
+$ tests/molecule_exec.sh systemd-python-centos:10 converge -s bootstrap-linux
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap-linux-package
+$ tests/molecule_exec.sh systemd-python-centos:10 converge -s bootstrap-linux-package
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap-pip
+$ tests/molecule_exec.sh systemd-python-centos:10 converge -s bootstrap-pip
 $ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
+$ tests/molecule_exec.sh systemd-python-centos:10 --debug converge
 $ molecule destroy
-$ tests/molecule_exec.sh ubuntu2004 converge
+$ tests/molecule_exec.sh systemd-python-ubuntu:24.04 converge
 $ molecule destroy
-$ tests/molecule_exec.sh ubuntu2204 --debug converge
+$ tests/molecule_exec.sh systemd-python-ubuntu:22.04 --debug converge
 $ molecule destroy
 
 ```
@@ -291,23 +303,23 @@ To log into container
 
 ```shell
 $ molecule destroy
-$ tests/molecule_exec.sh redhat7 create
-$ tests/molecule_exec.sh redhat7 login
+$ tests/molecule_exec.sh systemd-python-redhat:10 create
+$ tests/molecule_exec.sh systemd-python-redhat:10 login
 ```
 
 ```shell
 $ molecule destroy
-$ tests/molecule_exec.sh redhat7 converge
+$ tests/molecule_exec.sh systemd-python-redhat:10 converge
 $ molecule destroy
-$ tests/molecule_exec.sh debian8 converge
+$ tests/molecule_exec.sh systemd-python-debian:12 converge
 $ molecule destroy
-$ tests/molecule_exec.sh centos7 converge
+$ tests/molecule_exec.sh systemd-python-centos:10 converge
 $ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
+$ tests/molecule_exec.sh systemd-python-centos:10 --debug converge
 $ molecule destroy
-$ tests/molecule_exec.sh ubuntu2004 converge
+$ tests/molecule_exec.sh systemd-python-ubuntu:24.04 converge
 $ molecule destroy
-$ tests/molecule_exec.sh ubuntu2204 --debug converge
+$ tests/molecule_exec.sh systemd-python-ubuntu:22.04 --debug converge
 
 ```
 

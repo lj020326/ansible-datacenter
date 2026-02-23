@@ -1,0 +1,33 @@
+#jinja2: trim_blocks:False
+{%- if not bootstrap_etcd__settings['discovery-srv'] %}
+{%- macro cluster_hosts() -%}
+{%- for host in groups[bootstrap_etcd__ansible_group] -%}
+{{ hostvars[host]['ansible_facts']['hostname'] }}=https://{{ hostvars[host]['ansible_' + bootstrap_etcd__interface].ipv4.address }}:{{ bootstrap_etcd__peer_port }}{% if not loop.last %},{% endif %}
+{%- endfor -%} 
+{%- endmacro -%}
+{%- set bootstrap_etcd__settings = bootstrap_etcd__settings | combine({'initial-cluster': cluster_hosts()}) -%}
+{%- set bootstrap_etcd__settings = bootstrap_etcd__settings | dict2items | rejectattr('key', 'equalto', 'discovery-srv') | items2dict -%}
+{%- endif %}
+[Unit]
+Description=etcd
+Documentation=https://github.com/etcd-io/etcd/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+{%- for setting in bootstrap_etcd__service_options %}
+{{ setting }}
+{%- endfor %}
+{% if bootstrap_etcd__allow_unsupported_archs %}
+Environment=ETCD_UNSUPPORTED_ARCH={{ bootstrap_etcd__architecture }}
+{% endif %}
+ExecStart={{ bootstrap_etcd__bin_dir }}/etcd \
+{%- for setting in bootstrap_etcd__settings | sort %}
+  --{{ setting }}="{{ bootstrap_etcd__settings[setting] }}" {% if not loop.last %}\{% endif %}
+{%- endfor %}
+Restart=on-failure
+RestartSec=5
+Type=notify
+
+[Install]
+WantedBy=multi-user.target

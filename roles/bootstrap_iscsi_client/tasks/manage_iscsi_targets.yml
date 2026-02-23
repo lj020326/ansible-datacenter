@@ -29,14 +29,14 @@
     line: '{{ item.key + " = " + item.value }}'
     state: present
   with_dict: "{{ bootstrap_iscsi_client__default_options }}"
-  when: item|d(False) and item.value
-#  no_log: True
+  when: item | d(false) and item.value
+  no_log: true
 
 #- name: Setup iSCSI Initiator name
 #  ansible.builtin.lineinfile:
 #    dest: "/etc/iscsi/initiatorname.iscsi"
 #    regexp: "^InitiatorName="
-#    line: "InitiatorName={{ custom_iscsi_initiator_name is defined|ternary(custom_iscsi_initiator_name,iscsi_initiator_name) }}"
+#    line: "InitiatorName={{ custom_iscsi_initiator_name is defined | ternary(custom_iscsi_initiator_name,iscsi_initiator_name) }}"
 #  notify: restart iscsid
 
 - name: Restart iSCSI service if initial configuration changed
@@ -44,7 +44,7 @@
     name: "{{ bootstrap_iscsi_client__system_info[ansible_os_family].service_name }}"
     state: restarted
   when:
-    - bootstrap_iscsi_client__enabled|bool
+    - bootstrap_iscsi_client__enabled | bool
     - __iscsi__register_initiatorname is defined
     - __iscsi__register_initiatorname is changed
 
@@ -54,7 +54,7 @@
   args:
     creates: /etc/iscsi/ifaces/{{ item }}
   loop: "{{ bootstrap_iscsi_client__interfaces }}"
-  when: (bootstrap_iscsi_client__interfaces|d(False) and item in ansible_interfaces)
+  when: (bootstrap_iscsi_client__interfaces | d(false) and item in ansible_facts['interfaces'])
 
 - name: Printing related variables
   ansible.builtin.debug:
@@ -72,10 +72,10 @@
     port: "3260"
   loop: "{{ bootstrap_iscsi_client__portals }}"
   register: __iscsi__register_discover_targets
-  when: bootstrap_iscsi_client__portals|d(False)
+  when: bootstrap_iscsi_client__portals | d(false)
 
 #- name: "Debian specific setup"
-#  when: ansible_os_family == 'Debian'
+#  when: ansible_facts['os_family'] == 'Debian'
 #  block:
 #    - name: Discover iSCSI targets on portals
 #      community.general.open_iscsi:
@@ -86,23 +86,23 @@
 #      register: __iscsi__register_discover_targets
 #    #  when: (bootstrap_iscsi_client__portals and (ansible_local.iscsi.discovered_portals is undefined or
 #    #          item not in ansible_local.iscsi.discovered_portals))
-#      when: (bootstrap_iscsi_client__portals|d(False) and (ansible_local|d() and ansible_local.iscsi|d() and
+#      when: (bootstrap_iscsi_client__portals | d(false) and (ansible_local | d() and ansible_local.iscsi | d() and
 #             ansible_local.iscsi.discovered_portals is undefined or
 #             (item not in ansible_local.iscsi.discovered_portals)))
 
 - name: Log in to specified iSCSI targets
   community.general.open_iscsi:
     target: "{{ item.target }}"
-    login: "{{ False if (not item.login|d(True)) else True }}"
-    node_auth: '{{ "CHAP" if (item.auth|d(False)) else omit }}'
-    node_user: "{{ item.auth_username if (item.auth|d(False)) else omit }}"
-    node_pass: "{{ item.auth_password if (item.auth|d(False)) else omit }}"
-    auto_node_startup: "{{ False if (not item.auto|d(True)) else True }}"
-    port: "{{ item.port if (item.port|d(False)) else omit }}"
+    login: "{{ False if (not item.login | d(true)) else True }}"
+    node_auth: '{{ "CHAP" if (item.auth | d(false)) else omit }}'
+    node_user: "{{ item.auth_username if (item.auth | d(false)) else omit }}"
+    node_pass: "{{ item.auth_password if (item.auth | d(false)) else omit }}"
+    auto_node_startup: "{{ False if (not item.auto | d(true)) else True }}"
+    port: "{{ item.port if (item.port | d(false)) else omit }}"
   loop: "{{ bootstrap_iscsi_client__targets }}"
   register: __iscsi__register_targets
-  when: bootstrap_iscsi_client__targets|d()
-#  no_log: True
+  when: bootstrap_iscsi_client__targets | d()
+  no_log: true
 
 - name: Make sure that local facts directory exists
   ansible.builtin.file:
@@ -126,13 +126,13 @@
 #  loop:
 #    - { key: "iscsi__register_targets", value: "{{ bootstrap_iscsi_client__register_targets }}" }
 #    - { key: "ansible_local", value: "{{ ansible_local }}" }
-#    - { key: "ansible_local.tags|d()", value: "{{ ansible_local.tags|d() }}" }
+#    - { key: "ansible_local.tags | d()", value: "{{ ansible_local.tags | d() }}" }
 
 #- name: Manage LVM
 #  ansible.builtin.include_tasks: manage_lvm.yml
 
-#  when: (ansible_local|d() and ((ansible_local.tags|d() and 'ignore-cap12s' in ansible_local.tags) or
-#         (ansible_local.cap12s|d() and (not ansible_local.cap12s.enabled | bool or
+#  when: (ansible_local | d() and ((ansible_local.tags | d() and 'ignore-cap12s' in ansible_local.tags) or
+#         (ansible_local.cap12s | d() and (not ansible_local.cap12s.enabled | bool or
 #          (ansible_local.cap12s.enabled | bool and 'cap_sys_admin' in ansible_local.cap12s.list)))))
 
 #- name: DebOps post_tasks hook

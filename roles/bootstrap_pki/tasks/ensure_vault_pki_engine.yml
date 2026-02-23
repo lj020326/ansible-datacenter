@@ -1,0 +1,527 @@
+---
+# Task file for ensuring Vault PKI secrets engine configuration
+# Called after pki CA cert creation for pki CA setup
+
+- name: "ensure-vault-pki-engine : Set facts for CA configuration"
+  ansible.builtin.set_fact:
+    # Points to the .chain.pem created in the previous step
+    __ca_chain_pem_path: "{{ bootstrap_pki__ca_dir }}/{{ __bootstrap_pki__vault_cert_basename }}.chain.pem"
+    __ca_pem_path: "{{ bootstrap_pki__ca_dir }}/{{ __bootstrap_pki__vault_cert_basename }}.pem"
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Display CA configuration"
+  ansible.builtin.debug:
+    msg:
+      - "__ca_chain_pem_path: {{ __ca_chain_pem_path }}"
+      - "__ca_pem_path: {{ __ca_pem_path }}"
+
+- name: "ensure-vault-pki-engine : Read current pki CA certificate"
+  no_log: true
+  ansible.builtin.uri:
+    url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_api_version }}/{{ bootstrap_pki__vault_mount_path }}/ca/pem"
+    method: GET
+    headers:
+      X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+    validate_certs: false
+    return_content: true
+    status_code: [200, 404]
+  register: __vault_ca_cert
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: "ensure-vault-pki-engine : Display __vault_ca_cert.status"
+  ansible.builtin.debug:
+    var: __vault_ca_cert.status | d(0)
+
+- name: "ensure-vault-pki-engine : Debug missing Vault PKI mount"
+  when: __vault_ca_cert.status | d(0) == 404
+  ansible.builtin.debug:
+    msg: "Vault PKI mount at {{ bootstrap_pki__vault_mount_path }} does not exist yet. It will be created in subsequent tasks."
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Display __vault_ca_cert"
+  when: __vault_ca_cert.status | d(0) not in [200, 404]
+  ansible.builtin.debug:
+    var: __vault_ca_cert
+    verbosity: 1
+
+- name: "ensure-vault-pki-engine : Slurp local pki CA cert chain content"
+  no_log: true
+  ansible.builtin.slurp:
+    src: "{{ __ca_chain_pem_path }}"
+  register: __local_ca_cert_chain_content
+  delegate_to: "{{ inventory_hostname }}"
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Slurp local pki CA cert content"
+  no_log: true
+  ansible.builtin.slurp:
+    src: "{{ __ca_pem_path }}"
+  register: __local_ca_cert_content
+  delegate_to: "{{ inventory_hostname }}"
+  run_once: true
+
+- name: "ensure-vault-pki-engine : Initialize __pki_update_required"
+  ansible.builtin.set_fact:
+    __pki_update_required: "{{ __vault_ca_cert.status | d(0) != 200 }}"
+
+- name: "ensure-vault-pki-engine : Compare local pki cert with vault pki cert"
+  when: __vault_ca_cert.status | d(0) == 200
+  block:
+    - name: "ensure-vault-pki-engine : Display __vault_ca_cert.content"
+      ansible.builtin.debug:
+        var: __vault_ca_cert.content | trim
+        verbosity: 1
+
+    - name: "ensure-vault-pki-engine : Display __local_ca_cert_chain_content.content"
+      ansible.builtin.debug:
+        var: __local_ca_cert_chain_content.content | b64decode | trim
+        verbosity: 1
+
+    - name: "ensure-vault-pki-engine : Get info from Vault certificate"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        content: "{{ __vault_ca_cert.content | trim }}"
+      register: __vault_cert_info
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Get info from local certificate"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        content: "{{ __local_ca_cert_content.content | b64decode | trim }}"
+      register: __local_cert_info
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display fingerprints.sha256 for local/vault pki cert"
+      ansible.builtin.debug:
+        msg:
+          - "__local_cert_info.fingerprints.sha256: {{ __local_cert_info.fingerprints.sha256 }}"
+          - "__local_cert_info.fingerprints.sha256: {{ __local_cert_info.fingerprints.sha256 }}"
+
+    - name: "ensure-vault-pki-engine : Determine if Vault update is required"
+      ansible.builtin.set_fact:
+        __pki_update_required: "{{ __vault_cert_info.fingerprints.sha256 != __local_cert_info.fingerprints.sha256 }}"
+
+- name: "ensure-vault-pki-engine : Display __pki_update_required"
+  ansible.builtin.debug:
+    var: __pki_update_required
+
+- name: "ensure-vault-pki-engine : Update the vault pki certificate"
+  when: __pki_update_required
+  block:
+    - name: "ensure-vault-pki-engine : Check if pki CA secrets engine exists"
+      no_log: true
+      community.hashi_vault.vault_read:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "sys/mounts/{{ bootstrap_pki__vault_mount_path }}"
+        validate_certs: false
+      register: __pki_mount_status
+      delegate_to: localhost
+      run_once: true
+      ignore_errors: true
+
+    - name: "ensure-vault-pki-engine : Display __pki_mount_status"
+      ansible.builtin.debug:
+        var: __pki_mount_status
+
+    - name: "ensure-vault-pki-engine : Set fact for PKI mount existence"
+      ansible.builtin.set_fact:
+        __pki_mount_exists: "{{ (not __pki_mount_status.failed | d(true))
+          and __pki_mount_status.data is defined and __pki_mount_status.data.type == 'pki' }}"
+
+    - name: "ensure-vault-pki-engine : Debug PKI mount status"
+      ansible.builtin.debug:
+        msg: "PKI Mount '{{ bootstrap_pki__vault_mount_path }}' exists: {{ __pki_mount_exists }}"
+
+    - name: "ensure-vault-pki-engine : Enable PKI secrets engine in Vault"
+      when: not __pki_mount_exists
+      block:
+        - name: "ensure-vault-pki-engine : Enable PKI secrets engine in Vault"
+          no_log: true
+          community.hashi_vault.vault_write:
+            url: "{{ bootstrap_pki__vault_url }}"
+            token: "{{ bootstrap_pki__vault_token }}"
+            path: "sys/mounts/{{ bootstrap_pki__vault_mount_path }}"
+            data:
+              type: pki
+              description: "PKI secrets engine for {{ bootstrap_pki__vault_mount_path }}"
+              config:
+                default_lease_ttl: "{{ bootstrap_pki__ca_cert_duration_default }}"
+                max_lease_ttl: "{{ bootstrap_pki__ca_cert_duration_default }}"
+            validate_certs: false
+          register: __pki_write_secrets_res
+          delegate_to: localhost
+          run_once: true
+
+        - name: "ensure-vault-pki-engine : Display __pki_write_secrets_res"
+          ansible.builtin.debug:
+            var: __pki_write_secrets_res
+
+        - name: "ensure-vault-pki-engine : Retry Check for pki CA secrets engine"
+          no_log: true
+          community.hashi_vault.vault_read:
+            url: "{{ bootstrap_pki__vault_url }}"
+            token: "{{ bootstrap_pki__vault_token }}"
+            path: "sys/mounts/{{ bootstrap_pki__vault_mount_path }}"
+            validate_certs: false
+          register: __pki_mount_status
+          delegate_to: localhost
+          run_once: true
+
+        - name: "ensure-vault-pki-engine : Display __pki_mount_status"
+          ansible.builtin.debug:
+            var: __pki_mount_status
+
+    - name: "ensure-vault-pki-engine : Configure CRL distribution points"
+      no_log: true
+      community.hashi_vault.vault_write:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/config/urls"
+        data:
+          issuing_certificates: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_mount_path }}/ca"
+          crl_distribution_points: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_mount_path }}/crl"
+        validate_certs: false
+      register: __pki_write_crl_res
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display __pki_write_crl_res"
+      ansible.builtin.debug:
+        var: __pki_write_crl_res
+
+#    - name: "ensure-vault-pki-engine : Import pki CA certificate"
+#      community.hashi_vault.vault_write:
+#        url: "{{ bootstrap_pki__vault_url }}"
+#        token: "{{ bootstrap_pki__vault_token }}"
+#        path: "{{ bootstrap_pki__vault_mount_path }}/pki/set-signed"
+#        data:
+#          certificate: "{{ __local_ca_cert_content.content | b64decode }}"
+#        validate_certs: false
+#      register: __vault_import_ca_cert
+#      delegate_to: localhost
+#      run_once: true
+#
+#    - name: "ensure-vault-pki-engine : Display __vault_import_ca_cert"
+#      ansible.builtin.debug:
+#        var: __vault_import_ca_cert
+
+    - name: "ensure-vault-pki-engine : Read pki CA private key"
+      no_log: true
+      ansible.builtin.slurp:
+        src: "{{ bootstrap_pki__ca_dir }}/{{ __bootstrap_pki__vault_cert_basename }}-key.pem"
+      register: __local_ca_cert_key_content
+      delegate_to: "{{ inventory_hostname }}"
+      run_once: true
+
+    # Concatenate Key + Cert Chain into one bundle
+    - name: "ensure-vault-pki-engine : Update Vault PKI with new Cert + Key Bundle"
+      no_log: true
+      community.hashi_vault.vault_write:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/config/ca"
+        data:
+          pem_bundle: |
+            {{ __local_ca_cert_key_content.content | b64decode | trim }}
+            {{ __local_ca_cert_chain_content.content | b64decode | trim }}
+        validate_certs: false
+      register: __pki_import_result
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display __pki_import_result"
+      ansible.builtin.debug:
+        var: __pki_import_result
+
+    - name: "ensure-vault-pki-engine : Assert successful PKI import"
+      ansible.builtin.assert:
+        that:
+          - __pki_import_result is succeeded
+          - __pki_import_result.data.data is defined
+        fail_msg: "PKI bundle upload failed: {{ __pki_import_result.msg | default('Unknown error') }}"
+
+    # After: "ensure-vault-pki-engine : Assert successful PKI import"
+    - name: "ensure-vault-pki-engine : Pause briefly post-import for indexing"
+      when: __pki_import_result.changed | default(false) # noqa: no-handler
+      ansible.builtin.pause:
+        seconds: 1
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Detect PKI version (skip issuer logic for v1)"
+      community.hashi_vault.vault_read:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/config/ca"
+        validate_certs: false
+      register: __pki_version_check
+      delegate_to: localhost
+      run_once: true
+      ignore_errors: true
+
+    - name: "ensure-vault-pki-engine : Set PKI version fact"
+      ansible.builtin.set_fact:
+        __pki_version: "{{ 'v1' if not __pki_version_check.failed else 'v2' }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display __pki_version"
+      ansible.builtin.debug:
+        var: __pki_version
+
+    - name: "ensure-vault-pki-engine : Skip issuer setup for PKI v1"
+      when: __pki_version == 'v1'
+      ansible.builtin.debug:
+        msg: "PKI v1 detected—skipping v2 issuer default setup (use /config/ca directly)."
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : List PKI issuers after import (v2 only)"
+      when: __pki_version == 'v2'
+      no_log: true
+      community.hashi_vault.vault_list:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/issuers"
+        validate_certs: false
+      register: __pki_issuers_list
+      retries: 2
+      delay: 2
+      until: __pki_issuers_list is success
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Extract primary issuer UUID from import (v2 only)"
+      when:
+        - __pki_version == 'v2'
+        - __pki_import_result.data.data.imported_issuers is defined
+      ansible.builtin.set_fact:
+        __primary_issuer_id: >-
+          {{
+            __pki_import_result.data.data.imported_issuers | default([]) | last | default(
+              __pki_issuers_list.data.data.keys | first | default('')
+            )
+          }}
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display primary issuer UUID"
+      when: __primary_issuer_id is defined
+      ansible.builtin.debug:
+        msg: "Primary issuer UUID (from import fallback): {{ __primary_issuer_id }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Assert primary issuer ID found (v2 only)"
+      when: __pki_version == 'v2'
+      ansible.builtin.assert:
+        that: __primary_issuer_id != ''
+        success_msg: "Primary issuer selected: {{ __primary_issuer_id }}"
+        fail_msg: >-
+          No primary issuer UUID from import/list. Imported: {{ __pki_import_result.data.data.imported_issuers | default([]) }}.
+          Available keys: {{ __pki_issuers_list.data.data.keys | default([]) | list | truncate(5) }}...
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Set the pki CA as the default issuer (v2 only)"
+      when:
+        - __pki_version == 'v2'
+        - __primary_issuer_id is defined
+      no_log: true
+      community.hashi_vault.vault_write:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/config/issuers"
+        data:
+          default: "{{ __primary_issuer_id }}"
+        validate_certs: false
+      register: __set_default_issuer
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display __set_default_issuer"
+      ansible.builtin.debug:
+        var: __set_default_issuer
+        verbosity: 1
+
+    # ... (keep your existing re-validate, ca_bundle, etc.—they'll now run post-default)
+    - name: "ensure-vault-pki-engine : Re-validate /ca/pem after setting default issuer"
+      no_log: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_api_version }}/{{ bootstrap_pki__vault_mount_path }}/ca/pem"
+        method: GET
+        headers:
+          X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+        validate_certs: false
+        return_content: true
+        status_code: [200]
+        follow_redirects: all
+      register: __revalidated_vault_ca_cert
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Get info from revalidated Vault certificate"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        content: "{{ __revalidated_vault_ca_cert.content | trim }}"
+      register: __revalidated_vault_cert_info
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display SKI after default issuer set"
+      ansible.builtin.debug:
+        msg:
+          - "__revalidated_vault_cert_info.subject_key_identifier: {{ __revalidated_vault_cert_info.subject_key_identifier }}"
+          - "__local_cert_info.subject_key_identifier: {{ __local_cert_info.subject_key_identifier }}"
+
+    - name: "ensure-vault-pki-engine : Assert revalidated CA certificate subject_key_identifier"
+      ansible.builtin.assert:
+        that: __revalidated_vault_cert_info.subject_key_identifier == __local_cert_info.subject_key_identifier
+        fail_msg: |
+          Vault default issuer set failed - SKI still mismatches.
+          Vault pki CA SKI: {{ __revalidated_vault_cert_info.subject_key_identifier }}
+          Local pki CA SKI: {{ __local_cert_info.subject_key_identifier }}
+      delegate_to: localhost
+      run_once: true
+
+#    - name: "ensure-vault-pki-engine : Set fact for new Issuer ID"
+#      when:
+#        - __pki_import_result.data.data.imported_issuers is iterable
+#        - __pki_import_result.data.data.imported_issuers | length > 0
+#      ansible.builtin.set_fact:
+#        # Extract the first issuer ID from the imported_issuers list
+#        __new_issuer_id: "{{ __pki_import_result.data.data.imported_issuers | first }}"
+#
+#    - name: "ensure-vault-pki-engine : Set the new CA as the default issuer"
+#      when: __new_issuer_id is defined
+#      community.hashi_vault.vault_write:
+#        url: "{{ bootstrap_pki__vault_url }}"
+#        token: "{{ bootstrap_pki__vault_token }}"
+#        path: "{{ bootstrap_pki__vault_mount_path }}/root/replace-default"
+#        data:
+#          default_issuer_id: "{{ __new_issuer_id }}"
+#        validate_certs: false
+#      delegate_to: localhost
+#      run_once: true
+
+    - name: "ensure-vault-pki-engine : Set Vault PKI ca_bundle to full chain (root + intermediate)"
+      no_log: true
+      community.hashi_vault.vault_write:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/config/ca_bundle"
+        data:
+          value: "{{ __local_ca_cert_chain_content.content | b64decode | trim }}"
+        validate_certs: false
+      register: __pki_write_ca_bundle_result
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display __pki_write_ca_bundle_result"
+      ansible.builtin.debug:
+        var: __pki_write_ca_bundle_result
+        verbosity: 1
+
+    - name: "ensure-vault-pki-engine : Rotate CRL to refresh PKI state"
+      no_log: true
+      community.hashi_vault.vault_read:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/crl/rotate"
+        validate_certs: false
+      register: __pki_refresh_state
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display __pki_refresh_state"
+      ansible.builtin.debug:
+        var: __pki_refresh_state
+
+#    - name: "ensure-vault-pki-engine : Rotate CRL to refresh PKI state"
+#      community.hashi_vault.vault_write:
+#        url: "{{ bootstrap_pki__vault_url }}"
+#        token: "{{ bootstrap_pki__vault_token }}"
+#        path: "{{ bootstrap_pki__vault_mount_path }}/crl/rotate"
+#        validate_certs: false
+#      delegate_to: localhost
+#      run_once: true
+
+    - name: "ensure-vault-pki-engine : Configure CA and CRL URLs"
+      no_log: true
+      community.hashi_vault.vault_write:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "{{ bootstrap_pki__vault_mount_path }}/config/urls"
+        data:
+          issuing_certificates: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_mount_path }}/ca"
+          crl_distribution_points: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_mount_path }}/crl"
+        validate_certs: false
+      register: __pki_write_updated_crl_res
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display __pki_write_updated_crl_res"
+      ansible.builtin.debug:
+        var: __pki_write_updated_crl_res
+
+    - name: "ensure-vault-pki-engine : Validate pki CA certificate now exists in vault"
+      no_log: true
+      ansible.builtin.uri:
+        url: "{{ bootstrap_pki__vault_url }}/{{ bootstrap_pki__vault_api_version }}/{{ bootstrap_pki__vault_mount_path }}/ca/pem"
+        method: GET
+        headers:
+          X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+        validate_certs: false
+        return_content: true
+        status_code: [200]
+        follow_redirects: all
+      register: __updated_vault_ca_cert
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Assert CA certificate is present"
+      ansible.builtin.assert:
+        that:
+          - __updated_vault_ca_cert.status == 200
+          - __updated_vault_ca_cert.content is search('BEGIN CERTIFICATE')
+        fail_msg: |
+          Vault CA import failed or returned empty content.
+          Status: {{ __updated_vault_ca_cert.status }}
+          Content: {{ __updated_vault_ca_cert.content | default('EMPTY') }}
+
+    - name: "ensure-vault-pki-engine : Get info from updated Vault certificate"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        content: "{{ __updated_vault_ca_cert.content | trim }}"
+      register: __updated_vault_cert_info
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Get info from local certificate"
+      no_log: true
+      community.crypto.x509_certificate_info:
+        content: "{{ __local_ca_cert_content.content | b64decode | trim }}"
+      register: __local_cert_info
+      delegate_to: localhost
+      run_once: true
+
+    - name: "ensure-vault-pki-engine : Display subject_key_identifier for updated vault pki cert"
+      ansible.builtin.debug:
+        msg:
+          - "__updated_vault_cert_info.subject_key_identifier: {{ __updated_vault_cert_info.subject_key_identifier }}"
+          - "__local_cert_info.subject_key_identifier: {{ __local_cert_info.subject_key_identifier }}"
+
+    - name: "ensure-vault-pki-engine : Assert updated CA certificate subject_key_identifier"
+      ansible.builtin.assert:
+        that: __updated_vault_cert_info.subject_key_identifier == __local_cert_info.subject_key_identifier
+        fail_msg: |
+          Vault CA import failed - subject_key_identifier does not match local pki ca cert.
+          Vault pki CA subject_key_identifier: {{ __updated_vault_cert_info.subject_key_identifier }}
+          Local pki CA subject_key_identifier: {{ __local_cert_info.subject_key_identifier }}

@@ -1,0 +1,149 @@
+---
+# Ensures the trusted_external KV path exists (creates dummy placeholder).
+# Fetches external CA certs and stores in secret/trusted_external (KV v1)
+
+- name: "ensure-trusted-external : Display trusted_external config"
+  ansible.builtin.debug:
+    msg: "Initializing trusted_external KV path under {{ bootstrap_pki__vault_kv_mount_point }} (for external certs)."
+
+- name: "ensure-trusted-external : Check if trusted_external path exists"
+  community.hashi_vault.vault_list:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_external"
+    validate_certs: false
+  register: __trusted_external_check
+  delegate_to: localhost
+  ignore_errors: true
+
+- name: "ensure-trusted-internal : Display __trusted_external_check"
+  ansible.builtin.debug:
+    var: __trusted_external_check
+    verbosity: 1
+
+- name: "ensure-trusted-external : Reset trusted_external contents"
+  when:
+    - not __trusted_external_check.failed
+    - bootstrap_pki__ca_reset_trusted_kv_external | bool
+  block:
+    - name: "Set __external_ca_keys_list from metadata keys"
+      ansible.builtin.set_fact:
+        __external_ca_keys_list: >-
+          {{
+            __trusted_external_check.data.data['keys']
+            | select('string')
+            | list
+          }}
+
+    - name: "ensure-trusted-external : Display __external_ca_keys_list"
+      ansible.builtin.debug:
+        var: __external_ca_keys_list
+        verbosity: 1
+
+    - name: "ensure-trusted-external : Delete existing external CA secrets"
+      when: __external_ca_keys_list | length > 0
+      block:
+        - name: "ensure-trusted-external : Soft-delete existing external CA secrets data"
+          no_log: true
+          community.hashi_vault.vault_kv2_delete:
+            url: "{{ bootstrap_pki__vault_url }}"
+            token: "{{ bootstrap_pki__vault_token }}"
+            mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+            path: "trusted_external/{{ item }}"
+            validate_certs: false
+          loop: "{{ __external_ca_keys_list | default([]) }}"
+          delegate_to: localhost
+          run_once: true
+
+        - name: "ensure-trusted-external : Hard-delete external CA secrets metadata"
+          no_log: true
+          ansible.builtin.uri:
+            url: >-
+              {{ bootstrap_pki__vault_url }}/v1/{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_external/{{ item }}
+            method: DELETE
+            headers:
+              X-Vault-Token: "{{ bootstrap_pki__vault_token }}"
+            validate_certs: false
+            status_code: [200, 204, 404]  # 204=success, 404=already gone (idempotent)
+            return_content: false
+          loop: "{{ __external_ca_keys_list | default([]) }}"
+          delegate_to: localhost
+          run_once: true
+          register: __metadata_delete_results
+          ignore_errors: true  # Graceful on already-deleted
+
+        - name: "ensure-trusted-external : Display __metadata_delete_results"
+          ansible.builtin.debug:
+            var: __metadata_delete_results
+            verbosity: 1
+
+        - name: "ensure-trusted-external : Log reset"
+          ansible.builtin.debug:
+            msg: >-
+              Hard-reset trusted_external: soft-deleted data for {{ __external_ca_keys_list | length | default(0) }} entries,
+              hard-deleted metadata for {{ __metadata_delete_results.results
+                | selectattr('status', 'in', [200, 204]) | list | length | default(0) }}.
+          run_once: true
+
+        - name: "ensure-trusted-external : Verify trusted_external is empty post-reset"
+          community.hashi_vault.vault_list:
+            url: "{{ bootstrap_pki__vault_url }}"
+            token: "{{ bootstrap_pki__vault_token }}"
+            path: "{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_external"
+            validate_certs: false
+          register: __post_reset_check
+          delegate_to: localhost
+          ignore_errors: true
+          run_once: true
+
+        - name: "ensure-trusted-external : Log post-reset verification"
+          ansible.builtin.debug:
+            msg: "trusted_external now has {{ __post_reset_check.data.data.keys | default([]) | select('string') | length }} keys remaining."
+          run_once: true
+
+- name: "ensure-trusted-external : Create placeholder if path missing"
+  when:
+    - __trusted_external_check is failed
+    - __trusted_external_check.msg | regex_search("The path '.*/trusted_external' doesn't seem to exist") is not none
+  no_log: true
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    mount_point: "{{ bootstrap_pki__vault_kv_mount_point }}"
+    path: "trusted_external/{{ bootstrap_pki__ca_placeholder_name }}"
+    data:
+      description: "Placeholder to initialize trusted_external path (remove after populating with real external certs)"
+      initialized_at: "{{ ansible_facts['date_time']['iso8601'] }}"
+    validate_certs: false
+  register: __placeholder_result
+  delegate_to: localhost
+  run_once: true
+
+- name: "ensure-trusted-external : Log initialization result"
+  ansible.builtin.debug:
+    msg: >-
+      trusted_external path {% if __placeholder_result.changed | d(false) %}initialized (placeholder created){% else %}already exists{% endif %}.
+      Ready for external cert storage/listing in deploy_pki_certs.
+
+- name: "ensure-trusted-external : Display external_cas config"
+  ansible.builtin.debug:
+    var: bootstrap_pki__external_cas
+  tags: external_cas
+
+- name: "ensure-trusted-external : Initialize external CA stored counter"
+  ansible.builtin.set_fact:
+    __external_ca_stored_count: 0
+  run_once: true
+
+- name: "ensure-trusted-external : Fetch and store external CA"
+  ansible.builtin.include_tasks: ensure_external_ca_cert.yml
+  loop: "{{ bootstrap_pki__external_cas }}"
+  loop_control:
+    loop_var: __external_cert_info
+
+- name: "ensure-trusted-external : Summary of external CA setup"
+  ansible.builtin.debug:
+    msg: "External CAs configured: {{ bootstrap_pki__external_cas | length }} | Stored/Updated: {{
+      __external_ca_stored_count | d(0) }} new/updated"
+  when: bootstrap_pki__external_cas | length > 0
+  run_once: true

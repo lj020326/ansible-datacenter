@@ -1,0 +1,122 @@
+---
+
+#__docker_stack__openvpn__image_default: "bubuntux/nordvpn:latest"
+#__docker_stack__openvpn__image_default: azinchen/nordvpn:latest
+#__docker_stack__openvpn__image_default: lj020326/nordvpn:latest
+__docker_stack__openvpn__image_default: lj020326/nordvpn:v1
+__docker_stack__openvpn__image: "{{ docker_stack__openvpn__image | d(__docker_stack__openvpn__image_default) }}"
+
+__docker_stack__openvpn__external_network: "{{ docker_stack__openvpn__external_network | d('192.168.0.0/24') }}"
+
+__docker_stack__openvpn__http_port: "{{ docker_stack__openvpn__http_port | d('8088') }}"
+#__docker_stack__openvpn__ip: "{{ docker_stack__openvpn__ip | d('8.8.8.8') }}"
+#__docker_stack__openvpn__port: "{{ docker_stack__openvpn__port | d(1194) }}"
+#__docker_stack__openvpn__proto: "{{ docker_stack__openvpn__proto | d('udp') }}"
+
+__docker_stack__openvpn__username: "{{ docker_stack__openvpn__username | d('testuser') }}"
+__docker_stack__openvpn__password: "{{ docker_stack__openvpn__password | d('password') }}"
+
+#__docker_stack__openvpn__networks:
+#  vpn:
+#    attachable: true
+#    ipam:
+#      config:
+#        - subnet: "{{ docker_stack__network_subnet__vpn }}"
+__docker_stack__openvpn__networks:
+  vpn:
+    external: true
+    attachable: true
+    scope: local
+    ## make sure that the following segment does not overlap with the existing host network segment
+    ipam_config:
+      - subnet: "{{ docker_stack__network_subnet__vpn }}"
+
+__docker_stack__openvpn__config_dirs:
+  - path: "{{ __docker_stack__openvpn__config_dir }}/openvpn"
+
+__docker_stack__openvpn__config_tpls:
+  #  - src: 'media/config-nordvpn.ovpn.j2'
+  #    dest: "{{ __docker_stack__openvpn__config_dir }}/openvpn/nordvpn.ovpn"
+
+__docker_stack__openvpn__config_files:
+  #  - src: 'files/openvpn/nordvpn.udp.ovpn'
+  #    dest: "{{ __docker_stack__openvpn__config_dir }}/openvpn/nordvpn.upd.ovpn"
+
+__docker_stack__openvpn__firewalld_ports:
+  - "{{ __docker_stack__openvpn__http_port }}/tcp"
+
+docker_stack__appspec__media:
+  dirs: "{{ __docker_stack__openvpn__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__openvpn__config_files | d([]) }}"
+  templates: "{{ __docker_stack__openvpn__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__openvpn__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__openvpn__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__openvpn__networks | d({}) }}"
+  volumes: "{{ __docker_stack__openvpn__volumes | d({}) }}"
+  docker_services: "{{ __docker_stack__openvpn__services | d({}) }}"
+
+__docker_stack__openvpn__services:
+  ## ref: see response #8 here:
+  ##   https://plexguide.com/threads/howto-use-single-and-central-vpn-container-for-all-your-other-apps.2563/
+  ## ref: https://github.com/bubuntux/nordvpn (no longer works with this traefik docker-compose config)
+  ## ref: https://forum.openmediavault.org/index.php/Thread/22164-Running-containers-through-an-OpenVPN-container/
+  ## ref: https://raw.githubusercontent.com/dperson/openvpn-client/master/docker-compose.yml
+  ## ref: https://registry.hub.docker.com/r/bubuntux/nordvpn/tags
+  ## ref: https://github.com/azinchen/nordvpn
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/c5b06477dc9d245ceb9caea5d702c2614fc7fece/docker-compose-t2-obsolete.yml
+  ## ref: https://github.com/htpcBeginner/docker-traefik/blob/master/docker-compose-t2.yml
+  ## ref: https://docs.linuxserver.io/images/docker-openvpn-as
+  openvpn:
+    image: "{{ __docker_stack__openvpn__image }}"
+    container_name: openvpn
+    cap_add:
+      - net_admin
+    devices:
+      - /dev/net/tun
+    dns:
+      - 8.8.4.4
+      - 8.8.8.8
+    restart: unless-stopped
+    ## tmpfs required when the openvpn process restarts internally (s6 restarts the service),
+    ## such that the tmpfs persists for the lifetime of the container — the file survives internal restarts
+    tmpfs:
+      - /run/xt:mode=777
+    networks:
+      - vpn
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    ports:
+      - "{{ __docker_stack__openvpn__bittorrent_port }}:8168"
+    #      - "{{ __docker_stack__openvpn__sabnzbd_port }}:8080"
+    #      - "{{ __docker_stack__openvpn__bittorrent_port }}:9091"
+    #      - "6881:6881"
+    #      - "6881:6881/udp"
+    environment:
+      USER: "{{ __docker_stack__openvpn__username }}"
+      PASS: "{{ __docker_stack__openvpn__password }}"
+      TZ: "{{ docker_stack__timezone }}"
+      #      CATEGORY: P2P
+      COUNTRY: "NL;CA;MX"
+      #      COUNTRY: "United States;CA;153"
+      #      COUNTRY: United_States
+      #      CITY: "Toronto;Montreal"
+      #      CITY: "Toronto;New York;Montreal"
+      #      CITY: "New York;2619989"
+      #      CITY: "New York"
+      #      SERVER_ID: "us8408"
+      #      GROUP: "Standard VPN servers"
+      #      GROUP: 11
+      TECHNOLOGY: openvpn_udp
+      #      SERVER_ID: "us8481"
+      #      SERVER_ID: "ca1669"
+      NETWORK: "{{ __docker_stack__openvpn__external_network }};{{ docker_stack__network_subnet__vpn }};{{ docker_stack__network_subnet__traefik_proxy }}"
+#      NETWORK: "{{ docker_stack__network_subnet__vpn }};{{ docker_stack__network_subnet__traefik_proxy }}"
+      OPENVPN_OPTS: --pull-filter ignore "ping-restart" --ping-exit 180
+#      OPENVPN_OPTS: --mute-replay-warnings --ping-exit 60
+      RANDOM_TOP: 10
+#      RECREATE_VPN_CRON: "5 */3 * * *"
+      CHECK_CONNECTION_CRON: "*/5 * * * *"
+      CHECK_CONNECTION_URL: "https://1.1.1.1;https://8.8.8.8"
+      UPDATE_METADATA: true
+      FORCE_COLOR: 1
+#      LOG_LEVEL: DEBUG
+#      DEBUG: trace

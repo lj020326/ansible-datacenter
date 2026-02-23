@@ -44,31 +44,31 @@
 
 - name: Bootstrap-firewalld | Init-vars | Set {{ role_name }} list var prefixes
   ansible.builtin.set_fact:
-    role_zones_var_prefix: "{{ role_var_prefix }}_zones__"
-    role_services_var_prefix: "{{ role_var_prefix }}_services__"
-    role_ports_var_prefix: "{{ role_var_prefix }}_ports__"
+    role_zone_list_var_prefix: "{{ role_var_prefix }}_zones__"
+    role_service_list_var_prefix: "{{ role_var_prefix }}_services__"
+    role_port_list_var_prefix: "{{ role_var_prefix }}_ports__"
     role_rule_list_var_prefix: "{{ role_var_prefix }}_rules__"
 
 - name: Bootstrap-firewalld | Init-vars | Set {{ role_name }} var regex's
   ansible.builtin.set_fact:
-    role_zone_list_var_regex: ^{{ role_zones_var_prefix }}
-    role_service_list_var_regex: ^{{ role_services_var_prefix }}
-    role_port_list_var_regex: ^{{ role_ports_var_prefix }}
+    role_zone_list_var_regex: ^{{ role_zone_list_var_prefix }}
+    role_service_list_var_regex: ^{{ role_service_list_var_prefix }}
+    role_port_list_var_regex: ^{{ role_port_list_var_prefix }}
     role_rule_list_var_regex: ^{{ role_rule_list_var_prefix }}
 
 - name: Bootstrap-firewalld | Init-vars | Initialize __firewalld_zones
   ansible.builtin.set_fact:
-    #    __firewalld_zones: "{{ firewalld_zones|d({}) }}"
-    __firewalld_zones: "{{ __firewalld_zones|d({}) | combine({ item.name: item}, recursive=True) }}"
+    #    __firewalld_zones: "{{ firewalld_zones | d({}) }}"
+    __firewalld_zones: "{{ __firewalld_zones | d({}) | combine({item.name: item}, recursive=True)}}"
   loop: "{{ firewalld_zones | d([]) }}"
   loop_control:
     label: "{{ item.name }}"
 
 - name: Bootstrap-firewalld | Init-vars | Initialize {{ role_name }} lists
   ansible.builtin.set_fact:
-    __firewalld_services: "{{ firewalld_services|d([]) }}"
-    __firewalld_ports: "{{ firewalld_ports|d([]) }}"
-    __firewalld_rules: "{{ firewalld_rules|d([]) }}"
+    __firewalld_services: "{{ firewalld_services | d([]) }}"
+    __firewalld_ports: "{{ firewalld_ports | d([]) }}"
+    __firewalld_rules: "{{ firewalld_rules | d([]) }}"
 
 - name: Bootstrap-firewalld | Init-vars | Show variables with {{ role_zone_list_var_prefix }} prefix
   ansible.builtin.debug:
@@ -88,31 +88,31 @@
 
 - name: Bootstrap-firewalld | Init-vars | Merge lists from {{ role_zone_list_var_prefix }}* vars into merged list
   ansible.builtin.set_fact:
-    __firewalld_zones_list: "{{ __firewalld_zones_list|d([]) + lookup('vars', item)|d([]) }}"
+    __firewalld_zones_list: "{{ __firewalld_zones_list | d([]) + lookup('vars', item) | d([]) }}"
   loop: "{{ lookup('varnames', role_zone_list_var_regex, wantlist=True) }}"
   loop_control:
     label: "{{ item }}"
 
 - name: Bootstrap-firewalld | Init-vars | Coalesce lists from __firewalld_zones_list into merged dict __firewalld_zones
   ansible.builtin.set_fact:
-    __firewalld_zones: "{{ __firewalld_zones|d({}) | combine({ item.name: item}, recursive=True) }}"
+    __firewalld_zones: "{{ __firewalld_zones | d({}) | combine({ item.name: item}, recursive=True) }}"
   loop: "{{ __firewalld_zones_list | d([]) }}"
   loop_control:
     label: "{{ item.name }}"
 
 - name: Bootstrap-firewalld | Init-vars | Coalesce lists from {{ role_service_list_var_prefix }}* vars into merged list
   ansible.builtin.set_fact:
-    __firewalld_services: "{{ __firewalld_services|d([]) + lookup('vars', item)|d([]) }}"
+    __firewalld_services: "{{ __firewalld_services | d([]) + lookup('vars', item) | d([]) }}"
   loop: "{{ lookup('varnames', role_service_list_var_regex, wantlist=True) }}"
 
 - name: Bootstrap-firewalld | Init-vars | Coalesce lists from {{ role_port_list_var_prefix }}* vars into merged list
   ansible.builtin.set_fact:
-    __firewalld_ports: "{{ __firewalld_ports|d([]) + lookup('vars', item)|d([]) }}"
+    __firewalld_ports: "{{ __firewalld_ports | d([]) + lookup('vars', item) | d([]) }}"
   loop: "{{ lookup('varnames', role_port_list_var_regex, wantlist=True) }}"
 
 - name: Bootstrap-firewalld | Init-vars | Coalesce lists from {{ role_rule_list_var_prefix }}* vars into merged list
   ansible.builtin.set_fact:
-    __firewalld_rules: "{{ __firewalld_rules|d([]) + lookup('vars', item)|d([]) }}"
+    __firewalld_rules: "{{ __firewalld_rules | d([]) + lookup('vars', item) | d([]) }}"
   loop: "{{ lookup('varnames', role_rule_list_var_regex, wantlist=True) }}"
 
 - name: Bootstrap-firewalld | Init-vars | Display __firewalld_zones
@@ -122,6 +122,10 @@
 - name: Bootstrap-firewalld | Init-vars | Display __firewalld_services
   ansible.builtin.debug:
     var: __firewalld_services
+
+- name: Sort and make firewall ports unique
+  ansible.builtin.set_fact:
+    __firewalld_ports: "{{ __firewalld_ports | unique | sort }}"
 
 - name: Bootstrap-firewalld | Init-vars | Display __firewalld_ports
   ansible.builtin.debug:

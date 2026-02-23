@@ -7,10 +7,10 @@
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: directory
-        owner: "{{ item.owner | default( omit ) }}"
-        group: "{{ item.owner | default( omit ) }}"
-        mode: "{{ item.mode | default( omit ) }}"
-        recurse: "{{ item.recurse | default( omit ) }}"
+        owner: "{{ item.owner | d(omit) }}"
+        group: "{{ item.owner | d(omit) }}"
+        mode: "{{ item.mode | d(omit) }}"
+        recurse: "{{ item.recurse | d(omit) }}"
       loop:
         - path: /etc/kolla
           owner: root
@@ -22,10 +22,10 @@
         backup: true
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
-        force: "{{ item.force | default('no') }}"
-        mode: "{{ item.mode | default(omit) }}"
-        owner: "{{ item.owner | default(omit) }}"
-        group: "{{ item.group | default(omit) }}"
+        force: "{{ item.force | d('no') }}"
+        mode: "{{ item.mode | d(omit) }}"
+        owner: "{{ item.owner | d(omit) }}"
+        group: "{{ item.group | d(omit) }}"
       loop:
         - src: kolla/globals.yml.j2
           dest: /etc/kolla/globals.yml
@@ -80,7 +80,7 @@
       loop: "{{ lookup('community.general.filetree', 'templates/kolla/config/', wantlist=true) }}"
 
     - name: Copy rndc configs to /etc/kolla/config
-      when: openstack_kolla_options.designate_backend|bool or openstack_kolla_options.designate_backend_external=="bind9"
+      when: openstack_kolla_options.designate_backend | bool or openstack_kolla_options.designate_backend_external=="bind9"
       ansible.builtin.copy:
         src: "{{ item.src | expanduser }}"
         dest: /etc/kolla/config/designate/{{ item.path | default(item.src | basename) }}
@@ -97,7 +97,7 @@
   ansible.builtin.include_tasks: setup-openstack-venv.yml
 
 - name: Run Openstack Kolla playbooks
-  when: openstack_kolla_run_playbooks | default(no)
+  when: openstack_kolla_run_playbooks | d(no)
   block:
     - name: Create Openstack Kolla inventory file directory if not exists
       ansible.builtin.file:

@@ -1,0 +1,30 @@
+---
+- name: Ensure dependencies are installed.
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - python3-debian
+    state: present
+
+- name: Add Kubernetes repository.
+  ansible.builtin.deb822_repository:
+    name: kubernetes
+    types: deb
+    uris: "{{ bootstrap_kubernetes__apt_repository }}"
+    suites: /
+    signed_by: "{{ bootstrap_kubernetes__apt_repository }}/Release.key"
+  register: __bootstrap_kubernetes__repository
+
+- name: Update Apt cache.
+  when: __bootstrap_kubernetes__repository.changed # noqa: no-handler
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Add Kubernetes apt preferences file to pin a version.
+  ansible.builtin.template:
+    src: apt-preferences-kubernetes.j2
+    dest: /etc/apt/preferences.d/kubernetes
+    mode: "0644"
+    owner: root
+    group: root

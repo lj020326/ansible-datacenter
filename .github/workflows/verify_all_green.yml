@@ -1,0 +1,61 @@
+---
+name: Verify Ansible Repository Update
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event.pull_request.number || github.sha
+    }}
+  cancel-in-progress: true
+
+on: # yamllint disable-line rule:truthy
+  # Allows manual triggering
+  workflow_dispatch:
+  # Run CI against all pushes (direct commits, also merged PRs), Pull Requests
+  push:
+    branches:
+      - main
+      - stable-*
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+    branches:
+      - main
+      - stable-*
+    tags:
+      - "*"
+  # Schedule run (once daily)
+  schedule:
+    ## Daily Docker Image Rebuild (10:29am daily)
+    - cron: '29 10 * * *'
+
+jobs:
+  ansible_lint:
+    uses: ./.github/workflows/ansible-lint.yml
+  yaml_lint:
+    uses: ./.github/workflows/yaml-lint.yml
+  inclusivity_lint:
+    uses: ./.github/workflows/inclusivity-lint.yml
+  molecule_tests:
+    uses: ./.github/workflows/molecule.yml
+  verify_all_green:
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - ansible_lint
+      - yaml_lint
+      - inclusivity_lint
+      - molecule_tests
+    runs-on: ubuntu-latest
+    steps:
+      - run: >-
+          python -c "assert set([
+          '${{ needs.ansible_lint.result }}',
+          '${{ needs.yaml_lint.result }}',
+          '${{ needs.inclusivity_lint.result }}',
+          '${{ needs.molecule_tests.result }}'
+          ]) == {'success'}"

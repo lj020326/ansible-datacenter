@@ -23,97 +23,94 @@ The docker runtime environment is expected to be already prepared in a prior pla
 
 | Variable                                     | Required | Default                                                                           | Comments                   |
 |----------------------------------------------|----------|-----------------------------------------------------------------------------------|----------------------------|
-| docker_stack__action                         | no       | 'setup'                                                                           |                            |
-| docker_stack__swarm_mode                     | no       | no                                                                                |                            |
-| docker_stack__swarm_manager                  | no       | false                                                                             |                            |
-| docker_stack__swarm_leader_host              | no       | leader.example.int                                                                |                            |
-| docker_stack__setup_external_site            | no       | no                                                                                |                            |
-| docker_stack__enable_cert_resolver           | no       | no                                                                                |                            |
-| docker_stack__service_groups                 | no       | []                                                                                |                            |
-| docker_stack__traefik_routing_method         | no       | path                                                                              |                            |
-| docker_stack__proxy_services                 | no       | []                                                                                |                            |
-| docker_stack__traefik_version                | no       | v2                                                                                |                            |
-| docker_stack__traefik_http                   | no       | 80                                                                                |                            |
-| docker_stack__traefik_https                  | no       | 443                                                                               |                            |
-| docker_stack__traefik_ssh                    | no       | 2022                                                                              |                            |
+| docker_stack__acme_email                     | no       | "admin@example.int"                                                               |                            |
 | docker_stack__acme_http_challenge_proxy_port | no       | 8980                                                                              |                            |
-| docker_stack__enable_cacerts                 | no       | no                                                                                |                            |
-| docker_stack__enable_selfsigned_certs        | no       | yes                                                                               |                            |
-| docker_stack__setup_registry                 | no       | no                                                                                |                            |
-| docker_stack__setup_admin_scripts            | no       | yes                                                                               |                            |
-| docker_stack__setup_systemd_service          | no       | yes                                                                               |                            |
-| docker_stack__compose_stack_name             | no       | docker_stack                                                                      |                            |
+| docker_stack__action                         | no       | 'setup'                                                                           |                            |
+| docker_stack__api_port                       | no       | "2375"                                                                            |                            |
+| docker_stack__app_config_dirs                | no       | {}                                                                                |                            |
+| docker_stack__app_config_files               | no       | {}                                                                                |                            |
+| docker_stack__app_config_tpls                | no       | {}                                                                                |                            |
+| docker_stack__ca_root_cn                     | no       | "ca-root"                                                                         |                            |
+| docker_stack__compose_file                   | no       | "{{ docker_stack__dir }}/docker-compose.yml"                                      |                            |
+| docker_stack__compose_http_timeout           | no       | 120                                                                               |                            |
 | docker_stack__compose_stack_compose_file     | no       | "{{ docker_stack__dir }}/docker-compose.yml"                                      |                            |
+| docker_stack__compose_stack_name             | no       | docker_stack                                                                      |                            |
 | docker_stack__compose_stack_prune            | no       | yes                                                                               |                            |
 | docker_stack__compose_stack_resolve_image    | no       | changed                                                                           |                            |
-| docker_stack__compose_http_timeout           | no       | 120                                                                               |                            |
-| docker_stack__run_services                   | no       | yes                                                                               |                            |
-| docker_stack__restart_service                | no       | yes                                                                               |                            |
+| docker_stack__config_dirs                    | no       | []                                                                                |                            |
+| docker_stack__config_files                   | no       | []                                                                                |                            |
+| docker_stack__config_tpls                    | no       | []                                                                                |                            |
+| docker_stack__config_users_group             | no       |                                                                                   |                            |
+| docker_stack__config_users_passwd            | no       |                                                                                   |                            |
+| docker_stack__configs                        | no       | {}                                                                                |                            |
+| docker_stack__container_configs              | no       | {}                                                                                |                            |
+| docker_stack__container_user_home            | no       | /var/internaluser                                                                 |                            |
+| docker_stack__dir                            | no       | "{{ docker_stack__user_home }}/docker"                                            |                            |
+| docker_stack__docker_group_gid               | no       | 991                                                                               |                            |
+| docker_stack__email_default_suffix           | no       | "@example.com"                                                                    |                            |
+| docker_stack__email_from                     | no       | "admin@example.com"                                                               |                            |
+| docker_stack__email_jenkins_admin_address            | no       | "admin@example.com"                                                               |                            |
+| docker_stack__email_to                       | no       | "admin@example.com"                                                               |                            |
+| docker_stack__enable_cacerts                 | no       | no                                                                                |                            |
+| docker_stack__enable_cert_resolver           | no       | no                                                                                |                            |
+| docker_stack__enable_external_route          | no       | no                                                                                |                            |
+| docker_stack__enable_selfsigned_certs        | no       | yes                                                                               |                            |
+| docker_stack__external_domain                | no       | "{{ docker_stack__service_route_name }}.{{ docker_stack__external_root_domain }}" |                            |
+| docker_stack__external_root_domain           | no       | "example.com"                                                                     |                            |
+| docker_stack__external_ssl_cert_dir          | no       | "{{ docker_stack__dir }}/shared/certs"                                            |                            |
+| docker_stack__external_ssl_certkey_dir       | no       | "{{ docker_stack__dir }}/shared/certs"                                            |                            |
+| docker_stack__firewalld_app_ports            | no       | {}                                                                                |                            |
+| docker_stack__firewalld_app_services         | no       | {}                                                                                |                            |
+| docker_stack__firewalld_enabled              | no       | yes                                                                               |                            |
+| docker_stack__firewalld_services             | no       | []                                                                                |                            |
+| docker_stack__internal_domain                | no       | "{{ docker_stack__service_route_name }}.{{ docker_stack__internal_root_domain }}" |                            |
+| docker_stack__internal_root_domain           | no       | "example.int"                                                                     |                            |
+| docker_stack__internal_ssl_cert_dir          | no       | /usr/local/ssl/certs                                                              |                            |
+| docker_stack__internal_ssl_key_dir       | no       | /usr/local/ssl/private                                                            |                            |
+| docker_stack__jenkins__vmware_data_dir        | no       | /export/data/vmware                                                               |                            |
 | docker_stack__network_name__traefik_proxy          | no       | "traefik_public"                                                                  |                            |
 | docker_stack__networks                       | no       | {}                                                                                |                            |
-| docker_stack__volumes                        | no       | {}                                                                                |                            |
-| docker_stack__configs                        | no       | {}                                                                                |                            |
-| docker_stack__user_username                  | no       | container-user                                                                    |                            |
-| docker_stack__user_password                  | no       | container-user                                                                    |                            |
-| docker_stack__user_group                     | no       | container-user                                                                    |                            |
-| docker_stack__docker_group_gid               | no       | 991                                                                               |                            |
-| docker_stack__container_user_home            | no       | /var/internaluser                                                                 |                            |
-| docker_stack__user_home                      | no       | "/home/{{ docker_stack__user_username }}"                                         |                            |
-| docker_stack__config_users_passwd            | no       |                                                                                   |                            |
-| docker_stack__config_users_group             | no       |                                                                                   |                            |
-| docker_stack__dir                            | no       | "{{ docker_stack__user_home }}/docker"                                            |                            |
-| docker_stack__compose_file                   | no       | "{{ docker_stack__dir }}/docker-compose.yml"                                      |                            |
+| docker_stack__proxy_service_templates        | no       | defaults/main.yml                                                                 |                            |
+| docker_stack__proxy_services                 | no       | []                                                                                |                            |
+| docker_stack__registry__endpoint              | no       | "lj020326"                                                                        | private registry namespace |
+| docker_stack__registry__login                 | no       | no                                                                                |                            |
+| docker_stack__registry__password              | no       | password                                                                          |                            |
+| docker_stack__registry__service_domain        | no       | "{{ docker_stack__internal_domain }}"                                             |                            |
+| docker_stack__registry__username              | no       | user                                                                              |                            |
 | docker_stack__remove_orphans                 | no       | yes                                                                               |                            |
-| docker_stack__ca_root_cn                     | no       | "ca-root"                                                                         |                            |
-| docker_stack__acme_email                     | no       | "admin@example.int"                                                               |                            |
-| docker_stack__internal_root_domain           | no       | "example.int"                                                                     |                            |
-| docker_stack__external_root_domain           | no       | "example.com"                                                                     |                            |
+| docker_stack__restart_service                | no       | yes                                                                               |                            |
+| docker_stack__run_services                   | no       | yes                                                                               |                            |
+| docker_stack__script_config_tpls             | no       | defaults/main.yml                                                                 |                            |
+| docker_stack__script_dir                     | no       | "/opt/scripts"                                                                    |                            |
+| docker_stack__script_dirs                    | no       | see defaults/main.yml                                                             |                            |
+| docker_stack__scripts                        | no       | see defaults/main.yml                                                             |                            |
+| docker_stack__service_group_configs_tpl      | no       | {}                                                                                |                            |
+| docker_stack__service_groups                 | no       | []                                                                                |                            |
 | docker_stack__service_route_name             | no       | "{{ inventory_hostname_short }}"                                                  |                            |
-| docker_stack__internal_domain                | no       | "{{ docker_stack__service_route_name }}.{{ docker_stack__internal_root_domain }}" |                            |
-| docker_stack__external_domain                | no       | "{{ docker_stack__service_route_name }}.{{ docker_stack__external_root_domain }}" |                            |
-| docker_stack__enable_external_route          | no       | no                                                                                |                            |
-| docker_stack__internal_ssl_cert_dir          | no       | /usr/local/ssl/certs                                                              |                            |
-| docker_stack__internal_ssl_certkey_dir       | no       | /usr/local/ssl/private                                                            |                            |
-| docker_stack__ssl_internal_root_cacert_file  | no       | "ca.{{ docker_stack__internal_root_domain }}.pem"                                 |                            |
-| docker_stack__ssl_internal_cacert_file       | no       | "ca.{{ docker_stack__internal_domain }}.pem"                                      |                            |
+| docker_stack__service_templates              | no       | defaults/main.yml                                                                 |                            |
+| docker_stack__setup_admin_scripts            | no       | yes                                                                               |                            |
+| docker_stack__setup_registry                 | no       | no                                                                                |                            |
+| docker_stack__setup_systemd_service          | no       | yes                                                                               |                            |
+| docker_stack__smtp_host                      | no       | "mail.example.int"                                                                |                            |
+| docker_stack__ssl_external_cert_file         | no       | "{{ docker_stack__external_domain }}.pem"                                         |                            |
+| docker_stack__ssl_external_privatekey_file   | no       | "{{ docker_stack__external_domain }}-key.pem"                                     |                            |
 | docker_stack__ssl_internal_cert_file         | no       | "{{ docker_stack__internal_domain }}.pem"                                         |                            |
 | docker_stack__ssl_internal_csr_file          | no       | "{{ docker_stack__internal_domain }}.csr"                                         |                            |
 | docker_stack__ssl_internal_privatekey_file   | no       | "{{ docker_stack__internal_domain }}-key.pem"                                     |                            |
-| docker_stack__external_ssl_cert_dir          | no       | "{{ docker_stack__dir }}/shared/certs"                                            |                            |
-| docker_stack__external_ssl_certkey_dir       | no       | "{{ docker_stack__dir }}/shared/certs"                                            |                            |
-| docker_stack__ssl_external_cert_file         | no       | "{{ docker_stack__external_domain }}.pem"                                         |                            |
-| docker_stack__ssl_external_privatekey_file   | no       | "{{ docker_stack__external_domain }}-key.pem"                                     |                            |
-| docker_stack__script_dir                     | no       | "/opt/scripts"                                                                    |                            |
-| docker_stack__jenkins__vmware_data_dir        | no       | /export/data/vmware                                                               |                            |
-| docker_stack__api_port                       | no       | "2375"                                                                            |                            |
-| docker_stack__app_config_dirs                | no       | {}                                                                                |                            |
-| docker_stack__config_dirs                    | no       | []                                                                                |                            |
-| docker_stack__app_config_tpls                | no       | {}                                                                                |                            |
-| docker_stack__app_config_files               | no       | {}                                                                                |                            |
-| docker_stack__config_files                   | no       | []                                                                                |                            |
-| docker_stack__script_dirs                    | no       | see defaults/main.yml                                                             |                            |
-| docker_stack__scripts                        | no       | see defaults/main.yml                                                             |                            |
-| docker_stack__service_templates              | no       | defaults/main.yml                                                                 |                            |
-| docker_stack__proxy_service_templates        | no       | defaults/main.yml                                                                 |                            |
-| docker_stack__script_config_tpls             | no       | defaults/main.yml                                                                 |                            |
-| docker_stack__email_from                     | no       | "admin@example.com"                                                               |                            |
-| docker_stack__email_to                       | no       | "admin@example.com"                                                               |                            |
-| docker_stack__email_default_suffix           | no       | "@example.com"                                                                    |                            |
-| docker_stack__email_jenkins_admin_address            | no       | "admin@example.com"                                                               |                            |
-| docker_stack__smtp_host                      | no       | "mail.example.int"                                                                |                            |
-| docker_stack__firewalld_enabled              | no       | yes                                                                               |                            |
-| docker_stack__firewalld_services             | no       | []                                                                                |                            |
-| docker_stack__firewalld_app_services         | no       | {}                                                                                |                            |
-| docker_stack__firewalld_app_ports            | no       | {}                                                                                |                            |
-| docker_stack__registry_service_domain        | no       | "{{ docker_stack__internal_domain }}"                                             |                            |
-| docker_stack__registry_endpoint              | no       | "lj020326"                                                                        | private registry namespace |
-| docker_stack__registry_login                 | no       | no                                                                                |                            |
-| docker_stack__registry_username              | no       | user                                                                              |                            |
-| docker_stack__registry_password              | no       | password                                                                          |                            |
-| docker_stack__service_group_configs_tpl      | no       | {}                                                                                |                            |
-| docker_stack__config_tpls                    | no       | []                                                                                |                            |
-| docker_stack__container_configs              | no       | {}                                                                                |                            |
+| docker_stack__swarm_leader_host              | no       | leader.example.int                                                                |                            |
+| docker_stack__swarm_manager                  | no       | false                                                                             |                            |
+| docker_stack__swarm_mode                     | no       | no                                                                                |                            |
 | docker_stack__timezone                       | no       | "America/New_York"                                                                |                            |
+| docker_stack__traefik__http_port                   | no       | 80                                                                                |                            |
+| docker_stack__traefik__https_port                  | no       | 443                                                                               |                            |
+| docker_stack__traefik__routing_method         | no       | path                                                                              |                            |
+| docker_stack__traefik__ssh                    | no       | 2022                                                                              |                            |
+| docker_stack__traefik__version                | no       | v2                                                                                |                            |
+| docker_stack__user_group                     | no       | container-user                                                                    |                            |
+| docker_stack__user_home                      | no       | "/home/{{ docker_stack__user_username }}"                                         |                            |
+| docker_stack__user_password                  | no       | container-user                                                                    |                            |
+| docker_stack__user_username                  | no       | container-user                                                                    |                            |
+| docker_stack__volumes                        | no       | {}                                                                                |                            |
 
 
 ### Service specific variables
@@ -228,7 +225,7 @@ ansible-playbook -i inventory/Dev -v bootstrap-docker-stack.yml -l testgroup_doc
 ### Docker stacks
 
 ```shell
-docker service logs -f docker_stack__traefik
+docker service logs -f docker_stack_traefik
 docker rmi $(docker images | grep jenkins-jcac | tr -s ' ' | cut -d' ' -f3)
 docker stack deploy --compose-file docker-compose.yml docker_stack
 docker stack destroy --compose-file docker-compose.yml docker_stack
@@ -238,7 +235,7 @@ docker stack rm docker_stack
 docker login -u username -p password registry.example.int:5000
 docker stack deploy --compose-file docker-compose.yml docker_stack --with-registry-auth
 
-docker service logs -f docker_stack__traefik
+docker service logs -f docker_stack_traefik
 docker service ls
 docker service rm docker_stack__whoami
 

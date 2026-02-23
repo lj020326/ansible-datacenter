@@ -1,26 +1,26 @@
 ---
 - name: Include OS-specific variables (RedHat).
-  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
   when:
-    - ansible_os_family == "RedHat"
-    - ansible_distribution != "Fedora"
+    - ansible_facts['os_family'] == "RedHat"
+    - ansible_facts['distribution'] != "Fedora"
 
 - name: Include OS-specific variables (Fedora).
-  ansible.builtin.include_vars: "{{ ansible_distribution }}.yml"
-  when: ansible_distribution == "Fedora"
+  ansible.builtin.include_vars: "{{ ansible_facts['distribution'] }}.yml"
+  when: ansible_facts['distribution'] == "Fedora"
 
 - name: Include OS-specific variables (Debian).
-  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
-  when: ansible_os_family == "Debian"
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
+  when: ansible_facts['os_family'] == "Debian"
 
-- name: Define git_install_from_source_dependencies.
+- name: Define bootstrap_git__install_from_source_dependencies.
   ansible.builtin.set_fact:
-    git_install_from_source_dependencies: "{{ __git_install_from_source_dependencies | list }}"
-  when: git_install_from_source_dependencies is not defined
+    bootstrap_git__install_from_source_dependencies: "{{ __bootstrap_git__install_from_source_dependencies | list }}"
+  when: bootstrap_git__install_from_source_dependencies is not defined
 
 - name: Ensure git's dependencies are installed.
   ansible.builtin.package:
-    name: "{{ git_install_from_source_dependencies }}"
+    name: "{{ bootstrap_git__install_from_source_dependencies }}"
     state: present
 
 - name: Get installed version. # noqa: command-instead-of-module no-free-form inline-env-var
@@ -40,40 +40,40 @@
 
 - name: Force git install if the version numbers do not match.
   ansible.builtin.set_fact:
-    git_reinstall_from_source: true
+    bootstrap_git__reinstall_from_source: true
   when:
-    - (git_install_from_source_force_update | bool) or (git_installed_version.rc != 0) or (git_installed_version.stdout | regex_replace("^.*?([0-9\.]+)$", "\\1")
-      is version(git_version, operator="!="))
+    - (bootstrap_git__force_update | bool) or (git_installed_version.rc != 0) or (git_installed_version.stdout | regex_replace("^.*?([0-9\.]+)$", "\\1")
+      is version(bootstrap_git__version, operator="!="))
 
-- name: Display git_reinstall_from_source
+- name: Display bootstrap_git__reinstall_from_source
   ansible.builtin.debug:
-    var: git_reinstall_from_source
+    var: bootstrap_git__reinstall_from_source
 
 - name: Download git.
-  when: git_reinstall_from_source | bool
+  when: bootstrap_git__reinstall_from_source | bool
   ansible.builtin.get_url:
-    url: https://www.kernel.org/pub/software/scm/git/git-{{ git_version }}.tar.gz
-    dest: "{{ workspace }}/git-{{ git_version }}.tar.gz"
+    url: https://www.kernel.org/pub/software/scm/git/git-{{ bootstrap_git__version }}.tar.gz
+    dest: "{{ bootstrap_git__workspace }}/git-{{ bootstrap_git__version }}.tar.gz"
     mode: "0644"
 
 - name: Expand git archive.
-  when: git_reinstall_from_source | bool
+  when: bootstrap_git__reinstall_from_source | bool
   ansible.builtin.unarchive:
-    src: "{{ workspace }}/git-{{ git_version }}.tar.gz"
-    dest: "{{ workspace }}"
-    creates: "{{ workspace }}/git-{{ git_version }}/README"
+    src: "{{ bootstrap_git__workspace }}/git-{{ bootstrap_git__version }}.tar.gz"
+    dest: "{{ bootstrap_git__workspace }}"
+    creates: "{{ bootstrap_git__workspace }}/git-{{ bootstrap_git__version }}/README"
     copy: false
     mode: "0755"
     extra_opts:
       - --no-same-owner # <- Does not transfer the owner and group for the file.
 
 - name: Build git.
-  when: git_reinstall_from_source | bool
+  when: bootstrap_git__reinstall_from_source | bool
   changed_when: false
   ansible.builtin.command: >
-    make prefix={{ git_install_path }} {{ item }}
+    make prefix={{ bootstrap_git__install_path }} {{ item }}
   args:
-    chdir: "{{ workspace }}/git-{{ git_version }}"
+    chdir: "{{ bootstrap_git__workspace }}/git-{{ bootstrap_git__version }}"
   loop:
     - all
     - install

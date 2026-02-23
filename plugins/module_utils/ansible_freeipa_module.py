@@ -39,10 +39,10 @@ import time
 from datetime import datetime
 from contextlib import contextmanager
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.common.text.converters import jsonify
 from ansible.module_utils import six
-from ansible.module_utils.common._collections_compat import Mapping
+from collections.abc import Mapping
 from ansible.module_utils.parsing.convert_bool import boolean
 
 # Import getargspec from inspect or provide own getargspec for

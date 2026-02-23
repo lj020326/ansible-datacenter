@@ -1,6 +1,6 @@
 ---
 
-__bootstrap_certs__trust_ca_cacert_dir: "{{ bootstrap_certs__trust_ca_cacert_dir | d(__bootstrap_certs__trust_ca_cacert_dir_default) }}"
+__bootstrap_certs__trust_ca_cert_dir: "{{ bootstrap_certs__trust_ca_cert_dir | d(__bootstrap_certs__trust_ca_cert_dir_default) }}"
 __bootstrap_certs__trust_ca_update_trust_cmd: "{{ bootstrap_certs__trust_ca_update_trust_cmd | d(__bootstrap_certs__trust_ca_update_trust_cmd_default) }}"
 __bootstrap_certs__ca_java_keystore: "{{ bootstrap_certs__ca_java_keystore | d(__bootstrap_certs__ca_java_keystore_default) }}"
 
@@ -9,16 +9,13 @@ bootstrap_certs__required_pip_libs:
   - cryptography
   - pyOpenSSL
 
-bootstrap_certs__display_cacert_result: true
+bootstrap_certs__display_ca_result: true
 
 bootstrap_certs__ca_init: true
 bootstrap_certs__ca_certify_nodes: true
 bootstrap_certs__ca_certify_routes: true
-# bootstrap_certs__ca_force_create: false
-# bootstrap_certs__ca_force_certify_nodes: false
 
 bootstrap_certs__ca_certify_node_list: []
-# bootstrap_certs__ca_force_create: true
 bootstrap_certs__ca_force_create: false
 bootstrap_certs__ca_force_certify_nodes: false
 bootstrap_certs__ca_force_distribute_nodes: false
@@ -28,13 +25,12 @@ bootstrap_certs__trust_certs: true
 bootstrap_certs__ca_fetch_certs: true
 
 # where to generate the certs
-bootstrap_certs__cacerts_base_dir: /usr/share/ca-certs
+bootstrap_certs__keystore_base_dir: /usr/share/ca-certs
 
 bootstrap_certs__ca_key_dir: /etc/ssl/private
 
 bootstrap_certs__ca_root_cn: ca-root
-bootstrap_certs__caroot_cert: "{{ bootstrap_certs__ca_root_cn }}.pem"
-bootstrap_certs__pki_caroot_key: "{{ bootstrap_certs__ca_root_cn }}-key.pem"
+bootstrap_certs__pki_ca_root_key: "{{ bootstrap_certs__ca_root_cn }}-key.pem"
 
 ## used by distribution vars
 bootstrap_certs__ca_reset_local_certs: false
@@ -50,13 +46,13 @@ bootstrap_certs__trust_ca_cert_extension: pem
 bootstrap_certs__admin_user: "{{ ansible_local_user | d(ansible_user) }}"
 
 # where to deploy the finalized cert files to on the ansible control node
-bootstrap_certs__cacert_base_dir: "{{ '~/pki' | expanduser }}"
-# bootstrap_certs__cacert_base_dir: "{{ lookup('env','HOME') }}/pki"
-# bootstrap_certs__cacert_base_dir: "{{ getent_passwd[bootstrap_certs__admin_user][4] }}"
-# bootstrap_certs__cacert_base_dir: "/home/{{ bootstrap_certs__admin_user }}/pki"
+bootstrap_certs__base_dir: "{{ '~/pki' | expanduser }}"
+# bootstrap_certs__base_dir: "{{ lookup('env','HOME') }}/pki"
+# bootstrap_certs__base_dir: "{{ ansible_facts['getent_passwd'][bootstrap_certs__admin_user][4] }}"
+# bootstrap_certs__base_dir: "/home/{{ bootstrap_certs__admin_user }}/pki"
 
-bootstrap_certs__cacert_certs_dir: "{{ bootstrap_certs__cacert_base_dir }}/certs"
-bootstrap_certs__cacert_keys_dir: "{{ bootstrap_certs__cacert_base_dir }}/keys"
+bootstrap_certs__certs_dir: "{{ bootstrap_certs__base_dir }}/certs"
+bootstrap_certs__keys_dir: "{{ bootstrap_certs__base_dir }}/keys"
 
 # bootstrap_certs__ca_cert: ca.pem
 # bootstrap_certs__ca_key: ca-key.pem
@@ -69,42 +65,44 @@ __bootstrap_certs__ca_cert_expiration_panic_threshold: 604800 # 1 week
 
 bootstrap_certs__ca_domains_hosted: []
 bootstrap_certs__ca_root:
-  domainName: "{{ bootstrap_certs__ca_root_cn }}"
-  commonName: Example LLC
+  domain_name: "{{ bootstrap_certs__ca_root_cn }}"
+  common_name: Example LLC
   country: US
   state: New York
   locality: New York
   organization: Example LLC
-  organizationalUnit: Research
+  organizational_unit: Research
   email: caroot@example.com
 
 bootstrap_certs__ca_root_subject: "/C={{ bootstrap_certs__ca_root.country
   }}/ST={{ bootstrap_certs__ca_root.state
   }}/L={{ bootstrap_certs__ca_root.locality
   }}/O={{ bootstrap_certs__ca_root.organization
-  }}/OU={{ bootstrap_certs__ca_root.organizationalUnit
-  }}/CN={{ bootstrap_certs__ca_root.domainName
+  }}/OU={{ bootstrap_certs__ca_root.organizational_unit
+  }}/CN={{ bootstrap_certs__ca_root.domain_name
   }}/emailAddress={{ bootstrap_certs__ca_root.email }}"
 
 # Validity period in days (10 years = 365 * 10 = 3650 days)
 bootstrap_certs__ca_root_cert_validity_days: 3650
 bootstrap_certs__ca_root_cert_digest: sha256
+#bootstrap_certs__ca_root_max_path_len: 1
+bootstrap_certs__ca_root_max_path_len: 5
 
 bootstrap_certs__ca_root_csr_tpl:
-  CN: "{{ bootstrap_certs__ca_root.commonName }}"
-  #  hosts: "{{ bootstrap_certs__ca_root.sans|default([]) + bootstrap_certs__ca_root.altips|default([]) }}"
+  CN: "{{ bootstrap_certs__ca_root.common_name }}"
+  #  hosts: "{{ bootstrap_certs__ca_root.sans | d([]) + bootstrap_certs__ca_root.altips | d([]) }}"
   key: "{{ bootstrap_certs__ca_key_spec }}"
   names: "{{ bootstrap_certs__ca_root_names }}"
   ## root cert expires in 10 years
   expiry: "87600h"
 
-bootstrap_certs__ca_root_cacerts_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ bootstrap_certs__ca_root.domainName }}"
+bootstrap_certs__ca_root_cacerts_dir: "{{ bootstrap_certs__keystore_base_dir }}/{{ bootstrap_certs__ca_root.domain_name }}"
 bootstrap_certs__ca_root_cert: "{{ bootstrap_certs__ca_root_cn }}.pem"
 bootstrap_certs__ca_root_key: "{{ bootstrap_certs__ca_root_cn }}-key.pem"
 
 bootstrap_certs__ca_intermediate_certs_list:
-  - domainName: example.com
-    commonName: ca.example.com
+  - domain_name: example.com
+    common_name: ca.example.com
     sans:
       - ca-dr.example.com
     altips:
@@ -113,7 +111,7 @@ bootstrap_certs__ca_intermediate_certs_list:
     state: New York
     locality: New York
     organization: Example LLC
-    organizationalUnit: Research
+    organizational_unit: Research
     email: ca-admin@example.com
 
 bootstrap_certs__ca_service_routes_list:
@@ -122,7 +120,7 @@ bootstrap_certs__ca_service_routes_list:
 
 bootstrap_certs__subj_alt_names_default:
   - '127.0.0.1'
-  - __bootstrap_certs__ca_cert_fqdn
+  - "{{ __bootstrap_certs__ca_cert_fqdn }}"
   - "*.{{ __bootstrap_certs__ca_cert_fqdn }}"
 
 bootstrap_certs__ca_cert_type: cert
@@ -137,122 +135,125 @@ bootstrap_certs__ca_root_names:
     ST: "{{ bootstrap_certs__ca_root.state }}"
     L: "{{ bootstrap_certs__ca_root.locality }}"
     O: "{{ bootstrap_certs__ca_root.organization }}"
-    OU: "{{ bootstrap_certs__ca_root.organizationalUnit }}"
+    OU: "{{ bootstrap_certs__ca_root.organizational_unit }}"
 
 bootstrap_certs__ca_intermediate_default_profile: intermediate_ca
-bootstrap_certs__ca_cacert_default_profile: server
+bootstrap_certs__ca_ca_default_profile: server
 
-bootstrap_certs__ca_root_config_tpl:
-  signing:
-    default:
-      ## root signed certs expire in 5 years
-      expiry: 43800h
-    profiles:
-      ca:
-        usages:
-          - signing
-          - key encipherment
-          - cert sign
-          - crl sign
-        expiry: 87600h
+bootstrap_certs__cfssl_profile_root:
+  ca_constraint:
+    is_ca: true
+    max_path_len: "{{ bootstrap_certs__ca_root_max_path_len }}"
+  usages:
+    - signing
+    - key encipherment
+    - cert sign
+    - crl sign
+  expiry: 87600h
+
+bootstrap_certs__cfssl_profile_intermediate:
+  expiry: "87600h" # ~10 years
+  ca_constraint:
+    is_ca: true
+    max_path_len: 0
+#    max_path_len_zero: true
+  usages:
+    - signing
+    - digital signature
+    - key encipherment
+    - cert sign
+    - crl sign
+    - server auth
+    - client auth
+
+bootstrap_certs__cfssl_profile_domain:
+  ca_constraint:
+    is_ca: true
+  #        expiry: 43800h
+  expiry: 87660h
+  usages:
+    - signing
+    - key encipherment
+    - cert sign
+    - crl sign
+    - server auth
+    - client auth
+
+bootstrap_certs__cfssl_profile_cluster:
+  ca_constraint:
+    is_ca: true
+  #        expiry: 8760h
+  expiry: 17520h
+  usages:
+    - signing
+    - key encipherment
+    - cert sign
+    - crl sign
+    - server auth
+    - client auth
+
+bootstrap_certs__cfssl_profile_development:
+  #        expiry: 8760h
+  expiry: 17520h
+  usages:
+    - signing
+    - key encipherment
+    - cert sign
+    - crl sign
+  ca_constraint:
+    is_ca: true
+
+bootstrap_certs__cfssl_profile_server:
+#  expiry: "8760h" # ~1 year
+  expiry: 17520h
+  usages:
+    - signing
+    - key encipherment
+    - server auth
+
+bootstrap_certs__cfssl_profile_client:
+  expiry: "8760h" # ~1 year
+  usages:
+    - signing
+    - key encipherment
+    - client auth
+
+bootstrap_certs__cfssl_profile_client_server:
+  expiry: 17520h
+  usages:
+    - signing
+    - digital signing
+    - key encipherment
+    - server auth
+    - client auth
+
+bootstrap_certs__cfssl_profile_peer:
+  expiry: 17520h
+  usages:
+    - signing
+    - digital signing
+    - key encipherment
+    - server auth
+    - client auth
+
 
 ## ref: https://jite.eu/2019/2/6/ca-with-cfssl/
 ## ref: https://github.com/jason-riddle/generating-certs/wiki/Generating-a-Root-CA,-Server,-and-Client-Certs-using-CFSSL
 ## ref: https://github.com/entercloudsuite/ansible-cfssl/blob/master/defaults/main.yml
 ## ref: https://gist.github.com/jdeathe/7f7bb957a4e8e0304f0df070f3cbcbee
-bootstrap_certs__ca_intermediate_config_tpl:
+bootstrap_certs__cfssl_signing_profiles:
   signing:
     default:
-      #      expiry: 43800h
       expiry: 87660h
     profiles:
-      ca:
-        usages:
-          - signing
-          - key encipherment
-          - cert sign
-          - crl sign
-        expiry: 87600h
-      intermediate_ca:
-        ca_constraint:
-          is_ca: true
-        #          max_path_len: 0
-        #          max_path_len_zero: true
-        #        expiry: 43800h
-        expiry: 87660h
-        usages:
-          - signing
-          - digital signature
-          - key encipherment
-          - cert sign
-          - crl sign
-          - server auth
-          - client auth
-      domain:
-        ca_constraint:
-          is_ca: true
-        #        expiry: 43800h
-        expiry: 87660h
-        usages:
-          - signing
-          - key encipherment
-          - cert sign
-          - crl sign
-          - server auth
-          - client auth
-      cluster:
-        ca_constraint:
-          is_ca: true
-        #        expiry: 8760h
-        expiry: 17520h
-        usages:
-          - signing
-          - key encipherment
-          - cert sign
-          - crl sign
-          - server auth
-          - client auth
-      development:
-        #        expiry: 8760h
-        expiry: 17520h
-        usages:
-          - signing
-          - key encipherment
-          - cert sign
-          - crl sign
-        ca_constraint:
-          is_ca: true
-      server:
-        #        expiry: 8760h
-        expiry: 17520h
-        usages:
-          - signing
-          - key encipherment
-          - server auth
-      client:
-        #        expiry: 8760h
-        expiry: 17520h
-        usages:
-          - signing
-          - key encipherment
-          - client auth
-      client-server:
-        #        expiry: 8760h
-        expiry: 17520h
-        usages:
-          - signing
-          - digital signing
-          - key encipherment
-          - server auth
-          - client auth
-      peer:
-        #        expiry: 8760h
-        expiry: 17520h
-        usages:
-          - signing
-          - digital signing
-          - key encipherment
-          - server auth
-          - client auth
+      root_ca: "{{ bootstrap_certs__cfssl_profile_root }}"
+      intermediate_ca: "{{ bootstrap_certs__cfssl_profile_intermediate }}"
+      domain: "{{ bootstrap_certs__cfssl_profile_domain }}"
+      cluster: "{{ bootstrap_certs__cfssl_profile_cluster }}"
+      development: "{{ bootstrap_certs__cfssl_profile_development }}"
+      server: "{{ bootstrap_certs__cfssl_profile_server }}"
+      client: "{{ bootstrap_certs__cfssl_profile_client }}"
+      client-server: "{{ bootstrap_certs__cfssl_profile_client_server }}"
+      peer: "{{ bootstrap_certs__cfssl_profile_peer }}"
 
 __log_prefix_fetch: Bootstrap CA Certs | Fetch certs |

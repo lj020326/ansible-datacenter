@@ -1,0 +1,26 @@
+---
+- name: Ensure Kubernetes repository exists.
+  ansible.builtin.yum_repository:
+    name: kubernetes
+    description: Kubernetes
+    enabled: true
+    gpgcheck: "{{ bootstrap_kubernetes__yum_gpg_check }}"
+    repo_gpgcheck: "{{ bootstrap_kubernetes__yum_repo_gpg_check }}"
+    baseurl: "{{ bootstrap_kubernetes__yum_base_url }}"
+    gpgkey: "{{ bootstrap_kubernetes__yum_gpg_key }}"
+
+- name: Add Kubernetes GPG keys.
+  ansible.builtin.rpm_key:
+    key: "{{ bootstrap_kubernetes__yum_gpg_key }}"
+    state: present
+  register: __bootstrap_kubernetes__rpm_key
+
+- name: Make cache if Kubernetes GPG key changed.
+  when: __bootstrap_kubernetes__rpm_key is changed # noqa: no-handler,fqcn[action-core]
+  changed_when: true
+  ansible.builtin.yum:
+    name: 'kubernetes'
+    state: present
+    disablerepo: '*'
+    enablerepo: 'kubernetes'
+    update_cache: true

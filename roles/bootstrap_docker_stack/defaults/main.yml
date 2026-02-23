@@ -10,6 +10,8 @@ __docker_stack__supported_actions:
 
 docker_stack__environment: DEV
 
+docker_stack__host_network: "{{ gateway_ipv4_network_cidr }}"
+
 docker_stack__network_subnet__default: 192.168.10.0/24
 docker_stack__network_subnet__socket_proxy: 192.168.11.0/24
 docker_stack__network_subnet__traefik_proxy: 192.168.12.0/24
@@ -20,19 +22,45 @@ docker_stack__swarm_mode: false
 docker_stack__swarm_manager: false
 #docker_stack__swarm_leader_host: leader.example.int
 
+bootstrap_docker__swarm_node_traefik_label: "traefik-enabled"
+
 #docker_stack__debug_mode: false
 docker_stack__debug_mode: true
 
-docker_stack__setup_external_site: true
-docker_stack__enable_cert_resolver: true
+#docker_stack__enable_external_route: true
+docker_stack__enable_external_route: false
+
+#docker_stack__enable_cert_resolver: true
+docker_stack__enable_cert_resolver: false
+
+__docker_stack__cacerts__fetch_method_default: "vault"
+__docker_stack__cacerts__fetch_method: "{{ docker_stack__cacerts__fetch_method
+  | d(__docker_stack__cacerts__fetch_method_default) }}"
+
+# --- OpenBao/Vault Configuration (for "vault" mode) ---
+__docker_stack__cacerts__vault_url_default: "http://127.0.0.1:8200"
+__docker_stack__cacerts__vault_url: "{{ docker_stack__cacerts__vault_url | d(__docker_stack__cacerts__vault_url_default) }}"
+__docker_stack__cacerts__vault_token: "{{ docker_stack__cacerts__vault_token | d('') }}"
+
+__docker_stack__ca_root_cn_default: "your-root-ca.example.com" # Common Name of the Root CA to fetch
+__docker_stack__ca_root_cn: "{{ docker_stack__ca_root_cn | d(__docker_stack__ca_root_cn_default) }}"
+
+__docker_stack__cacerts__vault_kv_mount_point_default: "secret"
+__docker_stack__cacerts__vault_kv_mount_point: "{{ docker_stack__cacerts__vault_kv_mount_point
+  | d(__docker_stack__cacerts__vault_kv_mount_point_default) }}"
+
+__docker_stack__cacerts__vault_kv_path_default: "{{ __docker_stack__cacerts__vault_kv_mount_point }}/{{
+  __docker_stack__ca_root_cn }}/certs"
+__docker_stack__cacerts__vault_kv_path: "{{ docker_stack__cacerts__vault_kv_path
+  | d(__docker_stack__cacerts__vault_kv_path_default) }}"
 
 ##################
 ## NOTE: the following 2 ca vars get overridden by vars/os_distribution/*.yml
 __docker_stack__ca_cert_bundle_default: /etc/pki/tls/certs/ca-bundle.crt
 #__docker_stack__ca_cert_bundle_default: "/etc/ssl/certs/ca-certificates.crt"
-__docker_stack__ca_java_keystore_default: /etc/pki/ca-trust/extracted/java/cacerts
-
 __docker_stack__ca_cert_bundle: "{{ docker_stack__ca_cert_bundle | d(__docker_stack__ca_cert_bundle_default) }}"
+
+__docker_stack__ca_java_keystore_default: /etc/pki/ca-trust/extracted/java/cacerts
 __docker_stack__ca_java_keystore: "{{ docker_stack__ca_java_keystore | d(__docker_stack__ca_java_keystore_default) }}"
 
 #################
@@ -49,6 +77,7 @@ __docker_stack__log_prefix__handle_service_exc: Docker Stack | Handle Service Co
 __docker_stack__log_prefix__setup_firewalld: Docker Stack | Setup Firewall |
 __docker_stack__log_prefix__stop_services: Docker Stack | Stop Docker Services |
 __docker_stack__log_prefix__setup_systemd_service: Docker Stack | Setup Systemd Service |
+__docker_stack__log_prefix__setup_admin_scripts: Docker Stack | Setup Admin Scripts |
 
 #############
 ### This is the key role input dictionary used
@@ -58,26 +87,23 @@ docker_stack__service_groups: []
 #  - name: base
 #    source: role
 
-docker_stack__traefik_routing_method: dns
-#docker_stack__traefik_routing_method: path
+docker_stack__traefik__routing_method: dns
+#docker_stack__traefik__routing_method: path
 
 docker_stack__proxy_services: []
-#docker_stack__traefik_version: v1
-#docker_stack__traefik_version: v2
-docker_stack__traefik_version: v3
+#docker_stack__traefik__version: v1
+#docker_stack__traefik__version: v2
+docker_stack__traefik__version: v3
 
-#docker_stack__traefik_image: traefik:latest
-#docker_stack__traefik_image: traefik:v2.9.6
-#docker_stack__traefik_image: traefik:v2.10.1
-#docker_stack__traefik_image: traefik:v2.11.6
-## ref: https://doc.traefik.io/traefik/v3.0/migration/v2-to-v3/#docker-docker-swarm
-docker_stack__traefik_image: traefik:v3.1
+#docker_stack__docker_api_version: "auto"
+docker_stack__docker_api_version: "1.41"
 
-docker_stack__traefik_http: 80
-docker_stack__traefik_https: 443
-docker_stack__traefik_https_suffix: "{{ ':' + docker_stack__traefik_https|string if docker_stack__traefik_https|string != '443' else '' }}"
+docker_stack__traefik__http: 80
+docker_stack__traefik__https_port: 443
+docker_stack__traefik__port: "{{ ':' + docker_stack__traefik__https_port | string
+  if docker_stack__traefik__https_port | string != '443' else '' }}"
 
-docker_stack__traefik_ssh: 2022
+docker_stack__traefik__ssh: 2022
 
 docker_stack__acme_http_challenge_proxy_port: 8980
 
@@ -98,75 +124,76 @@ docker_stack__compose_stack_resolve_image: changed
 
 docker_stack__compose_http_timeout: 120
 
-#__docker_stack__port_mode_default: "{{ 'swarm' if docker_stack__swarm_mode|d(False)|bool else 'host' }}"
-#__docker_stack__port_mode_default: "{{ 'global' if docker_stack__swarm_mode|d(False)|bool else 'host' }}"
+#__docker_stack__port_mode_default: "{{ 'swarm' if docker_stack__swarm_mode | d(false) | bool else 'host' }}"
+#__docker_stack__port_mode_default: "{{ 'global' if docker_stack__swarm_mode | d(false) | bool else 'host' }}"
+#__docker_stack__port_mode_default: "{{ 'ingress' if docker_stack__swarm_mode | d(false) | bool else 'host' }}"
 __docker_stack__port_mode_default: host
 __docker_stack__port_mode: "{{ docker_stack__port_mode | d(__docker_stack__port_mode_default) }}"
 
 #############
 ## LDAP domain config - ldap vars used in multiple stacks
 #############
-docker_stack__ldap_host: ldap.example.int
-docker_stack__ldap_port: "389"
-docker_stack__ldap_uri: ldap://{{ docker_stack__ldap_host }}:{{ docker_stack__ldap_port }}
-docker_stack__ldap_organisation: Example LLC
-docker_stack__ldap_domain: example.int
-docker_stack__ldap_admin_password: password
-docker_stack__ldap_config_password: passsword
-docker_stack__ldap_bind_user_username: readonly
-docker_stack__ldap_bind_user_password: f00b4r!23
+docker_stack__ldap__host: ldap.example.int
+docker_stack__ldap__port: "389"
+docker_stack__ldap__uri: ldap://{{ docker_stack__ldap__host }}:{{ docker_stack__ldap__port }}
+docker_stack__ldap__organisation: Example LLC
+docker_stack__ldap__domain: example.int
+docker_stack__ldap__admin_password: password
+docker_stack__ldap__config_password: passsword
+docker_stack__ldap__bind_user_username: readonly
+docker_stack__ldap__bind_user_password: f00b4r!23
 
-docker_stack__ldap_base_dn: dc=example,dc=int
+docker_stack__ldap__base_dn: dc=example,dc=int
 
-docker_stack__ldap_group_users_gid: 502
+docker_stack__ldap__group_users_gid: 502
 
-docker_stack__ldap_group_ou: groups
-docker_stack__ldap_group_base_dn: ou={{ docker_stack__ldap_group_ou }},{{ docker_stack__ldap_base_dn }}
-docker_stack__ldap_user_ou: users
-docker_stack__ldap_user_base_dn: ou={{ docker_stack__ldap_user_ou }},{{ docker_stack__ldap_base_dn }}
-docker_stack__ldap_idmap_ou: Idmap
-docker_stack__ldap_idmap_base_dn: ou={{ docker_stack__ldap_idmap_ou }},{{ docker_stack__ldap_base_dn }}
+docker_stack__ldap__group_ou: groups
+docker_stack__ldap__group_base_dn: ou={{ docker_stack__ldap__group_ou }},{{ docker_stack__ldap__base_dn }}
+docker_stack__ldap__user_ou: users
+docker_stack__ldap__user_base_dn: ou={{ docker_stack__ldap__user_ou }},{{ docker_stack__ldap__base_dn }}
+docker_stack__ldap__idmap_ou: Idmap
+docker_stack__ldap__idmap_base_dn: ou={{ docker_stack__ldap__idmap_ou }},{{ docker_stack__ldap__base_dn }}
 
-docker_stack__ldap_computer_base_ou: computers
-docker_stack__ldap_computer_base_dn: ou={{ docker_stack__ldap_computer_base_ou }},{{ docker_stack__ldap_base_dn }}
-docker_stack__ldap_host_base_ou: hosts
-docker_stack__ldap_host_base_dn: ou={{ docker_stack__ldap_host_base_ou }},{{ docker_stack__ldap_base_dn }}
+docker_stack__ldap__computer_base_ou: computers
+docker_stack__ldap__computer_base_dn: ou={{ docker_stack__ldap__computer_base_ou }},{{ docker_stack__ldap__base_dn }}
+docker_stack__ldap__host_base_ou: hosts
+docker_stack__ldap__host_base_dn: ou={{ docker_stack__ldap__host_base_ou }},{{ docker_stack__ldap__base_dn }}
 
-#docker_stack__ldap_search_user_cn: "search"
-#docker_stack__ldap_search_user_dn: "cn={{ docker_stack__ldap_search_user_cn }},{{ docker_stack__ldap_base_dn }}"
-#docker_stack__ldap_search_user_password: "DaBc$3412"
+#docker_stack__ldap__search_user_cn: "search"
+#docker_stack__ldap__search_user_dn: "cn={{ docker_stack__ldap__search_user_cn }},{{ docker_stack__ldap__base_dn }}"
+#docker_stack__ldap__search_user_password: "DaBc$3412"
 
-docker_stack__ldap_samba_sid_root: S-1-5-21-1234567890-0987654321-0123456789
-#docker_stack__ldap_samba_primary_group_sid: "{{ docker_stack__ldap_samba_sid_root }}-1234"
-#docker_stack__ldap_samba_admin_sid: "S-1-5-21-1234567890-0987654321-0123456789-500"
-#docker_stack__ldap_samba_domain_hosts_samba_sid: "{{ docker_stack__ldap_samba_sid_root }}-515"
+docker_stack__ldap__samba_sid_root: S-1-5-21-1234567890-0987654321-0123456789
+#docker_stack__ldap__samba_primary_group_sid: "{{ docker_stack__ldap__samba_sid_root }}-1234"
+#docker_stack__ldap__samba_admin_sid: "S-1-5-21-1234567890-0987654321-0123456789-500"
+#docker_stack__ldap__samba_domain_hosts_samba_sid: "{{ docker_stack__ldap__samba_sid_root }}-515"
 
-docker_stack__ldap_user_smb_base_dir: \\samba.{{ docker_stack__ldap_domain }}
-docker_stack__ldap_user_smb_profile_base: "{{ docker_stack__ldap_user_smb_base_dir }}\\profiles"
+docker_stack__ldap__user_smb_base_dir: \\samba.{{ docker_stack__ldap__domain }}
+docker_stack__ldap__user_smb_profile_base: "{{ docker_stack__ldap__user_smb_base_dir }}\\profiles"
 
-#docker_stack__ldap_user_root_samba_nt_password: "ertRgh%yr54t34Trf"
-#docker_stack__ldap_user_root_password: "4werPoidfk!jhy8"
+#docker_stack__ldap__user_root_samba_nt_password: "ertRgh%yr54t34Trf"
+#docker_stack__ldap__user_root_password: "4werPoidfk!jhy8"
 
 ##############
 ### LDAP domain admin info
 ##############
-#docker_stack__ldap_user_domain_admin_uid: "netadmin"
-#docker_stack__ldap_user_domain_admin_dn: "uid={{ docker_stack__ldap_user_domain_admin_uid }},{{ docker_stack__ldap_user_base_dn }}"
-#docker_stack__ldap_user_domain_admin_samba_nt_password: "ertRgh%yr54t34Trf"
-#docker_stack__ldap_user_domain_admin_samba_hosts: "vm10,vm11,ljlaptop,oradb1,plex,samba,vcenter"
-#docker_stack__ldap_user_domain_admin_password: "4werPoidfk!jhy8"
-#docker_stack__ldap_user_domain_admin_ssh_public_key: "publickeyhere"
+#docker_stack__ldap__user_domain_admin_uid: "netadmin"
+#docker_stack__ldap__user_domain_admin_dn: "uid={{ docker_stack__ldap__user_domain_admin_uid }},{{ docker_stack__ldap__user_base_dn }}"
+#docker_stack__ldap__user_domain_admin_samba_nt_password: "ertRgh%yr54t34Trf"
+#docker_stack__ldap__user_domain_admin_samba_hosts: "vm10,vm11,ljlaptop,oradb1,plex,samba,vcenter"
+#docker_stack__ldap__user_domain_admin_password: "4werPoidfk!jhy8"
+#docker_stack__ldap__user_domain_admin_ssh_public_key: "publickeyhere"
 
 #############
-## openLDAP domain config
+## LDAP domain config
 #############
 docker_stack__openldap__debug: true
 #docker_stack__openldap__debug: false
 
 ## ref: https://serverfault.com/questions/885324/background-on-sambasid-calculation
-docker_stack__ldap_domain_sid_root: S-1-5-21-1234567890-5678912345-987654321
+docker_stack__ldap__domain_sid_root: S-1-5-21-1234567890-5678912345-987654321
 
-docker_stack__ldap_domain_user_object_class_list_default:
+docker_stack__ldap__domain_user_object_class_list_default:
   - inetOrgPerson
   - organizationalPerson
   - person
@@ -174,23 +201,23 @@ docker_stack__ldap_domain_user_object_class_list_default:
   - sambaSamAccount
   - shadowAccount
 
-docker_stack__ldap_domain_group_object_class_list_default:
+docker_stack__ldap__domain_group_object_class_list_default:
   - top
   - posixGroup
 
-docker_stack__ldap_domain_host_object_class_list_default:
+docker_stack__ldap__domain_host_object_class_list_default:
   - account
   - posixAccount
   - sambaSamAccount
 
-docker_stack__ldap_samba_domain_map: {}
-docker_stack__ldap_domain_ou_map:
+docker_stack__ldap__samba_domain_map: {}
+docker_stack__ldap__domain_ou_map:
   groups: {}
   users: {}
   Idmap: {}
   hosts: {}
   computers: {}
-docker_stack__ldap_base_user_map:
+docker_stack__ldap__base_user_map:
   search:
     username: search
     ssha_password: "{ssha}GSmbWLYqiCMjPSJobxU4rfd/4fRX8okq3Zb4g=="
@@ -199,8 +226,8 @@ docker_stack__ldap_base_user_map:
       - organizationalRole
       - simpleSecurityObject
 
-docker_stack__ldap_domain_user_map: {}
-#docker_stack__ldap_domain_user_map:
+docker_stack__ldap__domain_user_map: {}
+#docker_stack__ldap__domain_user_map:
 #  ljohnson:
 #    username: ljohnson
 #    uid_number: 10100
@@ -210,15 +237,15 @@ docker_stack__ldap_domain_user_map: {}
 #    groups:
 #      - smbuser
 #    samba:
-#      sid: "{{ docker_stack__ldap_samba_sid_root }}-10100"
+#      sid: "{{ docker_stack__ldap__samba_sid_root }}-10100"
 #      nt_password: "A9658B834645YT9E2AA7BBB4D0286DDA4"
 #      workstations: "ljlaptop,oradb1,vcenter"
 #    ssha_password: "{SSHA}BMUL5QS4Oas2xvFQ+J6sdDZHaAWNtWQ=="
 #    ssh_public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMX0dPcvoiLIR3qdv+FXLE/yia
 #      3pC3w+tJCGs36b5OmKZDkElfR8+LtuYyX6Rb lee.james.johnson@gmail.com
 
-docker_stack__ldap_domain_group_map: {}
-docker_stack__ldap_domain_host_map: {}
+docker_stack__ldap__domain_group_map: {}
+docker_stack__ldap__domain_host_map: {}
 ######################
 ######################
 docker_stack__run_services: true
@@ -282,6 +309,8 @@ docker_stack__dir: "{{ docker_stack__user_home }}/docker"
 docker_stack__compose_file: "{{ docker_stack__dir }}/docker-compose.yml"
 docker_stack__remove_orphans: true
 
+docker_stack__admin_jobs: []
+
 docker_stack__ca_root_cn: ca-root
 
 docker_stack__acme_email: admin@example.int
@@ -295,8 +324,6 @@ docker_stack__service_route_name: "{{ inventory_hostname_short }}"
 docker_stack__internal_domain: "{{ docker_stack__service_route_name }}.{{ docker_stack__internal_root_domain }}"
 docker_stack__external_domain: "{{ docker_stack__service_route_name }}.{{ docker_stack__external_root_domain }}"
 #docker_stack__external_domain: "{{ docker_stack__external_root_domain }}"
-
-docker_stack__enable_external_route: false
 
 awx_orig_enabled: false
 awx_orig_dockerhub_version: 17.1.0
@@ -344,30 +371,32 @@ docker_stack__awx_backend: http://{{ docker_stack__internal_domain }}:{{ awx_hos
 docker_stack__awx_orig_backend: http://{{ docker_stack__internal_domain }}:{{ awx_orig_host_port }}
 docker_stack__nginx_backend: https://nginx.example.int
 
-docker_stack__stepca_use_host_cacerts: false
-docker_stack__stepca_enable_signed: false
-docker_stack__stepca_ca_force_create: false
+docker_stack__stepca__use_host_cacerts: false
+docker_stack__stepca__enable_signed: false
+docker_stack__stepca__ca_force_create: false
 
 ## SSL settings
 docker_stack__internal_ssl_cert_dir: /usr/local/ssl/certs
-docker_stack__internal_ssl_certkey_dir: /usr/local/ssl/private
-#docker_stack__internal_ssl_certkey_dir: "/etc/ssl/private"
+docker_stack__internal_ssl_key_dir: /usr/local/ssl/private
+#docker_stack__internal_ssl_key_dir: "/etc/ssl/private"
 #docker_stack__internal_ssl_cert_dir: "/etc/ssl/crt"
 
-#docker_stack__ssl_internal_cacert_file: "ca.{{ docker_stack__internal_root_domain }}.pem"
-docker_stack__ssl_internal_root_cacert_file: ca.{{ docker_stack__internal_root_domain }}.pem
-docker_stack__ssl_internal_cacert_file: ca.{{ docker_stack__internal_domain }}.pem
+#docker_stack__ssl_internal_ca_file: ca.{{ docker_stack__internal_domain }}.pem
+#docker_stack__ssl_internal_ca_file: "ca.{{ docker_stack__internal_root_domain }}.pem"
+#docker_stack__ssl_internal_root_ca_file: ca.{{ docker_stack__internal_root_domain }}.pem
 
-#docker_stack__ssl_internal_cert_file: "{{ hostname_name_full }}.pem"
-docker_stack__ssl_internal_cert_file: "{{ docker_stack__internal_domain }}.chain.pem"
+docker_stack__ssl_internal_cert_file: "{{ docker_stack__internal_domain }}.pem"
+#docker_stack__ssl_internal_cert_file: "{{ docker_stack__internal_domain }}.chain.pem"
 #docker_stack__ssl_internal_cert_file: "{{ docker_stack__internal_domain }}.pem"
+
+docker_stack__ssl_internal_privatekey_file: "{{ docker_stack__internal_domain }}-key.pem"
+#docker_stack__ssl_internal_privatekey_file: "{{ docker_stack__internal_domain }}-key.pem"
+
+## only applicable if using this role to create a self-signed cert
 docker_stack__ssl_internal_csr_file: "{{ docker_stack__internal_domain }}.csr"
 
-#docker_stack__ssl_internal_privatekey_file: "{{ hostname_name_full }}-key.pem"
-docker_stack__ssl_internal_privatekey_file: "{{ docker_stack__internal_domain }}-key.pem"
-
 docker_stack__external_ssl_cert_dir: "{{ docker_stack__dir }}/shared/certs"
-docker_stack__external_ssl_certkey_dir: "{{ docker_stack__dir }}/shared/certs"
+docker_stack__external_ssl_key_dir: "{{ docker_stack__dir }}/shared/certs"
 
 docker_stack__ssl_external_cert_file: "{{ docker_stack__external_domain }}.pem"
 docker_stack__ssl_external_privatekey_file: "{{ docker_stack__external_domain }}-key.pem"
@@ -420,7 +449,7 @@ docker_stack__service_templates:
 
 docker_stack__proxy_service_templates:
   - src: traefik/rules/proxy-services.yml.j2
-    dest: "{{ __docker_stack__base__traefik_dir }}/rules/proxy-services.yml"
+    dest: "{{ __docker_stack__traefik__dir }}/rules/proxy-services.yml"
 
 docker_stack__script_config_tpls: []
 #  - { src: 'scripts/backups.cfg.j2', dest: "/root/.backups.cfg", mode: "0600" }
@@ -441,18 +470,18 @@ docker_stack__firewalld_app_services: {}
 docker_stack__firewalld_app_ports: {}
 #overwrite_configs: true
 ## used from setting up registry service instance
-#docker_stack__registry_service_name: "registry"
-docker_stack__registry_service_domain: "{{ docker_stack__internal_domain }}"
+#docker_stack__registry__service_name: "registry"
+docker_stack__registry__service_domain: "{{ docker_stack__internal_domain }}"
 
 ## set registry endpoint namespace
 ## defaults to use docker hub endpoint namespace at `lj020326`
-#docker_stack__registry_endpoint: "example.int:5000"
-docker_stack__registry_endpoint: lj020326
-#docker_stack__registry_url: "https://{{ docker_stack__registry_endpoint }}/v2/"
+#docker_stack__registry__endpoint: "example.int:5000"
+docker_stack__registry__endpoint: lj020326
+#docker_stack__registry__url: "https://{{ docker_stack__registry__endpoint }}/v2/"
 
-docker_stack__registry_login: false
-docker_stack__registry_username: user
-docker_stack__registry_password: password
+docker_stack__registry__login: false
+docker_stack__registry__username: user
+docker_stack__registry__password: password
 
 docker_stack__service_group_configs_tpl: {}
 docker_stack__config_tpls: []

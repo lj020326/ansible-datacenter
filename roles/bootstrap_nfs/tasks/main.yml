@@ -3,16 +3,16 @@
 - name: Include OS-specific variables.
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
-    - "{{ ansible_distribution | lower }}.yml"
-    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yml"
-    - "{{ ansible_os_family | lower }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
 
 - name: Include overrides specific to Fedora.
   when:
-    - ansible_os_family == 'RedHat'
-    - ansible_distribution == "Fedora"
+    - ansible_facts['os_family'] == 'RedHat'
+    - ansible_facts['distribution'] == "Fedora"
   ansible.builtin.include_vars: Fedora.yml
 
 - name: Ensure NFS utilities are installed.
@@ -22,8 +22,8 @@
 
 - name: Ensure rpcbind is running as configured.
   when:
-    - ansible_os_family == 'RedHat'
-    - bootstrap_nfs__rpcbind_enabled|bool
+    - ansible_facts['os_family'] == 'RedHat'
+    - bootstrap_nfs__rpcbind_enabled | bool
   ansible.builtin.service:
     name: rpcbind
     state: "{{ bootstrap_nfs__rpcbind_state }}"
@@ -51,7 +51,7 @@
   notify: reload nfs
 
 - name: Ensure nfs is running.
-  when: bootstrap_nfs__exports|length
+  when: bootstrap_nfs__exports | d([]) | length > 0
   ansible.builtin.service:
     name: "{{ bootstrap_nfs__server_daemon }}"
     state: started

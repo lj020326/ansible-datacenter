@@ -1,0 +1,138 @@
+---
+# Vault configuration (required for PKI/KV fetches)
+deploy_pki_certs__vault_url: "https://vault.example.int:8200"
+deploy_pki_certs__vault_token: ""
+deploy_pki_certs__vault_mount_path: "pki-intermediate"
+deploy_pki_certs__vault_api_version: "v1"
+
+deploy_pki_certs__vault_kv_mount_path: "secret"
+#deploy_pki_certs__vault_kv_mount_path: "kv/pki"
+
+deploy_pki_certs__vault_pki_service_route_role_name: "internal-service-route"
+deploy_pki_certs__vault_pki_signing_role_name: "internal-signing"
+deploy_pki_certs__vault_pki_host_role_name: "internal-host"
+
+deploy_pki_certs__new_cert_verify_fail_fast: true
+
+# You can override per-host if needed
+deploy_pki_certs__pki_signing_common_name_suffix: ".sign"
+
+deploy_pki_certs__vault_pki_kv_types:
+  - "pki_service_route"
+  - "pki_signing"
+  - "pki_host"
+
+__deploy_pki_certs__vault_pki_type_to_role_mappings:
+  pki_service_route: "{{ deploy_pki_certs__vault_pki_service_route_role_name }}"
+  pki_signing: "{{ deploy_pki_certs__vault_pki_signing_role_name }}"
+  pki_host: "{{ deploy_pki_certs__vault_pki_host_role_name }}"
+
+
+deploy_pki_certs__enable_debug_mode: true
+
+deploy_pki_certs__ca_force_deploy: false
+deploy_pki_certs__ca_force_create: false
+
+deploy_pki_certs__ca_reset_local_certs: false
+#deploy_pki_certs__ca_reset_local_certs: true
+deploy_pki_certs__ca_reset_trust_certs: false
+
+deploy_pki_certs__verify_fail_fast: true
+
+deploy_pki_certs__ca_root_cert_basename: "ca-root"
+deploy_pki_certs__ca_root_cn: "ca-root.example.int"
+
+deploy_pki_certs__ca_host_cn: "{{ ansible_facts['fqdn'] }}"
+deploy_pki_certs__ca_placeholder_name: "placeholder"
+
+deploy_pki_certs__ca_cert_duration_root: "438000h" # 50 years
+deploy_pki_certs__ca_cert_duration_intermediate: "87600h" # 10 years
+
+## 30 days
+deploy_pki_certs__ca_cert_renewal_tolerance_days: 30
+__deploy_pki_certs__tolerance_seconds: "{{ deploy_pki_certs__ca_cert_renewal_tolerance_days | int * 86400 }}"
+
+__deploy_pki_certs__ca_root_cert_name_default: "{{ deploy_pki_certs__ca_root_cert_basename }}.{{ deploy_pki_certs__ca_cert_extension }}"
+__deploy_pki_certs__ca_root_cert_name: "{{ deploy_pki_certs__ca_root_cert_name
+  | d(__deploy_pki_certs__ca_root_cert_name_default) }}"
+
+#deploy_pki_certs__certificate_ttl: "720h"
+deploy_pki_certs__certificate_ttl: "8760h" # 1 year
+
+deploy_pki_certs__ca_signing_certs_list: []
+deploy_pki_certs__ca_service_routes_list: []
+
+deploy_pki_certs__validation_url: "{{ deploy_pki_certs__vault_url }}"
+
+## NOTE: the following 2 ca vars get overridden by vars/os_distribution/*.yml
+__deploy_pki_certs__ca_cert_bundle_default: /etc/pki/tls/certs/ca-bundle.crt
+#__deploy_pki_certs__ca_cert_bundle_default: "/etc/ssl/certs/ca-certificates.crt"
+__deploy_pki_certs__ca_cert_bundle: "{{ deploy_pki_certs__ca_cert_bundle
+  | d(__deploy_pki_certs__ca_cert_bundle_default) }}"
+
+deploy_pki_certs__ca_cert_extension: "pem"
+
+#__deploy_pki_certs__trust_cert_extension_default: "pem"
+__deploy_pki_certs__trust_cert_extension: "{{ deploy_pki_certs__trust_cert_extension
+  | d(__deploy_pki_certs__trust_cert_extension_default) }}"
+
+# Validation toggles (defaults to enabled)
+deploy_pki_certs__validation_enabled: true
+deploy_pki_certs__validation_fail_fast: false
+
+# e.g., "/custom/dir myroot myvault" for overrides
+deploy_pki_certs__validation_args: ""
+
+deploy_pki_certs__pki_cert_key_type: "ec"
+deploy_pki_certs__pki_cert_key_bits: 256
+deploy_pki_certs__pki_cert_ou: "Example Internal Unit"
+deploy_pki_certs__pki_cert_org: "Example Org"
+
+# The intermediate CA configuration is defined here and can be overridden in inventory
+deploy_pki_certs__vault_cert_configs:
+  cert_basename: "example-vault-ca"
+  csr_json_filename: "example-vault-ca-csr.json"
+  common_name: "MyOrg Intermediate CA"
+  key_type: "{{ deploy_pki_certs__pki_cert_key_type }}"
+  key_size: "{{ deploy_pki_certs__pki_cert_key_bits }}"
+
+__deploy_pki_certs__vault_cert_name_default: "{{ deploy_pki_certs__vault_cert_configs.cert_basename }}.{{ deploy_pki_certs__ca_cert_extension }}"
+__deploy_pki_certs__vault_cert_name: "{{ deploy_pki_certs__vault_cert_name
+  | d(__deploy_pki_certs__vault_cert_name_default) }}"
+
+__deploy_pki_certs__vault_cert_basename_default: "{{ deploy_pki_certs__vault_cert_configs.cert_basename }}"
+__deploy_pki_certs__vault_cert_basename: "{{ deploy_pki_certs__vault_cert_basename
+  | d(__deploy_pki_certs__vault_cert_basename_default) }}"
+
+#deploy_pki_certs__local_cert_dir: "/etc/pki/cacerts"
+deploy_pki_certs__local_cert_dir: "/usr/local/ssl/certs"
+deploy_pki_certs__local_key_dir: "/usr/local/ssl/private"
+deploy_pki_certs__java_keystore_enabled: false
+
+# The intermediate CA source path is now constructed from existing variables
+deploy_pki_certs__pki_ca_source_path: "{{
+  deploy_pki_certs__vault_kv_mount_path }}/intermediate/{{ __deploy_pki_certs__vault_cert_basename }}"
+
+# required for validation scripts
+# overridden by the os-specific vars
+__deploy_pki_certs__python_packages:
+  - python3-pycurl
+  - python3-openssl
+  - python3-cryptography
+
+# OS-specific variables (with Debian values as defaults)
+__deploy_pki_certs__trust_ca_cert_dir_default: /usr/local/share/ca-certificates
+__deploy_pki_certs__trust_ca_cert_dir: "{{ deploy_pki_certs__trust_ca_cert_dir
+  | d(__deploy_pki_certs__trust_ca_cert_dir_default) }}"
+
+__deploy_pki_certs__trust_ca_update_trust_cmd_default: update-ca-certificates
+__deploy_pki_certs__trust_ca_update_trust_cmd: "{{ deploy_pki_certs__trust_ca_update_trust_cmd
+  | d(__deploy_pki_certs__trust_ca_update_trust_cmd_default) }}"
+
+__deploy_pki_certs__java_keystore_default: /etc/ssl/certs/java/cacerts
+__deploy_pki_certs__java_keystore: "{{ deploy_pki_certs__java_keystore
+  | d(__deploy_pki_certs__java_keystore_default) }}"
+
+__deploy_pki_certs__java_keystore_pass_default: "changeit"
+__deploy_pki_certs__java_keystore_pass: "{{ deploy_pki_certs__java_keystore_pass
+  | d(__deploy_pki_certs__java_keystore_pass_default) }}"

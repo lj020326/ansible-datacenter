@@ -25,26 +25,26 @@ The state in which the Postfix service should be after this role runs, and wheth
 Options for values `inet_interfaces` and `inet_protocols` in the `main.cf` file.
 
  * `bootstrap_postfix__install` [default: `[postfix, mailutils, libsasl2-2, sasl2-bin, libsasl2-modules]`]: Packages to install
- * `bootstrap_postfix__hostname` [default: `{{ ansible_fqdn }}`]: Host name, used for `myhostname` and in `mydestination`
- * `bootstrap_postfix__mailname` [default: `{{ ansible_fqdn }}`]: Mail name (in `/etc/mailname`), used for `myorigin`
+ * `bootstrap_postfix__hostname` [default: `{{ ansible_facts['fqdn'] }}`]: Host name, used for `myhostname` and in `mydestination`
+ * `bootstrap_postfix__mailname` [default: `{{ ansible_facts['fqdn'] }}`]: Mail name (in `/etc/mailname`), used for `myorigin`
 
  * `bootstrap_postfix__compatibility_level` [optional]: With backwards compatibility turned on (the compatibility_level value is less than the Postfix built-in value), Postfix looks for settings that are left at their implicit default value, and logs a message when a backwards-compatible default setting is required (e.g. `2`, `Postfix >= 3.0`)
 
- * `bootstrap_postfix__default_database_type` [default: `hash`]: The default database type for use in `newaliases`, `postalias` and `postmap` commands
+ * `bootstrap_postfix__map_type` [default: `hash`]: The default database type for use in `newaliases`, `postalias` and `postmap` commands
  * `bootstrap_postfix__aliases` [default: `[]`]: Aliases to ensure present in `/etc/aliases`
  * `bootstrap_postfix__virtual_aliases` [default: `[]`]: Virtual aliases to ensure present in `/etc/postfix/virtual`
  * `bootstrap_postfix__sender_canonical_maps` [default: `[]`]: Sender address rewriting in `/etc/postfix/sender_canonical_maps` ([see](http://www.postfix.org/postconf.5.html#transport_maps))
- * `bootstrap_postfix__sender_canonical_maps_database_type` [default: `"{{ bootstrap_postfix__default_database_type }}"`]: The database type for use in `bootstrap_postfix__sender_canonical_maps`
+ * `bootstrap_postfix__sender_canonical_maps_database_type` [default: `"{{ bootstrap_postfix__map_type }}"`]: The database type for use in `bootstrap_postfix__sender_canonical_maps`
  * `bootstrap_postfix__recipient_canonical_maps` [default: `[]`]: Recipient address rewriting in `/etc/postfix/recipient_canonical_maps` ([see](http://www.postfix.org/postconf.5.html#sender_dependent_relayhost_maps))
- * `bootstrap_postfix__recipient_canonical_maps_database_type` [default: `"{{ bootstrap_postfix__default_database_type }}"`]: The database type for use in `bootstrap_postfix__recipient_canonical_maps`
+ * `bootstrap_postfix__recipient_canonical_maps_database_type` [default: `"{{ bootstrap_postfix__map_type }}"`]: The database type for use in `bootstrap_postfix__recipient_canonical_maps`
  * `bootstrap_postfix__transport_maps` [default: `[]`]: Transport mapping based on recipient address `/etc/postfix/transport_maps` ([see](http://www.postfix.org/postconf.5.html#recipient_canonical_maps))
- * `bootstrap_postfix__transport_maps_database_type` [default: `"{{ bootstrap_postfix__default_database_type }}"`]: The database type for use in `bootstrap_postfix__transport_maps`
+ * `bootstrap_postfix__transport_maps_database_type` [default: `"{{ bootstrap_postfix__map_type }}"`]: The database type for use in `bootstrap_postfix__transport_maps`
  * `bootstrap_postfix__sender_dependent_relayhost_maps` [default: `[]`]: Transport mapping based on sender address `/etc/postfix/sender_dependent_relayhost_maps` ([see](http://www.postfix.org/postconf.5.html#recipient_canonical_maps))
  * `bootstrap_postfix__smtp_header_checks` [default: `[]`]: Lookup tables for content inspection of primary non-MIME message headers `/etc/postfix/header_checks` ([see](http://www.postfix.org/postconf.5.html#header_checks))
  * `bootstrap_postfix__smtp_header_checks_database_type` [default: `regexp`]: The database type for use in `header_checks`
  * `bootstrap_postfix__generic` [default: `bootstrap_postfix__smtp_generic_maps`]: **Deprecated**, use `bootstrap_postfix__smtp_generic_maps`
  * `bootstrap_postfix__smtp_generic_maps` [default: `[]`]: Generic table address mapping in `/etc/postfix/generic` ([see](http://www.postfix.org/generic.5.html))
- * `bootstrap_postfix__smtp_generic_maps_database_type` [default: `"{{ bootstrap_postfix__default_database_type }}"`]: The database type for use in `smtp_generic_maps`
+ * `bootstrap_postfix__smtp_generic_maps_database_type` [default: `"{{ bootstrap_postfix__map_type }}"`]: The database type for use in `smtp_generic_maps`
 
  * `bootstrap_postfix__mydestination` [default: `["{{ bootstrap_postfix__hostname }}", 'localdomain', 'localhost', 'localhost.localdomain']`]: Specifies what domains this machine will deliver locally, instead of forwarding to another machine
  * `bootstrap_postfix__mynetworks` [default: `['127.0.0.0/8', '[::ffff:127.0.0.0]/104', '[::1]/128']`]: The list of "trusted" remote SMTP clients that have more privileges than "strangers"

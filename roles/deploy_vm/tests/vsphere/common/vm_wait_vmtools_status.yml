@@ -39,12 +39,12 @@
     hostname: "{{ vsphere_host_name }}"
     username: "{{ vsphere_host_user }}"
     password: "{{ vsphere_host_user_password }}"
-    validate_certs: "{{ validate_certs | default(false) }}"
+    validate_certs: "{{ validate_certs | d(false) }}"
     datacenter: "{{ vsphere_host_datacenter }}"
     folder: "{{ vm_folder }}"
     name: "{{ vm_name }}"
   register: get_vmtools_info
-  until: get_vmtools_info.vmtools_info.vm_tools_running_status | default('') == vmtools_running_status
+  until: get_vmtools_info.vmtools_info.vm_tools_running_status | d('') == vmtools_running_status
   retries: "{{ ((vm_wait_vmtools_timeout | int) / 3) | int }}"
   delay: 3
   ignore_errors: true
@@ -52,7 +52,7 @@
 - name: Display the wait for VMware tools status result
   ansible.builtin.debug:
     var: get_vmtools_info
-  when: enable_debug|d(False)|bool
+  when: enable_debug | d(false) | bool
 
 - name: Check VMware Tools running status is '{{ vmtools_running_status }}'
   ansible.builtin.assert:
@@ -64,8 +64,8 @@
     fail_msg: >-
       It's timed out to wait for VMware Tools running status became '{{ vmtools_running_status }}'
       in {{ vm_wait_vmtools_timeout }} seconds.
-      Current VMware Tools running status is '{{ get_vmtools_info.vmtools_info.vm_tools_running_status | default("") }}'.
-  when: not (vm_wait_vmtools_ignore_error | default(false))
+      Current VMware Tools running status is '{{ get_vmtools_info.vmtools_info.vm_tools_running_status | d("") }}'.
+  when: not (vm_wait_vmtools_ignore_error | d(false))
 
 - name: Set fact of VMware Tools installed status
   ansible.builtin.set_fact:

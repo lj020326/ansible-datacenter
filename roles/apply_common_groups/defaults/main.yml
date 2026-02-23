@@ -5,9 +5,14 @@ __apply_common_groups_container_types:
   - container
   - containerd
 
-__apply_common_groups__os_base_groupname: "{{ role_name | replace('-','_') }}_os"
-__apply_common_groups__machine_base_groupname: "{{ role_name | replace('-','_') }}_machine"
-__apply_common_groups__network_base_groupname: "{{ role_name | replace('-','_') }}_network"
+#__apply_common_groups__base_groupname_default: "{{ role_name | replace('-','_') }}"
+__apply_common_groups__base_groupname_default: "common_groups"
+__apply_common_groups__base_groupname: "{{ apply_common_groups__base_groupname
+  | d(__apply_common_groups__base_groupname_default) }}"
+
+__apply_common_groups__os_base_groupname: "{{ __apply_common_groups__base_groupname }}_os"
+__apply_common_groups__machine_base_groupname: "{{ __apply_common_groups__base_groupname }}_machine"
+__apply_common_groups__network_base_groupname: "{{ __apply_common_groups__base_groupname }}_network"
 
 __apply_common_groups__dns_servers_default:
   - 192.168.0.4
@@ -18,16 +23,16 @@ __apply_common_groups__dns_servers_default:
 __apply_common_groups__dns_servers: "{{ apply_common_groups__dns_servers | d(__apply_common_groups__dns_servers_default) }}"
 
 ## ref: https://ansible-collections.github.io/community.dns/branch/main/lookup_lookup.html
-__apply_common_groups__machine_dns_ipv4: "{{ query('community.dns.lookup', 
+__apply_common_groups__machine_dns_ipv4: "{{ query('community.dns.lookup',
   inventory_hostname, server=__apply_common_groups__dns_servers, nxdomain_handling='empty')
   | first }}"
 
-__apply_common_groups__machine_address_list_ipv4: "{{ ansible_facts.all_ipv4_addresses 
-  | d(ansible_facts|community.general.json_query('interfaces[*].ipv4.address')) | d([]) | unique
+__apply_common_groups__machine_address_list_ipv4: "{{ ansible_facts.all_ipv4_addresses
+  | d(ansible_facts | community.general.json_query('interfaces[*].ipv4.address')) | d([]) | unique
   }}"
 
-##__apply_common_groups__machine_ipv4_default: "{{ ansible_default_ipv4.address|d(ansible_all_ipv4_addresses | first }}"
-__apply_common_groups__machine_ipv4: "{{ ansible_default_ipv4.address 
+##__apply_common_groups__machine_ipv4_default: "{{ ansible_facts['default_ipv4']['address'] | d(ansible_facts['all_ipv4_addresses'] | first }}"
+__apply_common_groups__machine_ipv4: "{{ ansible_facts['default_ipv4']['address']
   | d(__apply_common_groups__machine_dns_ipv4) | d(__apply_common_groups__machine_address_list_ipv4
   | first) }}"
 __apply_common_groups__machine_ip: "{{ __apply_common_groups__machine_ipv4 }}"

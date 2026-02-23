@@ -5,32 +5,34 @@
 #   os_group: (Optional)The group name for the new user name.
 
 # If user already exists, return changed with 'false'
+---
+# Add a new user to guest
+# Parameter:
+#   os_username: The user name to be added
+#   os_group: (Optional)The group name for the new user name.
+
 - name: Get user '{{ os_username }}' info
   ansible.builtin.getent:
     database: passwd
     key: "{{ os_username }}"
   failed_when: false
-  register: getent_user_result
   delegate_to: "{{ vm_guest_ip }}"
 
 - name: User '{{ os_username }}' already exists
   ansible.builtin.debug:
-    var: getent_user_result.ansible_facts.getent_passwd
-  when:
-    - getent_user_result.ansible_facts is defined
-    - getent_user_result.ansible_facts.getent_passwd is defined
-    - getent_user_result.ansible_facts.getent_passwd[os_username] is defined
+    # Accessing via ansible_facts to avoid DEPRECATION WARNING
+    var: ansible_facts['getent_passwd']
+  when: os_username in ansible_facts.getent_passwd
+  delegate_to: "{{ vm_guest_ip }}"
 
 # Create a new user if it doesn't exist
 - name: Add a new user '{{ os_username }}'
   ansible.builtin.user:
     name: "{{ os_username }}"
-    group: "{{ os_group | default('users') }}"
+    group: "{{ os_group | d('users') }}"
     password: "{{ vm_password | password_hash('sha512') }}"
     update_password: on_create
     expires: -1
   delegate_to: "{{ vm_guest_ip }}"
-  when: >
-    getent_user_result.ansible_facts is undefined or
-    getent_user_result.ansible_facts.getent_passwd is undefined or
-    getent_user_result.ansible_facts.getent_passwd[os_username] is undefined
+  # Simplified conditional: only runs if the username is NOT a key in the facts
+  when: os_username not in ansible_facts.getent_passwd

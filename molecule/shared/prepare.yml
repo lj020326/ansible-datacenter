@@ -1,5 +1,5 @@
 ---
-- name: Update package cache
+- name: Prepare molecule instance
   hosts: all
 #  gather_facts: false
   gather_facts: true
@@ -16,19 +16,87 @@
         var: facts_result
         verbosity: 1
 
-    - name: Display ansible_pkg_mgr
+    - name: Display ansible_facts.os_family
       ansible.builtin.debug:
-        var: ansible_pkg_mgr
+        var: ansible_facts.os_family
 
-    - name: Update package cache
-      vars:
-        ansible_python_interpreter: /usr/bin/python3
-#        ansible_python_interpreter: /usr/libexec/platform-python
-      ansible.builtin.package:
-        update_cache: true
+    - name: Display ansible_facts.product_name
+      ansible.builtin.debug:
+        var: ansible_facts.product_name
+
+    - name: Display ansible_facts.distribution
+      ansible.builtin.debug:
+        var: ansible_facts.distribution
+
+    - name: Display ansible_facts.distribution_release
+      ansible.builtin.debug:
+        var: ansible_facts.distribution_release
+
+    - name: Display ansible_facts.distribution_major_version
+      ansible.builtin.debug:
+        var: ansible_facts.distribution_major_version
+
+    - name: Display ansible_facts.distribution_version
+      ansible.builtin.debug:
+        var: ansible_facts.distribution_version
+
+    - name: Display ansible_facts.service_mgr
+      ansible.builtin.debug:
+        var: ansible_facts.service_mgr
+
+    - name: Get systemd status # noqa command-instead-of-module
+      ansible.builtin.command: systemctl is-system-running
+      register: systemctl_status
       changed_when: false
-      register: task_result
-      until: task_result is success
-      retries: 3
-#      retries: 10
-      delay: 2
+      failed_when: systemctl_status.rc > 1
+
+    - name: Display systemctl_status
+      ansible.builtin.debug:
+        var: systemctl_status
+
+    - name: Assert systemctl_status is running
+      ansible.builtin.assert:
+        that: >
+          'running' in systemctl_status.stdout | d('') or
+          'starting' in systemctl_status.stdout | d('') or
+          'degraded' in systemctl_status.stdout | d('')
+
+    - name: Display ansible_facts.pkg_mgr
+      ansible.builtin.debug:
+        var: ansible_facts.pkg_mgr
+
+    - name: Force upgrade systemd # noqa: package-latest
+      when: ansible_facts.pkg_mgr == 'apt'
+      block:
+        - name: Perform system-wide distribution upgrade
+          environment:
+            # Prevent services from restarting and crashing the container
+            DEBIAN_FRONTEND: noninteractive
+            RUNLEVEL: "1"
+          ansible.builtin.apt:
+            update_cache: true
+            ## This fixes the dependency skew (8.11 -> 8.12)
+            #upgrade: dist
+            ## Upgrade only the essential core to resolve the skew
+            ## but avoid a full 'dist' upgrade if possible to save resources
+            upgrade: true
+          register: upgrade_result
+
+        - name: Force upgrade systemd # noqa: package-latest
+          ansible.builtin.apt:
+            name: systemd
+            state: latest
+            only_upgrade: true
+
+#    - name: Update package cache
+#      vars:
+#        ansible_python_interpreter: /usr/bin/python3
+##        ansible_python_interpreter: /usr/libexec/platform-python
+#      ansible.builtin.package:
+#        update_cache: true
+#      changed_when: false
+#      register: task_result
+#      until: task_result is success
+#      retries: 3
+##      retries: 10
+#      delay: 2

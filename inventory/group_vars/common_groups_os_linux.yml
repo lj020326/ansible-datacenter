@@ -1,0 +1,118 @@
+---
+
+dc_os_family: linux
+dc_os_family_shortname: lnx
+
+ping_test__module: ping
+
+#os_python_interpreter: /usr/bin/env python3
+#os_python_interpreter: /usr/bin/python
+os_python_interpreter: /usr/bin/python3
+
+bootstrap_netplan__ethernet_interface_name: "ens160"
+
+bootstrap_linux_user__admin_username: administrator
+#bootstrap_linux_user__admin_password: "{{ vault__admin_password }}"
+bootstrap_linux_user__admin_ssh_auth_key: "{{ vault__admin_ssh_public_key }}"
+
+bootstrap_webmin__user_password: "{{ vault__webmin_password | d('change!me') }}"
+
+### OS bootstrap
+bootstrap_linux_core__init_netplan: false
+bootstrap_linux_core__init_network_interfaces: true
+
+bootstrap_linux_core__network_name_servers: "{{ dns_nameservers }}"
+bootstrap_linux_core__dns_domain: "{{ dns_domain }}"
+bootstrap_linux_core__dns_search_domains: "{{ dns_search_domains }}"
+
+bootstrap_linux_core__hostname_internal_domain: "{{ hostname_internal_domain }}"
+#bootstrap_linux_core__hostname_hosts:
+#  - ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+#    name: "{{ bootstrap_linux_core__hostname_name_full }}"
+#    aliases:
+#      - "{{ inventory_hostname_short }}"
+
+#ansible_python_interpreter: /usr/bin/env python3
+# ansible_python_interpreter: "/usr/bin/python3"
+# ansible_python_interpreter: "python3"
+#ansible_virtualenv: ~/.venv/ansible
+
+ansible_virtualenv: /usr/local/lib/ansible/venv
+ansible_virtualenv_python: /usr/local/lib/ansible/venv
+ansible_virtualenv_python_interpreter: "{{ ansible_virtualenv_python }}/bin/python"
+ansible_pip_executable: "{{ ansible_virtualenv_python }}/bin/pip"
+
+#ansible_python_interpreter: /usr/bin/env python3
+ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
+
+#ansible_python_symlink_bin: /usr/local/bin/python3
+#ansible_python_interpreter: "{{ ansible_python_symlink_bin }}"
+
+bootstrap_linux__os_python_interpreter: "{{ os_python_interpreter }}"
+
+ca_local_cert_dir: /usr/local/ssl/certs
+ca_local_key_dir: /usr/local/ssl/private
+
+## ref: https://unix.stackexchange.com/questions/685545/changing-the-key-exchange-algorithm-used-by-openssh-server
+## ref: https://superuser.com/questions/1016989/ssh-dsa-keys-no-longer-work-for-password-less-authentication
+## sshd_KexAlgorithms: "+diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1"
+#sshd_HostKeyAlgorithms: "+ssh-dss,ssh-rsa" # noqa: var-naming[pattern]
+#sshd_PubkeyAcceptedAlgorithms: "+ssh-dss,ssh-rsa" # noqa: var-naming[pattern]
+
+sshd:
+  AcceptEnv: LANG LC_*
+  AuthorizedKeysCommand: /usr/local/bin/fetchSSHKeysFromLDAP
+  AuthorizedKeysCommandUser: nobody
+  AuthorizedKeysFile: .ssh/authorized_keys
+  ChallengeResponseAuthentication: "no"
+  Ciphers: aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr
+  GSSAPIAuthentication: "yes"
+  GSSAPICleanupCredentials: "no"
+  HostKeyAlgorithms: +ssh-dss,ssh-rsa
+  #  KexAlgorithms: curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,
+  # diffie-hellman-group18-sha512,diffie-hellman-group14-sha256,diffie-hellman-group-exchange-sha256,diffie-hellman-group1-sha1
+  KexAlgorithms: +diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1
+  MACs: hmac-sha2-256,hmac-sha2-512,hmac-sha1
+  PasswordAuthentication: "yes"
+  PrintMotd: "no"
+  PubkeyAcceptedAlgorithms: "+ssh-dss,ssh-rsa"
+  SyslogFacility: AUTHPRIV
+  UseDNS: "no"
+  UsePAM: "yes"
+  X11Forwarding: "yes"
+
+bootstrap_pip__env_list__ansible:
+  - virtualenv: "{{ ansible_virtualenv }}"
+#    virtualenv_site_packages: true
+#    symlink_path: "{{ ansible_python_symlink_bin }}"
+    libraries:
+      - name: setuptools
+        priority: 1
+      - ansible
+      - pywinrm
+#      - firewall
+
+
+##########
+## mounts
+##   list of mounts to be setup for linux machines.
+##########
+bootstrap_linux_mount__list:
+  - name: "/data"
+    src: "{{ nfs_primary_host }}:{{ nfs_primary_share }}"
+    fstype: "nfs"
+    options: "vers=4.1,proto=tcp,intr,noatime,nodiratime,timeo=150,retrans=2,nofail,_netdev"
+#    options: "vers=4.1,proto=tcp,hard,intr,noatime,nodiratime,timeo=150,retrans=2,_netdev"
+#    options: "vers=4.1,proto=tcp,hard,intr,rsize=1048576,wsize=1048576,noatime,nodiratime,timeo=150,retrans=2,_netdev"
+#    options: "vers=4.1,intr,auto,nofail,_netdev"
+
+
+##########
+## crons
+##   list of CRONs to be setup for backup machines.
+##########
+bootstrap_linux_cron__list__linux:
+  ## make sure the backup nfs mount is in setup
+  - name: "mount all nfs shares"
+    schedule: ["0", "*", "*", "*", "0"]
+    job: "mount -a"

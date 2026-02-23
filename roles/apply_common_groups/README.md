@@ -4,11 +4,11 @@
 The role will derive common groups to be used by subsequent ansible plays.
 
 Some of the most commonly used 'common' groups include:
-  - apply_common_groups__network_group
-  - apply_common_groups__oc_family
-  - apply_common_groups__oc_distribution
-  - apply_common_groups__oc_distribution_version
-  - apply_common_groups__oc_machine_type
+  - common_groups__network_group
+  - common_groups__oc_family
+  - common_groups__oc_distribution
+  - common_groups__oc_distribution_version
+  - common_groups__oc_machine_type
 
 
 Example usage:
@@ -23,12 +23,12 @@ Example usage:
 - name: "Display common group information"
   debug:
     msg:
-      ## dynamically derived apply_common_groups__oc_* groups
-      - "apply_common_groups__network_group={{ apply_common_groups__network_group }}"
-      - "apply_common_groups__oc_family={{ apply_common_groups__oc_family }}"
-      - "apply_common_groups__oc_distribution={{ apply_common_groups__oc_distribution }}"
-      - "apply_common_groups__oc_distribution_version={{ apply_common_groups__oc_distribution_version }}"
-      - "apply_common_groups__oc_machine_type={{ apply_common_groups__oc_machine_type }}"
+      ## dynamically derived common_groups__oc_* groups
+      - "common_groups__network_group={{ common_groups__network_group }}"
+      - "common_groups__oc_family={{ common_groups__oc_family }}"
+      - "common_groups__oc_distribution={{ common_groups__oc_distribution }}"
+      - "common_groups__oc_distribution_version={{ common_groups__oc_distribution_version }}"
+      - "common_groups__oc_machine_type={{ common_groups__oc_machine_type }}"
 
 ## Should see the hosts added to the common groups in group_names in this task
 - name: "Display group_names"
@@ -42,10 +42,10 @@ Example play output:
 TASK [Display common group information] ***
 ok: [app-d1.example.int] => {
     "msg": [
-        "apply_common_groups__oc_family=apply_common_groups__oc_linux", 
-        "apply_common_groups__oc_distribution=apply_common_groups__oc_redhat", 
-        "apply_common_groups__oc_distribution_version=apply_common_groups__oc_redhat_7", 
-        "apply_common_groups__oc_machine_type=apply_common_groups__oc_machine_type_baremetal"
+        "common_groups__oc_family=common_groups__oc_linux", 
+        "common_groups__oc_distribution=common_groups__oc_redhat", 
+        "common_groups__oc_distribution_version=common_groups__oc_redhat_7", 
+        "common_groups__oc_machine_type=common_groups__oc_machine_type_baremetal"
     ]
 }
 
@@ -65,10 +65,10 @@ ok: [app-d1.example.int] => {
         "lnx_dev",
         "lnx_mem",
         "mem",
-        "apply_common_groups__oc_linux",
-        "apply_common_groups__oc_redhat",
-        "apply_common_groups__oc_redhat_7",
-        "apply_common_groups__oc_machine_type_baremetal",
+        "common_groups__oc_linux",
+        "common_groups__oc_redhat",
+        "common_groups__oc_redhat_7",
+        "common_groups__oc_machine_type_baremetal",
         "wl_app",
         "wl_app_dev_neo",
         "wl_dev",

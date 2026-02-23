@@ -19,6 +19,7 @@
 ## E.g.,
 ##     ansible-playbook -t bootstrap-linux -l vmhost01 site.yml
 ##  versus
+##     ansible-playbook --skip-tags always -t bootstrap-ca-certs site.yml
 ##     ansible-playbook --skip-tags always -t bootstrap-ansible-user -l esx01 site.yml
 ##
 ## Exception use cases include plays that are:
@@ -53,7 +54,7 @@
   roles:
     - role: ansible_ping_test
       when:
-        - not ping_exclude|d(False)|bool
+        - not ping_exclude | d(False) | bool
         - inventory_hostname in ansible_play_hosts
 
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
@@ -70,10 +71,10 @@
   roles:
     - role: apply_common_groups
       when:
-        - not apply_common_groups_exclude|d(False)|bool
+        - not apply_common_groups_exclude | d(False) | bool
         - inventory_hostname in ansible_play_hosts
 
-- name: Display apply_common_groups derived group vars
+- name: Display important common group vars
   hosts: os_linux,os_windows,!node_offline
   tags:
     - always
@@ -87,14 +88,24 @@
     - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
         msg:
-          - dc_machine_type={{ dc_machine_type|d('') }}
-          - dc_os_family={{ dc_os_family|d('') }}
-          - dc_os_family_shortname={{ dc_os_family_shortname|d('') }}
-          - dc_os_distribution={{ dc_os_distribution|d('') }}
-          - dc_os_dist_version={{ dc_os_dist_version|d('') }}
-#          - "dc_network_site={{ dc_network_site|d('') }}"
-#          - "dc_network_location={{ dc_network_location|d('') }}"
-#          - "dc_network_segment={{ dc_network_segment|d('') }}"
+          - dc_machine_type={{ dc_machine_type | d('') }}
+          - dc_os_family={{ dc_os_family | d('') }}
+          - dc_os_family_shortname={{ dc_os_family_shortname | d('') }}
+          - dc_os_distribution={{ dc_os_distribution | d('') }}
+          - dc_os_dist_version={{ dc_os_dist_version | d('') }}
+#          - "dc_network_site={{ dc_network_site | d('') }}"
+#          - "dc_network_location={{ dc_network_location | d('') }}"
+#          - "dc_network_segment={{ dc_network_segment | d('') }}"
+
+    - name: Display important ldap / domain variables
+      ansible.builtin.debug:
+        msg:
+          - netbase_hostname={{ netbase_hostname }}
+          - internal_domain={{ internal_domain }}
+          - ldap_internal_domain={{ ldap_internal_domain }}
+          - ldap_internal_domain_parts={{ ldap_internal_domain_parts }}
+          - ldap_internal_base_dn={{ ldap_internal_base_dn }}
+          - ldap_admin_dn={{ ldap_admin_dn }}
 
 - name: "Display important collection versions"
   hosts: os_linux,!node_offline
@@ -138,7 +149,7 @@
         var: vars | dict2items
           | selectattr('key', 'match', '^tower.*')
           | list | items2dict
-          | dettonville.utils.remove_sensitive_keys
+          | dettonville.utils.redact_sensitive_values
 
 - name: Display ansible_localhost vars
   hosts: ansible_localhost
@@ -149,7 +160,7 @@
       ansible.builtin.debug:
         var: vars | dict2items
           | list | items2dict
-          | dettonville.utils.remove_sensitive_keys
+          | dettonville.utils.redact_sensitive_values
         verbosity: 2
 
     ## ref: https://stackoverflow.com/questions/2589711/find-full-path-of-the-python-interpreter-python-executable
@@ -176,8 +187,8 @@
           - "discovered_interpreter_python={{ discovered_interpreter_python | d('') }}"
           - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
           - "ansible_playbook_python={{ ansible_playbook_python | d('') }}"
-          - "ansible_python_version={{ ansible_python_version | d('') }}"
-          - "ansible_pip_interpreter={{ ansible_pip_interpreter | d('') }}"
+          - "ansible_facts['python_version']={{ ansible_facts['python_version'] | d('') }}"
+          - "ansible_facts['pip_interpreter']={{ ansible_facts['pip_interpreter'] | d('') }}"
 
 - name: Display controller environment variables
   hosts: ansible_localhost
@@ -189,7 +200,7 @@
   tasks:
     - name: "Display ansible_env - excluding sensitive keys"
       ansible.builtin.debug:
-        var: ansible_env | dettonville.utils.remove_sensitive_keys
+        var: ansible_env | dettonville.utils.redact_sensitive_values
 
 #    ## Debugging purposes: print all environment variables
 #    ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
@@ -197,7 +208,7 @@
 #      tasks:
 #        - name: Print env var debug information
 #          ansible.builtin.debug:
-#            var: environment
+#            var: environment | dettonville.utils.redact_sensitive_values
 
 - name: Display hostvars
   hosts: all,!node_offline
@@ -213,31 +224,57 @@
       ansible.builtin.debug:
         var: hostvars[inventory_hostname] | dict2items 
           | list | items2dict
-          | dettonville.utils.remove_sensitive_keys
+          | dettonville.utils.redact_sensitive_values
 
 - name: Display cert info
   hosts: all,!ansible_localhost,!node_offline
   ignore_unreachable: true
   ignore_errors: true
-  #  gather_facts: false
+  gather_facts: false
   tags:
     - bootstrap-certs
-    - bootstrap-cacerts
+    - bootstrap-pki
+    - bootstrap-ca-certs
     - bootstrap-signing-certs
     - bootstrap-keyring
+    - display-cacert-info
+    - deploy-cacert-info
+    - deploy-pki-certs
+    - display-pki-info
     - deploy-cacerts
+    - deploy-ca-certs
+#    - deploy-certs
   tasks:
+    - name: Display vault_config
+      ansible.builtin.debug:
+        var: vault_config | dettonville.utils.redact_sensitive_values
+        verbosity: 2
+
+    - name: Display vault_url
+      ansible.builtin.debug:
+        var: vault_url
+
     - name: Print cert chain information
+      run_once: true
       ansible.builtin.debug:
         var: "{{ item }}"
       loop:
         - ca_domains_dynamic
-        - ca_service_routes_list
         - ca_intermediate_certs_config
-        - ca_intermediate_certs_list_dynamic
         - ca_intermediate_certs_list
+        - ca_intermediate_certs_list_dynamic
+        - ca_internal_api_domains
         - ca_internal_domains_dynamic
-        - ca_routes_dynamic
+        - ca_service_routes_dynamic
+        - ca_service_routes_issuer_list
+
+    - name: Display ca_hosted_service_routes
+      ansible.builtin.debug:
+        var: ca_hosted_service_routes
+
+    - name: Display ca_hosted_issuer_certs_list
+      ansible.builtin.debug:
+        var: ca_hosted_issuer_certs_list
 
 - name: Display bind controller info
   hosts: bind_controller,!node_offline
@@ -767,19 +804,13 @@
   roles:
     - role: bootstrap_stepca
 
-## setup pki, create CA certs and install CA certs
-##
-## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
-## ref: https://github.com/shelleg/ansible-role-ca/
-- name: Setup ca_root and cacerts
+- name: Setup PKI infrastructure including ca_root and ca cert api
   hosts: ca_keystore,!node_offline
-  gather_facts: false
+  gather_facts: true
   tags:
-    - bootstrap-certs
-    - bootstrap-cacerts
+    - bootstrap-pki
     - bootstrap-signing-certs
     - bootstrap-keyring
-    - bootstrap-pki
     - renew-expired-cacerts
     - caroot
     - caroot-create
@@ -787,24 +818,56 @@
     - casigners-create
   become: true
   roles:
+    - role: bootstrap_pki
+
+- name: Setup Static Infrastructure CA Certificates
+  hosts: ca_keystore,!node_offline
+  gather_facts: true
+  tags:
+    - bootstrap-ca-certs
+  become: true
+  roles:
+    - role: bootstrap_ca_certs
+
+## setup pki, create CA certs and install CA certs
+##
+## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
+## ref: https://github.com/shelleg/ansible-role-ca/
+- name: Setup Static Infrastructure CA Certificates (deprecated role)
+  hosts: ca_keystore,!node_offline
+  gather_facts: false
+  tags:
+    - bootstrap-certs
+    - bootstrap-cacerts
+  become: true
+  roles:
     - role: bootstrap_cfssl
     - role: bootstrap_certs
       tags: [cacerts-create]
 
-- name: Deploy CA certs to cert_node
+- name: Deploy PKI CA certs to cert_node
   hosts: os_linux,!node_offline
   gather_facts: false
   tags:
     - bootstrap-node
     - bootstrap-docker-stack
-    - cacerts
-    - cacerts-distribute
-    - cacerts-deploy
-    - cacerts-update
-    - deploy-cacerts
+    - deploy-pki-certs
   become: true
   roles:
-    - role: deploy_cacerts
+    - role: deploy_pki_certs
+
+- name: Deploy CA certs to cert_node
+  hosts: os_linux,!node_offline
+  gather_facts: false
+  tags:
+    - deploy-certs
+    - deploy-cacerts
+    - deploy-ca-certs
+    - bootstrap-docker-admin
+#    - bootstrap-docker-stack
+  become: true
+  roles:
+    - role: deploy_ca_certs
 
 - name: Harden linux OS
   hosts: os_linux,!node_offline
@@ -829,6 +892,7 @@
     - bootstrap-linux-docker
     - bootstrap-docker
     - bootstrap-kubernetes
+    - bootstrap-kubernetes-controller
     - bootstrap-registry
   become: true
   roles:
@@ -855,36 +919,6 @@
     - role: bootstrap_docker
       bootstrap_docker__actions: [setup-swarm]
 
-- name: Deploy docker registry certs
-  hosts: docker,!node_offline
-  tags:
-    - deploy-docker-registry-certs
-    - deploy-registry-certs
-    - deploy-cacerts
-    - cacerts-update
-  become: true
-  roles:
-    - role: bootstrap_docker_registry
-      bootstrap_docker_registry__actions: [deploy-certs]
-
-###########################
-# docker_registry install #
-###########################
-
-- name: Create, tag and push docker images (ldap, jenkins, etc) to registry
-  hosts: docker_image_builder,!node_offline
-  tags:
-    - bootstrap
-    - bootstrap-registry
-    - bootstrap-docker-images
-    - bootstrap-admin-node
-    - docker-build-images
-    - build-docker-images
-  become: true
-  roles:
-    - role: bootstrap_git
-    - role: docker_image_builder
-
 ##############
 ## bootstrap docker stack nodes
 ##############
@@ -893,6 +927,7 @@
   hosts: docker_stack,!docker_swarm_manager,!docker_swarm_worker,!node_offline
   tags:
     - bootstrap-docker-stack
+    - bootstrap-docker-admin
     - docker-stack
   become: true
 #  vars:
@@ -970,14 +1005,52 @@
   roles:
     - role: bootstrap_llm_server
 
-- name: Setup Kubernetes
-  hosts: kubernetes,!node_offline
+- name: Setup Kubernetes CA certs
+  hosts: kubernetes_ca
   become: true
   tags:
-    - bootstrap-aibrix
     - bootstrap-kubernetes
+    - bootstrap-kubernetes-ca
   roles:
-    - role: bootstrap_kubernetes
+    - role: bootstrap_cfssl
+    - role: bootstrap_kubernetes_ca
+
+- name: Setup etcd
+  hosts: kubernetes_etcd
+  become: true
+  tags:
+    - bootstrap-etcd
+    - bootstrap-kubernetes
+    - bootstrap-kubernetes-etcd
+  roles:
+    - role: bootstrap_etcd
+
+- name: Setup Kubernetes Controller
+  hosts: kubernetes_controller,!node_offline
+  become: true
+  tags:
+    - bootstrap-kubernetes
+    - bootstrap-kubernetes-controller
+  roles:
+    - role: bootstrap_kubernetes_controller
+
+- name: Setup Kubernetes Worker
+  hosts: kubernetes_worker,!node_offline
+  become: true
+  tags:
+    - bootstrap-kubernetes
+    - bootstrap-kubernetes-node
+  roles:
+    - role: bootstrap_kubernetes_worker
+
+#- name: Setup Kubernetes
+#  hosts: kubernetes,!node_offline
+#  become: true
+#  tags:
+#    - bootstrap-aibrix
+#    - bootstrap-kubernetes
+#  roles:
+#    - role: bootstrap_kubernetes
 
 - name: Deploy AIBrix
   hosts: aibrix,!node_offline
@@ -1036,7 +1109,7 @@
     - ping-exclude
 #  become: true
   roles:
-    - role: bootstrap_vsphere_dc
+    - role: bootstrap_vsphere
 
 - name: VMware Upgrade ESXi servers
   hosts: vmware_physical_esx_host,!node_offline
@@ -1079,11 +1152,11 @@
     - name: Configure openstack deploy node
       role: bootstrap_openstack
 
-- name: Bootstrap k8s cluster
-  hosts: k8s_cluster,!node_offline
+- name: Setup kubernetes cluster firewall configs
+  hosts: kubernetes,!node_offline
   tags:
     - bootstrap
-    - bootstrap-k8s
+    - bootstrap-kubernetes
   become: true
   roles:
     - role: bootstrap_linux_firewalld
@@ -1206,8 +1279,8 @@
   hosts: localhost
   gather_facts: false
   environment:
-    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
-    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
     CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   tags:
     - bootstrap-ansible-controller
@@ -1219,8 +1292,8 @@
   hosts: localhost
   gather_facts: false
   environment:
-    CONTROLLER_HOST: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_host }}{% endif %}"
-    CONTROLLER_OAUTH_TOKEN: "{% if new_tower_host is defined %}{{ new_tower_oauth_token }}{% else %}{{ controller_oauth_token }}{% endif %}"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
     CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   tags:
     - remove-tower-resources
@@ -1241,20 +1314,25 @@
     - bootstrap-tower-resources
   gather_facts: false
   environment:
-    CONTROLLER_VERIFY_SSL: "false"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   roles:
-    - role: bootstrap_tower_resources
+    - role: bootstrap_awx_resources
 
 ## ref: https://www.ansible.com/blog/introducing-the-awx-collection
 - name: Remove Tower Modules
   hosts: tower_control_node
   tags:
+    - remove-awx-resources
     - remove-tower-resources
   gather_facts: false
   environment:
-    CONTROLLER_VERIFY_SSL: "false"
+    CONTROLLER_HOST: "{{ controller_host }}"
+    CONTROLLER_OAUTH_TOKEN: "{{ controller_oauth_token }}"
+    CONTROLLER_VERIFY_SSL: "{{ controller_verify_ssl }}"
   roles:
-    - role: bootstrap_tower_resources
+    - role: bootstrap_awx_resources
       vars:
         tower_resource_state: absent
 

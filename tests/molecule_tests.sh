@@ -3,35 +3,34 @@
 PROJECT_DIR="$( cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel )"
 
 echo "*** $PROJECT_DIR"
-cd ${PROJECT_DIR}
+cd "${PROJECT_DIR}" || exit
 
-#MOLECULE_IMAGE_LABELS="
-#centos7
-#centos8
-#debian9
-#debian10
-#fedora35
-#fedora36
-#ubuntu1804
-#ubuntu2004
-#ubuntu2204
+#MOLECULE_IMAGE_LIST="
+#systemd-python-centos:9
+#systemd-python-centos:10
+#systemd-python-redhat:9
+#systemd-python-redhat:10
+#systemd-python-debian:10
+#systemd-python-debian:11
+#systemd-python-debian:12
+#systemd-python-fedora:latest
+#systemd-python-ubuntu:22.04
+#systemd-python-ubuntu:24.04
 #"
 
-MOLECULE_IMAGE_LABELS="
-centos7
-centos8
-debian9
-debian10
-ubuntu1804
-ubuntu2004
-ubuntu2204
+MOLECULE_IMAGE_LIST="
+systemd-python-centos:9
+systemd-python-centos:10
+systemd-python-debian:12
+systemd-python-ubuntu:22.04
+systemd-python-ubuntu:24.04
 "
 
 IFS=$'\n'
-for MOLECULE_IMAGE_LABEL in $MOLECULE_IMAGE_LABELS; do
-  echo "*** $MOLECULE_IMAGE_LABEL"
-  export MOLECULE_IMAGE_LABEL="${MOLECULE_IMAGE_LABEL}"
-  molecule reset
-  molecule test --debug --parallel
+for MOLECULE_IMAGE in $MOLECULE_IMAGE_LIST; do
+  echo "*** MOLECULE_IMAGE=${MOLECULE_IMAGE}"
+  MOLECULE_IMAGE="${MOLECULE_IMAGE}"
+  "MOLECULE_IMAGE=${MOLECULE_IMAGE} molecule reset"
+#  "MOLECULE_IMAGE=${MOLECULE_IMAGE} molecule test --debug --parallel"
+  "MOLECULE_IMAGE=${MOLECULE_IMAGE} molecule test"
 done
-

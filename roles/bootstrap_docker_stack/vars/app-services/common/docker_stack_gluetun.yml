@@ -1,0 +1,106 @@
+---
+
+__docker_stack__gluetun__image_default: lj020326/gluetun:latest
+__docker_stack__gluetun__image: "{{ docker_stack__gluetun__image | d(__docker_stack__gluetun__image_default) }}"
+
+__docker_stack__gluetun__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__gluetun__base_dir_default: "{{ __docker_stack__gluetun__stack_dir }}/gluetun"
+__docker_stack__gluetun__base_dir: "{{ docker_stack__gluetun__dir | d(__docker_stack__gluetun__base_dir_default) }}"
+
+__docker_stack__gluetun__external_network: "{{ docker_stack__gluetun__external_network | d('192.168.0.0/24') }}"
+
+__docker_stack__gluetun__http_port: "{{ docker_stack__gluetun__http_port | d('8088') }}"
+
+__docker_stack__gluetun__username: "{{ docker_stack__gluetun__username | d('testuser') }}"
+__docker_stack__gluetun__password: "{{ docker_stack__gluetun__password | d('password') }}"
+
+__docker_stack__gluetun__config_dirs:
+  - path: "{{ __docker_stack__gluetun__config_dir }}/gluetun"
+
+__docker_stack__gluetun__config_tpls:
+  #  - src: 'media/config-nordvpn.ovpn.j2'
+  #    dest: "{{ __docker_stack__gluetun__config_dir }}/openvpn/nordvpn.ovpn"
+
+__docker_stack__gluetun__config_files:
+  #  - src: 'files/openvpn/nordvpn.udp.ovpn'
+  #    dest: "{{ __docker_stack__gluetun__config_dir }}/openvpn/nordvpn.upd.ovpn"
+
+__docker_stack__gluetun__firewalld_ports:
+  - "{{ __docker_stack__gluetun__http_port }}/tcp"
+
+__docker_stack__gluetun__:
+__docker_stack__gluetun__vpn_service_provider: nordvpn
+__docker_stack__gluetun__vpn_type: openvpn
+
+__docker_stack__gluetun__server_countries: "Netherlands,Canada,Mexico"
+# __docker_stack__gluetun__server_countries: United States
+# __docker_stack__gluetun__server_cities: Toronto,New York,Montreal
+# Optional: specific server or group
+# __docker_stack__gluetun__server_name: us8481.nordvpn.com
+# set to 'on' if you want port forwarding later
+__docker_stack__gluetun__openvpn_port_forwarding: "off"
+# Kill-switch & firewall (Gluetun's default is very strict)
+__docker_stack__gluetun__firewall: "on"
+# leave empty unless you need specific inbound
+__docker_stack__gluetun__firewall_vpn_input_ports: ""
+#__docker_stack__gluetun__tz: "America/New_York"
+__docker_stack__gluetun__tz: "{{ docker_stack__timezone }}"
+# Logging
+__docker_stack__gluetun__log_level: "info"
+# Optional: allow LAN access (your traefik_public subnets)
+#__docker_stack__gluetun__extra_subnets: "192.168.12.0/24,192.168.13.0/24,10.0.0.0/16"
+__docker_stack__gluetun__extra_subnets_default: "{{ __docker_stack__gluetun__external_network }},{{ docker_stack__network_subnet__traefik_proxy }}"
+__docker_stack__gluetun__extra_subnets: "{{ docker_stack__gluetun__extra_subnets | d(__docker_stack__gluetun__extra_subnets_default) }}"
+# Optional: health checks
+__docker_stack__gluetun__healthcheck_enabled: "on"
+
+__docker_stack__gluetun__dns:
+  - 8.8.4.4
+  - 8.8.8.8
+
+__docker_stack__gluetun__environment:
+  # NordVPN OpenVPN settings
+  VPN_SERVICE_PROVIDER: "{{ __docker_stack__gluetun__vpn_service_provider }}"
+  VPN_TYPE: "{{ __docker_stack__gluetun__vpn_type }}"
+  OPENVPN_USER: "{{ __docker_stack__gluetun__username }}"
+  OPENVPN_PASSWORD: "{{ __docker_stack__gluetun__password }}"
+  OPENVPN_PORT_FORWARDING: "{{ __docker_stack__gluetun__openvpn_port_forwarding }}"
+  # safe value for most NordVPN OpenVPN servers
+  OPENVPN_MSSFIX: 1300
+  # disable the automatic MTU discovery that fails
+  OPENVPN_MTU_TEST: "off"
+  SERVER_COUNTRIES: "{{ __docker_stack__gluetun__server_countries }}"
+  FIREWALL: "{{ __docker_stack__gluetun__firewall }}"
+  FIREWALL_VPN_INPUT_PORTS: "{{ __docker_stack__gluetun__firewall_vpn_input_ports }}"
+  TZ: "{{ __docker_stack__gluetun__tz }}"
+  LOG_LEVEL: "{{ __docker_stack__gluetun__log_level }}"
+  EXTRA_SUBNETS: "{{ __docker_stack__gluetun__extra_subnets }}"
+  HEALTHCHECK_ENABLED: "{{ __docker_stack__gluetun__healthcheck_enabled }}"
+
+docker_stack__appspec__media:
+  dirs: "{{ __docker_stack__gluetun__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__gluetun__config_files | d([]) }}"
+  templates: "{{ __docker_stack__gluetun__config_tpls | d([]) }}"
+  firewalld_services: "{{ __docker_stack__gluetun__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__gluetun__firewalld_ports | d([]) }}"
+  networks: "{{ __docker_stack__gluetun__networks | d({}) }}"
+  volumes: "{{ __docker_stack__gluetun__volumes | d({}) }}"
+  docker_services: "{{ __docker_stack__gluetun__services | d({}) }}"
+
+__docker_stack__gluetun__services:
+  openvpn:
+    image: "{{ __docker_stack__gluetun__image }}"
+    container_name: openvpn
+    cap_add:
+      - net_admin
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    dns: "{{ __docker_stack__gluetun__dns }}"
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    volumes:
+      - "{{ __docker_stack__gluetun__base_dir }}:/gluetun"
+    ports:
+      - "{{ __docker_stack__gluetun__bittorrent_port }}:8168"
+    environment: "{{ __docker_stack__gluetun__environment }}"

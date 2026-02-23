@@ -5,8 +5,8 @@
 - name: Set OS specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
+    - "{{ ansible_facts['distribution'] }}.yml"
+    - "{{ ansible_facts['os_family'] }}.yml"
     - "default.yml"
 
 - name: ensure cobbler templates are present
@@ -27,14 +27,14 @@
 
 ##- name: ensure server is set in /etc/cobbler/settings
 ##  ansible.builtin.lineinfile:
-##    line: "server: {{ ansible_default_ipv4.address }}"
+##    line: "server: {{ ansible_facts['default_ipv4']['address'] }}"
 ##    regexp: "^server:"
 ##    dest: /etc/cobbler/settings
 ##  notify: restart cobblerd
 #
 ##- name: ensure next_server is set in /etc/cobbler/settings
 ##  ansible.builtin.lineinfile:
-##    line: "next_server: {{ ansible_default_ipv4.address }}"
+##    line: "next_server: {{ ansible_facts['default_ipv4']['address'] }}"
 ##    regexp: "^next_server:"
 ##    dest: /etc/cobbler/settings
 ##  notify: restart cobblerd
@@ -170,7 +170,7 @@
   loop: "{{ cobbler_profiles_folders.results }}"
 
 - name: ensure distros are imported # noqa: no-handler
-  when: item.changed|bool
+  when: item.changed | bool
   changed_when: false
   ansible.builtin.shell: |
     cobbler profile list --name={{ item.item.name }}-{{ item.item.arch }} || \
@@ -192,7 +192,7 @@
   ansible.builtin.shell: |
     cobbler profile edit --name={{item.item.name}}-{{ item.item.arch }} \
       --kickstart={{ cobbler_kickstart_path }}/{{ item.item.kickstart }}.ks
-  when: item.changed|bool
+  when: item.changed | bool
   loop: "{{ cobbler_profile_kickstarts.results }}"
   notify: cobbler sync
 
@@ -200,7 +200,7 @@
   ansible.posix.mount:
     path: "{{ cobbler_isos_mount_path }}/{{ item.item.name }}"
     state: unmounted
-  when: item.changed|bool
+  when: item.changed | bool
   loop: "{{ cobbler_profiles_folders.results }}"
 
 - name: ensure isos are deleted after import
@@ -208,6 +208,6 @@
     path: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
     state: absent
   when:
-    - cobbler_isos_delete|bool
-    - item.changed|bool
+    - cobbler_isos_delete | bool
+    - item.changed | bool
   loop: "{{ cobbler_profiles_folders.results }}"

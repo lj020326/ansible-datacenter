@@ -2,28 +2,43 @@
 
 ## ref: https://dockerswarm.rocks/traefik/#create-the-docker-compose-file
 ## ref: https://dockerswarm.rocks/traefik-v3.yml
-__docker_stack__traefik__traefik_labels_default:
-  - traefik.enable=true
+## ref: https://doc.traefik.io/traefik/v3.6/setup/swarm/
+# 1. Define the base labels
+__docker_stack__traefik__labels_base_default:
+  - "traefik.enable=true"
 #  ## Use the traefik-public network (declared below)
-#  - traefik.docker.network={{ docker_stack__network_name__traefik_proxy }}
+#  - "traefik.docker.network={{ docker_stack__network_name__traefik_proxy }}"
   # HTTP-to-HTTPS Redirect
-  - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-  - traefik.http.routers.http-catchall.entrypoints=http
-  - traefik.http.routers.http-catchall.middlewares=redirect-to-https
-  - traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)
+  - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+  - "traefik.http.routers.http-catchall.entrypoints=http"
+  - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+  - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
+  - "traefik.http.routers.http-catchall.priority=1"
   ## Healthcheck/ping
-  - traefik.http.routers.ping.entrypoints=https
-  - traefik.http.routers.ping.rule=Host(`traefik.{{ docker_stack__internal_domain }}`) && PathPrefix(`/ping`)
-  - traefik.http.routers.ping.service=ping@internal
+  - "traefik.http.routers.ping.entrypoints=https"
+  - "traefik.http.routers.ping.rule=Host(`traefik.{{ docker_stack__internal_domain }}`) && PathPrefix(`/ping`)"
+  - "traefik.http.routers.ping.service=ping@internal"
   ## Services - API
-  - traefik.http.routers.traefik-rtr.service=api@internal
-  - traefik.http.routers.traefik-rtr.entrypoints=https
-  - traefik.http.routers.traefik-rtr.rule=Host(`traefik.{{ docker_stack__internal_domain }}`)
+  - "traefik.http.routers.traefik-rtr.service=api@internal"
+  - "traefik.http.routers.traefik-rtr.entrypoints=https"
+  - "traefik.http.routers.traefik-rtr.rule=Host(`traefik.{{ docker_stack__internal_domain }}`)"
   #  - "traefik.http.routers.traefik-rtr.middlewares=chain-oauth@file"
-  - traefik.http.services.api.loadbalancer.server.port=8080
+  - "traefik.http.services.api.loadbalancer.server.port=8080"
 
-__docker_stack__whoami__traefik_labels_default:
-  - traefik.enable=true
+# 2. Define the swarm-specific labels
+__docker_stack__traefik__labels_swarm_default:
+  - "traefik.swarm.lbswarm=true"
+  - "traefik.swarm.network={{ docker_stack__network_name__traefik_proxy }}"
+
+# 3. Combine them based on the boolean
+__docker_stack__traefik__labels_default: >-
+  {{
+    __docker_stack__traefik__labels_base_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}
+
+__docker_stack__whoami__traefik_labels_base_default:
+  - "traefik.enable=true"
   ## HTTP Routers
   #  - "traefik.http.routers.whoami-rtr.entrypoints=https"
   #  - "traefik.http.routers.whoami-rtr.rule=Host(`whoami.{{ docker_stack__external_domain }}`)"
@@ -32,36 +47,69 @@ __docker_stack__whoami__traefik_labels_default:
   #  - "traefik.http.routers.whoami-rtr-int.rule=Host(`whoami.{{ docker_stack__internal_domain }}`)"
   #  - "traefik.http.routers.whoami-rtr-int.service=whoami-svc"
   #  - "traefik.http.services.whoami-svc.loadbalancer.server.port=80"
-  - traefik.http.routers.whoami.entrypoints=https
-  - traefik.http.routers.whoami.rule=Host(`whoami.{{ docker_stack__external_domain }}`,`whoami.{{ docker_stack__internal_domain }}`)
-  - traefik.http.services.whoami.loadbalancer.server.port=80
+  - "traefik.http.routers.whoami.entrypoints=https"
+  - "traefik.http.routers.whoami.rule=Host(`whoami.{{ docker_stack__external_domain }}`) || Host(`whoami.{{ docker_stack__internal_domain }}`)"
+  - "traefik.http.services.whoami.loadbalancer.server.port=80"
 
-__docker_stack__portainer__traefik_labels_default:
-  - traefik.enable=true
+__docker_stack__whoami__traefik_labels_default: >-
+  {{
+    __docker_stack__whoami__traefik_labels_base_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}
+
+__docker_stack__portainer__traefik_labels_base_default:
+  - "traefik.enable=true"
   ## HTTP Routers
-  - traefik.http.routers.portainer-rtr.entrypoints=https
-  - traefik.http.routers.portainer-rtr.rule=Host(`portainer.{{ docker_stack__internal_domain }}`)
+  - "traefik.http.routers.portainer-rtr.entrypoints=https"
+  - "traefik.http.routers.portainer-rtr.rule=Host(`portainer.{{ docker_stack__internal_domain }}`)"
+  # Optional: add priority if you have overlapping rules
+  - "traefik.http.routers.portainer-rtr.priority=1000"
   #  ## Middlewares
   #  - "traefik.http.routers.portainer-rtr.middlewares=chain-no-auth@file # No Authentication"
   #  - "traefik.http.routers.portainer-rtr.middlewares=chain-authelia@file # Authelia"
   #  - "traefik.http.routers.portainer-rtr.middlewares=chain-oauth@file # Google OAuth 2.0"
   ## HTTP Services
-  - traefik.http.routers.portainer-rtr.service=portainer-svc
-  - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
+  - "traefik.http.routers.portainer-rtr.service=portainer-svc"
+  - "traefik.http.routers.portainer-rtr.tls=true"
+  - "traefik.http.routers.portainer-rtr.middlewares=sslheaders@file"
+  - "traefik.http.services.portainer-svc.loadbalancer.server.port=9000"
+  - "traefik.http.services.portainer-svc.loadbalancer.server.scheme=http"
+  - "traefik.http.services.portainer-svc.loadbalancer.passhostheader=true"
 
-__docker_stack__dozzle__environment_default:
+__docker_stack__portainer__traefik_labels_default: >-
+  {{
+    __docker_stack__portainer__traefik_labels_base_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}
+
+__docker_stack__dozzle__environment_base_default:
   DOCKER_HOST: tcp://socket-proxy:2375
   DOZZLE_FILTER: status=running
   # DOZZLE_FILTER: "label=log_me" # limits logs displayed to containers with this label
   DOZZLE_LEVEL: info
 
-__docker_stack__dozzle__traefik_labels_default:
-  - traefik.enable=true
+__docker_stack__dozzle__environment_swarm_default:
+  DOZZLE_MODE: swarm
+
+__docker_stack__dozzle__environment_default: >-
+  {{
+    __docker_stack__dozzle__environment_base_default
+    | combine(__docker_stack__dozzle__environment_swarm_default if docker_stack__swarm_mode | bool else {})
+  }}
+
+__docker_stack__dozzle__traefik_labels_base_default:
+  - "traefik.enable=true"
   ## HTTP Routers
-  - traefik.http.routers.dozzle-rtr.entrypoints=https
-  - traefik.http.routers.dozzle-rtr.rule=Host(`dozzle.{{ docker_stack__internal_domain }}`)
+  - "traefik.http.routers.dozzle-rtr.entrypoints=https"
+  - "traefik.http.routers.dozzle-rtr.rule=Host(`dozzle.{{ docker_stack__internal_domain }}`)"
   ## Middlewares
   #  - "traefik.http.routers.dozzle-rtr.middlewares=chain-authelia@file"
   ## HTTP Services
-  - traefik.http.routers.dozzle-rtr.service=dozzle-svc
-  - traefik.http.services.dozzle-svc.loadbalancer.server.port=8080
+  - "traefik.http.routers.dozzle-rtr.service=dozzle-svc"
+  - "traefik.http.services.dozzle-svc.loadbalancer.server.port=8080"
+
+__docker_stack__dozzle__traefik_labels_default: >-
+  {{
+    __docker_stack__dozzle__traefik_labels_base_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}

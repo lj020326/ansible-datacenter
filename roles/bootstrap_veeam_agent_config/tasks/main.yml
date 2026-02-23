@@ -5,8 +5,8 @@
 - name: Setup Veeam Backup & Replication Configuration
   when:
     - veeam_vbrserver.name is defined
-    #    - ansible_os_family == 'Linux'
-    - ansible_os_family in ['Debian','RedHat']
+    #    - ansible_facts['os_family'] == 'Linux'
+    - ansible_facts['os_family'] in ['Debian','RedHat']
   tags:
     - configuration
   # Veeam setup repo
@@ -29,7 +29,7 @@
 - name: Ensure veeam repo
   when:
     - veeam_repo.name is defined
-    - ansible_os_family in ['Debian','RedHat']
+    - ansible_facts['os_family'] in ['Debian','RedHat']
   tags:
     - configuration
   block:
@@ -59,7 +59,7 @@
       register: veeam_create_repository
 
 - name: Ensure veeam job
-  when: ansible_os_family in ['Debian','RedHat']
+  when: ansible_facts['os_family'] in ['Debian','RedHat']
   tags:
     - configuration
   block:
@@ -73,7 +73,7 @@
         veeam_repository_name: "{{ veeam_repository_list.stdout_lines.1.split(' ').0 | string }}"
 
     - name: check if veeam job exist
-      when: ansible_os_family == 'Linux'
+      when: ansible_facts['os_family'] == 'Linux'
       changed_when: false
       ansible.builtin.command: veeamconfig job list
       register: veeam_job_list
@@ -82,7 +82,7 @@
     - name: create veeam job
       when:
         - veeam_job.name not in veeam_job_list.stdout
-        - veeam_job.backupallsystem|d(False)|bool
+        - veeam_job.backupallsystem | d(false) | bool
         - veeam_job.objects is not defined
       changed_when: false
       ansible.builtin.command: |
@@ -93,7 +93,7 @@
     - name: create veeam job
       when:
         - veeam_job.name not in veeam_job_list.stdout
-        - not veeam_job.backupallsystem|d(False)|bool
+        - not veeam_job.backupallsystem | d(false) | bool
         - veeam_job.objects is defined
       changed_when: false
       ansible.builtin.command: |
@@ -120,5 +120,5 @@
       when: "'Run automatically: enabled' not in veeam_schedule_show.stdout"
       changed_when: false
       ansible.builtin.command: |
-        veeamconfig schedule set --jobId {{ veeam_job_id }} --at {{ veeam_job.at | default('20:00') }} --daily \
-          --weekdays-full {{ veeam_job.day | default('Sat') }}
+        veeamconfig schedule set --jobId {{ veeam_job_id }} --at {{ veeam_job.at | d('20:00') }} --daily \
+          --weekdays-full {{ veeam_job.day | d('Sat') }}

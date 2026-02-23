@@ -22,14 +22,14 @@
   with_subelements:
     - "{{ openstack_cloud_projects }}"
     - users
-#  no_log: True
+  no_log: true
 
 ## ref: https://stackoverflow.com/questions/31685125/is-it-possible-to-map-multiple-attributes-using-jinja-ansible
 ## ref: https://ansibledaily.com/process-complex-variables-with-set_fact-and-with_items/
 - name: Set os_project_groups
   ansible.builtin.set_fact:
-    os_project_groups: "{{ os_project_groups|default([])|union(['group-'+item.0.name+'-'+ item.1.role|default('member') ]) }}"
-  loop: "{{ openstack_cloud_projects|subelements('users', { 'skip_missing': true }) }}"
+    os_project_groups: "{{ os_project_groups | d([]) | union(['group-'+item.0.name+'-'+ item.1.role | d('member') ]) }}"
+  loop: "{{ openstack_cloud_projects | subelements('users', { 'skip_missing': true }) }}"
   register: os_project_groups
 
 - name: Display os project groups
@@ -52,13 +52,13 @@
   openstack.cloud.group_assignment:
     cloud: "{{ openstack_admin_cloud_name }}"
     user: "{{ item.1.login }}"
-    group: group-{{ item.0.name }}-{{ item.1.role|default('member') }}
-  loop: "{{ openstack_cloud_projects|subelements('users') }}"
+    group: group-{{ item.0.name }}-{{ item.1.role | d('member') }}
+  loop: "{{ openstack_cloud_projects | subelements('users') }}"
 
 - name: Add user roles to project access group
   openstack.cloud.role_assignment:
     cloud: "{{ openstack_admin_cloud_name }}"
-    group: group-{{ item.0.name }}-{{ item.1.role|default('member') }}
+    group: group-{{ item.0.name }}-{{ item.1.role | d('member') }}
     project: "{{ item.0.name }}"
-    role: "{{ item.1.role|default('member') }}"
-  loop: "{{ openstack_cloud_projects|subelements('users') }}"
+    role: "{{ item.1.role | d('member') }}"
+  loop: "{{ openstack_cloud_projects | subelements('users') }}"

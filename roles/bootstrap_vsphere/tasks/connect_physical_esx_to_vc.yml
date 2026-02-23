@@ -1,0 +1,34 @@
+---
+
+- name: connect_physical_esx_to_vc | Add ESXi Host to VCSA
+  #  when: bootstrap_vsphere__vcenter_ip  ==  vc_mng.ip
+  vmware.vmware.esxi_host:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    datacenter: "{{ bootstrap_vsphere__vcenter_datacenter }}"
+    validate_certs: false
+    cluster: "{{ item.cluster | d(omit) }}"
+    esxi_host_name: "{{ item.hostname }}"
+    esxi_username: "{{ bootstrap_vsphere__esxi_username }}"
+    esxi_password: "{{ bootstrap_vsphere__esxi_password }}"
+    state: present
+  no_log: true
+  loop: "{{ bootstrap_vsphere__vcenter_physical_esx_hosts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: connect_physical_esx_to_vc | Add ESXi license and assign to the ESXi host
+  #  when: bootstrap_vsphere__vcenter_ip  ==  vc_mng.ip
+  community.vmware.vcenter_license:
+    hostname: "{{ bootstrap_vsphere__vcenter_host }}"
+    username: "{{ bootstrap_vsphere__vcenter_username }}"
+    password: "{{ bootstrap_vsphere__vcenter_password }}"
+    esxi_hostname: "{{ item.hostname }}"
+    license: "{{ bootstrap_vsphere__vsphere_licenses[item.hostname] | d(bootstrap_vsphere__esxi_license) }}"
+    state: present
+    validate_certs: false
+  no_log: true
+  loop: "{{ bootstrap_vsphere__vcenter_physical_esx_hosts }}"
+  loop_control:
+    label: "{{ item.name }}"

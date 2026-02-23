@@ -11,68 +11,68 @@
 - name: "{{ __log_prefix_subtask }} Get intermediate CA cert info"
   when: bootstrap_certs__ca_cert_type == "intermediate-ca"
   block:
-    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__cacert_local_info"
+    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__local_info"
       ansible.builtin.set_fact:
-        __bootstrap_certs__cacert_local_info: "{{ __bootstrap_certs__ca_intermediate_certs[__bootstrap_certs__cert_node] }}"
+        __bootstrap_certs__local_info: "{{ __bootstrap_certs__ca_intermediate_certs[__bootstrap_certs__cert_node] }}"
 
-    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__cacert_csr_profile"
+    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__csr_profile"
       ansible.builtin.set_fact:
-        __bootstrap_certs__cacert_csr_profile: "{{ __bootstrap_certs__ca_cert_info.ca_csr_profile | d(bootstrap_certs__ca_intermediate_default_profile) }}"
+        __bootstrap_certs__csr_profile: "{{ __bootstrap_certs__ca_cert_info.ca_csr_profile | d(bootstrap_certs__ca_intermediate_default_profile) }}"
 
 - name: "{{ __log_prefix_subtask }} Get service route cert info"
   when: bootstrap_certs__ca_cert_type == "service-route"
   block:
     - name: "{{ __log_prefix_subtask }} Set service route info"
       ansible.builtin.set_fact:
-        __bootstrap_certs__cacert_route_info: "{{ ca_service_routes[__bootstrap_certs__cert_node] }}"
+        __bootstrap_certs__route_info: "{{ ca_service_routes[__bootstrap_certs__cert_node] }}"
 
     - name: "{{ __log_prefix_subtask }} Get service route csr profile info"
       ansible.builtin.set_fact:
-        __bootstrap_certs__cacert_csr_profile: "{{ __bootstrap_certs__cacert_route_info['ca_csr_profile'] | d(bootstrap_certs__ca_cacert_default_profile) }}"
+        __bootstrap_certs__csr_profile: "{{ __bootstrap_certs__route_info['ca_csr_profile'] | d(bootstrap_certs__ca_ca_default_profile) }}"
 
-    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__cacert_local_info for service-route"
+    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__local_info for service-route"
       ansible.builtin.set_fact:
-        __bootstrap_certs__cacert_local_info:
-          commonName: "{{ __bootstrap_certs__cacert_route_info.route }}"
-          domainName: "{{ __bootstrap_certs__cacert_route_info.route }}"
-          signerName: "{{ __bootstrap_certs__cacert_route_info.signerName }}"
-          fqdn: "{{ __bootstrap_certs__cacert_route_info.route }}"
+        __bootstrap_certs__local_info:
+          common_name: "{{ __bootstrap_certs__route_info.route }}"
+          domain_name: "{{ __bootstrap_certs__route_info.route }}"
+          issuer_name: "{{ __bootstrap_certs__route_info.issuer_name }}"
+          fqdn: "{{ __bootstrap_certs__route_info.route }}"
 
 - name: "{{ __log_prefix_subtask }} Get cert info"
   when: bootstrap_certs__ca_cert_type == "cert"
   block:
     - name: "{{ __log_prefix_subtask }} Set cert profile"
       ansible.builtin.set_fact:
-        __bootstrap_certs__cacert_csr_profile: "{{ hostvars[__bootstrap_certs__cert_node]['ca_csr_profile'] | d(bootstrap_certs__ca_cacert_default_profile) }}"
+        __bootstrap_certs__csr_profile: "{{ hostvars[__bootstrap_certs__cert_node]['ca_csr_profile']
+          | d(bootstrap_certs__ca_ca_default_profile) }}"
+        __bootstrap_certs__fqdn_default: "{{ __bootstrap_certs__cert_node }}.{{ hostvars[__bootstrap_certs__cert_node]['ca_domain'] }}"
 
-    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__cacert_local_info"
+    - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__local_info"
       ansible.builtin.set_fact:
-        __bootstrap_certs__cacert_local_info:
-          commonName: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__cert_node) }}"
-          domainName: "{{ hostvars[__bootstrap_certs__cert_node]['ca_domain'] }}"
-          #          signerName: "{{ __bootstrap_certs__ca_intermediate_certs_by_domain[__bootstrap_certs__ca_cert_domain].commonName | d(bootstrap_certs__ca_root_cn) }}"
-          signerName: "{{ __bootstrap_certs__ca_intermediate_certs_by_domain[hostvars[__bootstrap_certs__cert_node]['ca_domain']].commonName | d(bootstrap_certs__ca_root_cn)
-            }}"
-          fqdn: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__cert_node) }}.{{ hostvars[__bootstrap_certs__cert_node]['ca_domain']
-            }}"
+        __bootstrap_certs__local_info:
+          common_name: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__cert_node) }}"
+          domain_name: "{{ hostvars[__bootstrap_certs__cert_node]['ca_domain'] }}"
+          issuer_name: "{{ __bootstrap_certs__ca_intermediate_certs_by_domain[hostvars[__bootstrap_certs__cert_node]['ca_domain']].common_name
+            | d(bootstrap_certs__ca_root_cn) }}"
+          fqdn: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__fqdn_default) }}"
 
-- name: "{{ __log_prefix_subtask }} Display __bootstrap_certs__cacert_local_info"
+- name: "{{ __log_prefix_subtask }} Display __bootstrap_certs__local_info"
   ansible.builtin.debug:
     msg:
       - __bootstrap_certs__cert_node={{ __bootstrap_certs__cert_node }}
-      - __bootstrap_certs__cacert_local_info={{ __bootstrap_certs__cacert_local_info }}
+      - __bootstrap_certs__local_info={{ __bootstrap_certs__local_info }}
 
 - name: "{{ __log_prefix_subtask }} Get __bootstrap_certs__ca_signer_cert_cn"
   ansible.builtin.set_fact:
-    __bootstrap_certs__ca_signer_cert_cn: "{{ __bootstrap_certs__cacert_local_info.signerName | d(bootstrap_certs__ca_root_cn) }}"
+    __bootstrap_certs__ca_signer_cert_cn: "{{ __bootstrap_certs__local_info.issuer_name | d(bootstrap_certs__ca_root_cn) }}"
 
 - name: "{{ __log_prefix_subtask }} Get cert facts"
   ansible.builtin.set_fact:
     __bootstrap_certs__ca_signer_is_root: "{{ True if __bootstrap_certs__ca_signer_cert_cn == bootstrap_certs__ca_root_cn else False | bool }}"
-    __bootstrap_certs__ca_parent_domain: "{{ ('.').join(__bootstrap_certs__cacert_local_info.domainName.split('.')[1::]) }}"
-    __bootstrap_certs__ca_cert_domain: "{{ __bootstrap_certs__cacert_local_info.domainName }}"
-    __bootstrap_certs__ca_cert_cn: "{{ __bootstrap_certs__cacert_local_info.commonName }}"
-    __bootstrap_certs__ca_cert_fqdn: "{{ __bootstrap_certs__cacert_local_info.fqdn | d(__bootstrap_certs__cacert_local_info.commonName) }}"
+    __bootstrap_certs__ca_parent_domain: "{{ ('.').join(__bootstrap_certs__local_info.domain_name.split('.')[1::]) }}"
+    __bootstrap_certs__ca_cert_domain: "{{ __bootstrap_certs__local_info.domain_name }}"
+    __bootstrap_certs__ca_cert_cn: "{{ __bootstrap_certs__local_info.common_name }}"
+    __bootstrap_certs__ca_cert_fqdn: "{{ __bootstrap_certs__local_info.fqdn | d(__bootstrap_certs__local_info.common_name) }}"
 
 - name: "{{ __log_prefix_subtask }} Get signer cert info"
   ansible.builtin.set_fact:
@@ -80,7 +80,9 @@
 
 - name: "{{ __log_prefix_subtask }} Get parent signer cert info"
   ansible.builtin.set_fact:
-    __bootstrap_certs__ca_signer_parent_cert_info: "{{ __bootstrap_certs__ca_signer_certs[__bootstrap_certs__ca_signer_cert_info.signerName | d(bootstrap_certs__ca_root_cn)]
+    __bootstrap_certs__ca_signer_parent_cert_info: "{{
+      __bootstrap_certs__ca_signer_certs[__bootstrap_certs__ca_signer_cert_info.issuer_name
+      | d(bootstrap_certs__ca_root_cn)]
       | d(bootstrap_certs__ca_root) }}"
 
 - name: "{{ __log_prefix_subtask }} Get signer cert info combined with parent signer info"
@@ -90,53 +92,53 @@
 
 - name: "{{ __log_prefix_subtask }} Get signer domain name"
   ansible.builtin.set_fact:
-    __bootstrap_certs__ca_signer_domain: "{{ __bootstrap_certs__ca_signer_cert_info.domainName }}"
-    __bootstrap_certs__ca_signer_parent_cn: "{{ __bootstrap_certs__ca_signer_parent_cert_info.commonName }}"
-    __bootstrap_certs__ca_signer_parent_domain: "{{ __bootstrap_certs__ca_signer_parent_cert_info.domainName }}"
+    __bootstrap_certs__ca_signer_domain: "{{ __bootstrap_certs__ca_signer_cert_info.domain_name }}"
+    __bootstrap_certs__ca_signer_parent_cn: "{{ __bootstrap_certs__ca_signer_parent_cert_info.common_name }}"
+    __bootstrap_certs__ca_signer_parent_domain: "{{ __bootstrap_certs__ca_signer_parent_cert_info.domain_name }}"
 
 - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__ca_cert_info"
   ansible.builtin.set_fact:
     __bootstrap_certs__ca_cert_info: "{{ bootstrap_certs__ca_root | combine(__bootstrap_certs__ca_signer_parent_cert_info) | combine(__bootstrap_certs__ca_signer_cert_info)
-      | combine(__bootstrap_certs__cacert_local_info) }}"
+      | combine(__bootstrap_certs__local_info) }}"
 
 - name: "{{ __log_prefix_subtask }} Set CA facts"
   ansible.builtin.set_fact:
     __bootstrap_certs__ca_cert: "{{ __bootstrap_certs__ca_cert_cn }}.pem"
     __bootstrap_certs__ca_key: "{{ __bootstrap_certs__ca_cert_cn }}-key.pem"
     __bootstrap_certs__ca_cert_chain: "{{ __bootstrap_certs__ca_cert_cn }}.chain.pem"
-    __bootstrap_certs__ca_signer_cacerts_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ __bootstrap_certs__ca_signer_cert_info.domainName }}"
-    __bootstrap_certs__ca_signer_cert: "{{ __bootstrap_certs__ca_signer_cert_info.commonName }}.pem"
-    __bootstrap_certs__ca_signer_key: "{{ __bootstrap_certs__ca_signer_cert_info.commonName }}-key.pem"
-    #    __bootstrap_certs__ca_signer_cert_chain: "{{ __bootstrap_certs__ca_signer_cert_info.commonName }}.chain.pem"
-    __bootstrap_certs__ca_signer_cert_chain: "{{ __bootstrap_certs__ca_signer_cert_info.commonName + '.chain.pem' if __bootstrap_certs__ca_signer_is_root==False else
-      __bootstrap_certs__ca_signer_cert_info.commonName + '.pem' }}"
-    __bootstrap_certs__keystore_cert_dir: "{{ bootstrap_certs__cacerts_base_dir }}/{{ __bootstrap_certs__ca_cert_info.domainName }}"
+    __bootstrap_certs__ca_signer_cacerts_dir: "{{ bootstrap_certs__keystore_base_dir }}/{{ __bootstrap_certs__ca_signer_cert_info.domain_name }}"
+    __bootstrap_certs__ca_signer_cert: "{{ __bootstrap_certs__ca_signer_cert_info.common_name }}.pem"
+    __bootstrap_certs__ca_signer_key: "{{ __bootstrap_certs__ca_signer_cert_info.common_name }}-key.pem"
+    #    __bootstrap_certs__ca_signer_cert_chain: "{{ __bootstrap_certs__ca_signer_cert_info.common_name }}.chain.pem"
+    __bootstrap_certs__ca_signer_cert_chain: "{{ __bootstrap_certs__ca_signer_cert_info.common_name + '.chain.pem' if __bootstrap_certs__ca_signer_is_root==False else
+      __bootstrap_certs__ca_signer_cert_info.common_name + '.pem' }}"
+    __bootstrap_certs__keystore_cert_dir: "{{ bootstrap_certs__keystore_base_dir }}/{{ __bootstrap_certs__ca_cert_info.domain_name }}"
     __bootstrap_certs__ca_cert_names:
       - C: "{{ __bootstrap_certs__ca_cert_info.country }}"
         ST: "{{ __bootstrap_certs__ca_cert_info.state }}"
         L: "{{ __bootstrap_certs__ca_cert_info.locality }}"
         O: "{{ __bootstrap_certs__ca_cert_info.organization }}"
-        OU: "{{ __bootstrap_certs__ca_cert_info.organizationalUnit }}"
+        OU: "{{ __bootstrap_certs__ca_cert_info.organizational_unit }}"
 
 - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__ca_cert_csr_tpl"
   ansible.builtin.set_fact:
-    __bootstrap_certs__ca_cacert_csr_tpl:
-      CN: "{{ __bootstrap_certs__ca_cert_info.commonName }}"
+    __bootstrap_certs__ca_ca_csr_tpl:
+      CN: "{{ __bootstrap_certs__ca_cert_info.common_name }}"
       key: "{{ bootstrap_certs__ca_key_spec }}"
       names: "{{ __bootstrap_certs__ca_cert_names }}"
     __bootstrap_certs__ca_cert_csr_tpl:
-      CN: "{{ __bootstrap_certs__ca_cert_info.commonName }}"
+      CN: "{{ __bootstrap_certs__ca_cert_info.common_name }}"
       hosts: "{{ (
           __bootstrap_certs__ca_cert_info.sans
           | d(bootstrap_certs__subj_alt_names_default)
-          + __bootstrap_certs__ca_cert_info.altips|d([])
+          + __bootstrap_certs__ca_cert_info.altips | d([])
         ) }}"
       key: "{{ bootstrap_certs__ca_key_spec }}"
       names: "{{ __bootstrap_certs__ca_cert_names }}"
 
 - name: Get_cert_facts | Set __bootstrap_certs__ca_fetch_domains_list
   ansible.builtin.set_fact:
-    __bootstrap_certs__ca_fetch_domains_list: "{{ (bootstrap_certs__ca_domains_hosted + __bootstrap_certs__ca_intermediate_certs_by_domain.keys()|list)|flatten|unique
+    __bootstrap_certs__ca_fetch_domains_list: "{{ (bootstrap_certs__ca_domains_hosted + __bootstrap_certs__ca_intermediate_certs_by_domain.keys() | list) | flatten | unique
       }}"
 
 - name: "{{ __log_prefix_subtask }} Display final cert info"

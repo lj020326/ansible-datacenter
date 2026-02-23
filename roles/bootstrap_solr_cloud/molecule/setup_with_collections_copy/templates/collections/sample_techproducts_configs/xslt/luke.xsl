@@ -222,7 +222,7 @@
         </xsl:choose>
     </xsl:template>
 
-    <xsl:template match="int|bool|long|float|double|uuid|date">
+    <xsl:template match="int | bool|long|float|double|uuid|date">
         <xsl:call-template name="keyvalue"/>
     </xsl:template>
 

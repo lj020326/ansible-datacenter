@@ -42,7 +42,7 @@
     - path: /etc/firewalld/ipsets
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure firewalld custom services"
-  when: item.custom|d(false)|bool
+  when: item.custom | d(false) | bool
   ansible.builtin.template:
     src: service_template.xml.j2
     dest: /etc/firewalld/services/{{ item.name }}.xml
@@ -76,8 +76,8 @@
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Remove unmanaged zones in /etc/firewalld/zones"
   when:
-    - firewalld_zones_force_reset|bool
-    - item|replace('.xml','') not in __firewalld_zones.values() | list |map(attribute='name')|list
+    - firewalld_zones_force_reset | bool
+    - item | replace('.xml','') not in __firewalld_zones.values() | list | map(attribute='name') | list
   ansible.builtin.file:
     path: /etc/firewalld/zones/{{ item }}
     state: absent
@@ -145,7 +145,7 @@
     state: absent
   loop: "{{ get_firewalld_ipsets.stdout_lines }}"
   notify: Reload firewalld
-  when: item|replace('.xml','') not in firewalld_ipsets|map(attribute='name')|list
+  when: item | replace('.xml','') not in firewalld_ipsets | map(attribute='name') | list
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure firewalld ipsets"
   ansible.builtin.template:
@@ -182,9 +182,9 @@
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure firewalld services"
   when:
     - firewalld_enabled | bool
-    - __firewalld_zones.values() | list | d([]) | count>0
-    - __firewalld_services|flatten|d([])|count>0
-    - item.0.custom|d(false)|bool
+    - __firewalld_zones.values() | list | d([]) | count > 0
+    - __firewalld_services | flatten | d([]) | count > 0
+    - item.0.custom | d(false) | bool
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
   ansible.posix.firewalld:
@@ -196,8 +196,8 @@
   register: firewalld_result
   failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
   with_nested:
-    - "{{ __firewalld_zones.values() | list |flatten }}"
-    - "{{ __firewalld_services|flatten }}"
+    - "{{ __firewalld_zones.values() | list | flatten }}"
+    - "{{ __firewalld_services | flatten }}"
   loop_control:
     label: "{{ item.0.name }} - {{ item.1.name }}"
   notify: Reload firewalld
@@ -205,8 +205,8 @@
 #- name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure firewalld ports"
 #  when:
 #    - firewalld_enabled | bool
-#    - __firewalld_zones.values() | list |d([])|flatten|count>0
-#    - __firewalld_ports|d([])|flatten|count>0
+#    - __firewalld_zones.values() | list | d([]) |flatten | count>0
+#    - __firewalld_ports | d([]) | flatten | count>0
 #  vars:
 #    ansible_python_interpreter: "{{ os_python_interpreter }}"
 #  ansible.posix.firewalld:
@@ -219,7 +219,7 @@
 #  failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
 #  with_nested:
 #    - "{{ __firewalld_zones.values() | list |flatten }}"
-#    - "{{ __firewalld_ports|flatten }}"
+#    - "{{ __firewalld_ports | flatten }}"
 #  loop_control:
 #    label: "{{ item.0.name }} - {{ item.1 }}"
 #  notify: "Reload firewalld"
@@ -227,8 +227,8 @@
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure firewalld ports"
   when:
     - firewalld_enabled | bool
-    - __firewalld_zones.values() | list |d([])|flatten|count>0
-    - __firewalld_ports|d([])|flatten|count>0
+    - __firewalld_zones.values() | list | d([]) | flatten | count>0
+    - __firewalld_ports | d([]) | flatten | count > 0
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
   ansible.posix.firewalld:
@@ -239,7 +239,7 @@
     immediate: true
   register: firewalld_result
   failed_when: firewalld_result is failed and 'ALREADY_ENABLED' not in firewalld_result.msg
-  loop: "{{ __firewalld_ports|flatten }}"
+  loop: "{{ __firewalld_ports | flatten }}"
   notify: Reload firewalld
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Get services in /etc/firewalld/services"
@@ -250,7 +250,7 @@
   failed_when: false
 
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Remove unmanaged services in /etc/firewalld/services"
-  when: item|replace('.xml','') not in __firewalld_services|map(attribute='name')|list
+  when: item | replace('.xml','') not in __firewalld_services | map(attribute='name') | list
   ansible.builtin.file:
     path: /etc/firewalld/services/{{ item }}
     state: absent
@@ -260,18 +260,18 @@
 - name: "{{ __bootstrap_firewalld__log_prefix_configure }} Configure defined __firewalld_rules"
   when:
     - firewalld_enabled | bool
-    - firewalld_rules|d([])|length>0
+    - firewalld_rules | d([]) | length > 0
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
   ansible.posix.firewalld:
-    immediate: "{{ item.immediate|default(True)|bool }}"
-    interface: "{{ item.interface|default(omit) }}"
-    masquerade: "{{ item.masquerade|default(omit) }}"
-    permanent: "{{ item.permanent|default(False)|bool }}"
-    port: "{{ item.port|default(omit) }}"
-    rich_rule: "{{ item.rich_rule|default(omit) }}"
-    service: "{{ item.service|default(omit) }}"
-    source: "{{ item.source|default(omit) }}"
-    state: "{{ item.state|default('enabled') }}"
-    zone: "{{ item.zone|default(omit) }}"
+    immediate: "{{ item.immediate | d(true) | bool }}"
+    interface: "{{ item.interface | d(omit) }}"
+    masquerade: "{{ item.masquerade | d(omit) }}"
+    permanent: "{{ item.permanent | d(false) | bool }}"
+    port: "{{ item.port | d(omit) }}"
+    rich_rule: "{{ item.rich_rule | d(omit) }}"
+    service: "{{ item.service | d(omit) }}"
+    source: "{{ item.source | d(omit) }}"
+    state: "{{ item.state | d('enabled') }}"
+    zone: "{{ item.zone | d(omit) }}"
   loop: "{{ __firewalld_rules }}"

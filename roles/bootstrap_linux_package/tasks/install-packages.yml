@@ -6,78 +6,84 @@
 ## ONLY needed for CentOS version < 8
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Update yum package repos"
   when:
-    - ansible_pkg_mgr == 'yum'
-    - bootstrap_linux_package__yum_repo_list|d([])|length>0
-    - ansible_distribution_major_version|int is version('8', '<')
+    - ansible_facts['pkg_mgr'] == 'yum'
+    - bootstrap_linux_package__yum_repo_list | d([]) | length > 0
+    - ansible_facts['distribution_major_version'] | int is version('8', '<')
   ansible.builtin.include_tasks: update-repo-yum.yml
 
 #- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Update yum package repos"
 #  when:
-#    - ansible_pkg_mgr == 'dnf'
-#    - bootstrap_linux_package__yum_repo_list|d([])|length>0
+#    - ansible_facts['pkg_mgr'] == 'dnf'
+#    - bootstrap_linux_package__yum_repo_list | d([]) | length > 0
 #  ansible.builtin.include_tasks: update-repo-dnf.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Set up EPEL from rpm"
   when:
-    #    - ansible_os_family|lower == 'redhat'
-    - ansible_pkg_mgr in ['yum','dnf']
+    #    - ansible_facts['os_family'] | lower == 'redhat'
+    - ansible_facts['pkg_mgr'] in ['yum','dnf']
     - bootstrap_linux_package__setup_epel_from_rpm
   ansible.builtin.include_role:
     name: bootstrap_epel_repo
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} RedHat - Install centos yum package repos"
   when:
-    - ansible_distribution|lower == 'redhat'
-    - bootstrap_linux_package__redhat_install_centos_repos|bool
+    - ansible_facts['distribution'] | lower == 'redhat'
+    - bootstrap_linux_package__redhat_install_centos_repos | bool
   ansible.builtin.include_tasks: update-repo-yum-rhel-centos.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Update apt package repos"
   when:
-    - ansible_pkg_mgr == 'apt'
-    - ansible_distribution == 'Debian'
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - ansible_facts['distribution'] == 'Debian'
   ansible.builtin.include_tasks: update-repo-apt.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Update apt package repos for ubuntu versions >= 24"
   when:
-    - ansible_pkg_mgr == 'apt'
-    - ansible_distribution == 'Ubuntu'
-    - ansible_distribution_major_version|int >= 24
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - ansible_facts['distribution_major_version'] | int >= 24
   ansible.builtin.include_tasks: update-repo-apt-ubuntu.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install present packages"
   when:
     - __bootstrap_linux_package__package_list_by_priority[item].present is defined
-    - __bootstrap_linux_package__package_list_by_priority[item].present.keys()|d([])|length>0
+    - __bootstrap_linux_package__package_list_by_priority[item].present.keys() | d([]) | length > 0
   ansible.builtin.package:
     name: "{{ __bootstrap_linux_package__package_list_by_priority[item].present.keys() }}"
     state: present
     update_cache: "{{ bootstrap_linux_package__update_cache }}"
+#    cache_valid_time: "{{ bootstrap_linux_package__cache_valid_time }}"
     nobest: "{{ bootstrap_linux_package__dnf_nobest | d(omit) }}"
     allowerasing: "{{ bootstrap_linux_package__dnf_allowerasing | d(omit) }}"
-  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys()|sort }}"
+  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys() | sort }}"
   loop_control:
     label: package state=present priority={{ item }}
+  register: __apt_present_result
+  # Retry logic for transient lock issues
+  until: __apt_present_result is succeeded
+  retries: 5
+  delay: 10
 
-- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install latest packages"
+- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install latest packages" # noqa: package-latest
   when:
     - __bootstrap_linux_package__package_list_by_priority[item].latest is defined
-    - __bootstrap_linux_package__package_list_by_priority[item].latest.keys()|d([])|length>0
+    - __bootstrap_linux_package__package_list_by_priority[item].latest.keys() | d([]) | length > 0
   ansible.builtin.package:
     name: "{{ __bootstrap_linux_package__package_list_by_priority[item].latest.keys() }}"
     state: latest
     update_cache: "{{ bootstrap_linux_package__update_cache }}"
-  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys()|sort }}"
+  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys() | sort }}"
   loop_control:
     label: package state=latest priority={{ item }}
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Remove packages"
   when:
     - __bootstrap_linux_package__package_list_by_priority[item].absent is defined
-    - __bootstrap_linux_package__package_list_by_priority[item].absent.keys()|d([])|length>0
+    - __bootstrap_linux_package__package_list_by_priority[item].absent.keys() | d([]) | length > 0
   ansible.builtin.package:
     name: "{{ __bootstrap_linux_package__package_list_by_priority[item].absent.keys() }}"
     state: absent
     update_cache: "{{ bootstrap_linux_package__update_cache }}"
-  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys()|sort }}"
+  loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys() | sort }}"
   loop_control:
     label: package state=absent priority={{ item }}

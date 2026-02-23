@@ -7,7 +7,7 @@
 ## exit when any command fails
 #set -e
 
-VERSION="2025.6.12"
+VERSION="2026.1.28"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
@@ -35,9 +35,12 @@ DOCKER_POSTGRES_PIDFILE_PATH=postgres/data/postmaster.pid
 
 DOCKER_DEPLOY_DETACHED=1
 
+DOCKER_PULL_IMAGES=0
+
 REMOVE_DOCKER_STACK=0
 DEPLOY_DOCKER_STACK=1
 
+RESTART_DOCKER_DAEMON=0
 
 #### LOGGING RELATED
 LOG_ERROR=0
@@ -248,12 +251,10 @@ function execute_eval_command() {
   local RETURN_STATUS=$?
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
-    log_debug "${COMMAND_RESULT}"
-    log_debug "SUCCESS!"
+    log_info $'\n'"${COMMAND_RESULT}"
   else
     log_error "ERROR (${RETURN_STATUS})"
-#    echo "${COMMAND_RESULT}"
-    abort "$(printf "Failed during: %s" "${COMMAND_RESULT}")"
+    abort "$(printf "Failed during: %s" "${RUN_COMMAND}")"
   fi
 
 }
@@ -305,9 +306,17 @@ function remove_docker_stack() {
     docker network rm "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || true
   done
 
-  local RESTART_DOCKER_COMMAND="systemctl restart docker"
-  log_info "${RESTART_DOCKER_COMMAND}"
-  eval "${RESTART_DOCKER_COMMAND}"
+  log_info "Pruning unused containers"
+  execute_eval_command "docker container prune -f"
+
+  log_info "Pruning unused networks"
+  execute_eval_command "docker network prune -f"
+
+  if [ "${RESTART_DOCKER_DAEMON}" -ne 0 ]; then
+    local RESTART_DOCKER_COMMAND="systemctl restart docker"
+#    log_info "${RESTART_DOCKER_COMMAND}"
+    execute_eval_command "${RESTART_DOCKER_COMMAND}"
+  fi
 
   ## ref: https://github.com/moby/moby/issues/25981#issuecomment-244783392
   DOCKER_PROXY_PORTS_STILL_EXIST=$(netstat -tulnp | grep -c "docker-proxy")
@@ -319,20 +328,25 @@ function remove_docker_stack() {
     cleanup_stale_docker_networks
   fi
 
+  if [ "${DOCKER_CLEANUP_POSTGRES_PIDFILE}" -eq 1 ]; then
+    log_info "remove ${DOCKER_POSTGRES_PIDFILE_PATH}"
+    rm -f "${DOCKER_POSTGRES_PIDFILE_PATH}"
+  fi
+
   log_info "Docker stack completely removed and ready to recreate."
 }
 
 ## ref: https://github.com/moby/moby/issues/25981#issuecomment-244783392
 function cleanup_stale_docker_networks() {
   local STOP_DOCKER_COMMAND="systemctl stop docker"
-  log_info "${STOP_DOCKER_COMMAND}"
-  eval "${STOP_DOCKER_COMMAND}"
+#  log_info "${STOP_DOCKER_COMMAND}"
+  execute_eval_command "${STOP_DOCKER_COMMAND}"
 
   rm -fr /var/lib/docker/network/files/*
 
   local START_DOCKER_COMMAND="systemctl start docker"
-  log_info "${START_DOCKER_COMMAND}"
-  eval "${START_DOCKER_COMMAND}"
+#  log_info "${START_DOCKER_COMMAND}"
+  execute_eval_command "${START_DOCKER_COMMAND}"
 
   DOCKER_PROXY_PORTS_STILL_EXIST=$(netstat -tulnp | grep -c "docker-proxy")
 
@@ -365,6 +379,7 @@ function deploy_docker_stack() {
       ## ref: https://github.com/moby/moby/issues/34153
       DOCKER_CREATE_NETWORK_COMMAND+=("--scope=swarm")
       DOCKER_CREATE_NETWORK_COMMAND+=("--driver=overlay")
+      DOCKER_CREATE_NETWORK_COMMAND+=("--opt com.docker.network.driver.mtu=1450")
     else
       DOCKER_CREATE_NETWORK_COMMAND+=("--scope=local")
     fi
@@ -374,12 +389,17 @@ function deploy_docker_stack() {
       DOCKER_CREATE_NETWORK_COMMAND+=("--subnet=${DOCKER_NETWORK_SUBNET}")
     fi
     DOCKER_CREATE_NETWORK_COMMAND+=("${DOCKER_NETWORK_NAME}")
-    log_info "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
+#    log_info "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
 
     ## ref: https://stackoverflow.com/questions/48643466/docker-create-network-should-ignore-existing-network
     ## ref: https://docs.docker.com/reference/cli/docker/network/create/
-    docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || eval "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
+    docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || execute_eval_command "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
   done
+
+  if [ "${DOCKER_PULL_IMAGES}" -eq 1 ]; then
+    log_info "Pull latest images for stack [${DOCKER_STACK_NAME}]:"
+    grep "image:" docker-compose.yml | awk '{print $2}' | xargs -L1 docker pull
+  fi
 
   log_info "Deploy stack [${DOCKER_STACK_NAME}].."
 
@@ -406,8 +426,8 @@ function deploy_docker_stack() {
   else
     abort "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}], skipping stack deploy"
   fi
-  log_info "${DOCKER_DEPLOY_COMMAND[*]}"
-  eval "${DOCKER_DEPLOY_COMMAND[*]}"
+#  log_info "${DOCKER_DEPLOY_COMMAND[*]}"
+  execute_eval_command "${DOCKER_DEPLOY_COMMAND[*]}"
 
   log_info "Running containers for stack [${DOCKER_STACK_NAME}]:"
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
@@ -416,8 +436,8 @@ function deploy_docker_stack() {
   elif [[ "${DOCKER_SWARM_MODE}" -eq 0 ]]; then
     DOCKER_PS_COMMAND="docker compose ps"
   fi
-  log_info "${DOCKER_PS_COMMAND}"
-  eval "${DOCKER_PS_COMMAND}"
+#  log_info "${DOCKER_PS_COMMAND}"
+  execute_eval_command "${DOCKER_PS_COMMAND}"
 }
 
 function usage() {
@@ -447,15 +467,17 @@ function usage() {
 
 function main() {
 
-  while getopts "L:c:f:prsvh" opt; do
+  while getopts "L:c:f:dprsivh" opt; do
       case "${opt}" in
           L) set_log_level "${OPTARG}" ;;
           v) echo "${VERSION}" && exit ;;
           c) CONFIG_FILEPATH="${OPTARG}" ;;
           f) DOCKER_COMPOSE_FILE="${OPTARG}" ;;
+          d) RESTART_DOCKER_DAEMON=1 ;;
           p) DOCKER_CLEANUP_POSTGRES_PIDFILE=1 ;;
           r) REMOVE_DOCKER_STACK=1 ;;
           s) DEPLOY_DOCKER_STACK=0 ;;
+          i) DOCKER_PULL_IMAGES=1 ;;
           h) usage 1 ;;
           \?) usage 2 ;;
           *) usage ;;
@@ -504,14 +526,14 @@ function main() {
   log_debug "DEPLOY_DOCKER_STACK => [${DEPLOY_DOCKER_STACK}]"
   log_debug "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
+  if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
+    execute_eval_command "docker node ls"
+  fi
+
   if [ "${REMOVE_DOCKER_STACK}" -eq 1 ]; then
     for DOCKER_STACK in "${__DOCKER_STACK_LIST[@]}"; do
       remove_docker_stack "${DOCKER_STACK}"
     done
-  fi
-  if [ "${DOCKER_CLEANUP_POSTGRES_PIDFILE}" -eq 1 ]; then
-    log_info "remove ${DOCKER_POSTGRES_PIDFILE_PATH}"
-    rm -f "${DOCKER_POSTGRES_PIDFILE_PATH}"
   fi
 
   if [ "${DEPLOY_DOCKER_STACK}" -eq 0 ]; then

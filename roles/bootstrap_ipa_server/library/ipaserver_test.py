@@ -298,7 +298,7 @@ import random
 from shutil import copyfile
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible.module_utils.ansible_ipa_server import (
     check_imports,
     AnsibleModuleLog, setup_logging, options, adtrust_imported, kra_imported,

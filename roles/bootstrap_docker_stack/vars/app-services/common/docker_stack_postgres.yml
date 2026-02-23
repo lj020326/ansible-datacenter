@@ -1,15 +1,15 @@
 ---
 
-__docker_stack__postgres__pgadmin_username: "{{ pgadmin_username | d('pgadmin4@pgadmin.org') }}"
-__docker_stack__postgres__pgadmin_password: "{{ pgadmin_password | d('admin') }}"
+__docker_stack__postgres__pgadmin_username: "{{ docker_stack__postgres__pgadmin_username | d('pgadmin4@pgadmin.org') }}"
+__docker_stack__postgres__pgadmin_password: "{{ docker_stack__postgres__pgadmin_password | d('admin') }}"
 __docker_stack__postgres__pgadmin_port: "5050"
 
 __docker_stack__postgres__port: 5432
-__docker_stack__postgres__user: "{{ postgres_user | d('postgres') }}"
-__docker_stack__postgres__password: "{{ postgres_password | d('password') }}"
-__docker_stack__postgres__databases: "{{ docker_stack__postgres_databases | d([]) }}"
+__docker_stack__postgres__user: "{{ docker_stack__postgres__user | d('postgres') }}"
+__docker_stack__postgres__password: "{{ docker_stack__postgres__password | d('password') }}"
+__docker_stack__postgres__databases: "{{ docker_stack__postgres__databases | d([]) }}"
 
-__docker_stack__pgadmin__use_ldap: "{{ docker_stack__pgadmin_config_use_ldap | d(False) }}"
+__docker_stack__pgadmin__use_ldap: "{{ docker_stack__pgadmin__use_ldap | d(false) }}"
 
 __docker_stack__pgadmin__config_default:
   PGADMIN_DEFAULT_EMAIL: "{{ __docker_stack__postgres__pgadmin_username }}"
@@ -36,7 +36,7 @@ __docker_stack__postgres__config_dirs:
   - path: "{{ docker_stack__dir }}/postgres/multiple-dbs"
   - path: "{{ docker_stack__dir }}/postgres/config"
   - path: "{{ docker_stack__dir }}/postgres/data"
-    mode: "0750"
+    mode: "0755"
   - path: "{{ docker_stack__dir }}/pgadmin"
   - path: "{{ docker_stack__dir }}/pgadmin/data"
   - path: "{{ docker_stack__dir }}/pgadmin/config"
@@ -69,8 +69,8 @@ docker_stack__appspec__postgres:
   firewalld_ports: "{{ __docker_stack__postgres__firewalld_ports | d([]) }}"
   docker_services: "{{ __docker_stack__postgres__services | d({}) }}"
 
-__docker_stack__postgres_pgadmin__traefik_labels: "{{ docker_stack__postgres_pgadmin__traefik_labels | d(__docker_stack__postgres_pgadmin__traefik_labels_default)
-  }}"
+__docker_stack__postgres_pgadmin__traefik_labels: "{{ docker_stack__postgres_pgadmin__traefik_labels
+  | d(__docker_stack__postgres_pgadmin__traefik_labels_default) }}"
 
 __docker_stack__postgres__services:
   ## ID management stack per:
@@ -80,6 +80,7 @@ __docker_stack__postgres__services:
     container_name: postgres
 #    image: postgres
     image: postgres:11
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     ports:
 #      - "{{ __docker_stack__postgres__port }}:5432"
       - target: 5432
@@ -109,26 +110,29 @@ __docker_stack__postgres__services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
 #      test: ["CMD-SHELL", "pg_isready -U postgres", "&&", "psql --username=postgres --list"]
-#      test: PGPASSWORD="{{ __docker_stack__postgres__password }}" psql --host 127.0.0.1 --username {{ __docker_stack__postgres__user }} --dbname postgres -c "select 1" ; [ "0" -eq "$$?" ]; echo $$?
       interval: 30s
-      timeout: 5s
-      start_period: 20s
-      start_interval: 20s
+      timeout: 10s
       retries: 5
+      start_period: 180s
+#      interval: 30s
+#      timeout: 5s
+#      start_period: 180s
+#      start_interval: 20s
+#      retries: 5
     deploy:
       mode: replicated
       placement:
         constraints:
-          - node.hostname == {{ __docker_stack__base__traefik_host }}
-      #          - node.role == manager
+          - node.role == manager
       replicas: 1
       restart_policy:
+        delay: 30s
         condition: on-failure
         max_attempts: 3
         window: 120s
       update_config:
         parallelism: 1
-        delay: 5s
+        delay: 10s
         order: stop-first
 
   ## ref: https://www.pgadmin.org/docs/pgadmin4/latest/container_deployment.html
@@ -172,8 +176,8 @@ __docker_stack__postgres__services:
       mode: replicated
       #      placement:
       #        constraints:
-      #          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-      ##          - node.role == manager
+      ##          - "node.hostname == {{ __docker_stack__traefik__host }}"
+      #          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

@@ -1,0 +1,51 @@
+---
+- name: "Webmin | Install | Download webmin installer"
+  when: bootstrap_webmin__repo_installer_source == 'github'
+  ansible.builtin.get_url:
+    url: "{{ bootstrap_webmin__repo_installer_url }}"
+    dest: /tmp/webmin-setup-repo.sh
+    mode: "0755"
+    force: true
+
+- name: "Webmin | Install | Setup webmin installer"
+  when: bootstrap_webmin__repo_installer_source == 'local'
+  ansible.builtin.copy:
+    src: webmin-setup-repo.sh
+    dest: /tmp/webmin-setup-repo.sh
+    mode: "0755"
+    force: true
+
+- name: "Webmin | Install | Execute webmin-setup-repo.sh"
+  changed_when: false
+  ansible.builtin.command: "sh ./webmin-setup-repo.sh -f"
+  args:
+    chdir: /tmp
+
+- name: "Webmin | Install | Remove the webmin-setup-repo.sh"
+  ansible.builtin.file:
+    path: /tmp/webmin-setup-repo.sh
+    state: absent
+
+## ref: https://www.redpill-linpro.com/sysadvent/2017/12/24/ansible-system-updates.html
+## ref: https://www.cyberciti.biz/faq/ansible-apt-update-all-packages-on-ubuntu-debian-linux
+- name: "Webmin | Install | Update apt-get repo and cache"
+  when: ansible_facts['os_family'] == 'Debian'
+  ansible.builtin.apt:
+    update_cache: true
+    force_apt_get: true
+
+- name: "Webmin | Install | Install webmin package"
+  ansible.builtin.package:
+    name: webmin
+    state: present
+#    state: latest
+#    update_cache: true
+#  changed_when: false
+
+- name: "Webmin | Install | Remove webmin repo config"
+  when:
+    - ansible_facts['os_family'] == 'Debian'
+    - bootstrap_webmin__remove_repo_after_install | d(false) | bool
+  ansible.builtin.file:
+    dest: /etc/apt/sources.list.d/webmin.repo.list
+    state: absent

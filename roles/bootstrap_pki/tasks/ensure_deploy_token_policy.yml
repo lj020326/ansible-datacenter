@@ -1,0 +1,194 @@
+---
+# tasks/ensure_deploy_token_policy.yml
+# Ensures a Vault policy and token for deploy_pki_certs with read access to PKI/KV paths.
+# Uses vault_write for policy (fallback from vault_policy for reliability).
+
+- name: "ensure-deploy-token-policy : Define {{ bootstrap_pki__deploy_policy_name }} policy"
+  community.hashi_vault.vault_write:
+    url: "{{ bootstrap_pki__vault_url }}"
+    token: "{{ bootstrap_pki__vault_token }}"
+    path: "sys/policies/acl/{{ bootstrap_pki__deploy_policy_name }}"
+    data:
+      policy: "{{ bootstrap_pki__deploy_token_policy_hcl_content }}"
+    validate_certs: false
+  delegate_to: localhost
+  run_once: true
+  register: __policy_result
+
+- name: "ensure-deploy-token-policy : Display policy result"
+  ansible.builtin.debug:
+    var: __policy_result
+    verbosity: 1
+
+- name: "ensure-deploy-token-policy : Validate existing deploy token (if provided)"
+  when:
+    - bootstrap_pki__deploy_token_validate | default(true) | bool
+    - bootstrap_pki__deploy_token_value is defined
+    - bootstrap_pki__deploy_token_value | length > 0
+    - bootstrap_pki__deploy_token_accessor is defined
+    - bootstrap_pki__deploy_token_accessor | length > 0
+  block:
+
+    - name: "ensure-deploy-token-policy : Lookup existing deploy token by accessor"
+      no_log: true
+      community.hashi_vault.vault_write:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        path: "auth/token/lookup-accessor"
+        data:
+          accessor: "{{ bootstrap_pki__deploy_token_accessor }}"
+        validate_certs: false
+      register: __existing_token_lookup
+      delegate_to: localhost
+      run_once: true
+      ignore_errors: true
+
+    - name: "ensure-deploy-token-policy : Display __existing_token_lookup"
+      ansible.builtin.debug:
+        var: __existing_token_lookup | dettonville.utils.redact_sensitive_values
+        verbosity: 1
+
+    - name: "ensure-deploy-token-policy : Assert existing token is valid"
+      when: not __existing_token_lookup.failed
+      block:
+        - name: "ensure-deploy-token-policy : Assert existing token is valid"
+          ansible.builtin.assert:
+            that:
+              - bootstrap_pki__deploy_policy_name in (__existing_token_lookup.data.data.policies | default([]))
+              - __existing_token_lookup.data.data.ttl | int > (bootstrap_pki__deploy_token_renew_threshold_days * 86400)
+            success_msg: "Existing deploy token valid: Policies match, TTL sufficient ({{ __existing_token_lookup.data.data.ttl }}s left)."
+            fail_msg: >-
+              Existing deploy token invalid or expired.
+              Policies: {{ __existing_token_lookup.data.data.policies | default([]) }} (expected: {{ bootstrap_pki__deploy_policy_name }}).
+              TTL left: {{ __existing_token_lookup.data.data.ttl | default(0) }}s (< {{ bootstrap_pki__deploy_token_renew_threshold_days }} days).
+              Will recreate. Revoke old if needed: vault token revoke {{ bootstrap_pki__deploy_token_value }}.
+          run_once: true
+
+        - name: "ensure-deploy-token-policy : Set __token_needs_renewal"
+          ansible.builtin.set_fact:
+            __token_needs_renewal: "{{ __existing_token_lookup.data.data.ttl
+              | int <= (bootstrap_pki__deploy_token_renew_threshold_days * 86400) }}"
+
+        - name: "ensure-deploy-token-policy : Display __token_needs_renewal"
+          ansible.builtin.set_fact:
+            var: __token_needs_renewal
+
+        - name: "ensure-deploy-token-policy : Renew existing token if TTL low"
+          when:
+            - __token_needs_renewal
+            - __existing_token_lookup.data.data.renewable | default(false) | bool
+          block:
+            - name: "ensure-deploy-token-policy : Renew existing token if TTL low"
+              no_log: true
+              community.hashi_vault.vault_write:
+                url: "{{ bootstrap_pki__vault_url }}"
+                token: "{{ bootstrap_pki__deploy_token_value }}"  # Self-renew
+                path: "auth/token/renew-self"
+                validate_certs: false
+              register: __renew_result
+              delegate_to: localhost
+              run_once: true
+
+            - name: "ensure-deploy-token-policy : Display __renew_result"
+              ansible.builtin.debug:
+                var: __renew_result
+                verbosity: 1
+
+            - name: "ensure-deploy-token-policy : Display renewal result"
+              ansible.builtin.debug:
+                msg: "Token renewed: New TTL {{ __renew_result.data.data.ttl }}s."
+              run_once: true
+
+- name: "ensure-deploy-token-policy : Create new deploy token (if none/ invalid)"
+  when:
+    - bootstrap_pki__deploy_token_validate | default(true) | bool
+    - bootstrap_pki__deploy_token_value is not defined or bootstrap_pki__deploy_token_value | length == 0 or __existing_token_lookup is failed
+  block:
+    - name: "ensure-deploy-token-policy : Create new deploy token (if none/ invalid)"
+      no_log: true
+      community.hashi_vault.vault_token_create:
+        url: "{{ bootstrap_pki__vault_url }}"
+        token: "{{ bootstrap_pki__vault_token }}"
+        display_name: "{{ bootstrap_pki__deploy_token_name }}"
+        policies: "{{ bootstrap_pki__deploy_token_policies }}"
+        ttl: "{{ bootstrap_pki__deploy_token_ttl }}"
+        renewable: "{{ bootstrap_pki__deploy_token_renewable | bool }}"
+        no_parent: true  # Orphan for security
+        validate_certs: false
+      delegate_to: localhost
+      failed_when: false
+      run_once: true
+      register: __deploy_token_result
+
+    - name: "ensure-deploy-token-policy : Display __deploy_token_result"
+      ansible.builtin.debug:
+        var: __deploy_token_result
+        verbosity: 1
+
+    - name: "ensure-deploy-token-policy : Set deploy token facts (for chaining and verification)"
+      when:
+        - __deploy_token_result.changed
+        - __deploy_token_result.login is defined
+        - __deploy_token_result.login.auth is defined
+        - __deploy_token_result.login.auth.client_token is defined
+        - __deploy_token_result.login.auth.accessor is defined  # Ensure accessor available
+      block:
+        - name: "ensure-deploy-token-policy : Set client_token and accessor facts"
+          no_log: true
+          ansible.builtin.set_fact:
+            bootstrap_pki__deploy_token_value: "{{ __deploy_token_result.login.auth.client_token }}"
+            bootstrap_pki__deploy_token_accessor: "{{ __deploy_token_result.login.auth.accessor }}"
+
+        - name: "ensure-deploy-token-policy : Display token lengths (redacted)"
+          ansible.builtin.debug:
+            msg: >-
+              Client token length: {{ bootstrap_pki__deploy_token_value | length }} chars.
+              Accessor length: {{ bootstrap_pki__deploy_token_accessor | length }} chars.
+            verbosity: 1
+
+        - name: "ensure-deploy-token-policy : Display deploy token creation"
+          when: __deploy_token_result.changed # noqa: no-handler
+          ansible.builtin.debug:
+            msg: "Deploy token '{{ bootstrap_pki__deploy_token_name }}' created/renewed (TTL: {{ bootstrap_pki__deploy_token_ttl }})"
+
+        - name: "ensure-deploy-token-policy : Verify token policies from creation response"
+          ansible.builtin.assert:
+            that:
+              - bootstrap_pki__deploy_policy_name in __deploy_token_result.login.auth.policies
+              - __deploy_token_result.login.auth.lease_duration | int > 0
+            success_msg: >-
+              Token verified: Policies applied = {{ __deploy_token_result.login.auth.policies | to_nice_json }}.
+              TTL: {{ __deploy_token_result.login.auth.lease_duration | default('N/A') }}s.
+              Renewable: {{ __deploy_token_result.login.auth.renewable | default('N/A') }}.
+            fail_msg: >-
+              Token creation succeeded, but verification failed.
+              Expected policy '{{ bootstrap_pki__deploy_policy_name }}' not in: {{ __deploy_token_result.login.auth.policies | default([]) | to_nice_json }}.
+              Full login.auth response keys: {{ __deploy_token_result.login.auth.keys() | list }}.
+              Policy write: {{ __policy_result.changed }} | Token create: {{ __deploy_token_result.changed }}.
+              If 'policies' missing, check collection version or OpenBao API diff.
+          run_once: true
+
+        - name: "ensure-deploy-token-policy : Display token creation/renewal summary"
+          ansible.builtin.debug:
+            msg: |
+              Deploy token status:
+              - Policy updated: {{ __policy_result.changed | default(false) }}.
+              - Token created: {{ __deploy_token_result.changed | default(false) }}.
+              - Existing validated: {{ bootstrap_pki__deploy_token_value is defined and __existing_token_lookup is success | default(false) }}.
+              {% if __renew_result is defined %}- Renewed: {{ __renew_result.changed | default(false) }}.{% endif %}
+              {% if bootstrap_pki__deploy_token_value is defined %}
+              Action: Update vars/vault.yml with new token for '{{ bootstrap_pki__deploy_token_name }}' if changed.
+              {% endif %}
+            verbosity: 0  # Always show
+          run_once: true
+
+        - name: "ensure-deploy-token-policy : Verify new token policies (from response)"
+          when:
+            - __deploy_token_result.changed
+            - __deploy_token_result.login.auth.policies is defined
+          ansible.builtin.assert:
+            that:
+              - bootstrap_pki__deploy_policy_name in __deploy_token_result.login.auth.policies
+            success_msg: "New token verified: Policies = {{ __deploy_token_result.login.auth.policies | to_nice_yaml }}."
+            fail_msg: "New token missing policy '{{ bootstrap_pki__deploy_policy_name }}' (got: {{ __deploy_token_result.login.auth.policies | default([]) }})."
+          run_once: true

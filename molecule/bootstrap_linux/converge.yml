@@ -1,14 +1,5 @@
 ---
-- name: Gather facts for hosts to apply OS specific group vars for them
-  hosts: all
-  connection: local
-  roles:
-    ## https://github.com/ansible-community/molecule/issues/816#issuecomment-696411525
-    - role: apply_common_groups
-#      changed_when: "'molecule-idempotence-notest' not in ansible_skip_tags"
-
-- name: Bootstrap linux
-  #  hosts: molecule_docker_linux
+- name: Bootstrap linux (with common groups applied first)
   hosts: all
   connection: local
   become: true
@@ -22,9 +13,14 @@
         'degraded' in systemctl_status.stdout
       retries: 5
       delay: 5
-      when: ansible_service_mgr == 'systemd'
+      when: ansible_facts['service_mgr'] == 'systemd'
       changed_when: false
       failed_when: systemctl_status.rc > 1
-
   roles:
+    ## Gather facts for hosts to apply OS specific group vars for them
+    ## https://github.com/ansible-community/molecule/issues/816#issuecomment-696411525
+    - role: apply_common_groups
+      become: false
+#      changed_when: "'molecule-idempotence-notest' not in ansible_skip_tags"
+    ## Bootstrap linux
     - role: bootstrap_linux

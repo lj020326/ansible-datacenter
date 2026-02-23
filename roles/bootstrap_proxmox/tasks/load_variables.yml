@@ -1,12 +1,12 @@
 ---
 - name: Gather distribution specific variables
-  #  ansible.builtin.include_vars: "debian-{{ ansible_distribution_release }}.yml"
+  #  ansible.builtin.include_vars: "debian-{{ ansible_facts['distribution_release'] }}.yml"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution }}-{{ ansible_distribution_release}}.yml"
-    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
+    - "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_release']}}.yml"
+    - "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_major_version']}}.yml"
+    - "{{ ansible_facts['distribution'] }}.yml"
+    - "{{ ansible_facts['os_family'] }}.yml"
     - default.yml
 
 - name: LEGACY - Define pve_cluster_addr0 from bindnet0_addr/ring0_addr
@@ -18,12 +18,12 @@
   # https://pve.proxmox.com/wiki/Separate_Cluster_Network#Setup_at_Cluster_Creation
   # https://git.proxmox.com/?p=pve-cluster.git;a=blob;f=data/PVE/Corosync.pm;h=8b5c91e0da084da4e9ba7423176872a0c16ef5af;hb=refs/heads/stable-5#l209
     - name: LEGACY - Define pve_cluster_addr0 from bindnet0_addr/ring0_addr
-      when: pve_cluster_ring0_addr is defined and ansible_distribution_release == 'stretch'
+      when: pve_cluster_ring0_addr is defined and ansible_facts['distribution_release'] == 'stretch'
       ansible.builtin.set_fact:
-        pve_cluster_addr0: "{{ pve_cluster_bindnet0_addr | default(pve_cluster_ring0_addr) }}"
+        pve_cluster_addr0: "{{ pve_cluster_bindnet0_addr | d(pve_cluster_ring0_addr) }}"
 
     - name: LEGACY - Define pve_cluster_addr0 from link0_addr
-      when: pve_cluster_link0_addr is defined and ansible_distribution_release == 'buster'
+      when: pve_cluster_link0_addr is defined and ansible_facts['distribution_release'] == 'buster'
       ansible.builtin.set_fact:
         pve_cluster_addr0: "{{ pve_cluster_link0_addr }}"
 
@@ -31,23 +31,23 @@
   when: pve_cluster_addr1 is not defined
   block:
     - name: LEGACY - Define pve_cluster_addr1 from bindnet1_addr/ring1_addr
-      when: pve_cluster_ring1_addr is defined and ansible_distribution_release == 'stretch'
+      when: pve_cluster_ring1_addr is defined and ansible_facts['distribution_release'] == 'stretch'
       ansible.builtin.set_fact:
-        pve_cluster_addr1: "{{ pve_cluster_bindnet1_addr | default(pve_cluster_ring1_addr) }}"
+        pve_cluster_addr1: "{{ pve_cluster_bindnet1_addr | d(pve_cluster_ring1_addr) }}"
 
     - name: LEGACY - Define pve_cluster_addr1 from link1_addr
-      when: pve_cluster_link1_addr is defined and ansible_distribution_release == 'buster'
+      when: pve_cluster_link1_addr is defined and ansible_facts['distribution_release'] == 'buster'
       ansible.builtin.set_fact:
         pve_cluster_addr1: "{{ pve_cluster_link1_addr }}"
 
 - name: Define pve_cluster_addr0 if not provided
   ansible.builtin.set_fact:
-    pve_cluster_addr0: "{{ pve_cluster_addr0 | default(_pve_cluster_addr0) }}"
+    pve_cluster_addr0: "{{ pve_cluster_addr0 | d(_pve_cluster_addr0) }}"
 
 - name: Calculate list of SSH addresses
   ansible.builtin.set_fact:
     pve_cluster_ssh_addrs: >-
-      ["{{ ansible_fqdn }}", "{{ ansible_hostname }}",
+      ["{{ ansible_facts['fqdn'] }}", "{{ ansible_facts['hostname'] }}",
       "{{ pve_cluster_addr0 }}",
       {% if pve_cluster_addr1 is defined %}"{{ pve_cluster_addr1 }}"{% endif %}]
 

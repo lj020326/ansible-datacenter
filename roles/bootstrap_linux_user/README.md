@@ -6,7 +6,7 @@ A role for managing linux users.
 ## Requirements
 
 - It is expected that if this role is to create the ansible user, that there is a platform OS specific seed user with sufficent admin perms to managed user creation/modification (e.g, `administrator`, `packer`. `vagrant`, etc) from a newly minted platform OS instance created.
-- Root privileges, eg `become: yes`
+- Root privileges, eg `become: true`
 
 ## Role Variables
 
@@ -63,7 +63,7 @@ None.
 - hosts: linux_servers
   roles:
   - role: bootstrap_linux_user
-    become: yes
+    become: true
     bootstrap_linux_user_list:
       - name: fulvio
         sudoer: yes

@@ -2,14 +2,31 @@
 
 __docker_stack__redis__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
 
-__docker_stack__redis__password: "{{ docker_stack__redis_password | d('passwword') }}"
+__docker_stack__redis__password: "{{ docker_stack__redis__password | d('passwword') }}"
 
 __docker_stack__redis__max_memory: 512mb
+
+__docker_stack__redis__environment_default:
+  TZ: "{{ docker_stack__timezone }}"
+  PUID: "{{ docker_stack__user_uid }}"
+  PGID: "{{ docker_stack__user_gid }}"
+
+__docker_stack__redis__environment: "{{ docker_stack__redis__environment
+  | d(__docker_stack__redis__environment_default) }}"
+
+__docker_stack__rediscom__environment_default:
+  REDIS_HOST: redis
+  REDIS_PASSWORD: "{{ __docker_stack__redis__password }}"
+
+__docker_stack__rediscom__environment: "{{ docker_stack__rediscom__environment
+  | d(__docker_stack__rediscom__environment_default) }}"
 
 __docker_stack__redis__config_dirs:
   - { path: "{{ __docker_stack__redis__stack_dir }}" }
   - { path: "{{ __docker_stack__redis__stack_dir }}/redis" }
 #  - { path: "{{ __docker_stack__redis__stack_dir }}/redis/data" }
+
+
 docker_stack__appspec__redis:
   dirs: "{{ __docker_stack__redis__config_dirs | d([]) }}"
   files: "{{ __docker_stack__redis__config_files | d([]) }}"
@@ -43,10 +60,7 @@ __docker_stack__redis__services:
       - "{{ docker_stack__network_name__default }}"
     security_opt:
       - no-new-privileges=true
-    environment:
-      TZ: "{{ docker_stack__timezone }}"
-      PUID: "{{ docker_stack__user_uid }}"
-      PGID: "{{ docker_stack__user_gid }}"
+    environment: "{{ __docker_stack__redis__environment }}"
     volumes:
       - "{{ __docker_stack__redis__stack_dir }}/redis:/data"
 
@@ -71,8 +85,8 @@ __docker_stack__redis__services:
       mode: replicated
       #      placement:
       #        constraints:
-      #          - "node.hostname == {{ __docker_stack__base__traefik_host }}"
-      ##          - node.role == manager
+      ##          - "node.hostname == {{ __docker_stack__traefik__host }}"
+      #          - node.role == manager
       replicas: 1
       restart_policy:
         condition: on-failure

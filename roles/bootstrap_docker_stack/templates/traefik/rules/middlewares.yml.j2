@@ -6,7 +6,7 @@ http:
         # users:
         #   - "user:$apsdfs.$EntPC0w3FtswWvC/6fTVJ7IUVtX1"
         usersFile: "/shared/.htpasswd" #be sure to mount the volume through docker-compose.yml
-        realm: "Traefik 2 Basic Auth"
+        realm: "Traefik Basic Auth"
 
     middlewares-rate-limit:
       rateLimit:
@@ -46,6 +46,7 @@ http:
           X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex,"
           server: ""
 
+{% if docker_stack__enable_external_route %}
     middlewares-secure-headers-ext:
       headers:
         accessControlAllowMethods:
@@ -79,6 +80,7 @@ http:
           X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex,"
           server: ""
 
+{% endif %}
     middlewares-oauth:
       forwardAuth:
         address: "http://oauth:4181" # Make sure you have the OAuth service in docker-compose.yml
@@ -101,14 +103,19 @@ http:
       headers:
         customRequestHeaders:
           X-Forwarded-Proto: https
+          X-Forwarded-Ssl: on
+        customResponseHeaders:
+          Cache-Control: "no-cache, no-store, must-revalidate"
+          Pragma: "no-cache"
+          Expires: "0"
         hostsProxyHeaders:
           - "X-Forwarded-Host"
 
     https-only:
       redirectScheme:
         scheme: "https"
-{% if __docker_stack__base__traefik_https != '443' %}
-        port: "{{ __docker_stack__base__traefik_https }}"
+{% if __docker_stack__traefik__https_port != '443' %}
+        port: "{{ __docker_stack__traefik__https_port }}"
 {% endif %}
 
     auth-users:

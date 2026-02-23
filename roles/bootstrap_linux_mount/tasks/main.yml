@@ -1,10 +1,10 @@
 ---
-- name: Include {{ ansible_distribution }} specific variables
+- name: Include {{ ansible_facts['distribution'] }} specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version|lower }}.yml"
-    - "{{ ansible_distribution|lower }}.yml"
-    - "{{ ansible_os_family|lower }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
 
 - name: Display key parameters for {{ role_name }}
@@ -23,12 +23,13 @@
 
 - name: Init __bootstrap_linux_mount__list
   ansible.builtin.set_fact:
-    __bootstrap_linux_mount__list: "{{ bootstrap_linux_mount__list|d([]) }}"
+    __bootstrap_linux_mount__list: "{{ bootstrap_linux_mount__list | d([]) }}"
 
 - name: Combine bootstrap_linux_mount__list__* vars into merged list
   ansible.builtin.set_fact:
-    __bootstrap_linux_mount__list: "{{ __bootstrap_linux_mount__list|d([]) + lookup('vars', item)|d([]) }}"
-  loop: "{{ lookup('varnames','^bootstrap_linux_mount__list__', wantlist=True) }}"
+    __bootstrap_linux_mount__list: "{{ __bootstrap_linux_mount__list | d([])
+      + lookup('vars', item) | d([]) }}"
+  loop: "{{ lookup('varnames', '^bootstrap_linux_mount__list__', wantlist=True) }}"
 
 - name: Display __bootstrap_linux_mount__list
   ansible.builtin.debug:
@@ -42,25 +43,29 @@
 ##
 - name: Add node mounts to fstab
   when:
-    - __bootstrap_linux_mount__list|d([])|length > 0
+    - __bootstrap_linux_mount__list | d([]) | length > 0
   ansible.posix.mount:
     name: "{{ item.name }}"
     src: "{{ item.src }}"
     fstype: "{{ item.fstype }}"
     opts: "{{ item.options | d(omit) }}"
-    dump: "{{ item.dump | default(omit) }}"
-    passno: "{{ item.passno | default(omit) }}"
-    fstab: "{{ item.fstab | default(bootstrap_linux_mount__fstab) }}"
+    dump: "{{ item.dump | d(omit) }}"
+    passno: "{{ item.passno | d(omit) }}"
+    fstab: "{{ item.fstab | d(bootstrap_linux_mount__fstab) }}"
     state: "{{ item.state | d('present' if item.fstype in ['tmpfs'] else bootstrap_linux_mount__state) }}"
   loop: "{{ __bootstrap_linux_mount__list }}"
   register: mount_results
+#  failed_when:
+#    - mount_results.failed
+#    - mount_results.msg | regex_search("umount.* target is busy") is none
   failed_when:
-    - mount_results.failed
-    - not ( mount_results.msg | regex_search("umount.* target is busy") )
+    - mount_results is failed
+    - (mount_results.results | selectattr('failed', 'equalto', True) |
+       rejectattr('msg', 'search', 'umount.* target is busy') | list | length) == 0
 
 ### ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
 #- name: Configure nfs systemd service
-#  when: bootstrap_linux_mount__systemd_service_config|d({})|length > 0
+#  when: bootstrap_linux_mount__systemd_service_config | d({}) | length > 0
 #  ansible.builtin.include_role:
 #    name: bootstrap_systemd_service
 #  vars:

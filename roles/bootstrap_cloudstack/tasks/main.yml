@@ -3,13 +3,13 @@
 - name: Set OS specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
+    - "{{ ansible_facts['distribution'] }}.yml"
+    - "{{ ansible_facts['os_family'] }}.yml"
     - "default.yml"
 
 # Setup/install OS specific tasks.
-- name: Run "setup-{{ ansible_os_family }}.yml"
-  ansible.builtin.include_tasks: "setup-{{ ansible_os_family }}.yml"
+- name: Run "setup-{{ ansible_facts['os_family'] }}.yml"
+  ansible.builtin.include_tasks: "setup-{{ ansible_facts['os_family'] }}.yml"
 
 #- name: Update Cloudstack Related System Packages
 #  tags:
@@ -25,7 +25,7 @@
     - package
     - cloudstack
   ansible.builtin.package:
-    name: '{{ cloudstack_common_packages }}'
+    name: '{{ bootstrap_cloudstack__packages }}'
     state: present
 #    update_cache: true
 
@@ -47,7 +47,7 @@
 #  loop:
 #    - listen_tls = 0
 #    - listen_tcp = 1
-#    - tcp_port = "{{ libvirt_port }}"
+#    - tcp_port = "{{ bootstrap_cloudstack__libvirt_port }}"
 #    - auth_tcp = "none"
 #    - mdns_adv = 0
 #
@@ -64,8 +64,8 @@
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
 #      force: "{{ overwrite_configs }}"
-    mode: "{{ item.mode | default(omit) }}"
-#    mode: "{{ item.mode | default('0664') }}"
+    mode: "{{ item.mode | d(omit) }}"
+#    mode: "{{ item.mode | d('0664') }}"
   loop:
     - { src: 'qemu.conf.j2', dest: "/etc/libvirt/qemu.conf" }
     - { src: 'libvirtd.conf.j2', dest: "/etc/libvirt/libvirtd.conf" }
@@ -80,8 +80,8 @@
     state: directory
     mode: "0755"
   loop:
-    - { path: "{{ libvirt_cert_dir }}" }
-    - { path: "{{ libvirt_cert_dir }}/private" }
+    - { path: "{{ bootstrap_cloudstack__libvirt_cert_dir }}" }
+    - { path: "{{ bootstrap_cloudstack__libvirt_cert_dir }}/private" }
 
 ## setup certs for libvirt
 ## ref: https://www.certdepot.net/rhel7-deal-kvm-certificate-expiration/
@@ -90,14 +90,14 @@
   ansible.builtin.copy:
     remote_src: true
     group: "qemu"
-    mode: "{{ item.mode | default('0440') }}"
+    mode: "{{ item.mode | d('0440') }}"
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    force: "{{ item.force | default('true') }}"
+    force: "{{ item.force | d('true') }}"
   loop:
-    - { src: "{{ ssl_cert_dir }}/ca.pem", dest: "{{ pki_cacert_dir }}/cacert.pem" }
-    - { src: "{{ ssl_cert_dir }}/{{ hostname_name_full }}.pem", dest: "{{ libvirt_cert_dir }}/servercert.pem" }
-    - { src: "{{ ssl_certkey_dir }}/{{ hostname_name_full }}-key.pem", dest: "{{ libvirt_cert_dir }}/private/serverkey.pem" }
+    - { src: "{{ bootstrap_cloudstack__ssl_cert_dir }}/ca.pem", dest: "{{ bootstrap_cloudstack__pki_ca_certs_dir }}/cacert.pem" }
+    - { src: "{{ bootstrap_cloudstack__ssl_cert_dir }}/{{ hostname_name_full }}.pem", dest: "{{ bootstrap_cloudstack__libvirt_cert_dir }}/servercert.pem" }
+    - { src: "{{ bootstrap_cloudstack__ssl_key_dir }}/{{ hostname_name_full }}-key.pem", dest: "{{ bootstrap_cloudstack__libvirt_cert_dir }}/private/serverkey.pem" }
   register: trust_ca_cacertinstalled
 
 - name: Mount NFS secondary storage
@@ -117,11 +117,11 @@
     name: libvirtd
 
 - name: configure firewall for cloudstack node
-  when: cloudstack_common_firewalld_enabled | default(True) | bool
+  when: bootstrap_cloudstack__firewalld_enabled | d(true) | bool
   tags: [ firewall-config-cloudstack ]
   ansible.builtin.include_role:
     name: bootstrap_linux_firewalld
   vars:
     firewalld_action: configure
     firewalld_services: "{{ cloudstack_common_firewalld_services | d([]) }}"
-    firewalld_ports: "{{ cloudstack_common_firewalld_ports | d([]) }}"
+    firewalld_ports: "{{ bootstrap_cloudstack__firewalld_ports | d([]) }}"

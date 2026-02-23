@@ -62,7 +62,7 @@
 - name: Rebuild initramfs with starting pack of modules, if module loading at runtime is disabled
   when:
     - ansible_facts.os_family == 'Debian'
-    - ansible_facts.distribution_major_version|int is version('9', '>')
+    - ansible_facts.distribution_major_version | int is version('9', '>')
     - harden_os_linux__security_kernel_enable_module_loading
   ansible.builtin.template:
     src: etc/initramfs-tools/modules.j2
@@ -75,7 +75,7 @@
   register: initramfs
 
 - name: Change sysctls
-  when: ansible_virtualization_type not in ['docker', 'openvz', 'lxc']
+  when: ansible_facts['virtualization_type'] not in ['docker', 'openvz', 'lxc']
   block:
     - name: Initialize __sysctl_config
       ansible.builtin.set_fact:
@@ -108,7 +108,7 @@
         reload: true
         ignoreerrors: true
       with_dict: "{{ sysctl_rhel_config }}"
-      when: ((ansible_facts.distribution in ['CentOS', 'Fedora', 'RedHat']) and ansible_distribution_version|int is version('7', '<')) or ansible_facts.distribution
+      when: ((ansible_facts.distribution in ['CentOS', 'Fedora', 'RedHat']) and ansible_facts['distribution_version'] | int is version('7', '<')) or ansible_facts.distribution
         == 'Amazon'
       notify:
         - OS-HARDEN-RELOAD-sysctl.conf
@@ -126,7 +126,7 @@
 
 ### ref: https://github.com/juju4/ansible-ipv6/blob/master/tasks/ipv6-grub-disable.yml
 #- name: "Disable ipv6 for Ubuntu <= 18"
-#  when: ansible_facts.distribution == 'Ubuntu' and ansible_distribution_major_version|int <= 18
+#  when: ansible_facts.distribution == 'Ubuntu' and ansible_facts['distribution_major_version'] | int <= 18
 #  block:
 #
 #    - name: "Check if grub is present"
@@ -135,8 +135,8 @@
 #
 #    - name: "Disable IPv6 in grub"
 #      when: >
-#        not (ansible_virtualization_type is defined and
-#              (ansible_virtualization_type == "lxc" or ansible_virtualization_type == "docker")
+#        not (ansible_facts['virtualization_type'] is defined and
+#              (ansible_facts['virtualization_type'] == "lxc" or ansible_facts['virtualization_type'] == "docker")
 #            ) and hasgrub.stat.exists and harden_os_linux__security_ipv6_grub_disable
 #      block:
 #        - name: "Update Grub - disable ipv6"

@@ -1,0 +1,39 @@
+---
+## ref: https://docs.ansible.com/projects/molecule/examples/docker/#destroy-playbook
+## loop through the molecule_yml platforms.
+## This ensures that even if the inventory failed to build, the cleanup task still knows
+## the names of the containers it intended to create and can remove them
+- name: Destroy molecule containers
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Stop and remove container
+      community.docker.docker_container:
+        # Use the names from the molecule.yml definition directly
+        name: "{{ item.name }}"
+        state: absent
+        auto_remove: true
+      loop: "{{ molecule_yml.platforms }}"
+      # ignore_errors useful if a container was never created
+      #ignore_errors: true
+      failed_when: false
+
+#- name: Destroy molecule containers
+#  hosts: molecule
+#  gather_facts: false
+#  tasks:
+#    - name: Stop and remove container
+#      delegate_to: localhost
+#      community.docker.docker_container:
+#        name: "{{ inventory_hostname }}"
+#        state: absent
+#        auto_remove: true
+
+- name: Remove dynamic molecule inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove dynamic inventory file
+      ansible.builtin.file:
+        path: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+        state: absent

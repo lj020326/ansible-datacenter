@@ -1,0 +1,20 @@
+#jinja2: trim_blocks:False
+[Unit]
+Description=Kubernetes Kubelet
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+After=network-online.target
+After=containerd.service
+Requires=containerd.service
+Wants=network-online.target
+
+[Service]
+ExecStart={{ bootstrap_kubernetes_worker__worker_bin_dir }}/kubelet \
+{%- for setting in bootstrap_kubernetes_worker__worker_kubelet_settings | sort %}
+  --{{ setting }}{% if bootstrap_kubernetes_worker__worker_kubelet_settings[setting] != "" %}={{ bootstrap_kubernetes_worker__worker_kubelet_settings[setting] }}{% endif %}{% if not loop.last %} \{% endif %}
+{%- endfor %}
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

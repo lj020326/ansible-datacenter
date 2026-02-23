@@ -1,0 +1,67 @@
+---
+- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} Display cert and key dir info"
+  ansible.builtin.debug:
+    var: "{{ item }}"
+  loop:
+    - deploy_ca_certs__external_ca_cert_list
+    - deploy_ca_certs__local_cert_dir
+    - deploy_ca_certs__local_key_dir
+    - deploy_ca_certs__ca_key_dir
+
+- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} Ensure local cert dirs exist"
+  ansible.builtin.file:
+    state: directory
+    path: "{{ item }}"
+    mode: "0755"
+  loop:
+    - "{{ deploy_ca_certs__local_cert_dir }}"
+    - "{{ deploy_ca_certs__local_key_dir }}"
+    - "{{ deploy_ca_certs__ca_key_dir }}"
+
+#- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} fetch host cert/key from sites"
+#  ansible.builtin.include_tasks: fetch_site_cert.yml
+#  loop: "{{ deploy_ca_certs__external_ca_cert_list }}"
+#  loop_control:
+#    loop_var: __site_cert_info
+
+- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} Set __deploy_ca_certs__external_ca_cert_list"
+  ansible.builtin.set_fact:
+    __deploy_ca_certs__external_ca_cert_list: "{{ __deploy_ca_certs__external_ca_cert_list | d([]) + [ { 'site_url': item, 'site_host': (item | replace('https://','')), 'site_endpoint':
+      (item | replace('https://','')) + ':443', 'site_certname': (item | replace('https://','')) + '.pem' } ] }}"
+  loop: "{{ deploy_ca_certs__external_ca_cert_list }}"
+
+- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} Display __deploy_ca_certs__external_ca_cert_list"
+  ansible.builtin.debug:
+    var: __deploy_ca_certs__external_ca_cert_list
+
+### ref: https://stackoverflow.com/questions/68440047/copy-the-ssl-certificate-from-a-server-to-a-host-in-ansible
+### ref: https://stackoverflow.com/questions/9450120/openssl-hangs-and-does-not-exit
+###  openssl s_client -showcerts -servername vault.centos.org -connect vault.centos.org:443 > /etc/pki/ca-trust/source/anchors/centos-cacert-updated.pem && update-ca-trust
+- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} Fetch external site certificates"
+  ansible.builtin.shell: >-
+    echo QUIT |
+    openssl s_client -showcerts -connect {{ __site_cert_info.site_endpoint }} |
+    openssl x509 -outform PEM > {{ deploy_ca_certs__local_cert_dir }}/{{ __site_cert_info.site_certname }}
+  args:
+    creates: "{{ deploy_ca_certs__local_cert_dir }}/{{ __site_cert_info.site_certname }}"
+  loop: "{{ __deploy_ca_certs__external_ca_cert_list }}"
+  loop_control:
+    loop_var: __site_cert_info
+  register: remotecerts
+
+- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} Copy locally fetched external certs to {{
+    __deploy_ca_certs__trust_ca_cert_dir }} for importing"
+  # copy_remotely:
+  ansible.builtin.copy:
+    src: "{{ deploy_ca_certs__local_cert_dir }}/{{ __site_cert_info.site_certname }}"
+    dest: "{{ __deploy_ca_certs__trust_ca_cert_dir }}/{{ __site_cert_info.site_host }}.{{ deploy_ca_certs__trust_ca_cert_extension }}"
+    remote_src: true
+    mode: "0644"
+  loop: "{{ __deploy_ca_certs__external_ca_cert_list }}"
+  loop_control:
+    loop_var: __site_cert_info
+
+- name: "{{ __deploy_ca_certs__log_prefix_trust_ext }} update CA trust for newly added external certs"
+  ansible.builtin.command: "{{ __deploy_ca_certs__trust_ca_update_trust_cmd }}"
+  #  when: trust_ca_cacertinstalled is changed or deploy_ca_certs__ca_force_distribute_nodes | bool
+  changed_when: false

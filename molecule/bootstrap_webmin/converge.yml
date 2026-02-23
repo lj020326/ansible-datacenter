@@ -1,15 +1,51 @@
 ---
-- name: Gather facts for hosts to apply OS specific group vars for them
-  hosts: all
-  connection: local
-  roles:
-    ## https://github.com/ansible-community/molecule/issues/816#issuecomment-696411525
-    - role: apply_common_groups
-#      changed_when: "'molecule-idempotence-notest' not in ansible_skip_tags"
-
-- name: Bootstrap webmin
+- name: Bootstrap webmin (with common groups applied first)
   hosts: all
   connection: local
   become: true
+  pre_tasks:
+    # Your debug commands here (they will now run and appear in logs)
+    - name: Debug | Test basic outbound connectivity
+      ansible.builtin.command: ping -c 3 8.8.8.8
+      changed_when: false
+      failed_when: false
+
+    - name: Debug | Test DNS resolution
+      ansible.builtin.command: nslookup download.webmin.com
+      changed_when: false
+      failed_when: false
+
+#    - name: Debug | Test HTTPS to Webmin
+#      ansible.builtin.command: curl -v --connect-timeout 10 https://download.webmin.com/developers-key.asc
+#      changed_when: false
+#      failed_when: false
+
+    - name: Debug | Test HTTPS connectivity to Webmin (key URL)
+      ansible.builtin.get_url:
+        url: https://download.webmin.com/developers-key.asc
+        dest: /tmp/webmin-developers-key.asc.debug
+        timeout: 10
+        # just in case — not really needed here
+        mode: '0644'
+      register: webmin_key_fetch
+      # keep going even if it fails (debug task)
+      failed_when: false
+
+    # Optional: show what happened (very useful in Molecule logs)
+    - name: Debug | Show HTTPS fetch result
+      when: webmin_key_fetch is defined
+      ansible.builtin.debug:
+        msg: |
+          HTTPS fetch status: {{ webmin_key_fetch.msg | default('ok') }}
+          HTTP status code:   {{ webmin_key_fetch.status_code | default('N/A') }}
+          Elapsed time:       {{ webmin_key_fetch.elapsed | default('N/A') }} s
+          Failed:             {{ webmin_key_fetch.failed }}
+
   roles:
+    ## Gather facts for hosts to apply OS specific group vars for them
+    ## https://github.com/ansible-community/molecule/issues/816#issuecomment-696411525
+    - role: apply_common_groups
+      become: false
+#      changed_when: "'molecule-idempotence-notest' not in ansible_skip_tags"
+    ## Bootstrap webmin
     - role: bootstrap_webmin

@@ -10,7 +10,7 @@
     hostname: "{{ vsphere_host_name }}"
     username: "{{ vsphere_host_user }}"
     password: "{{ vsphere_host_user_password }}"
-    validate_certs: "{{ validate_certs | default(false) }}"
+    validate_certs: "{{ validate_certs | d(false) }}"
     datacenter: "{{ vsphere_host_datacenter }}"
     folder: "{{ vm_folder }}"
     name: "{{ vm_name }}"
@@ -18,7 +18,7 @@
   ignore_errors: true
 
 - name: Display the result of getting VMware tools info
-  when: enable_debug|d(False)|bool
+  when: enable_debug | d(false) | bool
   ansible.builtin.debug:
     var: get_vmtools_info
 
@@ -37,15 +37,15 @@
 
 - name: Set fact of VMware Tools running status
   when:
-    - vmtools_is_installed | default(false)
-    - vmtools_not_ready | default(true)
+    - vmtools_is_installed | d(false)
+    - vmtools_not_ready | d(true)
   block:
     - name: Wait for VMware Tools running when it's executing scripts or not running
       community.vmware.vmware_guest_tools_info:
         hostname: "{{ vsphere_host_name }}"
         username: "{{ vsphere_host_user }}"
         password: "{{ vsphere_host_user_password }}"
-        validate_certs: "{{ validate_certs | default(false) }}"
+        validate_certs: "{{ validate_certs | d(false) }}"
         datacenter: "{{ vsphere_host_datacenter }}"
         folder: "{{ vm_folder }}"
         name: "{{ vm_name }}"
@@ -56,7 +56,7 @@
         - get_vmtools_info_retry.vmtools_info is defined
         - get_vmtools_info_retry.vmtools_info.vm_tools_running_status is defined
         - get_vmtools_info_retry.vmtools_info.vm_tools_running_status == 'guestToolsRunning'
-      retries: "{{ get_vmtools_status_retries | default(100) }}"
+      retries: "{{ get_vmtools_status_retries | d(100) }}"
       delay: 3
 
     - name: Set fact of VMware Tools running status
@@ -70,6 +70,6 @@
 - name: Display vmtools status
   ansible.builtin.debug:
     msg:
-      - "VMware tools is installed in guest: {{ vmtools_is_installed | default(false) }}"
-      - "VMware tools is running in guest: {{ vmtools_is_running | default(false) }}"
-      - "VMware tools is installed as open-vm-tools: {{ vmtools_is_ovt | default(false) }}"
+      - "VMware tools is installed in guest: {{ vmtools_is_installed | d(false) }}"
+      - "VMware tools is running in guest: {{ vmtools_is_running | d(false) }}"
+      - "VMware tools is installed as open-vm-tools: {{ vmtools_is_ovt | d(false) }}"

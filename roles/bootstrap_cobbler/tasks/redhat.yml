@@ -4,8 +4,8 @@
 - name: Set OS specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
+    - "{{ ansible_facts['distribution'] }}.yml"
+    - "{{ ansible_facts['os_family'] }}.yml"
     - "default.yml"
 
 - name: ensure required packages are installed
@@ -26,7 +26,7 @@
     state: present
 
 - name: RedHat | Ensure httpd is setup
-  when: ansible_os_family == "RedHat"
+  when: ansible_facts['os_family'] == "RedHat"
   block:
     - name: ensure httpd can talk to cobblerd (selinux)
       ansible.posix.seboolean:
@@ -101,14 +101,14 @@
 
 - name: ensure server is set in /etc/cobbler/settings
   ansible.builtin.lineinfile:
-    line: "server: {{ ansible_default_ipv4.address }}"
+    line: "server: {{ ansible_facts['default_ipv4']['address'] }}"
     regexp: "^server:"
     dest: /etc/cobbler/settings
   notify: restart cobblerd
 
 - name: ensure next_server is set in /etc/cobbler/settings
   ansible.builtin.lineinfile:
-    line: "next_server: {{ ansible_default_ipv4.address }}"
+    line: "next_server: {{ ansible_facts['default_ipv4']['address'] }}"
     regexp: "^next_server:"
     dest: /etc/cobbler/settings
   notify: restart cobblerd
@@ -172,7 +172,7 @@
   register: cobbler_dns_enabled
 
 - name: ensure /etc/secondary.conf exists with se type cobbler_var_lib_t # noqa: no-handler
-  when: cobbler_dns_enabled.changed|bool
+  when: cobbler_dns_enabled.changed | bool
   ansible.builtin.file:
     state: touch
     setype: cobbler_var_lib_t
@@ -228,7 +228,7 @@
     mode: "0755"
 
 - name: ensure iso files are present # noqa: no-handler
-  when: item.changed|bool
+  when: item.changed | bool
   ansible.builtin.get_url:
     url: "{{ item.item.url }}"
     dest: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
@@ -236,7 +236,7 @@
   loop: "{{ cobbler_profiles_folders.results }}"
 
 - name: ensure isos are mounted # noqa: no-handler
-  when: item.changed|bool
+  when: item.changed | bool
   ansible.posix.mount:
     src: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
     path: "{{ cobbler_isos_mount_path }}/{{ item.item.name }}"
@@ -246,7 +246,7 @@
   loop: "{{ cobbler_profiles_folders.results }}"
 
 - name: ensure distros are imported # noqa: no-handler
-  when: item.changed|bool
+  when: item.changed | bool
   changed_when: false
   ansible.builtin.shell: |
     cobbler profile list --name={{ item.item.name }}-{{ item.item.arch }} || \
@@ -264,7 +264,7 @@
   loop: "{{ cobbler_profiles }}"
 
 - name: ensure kickstart option is set # noqa: no-handler
-  when: item.changed|bool
+  when: item.changed | bool
   changed_when: false
   ansible.builtin.command: |
     cobbler profile edit --name={{item.item.name}}-{{ item.item.arch }} \
@@ -273,7 +273,7 @@
   notify: cobbler sync
 
 - name: ensure isos are unmounted after import # noqa: no-handler
-  when: item.changed|bool
+  when: item.changed | bool
   ansible.posix.mount:
     path: "{{ cobbler_isos_mount_path }}/{{ item.item.name }}"
     state: unmounted
@@ -281,15 +281,15 @@
 
 - name: ensure isos are deleted after import
   when: 
-    - cobbler_isos_delete|bool
-    - item.changed|bool
+    - cobbler_isos_delete | bool
+    - item.changed | bool
   ansible.builtin.file:
     path: "{{ cobbler_isos_path }}/{{ item.item.name }}.iso"
     state: absent
   loop: "{{ cobbler_profiles_folders.results }}"
 
 - name: configure firewall for cobbler node
-  when: firewalld_enabled | default(True) | bool
+  when: firewalld_enabled | d(true) | bool
   tags: [ firewall-config-cobbler ]
   ansible.builtin.include_role:
     name: bootstrap_linux_firewalld

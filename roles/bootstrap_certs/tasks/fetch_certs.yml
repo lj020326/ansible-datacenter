@@ -2,18 +2,18 @@
 - name: "{{ __log_prefix_fetch }} Display cert and key dir info"
   ansible.builtin.debug:
     msg:
-      - bootstrap_certs__cacert_local_cert_dir={{ bootstrap_certs__cacert_local_cert_dir }}
-      - bootstrap_certs__cacert_local_key_dir={{ bootstrap_certs__cacert_local_key_dir }}
+      - bootstrap_certs__local_cert_dir={{ bootstrap_certs__local_cert_dir }}
+      - bootstrap_certs__local_key_dir={{ bootstrap_certs__local_key_dir }}
       - bootstrap_certs__ca_key_dir={{ bootstrap_certs__ca_key_dir }}
 
 - name: "{{ __log_prefix_fetch }} Remove all existing old CA certs and keys"
-  when: bootstrap_certs__ca_reset_local_certs|bool
+  when: bootstrap_certs__ca_reset_local_certs | bool
   ansible.builtin.file:
     state: absent
     path: "{{ item }}"
   loop:
-    - "{{ bootstrap_certs__cacert_local_cert_dir }}"
-    - "{{ bootstrap_certs__cacert_local_key_dir }}"
+    - "{{ bootstrap_certs__local_cert_dir }}"
+    - "{{ bootstrap_certs__local_key_dir }}"
     - "{{ bootstrap_certs__ca_key_dir }}"
 
 - name: "{{ __log_prefix_fetch }} Ensure local cert dirs exist"
@@ -22,66 +22,72 @@
     path: "{{ item }}"
     mode: "0755"
   loop:
-    - "{{ bootstrap_certs__cacert_local_cert_dir }}"
-    - "{{ bootstrap_certs__cacert_local_key_dir }}"
+    - "{{ bootstrap_certs__local_cert_dir }}"
+    - "{{ bootstrap_certs__local_key_dir }}"
     - "{{ bootstrap_certs__ca_key_dir }}"
 
 - name: "{{ __log_prefix_fetch }} Check if root cert exists in {{ bootstrap_certs__ca_local_cert_dir }}"
+  no_log: true
   ansible.builtin.stat:
-    path: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ bootstrap_certs__caroot_cert }}"
-  register: cacert_root_result
+    path: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ bootstrap_certs__ca_root_cert }}"
+  register: ca_root_result
 
 - name: "{{ __log_prefix_fetch }} Check if {{ bootstrap_certs__ca_local_cert_dir }}/{{ hostname_name_full }}.pem exists"
+  no_log: true
   ansible.builtin.stat:
     path: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ hostname_name_full }}.pem"
-  register: cacert_cert_result
+  register: ca_cert_result
 
 - name: "{{ __log_prefix_fetch }} Check if {{ bootstrap_certs__ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem exists"
+  no_log: true
   ansible.builtin.stat:
     path: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ hostname_name_full }}.chain.pem"
-  register: cacert_certbundle_result
+  register: ca_certbundle_result
 
 - name: "{{ __log_prefix_fetch }} Check if {{ bootstrap_certs__ca_local_key_dir }}/{{ hostname_name_full }}-key.pem exists"
+  no_log: true
   ansible.builtin.stat:
     path: "{{ bootstrap_certs__ca_local_key_dir }}/{{ hostname_name_full }}-key.pem"
-  register: cacert_key_result
+  register: ca_key_result
 
-- name: Trust_cert | Copy root cert to {{ bootstrap_certs__trust_ca_cacert_dir }} for importing
-  copy_remotely:
-    src: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ bootstrap_certs__caroot_cert }}"
-    dest: "{{ bootstrap_certs__trust_ca_cacert_dir }}/{{ bootstrap_certs__ca_root_cn }}.{{ bootstrap_certs__trust_ca_cert_extension }}"
+- name: "{{ __log_prefix_fetch }} Copy root cert to {{ bootstrap_certs__trust_ca_cert_dir }} for importing"
+  # copy_remotely:
+  ansible.builtin.copy:
+    src: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ bootstrap_certs__ca_root_cert }}"
+    dest: "{{ bootstrap_certs__trust_ca_cert_dir }}/{{ bootstrap_certs__ca_root_cn }}.{{ bootstrap_certs__trust_ca_cert_extension }}"
+    remote_src: true
+    mode: "0644"
 
 - name: "{{ __log_prefix_fetch }} Copy ca intermediate certs to {{ bootstrap_certs__ca_local_cert_dir }}"
-  #  when: item.domainName in bootstrap_certs__ca_domains_hosted
-  when: item.domainName in __bootstrap_certs__ca_fetch_domains_list
-  #  copy_remotely:
+  #  when: item.domain_name in bootstrap_certs__ca_domains_hosted
+  when: item.domain_name in __bootstrap_certs__ca_fetch_domains_list
   ansible.builtin.copy:
-    src: "{{ bootstrap_certs__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}.pem"
-    dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item.commonName }}.pem"
+    src: "{{ bootstrap_certs__keystore_base_dir }}/{{ item.domain_name }}/{{ item.common_name }}.pem"
+    dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item.common_name }}.pem"
     backup: true
     remote_src: true
     mode: "0644"
   loop: "{{ __bootstrap_certs__ca_intermediate_cert_list }}"
 
 - name: "{{ __log_prefix_fetch }} Copy ca intermediate cert chains to {{ bootstrap_certs__ca_local_cert_dir }}"
-  #  when: item.domainName in bootstrap_certs__ca_domains_hosted
-  when: item.domainName in __bootstrap_certs__ca_fetch_domains_list
+  #  when: item.domain_name in bootstrap_certs__ca_domains_hosted
+  when: item.domain_name in __bootstrap_certs__ca_fetch_domains_list
   #  copy_remotely:
   ansible.builtin.copy:
-    src: "{{ bootstrap_certs__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}.chain.pem"
-    dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item.commonName }}.chain.pem"
+    src: "{{ bootstrap_certs__keystore_base_dir }}/{{ item.domain_name }}/{{ item.common_name }}.chain.pem"
+    dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item.common_name }}.chain.pem"
     backup: true
     remote_src: true
     mode: "0644"
   loop: "{{ __bootstrap_certs__ca_intermediate_cert_list }}"
 
 - name: "{{ __log_prefix_fetch }} Copy ca intermediate cert keys to {{ bootstrap_certs__ca_local_key_dir }}"
-  #  when: item.domainName in bootstrap_certs__ca_domains_hosted
-  when: item.domainName in __bootstrap_certs__ca_fetch_domains_list
+  #  when: item.domain_name in bootstrap_certs__ca_domains_hosted
+  when: item.domain_name in __bootstrap_certs__ca_fetch_domains_list
   #  copy_remotely:
   ansible.builtin.copy:
-    src: "{{ bootstrap_certs__cacerts_base_dir }}/{{ item.domainName }}/{{ item.commonName }}-key.pem"
-    dest: "{{ bootstrap_certs__ca_local_key_dir }}/{{ item.commonName }}-key.pem"
+    src: "{{ bootstrap_certs__keystore_base_dir }}/{{ item.domain_name }}/{{ item.common_name }}-key.pem"
+    dest: "{{ bootstrap_certs__ca_local_key_dir }}/{{ item.common_name }}-key.pem"
     mode: "0600"
     backup: true
     remote_src: true
@@ -90,7 +96,7 @@
 - name: "{{ __log_prefix_fetch }} Copy service route certs to {{ bootstrap_certs__ca_local_cert_dir }}"
   #  copy_remotely:
   ansible.builtin.copy:
-    src: "{{ bootstrap_certs__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.pem"
+    src: "{{ bootstrap_certs__keystore_base_dir }}/{{ item.route }}/{{ item.route }}.pem"
     dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item.route }}.pem"
     backup: true
     remote_src: true
@@ -100,7 +106,7 @@
 - name: "{{ __log_prefix_fetch }} Copy service route cert chains to {{ bootstrap_certs__ca_local_cert_dir }}"
   #  copy_remotely:
   ansible.builtin.copy:
-    src: "{{ bootstrap_certs__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}.chain.pem"
+    src: "{{ bootstrap_certs__keystore_base_dir }}/{{ item.route }}/{{ item.route }}.chain.pem"
     dest: "{{ bootstrap_certs__ca_local_cert_dir }}/{{ item.route }}.chain.pem"
     backup: true
     remote_src: true
@@ -110,7 +116,7 @@
 - name: "{{ __log_prefix_fetch }} Copy service route keys to {{ bootstrap_certs__ca_local_key_dir }}"
   #  copy_remotely:
   ansible.builtin.copy:
-    src: "{{ bootstrap_certs__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem"
+    src: "{{ bootstrap_certs__keystore_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem"
     dest: "{{ bootstrap_certs__ca_local_key_dir }}/{{ item.route }}-key.pem"
     mode: "0600"
     backup: true
@@ -120,7 +126,7 @@
 - name: "{{ __log_prefix_fetch }} Copy service route keys to trust dir at {{ bootstrap_certs__ca_key_dir }}"
   #  copy_remotely:
   ansible.builtin.copy:
-    src: "{{ bootstrap_certs__cacerts_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem"
+    src: "{{ bootstrap_certs__keystore_base_dir }}/{{ item.route }}/{{ item.route }}-key.pem"
     dest: "{{ bootstrap_certs__ca_key_dir }}/{{ item.route }}-key.pem"
     mode: "0600"
     backup: true

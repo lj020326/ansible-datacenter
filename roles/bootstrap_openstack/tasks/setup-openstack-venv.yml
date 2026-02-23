@@ -3,10 +3,10 @@
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    owner: "{{ item.owner | default( omit ) }}"
-    group: "{{ item.owner | default( omit ) }}"
-    mode: "{{ item.mode | default( omit ) }}"
-    recurse: "{{ item.recurse | default( omit ) }}"
+    owner: "{{ item.owner | d(omit) }}"
+    group: "{{ item.owner | d(omit) }}"
+    mode: "{{ item.mode | d(omit) }}"
+    recurse: "{{ item.recurse | d(omit) }}"
   loop:
     - path: "{{ openstack_venv_path }}"
       owner: root
@@ -14,7 +14,7 @@
       recurse: true
 
 - name: Setup requirements.txt in {{ openstack_venv_path }}
-  when: openstack_venv_use_requirements_template|bool
+  when: openstack_venv_use_requirements_template | bool
   ansible.builtin.template:
     src: requirements.txt.j2
     dest: "{{ openstack_venv_path }}/requirements.txt"
@@ -28,19 +28,19 @@
     executable: pip3
 
 - name: install python packages into openstack virtualenv at ({{ openstack_venv_path }})
-  when: openstack_venv_use_requirements_template|bool
+  when: openstack_venv_use_requirements_template | bool
   ansible.builtin.pip:
     requirements: "{{ openstack_venv_path }}/requirements.txt"
     virtualenv: "{{ openstack_venv_path }}"
-    virtualenv_site_packages: true
+#    virtualenv_site_packages: true
 #    virtualenv_command: python -m venv
 #    virtualenv_python: python3
 #    virtualenv_python: python{{ openstack_python_dist_version }}
 
 - name: Install Python packages into openstack virtualenv at ({{ openstack_venv_path }}) using config vars
   when:
-    - not (openstack_venv_use_requirements_template|bool)
-    - item.name | d()
+    - not (openstack_venv_use_requirements_template | bool)
+    - item.name | d('') | length > 0
   ansible.builtin.pip:
     name: >
       {{ item.name }}{% if item.version | d() %}=={{ item.version }}{% endif %}

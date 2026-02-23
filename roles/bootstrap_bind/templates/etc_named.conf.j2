@@ -1,7 +1,7 @@
 //
 // named.conf
 //
-{{ ansible_managed | comment('c') }}
+{{ 'Ansible managed' | comment(format="// {}") }}
 //
 // See http://www.zytrax.com/books/dns/ch7/ for named.conf configuration details
 //
@@ -96,7 +96,7 @@ channel messages {
 
 {% if bind_statistics_channels %}
 statistics-channels {
-  inet {{ bind_statistics_host }} port {{ bind_statistics_port }} allow { {{ bind_statistics_allow|join('; ') }}; };
+  inet {{ bind_statistics_host }} port {{ bind_statistics_port }} allow { {{ bind_statistics_allow | join('; ') }}; };
 };
 {% endif %}
 
@@ -104,7 +104,7 @@ options {
 
   /* Queries */
 {% if bind_allow_query is defined %}
-  allow-query { {{ bind_allow_query|join('; ') }}; };
+  allow-query { {{ bind_allow_query | join('; ') }}; };
 {% endif %}
 {% if bind_allow_new_zones is defined %}
   allow-new-zones {{ bind_allow_new_zones | bool | ternary("yes", "no") }};
@@ -112,12 +112,12 @@ options {
 {% if bind_forward_only %}
   forward only;
 {% endif %}
-{% if bind_forwarders|length > 0 %}
-  forwarders { {{ bind_forwarders|join('; ') }}; };
+{% if bind_forwarders | length > 0 %}
+  forwarders { {{ bind_forwarders | join('; ') }}; };
 {% endif %}
   recursion {{ bind_recursion | bool | ternary("yes", "no") }};
 {% if bind_recursion %}
-  allow-recursion { {{ bind_allow_recursion|join('; ') }}; };
+  allow-recursion { {{ bind_allow_recursion | join('; ') }}; };
 {% endif %}
   rrset-order { order {{ bind_rrset_order }}; };
 {% if bind_global_options.queries is defined %}
@@ -128,7 +128,7 @@ options {
 
   /* Transfers */
 {% if bind_allow_transfer is defined and bind_views is not defined %}
-  allow-transfer { {{ bind_allow_transfer|join('; ') }}; }; 
+  allow-transfer { {{ bind_allow_transfer | join('; ') }}; };
 {% endif %}
 {% if bind_global_options.transfers is defined %}
 {% for option in bind_global_options.transfers %}
@@ -221,7 +221,7 @@ zone "{{ bind_zone.name }}" IN {
   forward first;
 {% endif %}
 {% endif %}
-  forwarders { {{ bind_zone.forwarders|join('; ') }}; };
+  forwarders { {{ bind_zone.forwarders | join('; ') }}; };
 };
 {% endfor %}
 {% endif %}
@@ -240,10 +240,10 @@ zone "{{ bind_zone.name }}" IN {
   file "{{ bind_zone_dir }}/{{ bind_zone.name }}";
   notify yes;
 {% if bind_zone.also_notify is defined %}
-  also-notify  { {{ bind_zone.also_notify|join('; ') }}; };
+  also-notify  { {{ bind_zone.also_notify | join('; ') }}; };
 {% endif %}
 {% if bind_zone.allow_update is defined %}
-  allow-update { {{ bind_zone.allow_update|join('; ') }}; };
+  allow-update { {{ bind_zone.allow_update | join('; ') }}; };
 {% else %}
   allow-update { none; };
 {% endif %}
@@ -270,10 +270,10 @@ zone "{{ ('.'.join(network.replace(network+'.','').split('.')[::-1])) }}.in-addr
   file "{{ bind_zone_dir }}/{{ ('.'.join(network.replace(network+'.','').split('.')[::-1])) }}.in-addr.arpa";
   notify yes;
 {% if bind_zone.also_notify is defined %}
-  also-notify  { {{ bind_zone.also_notify|join('; ') }}; };
+  also-notify  { {{ bind_zone.also_notify | join('; ') }}; };
 {% endif %}
 {% if bind_zone.allow_update is defined %}
-  allow-update { {{ bind_zone.allow_update|join('; ') }}; };
+  allow-update { {{ bind_zone.allow_update | join('; ') }}; };
 {% else %}
   allow-update { none; };
 {% endif %}
@@ -293,23 +293,23 @@ zone "{{ ('.'.join(network.replace(network+'.','').split('.')[::-1])) }}.in-addr
 
 {% if bind_zone.ipv6_networks is defined %}
 {% for network in bind_zone.ipv6_networks %}
-zone "{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network|regex_replace('^.*/','')|int)//2):] }}" IN {
+zone "{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network | regex_replace('^.*/','') | int)//2):] }}" IN {
 {% if is_master %}
   type master;
-  file "{{ bind_zone_dir }}/{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network|regex_replace('^.*/','')|int)//2):-1] }}";
+  file "{{ bind_zone_dir }}/{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network | regex_replace('^.*/','') | int)//2):-1] }}";
   notify yes;
 {% if bind_zone.also_notify is defined %}
-  also-notify  { {{ bind_zone.also_notify|join('; ') }}; };
+  also-notify  { {{ bind_zone.also_notify | join('; ') }}; };
 {% endif %}
 {% if bind_zone.allow_update is defined %}
-  allow-update { {{ bind_zone.allow_update|join('; ') }}; };
+  allow-update { {{ bind_zone.allow_update | join('; ') }}; };
 {% else %}
   allow-update { none; };
 {% endif %}
 {% endif %}
 {% if is_slave %}
   type slave;
-  file "slaves/{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network|regex_replace('^.*/','')|int)//2):-1] }}";
+  file "slaves/{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network | regex_replace('^.*/','') | int)//2):-1] }}";
 {% if bind_zone.controllers is defined %}
   masters { {{ bind_zone.controllers }}; };
 {% else %}
@@ -326,10 +326,10 @@ zone "{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network|regex_replace('
 {% for bind_view in bind_views %}
 view "{{ bind_view.name }}" {
 {% if bind_view.match_clients is defined %}
-  match-clients { {{ bind_view.match_clients|join('; ') }}; };
+  match-clients { {{ bind_view.match_clients | join('; ') }}; };
 {% endif %}
 {% if bind_view.match_destinations is defined %}
-  match-destinations { {{ bind_view.match_destinations|join('; ') }}; };
+  match-destinations { {{ bind_view.match_destinations | join('; ') }}; };
 {% endif %}
 {% if bind_view.match_recursive_only is defined %}
   match-recursive-only {% if bind_view.match_recursive_only %}yes{% else %}no{% endif %};
@@ -346,7 +346,7 @@ view "{{ bind_view.name }}" {
 
   /* Queries */
 {% if bind_view.allow_query is defined %}
-  allow-query { {{ bind_view.allow_query|join('; ') }}; };
+  allow-query { {{ bind_view.allow_query | join('; ') }}; };
 {% endif %}
 {% if bind_view.recursion is defined %}
   additional-from-auth {% if bind_view.recursion %}yes{% else %}no{% endif %};
@@ -356,13 +356,13 @@ view "{{ bind_view.name }}" {
 
   /* Transfer */
 {% if bind_view.allow_notify is defined %}
-  allow-notify { {{ bind_view.allow_notify|join('; ') }}; };
+  allow-notify { {{ bind_view.allow_notify | join('; ') }}; };
 {% endif %}
 {% if bind_view.allow_transfer is defined %}
-  allow-transfer { {{ bind_view.allow_transfer|join('; ') }}; };
+  allow-transfer { {{ bind_view.allow_transfer | join('; ') }}; };
 {% endif %}
 {% if bind_view.also_notify is defined %}
-  also-notify { {{ bind_view.also_notify|join('; ') }}; };
+  also-notify { {{ bind_view.also_notify | join('; ') }}; };
 {% endif %}
 {% if bind_view.notify is defined %}
   notify {{ bind_view.notify }};
@@ -398,7 +398,7 @@ view "{{ bind_view.name }}" {
     forward first;
 {% endif %}
 {% endif %}
-    forwarders { {{ bind_zone.forwarders|join('; ') }}; };
+    forwarders { {{ bind_zone.forwarders | join('; ') }}; };
   };
 {% endif %}
 {% endfor %}
@@ -415,10 +415,10 @@ view "{{ bind_view.name }}" {
     file "{{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ bind_zone.view }}_{% endif %}{{ bind_zone.name }}";
     notify yes;
 {% if bind_zone.also_notify is defined %}
-    also-notify  { {{ bind_zone.also_notify|join('; ') }}; };
+    also-notify  { {{ bind_zone.also_notify | join('; ') }}; };
 {% endif %}
 {% if bind_zone.allow_update is defined %}
-    allow-update { {{ bind_zone.allow_update|join('; ') }}; };
+    allow-update { {{ bind_zone.allow_update | join('; ') }}; };
 {% else %}
     allow-update { none; };
 {% endif %}
@@ -445,10 +445,10 @@ view "{{ bind_view.name }}" {
     file "{{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ bind_zone.view }}_{% endif %}{{ ('.'.join(network.replace(network+'.','').split('.')[::-1])) }}.in-addr.arpa";
     notify yes;
 {% if bind_zone.also_notify is defined %}
-    also-notify  { {{ bind_zone.also_notify|join('; ') }}; };
+    also-notify  { {{ bind_zone.also_notify | join('; ') }}; };
 {% endif %}
 {% if bind_zone.allow_update is defined %}
-    allow-update { {{ bind_zone.allow_update|join('; ') }}; };
+    allow-update { {{ bind_zone.allow_update | join('; ') }}; };
 {% else %}
     allow-update { none; };
 {% endif %}
@@ -468,23 +468,23 @@ view "{{ bind_view.name }}" {
 
 {% if bind_zone.ipv6_networks is defined %}
 {% for network in bind_zone.ipv6_networks %}
-  zone "{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network|regex_replace('^.*/','')|int)//2):] }}" IN {
+  zone "{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network | regex_replace('^.*/','') | int)//2):] }}" IN {
 {% if is_master %}
     type master;
-    file "{{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ bind_zone.view }}_{% endif %}{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network|regex_replace('^.*/','')|int)//2):-1] }}";
+    file "{{ bind_zone_dir }}/{% if bind_enable_views is sameas true %}{{ bind_zone.view }}_{% endif %}{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network | regex_replace('^.*/','') | int)//2):-1] }}";
     notify yes;
 {% if bind_zone.also_notify is defined %}
-    also-notify  { {{ bind_zone.also_notify|join('; ') }}; };
+    also-notify  { {{ bind_zone.also_notify | join('; ') }}; };
 {% endif %}
 {% if bind_zone.allow_update is defined %}
-    allow-update { {{ bind_zone.allow_update|join('; ') }}; };
+    allow-update { {{ bind_zone.allow_update | join('; ') }}; };
 {% else %}
     allow-update { none; };
 {% endif %}
 {% endif %}
 {% if is_slave %}
     type slave;
-    file "slaves/{% if bind_enable_views is sameas true %}{{ bind_zone.view }}_{% endif %}{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network|regex_replace('^.*/','')|int)//2):-1] }}";
+    file "slaves/{% if bind_enable_views is sameas true %}{{ bind_zone.view }}_{% endif %}{{ (network | ansible.utils.ipaddr('revdns'))[-(9+(network | regex_replace('^.*/','') | int)//2):-1] }}";
 {% if bind_zone.controllers is defined %}
     masters { {{ bind_zone.controllers }}; };
 {% else %}

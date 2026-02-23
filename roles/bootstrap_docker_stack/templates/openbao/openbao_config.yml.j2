@@ -1,0 +1,36 @@
+policies:
+  admin:
+    hcl_content: |
+      path "*" {
+        capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+      }
+  {{ __docker_stack__openbao__deploy_policy_name }}:
+    hcl_content: |
+      {{ __docker_stack__openbao__deploy_token_policy_hcl_content | indent(6) }}
+  user:
+    hcl_content: |
+      path "{{ __docker_stack__openbao__kv_path }}/*" {
+        capabilities = ["create", "read", "update", "delete", "list"]
+      }
+{%- raw %}
+      path "userpass/users/{{identity.entity.name}}" {
+        capabilities = ["read"]
+      }
+{% endraw %}
+
+users:
+  - display_name: test_user
+    password: test_password
+    policies:
+      - user
+
+tokens:
+  - display_name: admin
+    policies: ["admin"]
+    ttl: "87600h"  # 10y, matching CA
+  - display_name: deploy-ca
+    policies: ["deploy-ca"]
+    ttl: "87600h"
+  - display_name: test_user
+    policies: ["user"]
+    ttl: "168h"  # 1w

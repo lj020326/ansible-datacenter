@@ -11,18 +11,35 @@
     - /etc/systemd/system/docker.service.d
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Display bootstrap_docker__options"
-  ansible.builtin.set_fact:
+  ansible.builtin.debug:
     var: bootstrap_docker__options
 #    verbosity: 1
 
-- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Set the Docker configuration"
-  when: item.value | string | length > 0
+#- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Set the Docker configuration"
+#  when: item.value | string | length > 0
+#  ansible.builtin.set_fact:
+#    bootstrap_docker__config: "{{ bootstrap_docker__config | d({}) | combine({item.key: item.value}) }}"
+#  with_dict: "{{ bootstrap_docker__options }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Set the Docker configuration (Filtered)"
   ansible.builtin.set_fact:
-    bootstrap_docker__config: "{{ bootstrap_docker__config | d({}) | combine({ item.key: item.value }) }}"
-  with_dict: "{{ bootstrap_docker__options }}"
+    # 1. Filter the items in bootstrap_docker__options:
+    #    - dict2items converts the dict into a list of {key: ..., value: ...}
+    #    - # Step 1: Reject items where value is YAML 'null' (Python None)
+    #    - # Step 2: Reject items where value is an empty string ("")
+    #    - items2dict converts it back to a dictionary.
+    # 2. Combine the result with the existing config (defaulting to {} if unset)
+    bootstrap_docker__config: >
+      {{ bootstrap_docker__config | d({}) | combine(
+          bootstrap_docker__options
+          | dict2items
+          | rejectattr('value', 'none')
+          | rejectattr('value', 'equalto', '')
+          | items2dict
+      ) }}
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Combine LVM options into Docker configuration"
-  when: bootstrap_docker__setup_lvm|bool
+  when: bootstrap_docker__setup_lvm | bool
   ansible.builtin.set_fact:
     bootstrap_docker__config: "{{ bootstrap_docker__config | d({}) | combine(bootstrap_lvm_options, recursive=True) }}"
 
@@ -31,7 +48,7 @@
     var: bootstrap_docker__config
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Deploy /etc/docker/daemon.json"
-  when: bootstrap_docker__config|d({}) != {}
+  when: bootstrap_docker__config | d({}) | length > 0
   ansible.builtin.copy:
     content: "{{ bootstrap_docker__config | to_nice_json }}\n"
     dest: /etc/docker/daemon.json
@@ -55,7 +72,7 @@
     var: bootstrap_docker__daemon_flags
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Configure Docker daemon options (flags)"
-  when: bootstrap_docker__daemon_flags|d([]) | count > 0
+  when: bootstrap_docker__daemon_flags | d([]) | length > 0
   ansible.builtin.template:
     src: etc/systemd/system/docker.service.d/options.conf.j2
     dest: /etc/systemd/system/docker.service.d/options.conf
@@ -79,7 +96,7 @@
   notify: Docker | Restart Docker
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Configure custom systemd unit file override"
-  when: bootstrap_docker__systemd_override | d()
+  when: bootstrap_docker__systemd_override | d('') | length > 0
   ansible.builtin.template:
     src: etc/systemd/system/docker.service.d/custom.conf.j2
     dest: /etc/systemd/system/docker.service.d/custom.conf
@@ -96,7 +113,7 @@
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Reload systemd daemon"
   when: >
-    (bootstrap_docker__register_daemon_flags | d() and bootstrap_docker__register_daemon_flags is changed) 
+    (bootstrap_docker__register_daemon_flags | d() and bootstrap_docker__register_daemon_flags is changed)
     or (bootstrap_docker__register_daemon_environment | d() and bootstrap_docker__register_daemon_environment is changed)
     or (bootstrap_docker__register_custom_override | d() and bootstrap_docker__register_custom_override is changed)
   ansible.builtin.systemd:
@@ -116,7 +133,7 @@
 #    config_path: "{{ item.config_path | d((ansible_env.PWD | d('/root')) + '/.docker/config.json') }}"
 #    state: "{{ item.state | d('present') }}"
 #  loop: "{{ bootstrap_docker__registries }}"
-#  when: item.username | d() and item.password | d()
+#  when: item.username | d('') | length > 0 and item.password | d('') | length > 0
 #  vars:
 #    ansible_python_interpreter: "{{ '/usr/bin/env python-docker' if bootstrap_docker__pip_virtualenv | d() else ansible_python.executable }}"
 
@@ -124,27 +141,27 @@
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    owner: "{{ item.owner | default( 'root' ) }}"
-    group: "{{ item.owner | default( 'root' ) }}"
-    mode: "{{ item.mode | default(omit) }}"
-    recurse: "{{ item.recurse | default( omit ) }}"
+    owner: "{{ item.owner | d('root') }}"
+    group: "{{ item.owner | d('root') }}"
+    mode: "{{ item.mode | d(omit) }}"
+    recurse: "{{ item.recurse | d(omit) }}"
   loop: "{{ bootstrap_docker__script_dirs }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Install docker admin/utility scripts"
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest |  d(bootstrap_docker__script_dir) }}"
-    force: "{{ item.force | default('true') }}"
+    force: "{{ item.force | d('true') }}"
     backup: true
-    mode: "{{ item.mode | default('0770') }}"
-    owner: "{{ item.owner | default( 'root' ) }}"
-    group: "{{ item.owner | default( 'root' ) }}"
+    mode: "{{ item.mode | d('0770') }}"
+    owner: "{{ item.owner | d('root') }}"
+    group: "{{ item.owner | d('root') }}"
   loop: "{{ bootstrap_docker__scripts }}"
 
 ###########
 ## Following block moved to dedicated bootstrap_linux_cron role with inventory as config
 #- name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Setup Docker related cron jobs"
-#  when: bootstrap_docker__enable_cron_jobs|bool
+#  when: bootstrap_docker__enable_cron_jobs | bool
 #  block:
 #
 #    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Display bootstrap_docker__cron_jobs"
@@ -154,8 +171,8 @@
 #    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Remove Docker related cron jobs"
 #      when:
 #        - item.state | d("present") == "absent"
-#        - item.name | d() and item.job | d()
-#        - item.schedule | d() and item.cron_file | d()
+#        - item.name | d('') | length > 0 and item.job | d('') | length > 0
+#        - item.schedule | d('') | length > 0 and item.cron_file | d('') | length > 0
 #      ansible.builtin.file:
 #        path: "/etc/cron.d/{{ item.cron_file }}"
 #        state: absent
@@ -164,8 +181,8 @@
 #    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Create Docker related cron jobs"
 #      when:
 #        - item.state | d("present") != "absent"
-#        - item.name | d() and item.job | d()
-#        - item.schedule | d() and item.cron_file | d()
+#        - item.name | d('') | length > 0 and item.job | d('') | length > 0
+#        - item.schedule | d('') | length > 0 and item.cron_file | d('') | length > 0
 #      ansible.builtin.cron:
 #        name: "{{ item.name }}"
 #        job: "{{ item.job }}"

@@ -305,7 +305,7 @@ EXAMPLES = """
 RETURN = """
 """
 
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.ansible_freeipa_module import \
     IPAAnsibleModule, compare_args_ipa, gen_add_del_lists, \
     gen_add_list, gen_intersection_list, api_check_param

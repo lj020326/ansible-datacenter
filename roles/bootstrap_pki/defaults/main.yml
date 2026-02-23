@@ -1,0 +1,370 @@
+---
+bootstrap_pki__vault_url: "https://vault.example.int"
+bootstrap_pki__vault_token: ""
+
+## verify capabilities for the following tokens (dictionary of key/value pairs)
+bootstrap_pki__vault_verify_token_capabilities: {}
+#bootstrap_pki__vault_verify_token_capabilities:
+#  root: "root-token-value"
+#  deploy-ca: "deploy-ca-token-value"
+
+bootstrap_pki__vault_api_version: "v1"
+
+## Enable KV engine at this path
+#bootstrap_pki__vault_kv_mount_point: "kv"
+bootstrap_pki__vault_kv_mount_point: "secret"
+
+bootstrap_pki__vault_mount_path: "pki-intermediate"
+bootstrap_pki__vault_ca_root_path: "{{ bootstrap_pki__vault_mount_path }}/root"
+
+bootstrap_pki__vault_ensure_admin_token: false
+
+bootstrap_pki__ca_placeholder_name: "placeholder"
+
+bootstrap_pki__ca_cert_duration_root: "438000h" # 50 years
+bootstrap_pki__ca_cert_duration_intermediate: "87600h" # 10 years
+bootstrap_pki__ca_cert_duration_server: "87600h" # 10 years
+bootstrap_pki__ca_cert_duration_client: "87600h" # 10 years
+bootstrap_pki__ca_cert_duration_default: "87600h" # 10 years
+
+bootstrap_pki__ca_root_cert_info:
+  cert_basename: "ca"
+  common_name: "MyOrg Root CA"
+  country: ""
+  state: ""
+  locality: ""
+  organization: ""
+  organizational_unit: ""
+  email_address: ""
+  key_type: "rsa"
+  key_size: 4096
+  renewal_tolerance_days: 30
+
+__bootstrap_pki__root_cert_basename_default: "{{ bootstrap_pki__ca_root_cert_info.cert_basename | d('ca-root') }}"
+__bootstrap_pki__root_cert_basename: "{{ bootstrap_pki__root_cert_basename
+  | d(__bootstrap_pki__root_cert_basename_default) }}"
+
+bootstrap_pki__root_ca_crl_expiry: "8760h" # 1 year
+
+bootstrap_pki__ca_dir: "/etc/pki/cacerts"
+
+bootstrap_pki__ca_reset_cert: false
+bootstrap_pki__ca_reset_trusted_kv_external: false
+bootstrap_pki__ca_reset_trusted_kv_internal: false
+
+# Validation toggles (defaults to enabled)
+bootstrap_pki__validation_enabled: true
+bootstrap_pki__validation_fail_fast: false
+# e.g., "/custom/dir myroot myvault" for overrides
+bootstrap_pki__validation_args: ""
+
+bootstrap_pki__backup_retention_maximum_number: 20
+bootstrap_pki__encrypt_root_ca_key: false
+bootstrap_pki__encrypted_root_ca_key_path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__ca_root_cert_info.cert_basename }}-key.pem.vault"
+bootstrap_pki__vault_password: ""
+
+bootstrap_pki__initialize_trusted_internal: true
+
+# Admin token configuration
+bootstrap_pki__admin_token_display_name: "admin_user_token"
+bootstrap_pki__admin_token_policies: ["admin"]
+bootstrap_pki__admin_token_ttl: "87600h"  # 10 years, matching intermediate CA
+
+bootstrap_pki__vault_cert_configs:
+  cert_basename: "example-vault-ca"
+  csr_json_filename: "example-vault-ca-csr.json"
+  common_name: "MyOrg Intermediate CA"
+  country: ""
+  state: ""
+  locality: ""
+  organization: ""
+  organizational_unit: ""
+  email_address: ""
+  key_type: "ecdsa"
+  key_size: 256
+  ca_signing_profile: intermediate_ca
+  ca_issuer_path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__ca_root_cert_info.cert_basename }}.pem"
+  ca_issuer_key_path: "{{ bootstrap_pki__ca_dir }}/{{ bootstrap_pki__ca_root_cert_info.cert_basename }}-key.pem"
+  renewal_tolerance_days: 90
+
+__bootstrap_pki__vault_cert_basename_default: "{{ bootstrap_pki__vault_cert_configs.cert_basename | d('pki-vault-ca') }}"
+__bootstrap_pki__vault_cert_basename: "{{ bootstrap_pki__vault_cert_basename
+  | d(__bootstrap_pki__vault_cert_basename_default) }}"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PKI Host Cert Role Defaults
+# ──────────────────────────────────────────────────────────────────────────────
+bootstrap_pki__vault_pki_host_role_name: "internal-host"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PKI Service Route Cert Role Defaults
+# ──────────────────────────────────────────────────────────────────────────────
+
+#bootstrap_pki__enable_service_routes: true
+bootstrap_pki__vault_pki_service_route_role_name: "internal-service-route"
+bootstrap_pki__vault_pki_service_route_domains: ["admin.johnson.int"]  # Add more: ["admin.johnson.int", "app.johnson.int"]
+bootstrap_pki__vault_pki_service_route_ttl: "720h"  # 30 days
+bootstrap_pki__vault_pki_service_route_max_ttl: "8760h"  # 1 year
+bootstrap_pki__vault_pki_service_route_key_type: "ec"  # Or "rsa" for 4096-bit fallback
+bootstrap_pki__vault_pki_service_route_key_bits: 256  # 4096 for RSA
+bootstrap_pki__vault_pki_service_route_ou: "{{ bootstrap_pki__vault_cert_configs.organizational_unit }}"
+bootstrap_pki__vault_pki_service_route_org: "{{ bootstrap_pki__vault_cert_configs.organizational_unit }}"
+
+bootstrap_pki__vault_roles_allowed_domains:
+  - "example.com"
+  - "sub.example.com"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PKI Signing Cert Role Defaults
+# ──────────────────────────────────────────────────────────────────────────────
+
+bootstrap_pki__vault_pki_signing_role_name: "internal-signing"
+
+# 1 year – adjust per policy
+bootstrap_pki__vault_pki_signing_ttl: "8760h"
+# 2 years
+bootstrap_pki__vault_pki_signing_max_ttl: "17520h"
+bootstrap_pki__vault_pki_signing_key_type: "ecdsa"
+bootstrap_pki__vault_pki_signing_key_bits: 384
+
+bootstrap_pki__vault_pki_signing_ou: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+bootstrap_pki__vault_pki_signing_org: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+
+# You can also add allowed_domains if needed (usually empty for pure signing certs)
+bootstrap_pki__vault_pki_signing_allowed_domains: []
+
+bootstrap_pki__role_config__service_route:
+  name: "{{ bootstrap_pki__vault_pki_service_route_role_name }}"
+  allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
+  # Adds 127.0.0.1
+  allow_ip_sans: true
+  allow_subdomains: true
+  allow_wildcard_certificates: true
+  client_flag: true
+  server_flag: true
+  key_type: "ecdsa"
+  key_bits: 256
+  max_ttl: "720h"
+  ttl: "720h"
+  organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+  organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+  key_usage:
+    - "DigitalSignature"
+    - "KeyAgreement"
+    - "KeyEncipherment"
+
+bootstrap_pki__role_config__signing_cert:
+  name: "{{ bootstrap_pki__vault_pki_signing_role_name }}"
+  allowed_domains: "{{ bootstrap_pki__vault_pki_signing_allowed_domains }}"
+  allow_ip_sans: false
+  allow_subdomains: true
+  allow_wildcard_certificates: false
+  allow_other_sans: false
+  client_flag: false               # usually not client auth
+  server_flag: false               # usually not server auth
+  key_type: "{{ bootstrap_pki__vault_pki_signing_key_type }}"
+  key_bits: "{{ bootstrap_pki__vault_pki_signing_key_bits }}"
+  max_ttl: "{{ bootstrap_pki__vault_pki_signing_max_ttl }}"
+  ttl: "{{ bootstrap_pki__vault_pki_signing_ttl }}"
+  organizational_unit: "{{ bootstrap_pki__vault_pki_signing_ou }}"
+  organization: "{{ bootstrap_pki__vault_pki_signing_org }}"
+  key_usage:
+    - "CertSign" # keyCertSign – required to sign other certs
+    - "CrlSign" # required / recommended to sign CRLs
+  ext_key_usage: []
+#  ## Optional – if you also want the cert to sign OCSP responses
+#  ext_key_usage:
+#    - "OCSPSigning"            # 1.3.6.1.5.5.7.3.9
+
+bootstrap_pki__role_config__web_server:
+  name: "web-server"
+  allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
+  allow_ip_sans: true
+  allow_subdomains: true
+  key_type: "rsa"
+  key_bits: 2048
+  max_ttl: "720h"
+  ttl: "24h"
+  organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+  organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+  key_usage:
+    - "DigitalSignature"
+    - "KeyAgreement"
+    - "KeyEncipherment"
+
+bootstrap_pki__role_config__host_cert:
+  name: "{{ bootstrap_pki__vault_pki_host_role_name }}"
+  allowed_domains: "{{ bootstrap_pki__vault_roles_allowed_domains }}"
+  # Host-specific; no loopback needed
+  allow_ip_sans: true
+  allow_subdomains: true
+  allow_wildcard_certificates: false
+  # For mTLS if needed
+  client_flag: true
+  server_flag: false
+  max_ttl: "720h"
+  ttl: "720h"
+  organizational_unit: "{{ bootstrap_pki__vault_cert_configs.organizational_unit | d('') }}"
+  organization: "{{ bootstrap_pki__vault_cert_configs.organization | d('') }}"
+  key_usage:
+    - "DigitalSignature"
+    - "KeyAgreement"
+    - "KeyEncipherment"
+
+bootstrap_pki__vault_roles:
+  - "{{ bootstrap_pki__role_config__service_route }}"
+  - "{{ bootstrap_pki__role_config__signing_cert }}"
+  - "{{ bootstrap_pki__role_config__host_cert }}"
+  - "{{ bootstrap_pki__role_config__web_server }}"
+
+# Default CA renewal tolerance in days
+bootstrap_pki__ca_cert_renewal_tolerance_days: 30
+__bootstrap_pki__tolerance_seconds: "{{ bootstrap_pki__ca_cert_renewal_tolerance_days | int * 86400 }}"
+
+bootstrap_pki__ca_cfssl_profiles:
+  signing:
+    default:
+      expiry: "{{ bootstrap_pki__ca_cert_duration_default }}"
+    profiles:
+      root_ca:
+        usages:
+          - cert sign
+          - crl sign
+        is_ca: true
+        ca_constraint:
+          is_ca: true
+          max_path_len: 3
+        expiry: "{{ bootstrap_pki__ca_cert_duration_root }}"
+      intermediate_ca:
+        usages:
+          - cert sign
+          - crl sign
+        is_ca: true
+        ca_constraint:
+          is_ca: true
+          max_path_len: 2
+        expiry: "{{ bootstrap_pki__ca_cert_duration_intermediate }}"
+      server:
+        usages:
+          - signing
+          - digital signature
+          - key encipherment
+          - server auth
+        expiry: "{{ bootstrap_pki__ca_cert_duration_server }}"
+      client:
+        usages:
+          - signing
+          - digital signature
+          - key encipherment
+          - client auth
+        expiry: "{{ bootstrap_pki__ca_cert_duration_client }}"
+
+bootstrap_pki__external_cas_default_fetch_method: "host"
+
+# External CA certificates to fetch and store in secret/trusted_external (KV v1)
+# Each item: name (KV key), fetch_method ("url" or "command"), url/command/local_path
+bootstrap_pki__external_cas:
+  - name: "lets-encrypt-isrg-root-x1"
+    fetch_method: "url"
+    url: "https://letsencrypt.org/certs/isrgrootx1.pem"
+    description: "ISRG Root X1 (Let's Encrypt)"
+  - name: "digicert-global-root-ca"
+    fetch_method: "url"
+    url: "https://cacerts.digicert.com/DigiCertGlobalRootCA.crt.pem"
+    description: "DigiCert Global Root CA"
+  - name: "globalsign-root-r46"
+    fetch_method: "command"
+    command: "curl -s https://secure.globalsign.com/cacert/rootr46.crt | openssl x509 -inform der -outform pem"  # Convert DER to PEM
+    description: "GlobalSign Root R46"
+  - name: "pypi.org"
+    host: "pypi.org"
+  - name: "pypi.python.org"
+    host: "pypi.python.org"
+  - name: "files.pythonhosted.org"
+    host: "files.pythonhosted.org"
+  - name: "bootstrap.pypa.io"
+    host: "bootstrap.pypa.io"
+  - name: "galaxy.ansible.com"
+    host: "galaxy.ansible.com"
+  - name: "repo.maven.apache.org"
+    host: "repo.maven.apache.org"
+#  ## Example custom: Fetch chain from host
+#  - name: "corporate-external-ca"
+#    host: "ca.corp.com:443"
+#    description: "Corporate External CA (via openssl)"
+
+# Deploy token configuration (for "deploy_pki_certs" role usage/integration)
+bootstrap_pki__deploy_token_name: "deploy-ca"
+bootstrap_pki__deploy_token_accessor: ""
+bootstrap_pki__deploy_token_value: ""
+bootstrap_pki__deploy_policy_name: "deploy-ca"  # New: Configurable policy name
+bootstrap_pki__deploy_token_policies: ["{{ bootstrap_pki__deploy_policy_name }}"]  # Dynamic reference
+bootstrap_pki__deploy_token_ttl: "8760h"  # 1 year
+bootstrap_pki__deploy_token_renewable: true
+
+# Deploy token idempotency config
+bootstrap_pki__deploy_token_renew_threshold_days: 30  # Renew if < this days left
+bootstrap_pki__deploy_token_validate: true  # Enable/disable validation
+
+bootstrap_pki__deploy_token_policy_hcl_content: |
+  path "{{ bootstrap_pki__vault_mount_path }}/*" {
+    capabilities = ["read", "list"]
+  }
+  # issue/sign for deploys
+  path "{{ bootstrap_pki__vault_mount_path }}/issue/*" {
+    capabilities = ["create", "update"]
+  }
+  path "{{ bootstrap_pki__vault_mount_path }}/issue/internal-api" {
+    capabilities = ["create", "update"]
+  }
+  # Add this to handle CSR signing specifically
+  path "{{ bootstrap_pki__vault_mount_path }}/sign/*" {
+    capabilities = ["create", "update"]
+  }
+  path "{{ bootstrap_pki__vault_mount_path }}/config/*" {
+    capabilities = ["read", "list"]
+  }
+  # Allow role management
+  path "{{ bootstrap_pki__vault_mount_path }}/roles/*" {
+    capabilities = ["read", "list"]
+  }
+  # Allow full access to the PKI KV Cache
+  path "{{ bootstrap_pki__vault_kv_mount_point }}/data/pki_cache/*" {
+    capabilities = ["create", "read", "update", "list"]
+  }
+  # If using KV version 1, or for listing metadata in KV version 2
+  path "{{ bootstrap_pki__vault_kv_mount_point }}/metadata/pki_cache/*" {
+    capabilities = ["read", "list"]
+  }
+  path "{{ bootstrap_pki__vault_kv_mount_point }}/data/trusted_external/*" {
+    capabilities = ["read", "list"]
+  }
+  path "{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_external/*" {
+    capabilities = ["read", "list"]
+  }
+  # Allow full access to the PKI KV to dynamically store created service route and host certificates
+  path "{{ bootstrap_pki__vault_kv_mount_point }}/data/trusted_internal/*" {
+    capabilities = ["create", "read", "update", "list"]
+  }
+  path "{{ bootstrap_pki__vault_kv_mount_point }}/metadata/trusted_internal/*" {
+    capabilities = ["create", "read", "update", "list"]
+  }
+  path "auth/token/lookup*" {
+    capabilities = ["read"]
+  }
+  path "sys/mounts" {
+    capabilities = ["read", "list"]
+  }
+  path "sys/mounts/*" {
+    capabilities = ["read", "list"]
+  }
+  path "sys/seal-status" {
+    capabilities = ["read"]
+  }
+  {% for role in bootstrap_pki__vault_roles %}
+  # Policy for role: {{ role.name }}
+  # role cert issuance
+  path "{{ bootstrap_pki__vault_mount_path }}/issue/{{ role.name }}" {
+    capabilities = ["create", "update"]
+  }
+  {% endfor %}

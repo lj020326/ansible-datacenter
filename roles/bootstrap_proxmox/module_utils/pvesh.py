@@ -4,7 +4,7 @@ import subprocess
 import json
 import re
 
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 
 class ProxmoxShellError(Exception):
     """Exception raised when an unexpected response code is thrown from pvesh."""

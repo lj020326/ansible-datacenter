@@ -21,7 +21,7 @@ bind_listen_ipv4:
 
 # bind_listen_ipv4:
 #  - 127.0.0.1
-#  - "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+#  - "{{ hostvars[inventory_hostname]['ansible_facts']['default_ipv4']['address'] }}"
 
 # bind_listen_ipv6:
 #  - any
@@ -40,12 +40,12 @@ bind_forwarders:
 #  - '8.8.8.8'
 #  - '8.8.4.4'
 #  - '192.168.0.1'
-  - "{{ gateway_ipv4_subnet_1_2 }}.0.1"
+  - "{{ gateway_ipv4 }}"
 
 ## ref: https://www.zytrax.com/books/dns/ch7/controls.html
 bind_controls:
 #  - { inet: 127.0.0.1, port: 993, allow_list: ["localhost"], key_list: "rndckey" }
-#  - inet: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+#  - inet: "{{ hostvars[inventory_hostname]['ansible_facts']['default_ipv4']['address'] }}"
 #    port: 953
   - inet: "*"
     allow_list: ["rndc-users"]
@@ -59,16 +59,16 @@ bind_enable_rndc_controls: true
 bind_allow_new_zones: true
 
 # bind_zone_primary_server_ip: '{{ hostvars["ns_controller"]["ansible_host"] }}'
-# bind_zone_primary_server_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+# bind_zone_primary_server_ip: "{{ hostvars[inventory_hostname]['ansible_facts']['default_ipv4']['address'] }}"
 
 ## ref: https://lab.enough.community/main/infrastructure/commit/b53c38dd71000f65e648d0c0c87347b3dc51a055
 # bind_zone_hosts_dynamic: |
 #  [
-#    {% for host in groups['ca_domain_'+bind_zone_name|replace('.', '_')] %}
+#    {% for host in groups['ca_domain_'+bind_zone_name | replace('.', '_')] %}
 #    {% if hostvars[host].ansible_host is defined %}
 #    {
 #      'name': "{{ host }}",
-#      'ip': "{{ hostvars[host]['ansible_host'] }}",
+#      'ip': "{{ hostvars[host]['ansible_facts']['hostname'] }}",
 #    {% if hostvars[host].bind_aliases is defined %}
 #      'aliases': ["{{ hostvars[host]['bind_aliases'] | default([]) | join(',') }}"]
 #    {% endif %}
@@ -82,7 +82,7 @@ bind_allow_new_zones: true
 ## ref: https://medium.com/opsops/ansible-default-ipv4-is-not-what-you-think-edb8ab154b10
 bind_zone_hosts_dynamic: |
   [
-    {% for host in groups['ca_domain_'+('_'.join( bind_zone_name.split('.')|reverse ))] %}
+    {% for host in groups['ca_domain_'+('_'.join( bind_zone_name.split('.') | reverse ))] %}
     {% if hostvars[host].bind_ipv4_address is defined %}
     {
       'name': "{{ host }}",
@@ -98,11 +98,11 @@ bind_zone_hosts_dynamic: |
 # bind_zone_hosts_dynamic: |
 #  [
 #    {% for host in groups['ca_domain_'+('_'.join( reversed(bind_zone_name.split('.')) ))] %}
-#    {% for host in groups['ca_domain_'+bind_zone_name|replace('.', '_')] %}
+#    {% for host in groups['ca_domain_'+bind_zone_name | replace('.', '_')] %}
 #    {% if hostvars[host].ansible_host is defined %}
 #    {
 #      'name': "{{ host }}",
-#      'ip': "{{ hostvars[host]['ansible_host'] }}",
+#      'ip': "{{ hostvars[host]['ansible_facts']['hostname'] }}",
 #    {% if hostvars[host].bind_aliases is defined %}
 #      'aliases': {{ (hostvars[host].bind_aliases | d([])) | to_json(ensure_ascii=False) }}
 #    {% endif %}
@@ -114,7 +114,7 @@ bind_zone_hosts_dynamic: |
 # bind_zone_hosts_static: []
 bind_zone_hosts_static:
 #  - name: "{{ inventory_hostname }}"
-#    ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+#    ip: "{{ hostvars[inventory_hostname]['ansible_facts']['default_ipv4']['address'] }}"
 #    aliases:
 #      - 'ns1'
 #  - name: srv001
@@ -129,7 +129,7 @@ bind_zone_hosts_static:
 #    ip: 192.0.2.10
 #    ipv6: '2001:db9::3'
   - name: '@'
-    ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+    ip: "{{ hostvars[inventory_hostname]['ansible_facts']['default_ipv4']['address'] }}"
 
 
 bind_zone_hosts: "{{ bind_zone_hosts_dynamic + bind_zone_hosts_static }}"

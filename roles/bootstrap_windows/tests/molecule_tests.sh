@@ -2,17 +2,17 @@
 
 cd ..
 
-MOLECULE_IMAGE_LABELS="ubuntu1804 ubuntu1604 centos6"
+MOLECULE_IMAGE_LIST="ubuntu:22.04 ubuntu:24.04 centos:10 centos:9 debian:10 debian:12"
 
-for MOLECULE_IMAGE_LABEL in $MOLECULE_IMAGE_LABELS; do
-  echo "*** $MOLECULE_IMAGE_LABEL"
-  export MOLECULE_IMAGE_LABEL
+for MOLECULE_IMAGE in $MOLECULE_IMAGE_LIST; do
+  echo "*** $MOLECULE_IMAGE"
+  export MOLECULE_IMAGE
   molecule test
 done
 
-MOLECULE_IMAGE_LABEL="centos7"
+MOLECULE_IMAGE="centos:10"
 MOLECULE_DOCKER_COMMAND="/usr/lib/systemd/systemd"
 
-echo "*** $MOLECULE_IMAGE_LABEL"
-export MOLECULE_IMAGE_LABEL MOLECULE_DOCKER_COMMAND
+echo "*** $MOLECULE_IMAGE"
+export MOLECULE_IMAGE MOLECULE_DOCKER_COMMAND
 molecule test

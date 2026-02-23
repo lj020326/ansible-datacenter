@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 
 ## ref: https://intoli.com/blog/exit-on-errors-in-bash-scripts/
 # exit when any command fails
 #set -e
 
-VERSION="2025.6.12"
+VERSION="2026.2.4"
 
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(dirname "$0")"
@@ -25,82 +26,43 @@ INVENTORY_YML_LIST=("hosts.yml")
 INVENTORY_YML_LIST+=("xenv_hosts.yml")
 INVENTORY_YML_LIST+=("xenv_groups.yml")
 
+
 #### LOGGING RELATED
 LOG_ERROR=0
 LOG_WARN=1
-LOG_INFO=2
-LOG_TRACE=3
-LOG_DEBUG=4
+LOG_FAILED=2
+LOG_SUCCESS=3
+LOG_INFO=4
+LOG_TRACE=5
+LOG_DEBUG=6
 
 declare -A LOGLEVEL_TO_STR
 LOGLEVEL_TO_STR["${LOG_ERROR}"]="ERROR"
 LOGLEVEL_TO_STR["${LOG_WARN}"]="WARN"
+LOGLEVEL_TO_STR["${LOG_FAILED}"]="FAILED"
+LOGLEVEL_TO_STR["${LOG_SUCCESS}"]="SUCCESS"
 LOGLEVEL_TO_STR["${LOG_INFO}"]="INFO"
 LOGLEVEL_TO_STR["${LOG_TRACE}"]="TRACE"
 LOGLEVEL_TO_STR["${LOG_DEBUG}"]="DEBUG"
 
 # string formatters
-if [[ -t 1 ]]
-then
-  tty_escape() { printf "\033[%sm" "$1"; }
+# Force color if FORCE_COLOR is set, otherwise auto-detect TTY
+if [[ -n "${FORCE_COLOR:-}" ]] || [[ -t 1 ]]; then
+    tty_escape() { printf "\033[%sm" "$1"; }
 else
-  tty_escape() { :; }
+    tty_escape() { :; }
 fi
 tty_mkbold() { tty_escape "1;$1"; }
 tty_underline="$(tty_escape "4;39")"
-tty_blue="$(tty_mkbold 34)"
+tty_dim_grey="$(tty_escape "2;39")"
 tty_red="$(tty_mkbold 31)"
-tty_orange="$(tty_mkbold 33)"
+tty_green="$(tty_mkbold 32)"
+tty_yellow="$(tty_mkbold 33)"
+tty_blue="$(tty_mkbold 34)"
+tty_magenta="$(tty_mkbold 35)"
+tty_cyan="$(tty_mkbold 36)"
 tty_bold="$(tty_mkbold 39)"
 tty_reset="$(tty_escape 0)"
-
-function reverse_array() {
-  local -n ARRAY_SOURCE_REF=$1
-  local -n REVERSED_ARRAY_REF=$2
-  # Iterate over the keys of the LOGLEVEL_TO_STR array
-  for KEY in "${!ARRAY_SOURCE_REF[@]}"; do
-    # Get the value associated with the current key
-    VALUE="${ARRAY_SOURCE_REF[$KEY]}"
-    # Add the reversed key-value pair to the REVERSED_ARRAY_REF array
-    REVERSED_ARRAY_REF[$VALUE]="$KEY"
-  done
-}
-
-declare -A LOGLEVELSTR_TO_LEVEL
-reverse_array LOGLEVEL_TO_STR LOGLEVELSTR_TO_LEVEL
-
-#LOG_LEVEL=${LOG_DEBUG}
-LOG_LEVEL=${LOG_INFO}
-
-function log_error() {
-  if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
-  	log_message "${LOG_ERROR}" "${1}"
-  fi
-}
-
-function log_warn() {
-  if [ $LOG_LEVEL -ge $LOG_WARN ]; then
-  	log_message "${LOG_WARN}" "${1}"
-  fi
-}
-
-function log_info() {
-  if [ $LOG_LEVEL -ge $LOG_INFO ]; then
-  	log_message "${LOG_INFO}" "${1}"
-  fi
-}
-
-function log_trace() {
-  if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
-  	log_message "${LOG_TRACE}" "${1}"
-  fi
-}
-
-function log_debug() {
-  if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
-  	log_message "${LOG_DEBUG}" "${1}"
-  fi
-}
 
 function shell_join() {
   local arg
@@ -117,105 +79,128 @@ function chomp() {
   printf "%s" "${1/"$'\n'"/}"
 }
 
-function ohai() {
-  printf "${tty_blue}==>${tty_bold} %s${tty_reset}\n" "$(shell_join "$@")"
-}
-
-function abort() {
-  log_error "$@"
-  exit 1
-}
-
-function warn() {
-  log_warn "$@"
-#  log_warn "$(chomp "$1")"
-#  printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
-}
-
-#function abort() {
-#  printf "%s\n" "$@" >&2
-#  exit 1
-#}
-
-function error() {
-  log_error "$@"
-#  printf "%s\n" "$@" >&2
-##  echo "$@" 1>&2;
-}
-
-function fail() {
-  error "$@"
-  exit 1
-}
-
-function log_message() {
-  local LOG_MESSAGE_LEVEL="${1}"
-  local LOG_MESSAGE="${2}"
-  ## remove first item from FUNCNAME array
-#  local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2}")
-  ## Get the length of the array
-  local CALLING_FUNCTION_ARRAY_LENGTH=${#FUNCNAME[@]}
-  local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2:$((CALLING_FUNCTION_ARRAY_LENGTH - 3))}")
-#  echo "CALLING_FUNCTION_ARRAY[@]=${CALLING_FUNCTION_ARRAY[@]}"
-
-  local CALL_ARRAY_LENGTH=${#CALLING_FUNCTION_ARRAY[@]}
-  local REVERSED_CALL_ARRAY=()
-  for (( i = CALL_ARRAY_LENGTH - 1; i >= 0; i-- )); do
-    REVERSED_CALL_ARRAY+=( "${CALLING_FUNCTION_ARRAY[i]}" )
+function reverse_array() {
+  local -n array_source_ref=$1
+  local -n reversed_array_ref=$2
+  # iterate over the keys of the loglevel_to_str array
+  for key in "${!array_source_ref[@]}"; do
+    # get the value associated with the current key
+    value="${array_source_ref[$key]}"
+    # add the reversed key-value pair to the reversed_array_ref array
+    reversed_array_ref["$value"]="$key"
   done
-#  echo "REVERSED_CALL_ARRAY[@]=${REVERSED_CALL_ARRAY[@]}"
-
-#  local CALLING_FUNCTION_STR="${CALLING_FUNCTION_ARRAY[*]}"
-  ## ref: https://stackoverflow.com/questions/1527049/how-can-i-join-elements-of-a-bash-array-into-a-delimited-string#17841619
-  local SEPARATOR=":"
-  local CALLING_FUNCTION_STR
-  CALLING_FUNCTION_STR=$(printf "${SEPARATOR}%s" "${REVERSED_CALL_ARRAY[@]}")
-  CALLING_FUNCTION_STR=${CALLING_FUNCTION_STR:${#SEPARATOR}}
-
-  ## ref: https://stackoverflow.com/a/13221491
-  if [ "${LOGLEVEL_TO_STR[${LOG_MESSAGE_LEVEL}]+abc}" ]; then
-    LOG_LEVEL_STR="${LOGLEVEL_TO_STR[${LOG_MESSAGE_LEVEL}]}"
-  else
-    abort "Unknown log level of [${LOG_MESSAGE_LEVEL}]"
-  fi
-
-  local LOG_LEVEL_PADDING_LENGTH=5
-
-  local PADDED_LOG_LEVEL
-  PADDED_LOG_LEVEL=$(printf "%-${LOG_LEVEL_PADDING_LENGTH}s" "${LOG_LEVEL_STR}")
-
-  local LOG_PREFIX="${CALLING_FUNCTION_STR}():"
-  local __LOG_MESSAGE="${LOG_PREFIX} ${LOG_MESSAGE}"
-#  echo -e "[${PADDED_LOG_LEVEL}]: ==> ${__LOG_MESSAGE}"
-  if [ "${LOG_MESSAGE_LEVEL}" -eq $LOG_INFO ]; then
-    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_reset} %s\n" "${LOG_MESSAGE}" >&2
-#    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==>${tty_reset} %s\n" "${__LOG_MESSAGE}" >&2
-#    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}"
-  elif [ "${LOG_MESSAGE_LEVEL}" -eq $LOG_WARN ]; then
-    printf "${tty_orange}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_bold} %s${tty_reset}\n" "${LOG_MESSAGE}" >&2
-#    printf "${tty_orange}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}" >&2
-#    printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
-  elif [ "${LOG_MESSAGE_LEVEL}" -le $LOG_ERROR ]; then
-    printf "${tty_red}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_bold} %s${tty_reset}\n" "${LOG_MESSAGE}" >&2
-#    printf "${tty_red}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}" >&2
-#    printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
-  else
-    printf "${tty_bold}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_reset} %s\n" "${LOG_MESSAGE}" >&2
-#    printf "[${PADDED_LOG_LEVEL}]: ==> %s\n" "${LOG_PREFIX} ${LOG_MESSAGE}"
-  fi
 }
+
+declare -A LOGLEVELSTR_TO_LEVEL
+reverse_array LOGLEVEL_TO_STR LOGLEVELSTR_TO_LEVEL
+
+#LOG_LEVEL_IDX=${LOG_DEBUG}
+LOG_LEVEL_IDX=${LOG_INFO}
+LOG_LEVEL_PADDING_LENGTH=7
+#LOG_INCLUDE_INVOKER=true
+LOG_PAD_LEVEL=true
+
+# --- Logging Functions ---
+
+function _log_message() {
+    local log_message_level="${1}"
+    local log_message="${2}"
+    local log_prefix="${3:-}"
+
+    if (( log_message_level > LOG_LEVEL_IDX )); then
+        return 0
+    fi
+
+    local log_level_str="${LOGLEVEL_TO_STR[$log_message_level]}"
+    [[ -z "$log_level_str" ]] && { echo "Unknown level: $log_message_level" >&2; return 1; }
+
+    local log_level_display="${log_level_str}"
+    if [[ "${LOG_PAD_LEVEL:-false}" = "true" ]] || [[ "${LOG_PAD_LEVEL:-0}" = "1" ]]; then
+        printf -v log_level_display "%-${LOG_LEVEL_PADDING_LENGTH}s" "${log_level_str}"
+    fi
+
+    local log_context=""
+    local _log_tty_color="${tty_reset}"
+
+    if [ -n "${BASH_VERSION:-}" ]; then
+        local script_path="${BASH_SOURCE[2]##*/}"
+
+        # Build Call Stack: skip _log_message (0) and wrapper (1)
+        local stack_parts=("${FUNCNAME[@]:2}")
+        local call_stack=""
+
+        for (( i=${#stack_parts[@]}-1; i>=0; i-- )); do
+            local func="${stack_parts[i]}"
+
+            # Normalize 'source' to 'main' or keep existing 'main'
+            if [[ "$func" == "main" || "$func" == "source" ]]; then
+                # Only add 'main' if it's the first thing in our built stack
+                if [[ -z "$call_stack" ]]; then
+                    call_stack="main"
+                fi
+            else
+                # Add real function names, separated by colons
+                [[ -n "$call_stack" ]] && call_stack+=":"
+                call_stack+="$func"
+            fi
+        done
+
+        # If call_stack is empty (called from top-level), just use the script name
+        # Otherwise, append the stack with parentheses
+        local func_context=""
+        if [[ -n "$call_stack" ]]; then
+            func_context="${call_stack%:}()"
+        fi
+
+        local line_no="${BASH_LINENO[1]}"
+
+        case "${log_message_level}" in
+            "$LOG_DEBUG") _log_tty_color="${tty_dim_grey}"; log_context="${func_context}[${line_no}]" ;;
+            "$LOG_TRACE") _log_tty_color="${tty_blue}";     log_context="${func_context}[${line_no}]" ;;
+            "$LOG_SUCCESS") _log_tty_color="${tty_green}"; log_context="${func_context}" ;;
+            "$LOG_FAILED")  _log_tty_color="${tty_red}";   log_context="${func_context}" ;;
+            "$LOG_WARN")  _log_tty_color="${tty_yellow}";  log_context="${func_context}" ;;
+            "$LOG_ERROR") _log_tty_color="${tty_red}";     log_context="${func_context}[${line_no}]" ;;
+            *)            _log_tty_color="${tty_reset}";   log_context="${func_context}" ;;
+        esac
+    else
+        log_context="$(basename "$0")"
+    fi
+
+    [[ "${LOG_INCLUDE_INVOKER:-false}" = "true" ]] || [[ "${LOG_INCLUDE_INVOKER:-0}" = "1" ]] && log_context="${script_path}=>${log_context}"
+    [[ -n "${log_prefix}" ]] && log_context="${log_prefix}::${log_context}"
+
+    # Standardized Output
+#    printf "${_log_tty_color}%s [%s] %s:${tty_reset} %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$log_message_level" "$log_context" "$log_message"
+    printf "[%s] ${_log_tty_color}%s %s${tty_reset}\n" "$log_level_display" "$log_context" "$log_message"
+}
+
+# Wrapper Functions with Prefix Support
+log()                { _log_message "${LOG_INFO}"           "$1" "${2:-}"; }
+log_debug()          { _log_message "${LOG_DEBUG}"          "$1" "${2:-}"; }
+log_trace()          { _log_message "${LOG_TRACE}"          "$1" "${2:-}"; }
+log_info()           { _log_message "${LOG_INFO}"           "$1" "${2:-}"; }
+log_success()        { _log_message "${LOG_SUCCESS}"        "$1" "${2:-}"; }
+log_failed()         { _log_message "${LOG_FAILED}"         "$1" "${2:-}"; }
+log_warn()           { _log_message "${LOG_WARN}"           "$1" "${2:-}"; }
+log_error()          { _log_message "${LOG_ERROR}"          "$1" "${2:-}"; }
+
+function ohai()  { printf "${tty_blue}==>${tty_bold} %s${tty_reset}\n" "$*"; }
+function abort() { log_error "$1"; exit 1; }
+function warn()  { log_warn "$1"; }
+function error() { log_error "$1"; }
+function fail()  { error "$1"; exit 1; }
 
 function set_log_level() {
-  LOG_LEVEL_STR=$1
-
-  ## ref: https://stackoverflow.com/a/13221491
-  if [ "${LOGLEVELSTR_TO_LEVEL[${LOG_LEVEL_STR}]+abc}" ]; then
-    LOG_LEVEL="${LOGLEVELSTR_TO_LEVEL[${LOG_LEVEL_STR}]}"
+  local level_idx="${LOGLEVELSTR_TO_LEVEL[${1^^}]}" # ^^ makes it case-insensitive
+  if [[ -n "$level_idx" ]]; then
+    LOG_LEVEL_IDX="$level_idx"
   else
-    abort "Unknown log level of [${LOG_LEVEL_STR}]"
+    abort "Unknown log level: [$1]"
   fi
-
 }
+
+# --- Helper Functions ---
 
 function execute() {
   log_info "${*}"
@@ -235,13 +220,13 @@ function execute_eval_command() {
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
     if [[ $COMMAND_RESULT != "" ]]; then
-      log_debug "${COMMAND_RESULT}"
+      log_debug $'\n'"${COMMAND_RESULT}"
     fi
     log_debug "SUCCESS!"
   else
     log_error "ERROR (${RETURN_STATUS})"
 #    echo "${COMMAND_RESULT}"
-    abort "$(printf "Failed during: %s" "${COMMAND_RESULT}")"
+    abort "$(printf "Failed during: %s" "${RUN_COMMAND}")"
   fi
 
 }
@@ -251,14 +236,14 @@ function is_installed() {
 }
 
 function check_required_commands() {
-  missingCommands=""
-  for currentCommand in "$@"
+  missing_commands=""
+  for current_command in "$@"
   do
-    is_installed "${currentCommand}" || missingCommands="${missingCommands} ${currentCommand}"
+    is_installed "${current_command}" || missing_commands="${missing_commands} ${current_command}"
   done
 
-  if [[ -n "${missingCommands}" ]]; then
-    fail "Please install the following commands required by this script:${missingCommands}"
+  if [[ -n "${missing_commands}" ]]; then
+    fail "Please install the following commands required by this script: ${missing_commands}"
   fi
 }
 

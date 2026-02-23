@@ -1,0 +1,245 @@
+#!/bin/bash
+# Ansible managed: Do not edit
+# Validates PKI certs/keys post-deployment.
+
+set -uo pipefail  # Strict but no -e (handle errors gracefully)
+
+# Defaults from role (injected via Jinja2)
+CERT_DIR="{{ deploy_pki_certs__local_cert_dir | default('/etc/pki/cacerts') }}"
+KEY_DIR="{{ deploy_pki_certs__local_key_dir | default('/etc/pki/cacerts') }}"
+ROOT_BASENAME="{{ deploy_pki_certs__ca_root_cert_basename | default('ca-root') }}"  # From deploy role
+VAULT_BASENAME="{{ __deploy_pki_certs__vault_cert_basename | default('dettonville-vault-ca') }}"
+
+{% raw %}
+
+# Parse args (override defaults)
+POSITIONAL_ARGS=()
+EXTRA_CERT=""
+QUIET=0  # Default non-quiet
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --quiet) QUIET=1; shift ;;
+    -c) EXTRA_CERT="$2"; shift 2 ;;
+    -h|--help) echo "Usage: $0 [CERT_DIR] [KEY_DIR] [ROOT_BASENAME] [VAULT_BASENAME] [-c EXTRA_CERT] [--quiet]"; exit 0 ;;
+    *) POSITIONAL_ARGS+=("$1"); shift ;;
+  esac
+done
+
+if [[ ${#POSITIONAL_ARGS[@]} -ge 1 ]]; then CERT_DIR="${POSITIONAL_ARGS[0]}"; fi
+if [[ ${#POSITIONAL_ARGS[@]} -ge 2 ]]; then KEY_DIR="${POSITIONAL_ARGS[1]}"; fi
+if [[ ${#POSITIONAL_ARGS[@]} -ge 3 ]]; then ROOT_BASENAME="${POSITIONAL_ARGS[2]}"; fi
+if [[ ${#POSITIONAL_ARGS[@]} -ge 4 ]]; then VAULT_BASENAME="${POSITIONAL_ARGS[3]}"; fi
+
+# Colors: Set only if not quiet
+if [[ $QUIET -eq 0 ]] && [[ -n "$TERM" && "$TERM" != "dumb" ]] && command -v tput >/dev/null 2>&1; then
+  GREEN=$(tput setaf 2 2>/dev/null || echo "")
+  RED=$(tput setaf 1 2>/dev/null || echo "")
+  YELLOW=$(tput setaf 3 2>/dev/null || echo "")
+  NC=$(tput sgr0 2>/dev/null || echo "")
+else
+  GREEN="" RED="" YELLOW="" NC=""
+fi
+
+# Derive filenames
+ROOT_CERT="${CERT_DIR}/${ROOT_BASENAME}.pem"
+ROOT_KEY="${KEY_DIR}/${ROOT_BASENAME}-key.pem"
+ROOT_CHAIN="${ROOT_CERT}.chain.pem"
+
+VAULT_CERT="${CERT_DIR}/${VAULT_BASENAME}.pem"
+VAULT_KEY="${KEY_DIR}/${VAULT_BASENAME}-key.pem"
+VAULT_CHAIN="${VAULT_CERT}.chain.pem"
+
+# Base arrays
+CERTS=("$ROOT_CERT" "$VAULT_CERT")
+KEYS=("$ROOT_KEY" "$VAULT_KEY")
+BASENAMES=("$ROOT_BASENAME" "$VAULT_BASENAME")
+
+# Add extra cert if specified (derive basename from filename, e.g., admin.johnson.int.pem -> admin.johnson.int)
+if [[ -n "$EXTRA_CERT" ]]; then
+  if [[ "$EXTRA_CERT" == /* ]]; then
+    EXTRA_FULL="$EXTRA_CERT"
+  else
+    EXTRA_FULL="${CERT_DIR}/${EXTRA_CERT}"
+  fi
+  if [[ -f "$EXTRA_FULL" ]]; then
+    EXTRA_BASENAME="${EXTRA_FULL%.pem}"  # Strip .pem
+    EXTRA_BASENAME=$(basename "$EXTRA_BASENAME")  # Just basename
+    EXTRA_KEY="${KEY_DIR}/${EXTRA_BASENAME}-key.pem"
+    CERTS+=("$EXTRA_FULL")
+    KEYS+=("$EXTRA_KEY")
+    BASENAMES+=("$EXTRA_BASENAME")
+    if [[ $QUIET -eq 0 ]]; then
+      echo "${YELLOW}Added extra cert: $EXTRA_BASENAME${NC}"
+    fi
+  else
+    if [[ $QUIET -eq 0 ]]; then
+      echo "${RED}Extra cert not found: $EXTRA_FULL${NC}"
+    fi
+    exit 1
+  fi
+fi
+
+ERROR_COUNT=0
+WARN_COUNT=0
+
+# Header
+if [[ $QUIET -eq 0 ]]; then
+  echo "${GREEN}=== PKI Cert/Key Validation (Cert/Key Dir: ${CERT_DIR}/${KEY_DIR}) ===${NC}"
+fi
+
+for i in "${!CERTS[@]}"; do
+  CERT="${CERTS[$i]}"
+  KEY="${KEYS[$i]}"
+  BASENAME="${BASENAMES[$i]}"
+  CHAIN="${CERT}.chain.pem"
+
+  if [[ ! -f "$CERT" ]]; then
+    ((WARN_COUNT++))
+    if [[ $QUIET -eq 0 ]]; then
+      echo "${YELLOW}  Skipping $BASENAME: Cert missing${NC}"
+    fi
+    continue
+  fi
+
+  CN=$(openssl x509 -in "$CERT" -subject -noout 2>/dev/null | sed -n 's/.*CN[ ]*=[ ]*\([^/]*\).*/\1/p' || echo "N/A")
+  if [[ $QUIET -eq 0 ]]; then
+    echo "${GREEN}Checking $BASENAME (CN: $CN)...${NC}"
+  fi
+
+  # Pubkey match
+  if ! openssl x509 -in "$CERT" -pubkey -noout > /tmp/cert_pub.tmp 2>/dev/null; then
+    ((ERROR_COUNT++))
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${RED}✗ Cert pubkey extract failed${NC}"
+    fi
+    continue
+  fi
+  if [[ -f "$KEY" ]]; then
+    if openssl pkey -in "$KEY" -text -noout 2>/dev/null | grep -qi "EC PRIVATE"; then
+      openssl ec -in "$KEY" -pubout > /tmp/key_pub.tmp 2>/dev/null || openssl pkey -in "$KEY" -pubout > /tmp/key_pub.tmp 2>/dev/null
+    else
+      openssl rsa -in "$KEY" -pubout > /tmp/key_pub.tmp 2>/dev/null || openssl pkey -in "$KEY" -pubout > /tmp/key_pub.tmp 2>/dev/null
+    fi
+    if diff /tmp/cert_pub.tmp /tmp/key_pub.tmp >/dev/null 2>&1; then
+      if [[ $QUIET -eq 0 ]]; then
+        echo "  ${GREEN}✓ Pubkeys match${NC}"
+      fi
+    else
+      ((ERROR_COUNT++))
+      if [[ $QUIET -eq 0 ]]; then
+        echo "  ${RED}✗ Pubkeys mismatch!${NC}"
+      fi
+    fi
+  else
+    ((WARN_COUNT++))
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${YELLOW}⚠ Key missing: Skipping pubkey check${NC}"
+    fi
+  fi
+
+  # Expiration
+  EXP=$(openssl x509 -in "$CERT" -enddate -noout 2>/dev/null | cut -d= -f2 || echo "N/A")
+  if [[ $QUIET -eq 0 ]]; then
+    echo "  Expires: $EXP"
+  fi
+
+  # Basic parse
+  if openssl x509 -in "$CERT" -text -noout >/dev/null 2>&1; then
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${GREEN}✓ Cert parses OK${NC}"
+    fi
+  else
+    ((ERROR_COUNT++))
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${RED}✗ Cert invalid${NC}"
+    fi
+  fi
+
+  # Self-signing or issuer
+  ISSUER=$(openssl x509 -in "$CERT" -issuer_hash -noout 2>/dev/null || echo "")
+  SUBJECT=$(openssl x509 -in "$CERT" -subject_hash -noout 2>/dev/null || echo "")
+  if [[ "$ISSUER" == "$SUBJECT" && -n "$ISSUER" ]]; then
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${GREEN}✓ Self-signed (root)${NC}"
+    fi
+  elif [[ -n "$ISSUER" ]]; then
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${YELLOW}ℹ Intermediate: Issuer hash $ISSUER${NC}"
+    fi
+  fi
+
+  # Chain
+  if [[ -f "$CHAIN" ]]; then
+    if openssl crl2pkcs7 -nocrl -certfile "$CHAIN" -outform pem >/dev/null 2>&1; then
+      COUNT=$(openssl crl2pkcs7 -nocrl -certfile "$CHAIN" -outform pem 2>/dev/null | grep -c "BEGIN CERTIFICATE" || echo "0")
+      if [[ $QUIET -eq 0 ]]; then
+        echo "  ${GREEN}✓ Chain parses ($COUNT certs)${NC}"
+      fi
+    else
+      ((ERROR_COUNT++))
+      if [[ $QUIET -eq 0 ]]; then
+        echo "  ${RED}✗ Chain invalid${NC}"
+      fi
+    fi
+  fi
+done
+
+# System Trust Update
+if [[ $QUIET -eq 0 ]]; then
+  echo "${GREEN}=== System Trust Update ===${NC}"
+fi
+if command -v update-ca-trust >/dev/null 2>&1; then
+  if sudo update-ca-trust extract >/dev/null 2>&1; then
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${GREEN}✓ RHEL/Fedora CA bundle updated${NC}"
+    fi
+  else
+    ((WARN_COUNT++))
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${YELLOW}⚠ CA update failed${NC}"
+    fi
+  fi
+elif command -v update-ca-certificates >/dev/null 2>&1; then
+  if sudo update-ca-certificates --fresh >/dev/null 2>&1; then
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${GREEN}✓ Debian/Ubuntu CA bundle updated${NC}"
+    fi
+  else
+    ((WARN_COUNT++))
+    if [[ $QUIET -eq 0 ]]; then
+      echo "  ${YELLOW}⚠ CA update failed${NC}"
+    fi
+  fi
+else
+  ((WARN_COUNT++))
+  if [[ $QUIET -eq 0 ]]; then
+    echo "  ${YELLOW}⚠ No CA update tool found${NC}"
+  fi
+fi
+
+# Cleanup
+rm -f /tmp/*_pub.tmp
+
+# Summary log (always append)
+SUMMARY_FILE="/tmp/pki_validation_summary.log"
+echo "$(date): Validation: Errors=$ERROR_COUNT, Warnings=$WARN_COUNT, Cert/Key Dirs=>${CERT_DIR}/${KEY_DIR}" >> "$SUMMARY_FILE"
+
+# Final status
+if [[ $ERROR_COUNT -gt 0 ]]; then
+  if [[ $QUIET -eq 0 ]]; then
+    echo "${RED}Validation failed: $ERROR_COUNT errors, $WARN_COUNT warnings${NC}"
+  fi
+  exit 1
+elif [[ $WARN_COUNT -gt 0 ]]; then
+  if [[ $QUIET -eq 0 ]]; then
+    echo "${YELLOW}Validation passed with $WARN_COUNT warnings${NC}"
+  fi
+  exit 0
+else
+  if [[ $QUIET -eq 0 ]]; then
+    echo "${GREEN}Validation complete!${NC}"
+  fi
+  exit 0
+fi
+
+{% endraw %}
