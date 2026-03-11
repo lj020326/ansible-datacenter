@@ -3,27 +3,27 @@
   ansible.builtin.include_tasks: dependencies.yml
 
 - name: Include NVIDIA GPU setup tasks
+  when: bootstrap_llm_host__install_nvidia
   ansible.builtin.include_tasks: nvidia.yml
-  when: bootstrap_llm_server__install_nvidia
 
 - name: Include Ollama installation tasks
   ansible.builtin.include_tasks: ollama.yml
 
 - name: Include model download tasks
+  when: bootstrap_llm_host__download_models
   ansible.builtin.include_tasks: models.yml
-  when: bootstrap_llm_server__download_models
 
 - name: Include WebUI installation tasks
+  when: bootstrap_llm_host__install_open_webui or bootstrap_llm_host__install_ollama_webui
   ansible.builtin.include_tasks: webui.yml
-  when: bootstrap_llm_server__install_open_webui or bootstrap_llm_server__install_ollama_webui
 
-- name: Include Nginx configuration tasks
-  ansible.builtin.include_tasks: nginx.yml
-  when: bootstrap_llm_server__configure_nginx
+- name: Include reverse proxy configuration tasks
+  when: bootstrap_llm_host__configure_proxy
+  ansible.builtin.include_tasks: proxy.yml
 
 - name: Include firewall configuration tasks
+  when: bootstrap_llm_host__configure_firewall
   ansible.builtin.include_tasks: firewall.yml
-  when: bootstrap_llm_server__configure_firewall
 
 - name: Display server information
   ansible.builtin.debug:
@@ -33,22 +33,19 @@
       ===============================================
 
       Services:
-      - Ollama API: http://localhost:{{ bootstrap_llm_server__ollama_port }}
-      - Web UI: http://localhost:{{ bootstrap_llm_server__webui_port }}
-      - Nginx Proxy: http://localhost:{{ bootstrap_llm_server__nginx_port }}
+      - Ollama API: http://localhost:{{ bootstrap_llm_host__ollama_port }}
+      - Web UI: http://localhost:{{ bootstrap_llm_host__webui_port }}
+      - Nginx Proxy: http://localhost:{{ bootstrap_llm_host__proxy_port }}
 
       Models configured:
-      {% for model in bootstrap_llm_server__deepseek_models %}
-      - {{ model }}
-      {% endfor %}
-      {% for model in bootstrap_llm_server__additional_models %}
+      {% for model in bootstrap_llm_host__models %}
       - {{ model }}
       {% endfor %}
 
       Management:
       - Use 'llm-server' command for management
       - Check logs: journalctl -u ollama -f
-      - Model location: {{ bootstrap_llm_server__ollama_home }}/.ollama/models
+      - Model location: {{ bootstrap_llm_host__ollama_home }}/.ollama/models
 
       Next steps:
       1. Access the web UI at http://localhost

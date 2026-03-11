@@ -1,0 +1,46 @@
+---
+# Nginx Implementation
+- name: Configure Nginx Proxy
+  when: bootstrap_llm_host__proxy_type == 'nginx'
+  block:
+    - name: Create Nginx configuration for LLM server
+      ansible.builtin.template:
+        src: nginx-llm-server.conf.j2
+        dest: /etc/nginx/sites-available/llm-server
+        mode: "0644"
+      notify: Restart nginx
+
+    - name: Enable Nginx site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/llm-server
+        dest: /etc/nginx/sites-enabled/llm-server
+        state: link
+
+    - name: Remove default Nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Restart nginx
+
+    - name: Enable and start Nginx service
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: true
+        state: started
+
+# Traefik Implementation
+- name: Configure Traefik Proxy
+  when: bootstrap_llm_host__proxy_type == 'traefik'
+  block:
+    - name: Create Traefik dynamic configuration directory
+      ansible.builtin.file:
+        path: /etc/traefik/conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Deploy Traefik dynamic configuration
+      ansible.builtin.template:
+        src: traefik-llm-server.yml.j2
+        dest: "{{ bootstrap_llm_host__traefik_config_path }}/llm-server.yml"
+        mode: "0644"
+      notify: Reload traefik

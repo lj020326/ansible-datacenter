@@ -26,7 +26,7 @@ __docker_stack__media__bazarr_image: "{{ docker_stack__media__bazarr_image | d('
 #__docker_stack__media__readarr_image: "{{ docker_stack__media__readarr_image | d('lscr.io/linuxserver/readarr:latest') }}"
 #__docker_stack__media__readarr_image: "{{ docker_stack__media__readarr_image | d('lscr.io/linuxserver/readarr:nightly') }}"
 #__docker_stack__media__readarr_image: "{{ docker_stack__media__readarr_image | d('lscr.io/linuxserver/readarr:0.4.18-develop') }}"
-__docker_stack__media__readarr_image: "{{ docker_stack__media__readarr_image | d('blampe/rreading-glasses') }}"
+__docker_stack__media__readarr_image: "{{ docker_stack__media__readarr_image | d('ghcr.io/pennydreadful/bookshelf:hardcover') }}"
 
 #__docker_stack__media__lazylibrarian_image: "lscr.io/linuxserver/lazylibrarian:latest"
 __docker_stack__media__lazylibrarian_image: "{{ docker_stack__media__readarr_image | d('lscr.io/linuxserver/lazylibrarian:latest') }}"
@@ -239,6 +239,8 @@ __docker_stack__media__config_dirs:
   - path: "{{ __docker_stack__media__music_path }}"
   - path: "{{ __docker_stack__media__music_unmanaged_path }}"
   - path: "{{ __docker_stack__media__books_path }}"
+  - path: "{{ __docker_stack__media__books_path }}/readarr"
+  - path: "{{ __docker_stack__media__books_path }}/lazylibrarian"
   - path: "{{ __docker_stack__media__photos_path }}"
   - path: "{{ __docker_stack__media__path }}/makemkv/output"
   - path: "{{ __docker_stack__media__downloads }}"
@@ -677,7 +679,6 @@ __docker_stack__media__services:
   rreading-glasses-db:
     image: postgres:17
     container_name: rreading-glasses-db
-#    hostname: rreading-glasses-db
     restart: unless-stopped
     network_mode: service:openvpn
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
@@ -690,6 +691,37 @@ __docker_stack__media__services:
     volumes:
       - "{{ __docker_stack__media__config_dir }}/rreading-glasses-db/data:/var/lib/postgresql/data"
 
+  reading-glasses:
+    image: blampe/rreading-glasses:latest
+#    image: blampe/rreading-glasses:hardcover
+    container_name: reading-glasses
+    entrypoint: ["/main", "serve"]
+    command:
+      - --upstream=www.goodreads.com
+      - --verbose
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      ## app envs
+      PUID: "{{ docker_stack__user_uid }}"
+      PGID: "{{ docker_stack__user_gid }}"
+      TZ: "{{ docker_stack__timezone }}"
+      DOTNET_SYSTEM_NET_DISABLEIPV6: true
+      DOTNET_EnableIPv6: false
+      # Only used for Hardcover. Starts with Bearer
+      HARDCOVER_AUTH: "{{ __docker_stack__media__hardcover_token }}"
+      POSTGRES_HOST: localhost
+      POSTGRES_DATABASE: rreading-glasses
+      POSTGRES_USER: rreading-glasses
+      POSTGRES_PASSWORD: "{{ __docker_stack__media__postgres_password }}"
+    depends_on:
+      - openvpn
+      - rreading-glasses-db
+    network_mode: service:openvpn
+    labels: "{{ __docker_stack__media_rglasses__traefik_labels }}"
+    volumes:
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+
   readarr:
     image: "{{ __docker_stack__media__readarr_image }}"
     container_name: readarr
@@ -701,17 +733,9 @@ __docker_stack__media__services:
       DOTNET_EnableIPv6: false
       # Only used for Hardcover. Starts with Bearer
       #      HARDCOVER_AUTH: "{{ __docker_stack__media__hardcover_token }}"
-      POSTGRES_HOST: rreading-glasses-db
-      POSTGRES_DATABASE: rreading-glasses
-      POSTGRES_USER: rreading-glasses
-      POSTGRES_PASSWORD: "{{ __docker_stack__media__postgres_password }}"
-    #    networks:
-    #      - "{{ docker_stack__network_name__traefik_proxy }}"
-    #      ports:
-    #        - 5299:5299
     depends_on:
       - openvpn
-      - rreading-glasses-db
+      - rreading-glasses
     network_mode: service:openvpn
     restart: unless-stopped
     volumes:
@@ -731,7 +755,9 @@ __docker_stack__media__services:
       PUID: "{{ docker_stack__user_uid }}"
       PGID: "{{ docker_stack__user_gid }}"
       TZ: "{{ docker_stack__timezone }}"
-      DOCKER_MODS: lscr.io/linuxserver/calibre-web:calibre #optional
+#      # optional
+#      DOCKER_MODS: lscr.io/linuxserver/calibre-web:calibre
+#      DOCKER_MODS: linuxserver/mods:universal-calibre|linuxserver/mods:lazylibrarian-ffmpeg
     #      ports:
     #        - 5299:5299
     depends_on:
@@ -741,7 +767,8 @@ __docker_stack__media__services:
     volumes:
       - "{{ __docker_stack__media__config_dir }}/lazylibrarian:/config"
       - "{{ __docker_stack__media__downloads }}:/downloads"
-      - "{{ __docker_stack__media__books_path }}/readarr:/books"
+#      - "{{ __docker_stack__media__books_path }}/readarr:/books"
+      - "{{ __docker_stack__media__books_path }}/lazylibrarian:/books"
       - "{{ __docker_stack__media__config_dir }}/shared:/shared"
       #        - "{{ __docker_stack__media__nas_path }}:/remote_media"
       - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
@@ -812,34 +839,6 @@ __docker_stack__media__services:
 #      DISPLAY_HEIGHT: 1080
     labels: "{{ __docker_stack__media_dupeguru__traefik_labels }}"
 
-  # Calibre-web  – Ebooks and Management (Plex of Ebooks)
-  calibre-web:
-#    active: false
-    image: lscr.io/linuxserver/calibre-web:latest
-    container_name: calibre-web
-    restart: unless-stopped
-    networks:
-      - "{{ docker_stack__network_name__traefik_proxy }}"
-    security_opt:
-      - no-new-privileges=true
-    # ports:
-    #  - "$CALIBRE_WEB_PORT:8083"
-    volumes:
-      - "{{ __docker_stack__media__config_dir }}/calibre-web:/config"
-      # - /media/ds918/media/books:/books
-      # - add path to calibre books folder
-      #- $DOCKERDIR/calibre/books:/books:rw
-      - "{{ __docker_stack__media__books_path }}:/books"
-      - "{{ __docker_stack__media__config_dir }}/shared:/shared"
-    environment:
-      PUID: "{{ docker_stack__user_uid }}"
-      PGID: "{{ docker_stack__user_gid }}"
-      TZ: "{{ docker_stack__timezone }}"
-      # set the path to converter tool to /app/calibre/ebook-convert
-      DOCKER_MODS: lscr.io/linuxserver/calibre-web:calibre
-      UMASK: "002"
-    labels: "{{ __docker_stack__media_calibreweb__traefik_labels }}"
-
   # Calibre  – Ebooks and Management (Server)
   ## ref: https://github.com/linuxserver/docker-calibre
   calibre:
@@ -847,15 +846,18 @@ __docker_stack__media__services:
     image: lscr.io/linuxserver/calibre:latest
     container_name: calibre
     restart: unless-stopped
-    networks:
-      - "{{ docker_stack__network_name__traefik_proxy }}"
+    depends_on:
+      - openvpn
+    network_mode: service:openvpn
+    devices:
+      - /dev/dri:/dev/dri
     security_opt:
-      - seccomp=unconfined #optional
+      - seccomp=unconfined
 #      - no-new-privileges=true
-    ports:
-      - "{{ __docker_stack__media__calibre_server_port }}:8081" # Webserver GUI
-      - "{{ __docker_stack__media__calibre_gui_port }}:8080" # Desktop GUI
-#      - "{{ __docker_stack__media__calibre_gui_https_port }}:8181" # Desktop GUI https
+#    ports:
+#      - "{{ __docker_stack__media__calibre_server_port }}:8081" # Webserver GUI
+#      - "{{ __docker_stack__media__calibre_gui_port }}:8080" # Desktop GUI
+##      - "{{ __docker_stack__media__calibre_gui_https_port }}:8181" # Desktop GUI https
     volumes:
       - "{{ __docker_stack__media__config_dir }}/calibre:/config"
 #      - "{{ __docker_stack__media__books_path }}/calibre:/books"
@@ -871,7 +873,39 @@ __docker_stack__media__services:
       # GUAC_PASS: 900150983cd24fb0d6963f7d28e17f72
       UMASK_SET: "002" #optional
       # CLI_ARGS: #optional
+      NO_GAMEPAD: true
+      PIXELFLUX_WAYLAND: true
+      # Optional: Specify device if multiple exist (IE: /dev/dri/renderD129)
+      DRINODE: /dev/dri/renderD128
+      DRI_NODE: /dev/dri/renderD128
     labels: "{{ __docker_stack__media_calibre__traefik_labels }}"
+
+  # Calibre-web  – Ebooks and Management (Plex of Ebooks)
+  calibre-web:
+#    active: false
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    restart: unless-stopped
+    depends_on:
+      - openvpn
+    network_mode: service:openvpn
+    security_opt:
+      - no-new-privileges=true
+    # ports:
+    #  - "$CALIBRE_WEB_PORT:8083"
+    environment:
+      PUID: "{{ docker_stack__user_uid }}"
+      PGID: "{{ docker_stack__user_gid }}"
+      TZ: "{{ docker_stack__timezone }}"
+      # set the path to converter tool to /app/calibre/ebook-convert
+      DOCKER_MODS: lscr.io/linuxserver/calibre-web:calibre
+      UMASK: "002"
+    volumes:
+      - "{{ __docker_stack__media__config_dir }}/calibre-web:/config"
+      # - add path to calibre books folder
+      - "{{ __docker_stack__media__books_path }}:/books"
+      - "{{ __docker_stack__media__config_dir }}/shared:/shared"
+    labels: "{{ __docker_stack__media_calibreweb__traefik_labels }}"
 
   # AirSonic - Music Server
   airsonic:

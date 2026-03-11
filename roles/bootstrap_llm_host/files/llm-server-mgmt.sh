@@ -1,7 +1,7 @@
 #!/bin/bash
 # LLM Server Management Script
 
-OLLAMA_USER="{{ bootstrap_llm_server__ollama_user }}"
+OLLAMA_USER="{{ bootstrap_llm_host__ollama_user }}"
 
 case "$1" in
     list-models)
@@ -23,25 +23,25 @@ case "$1" in
         ;;
     status)
         systemctl status ollama
-        {% if bootstrap_llm_server__install_open_webui %}
+        {% if bootstrap_llm_host__install_open_webui %}
         systemctl status open-webui
         {% endif %}
-        {% if bootstrap_llm_server__install_ollama_webui %}
+        {% if bootstrap_llm_host__install_ollama_webui %}
         systemctl status ollama-webui
         {% endif %}
-        {% if bootstrap_llm_server__configure_nginx %}
+        {% if bootstrap_llm_host__configure_proxy %}
         systemctl status nginx
         {% endif %}
         ;;
     restart)
         systemctl restart ollama
-        {% if bootstrap_llm_server__install_open_webui %}
+        {% if bootstrap_llm_host__install_open_webui %}
         systemctl restart open-webui
         {% endif %}
-        {% if bootstrap_llm_server__install_ollama_webui %}
+        {% if bootstrap_llm_host__install_ollama_webui %}
         systemctl restart ollama-webui
         {% endif %}
-        {% if bootstrap_llm_server__configure_nginx %}
+        {% if bootstrap_llm_host__configure_proxy %}
         systemctl restart nginx
         {% endif %}
         ;;

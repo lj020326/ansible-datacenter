@@ -74,6 +74,7 @@ $ ansibledebugvar control01 group_names
 More `ansibledebugvar` examples:
 ```shell
 $ ansibledebugvar localhost groups[\'docker_stack_admin\']
+$ ansibledebugvar gpu01 group_names
 $ ansibledebugvar admin01 group_names
 $ ansibledebugvar admin01 ca_domain
 $ ansibledebugvar admin01 ca_subdomain

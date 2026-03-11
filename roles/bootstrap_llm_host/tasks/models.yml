@@ -1,0 +1,93 @@
+---
+
+- name: Models | Set __models_normalized
+  ansible.builtin.set_fact:
+    __models_normalized: "{{ bootstrap_llm_host__models
+      | map('combine', {'type': item.type | d('pull')})
+      | selectattr('type', 'defined')
+      | list }}"
+
+- name: Models | Display __models_normalized
+  ansible.builtin.debug:
+    var: __models_normalized
+
+- name: Models | Ensure model storage directory exists and has correct ownership
+  ansible.builtin.file:
+    path: "{{ bootstrap_llm_host__model_storage }}"
+    state: directory
+    owner: "{{ bootstrap_llm_host__ollama_user }}"
+    group: "{{ bootstrap_llm_host__ollama_user }}"
+    mode: '0755'
+  become: true
+
+- name: Models | Validate model tags against Ollama registry
+  ansible.builtin.uri:
+    url: "https://registry.ollama.ai/v2/library/{{ (item.name.split(':') | first) }}/manifests/{{
+      (item.name.split(':') | last) if ':' in item.name else 'latest' }}"
+    method: GET
+    return_content: false
+    status_code: 200
+  loop: "{{ __models_normalized | selectattr('type', 'equalto', 'pull') | list }}"
+  register: __model_validation
+  delegate_to: localhost
+  run_once: true
+  # IMPORTANT: Allow the task to complete the loop so we can inspect results in the next step
+  ignore_errors: true
+
+- name: Models | Assert all models exist in registry
+  when: item.status is defined
+  no_log: true
+  ansible.builtin.assert:
+    that: item.status == 200
+    fail_msg: "Model '{{ item.item.name }}' not found in Ollama registry. Please check for typos (e.g., qwen2.5 vs qwen3)."
+  loop: "{{ __model_validation.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Models | Pull standard Ollama models
+  when: __models_normalized | selectattr('type', 'equalto', 'pull') | list | length > 0
+  ansible.builtin.shell: |
+    sudo -u {{ bootstrap_llm_host__ollama_user }} /usr/local/bin/ollama pull {{ item.name }}
+  loop: "{{ __models_normalized | selectattr('type', 'equalto', 'pull') | list }}"
+  async: "{{ bootstrap_llm_host__model_download_timeout }}"
+  poll: 0
+  register: __model_pulls
+  changed_when: true
+
+- name: Models | Wait for all async model pulls to complete
+  when: item.ansible_job_id is defined
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: __pull_results
+  until: __pull_results.finished
+  retries: 120
+  delay: 30
+  loop: "{{ __model_pulls.results | default([]) }}"
+
+- name: Models | Create custom models from Modelfile
+  when: __models_normalized | selectattr('type', 'equalto', 'custom') | list | length > 0
+  block:
+    - name: Models | Create Modelfile for custom models
+      ansible.builtin.template:
+        src: custom.modelfile.j2
+        dest: "/tmp/{{ item.id }}.Modelfile"
+        mode: "0644"
+      loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
+      loop_control:
+        loop_var: __bootstrap_llm_host__custom_model
+
+    - name: Models | Create custom Ollama models
+      ansible.builtin.command: >
+        sudo -u {{ bootstrap_llm_host__ollama_user }}
+        /usr/local/bin/ollama create {{ item.name }}
+        -f /tmp/{{ item.name }}.Modelfile
+      loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
+      changed_when: true
+      environment: "{{ item.environment | default({}) | combine({'OLLAMA_MODELS': bootstrap_llm_host__model_storage}) }}"
+
+# Optional: Clean up temp Modelfiles
+- name: Models | Clean up temporary Modelfiles
+  ansible.builtin.file:
+    path: "/tmp/{{ item.name }}.Modelfile"
+    state: absent
+  loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"

@@ -1,0 +1,118 @@
+---
+- name: WebUI | Create webui user
+  ansible.builtin.user:
+    name: "{{ bootstrap_llm_host__webui_user }}"
+    home: "{{ bootstrap_llm_host__webui_home }}"
+    shell: /bin/bash
+    system: false
+    create_home: true
+
+- name: WebUI | Install Open WebUI
+  when: bootstrap_llm_host__install_open_webui
+  block:
+
+    - name: WebUI | Create virtual environment for Open WebUI
+      ansible.builtin.pip:
+        name: pip
+        virtualenv: /opt/open-webui-venv
+        virtualenv_command: python3 -m venv
+
+    - name: WebUI | Create temporary build directory
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ bootstrap_llm_host__webui_user }}"
+        group: "{{ bootstrap_llm_host__webui_user }}"
+        mode: '0755'
+      loop:
+        - "{{ bootstrap_llm_host__webui_tmpdir }}"
+        - "/home/{{ bootstrap_llm_host__webui_user }}/.cache/pip"
+
+    - name: WebUI | Install Open WebUI in virtual environment
+      ansible.builtin.pip:
+        name: open-webui
+        state: present
+        virtualenv: "{{ bootstrap_llm_host__webui_venv_dir }}"
+#        extra_args: --no-cache-dir
+        # 1. Use --cache-dir to move the download cache
+        # 2. Use --build to move the build/unpack location
+        extra_args: >-
+          --cache-dir=/home/{{ bootstrap_llm_host__webui_user }}/.cache/pip
+          --no-cache-dir
+      environment:
+        # Use a directory on the large / partition instead of the 1G RAM disk
+        # 3. Keep these as a fallback for the shell environment
+        TMPDIR: "{{ bootstrap_llm_host__webui_tmpdir }}"
+        TEMP: "{{ bootstrap_llm_host__webui_tmpdir }}"
+        TMP: "{{ bootstrap_llm_host__webui_tmpdir }}"
+      become: true
+      become_user: "{{ bootstrap_llm_host__webui_user }}"
+
+#    - name: WebUI | Install pipx
+#      ansible.builtin.apt:
+#        name: pipx
+#        state: present
+#
+#    - name: WebUI | Install Open WebUI using pipx
+#      community.general.pipx:
+#        name: open-webui
+#        state: latest
+#        pip_args: "--no-cache-dir"
+
+    - name: WebUI | Create Open WebUI systemd service
+      ansible.builtin.template:
+        src: open-webui.service.j2
+        dest: /etc/systemd/system/open-webui.service
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart open-webui
+
+    - name: WebUI | Enable and start Open WebUI service
+      ansible.builtin.systemd:
+        name: open-webui
+        enabled: true
+        state: started
+        daemon_reload: true
+
+- name: WebUI | Install Ollama WebUI
+  when: bootstrap_llm_host__install_ollama_webui
+  block:
+    - name: WebUI | Clone Ollama Web UI repository
+      become_user: "{{ bootstrap_llm_host__webui_user }}"
+      become: true
+      ansible.builtin.git:
+        repo: https://github.com/ollama-webui/ollama-webui.git
+        dest: "{{ bootstrap_llm_host__webui_home }}/ollama-webui"
+        version: main
+
+    - name: WebUI | Install Ollama Web UI dependencies
+      become_user: "{{ bootstrap_llm_host__webui_user }}"
+      become: true
+      community.general.npm:
+        path: "{{ bootstrap_llm_host__webui_home }}/ollama-webui"
+        state: present
+
+    - name: WebUI | Build Ollama Web UI
+      become_user: "{{ bootstrap_llm_host__webui_user }}"
+      become: true
+      ansible.builtin.shell: |
+        cd {{ bootstrap_llm_host__webui_home }}/ollama-webui
+        npm run build
+      changed_when: true
+
+    - name: WebUI | Create Ollama Web UI systemd service
+      ansible.builtin.template:
+        src: ollama-webui.service.j2
+        dest: /etc/systemd/system/ollama-webui.service
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart ollama-webui
+
+    - name: WebUI | Enable and start Ollama Web UI service
+      ansible.builtin.systemd:
+        name: ollama-webui
+        enabled: true
+        state: started
+        daemon_reload: true
