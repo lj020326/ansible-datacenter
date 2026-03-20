@@ -1,10 +1,19 @@
 ---
+
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_facts['distribution'] | lower() }}-{{ ansible_facts['distribution_major_version'] | lower() }}.yml"
+    - "{{ ansible_facts['distribution'] | lower() }}.yml"
+    - "{{ ansible_facts['os_family'] | lower() }}.yml"
+
 - name: Include dependency installation tasks
   ansible.builtin.include_tasks: dependencies.yml
 
-- name: Include NVIDIA GPU setup tasks
-  when: bootstrap_llm_host__install_nvidia
-  ansible.builtin.include_tasks: nvidia.yml
+- name: Install GPU hardware drivers
+  when: bootstrap_llm_host__install_gpu_drivers
+  ansible.builtin.include_role:
+    name: bootstrap_gpu_drivers
 
 - name: Include Ollama installation tasks
   ansible.builtin.include_tasks: ollama.yml
@@ -33,13 +42,13 @@
       ===============================================
 
       Services:
-      - Ollama API: http://localhost:{{ bootstrap_llm_host__ollama_port }}
-      - Web UI: http://localhost:{{ bootstrap_llm_host__webui_port }}
-      - Nginx Proxy: http://localhost:{{ bootstrap_llm_host__proxy_port }}
+      - Ollama API: http://{{ bootstrap_llm_host__server_name }}:{{ bootstrap_llm_host__ollama_port }}
+      - Web UI: http://{{ bootstrap_llm_host__server_name }}:{{ bootstrap_llm_host__webui_port }}
+      - Nginx Proxy: http://{{ bootstrap_llm_host__server_name }}:{{ bootstrap_llm_host__proxy_port }}
 
       Models configured:
       {% for model in bootstrap_llm_host__models %}
-      - {{ model }}
+      - {{ model.name }}
       {% endfor %}
 
       Management:

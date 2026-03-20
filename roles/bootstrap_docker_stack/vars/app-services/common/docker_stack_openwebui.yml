@@ -1,0 +1,102 @@
+---
+
+__docker_stack__openwebui__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__openwebui__base_dir_default: "{{ __docker_stack__openwebui__stack_dir }}/openwebui"
+__docker_stack__openwebui__base_dir: "{{ docker_stack__openwebui__dir | d(__docker_stack__openwebui__base_dir_default) }}"
+__docker_stack__openwebui__data_dir: "{{ __docker_stack__openwebui__base_dir }}/data"
+
+# https://github.com/openwebui/openwebui/blob/main/scripts/docker/Dockerfile
+__docker_stack__openwebui__image_default: "ghcr.io/open-webui/open-webui:main"
+__docker_stack__openwebui__image: "{{ docker_stack__openwebui__image | d(__docker_stack__openwebui__image_default) }}"
+
+# Host address
+__docker_stack__openwebui__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__openwebui__host_addr_default: "openwebui.{{ __docker_stack__openwebui__domain }}"
+__docker_stack__openwebui__host_addr: "{{ docker_stack__openwebui__host_addr
+  | d(__docker_stack__openwebui__host_addr_default) }}"
+
+# Listener bind ports
+__docker_stack__openwebui__http_port: "{{ docker_stack__openwebui__http_port | d('2080') }}"
+__docker_stack__openwebui__internal_http_port: "8080"
+
+#__docker_stack__openwebui__ollama_host_default: "{{ __docker_stack__openwebui__host_addr }}"
+__docker_stack__openwebui__ollama_host_default: "host.docker.internal"
+__docker_stack__openwebui__ollama_host: "{{ docker_stack__openwebui__ollama_host
+  | d(__docker_stack__openwebui__ollama_host_default) }}"
+
+__docker_stack__openwebui__ollama_port_default: "11434"
+__docker_stack__openwebui__ollama_port: "{{ docker_stack__openwebui__ollama_port
+  | d(__docker_stack__openwebui__ollama_port_default) }}"
+
+__docker_stack__openwebui__ollama_base_url_default: "http://{{ __docker_stack__openwebui__ollama_host }}:{{
+  __docker_stack__openwebui__ollama_port }}"
+__docker_stack__openwebui__ollama_base_url: "{{ docker_stack__openwebui__ollama_base_url
+  | d(__docker_stack__openwebui__ollama_base_url_default) }}"
+
+__docker_stack__openwebui__config_dirs:
+  - path: "{{ __docker_stack__openwebui__base_dir }}"
+  - path: "{{ __docker_stack__openwebui__data_dir }}"
+
+__docker_stack__openwebui__config_tpls:
+  - src: openwebui/openwebui.env.j2
+    dest: "{{ __docker_stack__openwebui__base_dir }}/openwebui.env"
+
+__docker_stack__openwebui__secret_key: "{{ docker_stack__openwebui__secret_key
+  | d('CHANGEME123') }}"
+
+__docker_stack__openwebui__secrets:
+  - name: openwebui_secret_key
+    value: "{{ __docker_stack__openwebui__secret_key }}"
+
+__docker_stack__openwebui__firewalld_ports:
+  - "{{ __docker_stack__openwebui__http_port }}/tcp"
+
+docker_stack__appspec__openwebui:
+  dirs: "{{ __docker_stack__openwebui__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__openwebui__config_files | d([]) }}"
+  templates: "{{ __docker_stack__openwebui__config_tpls | d([]) }}"
+  secrets: "{{ __docker_stack__openwebui__secrets | d({}) }}"
+  firewalld_services: "{{ __docker_stack__openwebui__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__openwebui__firewalld_ports | d([]) }}"
+  docker_services: "{{ __docker_stack__openwebui__services | d({}) }}"
+
+__docker_stack__openwebui__traefik_labels: "{{ docker_stack__openwebui__traefik_labels
+  | d(__docker_stack__openwebui__traefik_labels_default) }}"
+
+__docker_stack__openwebui__services:
+
+  ## https://hub.docker.com/r/openwebui/openwebui
+  ## https://github.com/openwebui/openwebui/blob/main/scripts/docker/Dockerfile
+  ## https://github.com/open-horizon/devops/blob/master/mgmt-hub/docker-compose.yml
+  openwebui:
+    container_name: openwebui
+    image: "{{ __docker_stack__openwebui__image }}"
+    env_file:
+      - openwebui/openwebui.env
+    secrets:
+      - openwebui_secret_key
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    volumes:
+#      - /etc/timezone:/etc/timezone:ro
+#      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__openwebui__data_dir }}:/app/backend/data"
+    ports:
+      - "{{ __docker_stack__openwebui__http_port }}:{{ __docker_stack__openwebui__internal_http_port }}"
+    labels: "{{ __docker_stack__openwebui__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first

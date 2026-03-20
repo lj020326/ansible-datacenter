@@ -1,0 +1,47 @@
+---
+name: KICS Lint
+permissions:
+  contents: read
+  checks: write
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  kics_lint:
+    name: KICS-Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Create results directory
+        run: mkdir -p .test-results
+
+      - name: Run KICS scan
+        uses: checkmarx/kics-action@v2
+        with:
+          path: "."
+          output_path: ".test-results"
+          # KICS will generate: junit.xml, json.json, and html.html in the output_path
+          output_formats: "junit,json,html"
+          config_path: ".kics-config.yml"
+          ignore_on_exit: "results"
+          enable_annotations: true
+          fail_on: high,medium
+
+      # Debug step to verify file names if it fails again
+      - name: List results
+        if: always()
+        run: ls -R .test-results
+
+      - name: Publish KICS-Lint Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          # Changed from results.xml to junit.xml
+          files: .test-results/junit.xml
+          check_name: KICS-Lint Results
+          action_fail: true
+          fail_on: test failures

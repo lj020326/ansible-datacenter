@@ -1,0 +1,21 @@
+---
+
+#__docker_stack__openwebui__endpoint: "vault.{{ __docker_stack__openwebui__domain }}"
+
+__docker_stack__openwebui__traefik_labels_base_default:
+  - "traefik.enable=true"
+  - "traefik.http.routers.openwebui.entrypoints=https"
+  - "traefik.http.routers.openwebui.rule=Host(`{{ __docker_stack__openwebui__host_addr }}`)"
+  - "traefik.http.routers.openwebui.service=openwebui-svc"
+  # Add middleware to ensure X-Forwarded-Proto is set to https
+  - "traefik.http.services.openwebui-svc.loadbalancer.server.port={{ __docker_stack__openwebui__http_port }}"
+  - "traefik.http.services.openwebui-svc.loadbalancer.server.scheme=http"
+  # Define the middleware for setting X-Forwarded-Proto
+  - "traefik.http.middlewares.openwebui-forwarded-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+  - "traefik.http.middlewares.openwebui-forwarded-headers.headers.customrequestheaders.X-Forwarded-Host={{ __docker_stack__openwebui__internal_http_port }}"
+
+__docker_stack__openwebui__traefik_labels_default: >-
+  {{
+    __docker_stack__openwebui__traefik_labels_base_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}

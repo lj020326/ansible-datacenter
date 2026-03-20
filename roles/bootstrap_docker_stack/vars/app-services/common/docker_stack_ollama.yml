@@ -1,0 +1,99 @@
+---
+
+__docker_stack__ollama__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__ollama__base_dir_default: "{{ __docker_stack__ollama__stack_dir }}/ollama"
+__docker_stack__ollama__base_dir: "{{ docker_stack__ollama__dir | d(__docker_stack__ollama__base_dir_default) }}"
+__docker_stack__ollama__data_dir: "{{ __docker_stack__ollama__base_dir }}/data"
+
+__docker_stack__ollama__image_default: "ollama/ollama:latest"
+__docker_stack__ollama__image: "{{ docker_stack__ollama__image | d(__docker_stack__ollama__image_default) }}"
+
+# Host address
+__docker_stack__ollama__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__ollama__host_addr_default: "ollama.{{ __docker_stack__ollama__domain }}"
+__docker_stack__ollama__host_addr: "{{ docker_stack__ollama__host_addr
+  | d(__docker_stack__ollama__host_addr_default) }}"
+
+# Listener bind ports
+__docker_stack__ollama__http_port: "{{ docker_stack__ollama__http_port | d('11434') }}"
+__docker_stack__ollama__internal_http_port: "11434"
+
+#__docker_stack__ollama__ollama_host_default: "{{ __docker_stack__ollama__host_addr }}"
+__docker_stack__ollama__ollama_host_default: "host.docker.internal"
+__docker_stack__ollama__ollama_host: "{{ docker_stack__ollama__ollama_host
+  | d(__docker_stack__ollama__ollama_host_default) }}"
+
+__docker_stack__ollama__ollama_port_default: "11434"
+__docker_stack__ollama__ollama_port: "{{ docker_stack__ollama__ollama_port
+  | d(__docker_stack__ollama__ollama_port_default) }}"
+
+__docker_stack__ollama__ollama_base_url_default: "http://{{ __docker_stack__ollama__ollama_host }}:{{
+  __docker_stack__ollama__ollama_port }}"
+__docker_stack__ollama__ollama_base_url: "{{ docker_stack__ollama__ollama_base_url
+  | d(__docker_stack__ollama__ollama_base_url_default) }}"
+
+__docker_stack__ollama__config_dirs:
+  - path: "{{ __docker_stack__ollama__base_dir }}"
+  - path: "{{ __docker_stack__ollama__data_dir }}"
+
+__docker_stack__ollama__config_tpls:
+  - src: ollama/ollama.env.j2
+    dest: "{{ __docker_stack__ollama__base_dir }}/ollama.env"
+
+__docker_stack__ollama__secret_key: "{{ docker_stack__ollama__secret_key
+  | d('CHANGEME123') }}"
+
+__docker_stack__ollama__firewalld_ports:
+  - "{{ __docker_stack__ollama__http_port }}/tcp"
+
+docker_stack__appspec__ollama:
+  dirs: "{{ __docker_stack__ollama__config_dirs | d([]) }}"
+  files: "{{ __docker_stack__ollama__config_files | d([]) }}"
+  templates: "{{ __docker_stack__ollama__config_tpls | d([]) }}"
+  secrets: "{{ __docker_stack__ollama__secrets | d({}) }}"
+  firewalld_services: "{{ __docker_stack__ollama__firewalld_services | d([]) }}"
+  firewalld_ports: "{{ __docker_stack__ollama__firewalld_ports | d([]) }}"
+  docker_services: "{{ __docker_stack__ollama__services | d({}) }}"
+
+__docker_stack__ollama__traefik_labels: "{{ docker_stack__ollama__traefik_labels
+  | d(__docker_stack__ollama__traefik_labels_default) }}"
+
+__docker_stack__ollama__services:
+
+  ollama:
+    container_name: ollama
+    image: "{{ __docker_stack__ollama__image }}"
+#    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    env_file:
+      - ollama/ollama.env
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    volumes:
+#      - /etc/timezone:/etc/timezone:ro
+#      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__ollama__data_dir }}:/root/.ollama"
+    ports:
+      - "{{ __docker_stack__ollama__http_port }}:{{ __docker_stack__ollama__internal_http_port }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              # or device_ids: ["0"] if you want specific GPU
+              count: all
+              capabilities: [gpu]
