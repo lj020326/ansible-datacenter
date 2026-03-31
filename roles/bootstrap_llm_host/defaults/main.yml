@@ -1,7 +1,37 @@
 ---
+
+# Feature Flags
+bootstrap_llm_host__install_gpu_drivers: true
+bootstrap_llm_host__install_open_webui: true
+bootstrap_llm_host__install_ollama_webui: false
+bootstrap_llm_host__configure_firewall: true
+bootstrap_llm_host__download_models: true
+bootstrap_llm_host__configure_proxy: true
+
+# Proxy Configuration
+bootstrap_llm_host__proxy_port: "80"
+bootstrap_llm_host__proxy_type: traefik
+#bootstrap_llm_host__server_name: localhost
+bootstrap_llm_host__server_name: "{{ ansible_facts['fqdn'] | d(ansible_facts['hostname']) | d(ansible_host) }}"
+
+# Traefik specific (defaults)
+bootstrap_llm_host__traefik_entrypoint: web
+bootstrap_llm_host__traefik_config_path: "/etc/traefik/conf.d"
+#bootstrap_llm_host__traefik_archive_url: "https://github.com/traefik/traefik/releases/download/v3.3.4/traefik_v3.3.4_linux_amd64.tar.gz"
+bootstrap_llm_host__traefik_archive_url: "https://github.com/traefik/traefik/releases/download/v3.3.4/traefik_v3.3.4_linux_{{
+  'amd64' if ansible_facts['architecture'] == 'x86_64' else 'arm64' }}.tar.gz"
+
+# Nginx specific
+__bootstrap_llm_host__nginx_conf_path: "/etc/nginx/sites-available"
+__bootstrap_llm_host__nginx_enabled_path: "/etc/nginx/sites-enabled"
+
 # User Configuration
 bootstrap_llm_host__ollama_user: ollama
 bootstrap_llm_host__webui_user: webui
+
+# Paths
+bootstrap_llm_host__ollama_home: "/home/{{ bootstrap_llm_host__ollama_user }}"
+bootstrap_llm_host__webui_home: "/home/{{ bootstrap_llm_host__webui_user }}"
 
 # Service Configuration
 bootstrap_llm_host__ollama_port: "11434"
@@ -16,6 +46,12 @@ bootstrap_llm_host__model_storage: "{{ bootstrap_llm_host__ollama_home_dir }}/.o
 #bootstrap_llm_host__webui_venv_dir: "/opt/open-webui-venv"
 bootstrap_llm_host__webui_venv_dir: "/home/{{ bootstrap_llm_host__webui_user }}/open-webui-venv"
 bootstrap_llm_host__webui_tmpdir: "/home/{{ bootstrap_llm_host__webui_user }}/tmp"
+
+bootstrap_llm_host__webui_secret_key: "{{ lookup('community.general.random_string', length=32) }}"
+
+# Timeout Configuration
+bootstrap_llm_host__model_download_timeout: 3600
+bootstrap_llm_host__service_timeout: 300
 
 # Model Configurations
 bootstrap_llm_host__models: []
@@ -45,31 +81,6 @@ bootstrap_llm_host__models: []
 #  - name: "deepseek-coder:6.7b"
 #  - name: "deepseek-coder:1.3b"
 
-# Feature Flags
-bootstrap_llm_host__install_nvidia: true
-bootstrap_llm_host__install_open_webui: true
-bootstrap_llm_host__install_ollama_webui: false
-bootstrap_llm_host__configure_firewall: true
-bootstrap_llm_host__download_models: true
-
-# Proxy Configuration
-bootstrap_llm_host__configure_proxy: false
-bootstrap_llm_host__proxy_type: traefik
-bootstrap_llm_host__server_name: localhost
-bootstrap_llm_host__proxy_port: "80"
-
-# Traefik specific (defaults)
-bootstrap_llm_host__traefik_entrypoint: web
-bootstrap_llm_host__traefik_config_path: "/etc/traefik/conf.d"
-
-# Paths
-bootstrap_llm_host__ollama_home: /home/{{ bootstrap_llm_host__ollama_user }}
-bootstrap_llm_host__webui_home: /home/{{ bootstrap_llm_host__webui_user }}
-
-# Timeout Configuration
-bootstrap_llm_host__model_download_timeout: 3600
-bootstrap_llm_host__service_timeout: 300
-
 # System packages required
 bootstrap_llm_host__system_packages:
   - curl
@@ -81,10 +92,6 @@ bootstrap_llm_host__system_packages:
   - nodejs
   - npm
   - nginx
-  - ufw
-  - htop
-  - nvtop
-  - build-essential
 
 # NVIDIA packages
 #bootstrap_llm_host__nvidia_packages:

@@ -1,0 +1,104 @@
+---
+- name: NVIDIA | Get recommended driver version
+  ansible.builtin.shell: >
+    set -o pipefail;
+    ubuntu-drivers devices 2>/dev/null |
+    grep 'recommended' |
+    awk '{print $3}' |
+    sed 's/nvidia-driver-//' |
+    head -n 1
+  args:
+    executable: /bin/bash
+  register: __nvidia_recommended_version
+  changed_when: false
+  ignore_errors: true
+#  failed_when: false
+
+- name: NVIDIA | Display __nvidia_recommended_version
+  when: __nvidia_recommended_version.failed
+  ansible.builtin.debug:
+    var: __nvidia_recommended_version.stdout | d('')
+
+- name: NVIDIA | Display __nvidia_recommended_version.stdout
+  ansible.builtin.debug:
+    var: __nvidia_recommended_version.stdout | d('')
+
+- name: NVIDIA | Parse recommended branch and suffix
+  ansible.builtin.set_fact:
+    # Captures the leading digits (e.g., 580)
+    __detected_branch: "{{ __nvidia_recommended_version.stdout | regex_search('^\\d+') }}"
+    # Captures everything after the digits (e.g., -open or -server)
+    __detected_suffix: "{{ __nvidia_recommended_version.stdout | regex_replace('^\\d+', '') }}"
+
+- name: NVIDIA | Display __detected_branch
+  ansible.builtin.debug:
+    var: __detected_branch
+
+- name: NVIDIA | Display __detected_suffix
+  ansible.builtin.debug:
+    var: __detected_suffix
+
+- name: NVIDIA | Set final runtime branch and suffix
+  ansible.builtin.set_fact:
+    # Priority: 1. Manual override, 2. Detected branch, 3. Default (550)
+    __runtime_branch: "{{ bootstrap_gpu_drivers__nvidia_package_branch
+      | d(__detected_branch)
+      | d(bootstrap_gpu_drivers__nvidia_package_branch_default) }}"
+    # Priority: 1. Detected suffix, 2. Manual override suffix, 3. Empty string
+    __runtime_suffix: "{{ __detected_suffix
+      if (__detected_suffix | length > 0) else (bootstrap_gpu_drivers__nvidia_ubuntu_packages_suffix | d('')) }}"
+
+- name: NVIDIA | Display __runtime_branch
+  ansible.builtin.debug:
+    var: __runtime_branch
+
+- name: NVIDIA | Display __runtime_suffix
+  ansible.builtin.debug:
+    var: __runtime_suffix
+
+- name: NVIDIA | Ensure kernel headers and DKMS are present
+  ansible.builtin.apt:
+    name:
+      - "linux-headers-{{ ansible_facts['kernel'] }}"
+      - dkms
+      - mokutil
+    state: present
+    update_cache: true
+
+- name: NVIDIA | Check Secure Boot status
+  ansible.builtin.command: mokutil --sb-state
+  register: __secure_boot_status
+  changed_when: false
+  failed_when: false
+
+- name: NVIDIA | Warn if Secure Boot is enabled
+  ansible.builtin.debug:
+    msg: "WARNING: Secure Boot is ENABLED. Drivers will not load unless signed or Secure Boot is disabled in BIOS."
+  when: "'SecureBoot enabled' in __secure_boot_status.stdout"
+
+- name: NVIDIA | Build package list
+  ansible.builtin.set_fact:
+    __nvidia_install_packages:
+      - "nvidia-dkms-{{ __runtime_branch }}{{ __runtime_suffix }}"
+      - "nvidia-headless-{{ __runtime_branch }}{{ __runtime_suffix }}"
+      - "nvidia-utils-{{ __runtime_branch }}"
+      - "nvidia-kernel-common-{{ __runtime_branch }}"
+      - "nvidia-kernel-source-{{ __runtime_branch }}{{ __runtime_suffix }}"
+      - "nvidia-compute-utils-{{ __runtime_branch }}"
+      - "libnvidia-common-{{ __runtime_branch }}"
+
+- name: NVIDIA | Display __nvidia_install_packages
+  ansible.builtin.debug:
+    var: __nvidia_install_packages
+
+- name: Install driver packages
+  ansible.builtin.apt:
+    name: "{{ __nvidia_install_packages }}"
+    state: "{{ bootstrap_gpu_drivers__package_state }}"
+    update_cache: true
+  register: __install_driver
+
+- name: NVIDIA | Force DKMS build if packages changed
+  when: __install_driver.changed # noqa: no-handler
+  ansible.builtin.command: dkms autoinstall
+  changed_when: false

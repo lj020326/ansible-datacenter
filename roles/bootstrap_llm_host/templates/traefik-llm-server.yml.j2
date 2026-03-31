@@ -1,25 +1,60 @@
 {{ 'Ansible managed' | comment(decoration='# ') }}
 http:
   routers:
-    llm-api:
-      rule: "Host(`{{ bootstrap_llm_host__server_name }}`) && PathPrefix(`/api`)"
-      service: ollama-backend
+    # 1. Access the dashboard at http://{{ bootstrap_llm_host__server_name }}/dashboard/
+    traefik-dashboard:
+      rule: "Host(`{{ bootstrap_llm_host__server_name }}`)"
+      service: api@internal
       entryPoints:
         - {{ bootstrap_llm_host__traefik_entrypoint }}
 
+    ollama-api:
+      rule: "Host(`{{ bootstrap_llm_host__server_name }}`) && PathPrefix(`/ollama`)"
+      service: ollama-backend
+      middlewares:
+        - ollama-strip
+#      entryPoints:
+#        - {{ bootstrap_llm_host__traefik_entrypoint }}
+
     llm-webui:
-      rule: "Host(`{{ bootstrap_llm_host__server_name }}`)"
+      rule: "Host(`{{ bootstrap_llm_host__server_name }}`) || Host(`{{ ansible_facts['default_ipv4'].address }}`)"
       service: webui-backend
       entryPoints:
         - {{ bootstrap_llm_host__traefik_entrypoint }}
+      # Apply middleware to handle headers
+      middlewares:
+        - webui-headers
 
   services:
     ollama-backend:
       loadBalancer:
         servers:
-          - url: "http://localhost:{{ bootstrap_llm_host__ollama_port }}"
+          - url: "http://127.0.0.1:{{ bootstrap_llm_host__ollama_port }}"
 
     webui-backend:
       loadBalancer:
         servers:
-          - url: "http://localhost:{{ bootstrap_llm_host__webui_port }}"
+          - url: "http://127.0.0.1:{{ bootstrap_llm_host__webui_port }}"
+
+  middlewares:
+    webui-headers:
+      headers:
+        # These are critical for Open WebUI to recognize the proxy
+        customRequestHeaders:
+          X-Forwarded-Proto: http
+        hostsProxyHeaders:
+          - "X-Forwarded-Host"
+        # WebSockets
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: false
+        sslRedirect: false
+        stsSeconds: 31536000
+#        stsIncludeSubdomains: true
+#        stsPreload: true
+        # X-Frame-Options: DENY
+        frameDeny: true
+
+    ollama-strip:
+      stripPrefix:
+        prefixes: ["/ollama"]

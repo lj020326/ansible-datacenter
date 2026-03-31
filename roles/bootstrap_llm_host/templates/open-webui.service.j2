@@ -9,8 +9,20 @@ User={{ bootstrap_llm_host__webui_user }}
 Group={{ bootstrap_llm_host__webui_user }}
 WorkingDirectory={{ bootstrap_llm_host__webui_home }}
 Environment="OLLAMA_BASE_URL=http://localhost:{{ bootstrap_llm_host__ollama_port }}"
-Environment="WEBUI_SECRET_KEY=$(openssl rand -hex 32)"
-ExecStart=/usr/local/bin/open-webui serve --host 0.0.0.0 --port {{ bootstrap_llm_host__webui_port }}
+# https://docs.openwebui.com/troubleshooting/connection-error#required-configuration-for-https--reverse-proxies
+Environment="WEBUI_URL=http://{{ bootstrap_llm_host__server_name }}"
+Environment="WEBUI_SECRET_KEY={{ bootstrap_llm_host__webui_secret_key }}"
+
+# CORS_ALLOW_ORIGIN must be a semicolon-separated list
+# Include the FQDN, the IP, and localhost
+#Environment="CORS_ALLOW_ORIGIN=http://{{ bootstrap_llm_host__server_name }};http://{{ ansible_facts['default_ipv4'].address }};http://localhost:8080;http://127.0.0.1"
+Environment="CORS_ALLOW_ORIGIN=*"
+
+# Since you are currently on HTTP (internal lab), set these to false
+Environment="WEBUI_SESSION_COOKIE_SECURE=false"
+Environment="WEBUI_AUTH_COOKIE_SECURE=false"
+
+ExecStart={{ bootstrap_llm_host__webui_venv_dir }}/bin/open-webui serve --host 0.0.0.0 --port {{ bootstrap_llm_host__webui_port }}
 Restart=always
 RestartSec=3
 

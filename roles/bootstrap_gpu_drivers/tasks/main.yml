@@ -1,0 +1,47 @@
+---
+- name: Ensure pciutils is installed
+  ansible.builtin.apt:
+    name: pciutils
+    state: present
+
+- name: Detect GPU Vendors
+  ansible.builtin.command: lspci -nn
+  register: __lspci_output
+  changed_when: false
+
+- name: Set __present_gpu_vendors
+  ansible.builtin.set_fact:
+    __present_gpu_vendors: "{{ (['nvidia'] if '10de:' in __lspci_output.stdout else [])
+      + (['amd'] if '1002:' in __lspci_output.stdout else []) }}"
+
+- name: Display __present_gpu_vendors
+  ansible.builtin.debug:
+    var: __present_gpu_vendors
+
+- name: Assert that at least one GPU was found
+  ansible.builtin.assert:
+    that: __present_gpu_vendors | length > 0
+    fail_msg: "No supported Nvidia or AMD GPUs detected."
+
+- name: Include Driver Installations
+  ansible.builtin.include_tasks: "install-{{ item }}.yml"
+  loop: "{{ __present_gpu_vendors }}"
+
+- name: Install NVIDIA Container Toolkit + CDI (if enabled)
+  when:
+    - "'nvidia' in __present_gpu_vendors"
+    - bootstrap_gpu_drivers__nvidia_install_container_toolkit | bool
+  ansible.builtin.include_tasks: nvidia/install-container-toolkit.yml
+
+- name: Verify Driver Load
+  ansible.builtin.command: "{{ 'nvidia-smi' if item == 'nvidia' else 'rocminfo' }}"
+  changed_when: false
+  loop: "{{ __present_gpu_vendors }}"
+  ignore_errors: true
+  register: _gpu_verify
+
+- name: Check for GPU driver initialization
+  ansible.builtin.debug:
+    msg: "GPU Driver installed but not yet loaded. A reboot is required to initialize the {{ item.item }} hardware."
+  when: item.failed
+  loop: "{{ _gpu_verify.results }}"

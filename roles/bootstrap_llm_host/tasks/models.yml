@@ -44,6 +44,15 @@
   loop_control:
     label: "{{ item.item.name }}"
 
+- name: Models | Wait for Ollama API to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ bootstrap_llm_host__ollama_port }}/api/tags"
+    status_code: 200
+  register: _result
+  until: _result.status == 200
+  retries: 10
+  delay: 3
+
 - name: Models | Pull standard Ollama models
   when: __models_normalized | selectattr('type', 'equalto', 'pull') | list | length > 0
   ansible.builtin.shell: |
@@ -72,6 +81,7 @@
         src: custom.modelfile.j2
         dest: "/tmp/{{ item.id }}.Modelfile"
         mode: "0644"
+        backup: true
       loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
       loop_control:
         loop_var: __bootstrap_llm_host__custom_model

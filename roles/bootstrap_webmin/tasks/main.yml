@@ -49,3 +49,27 @@
 - name: Webmin | Download and install webmin modules
   when: bootstrap_webmin__modules | d([]) | length > 0
   ansible.builtin.include_tasks: setup-modules.yml
+
+- name: Ensure Webmin custom temp directory exists
+  ansible.builtin.file:
+    path: "{{ bootstrap_webmin__tempdir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Configure Webmin to use the new temp directory
+  ansible.builtin.lineinfile:
+    path: "{{ bootstrap_webmin__config_file }}"
+    regexp: '^tempdir='
+    line: "tempdir={{ bootstrap_webmin__tempdir }}"
+    state: present
+    insertafter: EOF
+  notify: Restart webmin
+
+- name: Ensure Webmin clears old temp files
+  ansible.builtin.lineinfile:
+    path: "{{ bootstrap_webmin__config_file }}"
+    regexp: '^tempdelete_days='
+    line: "tempdelete_days={{ bootstrap_webmin__tempdelete_days }}"
+    state: present

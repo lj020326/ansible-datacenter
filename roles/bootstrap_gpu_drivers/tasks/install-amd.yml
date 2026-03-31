@@ -1,0 +1,24 @@
+---
+- name: AMD | Scrape latest installer version from repository
+  ansible.builtin.uri:
+    url: "{{ bootstrap_gpu_drivers__amd_deb_package_base_url }}/"
+    return_content: true
+  register: __amd_repo_index
+
+- name: AMD | Extract latest deb filename
+  ansible.builtin.set_fact:
+    __amd_latest_deb: "{{ __amd_repo_index.content | regex_search('amdgpu-install_[^\"\\s>]+\\.deb') }}"
+
+- name: AMD | Display __amd_latest_deb
+  ansible.builtin.debug:
+    var: __amd_latest_deb
+
+- name: AMD | Download ROCm repository installer
+  when: __amd_latest_deb is defined
+  ansible.builtin.apt:
+    deb: "{{ bootstrap_gpu_drivers__amd_deb_package_base_url }}/{{ __amd_latest_deb }}"
+
+- name: AMD | Install AMDGPU and ROCm stack
+  ansible.builtin.command: amdgpu-install -y --usecase=rocm
+  args:
+    creates: /opt/rocm/bin/rocminfo

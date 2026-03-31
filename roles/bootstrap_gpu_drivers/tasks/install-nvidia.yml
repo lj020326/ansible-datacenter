@@ -1,4 +1,5 @@
 ---
+
 - name: Unload nouveau # noqa: ignore-errors
   community.general.modprobe:
     name: nouveau
@@ -6,16 +7,20 @@
   ignore_errors: true
 
 - name: Ubuntu install tasks (canonical repos)
-  ansible.builtin.include_tasks: install-ubuntu.yml
-  when: ansible_facts['distribution'] == 'Ubuntu' and (not bootstrap_nvidia_drivers__ubuntu_install_from_cuda_repo)
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - not bootstrap_gpu_drivers__nvidia_ubuntu_install_from_cuda_repo
+  ansible.builtin.include_tasks: nvidia/install-ubuntu.yml
 
 - name: Ubuntu install tasks (CUDA repo)
-  ansible.builtin.include_tasks: install-ubuntu-cuda-repo.yml
-  when: ansible_facts['distribution'] == 'Ubuntu' and bootstrap_nvidia_drivers__ubuntu_install_from_cuda_repo
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - bootstrap_gpu_drivers__nvidia_ubuntu_install_from_cuda_repo
+  ansible.builtin.include_tasks: nvidia/install-ubuntu-cuda-repo.yml
 
 - name: Redhat family install tasks
-  ansible.builtin.include_tasks: install-redhat.yml
   when: ansible_facts['os_family'] == 'RedHat'
+  ansible.builtin.include_tasks: nvidia/install-redhat.yml
 
 - name: Create persistenced override dir
   ansible.builtin.file:
@@ -24,30 +29,33 @@
     recurse: true
 
 - name: Configure persistenced service to turn on persistence mode
+  when: bootstrap_gpu_drivers__persistence_mode_on
   ansible.builtin.copy:
     src: nvidia-persistenced-override.conf
     dest: /etc/systemd/system/nvidia-persistenced.service.d/override.conf
     mode: "0644"
-  when: bootstrap_nvidia_drivers__persistence_mode_on
 
 - name: Remove persistenced service override
+  when: not bootstrap_gpu_drivers__persistence_mode_on
   ansible.builtin.file:
     path: /etc/systemd/system/nvidia-persistenced.service.d/override.conf
     state: absent
-  when: not bootstrap_nvidia_drivers__persistence_mode_on
 
 - name: Enable persistenced
+  when: bootstrap_gpu_drivers__package_state != 'absent'
   ansible.builtin.systemd:
     name: nvidia-persistenced
     enabled: true
-  when: bootstrap_nvidia_drivers__package_state != 'absent'
 
 - name: Set module parameters
+  when: bootstrap_gpu_drivers__nvidia_module_params | d('') | length > 0
   ansible.builtin.template:
     src: nvidia.conf.j2
-    dest: "{{ bootstrap_nvidia_drivers__module_file }}"
+    dest: "{{ bootstrap_gpu_drivers__nvidia_module_file }}"
     mode: "0644"
 
 - name: Reboot after driver install
+  when:
+    - __install_driver.changed
+    - not bootstrap_gpu_drivers__skip_reboot
   ansible.builtin.reboot:
-  when: install_driver.changed and not bootstrap_nvidia_drivers__skip_reboot

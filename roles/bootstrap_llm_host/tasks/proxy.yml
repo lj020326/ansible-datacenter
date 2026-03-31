@@ -1,46 +1,85 @@
 ---
-# Nginx Implementation
-- name: Configure Nginx Proxy
+# Nginx Installation & Configuration
+- name: Proxy | Install and Configure Nginx
   when: bootstrap_llm_host__proxy_type == 'nginx'
   block:
-    - name: Create Nginx configuration for LLM server
-      ansible.builtin.template:
-        src: nginx-llm-server.conf.j2
-        dest: /etc/nginx/sites-available/llm-server
-        mode: "0644"
-      notify: Restart nginx
-
-    - name: Enable Nginx site
-      ansible.builtin.file:
-        src: /etc/nginx/sites-available/llm-server
-        dest: /etc/nginx/sites-enabled/llm-server
-        state: link
-
-    - name: Remove default Nginx site
-      ansible.builtin.file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
-      notify: Restart nginx
-
-    - name: Enable and start Nginx service
-      ansible.builtin.systemd:
+    - name: Proxy | Install Nginx package
+      ansible.builtin.package:
         name: nginx
-        enabled: true
-        state: started
+        state: present
+        update_cache: true
 
-# Traefik Implementation
-- name: Configure Traefik Proxy
-  when: bootstrap_llm_host__proxy_type == 'traefik'
-  block:
-    - name: Create Traefik dynamic configuration directory
+    - name: Proxy | Ensure config directory exists
       ansible.builtin.file:
-        path: /etc/traefik/conf.d
+        path: "{{ __bootstrap_llm_host__nginx_conf_path }}"
         state: directory
         mode: "0755"
 
-    - name: Deploy Traefik dynamic configuration
+    - name: Proxy | Create Nginx configuration
+      ansible.builtin.template:
+        src: nginx-llm-server.conf.j2
+        dest: "{{ __bootstrap_llm_host__nginx_conf_path }}/llm-server.conf"
+        mode: "0644"
+        backup: true
+      notify: Restart nginx
+
+    - name: Proxy | Enable Nginx site (Debian/Ubuntu only)
+      when: ansible_os_family == "Debian"
+      ansible.builtin.file:
+        src: "{{ __bootstrap_llm_host__nginx_conf_path }}/llm-server.conf"
+        dest: "{{ __bootstrap_llm_host__nginx_enabled_path }}/llm-server.conf"
+        state: link
+      notify: Restart nginx
+
+    - name: Proxy | Allow Nginx to connect to network (SELinux)
+      when: ansible_os_family == "RedHat"
+      ansible.posix.seboolean:
+        name: httpd_can_network_connect
+        state: true
+        persistent: true
+
+# Traefik Installation & Configuration
+- name: Proxy | Install and Configure Traefik
+  when: bootstrap_llm_host__proxy_type == 'traefik'
+  block:
+    - name: Proxy | Download Traefik binary
+      ansible.builtin.unarchive:
+        src: "{{ bootstrap_llm_host__traefik_archive_url }}"
+        dest: /usr/local/bin
+        remote_src: true
+        creates: /usr/local/bin/traefik
+        mode: "0755"
+
+    - name: Proxy | Create Traefik config directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /etc/traefik
+        - "{{ bootstrap_llm_host__traefik_config_path }}"
+
+    - name: Proxy | Deploy Traefik static configuration
+      ansible.builtin.template:
+        src: traefik.yml.j2
+        dest: /etc/traefik/traefik.yml
+        mode: "0644"
+        backup: true
+      notify: Restart traefik
+
+    - name: Proxy | Deploy Traefik systemd service
+      ansible.builtin.template:
+        src: traefik.service.j2
+        dest: /etc/systemd/system/traefik.service
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart traefik
+
+    - name: Proxy | Deploy LLM Dynamic Configuration
       ansible.builtin.template:
         src: traefik-llm-server.yml.j2
         dest: "{{ bootstrap_llm_host__traefik_config_path }}/llm-server.yml"
         mode: "0644"
-      notify: Reload traefik
+        backup: true
+      notify: Restart traefik

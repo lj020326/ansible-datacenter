@@ -1,0 +1,116 @@
+---
+- name: NVIDIA Container Toolkit | Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: NVIDIA Container Toolkit | Download GPG key
+  ansible.builtin.get_url:
+    url: https://nvidia.github.io/libnvidia-container/gpgkey
+    dest: /tmp/nvidia-container-toolkit.gpg.asc
+    mode: '0644'
+  register: gpg_download
+
+#- name: NVIDIA Container Toolkit | Convert GPG key to binary format
+#  when: gpg_download.changed # noqa: no-handler
+#  ansible.builtin.command: gpg --dearmor
+#  args:
+#    stdin: "{{ lookup('ansible.builtin.file', '/tmp/nvidia-container-toolkit.gpg.asc') }}"
+#    creates: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+#  changed_when: false
+#  register: gpg_dearmor
+#
+#- name: NVIDIA Container Toolkit | Install GPG keyring
+#  when: gpg_dearmor.changed or gpg_download.changed
+#  ansible.builtin.copy:
+#    src: /tmp/nvidia-container-toolkit.gpg.asc   # wait, no: we need the dearmored one
+#    dest: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+#    mode: '0644'
+#    remote_src: true
+
+- name: NVIDIA Container Toolkit | Check if keyring already exists
+  ansible.builtin.stat:
+    path: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  register: keyring_stat
+
+- name: NVIDIA Container Toolkit | Dearmor GPG key to binary format
+  when: >
+    gpg_download.changed or
+    not keyring_stat.stat.exists
+  ansible.builtin.shell: >
+    gpg --dearmor < /tmp/nvidia-container-toolkit.gpg.asc
+    > /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  changed_when: true
+
+- name: NVIDIA Container Toolkit | Set permissions on keyring
+  ansible.builtin.file:
+    path: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: NVIDIA Container Toolkit | Clean up temporary GPG file
+  when: gpg_download.changed # noqa: no-handler
+  ansible.builtin.file:
+    path: /tmp/nvidia-container-toolkit.gpg.asc
+    state: absent
+
+- name: NVIDIA Container Toolkit | Remove old/broken repository file
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    state: absent
+
+- name: NVIDIA Container Toolkit | Add repository (with architecture-specific path)
+  ansible.builtin.apt_repository:
+    # We dynamically determine the arch (amd64/arm64) to match NVIDIA's new folder structure
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg]
+      https://nvidia.github.io/libnvidia-container/stable/deb/{{ ansible_facts['architecture'] | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }} /
+    state: present
+    filename: nvidia-container-toolkit
+    update_cache: true
+  register: repo_added
+
+- name: NVIDIA Container Toolkit | Install package
+  ansible.builtin.apt:
+    name: "nvidia-container-toolkit{{
+      '=' + bootstrap_gpu_drivers__nvidia_container_toolkit_version
+        if bootstrap_gpu_drivers__nvidia_container_toolkit_version else '' }}"
+    state: present
+  register: __toolkit_installed
+
+- name: NVIDIA Container Toolkit | Install package
+  ansible.builtin.apt:
+    name: "nvidia-container-toolkit{{
+      '=' + bootstrap_gpu_drivers__nvidia_container_toolkit_version
+        if bootstrap_gpu_drivers__nvidia_container_toolkit_version else '' }}"
+    state: present
+  register: __toolkit_installed
+
+- name: NVIDIA Container Toolkit | Configure Docker runtime and CDI
+  when: __toolkit_installed.changed or repo_added.changed
+  block:
+    - name: NVIDIA Container Toolkit | Run nvidia-ctk configure (adds nvidia to daemon.json)
+      ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+      changed_when: true
+
+    - name: NVIDIA Container Toolkit | Generate CDI specification (/etc/cdi/nvidia.yaml)
+      ansible.builtin.command: nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+      changed_when: true
+
+    - name: NVIDIA Container Toolkit | Enable and start CDI refresh service
+      ansible.builtin.systemd:
+        name: nvidia-cdi-refresh.service
+        enabled: true
+        state: started
+
+    - name: NVIDIA Container Toolkit | Restart Docker to apply runtime changes
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted

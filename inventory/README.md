@@ -77,7 +77,9 @@ $ ansibledebugvar localhost groups[\'docker_stack_admin\']
 $ ansibledebugvar gpu01 group_names
 $ ansibledebugvar admin01 group_names
 $ ansibledebugvar admin01 ca_domain
-$ ansibledebugvar admin01 ca_subdomain
+$ ansibledebugvar control02 ca_domain
+$ ansibledebugvar control02 ca_subdomain
+$ ansibledebugvar control02 internal_domain
 $ ansibledebugvar admin01 docker_stack__service_route_name
 $ ansibledebugvar admin01 docker_stack__subdomain
 $ ansibledebugvar admin01 docker_stack__internal_root_domain

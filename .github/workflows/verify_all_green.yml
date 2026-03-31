@@ -39,23 +39,32 @@ jobs:
     uses: ./.github/workflows/ansible-lint.yml
   yaml_lint:
     uses: ./.github/workflows/yaml-lint.yml
+  kics_lint:
+    uses: ./.github/workflows/kics-lint.yml
   inclusivity_lint:
     uses: ./.github/workflows/inclusivity-lint.yml
   molecule_tests:
     uses: ./.github/workflows/molecule.yml
   verify_all_green:
-    if: github.ref == 'refs/heads/main'
+    if: always()
+#    if: github.ref == 'refs/heads/main'
     needs:
       - ansible_lint
       - yaml_lint
+      - kics_lint
       - inclusivity_lint
       - molecule_tests
     runs-on: ubuntu-latest
     steps:
-      - run: >-
-          python -c "assert set([
-          '${{ needs.ansible_lint.result }}',
-          '${{ needs.yaml_lint.result }}',
-          '${{ needs.inclusivity_lint.result }}',
-          '${{ needs.molecule_tests.result }}'
-          ]) == {'success'}"
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
+#      - run: >-
+#          python -c "assert set([
+#          '${{ needs.ansible_lint.result }}',
+#          '${{ needs.yaml_lint.result }}',
+#          '${{ needs.kics_lint.result }}',
+#          '${{ needs.inclusivity_lint.result }}',
+#          '${{ needs.molecule_tests.result }}'
+#          ]) == {'success'}"
