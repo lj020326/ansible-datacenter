@@ -110,7 +110,7 @@
       when:
         - item.failed | d(false)
         - item.msg | regex_search('secret .* is in use by the following service') is not none
-      loop: "{{ __configure_docker_secrets.results | d([]) }}"
+      loop: "{{ __configure_docker_secrets.results | d([], true) }}"
       ansible.builtin.set_fact:
         __restart_docker_service: true
 
@@ -122,7 +122,7 @@
           (item.msg | regex_search('network .* is in use by service') is not none) or
           (item.msg | regex_search('.* cannot program address .* because it conflicts with existing route') is not none) or
           (item.msg | regex_search("INVALID_ZONE .* docker") is not none)
-      loop: "{{ __configure_docker_networks.results | d([]) + __network_check.results | d([]) }}"
+      loop: "{{ __configure_docker_networks.results | d([], true) + __network_check.results | d([], true) }}"
       ansible.builtin.set_fact:
         __restart_docker_service: true
 
@@ -167,7 +167,7 @@
 - name: "Setup container configs"
   when:
     - docker_stack__action == 'setup'
-    - __docker_stack__container_config_list | d([]) | length > 0
+    - __docker_stack__container_config_list | d([], true) | length > 0
   ansible.builtin.include_tasks: setup-container-configs.yml
   loop: "{{ __docker_stack__container_config_list }}"
   loop_control:

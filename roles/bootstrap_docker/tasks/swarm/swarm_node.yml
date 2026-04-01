@@ -3,7 +3,7 @@
 - name: "{{ __bootstrap_docker__log_prefix_node }} Assert __bootstrap_docker__swarm_remote_addrs defined"
   ansible.builtin.assert:
     that:
-      - __bootstrap_docker__swarm_remote_addrs | d([]) | length > 0
+      - __bootstrap_docker__swarm_remote_addrs | d([], true) | length > 0
 
 - name: "{{ __bootstrap_docker__log_prefix_node }} Display __bootstrap_docker__swarm_remote_addrs"
   ansible.builtin.debug:
@@ -123,11 +123,15 @@
           hostvars[bootstrap_docker__swarm_leader_host]['ansible_host'],
           server=bootstrap_docker__dns,
           query_timeout=2,
-          nxdomain_handling='empty') | d([]) | first }}"
+          nxdomain_handling='empty') | d([], true) | first }}"
 
     - name: "{{ __bootstrap_docker__log_prefix_node }} Display __leader_node_ipv4"
       ansible.builtin.debug:
         var: __leader_node_ipv4
+
+    - name: "{{ __bootstrap_docker__log_prefix_node }} Init __invalid_docker_host_join"
+      ansible.builtin.set_fact:
+        __invalid_docker_host_join: false
 
     - name: "{{ __bootstrap_docker__log_prefix_node }} Set __invalid_docker_host_join"
       when: __docker_swarm_status.Error is search('The swarm does not have a leader') or
@@ -153,7 +157,7 @@
         role: "{{ bootstrap_docker__swarm_role }}"
 
 #    - name: "{{ __bootstrap_docker__log_prefix_node }} Set node labels"
-#      when: bootstrap_docker__swarm_node_labels | d([]) | length > 0
+#      when: bootstrap_docker__swarm_node_labels | d([], true) | length > 0
 #      community.docker.docker_node:
 ##        hostname: "{{ ansible_host }}"
 #        hostname: "{{ inventory_hostname }}"

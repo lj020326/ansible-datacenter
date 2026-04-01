@@ -30,7 +30,7 @@
     verbosity: 1
 
 - name: Init-Vars | Display bootstrap_ntp__peers
-  when: bootstrap_ntp__peers | d([]) | length > 0
+  when: bootstrap_ntp__peers | d([], true) | length > 0
   ansible.builtin.debug:
     var: bootstrap_ntp__peers
     verbosity: 1
@@ -42,7 +42,7 @@
 
 - name: Init-Vars | Set __bootstrap_ntp__restrict
   ansible.builtin.set_fact:
-    __bootstrap_ntp__restrict: "{{ bootstrap_ntp__restrict | d([]) }}"
+    __bootstrap_ntp__restrict: "{{ bootstrap_ntp__restrict | d([], true) }}"
 
 - name: Init-Vars | Display bootstrap_ntp__restrict
   ansible.builtin.debug:
@@ -64,7 +64,7 @@
 - name: Init-Vars | Add bootstrap_ntp__allow_networks to __bootstrap_ntp__restrict by converting the CIDR to netmask
   when: item | ansible.utils.ipaddr('net') is not false
   ansible.builtin.set_fact:
-    __bootstrap_ntp__restrict: "{{ __bootstrap_ntp__restrict | d([])
+    __bootstrap_ntp__restrict: "{{ __bootstrap_ntp__restrict | d([], true)
       + [item | ansible.utils.ipaddr('network') + ' mask '
       + item | ansible.utils.ipaddr('netmask') | string
       + ' notrust'] }}"
@@ -72,7 +72,7 @@
 
 - name: Init-Vars | Uniquify __bootstrap_ntp__restrict
   ansible.builtin.set_fact:
-    __bootstrap_ntp__restrict: "{{ __bootstrap_ntp__restrict | d([]) | sort | unique }}"
+    __bootstrap_ntp__restrict: "{{ __bootstrap_ntp__restrict | d([], true) | sort | unique }}"
 
 - name: Init-Vars | Display __bootstrap_ntp__restrict
   ansible.builtin.debug:
@@ -81,14 +81,14 @@
 
 - name: Init-Vars | Set __bootstrap_ntp__allow_networks
   ansible.builtin.set_fact:
-    __bootstrap_ntp__allow_networks: "{{ bootstrap_ntp__allow_networks | d([]) }}"
+    __bootstrap_ntp__allow_networks: "{{ bootstrap_ntp__allow_networks | d([], true) }}"
 
 ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
 ## ref: https://docs.ansible.com/ansible/latest/collections/ansible/utils/docsite/filters_ipaddr.html#filtering-lists
 - name: Init-Vars | Add bootstrap_ntp__restrict to __bootstrap_ntp__allow_networks by converting the netmask to CIDR
   when: item is match('^[^\\s]+\\s+mask\\s+[^\\s]+')
   ansible.builtin.set_fact:
-    __bootstrap_ntp__allow_networks: "{{ __bootstrap_ntp__allow_networks | d([])
+    __bootstrap_ntp__allow_networks: "{{ __bootstrap_ntp__allow_networks | d([], true)
       + [(item | regex_replace('^([^\\s]+)\\s+mask\\s+([^\\s]+).*', '\\1/')
       + (item | regex_replace('^[^\\s]+\\s+mask\\s+([^\\s]+).*', '\\1') | ansible.utils.ipaddr('prefixlen') | string)
       | ansible.utils.ipaddr('net') | ansible.utils.ipaddr('network/prefix'))
@@ -98,7 +98,7 @@
 
 - name: Init-Vars | Uniquify __bootstrap_ntp__allow_networks
   ansible.builtin.set_fact:
-    __bootstrap_ntp__allow_networks: "{{ __bootstrap_ntp__allow_networks | d([]) | sort | unique }}"
+    __bootstrap_ntp__allow_networks: "{{ __bootstrap_ntp__allow_networks | d([], true) | sort | unique }}"
 
 - name: Init-Vars | Display __bootstrap_ntp__allow_networks
   ansible.builtin.debug:

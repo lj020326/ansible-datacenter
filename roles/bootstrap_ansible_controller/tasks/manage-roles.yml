@@ -4,10 +4,10 @@
     __org_admin_map: |-
       {% set ns = namespace() %}
       {% for role in __organization_loop_var['admin_roles'] %}
-      {% set ns.org_map = ns.org_map | d([]) + ([role] | product(__organization_loop_var['admin_roles'][role]) | list) %}
+      {% set ns.org_map = ns.org_map | d([], true) + ([role] | product(__organization_loop_var['admin_roles'][role]) | list) %}
       {% endfor %}
       {% for entry in ns.org_map %}
-      {% set ns.org_map_dict = ns.org_map_dict | d([]) + [{'role': entry[0], 'team': entry[1]}] %}
+      {% set ns.org_map_dict = ns.org_map_dict | d([], true) + [{'role': entry[0], 'team': entry[1]}] %}
       {% endfor %}
       {{ ns.org_map_dict }}
 
@@ -39,7 +39,7 @@
       - "{{ __organization_loop_var['name'] }}"
   ignore_errors: "{{ ansible_check_mode }}"
   register: org_auditor_result
-  loop: "{{ __organization_loop_var['auditors'] | d([]) | intersect(__organization_loop_var['teams']) }}"
+  loop: "{{ __organization_loop_var['auditors'] | d([], true) | intersect(__organization_loop_var['teams']) }}"
 
 - name: Set organization local user auditor roles to {{ bootstrap_ansible_controller__state }}
   ansible.controller.role:
@@ -50,14 +50,14 @@
       - "{{ __organization_loop_var['name'] }}"
   ignore_errors: "{{ ansible_check_mode }}"
   register: org_auditor_result
-  loop: "{{ __organization_loop_var['auditors'] | d([]) | intersect(bootstrap_ansible_controller__local_users |
+  loop: "{{ __organization_loop_var['auditors'] | d([], true) | intersect(bootstrap_ansible_controller__local_users |
     selectattr('organization', 'eq', __organization_loop_var['name']) | map(attribute='username')) }}"
 
 ### Team roles
 
 - name: Compile dictionary of team roles
   ansible.builtin.set_fact:
-    team_roles: "{{ team_roles | d({}) | combine({
+    team_roles: "{{ team_roles | d({}, true) | combine({
         team_name: {
           'use': {
             'projects': (__controller_projects | selectattr('environments', 'undefined') +
@@ -248,7 +248,7 @@
 
 - name: Compile dictionary of local user roles
   ansible.builtin.set_fact:
-    local_user_roles: "{{ local_user_roles | d({}) | combine({
+    local_user_roles: "{{ local_user_roles | d({}, true) | combine({
         local_user_name: {
           'use': {
             'projects': (__controller_projects | selectattr('environments', 'undefined') +

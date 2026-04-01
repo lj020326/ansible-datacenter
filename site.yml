@@ -44,13 +44,16 @@
 
 - name: Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'
   hosts: all,!ansible_localhost,!node_offline
-  tags: always
+  tags:
+    - always
+    - ping-test
+    - report-offline-nodes
   ignore_unreachable: true
   gather_facts: false
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   roles:
     - role: ansible_ping_test
       when:
@@ -66,8 +69,8 @@
   #  gather_facts: false
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   roles:
     - role: apply_common_groups
       when:
@@ -82,8 +85,8 @@
     - display-network-vars
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
@@ -114,8 +117,8 @@
     - display-collection-versions
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: "Display important collection versions" # noqa run-once[task]
       run_once: true
@@ -140,7 +143,8 @@
           - "microsoft.ad version={{ lookup('community.general.collection_version', 'microsoft.ad') }}"
 
 - name: "Display tower vars"
-  hosts: ansible_localhost,!node_offline
+#  hosts: ansible_localhost
+  hosts: localhost
   tags:
     - display-tower-vars
   tasks:
@@ -152,7 +156,8 @@
           | dettonville.utils.redact_sensitive_values
 
 - name: Display ansible_localhost vars
-  hosts: ansible_localhost
+#  hosts: ansible_localhost
+  hosts: localhost
   tags:
     - display-controller-vars
   tasks:
@@ -191,7 +196,8 @@
           - "ansible_facts['pip_interpreter']={{ ansible_facts['pip_interpreter'] | d('') }}"
 
 - name: Display controller environment variables
-  hosts: ansible_localhost
+#  hosts: ansible_localhost
+  hosts: localhost
   tags:
     - display-ansible-env
     - display-envvars
@@ -337,8 +343,8 @@
     - bootstrap-ansible
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-#    ansible_user: "{{ bootstrap_user }}"
-#    ansible_password: "{{ bootstrap_user_password }}"
+#    ansible_user: "{{ os_build_user }}"
+#    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: Bootstrap ansible user
       ansible.builtin.include_role:
@@ -348,15 +354,15 @@
 #  hosts: os_linux,!node_offline
 #  gather_facts: false
 #  become: true
-#  remote_user: "{{ bootstrap_user }}"
+#  remote_user: "{{ os_build_user }}"
 #  tags:
 #    - bootstrap-ansible-user
 #    - bootstrap-ansible
 #  vars:
 ##    ansible_python_interpreter: "{{ os_python_interpreter }}"
-#    #    ansible_ssh_user: "{{ bootstrap_user }}"
-#    ansible_user: "{{ bootstrap_user }}"
-#    ansible_password: "{{ bootstrap_user_password }}"
+#    #    ansible_ssh_user: "{{ os_build_user }}"
+#    ansible_user: "{{ os_build_user }}"
+#    ansible_password: "{{ os_build_user_password }}"
 #    ansible_ssh_common_args: |
 #      -o StrictHostKeyChecking=no \
 #      -o UserKnownHostsFile=/dev/null \
@@ -526,28 +532,28 @@
 #  vars:
 #    ansible_python_interpreter: "{{ os_python_interpreter }}"
   tasks:
-    - name: Display bootstrap_user
+    - name: Display os_build_user
       ansible.builtin.debug:
-        var: bootstrap_user
+        var: os_build_user
 
     - name: Display ansible_user
       ansible.builtin.debug:
         var: ansible_user
 
-    - name: Display bootstrap_user_password
-      ansible.builtin.debug:
-        var: bootstrap_user_password
-        verbosity: 1
+#    - name: Display os_build_user_password
+#      ansible.builtin.debug:
+#        var: os_build_user_password
+#        verbosity: 1
 
 - name: Bootstrap linux users
   hosts: os_linux,!node_offline
   gather_facts: true
   become: true
-  remote_user: "{{ bootstrap_user }}"
+  remote_user: "{{ os_build_user }}"
   vars:
-#    ansible_ssh_user: "{{ bootstrap_user }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+#    ansible_ssh_user: "{{ os_build_user }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
     ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   tags:
 #    - bootstrap-linux
@@ -850,6 +856,7 @@
   gather_facts: false
   tags:
     - bootstrap-node
+    - bootstrap-docker
     - bootstrap-docker-stack
     - deploy-pki-certs
   become: true
@@ -895,6 +902,13 @@
     - bootstrap-kubernetes-controller
     - bootstrap-registry
   become: true
+  pre_tasks:
+    - name: Validate that docker_stack__internal_domain is defined and not empty
+      ansible.builtin.assert:
+        that:
+          - docker_stack__internal_domain | d('') | length > 0
+        fail_msg: "The variable 'docker_stack__internal_domain' must be set before bootstrapping Docker nodes."
+        quiet: true
   roles:
     - role: bootstrap_docker
 
@@ -1082,7 +1096,8 @@
 #      pve_reboot_on_kernel_update: true
 
 - name: Fetch OS images
-  hosts: ansible_localhost
+#  hosts: ansible_localhost
+  hosts: localhost
   gather_facts: false
   tags:
     - fetch-os-images
@@ -1265,9 +1280,9 @@
 #  connection: local
   gather_facts: false
   vars:
-    #    ntpserver1: "1.jp.pool.ntp.org"
-    #    ntpserver1: "192.168.0.1"
-    ntpserver1: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
+    #    _ntp_server: "1.jp.pool.ntp.org"
+    #    _ntp_server: "192.168.0.1"
+    _ntp_server: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
   tasks:
     - name: Enable NTP and set NTP server and Time zone attributes in iDRAC
       community.general.idrac_redfish_config:
@@ -1276,7 +1291,7 @@
         resource_id: iDRAC.Embedded.1
         manager_attributes:
           NTPConfigGroup.1.NTPEnable: Enabled
-          NTPConfigGroup.1.NTP1: "{{ ntpserver1 }}"
+          NTPConfigGroup.1.NTP1: "{{ _ntp_server }}"
         baseuri: "{{ idrac_ip }}"
         username: "{{ idrac_user }}"
         password: "{{ idrac_password }}"
@@ -1355,3 +1370,27 @@
       awx.awx.export:
         all: true
 #        teams: "TEST - Test Team 1"
+
+- name: "Report | Discovered Offline Nodes Summary"
+#  hosts: all
+  hosts: localhost
+  gather_facts: false
+  run_once: true
+  tags:
+    - always
+    - ping-test
+    - report-offline-nodes
+  tasks:
+    - name: Display summary of newly discovered offline nodes
+      when: groups['discovered_node_offline'] | d([]) | length > 0
+      ansible.builtin.debug:
+        msg:
+          - "##########################################################"
+          - "THE FOLLOWING NODES WERE DISCOVERED OFFLINE DURING THIS RUN:"
+          - "{{ groups['discovered_node_offline'] | d(['None']) }}"
+          - "##########################################################"
+
+    - name: Notify that all nodes were reachable
+      when: groups['discovered_node_offline'] | d([]) | length == 0
+      ansible.builtin.debug:
+        msg: "All targeted nodes passed the connectivity pre-check."

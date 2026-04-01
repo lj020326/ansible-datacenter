@@ -170,7 +170,7 @@ EOF
 }
 
 # Install Galaxy collections if needed
-_INSTALL_GALAXY_COLLECTIONS() {
+install_galaxy_collections() {
   echo "==> ansible-galaxy --version"
   ansible-galaxy --version
 
@@ -228,6 +228,7 @@ main() {
 EOF
     PLAYBOOK_ARGS+=("-e" "@$TEMP_VARS")
   }
+
   # Null inline key vars to force agent usage, mimicking Jenkins
   TEMP_VARS=$(mktemp)
   cat > "$TEMP_VARS" << EOF
@@ -236,9 +237,10 @@ EOF
   "ansible_ssh_private_key": null
 }
 EOF
+
   PLAYBOOK_ARGS+=("-e" "@$TEMP_VARS")
   if [[ "${_INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    _INSTALL_GALAXY_COLLECTIONS
+    install_galaxy_collections
   fi
 
   echo "==> ansible-galaxy collection list"

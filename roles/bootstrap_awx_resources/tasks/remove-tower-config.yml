@@ -4,16 +4,16 @@
 ##
 
 - name: Remove mappings from saml team-org map
-  when: tower_saml_team_org_maps | d([]) | length > 0
+  when: tower_saml_team_org_maps | d([], true) | length > 0
   block:
     - name: Create implied team maps from tower_teams
       ansible.builtin.set_fact:
-        implied_team_org_maps: "{{ implied_team_org_maps | d([]) +  [ {'organization': item.organization, 'team': item.name } ] }}"
-      loop: "{{ tower_teams | d([]) }}"
+        implied_team_org_maps: "{{ implied_team_org_maps | d([], true) +  [ {'organization': item.organization, 'team': item.name } ] }}"
+      loop: "{{ tower_teams | d([], true) }}"
 
     - name: display implied_team_org_maps
       ansible.builtin.debug:
-        var: implied_team_org_maps | d([])
+        var: implied_team_org_maps | d([], true)
 
     - name: Get current the SAML settings
       ansible.builtin.set_fact:
@@ -25,7 +25,7 @@
 
     - name: Get current the SAML team maps
       ansible.builtin.set_fact:
-        tower_saml_team_maps_current: "{{ tower_saml_team_attr['team_org_map'] | d([]) }}"
+        tower_saml_team_maps_current: "{{ tower_saml_team_attr['team_org_map'] | d([], true) }}"
 
     - name: display tower_saml_team_maps_current
       ansible.builtin.debug:
@@ -33,9 +33,9 @@
 
     - name: Set tower_saml_team_maps_remove_by_paired_key fact
       ansible.builtin.set_fact:
-        tower_saml_team_maps_remove_by_paired_key: "{{ tower_saml_team_maps_remove_by_paired_key | d({}) | combine( { item.organization+'-'+item.team : item }
+        tower_saml_team_maps_remove_by_paired_key: "{{ tower_saml_team_maps_remove_by_paired_key | d({}, true) | combine( { item.organization+'-'+item.team : item }
           ) }}"
-      loop: "{{ tower_saml_team_org_maps + implied_team_org_maps | d([]) }}"
+      loop: "{{ tower_saml_team_org_maps + implied_team_org_maps | d([], true) }}"
 
     - name: display tower_saml_team_maps_remove_by_paired_key
       ansible.builtin.debug:
@@ -44,7 +44,7 @@
     - name: Set tower_saml_team_maps_new_by_paired_key fact
       when: item.organization+'-'+item.team not in tower_saml_team_maps_remove_by_paired_key
       ansible.builtin.set_fact:
-        tower_saml_team_maps_new_by_paired_key: "{{ tower_saml_team_maps_new_by_paired_key | d({}) | combine( { item.organization+'-'+item.team : item } ) }}"
+        tower_saml_team_maps_new_by_paired_key: "{{ tower_saml_team_maps_new_by_paired_key | d({}, true) | combine( { item.organization+'-'+item.team : item } ) }}"
       loop: "{{ tower_saml_team_maps_current }}"
 
     - name: display tower_saml_team_maps_new_by_paired_key
@@ -88,7 +88,7 @@
 
 - name: Combine lists of roles
   ansible.builtin.set_fact:
-    tower_role_list: "{{ tower_role_list | d([]) + tower_roles | d([]) }}"
+    tower_role_list: "{{ tower_role_list | d([], true) + tower_roles | d([], true) }}"
 
 - name: Set tower_role_list state
   ansible.builtin.set_fact:
@@ -111,7 +111,7 @@
 
 - name: Flatten the list of organization teams
   ansible.builtin.set_fact:
-    tower_team_list: "{{ _team_list | d([]) | from_yaml }}"
+    tower_team_list: "{{ _team_list | d([], true) | from_yaml }}"
   vars:
     _team_list: |-
       {% for i in tower_organizations %}
@@ -126,7 +126,7 @@
 
 - name: Combine lists of teams
   ansible.builtin.set_fact:
-    tower_team_list: "{{ tower_team_list | d([]) + tower_teams | d([]) }}"
+    tower_team_list: "{{ tower_team_list | d([], true) + tower_teams | d([], true) }}"
 
 - name: Set tower_team_list state
   ansible.builtin.set_fact:
@@ -137,7 +137,7 @@
     var: tower_team_list
 
 - name: Remove teams
-  when: tower_team_list | d([]) | length > 0
+  when: tower_team_list | d([], true) | length > 0
   awx.awx.team: "{{ item }}"
   loop: "{{ tower_team_list }}"
   register: tower_cmd
@@ -149,7 +149,7 @@
 
 - name: Flatten the list of templates
   ansible.builtin.set_fact:
-    tower_template_list: "{{ _template_list | d([]) | from_yaml }}"
+    tower_template_list: "{{ _template_list | d([], true) | from_yaml }}"
   vars:
     _template_list: |-
       {% for i in tower_organizations %}
@@ -166,7 +166,7 @@
 
 - name: Combine lists of job_templates
   ansible.builtin.set_fact:
-    tower_template_list: "{{ tower_template_list | d([]) + tower_templates | d([]) }}"
+    tower_template_list: "{{ tower_template_list | d([], true) + tower_templates | d([], true) }}"
 
 - name: Set tower_template_list state
   ansible.builtin.set_fact:
@@ -177,7 +177,7 @@
     var: tower_template_list
 
 - name: Remove project job templates
-  when: tower_template_list | d([]) | length > 0
+  when: tower_template_list | d([], true) | length > 0
   awx.awx.job_template: "{{ item }}"
   loop: "{{ tower_template_list }}"
   register: tower_cmd
@@ -189,7 +189,7 @@
 
 - name: Flatten the list of organization projects
   ansible.builtin.set_fact:
-    tower_project_list: "{{ _project_list | d([]) | from_yaml }}"
+    tower_project_list: "{{ _project_list | d([], true) | from_yaml }}"
   vars:
     _project_list: |-
       {% for i in tower_organizations %}
@@ -203,7 +203,7 @@
 
 - name: Combine lists of projects
   ansible.builtin.set_fact:
-    tower_project_list: "{{ tower_project_list | d([]) + tower_projects | d([]) }}"
+    tower_project_list: "{{ tower_project_list | d([], true) + tower_projects | d([], true) }}"
 
 - name: Set tower_project_list state
   ansible.builtin.set_fact:
@@ -214,7 +214,7 @@
     var: tower_project_list
 
 - name: Remove projects
-  when: tower_project_list | d([]) | length > 0
+  when: tower_project_list | d([], true) | length > 0
   awx.awx.project: "{{ item }}"
   loop: "{{ tower_project_list }}"
   register: tower_cmd
@@ -226,7 +226,7 @@
 
 - name: Flatten the list of organization inventories
   ansible.builtin.set_fact:
-    tower_inventory_list: "{{ _inventory_list | d([]) | from_yaml }}"
+    tower_inventory_list: "{{ _inventory_list | d([], true) | from_yaml }}"
   vars:
     _inventory_list: |-
       {% for i in tower_organizations %}
@@ -239,7 +239,7 @@
 
 - name: Combine lists of inventories
   ansible.builtin.set_fact:
-    tower_inventory_list: "{{ tower_inventory_list | d([]) + tower_inventories | d([]) }}"
+    tower_inventory_list: "{{ tower_inventory_list | d([], true) + tower_inventories | d([], true) }}"
 
 - name: Set tower_inventory_list state
   ansible.builtin.set_fact:
@@ -250,7 +250,7 @@
     var: tower_inventory_list
 
 - name: Remove inventories
-  when: tower_inventory_list | d([]) | length > 0
+  when: tower_inventory_list | d([], true) | length > 0
   awx.awx.inventory: "{{ item }}"
   loop: "{{ tower_inventory_list }}"
   register: tower_cmd
@@ -275,7 +275,7 @@
 
 - name: Combine lists of credentials
   ansible.builtin.set_fact:
-    tower_credential_list: "{{ tower_credential_list | d([]) + tower_credentials | d([]) }}"
+    tower_credential_list: "{{ tower_credential_list | d([], true) + tower_credentials | d([], true) }}"
 
 - name: Set tower_credential_list state
   ansible.builtin.set_fact:

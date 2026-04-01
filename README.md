@@ -674,15 +674,16 @@ Using the run-ansible.sh script to automatically first install all dependencies 
 
 The [run-ansible.sh script](run-ansible.sh) is available that upon execution will: 
 
-1) check and create a virtualenv named 'venv' if not already exists,
-2) install [pip library requirements](./requirements.txt), 
-3) install [collection requirements](collections/requirements.yml), 
-4) install [role requirements](roles/requirements.yml) and 
-5) It also checks in the latest code via git Add/Commit/Push (ACP) before the steps just mentioned.  
-6) Finally, it also allows specification of a control/jump host to run the playbook via ssh wrapper.
-7) run the command specified.
+1) install [collection requirements](collections/requirements.yml), 
+2) prints debug
+3) start ssh agent
+4) adds necessary ansible arguments (includes necessary playbook vaulted vars and vault credential)
+5) runs the command specified
 
 ```shell
+$ run-ansible.sh ansible -i ./inventory/PROD -m win_ping -v win2012-01
+$ run-ansible.sh ansible -i ./inventory/PROD -m win_shell -a "ipconfig" -v win2012-01
+$ run-ansible.sh ansible-playbook site.yml --tags ping-test -l ca_domain site.yml
 $ run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l control01
 $ run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-ansible-user -l media01
 $ run-ansible.sh ansible-playbook -i inventory/PROD/hosts.yml site.yml --tags bootstrap-docker-stack -l media01

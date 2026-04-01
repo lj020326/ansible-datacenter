@@ -18,7 +18,7 @@
 
     - name: Validate organization auditors
       ansible.builtin.assert:
-        that: item['auditors'] | d([]) is subset(item['teams'])
+        that: item['auditors'] | d([], true) is subset(item['teams'])
         quiet: True
       loop: "{{ controller_organizations }}"
       loop_control:
@@ -199,8 +199,8 @@
 
     - name: Validate job template credentials
       ansible.builtin.assert:
-        that: item['credentials'] | d([]) is subset(controller_credentials | map(attribute='name') | unique)
-        fail_msg: "{{ item['credentials'] | d([]) | difference(controller_credentials | map(attribute='name')) }} not in controller_credentials"
+        that: item['credentials'] | d([], true) is subset(controller_credentials | map(attribute='name') | unique)
+        fail_msg: "{{ item['credentials'] | d([], true) | difference(controller_credentials | map(attribute='name')) }} not in controller_credentials"
         quiet: True
       loop: "{{ __controller_job_templates }}"
       loop_control:
@@ -214,7 +214,7 @@
               {% set ns = namespace() %}
               {% set ns.credential_list = controller_credentials | selectattr('environments', 'defined') | map(attribute='name') | unique %}
               {% for credential_name in ns.credential_list %}
-              {% set ns.credential_environments = ns.credential_environments | d([]) + [
+              {% set ns.credential_environments = ns.credential_environments | d([], true) + [
               {'name': credential_name,
               'environments': controller_credentials | selectattr('name', 'eq', credential_name) | map(attribute='environments') | flatten}
               ]%}
@@ -222,7 +222,7 @@
               {% for collapsed_credential in ns.credential_environments %}
               {% for job_template in __controller_job_templates | selectattr('credentials', 'defined') |
               selectattr('credentials', 'contains', collapsed_credential['name']) %}
-              {% set ns.combined = ns.combined | d([]) + [
+              {% set ns.combined = ns.combined | d([], true) + [
               {'credential': collapsed_credential,
               'job_template': job_template}
               ]%}

@@ -35,20 +35,20 @@
 - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set validation failed if certificate is missing"
   when: not __cert_file_stat.stat.exists
   ansible.builtin.set_fact:
-    __cert_validation_results: "{{ __cert_validation_results | d({})
+    __cert_validation_results: "{{ __cert_validation_results | d({}, true)
       | combine({'failed': true,
         'missing_cert': true,
-        'exceptions': (__cert_validation_results.exceptions | d([]))
+        'exceptions': (__cert_validation_results.exceptions | d([], true))
           + ['cert file ' + __cert_file_path + ' does not exist']}) }}"
 
 # 2) Check for CA key existence
 - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set validation failed if key is missing"
   when: not __key_file_stat.stat.exists
   ansible.builtin.set_fact:
-    __cert_validation_results: "{{ __cert_validation_results | d({})
+    __cert_validation_results: "{{ __cert_validation_results | d({}, true)
       | combine({'failed': true,
         'missing_key': true,
-        'exceptions': (__cert_validation_results.exceptions | d([]))
+        'exceptions': (__cert_validation_results.exceptions | d([], true))
           + ['key file ' + __key_file_path + ' does not exist']}) }}"
 
 - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results #1/2"
@@ -76,10 +76,10 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set expiration check result"
       when: __cert_validity_exp_date_check_result.failed | d(true)
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'expiration_check_failed': true,
-            'exceptions': (__cert_validation_results.exceptions | d([]))
+            'exceptions': (__cert_validation_results.exceptions | d([], true))
               + ['certificate expires soon (within panic threshold)']}) }}"
 
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results #3"
@@ -122,10 +122,10 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if subject CN mismatch"
       when: __assert_subject_cn.failed | d(false) | bool
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'info_check_failed': true,
-            'exceptions': (__cert_validation_results.exceptions | d([]))
+            'exceptions': (__cert_validation_results.exceptions | d([], true))
               + [__assert_subject_cn.msg]}) }}"
 
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate not expired"
@@ -139,11 +139,11 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if certificate is expired"
       when: __assert_expired.failed | d(false) | bool
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'info_check_failed': true,
             'expiration_check_failed': true,
-            'exceptions': (__cert_validation_results.exceptions | d([]))
+            'exceptions': (__cert_validation_results.exceptions | d([], true))
               + [__assert_expired.msg]}) }}"
 
     # Note: Checking issuer details requires knowing the expected issuer based on issuer_name.
@@ -164,10 +164,10 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if issuer CN mismatch"
       when: __assert_issuer_cn.failed | d(false) | bool
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'info_check_failed': true,
-            'exceptions': (__cert_validation_results.exceptions | d([]))
+            'exceptions': (__cert_validation_results.exceptions | d([], true))
               + [__assert_issuer_cn.msg]}) }}"
 
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate key_algo matches expected"
@@ -183,10 +183,10 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if key_size mismatch"
       when: __assert_key_algo.failed | d(false) | bool
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'info_check_failed': true,
-            'exceptions': (__cert_validation_results.exceptions | d([]))
+            'exceptions': (__cert_validation_results.exceptions | d([], true))
               + [__assert_key_algo.msg]}) }}"
 
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Assert certificate key_algo matches expected"
@@ -202,10 +202,10 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set __cert_validation_results.failed if key_algo mismatch"
       when: __assert_key_algo.failed | d(false) | bool
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'info_check_failed': true,
-            'exceptions': (__cert_validation_results.exceptions | d([]))
+            'exceptions': (__cert_validation_results.exceptions | d([], true))
               + [__assert_key_algo.msg]}) }}"
 
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results #4"
@@ -217,10 +217,10 @@
 #  when:
 #    - __bootstrap_ca_certs__ca_result.failed | d(true)
 #  ansible.builtin.set_fact:
-#    __cert_validation_results: "{{ __cert_validation_results | d({}) | combine({
+#    __cert_validation_results: "{{ __cert_validation_results | d({}, true) | combine({
 #      'failed': true,
 #      'info_check_failed': true,
-#      'exceptions': (__cert_validation_results.exceptions | d([])) + ['failed to retrieve certificate information']
+#      'exceptions': (__cert_validation_results.exceptions | d([], true)) + ['failed to retrieve certificate information']
 #    }) }}"
 
 - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Display __cert_validation_results"
@@ -252,10 +252,10 @@
     - name: "{{ __bootstrap_ca_certs__log_prefix_validate }} Set signature check result"
       when: __cert_validity_signer.failed
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'signature_check_failed': true,
-            'exceptions': (__cert_validation_results.exceptions | d([]))
+            'exceptions': (__cert_validation_results.exceptions | d([], true))
               + ['invalid certificate signature']}) }}"
 
   # Ensure __cert_validation_results.signature_check_failed is explicitly set to true if block is skipped due to missing __signer_cert_chain_path
@@ -265,7 +265,7 @@
         - __bootstrap_ca_certs__cert_configs.cert_type | d('') != "root"
         - (not __cert_file_stat.stat.exists | d(false) or __signer_cert_chain_path | d('') | length == 0)
       ansible.builtin.set_fact:
-        __cert_validation_results: "{{ __cert_validation_results | d({})
+        __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
             'signature_check_failed': true}) }}"
 
