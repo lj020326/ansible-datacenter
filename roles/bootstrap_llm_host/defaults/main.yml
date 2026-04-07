@@ -9,6 +9,23 @@ bootstrap_llm_host__configure_firewall: true
 bootstrap_llm_host__download_models: true
 bootstrap_llm_host__configure_proxy: true
 
+# Ollama runtime mode: "native", "docker", or "swarm"
+#   "native" (default, systemd), "docker" (container), or "swarm" (docker swarm service)
+bootstrap_llm_host__ollama_runtime: "native"
+
+# Docker-specific
+# When using docker runtime
+bootstrap_llm_host__ollama_container_name: "ollama"
+bootstrap_llm_host__ollama_host_volume_path: "/home/docker/ollama/data"
+# from docker-compose ps output, the prefix
+bootstrap_llm_host__docker_compose_project_name: "docker"
+
+# Swarm (stack service)
+# usually the service name in the stack
+bootstrap_llm_host__ollama_service_name: "ollama"
+# prefix from your compose/stack
+bootstrap_llm_host__docker_stack_name: "docker_stack"
+
 # Proxy Configuration
 bootstrap_llm_host__proxy_port: "80"
 bootstrap_llm_host__proxy_type: traefik
@@ -30,19 +47,17 @@ __bootstrap_llm_host__nginx_enabled_path: "/etc/nginx/sites-enabled"
 bootstrap_llm_host__ollama_user: ollama
 bootstrap_llm_host__webui_user: webui
 
-# Paths
-bootstrap_llm_host__ollama_home: "/home/{{ bootstrap_llm_host__ollama_user }}"
-bootstrap_llm_host__webui_home: "/home/{{ bootstrap_llm_host__webui_user }}"
+# Paths - defaults assume native case
+bootstrap_llm_host__ollama_home_dir: "/home/{{ bootstrap_llm_host__ollama_user }}"
+bootstrap_llm_host__webui_home_dir: "/home/{{ bootstrap_llm_host__webui_user }}"
 
 # Service Configuration
 bootstrap_llm_host__ollama_port: "11434"
 bootstrap_llm_host__webui_port: "8080"
 
-## Use /home (assumes large local disk)
-bootstrap_llm_host__ollama_home_dir: "/home/{{ bootstrap_llm_host__ollama_user }}"
-
-bootstrap_llm_host__model_storage: "{{ bootstrap_llm_host__ollama_home_dir }}/.ollama/models"
-#bootstrap_llm_host__model_storage: "/data/ollama/models"
+# only used for native case
+bootstrap_llm_host__model_storage_dir: "{{ bootstrap_llm_host__ollama_home_dir }}/.ollama/models"
+#bootstrap_llm_host__model_storage_dir: "/data/ollama/models"
 
 #bootstrap_llm_host__webui_venv_dir: "/opt/open-webui-venv"
 bootstrap_llm_host__webui_venv_dir: "/home/{{ bootstrap_llm_host__webui_user }}/open-webui-venv"
@@ -113,3 +128,33 @@ bootstrap_llm_host__nvidia_package: cuda-keyring_{{ bootstrap_llm_host__nvidia_p
 
 bootstrap_llm_host__nvidia_package_url: "https://developer.download.nvidia.com/compute/cuda/repos/{{
     bootstrap_llm_host__nvidia_package_dist }}/x86_64/{{ bootstrap_llm_host__nvidia_package }}"
+
+# =============================================================================
+# llama.cpp Server (speculative decoding + OpenAI /v1 endpoint for Continue.dev)
+# =============================================================================
+bootstrap_llm_host__install_llama_cpp: false
+
+# Runtime (same options as Ollama)
+bootstrap_llm_host__llama_cpp_runtime: "{{ bootstrap_llm_host__ollama_runtime }}"   # defaults to same as Ollama
+
+# Container / Service names
+bootstrap_llm_host__llama_cpp_container_name: "llama-cpp"
+bootstrap_llm_host__llama_cpp_service_name: "llama-cpp"
+bootstrap_llm_host__llama_cpp_host_volume_path: "/home/container-user/docker/llama-cpp/models"
+
+# Port on host
+bootstrap_llm_host__llama_cpp_port: "8081"
+
+# GGUF models to download automatically (add/remove as needed)
+bootstrap_llm_host__llama_cpp_models:
+  - repo: unsloth/gemma-4-31B-it-GGUF
+    filename: gemma-4-31B-it-Q5_K_M.gguf
+  # or Q4_K_M if you want lighter
+  - repo: unsloth/gemma-4-E2B-it-GGUF
+    filename: gemma-4-E2B-it-Q5_K_M.gguf
+
+# Runtime parameters passed to llama-server
+bootstrap_llm_host__llama_cpp_ctx_size: 32768
+bootstrap_llm_host__llama_cpp_n_gpu_layers: 99
+bootstrap_llm_host__llama_cpp_temp: 0.7
+bootstrap_llm_host__llama_cpp_flash_attn: 1

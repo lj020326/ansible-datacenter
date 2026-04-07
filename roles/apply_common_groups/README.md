@@ -15,7 +15,7 @@ Example usage:
 ```shell
 - name: "Gather facts for all hosts to apply common group vars"
   tags: always
-  hosts: all,!local,!node_offline
+  hosts: all,!local,!host_offline
   gather_facts: yes
   roles:
     - role: apply_common_groups

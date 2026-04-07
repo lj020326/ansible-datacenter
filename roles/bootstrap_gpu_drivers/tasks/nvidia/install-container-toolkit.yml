@@ -1,6 +1,6 @@
 ---
 - name: NVIDIA Container Toolkit | Install prerequisites
-  ansible.builtin.apt:
+  ansible.builtin.package:
     name:
       - ca-certificates
       - curl
@@ -67,26 +67,20 @@
     state: absent
 
 - name: NVIDIA Container Toolkit | Add repository (with architecture-specific path)
+  when: ansible_facts['pkg_mgr'] == 'apt'
   ansible.builtin.apt_repository:
     # We dynamically determine the arch (amd64/arm64) to match NVIDIA's new folder structure
     repo: >-
       deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg]
-      https://nvidia.github.io/libnvidia-container/stable/deb/{{ ansible_facts['architecture'] | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }} /
+      https://nvidia.github.io/libnvidia-container/stable/deb/{{ ansible_facts['architecture']
+        | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }} /
     state: present
     filename: nvidia-container-toolkit
     update_cache: true
   register: repo_added
 
 - name: NVIDIA Container Toolkit | Install package
-  ansible.builtin.apt:
-    name: "nvidia-container-toolkit{{
-      '=' + bootstrap_gpu_drivers__nvidia_container_toolkit_version
-        if bootstrap_gpu_drivers__nvidia_container_toolkit_version else '' }}"
-    state: present
-  register: __toolkit_installed
-
-- name: NVIDIA Container Toolkit | Install package
-  ansible.builtin.apt:
+  ansible.builtin.package:
     name: "nvidia-container-toolkit{{
       '=' + bootstrap_gpu_drivers__nvidia_container_toolkit_version
         if bootstrap_gpu_drivers__nvidia_container_toolkit_version else '' }}"
@@ -111,6 +105,7 @@
         state: started
 
     - name: NVIDIA Container Toolkit | Restart Docker to apply runtime changes
+      when: bootstrap_gpu_drivers__restart_docker
       ansible.builtin.systemd:
         name: docker
         state: restarted

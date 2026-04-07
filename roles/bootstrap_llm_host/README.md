@@ -26,7 +26,7 @@ See `defaults/main.yml` for all vars. Key ones:
 
 ```yaml
 bootstrap_llm_host__models: []               # List of dicts - see examples below
-bootstrap_llm_host__model_storage: "/home/ollama/.ollama/models"
+bootstrap_llm_host__model_storage_dir: "/home/ollama/.ollama/models"
 bootstrap_llm_host__install_open_webui: true
 bootstrap_llm_host__configure_proxy: true    # Recommended with WebUI
 ```

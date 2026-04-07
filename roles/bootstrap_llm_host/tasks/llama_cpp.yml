@@ -1,0 +1,90 @@
+---
+#- name: llama.cpp | Ensure huggingface-cli is available
+#  ansible.builtin.shell: |
+#    if ! command -v huggingface-cli >/dev/null 2>&1; then
+#      python3 -m pip install --user --upgrade "huggingface_hub[cli,hf_transfer]" --break-system-packages
+#      echo "huggingface-cli installed"
+#    fi
+#  args:
+#    executable: /bin/bash
+#  changed_when: false
+#  become: true
+
+- name: llama.cpp | Install huggingface_hub CLI system-wide (reliable for Ansible)
+  ansible.builtin.pip:
+    name: "huggingface_hub[cli,hf_transfer]"
+    state: present
+#    executable: pip3
+    extra_args: --user
+  become: true
+
+- name: llama.cpp | Ensure model directory exists on host
+  ansible.builtin.file:
+    path: "{{ bootstrap_llm_host__llama_cpp_host_volume_path }}"
+    state: directory
+    owner: "{{ bootstrap_llm_host__ollama_user | default('container-user') }}"
+    group: "{{ bootstrap_llm_host__ollama_user | default('container-user') }}"
+    mode: '0755'
+  become: true
+
+- name: Set llama.cpp runtime facts
+  ansible.builtin.set_fact:
+    __llama_cpp_exec_prefix: >-
+      {% if bootstrap_llm_host__llama_cpp_runtime == 'swarm' %}
+      docker exec -u root $(docker ps -q --filter "name=^{{
+        bootstrap_llm_host__docker_stack_name }}_{{
+        bootstrap_llm_host__llama_cpp_service_name }}." --filter "status=running" | head -n 1)
+      {% else %}
+      docker exec -u root {{ bootstrap_llm_host__llama_cpp_container_name }}
+      {% endif %}
+
+- name: llama.cpp | Display ansible_facts['user_dir']
+  become: true
+  ansible.builtin.debug:
+    var: ansible_facts['user_dir']
+
+- name: llama.cpp | Download GGUF models (idempotent)
+  ansible.builtin.shell: |
+    hf download {{ item.repo }} {{ item.filename }} \
+      --local-dir {{ bootstrap_llm_host__llama_cpp_host_volume_path }}
+  loop: "{{ bootstrap_llm_host__llama_cpp_models }}"
+  become: true
+  changed_when: false
+  register: __gguf_download
+  environment:
+    PATH: "{{ ansible_facts['env']['PATH'] | default('/usr/local/bin:/usr/bin:/bin') }}:{{ ansible_facts['user_dir'] }}/.local/bin"
+
+- name: llama.cpp | Debug downloaded models
+  ansible.builtin.debug:
+    msg: "Downloaded {{ __gguf_download.results | map(attribute='stdout_lines') | flatten }}"
+
+- name: llama.cpp | Wait for container to be running
+  ansible.builtin.command: >
+    docker ps --filter "name={{ (bootstrap_llm_host__llama_cpp_container_name
+      if bootstrap_llm_host__llama_cpp_runtime == 'docker'
+      else bootstrap_llm_host__llama_cpp_service_name) }}" --format "{{ '{{.Names}}' }}"
+  register: __llama_cpp_ps
+  until: __llama_cpp_ps.stdout | length > 0
+  retries: 30
+  delay: 5
+  changed_when: false
+
+- name: llama.cpp | Verify models are present inside container
+  ansible.builtin.command: >
+    {{ __llama_cpp_exec_prefix }} ls -1 /models/
+  register: __model_check
+  changed_when: false
+  failed_when: false
+
+- name: llama.cpp | Debug model directory content
+  ansible.builtin.debug:
+    msg: "Models found inside container: {{ __model_check.stdout_lines | default([]) }}"
+
+- name: llama.cpp | Wait for llama.cpp OpenAI-compatible API to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ bootstrap_llm_host__llama_cpp_port }}/v1/models"
+    status_code: 200
+  register: _result
+  until: _result.status == 200
+  retries: 40
+  delay: 8

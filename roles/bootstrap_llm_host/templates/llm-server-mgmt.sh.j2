@@ -1,0 +1,88 @@
+#!/bin/bash
+# LLM Server Management Script
+# Supports: native (systemd), docker (standalone), swarm (Docker Swarm stack)
+
+OLLAMA_RUNTIME="{{ bootstrap_llm_host__ollama_runtime | default('native') }}"
+OLLAMA_USER="{{ bootstrap_llm_host__ollama_user | default('ollama') }}"
+OLLAMA_CONTAINER="{{ bootstrap_llm_host__ollama_container_name | default('ollama') }}"
+OLLAMA_SERVICE="{{ bootstrap_llm_host__ollama_service_name | default('ollama') }}"
+DOCKER_STACK_NAME="{{ bootstrap_llm_host__docker_stack_name | default('docker_stack') }}"
+
+# Determine the correct command prefix based on runtime
+case "$OLLAMA_RUNTIME" in
+    native)
+        OLLAMA_CMD="sudo -u $OLLAMA_USER /usr/local/bin/ollama"
+        RESTART_CMD="systemctl restart ollama"
+        STATUS_CMD="systemctl status ollama"
+        ;;
+    docker)
+        OLLAMA_CMD="docker exec -u root $OLLAMA_CONTAINER /bin/ollama"
+        RESTART_CMD="docker restart $OLLAMA_CONTAINER"
+        STATUS_CMD="docker ps --filter name=$OLLAMA_CONTAINER"
+        ;;
+    swarm)
+        # Dynamically find the actual running container for the swarm service
+        CONTAINER_ID=$(docker ps -q --filter "name=^${DOCKER_STACK_NAME}_${OLLAMA_SERVICE}." --filter "status=running" | head -n 1)
+        if [ -z "$CONTAINER_ID" ]; then
+            echo "Error: No running container found for swarm service ${DOCKER_STACK_NAME}_${OLLAMA_SERVICE}"
+            exit 1
+        fi
+        OLLAMA_CMD="docker exec -u root $CONTAINER_ID /bin/ollama"
+        RESTART_CMD="docker service restart ${DOCKER_STACK_NAME}_${OLLAMA_SERVICE}"
+        STATUS_CMD="docker service ps ${DOCKER_STACK_NAME}_${OLLAMA_SERVICE}"
+        ;;
+    *)
+        echo "Error: Unknown OLLAMA_RUNTIME: $OLLAMA_RUNTIME"
+        echo "Supported: native, docker, swarm"
+        exit 1
+        ;;
+esac
+
+case "$1" in
+    list-models)
+        $OLLAMA_CMD list
+        ;;
+    pull-model)
+        if [ -z "$2" ]; then
+            echo "Usage: $0 pull-model <model-name>"
+            exit 1
+        fi
+        $OLLAMA_CMD pull "$2"
+        ;;
+    remove-model)
+        if [ -z "$2" ]; then
+            echo "Usage: $0 remove-model <model-name>"
+            exit 1
+        fi
+        $OLLAMA_CMD rm "$2"
+        ;;
+    status)
+        echo "=== Ollama Status ==="
+        $STATUS_CMD
+        ;;
+    restart)
+        echo "Restarting Ollama ($OLLAMA_RUNTIME mode)..."
+        eval "$RESTART_CMD"
+        echo "Restart command issued."
+        ;;
+    logs)
+        if [ "$OLLAMA_RUNTIME" = "native" ]; then
+            journalctl -u ollama -f
+        elif [ "$OLLAMA_RUNTIME" = "docker" ]; then
+            docker logs -f $OLLAMA_CONTAINER
+        elif [ "$OLLAMA_RUNTIME" = "swarm" ]; then
+            CONTAINER_ID=$(docker ps -q --filter "name=^${DOCKER_STACK_NAME}_${OLLAMA_SERVICE}." --filter "status=running" | head -n 1)
+            if [ -n "$CONTAINER_ID" ]; then
+                docker logs -f $CONTAINER_ID
+            else
+                echo "No running container found for logs."
+            fi
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {list-models|pull-model|remove-model|status|restart|logs}"
+        echo ""
+        echo "Runtime mode: $OLLAMA_RUNTIME"
+        exit 1
+        ;;
+esac

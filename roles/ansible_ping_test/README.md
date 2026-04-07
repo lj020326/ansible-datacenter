@@ -1,12 +1,12 @@
 
 # Role ansible_ping_test
 
-The role will place target node into node_offline if the ping test fails for the specified hosts.
+The role will place target node into host_offline if the ping test fails for the specified hosts.
 
 Example usage:
 ```shell
-- name: "Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'"
-  hosts: all,!local,!node_offline
+- name: "Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'host_offline'"
+  hosts: all,!local,!host_offline
   tags: always
   ## https://issues.jenkins-ci.org/browse/JENKINS-54557
   ignore_unreachable: yes
