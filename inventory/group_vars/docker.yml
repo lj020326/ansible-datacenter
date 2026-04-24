@@ -60,14 +60,6 @@ bootstrap_docker__dns_opts:
 bootstrap_docker__storage_driver: overlay2
 # bootstrap_docker__storage_driver: devicemapper
 
-bootstrap_docker__config:
-  experimental: true
-  ## ref: https://stackoverflow.com/questions/60919979/limit-logfile-size-for-existing-containers-in-docker
-  log-driver: "json-file"
-  log-opts:
-    max-size: "5m"
-    max-file: "500"
-
 # bootstrap_docker__daemon_flags: []
 bootstrap_docker__daemon_flags:
   - "-H unix:///var/run/docker.sock"
@@ -146,12 +138,25 @@ docker_registries:
     host: "{{ passthru_registry_fqdn }}"
     endpoint: "{{ passthru_registry }}"
     url: "https://{{ passthru_registry }}"
+    is_passthru: true
 
-
-
-bootstrap_docker__registry_mirrors: "{{ docker_registries | map(attribute='url') | list }}"
+# Filter only registries where is_passthru is true for the mirrors list
+bootstrap_docker__registry_mirrors: "{{ docker_registries | selectattr('is_passthru', 'defined')
+  | selectattr('is_passthru', 'equalto', true) | map(attribute='url') | list }}"
+#bootstrap_docker__registry_mirrors: "{{ docker_registries | map(attribute='url') | list }}"
 
 bootstrap_docker__insecure_registries: "{{ docker_registries | map(attribute='endpoint') | list }}"
+
+bootstrap_docker__options__datacenter:
+  experimental: true
+  ## ref: https://stackoverflow.com/questions/60919979/limit-logfile-size-for-existing-containers-in-docker
+  log-driver: "json-file"
+  log-opts:
+    max-size: "5m"
+    max-file: "500"
+  insecure-registries: "{{ bootstrap_docker__insecure_registries }}"
+  registry-mirrors: "{{ bootstrap_docker__registry_mirrors }}"
+
 
 registry_users: "{{ vault__registry_users | d('') }}"
 

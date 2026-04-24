@@ -16,21 +16,27 @@ __docker_stack__ollama__host_addr: "{{ docker_stack__ollama__host_addr
 
 # Listener bind ports
 __docker_stack__ollama__http_port: "{{ docker_stack__ollama__http_port | d('11434') }}"
-__docker_stack__ollama__internal_http_port: "11434"
+__docker_stack__ollama__internal_http_port: "{{ docker_stack__ollama__internal_http_port | d('11434') }}"
 
 #__docker_stack__ollama__ollama_host_default: "{{ __docker_stack__ollama__host_addr }}"
 __docker_stack__ollama__ollama_host_default: "host.docker.internal"
 __docker_stack__ollama__ollama_host: "{{ docker_stack__ollama__ollama_host
   | d(__docker_stack__ollama__ollama_host_default) }}"
 
-__docker_stack__ollama__ollama_port_default: "11434"
-__docker_stack__ollama__ollama_port: "{{ docker_stack__ollama__ollama_port
-  | d(__docker_stack__ollama__ollama_port_default) }}"
+__docker_stack__ollama__environment_default:
+  OLLAMA_HOST: "0.0.0.0:{{ __docker_stack__ollama__internal_http_port }}"
+  # OLLAMA_ORIGINS: "http://{{ __docker_stack__ollama__host_addr }};http://{{ ansible_facts['default_ipv4'].address }};http://localhost:8080;http://127.0.0.1"
+  OLLAMA_ORIGINS: "*"
+  # uncomment for troubleshooting
+  # OLLAMA_DEBUG: true
+  # optional: keep models loaded longer
+  # OLLAMA_KEEP_ALIVE: "24h"
+  OLLAMA_KEEP_ALIVE: "1h"
+  # OR Ensure OLLAMA_MAX_LOADED_MODELS=1 to force Ollama to unload current model before loading another model
+  # OLLAMA_MAX_LOADED_MODELS: 1
 
-__docker_stack__ollama__ollama_base_url_default: "http://{{ __docker_stack__ollama__ollama_host }}:{{
-  __docker_stack__ollama__ollama_port }}"
-__docker_stack__ollama__ollama_base_url: "{{ docker_stack__ollama__ollama_base_url
-  | d(__docker_stack__ollama__ollama_base_url_default) }}"
+__docker_stack__ollama__environment: "{{ docker_stack__ollama__environment
+  | d(__docker_stack__ollama__environment_default) }}"
 
 __docker_stack__ollama__config_dirs:
   - path: "{{ __docker_stack__ollama__base_dir }}"
@@ -40,26 +46,22 @@ __docker_stack__ollama__config_tpls:
   - src: ollama/ollama.env.j2
     dest: "{{ __docker_stack__ollama__base_dir }}/ollama.env"
 
-__docker_stack__ollama__secret_key: "{{ docker_stack__ollama__secret_key
-  | d('CHANGEME123') }}"
-
 __docker_stack__ollama__firewalld_ports:
   - "{{ __docker_stack__ollama__http_port }}/tcp"
 
 docker_stack__appspec__ollama:
-  dirs: "{{ __docker_stack__ollama__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__ollama__config_files | d([]) }}"
-  templates: "{{ __docker_stack__ollama__config_tpls | d([]) }}"
-  secrets: "{{ __docker_stack__ollama__secrets | d({}) }}"
-  firewalld_services: "{{ __docker_stack__ollama__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__ollama__firewalld_ports | d([]) }}"
-  docker_services: "{{ __docker_stack__ollama__services | d({}) }}"
+  dirs: "{{ __docker_stack__ollama__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__ollama__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__ollama__config_tpls | d([], true) }}"
+  secrets: "{{ __docker_stack__ollama__secrets | d({}, true) }}"
+  firewalld_services: "{{ __docker_stack__ollama__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__ollama__firewalld_ports | d([], true) }}"
+  docker_services: "{{ __docker_stack__ollama__services | d({}, true) }}"
 
 __docker_stack__ollama__traefik_labels: "{{ docker_stack__ollama__traefik_labels
   | d(__docker_stack__ollama__traefik_labels_default) }}"
 
 __docker_stack__ollama__services:
-
   ollama:
     container_name: ollama
     image: "{{ __docker_stack__ollama__image }}"

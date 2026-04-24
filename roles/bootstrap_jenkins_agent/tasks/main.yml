@@ -18,6 +18,25 @@
       - jenkins_agent__work_dir={{ jenkins_agent__work_dir }}
       - jenkins_agent__remoting_dir={{ jenkins_agent__remoting_dir }}
 
+- name: Check if Jenkins controller is reachable
+  ansible.builtin.uri:
+    url: "{{ jenkins_agent__controller_url }}/login"
+    method: GET
+    validate_certs: "{{ jenkins_agent__validate_certs }}"
+  register: __jenkins_controller_check
+  ignore_errors: true
+  delegate_to: localhost
+
+- name: Assert that Jenkins controller is running
+  ansible.builtin.assert:
+    that:
+      - __jenkins_controller_check.status == 200
+    fail_msg: >-
+      The Jenkins controller at {{ jenkins_agent__controller_url }} is unreachable or not running.
+      Received status: {{ __jenkins_controller_check.status | default('No Response') }}.
+      Please ensure the controller is online and the URL is correct before retrying.
+    success_msg: "Jenkins controller is reachable."
+
 - name: Register agent node with Jenkins controller
   when: jenkins_agent__register_with_controller | d(true) | bool
   delegate_to: localhost
@@ -44,7 +63,7 @@
     state: present
 
 - name: Add jenkins user to jenkins user groups
-  when: jenkins_agent__jenkins_user_groups | d([]) | length > 0
+  when: jenkins_agent__jenkins_user_groups | d([], true) | length > 0
   ansible.builtin.user:
     name: jenkins
     groups: "{{ jenkins_agent__jenkins_user_groups }}"

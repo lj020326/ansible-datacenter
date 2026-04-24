@@ -47,7 +47,7 @@ VAULT_ID="dcc-vault"
 
 _INSTALL_GALAXY_COLLECTIONS="${INSTALL_GALAXY_COLLECTIONS:-0}"
 _UPGRADE_GALAXY_COLLECTIONS="${UPGRADE_GALAXY_COLLECTIONS:-0}"
-#_UPGRADE_GALAXY_COLLECTIONS=1
+_FORCE_GALAXY_COLLECTIONS="${FORCE_GALAXY_COLLECTIONS:-0}"
 
 USE_SOURCE_COLLECTIONS=0
 SOURCE_COLLECTIONS_PATH="${REPO_PARENT_DIR}/requirements_collections"
@@ -170,7 +170,7 @@ EOF
 }
 
 # Install Galaxy collections if needed
-_INSTALL_GALAXY_COLLECTIONS() {
+install_galaxy_collections() {
   echo "==> ansible-galaxy --version"
   ansible-galaxy --version
 
@@ -182,15 +182,16 @@ _INSTALL_GALAXY_COLLECTIONS() {
 #  GALAXY_INSTALL_CMD+=("--force")
 
   GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
+  if [[ "${_FORCE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+      GALAXY_INSTALL_CMD+=("--force")
+  fi
+
   if [[ "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
     GALAXY_INSTALL_CMD+=("--upgrade")
+    GALAXY_INSTALL_CMD+=("--clear-response-cache")
   fi
   GALAXY_INSTALL_CMD+=("-r" "${ANSIBLE_COLLECTION_REQUIREMENTS}")
   GALAXY_INSTALL_CMD+=("-p" "${LOCAL_COLLECTIONS_PATH}")
-
-  if [[ "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    GALAXY_INSTALL_CMD+=("--clear-response-cache")
-  fi
 
   echo "==> ${GALAXY_INSTALL_CMD[*]}"
   if ! eval "${GALAXY_INSTALL_CMD[*]} > /dev/null"; then
@@ -228,6 +229,7 @@ main() {
 EOF
     PLAYBOOK_ARGS+=("-e" "@$TEMP_VARS")
   }
+
   # Null inline key vars to force agent usage, mimicking Jenkins
   TEMP_VARS=$(mktemp)
   cat > "$TEMP_VARS" << EOF
@@ -236,9 +238,10 @@ EOF
   "ansible_ssh_private_key": null
 }
 EOF
+
   PLAYBOOK_ARGS+=("-e" "@$TEMP_VARS")
   if [[ "${_INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    _INSTALL_GALAXY_COLLECTIONS
+    install_galaxy_collections
   fi
 
   echo "==> ansible-galaxy collection list"

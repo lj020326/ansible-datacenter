@@ -31,7 +31,7 @@
   loop: "{{ docker_stack__proxy_service_templates }}"
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__secrets.keys()"
-  when: __docker_stack__secrets | d({}) | length > 0
+  when: __docker_stack__secrets | d({}, true) | length > 0
   ansible.builtin.debug:
     var: __docker_stack__secrets.keys() | list
 
@@ -45,7 +45,7 @@
   when:
     - docker_stack__swarm_mode | d(false) | bool
     - docker_stack__swarm_manager | d(false) | bool
-    - __docker_stack__secrets | d({}) | length > 0
+    - __docker_stack__secrets | d({}, true) | length > 0
   community.docker.docker_secret:
     name: "{{ item.name }}"
     data: "{{ item.value }}"
@@ -63,7 +63,7 @@
     verbosity: 1
 
 #- name: "Shut down docker stack"
-#  when: __docker_stack__networks | d({}) | length > 0
+#  when: __docker_stack__networks | d({}, true) | length > 0
 #  ansible.builtin.include_tasks: shutdown-docker-stack.yml
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Check if external Docker network exists"
@@ -78,7 +78,7 @@
   register: __network_check
   failed_when:
     - __network_check is failed
-    - (__network_check.results | d([]) | selectattr('failed', 'equalto', True) |
+    - (__network_check.results | d([], true) | selectattr('failed', 'equalto', True) |
        rejectattr('msg', 'search', 'network .* is in use by service') | list | length) > 0
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Display __network_check"
@@ -88,9 +88,9 @@
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Set __docker_stack__network_exists"
   ansible.builtin.set_fact:
-    __docker_stack__network_exists: "{{ __docker_stack__network_exists | d({})
+    __docker_stack__network_exists: "{{ __docker_stack__network_exists | d({}, true)
       | combine({item.item.key: (not item.changed)}) }}"
-  loop: "{{ __network_check.results | d([]) }}"
+  loop: "{{ __network_check.results | d([], true) }}"
   loop_control:
     label: "{{ item.item.key }}"
 

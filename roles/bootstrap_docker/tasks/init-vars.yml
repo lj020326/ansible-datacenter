@@ -1,0 +1,48 @@
+---
+- name: "Docker | Init-vars | Display bootstrap_docker__base_options"
+  ansible.builtin.debug:
+    var: bootstrap_docker__base_options
+    verbosity: 1
+
+- name: "Docker | Init-vars | Initialize docker options using filtered base configs"
+  ansible.builtin.set_fact:
+    # 1. Filter the items in bootstrap_docker__base_options:
+    #    - dict2items converts the dict into a list of {key: ..., value: ...}
+    #    - # Step 1: Reject items where value is YAML 'null' (Python None)
+    #    - # Step 2: Reject items where value is an empty string ("")
+    #    - items2dict converts it back to a dictionary.
+    # 2. Combine the result with the existing config (defaulting to {} if unset)
+    __bootstrap_docker__options_merged: >
+      {{ __bootstrap_docker__options_merged | d({}, true) |
+         combine(
+           bootstrap_docker__base_options | dict2items | rejectattr('value', 'none') | rejectattr('value', 'equalto', '') | items2dict,
+           recursive=True
+         )
+      }}
+
+- name: "Docker | Init-vars | Display merged __bootstrap_docker__options_merged from bootstrap_docker__base_options"
+  ansible.builtin.debug:
+    var: __bootstrap_docker__options_merged
+
+- name: "Docker | Init-vars | Combine LVM options into Docker configuration"
+  when: bootstrap_docker__setup_lvm | bool
+  ansible.builtin.set_fact:
+    __bootstrap_docker__options_merged: "{{ __bootstrap_docker__options_merged | d({}, true)
+      | combine(bootstrap_lvm_options, recursive=True) }}"
+
+- name: "Docker | Init-vars | Display __bootstrap_docker__options_merged from bootstrap_lvm_options"
+  ansible.builtin.debug:
+    var: __bootstrap_docker__options_merged
+
+- name: "Docker | Init-vars | Show variables with '{{ bootstrap_docker__options_prefix }}' prefix"
+  ansible.builtin.debug:
+    msg: "{{ lookup('varnames', bootstrap_docker__options_regex, wantlist=True) }}"
+
+- name: "Docker | Init-vars | Coalesce dictionaries from {{ bootstrap_docker__options_prefix }}* vars"
+  ansible.builtin.set_fact:
+    __bootstrap_docker__options_merged: "{{ __bootstrap_docker__options_merged | combine(lookup('vars', item), recursive=True) }}"
+  loop: "{{ lookup('varnames', bootstrap_docker__options_regex, wantlist=True) }}"
+
+- name: "Docker | Init-vars | Display final merged __bootstrap_docker__options_merged"
+  ansible.builtin.debug:
+    var: __bootstrap_docker__options_merged

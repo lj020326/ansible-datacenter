@@ -200,7 +200,7 @@ Then the first play could be refactored as follows:
 bootstrap-docker-stack.yml:
 ```yaml
 - name: "Bootstrap docker stack nodes"
-  hosts: docker_stack,!node_offline
+  hosts: docker_stack,!host_offline
   tags:
     - bootstrap-docker-stack
     - docker-stack

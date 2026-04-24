@@ -1,5 +1,13 @@
 ---
 
+#__docker_stack__gitea__image_default: "gitea/gitea:latest"
+__docker_stack__gitea__image_default: "gitea/gitea:1.26"
+## workaround to stop the breakage in latest version 1.25.5
+## from JENKINS-76435 (“Unrecognized field ‘login_name’”)
+#__docker_stack__gitea__image_default: "gitea/gitea:1.24.7"
+
+__docker_stack__gitea__image: "{{ docker_stack__gitea__image | d(__docker_stack__gitea__image_default) }}"
+
 __docker_stack__gitea__domain: "{{ docker_stack__internal_domain }}"
 __docker_stack__gitea__endpoint: "gitea.{{ __docker_stack__gitea__domain }}"
 
@@ -22,19 +30,6 @@ __docker_stack__gitea__internal_token: "{{ docker_stack__gitea__internal_token |
 __docker_stack__gitea__oauth_jwt_secret: "{{ docker_stack__gitea__oauth_jwt_secret | d('00000000001111111111') }}"
 __docker_stack__gitea__no_reply_address: "{{ docker_stack__gitea__no_reply_address | d('noreply@example.org') }}"
 
-__docker_stack__gitea__config_dirs:
-  - path: "{{ __docker_stack__gitea__base_dir }}"
-  - path: "{{ __docker_stack__gitea__base_dir }}/data"
-  - path: "{{ __docker_stack__gitea__base_dir }}/config"
-
-__docker_stack__gitea__config_tpls:
-  - src: gitea/app.ini.j2
-    dest: "{{ __docker_stack__gitea__base_dir }}/config/app.ini"
-
-__docker_stack__gitea__firewalld_ports:
-  - "{{ __docker_stack__gitea__ssh_port }}/tcp"
-  - "{{ __docker_stack__gitea__http_port }}/tcp"
-
 __docker_stack__gitea__environment_default:
   USER_UID: "{{ docker_stack__user_uid }}"
   USER_GID: "{{ docker_stack__user_gid }}"
@@ -49,9 +44,26 @@ __docker_stack__gitea__environment_default:
   ## ref: https://github.com/go-gitea/gitea/issues/5475#issuecomment-446467498
   GIT_SSL_NO_VERIFY: "true"
 
-__docker_stack__gitea__environment: "{{ docker_stack__gitea__environment | d(__docker_stack__gitea__environment_default) }}"
+__docker_stack__gitea__environment: "{{ docker_stack__gitea__environment
+  | d(__docker_stack__gitea__environment_default) }}"
 
-__docker_stack__gitea__traefik_labels: "{{ docker_stack__gitea__traefik_labels | d(__docker_stack__gitea__traefik_labels_default) }}"
+__docker_stack__gitea__config_dirs:
+  - path: "{{ __docker_stack__gitea__base_dir }}"
+  - path: "{{ __docker_stack__gitea__base_dir }}/data"
+  - path: "{{ __docker_stack__gitea__base_dir }}/config"
+
+__docker_stack__gitea__config_tpls:
+  - src: gitea/gitea.env.j2
+    dest: "{{ __docker_stack__gitea__base_dir }}/gitea.env"
+  - src: gitea/app.ini.j2
+    dest: "{{ __docker_stack__gitea__base_dir }}/config/app.ini"
+
+__docker_stack__gitea__firewalld_ports:
+  - "{{ __docker_stack__gitea__ssh_port }}/tcp"
+  - "{{ __docker_stack__gitea__http_port }}/tcp"
+
+__docker_stack__gitea__traefik_labels: "{{ docker_stack__gitea__traefik_labels
+  | d(__docker_stack__gitea__traefik_labels_default) }}"
 
 __docker_stack__gitea__services:
 
@@ -76,8 +88,7 @@ __docker_stack__gitea__services:
   ## ref: https://docs.gitea.io/en-us/install-with-docker/
   gitea:
     container_name: gitea
-    #      image: gitea/gitea:1.6
-    image: gitea/gitea:latest
+    image: "{{ __docker_stack__gitea__image }}"
     ## in swarm mode - docker deploy does not support depends_on condition
     ## ref: https://docs.docker.com/reference/compose-file/legacy-versions/#depends_on
     ## ref: https://github.com/docker/compose/issues/9957#issuecomment-1329726003
@@ -87,7 +98,8 @@ __docker_stack__gitea__services:
     depends_on:
       - postgres
 #      - check-gitea-db-started
-    environment: "{{ __docker_stack__gitea__environment }}"
+    env_file:
+      - gitea/gitea.env
     #      restart: always
     restart: unless-stopped
     networks:
@@ -136,10 +148,10 @@ __docker_stack__gitea__services:
         order: stop-first
 
 docker_stack__appspec__gitea:
-  dirs: "{{ __docker_stack__gitea__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__gitea__config_files | d([]) }}"
-  templates: "{{ __docker_stack__gitea__config_tpls | d([]) }}"
-  firewalld_services: "{{ __docker_stack__gitea__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__gitea__firewalld_ports | d([]) }}"
-  networks: "{{ __docker_stack__gitea__networks | d({}) }}"
-  docker_services: "{{ __docker_stack__gitea__services | d({}) }}"
+  dirs: "{{ __docker_stack__gitea__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__gitea__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__gitea__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__gitea__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__gitea__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__gitea__networks | d({}, true) }}"
+  docker_services: "{{ __docker_stack__gitea__services | d({}, true) }}"

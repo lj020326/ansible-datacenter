@@ -125,7 +125,7 @@ $ ansible -i inventory/prod/hosts.yml -m debug -a var=group_names dmz:\&docker_s
 ### Run `tag-based` `site.yml` plays on hosts
 
 ```shell
-## for control node certs - skip ansible_ping_test
+## for control node certs - skip apply_ping_test
 $ runme.sh -t bootstrap-pki -l ca_keystore site.yml
 ## OR run manual cert creation using cfssl
 $ runme.sh -t bootstrap-ca-certs -l ca_keystore site.yml

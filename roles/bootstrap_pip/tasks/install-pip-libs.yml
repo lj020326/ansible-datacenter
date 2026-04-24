@@ -3,21 +3,11 @@
   ansible.builtin.debug:
     var: __bootstrap_pip_env
 
-- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update system pip via package manager"
-  when:
-#    - not __bootstrap_pip__system_pip_upgrade_enabled | bool
-    - __bootstrap_pip_env.virtualenv is not defined
-    - __bootstrap_pip_env.pip_version | d('')=='latest'
-    - __bootstrap_pip_env.system | d(false) | bool
-  ansible.builtin.package:
-    name: "{{ bootstrap_pip__packages }}"
-    state: latest
-
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Update pip using get-pip.yml"
   when:
 #    - __bootstrap_pip__system_pip_upgrade_enabled | bool
     - __bootstrap_pip_env.virtualenv is not defined
-    - __bootstrap_pip_env.pip_version | d('')=='latest'
+    - __bootstrap_pip_env.pip_version | d('') == 'latest'
     - not __bootstrap_pip_env.system | d(false) | bool
   ansible.builtin.include_tasks: run-get-pip.yml
 
@@ -53,6 +43,10 @@
       loop:
         - path: "{{ __virtual_env_basedir }}"
         - path: "{{ __bootstrap_pip_env.virtualenv }}"
+
+    - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Debug python version fact"
+      ansible.builtin.debug:
+        var: ansible_facts.python_version | d('')
 
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set up venv for {{ __bootstrap_pip_env.virtualenv }}"
       block:
@@ -102,7 +96,7 @@
           ansible.builtin.include_tasks: run-get-pip.yml
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Init __bootstrap_pip_env_libs_list_by_priority"
-  when: __bootstrap_pip__library_list_by_priority | d([]) | length > 0
+  when: __bootstrap_pip__library_list_by_priority | d([], true) | length > 0
   block:
     - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Display __bootstrap_pip__library_list_by_priority"
       ansible.builtin.debug:
@@ -113,18 +107,18 @@
         __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority }}"
 
 #- name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
-#  when: __bootstrap_pip_env.libraries | d([]) | length > 0
+#  when: __bootstrap_pip_env.libraries | d([], true) | length > 0
 #  ansible.builtin.set_fact:
 #    __bootstrap_pip_env_libs_list_by_priority: "{{ __bootstrap_pip_env_libs_list_by_priority
-#    | d({}) | combine({ (item.priority | d(bootstrap_pip__lib_priority_default) | int):
+#    | d({}, true) | combine({ (item.priority | d(bootstrap_pip__lib_priority_default) | int):
 #      { item.state | d(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
 #  loop: "{{ __bootstrap_pip_env.libraries }}"
 
 - name: "{{ __bootstrap_pip__log_prefix_pipenv }} Set __bootstrap_pip_env_libs_list_by_priority"
-  when: __bootstrap_pip_env.libraries | d([]) | length > 0
+  when: __bootstrap_pip_env.libraries | d([], true) | length > 0
   ansible.builtin.set_fact:
     __bootstrap_pip_env_libs_list_by_priority: >-
-      {{ __bootstrap_pip_env_libs_list_by_priority | d({}) | combine({
+      {{ __bootstrap_pip_env_libs_list_by_priority | d({}, true) | combine({
         (library_priority | int): {
           item.state | d(bootstrap_pip__lib_state): { library_name: {} }
         }
@@ -144,8 +138,8 @@
     - not __bootstrap_pip_env.system | bool
     - __bootstrap_pip_env.virtualenv is defined
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
-    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | d([]) | length > 0
-  environment: "{{ bootstrap_pip__venv_environment_vars | d({}) }}"
+    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | d([], true) | length > 0
+  environment: "{{ bootstrap_pip__venv_environment_vars | d({}, true) }}"
   ansible.builtin.pip:
     name: "{{ __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | list }}"
     state: present
@@ -166,8 +160,8 @@
     - __bootstrap_pip_env.system | bool
     - __bootstrap_pip__system_pip_install_libs_allowed | bool
     - __bootstrap_pip_env_libs_list_by_priority[item].present is defined
-    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | d([]) | length > 0
-  #  environment: "{{ bootstrap_pip__venv_environment_vars | d({}) }}"
+    - __bootstrap_pip_env_libs_list_by_priority[item].present.keys() | d([], true) | length > 0
+  #  environment: "{{ bootstrap_pip__venv_environment_vars | d({}, true) }}"
   environment:
     #    PATH: "$PATH:/usr/bin:/usr/local/bin"
     PIP_ROOT_USER_ACTION: ignore
@@ -198,7 +192,7 @@
 #    virtualenv: "{{ __bootstrap_pip_env.virtualenv | d(omit) }}"
 #    virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(__bootstrap_pip__virtualenv_command) }}"
 ##    virtualenv_command: "{{ __bootstrap_pip_env.virtualenv_command | d(omit) }}"
-#  loop: "{{ bootstrap_pip__packages }}"
+#  loop: "{{ __bootstrap_pip__packages }}"
 #  environment:
 #    SETUPTOOLS_USE_DISTUTILS: stdlib
 

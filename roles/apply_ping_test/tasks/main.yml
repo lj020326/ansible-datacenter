@@ -1,0 +1,202 @@
+---
+- name: Debug SSH key vars
+  ansible.builtin.debug:
+    msg:
+      - "ansible_ssh_private_key_file: {{ ansible_ssh_private_key_file | d('') }}"
+      - "ansible_ssh_private_key: {{ 'EMPTY' if ansible_ssh_private_key is none
+          else (ansible_ssh_private_key | truncate(20) + '...') }}"
+    verbosity: 1
+
+## https://iautomatelinux.wordpress.com/2019/03/27/ansible-getting-list-of-failed-hosts-and-using-in-a-subsequent-play/
+- name: Ping test via module
+  when: inventory_hostname in ansible_play_hosts_all
+  block:
+    ##############
+    ## DO NOT hardcode group_names values from inventory here
+    ##   best practice for role development - do not hardcode inventory specific variable states in roles
+    ##   instead, use module input vars set by the invoker to determine the ping module
+    ##############
+    - name: Ping test via module ping
+      when: apply_ping_test__module == 'ping'
+      action: ansible.builtin.ping
+      register: ping_test
+      failed_when: false
+      changed_when: false
+
+    - name: Ping test via module win_ping
+      when: apply_ping_test__module == 'win_ping'
+      action: ansible.windows.win_ping
+      register: winping_test
+      failed_when: false
+      changed_when: false
+
+    - name: Debug ansible connection vars for windows host
+      when:
+        - apply_ping_test__module == 'win_ping'
+        - winping_test.unreachable | d(false)
+      ansible.builtin.debug:
+        msg:
+          - "ansible_user: {{ ansible_user }}"
+          - "ansible_connection: {{ ansible_connection }}"
+          - "ansible_port: {{ ansible_port }}"
+          - "ansible_winrm_scheme: {{ ansible_winrm_scheme }}"
+          - "ansible_winrm_transport: {{ ansible_winrm_transport }}"
+          - "ansible_winrm_server_cert_validation: {{ ansible_winrm_server_cert_validation }}"
+          - "ansible_winrm_operation_timeout_sec: {{ ansible_winrm_operation_timeout_sec }}"
+          - "ansible_winrm_read_timeout_sec: {{ ansible_winrm_read_timeout_sec }}"
+          - "ansible_winrm_message_encryption: {{ ansible_winrm_message_encryption }}"
+
+    ## https://docs.ansible.com/ansible/latest/network/user_guide/platform_index.html#settings-by-platform
+    ## https://github.com/ansible/ansible/blob/devel/docs/docsite/rst/network/user_guide/platform_index.rst
+    ## https://www.reddit.com/r/ansible/comments/9dn5ff/possible_values_for_ansible_network_os/
+    - name: Ping test via module net_ping
+      delegate_to: localhost
+      when: apply_ping_test__module == 'net_ping'
+      vars:
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+      ansible.netcommon.net_ping:
+        dest: "{{ ansible_host }}"
+      register: netping_test
+      failed_when: false
+      changed_when: false
+
+    - name: display ping test results
+      ansible.builtin.debug:
+        msg:
+          - ping_test={{ ping_test | to_nice_json }}
+          - winping_test={{ winping_test | to_nice_json }}
+          - netping_test={{ netping_test | to_nice_json }}
+
+    - name: Set ping_failed from ping_test
+      when: not (ping_test.skipped | default(false))
+      ansible.builtin.set_fact:
+        ping_failed: >-
+          {{
+            ping_test.unreachable | default(false) or
+            ping_test.failed | default(false) or
+            (ping_test.ping is not defined or ping_test.ping != 'pong')
+          }}
+
+    - name: Set ping_failed from winping_test
+      when: not (winping_test.skipped | default(false))
+      ansible.builtin.set_fact:
+        ping_failed: >-
+          {{
+            winping_test.unreachable | default(false) or
+            winping_test.failed | default(false) or
+            (winping_test.ping is not defined or winping_test.ping != 'pong')
+          }}
+
+    - name: Set ping_failed from netping_test
+      when: not (netping_test.skipped | default(false))
+      ansible.builtin.set_fact:
+        ping_failed: >-
+          {{
+            netping_test.unreachable | default(false) or
+            netping_test.failed | default(false) or
+            (netping_test.packet_loss != '0%')
+          }}
+
+#    - name: Setting ping_failed[1]
+#      connection: local
+#      when: not item.skipped | d(false)
+#      ansible.builtin.set_fact:
+#        ping_failed: "{{ item.unreachable | d(item.failed) | d(true) }}"
+#      loop:
+#        - "{{ ping_test }}"
+#        - "{{ winping_test }}"
+#        - "{{ netping_test }}"
+
+    - name: Fail block if Ansible ping failed
+      when:
+        - apply_ping_test__fallback_to_cli
+        - ping_failed | default(false)
+      no_log: true
+      ansible.builtin.fail:
+        msg: "Ansible connectivity test failed; falling back to CLI ping"
+
+  rescue:
+    - name: ping test via CLI
+      when: apply_ping_test__fallback_to_cli | bool
+      block:
+        - name: ping test via CLI
+          delegate_to: localhost
+          become: true
+          vars:
+            ansible_python_interpreter: "{{ ansible_playbook_python }}"
+          ansible.builtin.command: ping -c 1 -w 2 {{ ansible_host }}
+          register: ping_cli_test
+          changed_when: false
+
+        # Ansible failed; treat as offline even if network up
+        - name: Setting ping_failed
+          ansible.builtin.set_fact:
+            ping_failed: "{{ ping_cli_test.failed }}"
+
+- name: Display ping_failed
+  ansible.builtin.debug:
+    var: ping_failed | d('')
+
+- name: Set ping_failed
+  ansible.builtin.set_fact:
+    ping_failed: "{{ ping_failed | d(true) }}"
+
+- name: Display ping_failed
+  ansible.builtin.debug:
+    var: ping_failed
+
+## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/ansible-unreachable-host-handling.md
+- name: Preliminary pre-check connection test host info
+  run_once: true
+  connection: local
+  delegate_to: localhost
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  block:
+    - name: Set unreachable_hosts
+      when: hostvars[item].ping_failed | d(true)
+      ansible.builtin.set_fact:
+        unreachable_hosts: "{{ unreachable_hosts | d([], true) + [item] }}"
+      loop: "{{ ansible_play_hosts_all }}"
+
+    - name: Display pre-check connection info
+      ansible.builtin.debug:
+        msg:
+          - ansible_play_hosts_all={{ ansible_play_hosts_all }}
+          - ansible_play_hosts={{ ansible_play_hosts }}
+          - unreachable_hosts={{ unreachable_hosts | d([], true) }}
+
+    - name: Add unreachable_hosts to group 'host_offline'
+      when: unreachable_hosts | d([], true) | length > 0
+      ansible.builtin.add_host:
+        name: "{{ item }}"
+        groups: host_offline
+      loop: "{{ unreachable_hosts }}"
+
+    - name: Add unreachable_hosts to offline groups
+      when: unreachable_hosts | d([], true) | length > 0
+      block:
+        - name: Add unreachable_hosts to group 'host_offline' (Static/General group)
+          ansible.builtin.add_host:
+            name: "{{ item }}"
+            groups: host_offline
+          loop: "{{ unreachable_hosts }}"
+
+        - name: Add unreachable_hosts to group 'discovered_host_offline' (dynamic group)
+          ansible.builtin.add_host:
+            name: "{{ item }}"
+            groups: discovered_host_offline
+          loop: "{{ unreachable_hosts }}"
+
+    - name: Display nodes in groups['host_offline']
+      ansible.builtin.debug:
+        var: groups['host_offline']
+
+- name: Conditionally fail if node was discovered offline
+  when:
+    - apply_ping_test__fail_when_discovered_offline | bool
+    - inventory_hostname in groups['discovered_host_offline'] | d([], true)
+  ansible.builtin.assert:
+    that:
+      - "inventory_hostname not in groups['discovered_host_offline']"
+    fail_msg: "Node {{ inventory_hostname }} was discovered offline and apply_ping_test__fail_when_discovered_offline is enabled."

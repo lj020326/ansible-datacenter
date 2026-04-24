@@ -28,8 +28,8 @@
   ansible.builtin.assert:
     that:
       - bootstrap_docker__swarm_leader_host is defined
-      - bootstrap_docker__swarm_managers | d([]) | length > 0
-#      - __bootstrap_docker__swarm_remote_addrs | d([]) | length > 0
+      - bootstrap_docker__swarm_managers | d([], true) | length > 0
+#      - __bootstrap_docker__swarm_remote_addrs | d([], true) | length > 0
 
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Display ansible_python_interpreter"
   ansible.builtin.debug:
@@ -56,7 +56,7 @@
   when: __python_package_info.packages.pip3 is defined
   no_log: true
   ansible.builtin.set_fact:
-    __docker_package_info: "{{ __python_package_info.packages.pip3['docker'] | d({}) }}"
+    __docker_package_info: "{{ __python_package_info.packages.pip3['docker'] | d({}, true) }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Display __docker_package_info"
   ansible.builtin.debug:
@@ -81,12 +81,12 @@
 ## ref: https://docs.docker.com/engine/swarm/swarm-tutorial/#the-ip-address-of-the-manager-machine
 ## ref: https://stackoverflow.com/questions/54298815/is-it-necessary-to-open-ports-2377-7946-4789-to-create-a-docker-swarm
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Configure firewall for docker swarm communications"
-  when: __bootstrap_docker__swarm_firewalld_ports | d([]) | length > 0
+  when: __bootstrap_docker__swarm_firewalld_ports | d([], true) | length > 0
   ansible.builtin.include_role:
     name: bootstrap_linux_firewalld
   vars:
     firewalld_action: configure
-    firewalld_ports: "{{ __bootstrap_docker__swarm_firewalld_ports | d([]) }}"
+    firewalld_ports: "{{ __bootstrap_docker__swarm_firewalld_ports | d([], true) }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Setup leader node"
   when: bootstrap_docker__swarm_leader | bool
@@ -105,7 +105,7 @@
 #  ansible.builtin.include_tasks: swarm_worker.yml
 
 - name: "{{ __bootstrap_docker__log_prefix_swarm }} Set node labels"
-  when: bootstrap_docker__swarm_node_labels | d({}) | length > 0
+  when: bootstrap_docker__swarm_node_labels | d({}, true) | length > 0
   delegate_to: "{{ bootstrap_docker__swarm_leader_host }}"
   community.docker.docker_node:
 #    hostname: "{{ ansible_host }}"

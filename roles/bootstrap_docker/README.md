@@ -62,7 +62,7 @@ will happen once a week and Docker container logs will be sent to `journald`.
 # site.yml
 
 - name: "Bootstrap docker nodes"
-  hosts: docker,!node_offline
+  hosts: docker,!host_offline
   tags:
     - bootstrap-docker
   become: True

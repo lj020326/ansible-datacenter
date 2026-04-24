@@ -13,24 +13,20 @@
 - name: Set __bootstrap_linux_user__list_minus_ansible_user
   ansible.builtin.set_fact:
     __bootstrap_linux_user__list_minus_ansible_user: "{{ __bootstrap_linux_user__list
-      | rejectattr('name','equalto', ansible_user) | list }}"
+      | rejectattr('name', 'equalto', ansible_user) | list }}"
 
 - name: Display __bootstrap_linux_user__list_minus_ansible_user
   ansible.builtin.debug:
     var: __bootstrap_linux_user__list_minus_ansible_user
 
 - name: Loop over users and stop their processes
+  when: bootstrap_linux_user__stop_user_processes
   ansible.builtin.include_tasks: stop-user-processes.yml
   loop: "{{ __bootstrap_linux_user__list_minus_ansible_user }}"
   loop_control:
     loop_var: current_user
 
-#- name: Ensure any user processes are stopped/terminated before modifying users
-#  ansible.builtin.include_tasks: stop-user-processes.yml
-
 - name: Load current group info
-#  become: true
-#  ignore_errors: true
   ansible.builtin.getent:
     database: group
     split: ":"
@@ -53,7 +49,6 @@
   when:
     - item.gid is defined
     - item.gid!=__getent_group[item.name][1] | d('')
-  #  ignore_errors: true
   ansible.builtin.group:
     name: "{{ item.name }}"
     gid: "{{ item.gid }}"
@@ -230,7 +225,7 @@
     mode: "0644"
     owner: "{{ item.0.name }}"
     force: true
-  loop: "{{ __bootstrap_linux_user__list | product( lookup('fileglob', 'files/bashenv/.*', wantlist=True)) | list }}"
+  loop: "{{ __bootstrap_linux_user__list | product(lookup('fileglob', 'files/bashenv/.*', wantlist=True)) | list }}"
   loop_control:
     label: Copy {{ item.1 | basename }} to {{ item.0.home_dir }}
 

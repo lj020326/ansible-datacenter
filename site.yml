@@ -6,14 +6,14 @@
 ##
 ## The `always` tagged plays are a set of base/common plays run before starting any following plays.
 ##
-## The set of base/common plays include ping checking 'ansible_ping_test' and common dynamic groups
+## The set of base/common plays include ping checking 'apply_ping_test' and common dynamic groups
 ## to be applied via 'apply_common_groups'.
 ##
 ## Ansible can also runs all plays in site.yml without the 'always' tags when the 'always' tag is defined for any play.
 ## The base/common `always` plays require that the target host ansible user machine credential to be set up.
 ##
 ## Plays responsible for the ansible credentials setup require run with '--skip-tags always' such that
-## the base/common plays ('ansible_ping_test', 'apply_common_groups', etc) are intentionally skipped since
+## the base/common plays ('apply_ping_test', 'apply_common_groups', etc) are intentionally skipped since
 ## the common ansible credentials used for the given play target host have yet to be setup/prepared.
 ##
 ## E.g.,
@@ -42,17 +42,20 @@
 ## in a single site.yml
 ##
 
-- name: Pre-check | Perform connectivity (ping) tests to determine nodes to add to group 'node_offline'
-  hosts: all,!ansible_localhost,!node_offline
-  tags: always
+- name: Pre-check | Perform connectivity (ping) tests to determine hosts to add to group 'host_offline'
+  hosts: all,!ansible_localhost,!host_offline
+  tags:
+    - always
+    - ping-test
+    - report-offline-hosts
   ignore_unreachable: true
   gather_facts: false
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   roles:
-    - role: ansible_ping_test
+    - role: apply_ping_test
       when:
         - not ping_exclude | d(False) | bool
         - inventory_hostname in ansible_play_hosts
@@ -61,13 +64,13 @@
 ## ref: https://grokbase.com/t/gg/ansible-project/149c6gcb6f/is-there-a-way-to-dynamically-target-subsets-of-an-inventory-group-based-on-facts
 ## ref: https://github.com/ansible/ansible/issues/20360
 - name: Apply common groups and vars
-  hosts: all,!ansible_localhost,!node_offline
+  hosts: all,!ansible_localhost,!host_offline
   tags: always
   #  gather_facts: false
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   roles:
     - role: apply_common_groups
       when:
@@ -75,15 +78,15 @@
         - inventory_hostname in ansible_play_hosts
 
 - name: Display important common group vars
-  hosts: os_linux,os_windows,!node_offline
+  hosts: os_linux,os_windows,!host_offline
   tags:
     - always
     - display-common-vars
     - display-network-vars
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
@@ -108,14 +111,14 @@
           - ldap_admin_dn={{ ldap_admin_dn }}
 
 - name: "Display important collection versions"
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   tags:
     - always
     - display-collection-versions
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: "Display important collection versions" # noqa run-once[task]
       run_once: true
@@ -140,7 +143,8 @@
           - "microsoft.ad version={{ lookup('community.general.collection_version', 'microsoft.ad') }}"
 
 - name: "Display tower vars"
-  hosts: ansible_localhost,!node_offline
+#  hosts: ansible_localhost
+  hosts: localhost
   tags:
     - display-tower-vars
   tasks:
@@ -152,7 +156,8 @@
           | dettonville.utils.redact_sensitive_values
 
 - name: Display ansible_localhost vars
-  hosts: ansible_localhost
+#  hosts: ansible_localhost
+  hosts: localhost
   tags:
     - display-controller-vars
   tasks:
@@ -191,7 +196,8 @@
           - "ansible_facts['pip_interpreter']={{ ansible_facts['pip_interpreter'] | d('') }}"
 
 - name: Display controller environment variables
-  hosts: ansible_localhost
+#  hosts: ansible_localhost
+  hosts: localhost
   tags:
     - display-ansible-env
     - display-envvars
@@ -211,7 +217,7 @@
 #            var: environment | dettonville.utils.redact_sensitive_values
 
 - name: Display hostvars
-  hosts: all,!node_offline
+  hosts: all,!host_offline
   become: false
   gather_facts: true
   tags:
@@ -227,7 +233,7 @@
           | dettonville.utils.redact_sensitive_values
 
 - name: Display cert info
-  hosts: all,!ansible_localhost,!node_offline
+  hosts: all,!ansible_localhost,!host_offline
   ignore_unreachable: true
   ignore_errors: true
   gather_facts: false
@@ -277,7 +283,7 @@
         var: ca_hosted_issuer_certs_list
 
 - name: Display bind controller info
-  hosts: bind_controller,!node_offline
+  hosts: bind_controller,!host_offline
   tags:
     - bootstrap-bind
     - deploy-vm
@@ -295,7 +301,7 @@
 ##
 - name: Deploy Virtual Machines
 #  hosts: ansible_localhost
-  hosts: vmware_control_node
+  hosts: vmware_control_host
   tags:
     - bootstrap-vm
     - deploy-vm
@@ -309,7 +315,7 @@
 ## Reporting plays
 ##
 - name: Get linux os configs
-  hosts: os_linux,!node_offline,!ansible_localhost
+  hosts: os_linux,!host_offline,!ansible_localhost
   tags:
     - fetch-linux-os-configs
   gather_facts: false
@@ -317,8 +323,8 @@
     - role: fetch_linux_os_configs
 
 - name: Report inventory facts
-  #  hosts: os_windows,!node_offline
-  hosts: os_windows,os_linux,!node_offline
+  #  hosts: os_windows,!host_offline
+  hosts: os_windows,os_linux,!host_offline
   gather_facts: false
   tags:
     - report-inventory-facts
@@ -329,7 +335,7 @@
 ## Bootstrap linux component plays
 ##
 - name: Bootstrap linux ansible user
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   gather_facts: false
   become: true
   tags:
@@ -337,26 +343,26 @@
     - bootstrap-ansible
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-#    ansible_user: "{{ bootstrap_user }}"
-#    ansible_password: "{{ bootstrap_user_password }}"
+#    ansible_user: "{{ os_build_user }}"
+#    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: Bootstrap ansible user
       ansible.builtin.include_role:
         name: bootstrap_ansible_user
 
 #- name: Bootstrap linux ansible user
-#  hosts: os_linux,!node_offline
+#  hosts: os_linux,!host_offline
 #  gather_facts: false
 #  become: true
-#  remote_user: "{{ bootstrap_user }}"
+#  remote_user: "{{ os_build_user }}"
 #  tags:
 #    - bootstrap-ansible-user
 #    - bootstrap-ansible
 #  vars:
 ##    ansible_python_interpreter: "{{ os_python_interpreter }}"
-#    #    ansible_ssh_user: "{{ bootstrap_user }}"
-#    ansible_user: "{{ bootstrap_user }}"
-#    ansible_password: "{{ bootstrap_user_password }}"
+#    #    ansible_ssh_user: "{{ os_build_user }}"
+#    ansible_user: "{{ os_build_user }}"
+#    ansible_password: "{{ os_build_user_password }}"
 #    ansible_ssh_common_args: |
 #      -o StrictHostKeyChecking=no \
 #      -o UserKnownHostsFile=/dev/null \
@@ -370,7 +376,7 @@
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: Bootstrap linux firewall
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-firewall
@@ -382,7 +388,7 @@
 
 ## ref: [see firewall notes here](./docs/ansible-firewall-example.md)
 - name: Configure linux firewall
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - configure-firewall
@@ -392,7 +398,7 @@
       firewalld_action: configure
 
 - name: Bootstrap linux packages
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-packages
@@ -401,7 +407,7 @@
     - role: bootstrap_linux_package
 
 - name: Bootstrap java
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-java
@@ -410,7 +416,7 @@
     - role: bootstrap_java
 
 - name: Bootstrap linux upgrade
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-linux-upgrade
@@ -423,7 +429,7 @@
 ## bootstrap logrotate
 ##
 - name: Bootstrap logrotate
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   tags:
     - bootstrap-logrotate
     - bootstrap-linux-logrotate
@@ -435,7 +441,7 @@
 ## bootstrap mounts
 ##
 - name: Bootstrap mounts
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   tags:
     - bootstrap-mounts
     - bootstrap-linux-mounts
@@ -444,7 +450,7 @@
     - role: bootstrap_linux_mount
 
 - name: Bootstrap linux ntp
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-ntp
@@ -453,7 +459,7 @@
     - role: bootstrap_ntp
 
 - name: Bootstrap nfs services
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-nfs
@@ -464,7 +470,7 @@
       firewalld_action: configure
 
 - name: Bootstrap linux crons
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-cron
@@ -473,7 +479,7 @@
     - role: bootstrap_linux_cron
 
 - name: Bootstrap webmin
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   become: true
   tags:
     - bootstrap-webmin
@@ -484,12 +490,12 @@
 ## ref: https://www.nathancurry.com/blog/22-ansible-pxeboot-vms/
 ## ref: https://github.com/lj020326/homelab.ansible
 - name: Configure nameservers
-  hosts: nameserver,!node_offline
+  hosts: nameserver,!host_offline
   become: true
   tags:
     - bootstrap-nameserver
     - bootstrap-bind
-    - bind-node
+    - bind-host
     - deploy-vm
   roles:
     #    - role: chronyclient
@@ -500,7 +506,7 @@
       tags: [firewall-config-nameserver]
 
 - name: Bootstrap kvm hosts
-  hosts: kvm_host,!node_offline
+  hosts: kvm_host,!host_offline
   gather_facts: false
   become: true
   tags:
@@ -517,37 +523,38 @@
 ## ref: https://8gwifi.org/docs/ansible-sudo-ssh-password.jsp
 ##
 - name: Display bootstrap user info
-  hosts: all,!node_offline
+  hosts: all,!host_offline
   become: false
-  gather_facts: false
+#  gather_facts: false
+  gather_facts: true
   tags:
     - bootstrap-ansible-user
     - bootstrap-ansible
 #  vars:
 #    ansible_python_interpreter: "{{ os_python_interpreter }}"
   tasks:
-    - name: Display bootstrap_user
+    - name: Display os_build_user
       ansible.builtin.debug:
-        var: bootstrap_user
+        var: os_build_user
 
     - name: Display ansible_user
       ansible.builtin.debug:
         var: ansible_user
 
-    - name: Display bootstrap_user_password
-      ansible.builtin.debug:
-        var: bootstrap_user_password
-        verbosity: 1
+#    - name: Display os_build_user_password
+#      ansible.builtin.debug:
+#        var: os_build_user_password
+#        verbosity: 1
 
 - name: Bootstrap linux users
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   gather_facts: true
   become: true
-  remote_user: "{{ bootstrap_user }}"
+  remote_user: "{{ os_build_user }}"
   vars:
-#    ansible_ssh_user: "{{ bootstrap_user }}"
-    ansible_user: "{{ bootstrap_user }}"
-    ansible_password: "{{ bootstrap_user_password }}"
+#    ansible_ssh_user: "{{ os_build_user }}"
+    ansible_user: "{{ os_build_user }}"
+    ansible_password: "{{ os_build_user_password }}"
     ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   tags:
 #    - bootstrap-linux
@@ -560,12 +567,12 @@
 ## Bootstrap linux plays
 ##
 - name: Bootstrap ansible venv
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   tags:
     - bootstrap-ansible-venv
     - bootstrap-pip
     - bootstrap-linux-docker
-    - bootstrap-linux
+#    - bootstrap-linux
     - bootstrap-docker
     - vm-template
     - vm-template-linux
@@ -577,20 +584,21 @@
     - role: bootstrap_pip
 
 - name: Bootstrap linux
-  hosts: os_linux,!node_offline
-  gather_facts: false
+  hosts: os_linux,!host_offline
+#  gather_facts: false
+  gather_facts: true
   tags:
     - bootstrap-linux
-    - bootstrap-node
+    - bootstrap-host
   become: true
   roles:
     - role: bootstrap_linux
 
 - name: Bootstrap linux core
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   tags:
     - bootstrap-linux-core
-    - bootstrap-node-core
+    - bootstrap-host-core
   become: true
   roles:
     - role: bootstrap_linux_core
@@ -615,25 +623,25 @@
     - role: bootstrap_windows
 
 - name: Bootstrap windows
-  hosts: os_windows,!node_offline
-  #  hosts: windows,!node_offline
+  hosts: os_windows,!host_offline
+  #  hosts: windows,!host_offline
   tags:
     - bootstrap-windows
     - bootstrap-windows-user
-    - bootstrap-node
+    - bootstrap-host
   #  become: true
   #  become_method: runas
   roles:
     - role: bootstrap_windows
 
 ## ref: https://www.redhat.com/en/blog/integrating-ansible-jenkins-cicd-process
-- name: Bootstrap CI/CD node
-  hosts: cicd_node,!node_offline,!ansible_localhost
+- name: Bootstrap CI/CD host
+  hosts: cicd_host,!host_offline,!ansible_localhost
   tags:
     - bootstrap
     - bootstrap-cicd
-    - bootstrap-cicd-node
-    - cicd-node
+    - bootstrap-cicd-host
+    - cicd-host
   become: true
   roles:
     - role: bootstrap_linux_firewalld
@@ -652,22 +660,23 @@
     - role: bootstrap_ovftool
 
 - name: Bootstrap Jenkins Agents
-  hosts: jenkins_agent,!node_offline
+  hosts: jenkins_agent,!host_offline
   tags:
     - bootstrap-jenkins-agent
     - deploy-jenkins-agent
   become: true
   roles:
     - role: bootstrap_linux_package
+    - role: bootstrap_java
     - role: bootstrap_jenkins_agent
     - role: bootstrap_git
     - role: bootstrap_ansible
     - role: bootstrap_govc
-    - role: bootstrap_inspec
     - role: bootstrap_packer
+#    - role: bootstrap_inspec
 
 - name: Bootstrap iscsi clients
-  hosts: iscsi_client,!node_offline
+  hosts: iscsi_client,!host_offline
   tags:
     - bootstrap
     - bootstrap-iscsi
@@ -678,7 +687,7 @@
     - role: bootstrap_iscsi_client
 
 - name: Bootstrap ntp servers
-  hosts: ntp_server,!node_offline
+  hosts: ntp_server,!host_offline
   tags:
     - bootstrap-ntp
     - bootstrap-ntp-server
@@ -687,7 +696,7 @@
     - role: bootstrap_ntp
 
 - name: Bootstrap ntp clients
-  hosts: ntp_network,!ntp_server,!node_offline
+  hosts: ntp_network,!ntp_server,!host_offline
   tags:
     - bootstrap-ntp
     - bootstrap-ntp-client
@@ -697,8 +706,8 @@
 
 ## ref: https://blog.ktz.me/combining-zfs-with-other-filesystems-using-mergerfs/
 ## ref: https://selfhostedhome.com/combining-different-sized-drives-with-mergerfs-and-snapraid/
-- name: Setup mergerfs nodes
-  hosts: mergerfs,!node_offline
+- name: Setup mergerfs hosts
+  hosts: mergerfs,!host_offline
   tags:
     - mergerfs
     - bootstrap-mergerfs
@@ -713,7 +722,7 @@
     - role: bootstrap_mergerfs
 
 - name: Install veeam-agent
-  hosts: veeam_agent,!node_offline
+  hosts: veeam_agent,!host_offline
   become: true
   tags:
     - bootstrap-veeam
@@ -727,7 +736,7 @@
       tags: [firewall-config-veeamagent]
 
 - name: Configure veeam-agent jobs
-  hosts: veeam_agent,!node_offline
+  hosts: veeam_agent,!host_offline
   become: true
   tags:
     - config-veeam-agent
@@ -737,7 +746,7 @@
     - role: bootstrap_veeam_agent_config
 
 - name: Bootstrap postfix server
-  hosts: postfix_server,!node_offline
+  hosts: postfix_server,!host_offline
   tags:
     - bootstrap-postfix
     - bootstrap-postfix-server
@@ -746,7 +755,7 @@
     - role: bootstrap_postfix
 
 - name: Bootstrap postfix client
-  hosts: postfix_network,!postfix_server,!node_offline
+  hosts: postfix_network,!postfix_server,!host_offline
   tags:
     - bootstrap-postfix
     - bootstrap-postfix-client
@@ -755,7 +764,7 @@
     - role: bootstrap_postfix
 
 - name: Bootstrap sshd
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   gather_facts: false
   tags:
     - bootstrap-linux-sshd
@@ -765,7 +774,7 @@
     - role: bootstrap_sshd
 
 - name: Bootstrap ldap client
-  hosts: ldap_client,!node_offline
+  hosts: ldap_client,!host_offline
   tags:
     - bootstrap-ldap
     - bootstrap-ldap-client
@@ -773,8 +782,8 @@
   roles:
     - role: bootstrap_ldap_client
 
-- name: Bootstrap ansible node
-  hosts: ansible_controller,!node_offline
+- name: Bootstrap ansible host
+  hosts: ansible_controller,!host_offline
   tags:
     - bootstrap
     - bootstrap-admin
@@ -786,7 +795,7 @@
     - role: bootstrap_linux_locale
 
 #- name: Bootstrap pip
-#  hosts: os_linux,!node_offline
+#  hosts: os_linux,!host_offline
 #  tags:
 #    - bootstrap-pip
 #  become: true
@@ -795,7 +804,7 @@
 
 ## setup step-ca pki, create CA certs and install CA certs
 - name: Configure Step-ca cli for step clients
-  hosts: step_ca_network,!node_offline
+  hosts: step_ca_network,!host_offline
   become: true
   tags:
     - bootstrap-stepca
@@ -805,7 +814,7 @@
     - role: bootstrap_stepca
 
 - name: Setup PKI infrastructure including ca_root and ca cert api
-  hosts: ca_keystore,!node_offline
+  hosts: ca_keystore,!host_offline
   gather_facts: true
   tags:
     - bootstrap-pki
@@ -821,7 +830,7 @@
     - role: bootstrap_pki
 
 - name: Setup Static Infrastructure CA Certificates
-  hosts: ca_keystore,!node_offline
+  hosts: ca_keystore,!host_offline
   gather_facts: true
   tags:
     - bootstrap-ca-certs
@@ -834,7 +843,7 @@
 ## ref: https://www.tikalk.com/posts/2016/10/30/Running-Your-Own-Ansible-Driven-CA/
 ## ref: https://github.com/shelleg/ansible-role-ca/
 - name: Setup Static Infrastructure CA Certificates (deprecated role)
-  hosts: ca_keystore,!node_offline
+  hosts: ca_keystore,!host_offline
   gather_facts: false
   tags:
     - bootstrap-certs
@@ -845,19 +854,20 @@
     - role: bootstrap_certs
       tags: [cacerts-create]
 
-- name: Deploy PKI CA certs to cert_node
-  hosts: os_linux,!node_offline
+- name: Deploy PKI CA certs to cert_host
+  hosts: os_linux,!host_offline
   gather_facts: false
   tags:
-    - bootstrap-node
+    - bootstrap-host
+#    - bootstrap-docker
     - bootstrap-docker-stack
     - deploy-pki-certs
   become: true
   roles:
     - role: deploy_pki_certs
 
-- name: Deploy CA certs to cert_node
-  hosts: os_linux,!node_offline
+- name: Deploy CA certs to cert_host
+  hosts: os_linux,!host_offline
   gather_facts: false
   tags:
     - deploy-certs
@@ -870,7 +880,7 @@
     - role: deploy_ca_certs
 
 - name: Harden linux OS
-  hosts: os_linux,!node_offline
+  hosts: os_linux,!host_offline
   tags:
     - harden-linux-os
     - harden-linux
@@ -878,13 +888,22 @@
   roles:
     - role: harden_os_linux
 
+- name: Set up gpu drivers
+  hosts: gpu_host,!host_offline
+  become: true
+  tags:
+    - bootstrap-gpu-drivers
+#    - bootstrap-llm-host
+  roles:
+    - role: bootstrap_gpu_drivers
+
 ## possibly need to install docker_service dependencies first
 ## ref: https://github.com/avinetworks/ansible-role-docker
 ## ref: https://github.com/lj020326/ansible-docker_service-dep/blob/main/tasks/main.yml
 ## ref: https://github.com/ansible/ansible/issues/29510
 ## ref: https://github.com/nickjj/ansible-docker
-- name: Bootstrap docker nodes
-  hosts: docker,kubernetes,!node_offline
+- name: Bootstrap docker hosts
+  hosts: docker,kubernetes,!host_offline
   tags:
     - bootstrap
     - docker
@@ -895,11 +914,18 @@
     - bootstrap-kubernetes-controller
     - bootstrap-registry
   become: true
+  pre_tasks:
+    - name: Validate that docker_stack__internal_domain is defined and not empty
+      ansible.builtin.assert:
+        that:
+          - docker_stack__internal_domain | d('') | length > 0
+        fail_msg: "The variable 'docker_stack__internal_domain' must be set before bootstrapping Docker hosts."
+        quiet: true
   roles:
     - role: bootstrap_docker
 
-- name: Bootstrap docker swarm leader nodes
-  hosts: docker_swarm_leader,!node_offline
+- name: Bootstrap docker swarm leader hosts
+  hosts: docker_swarm_leader,!host_offline
   tags:
     - bootstrap-docker-swarm
     - docker-swarm
@@ -908,9 +934,9 @@
     - role: bootstrap_docker
       bootstrap_docker__actions: [setup-swarm]
 
-- name: Bootstrap docker swarm non-leader nodes
-  hosts: docker_swarm,!docker_swarm_leader,!node_offline
-#  hosts: docker_swarm_manager,docker_swarm_worker,!node_offline
+- name: Bootstrap docker swarm non-leader hosts
+  hosts: docker_swarm,!docker_swarm_leader,!host_offline
+#  hosts: docker_swarm_manager,docker_swarm_worker,!host_offline
   tags:
     - bootstrap-docker-swarm
     - docker-swarm
@@ -920,14 +946,13 @@
       bootstrap_docker__actions: [setup-swarm]
 
 ##############
-## bootstrap docker stack nodes
+## bootstrap docker stack hosts
 ##############
-- name: Bootstrap docker stack node
+- name: Bootstrap docker stack host
   ## only run on docker_swarm_leader (already in docker_stack)
-  hosts: docker_stack,!docker_swarm_manager,!docker_swarm_worker,!node_offline
+  hosts: docker_stack,!docker_swarm_manager,!docker_swarm_worker,!host_offline
   tags:
     - bootstrap-docker-stack
-    - bootstrap-docker-admin
     - docker-stack
   become: true
 #  vars:
@@ -935,44 +960,45 @@
   roles:
     - role: bootstrap_docker_stack
 
-- name: Bootstrap docker control plane node
-  hosts: docker_stack_control,!node_offline
+- name: "Bootstrap docker control plane hosts (postfix/smtp, ldap, samba, etc)"
+  hosts: docker_stack_control,!host_offline
   tags:
-    - bootstrap-control-node
-    - docker-control-node
+    - bootstrap-control-host
+    - bootstrap-docker-control
+    - docker-control-host
   become: true
   #  vars:
   #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
-- name: "Bootstrap docker admin node : mail, nfs, docker (traefik, portainer, watchdog, ldap, etc)"
-  hosts: docker_stack_admin,!node_offline
+- name: "Bootstrap docker LLM hosts"
+  hosts: docker_stack_llm,!host_offline
   tags:
-    - bootstrap-admin-node
-    - docker-admin-node
+    - bootstrap-docker-llm
+    - docker-llm-host
   become: true
   #  vars:
   #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
-- name: Bootstrap docker media node
-  hosts: docker_stack_media,!node_offline
+- name: "Bootstrap docker admin hosts"
+  hosts: docker_stack_admin,!host_offline
   tags:
-    - bootstrap-media-node
-    - docker-media-node
+    - bootstrap-admin-host
+    - docker-admin-host
   become: true
   #  vars:
   #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
-- name: Bootstrap docker ml node
-  hosts: docker_stack_ml,!node_offline
+- name: "Bootstrap docker media hosts"
+  hosts: docker_stack_media,!host_offline
   tags:
-    - bootstrap-ml-node
-    - docker-ml-node
+    - bootstrap-media-host
+    - docker-media-host
   become: true
   #  vars:
   #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
@@ -982,7 +1008,7 @@
 ## bootstrap_plexupdate
 ## ref: https://github.com/lj020326/plexupdate
 - name: Bootstrap plexupdate
-  hosts: plex,!node_offline
+  hosts: plex,!host_offline
   become: true
   tags:
     - bootstrap-plexupdate
@@ -990,23 +1016,15 @@
     - role: bootstrap_plexupdate
 
 - name: Deploy Gitea Action Runner
-  hosts: gitea_runner,!node_offline
+  hosts: gitea_runner,!host_offline
   become: true
   tags:
     - bootstrap-gitea-runner
   roles:
     - bootstrap_gitea_runner
 
-- name: Set up gpu drivers
-  hosts: gpu_host,!node_offline
-  become: true
-  tags:
-    - bootstrap-gpu-drivers
-  roles:
-    - role: bootstrap_gpu_drivers
-
 - name: Set up LLM host
-  hosts: llm_host,!node_offline
+  hosts: llm_host,!host_offline
   become: true
   tags:
     - bootstrap-llm-server
@@ -1035,7 +1053,7 @@
     - role: bootstrap_etcd
 
 - name: Setup Kubernetes Controller
-  hosts: kubernetes_controller,!node_offline
+  hosts: kubernetes_controller,!host_offline
   become: true
   tags:
     - bootstrap-kubernetes
@@ -1044,16 +1062,16 @@
     - role: bootstrap_kubernetes_controller
 
 - name: Setup Kubernetes Worker
-  hosts: kubernetes_worker,!node_offline
+  hosts: kubernetes_worker,!host_offline
   become: true
   tags:
     - bootstrap-kubernetes
-    - bootstrap-kubernetes-node
+    - bootstrap-kubernetes-host
   roles:
     - role: bootstrap_kubernetes_worker
 
 #- name: Setup Kubernetes
-#  hosts: kubernetes,!node_offline
+#  hosts: kubernetes,!host_offline
 #  become: true
 #  tags:
 #    - bootstrap-aibrix
@@ -1062,7 +1080,7 @@
 #    - role: bootstrap_kubernetes
 
 - name: Deploy AIBrix
-  hosts: aibrix,!node_offline
+  hosts: aibrix,!host_offline
   become: true
   tags:
     - bootstrap-aibrix
@@ -1072,7 +1090,7 @@
 
 ## ref: https://github.com/lae/ansible-role-proxmox
 - name: Deploy ProxMox Cluster
-  hosts: proxmox,!node_offline
+  hosts: proxmox,!host_offline
   tags:
     - bootstrap-proxmox
   become: true
@@ -1082,7 +1100,8 @@
 #      pve_reboot_on_kernel_update: true
 
 - name: Fetch OS images
-  hosts: ansible_localhost
+#  hosts: ansible_localhost
+  hosts: localhost
   gather_facts: false
   tags:
     - fetch-os-images
@@ -1090,8 +1109,8 @@
     - role: fetch_os_images
 
 - name: Bootstrap VMware ESXi servers
-#  hosts: vmware_esx_host,vmware_physical_esx_host,!node_offline
-  hosts: vmware_physical_esx_host,!node_offline
+#  hosts: vmware_esx_host,vmware_physical_esx_host,!host_offline
+  hosts: vmware_physical_esx_host,!host_offline
   tags:
     - bootstrap-esxi
     - bootstrap-vmware-esxi
@@ -1109,7 +1128,7 @@
 ## VSPHERE DC Setup role
 ########################
 - name: Deploy VSphere Datacenter
-  hosts: vsphere_control_node
+  hosts: vsphere_control_host
   tags:
     - bootstrap-vcenter
     - bootstrap-vsphere
@@ -1121,7 +1140,7 @@
     - role: bootstrap_vsphere
 
 - name: VMware Upgrade ESXi servers
-  hosts: vmware_physical_esx_host,!node_offline
+  hosts: vmware_physical_esx_host,!host_offline
   tags:
     - vmware-upgrade-esxi
   gather_facts: false
@@ -1130,7 +1149,7 @@
 
 - name: VMware Remount VM Datastores
 #  hosts: ansible_localhost
-  hosts: vmware_control_node
+  hosts: vmware_control_host
   gather_facts: false
 #  become: true
   tags:
@@ -1142,7 +1161,7 @@
 
 - name: VMware Mount VM Datastores
 #  hosts: ansible_localhost
-  hosts: vmware_control_node
+  hosts: vmware_control_host
   gather_facts: false
 #  become: true
   tags:
@@ -1152,17 +1171,17 @@
     - role: bootstrap_vmware_datastores
 
 - name: Bootstrap Openstack
-  hosts: openstack_kolla_node,!node_offline
+  hosts: openstack_kolla_host,!host_offline
   tags:
     - bootstrap
     - bootstrap-openstack
   become: true
   roles:
-    - name: Configure openstack deploy node
+    - name: Configure openstack deploy host
       role: bootstrap_openstack
 
 - name: Setup kubernetes cluster firewall configs
-  hosts: kubernetes,!node_offline
+  hosts: kubernetes,!host_offline
   tags:
     - bootstrap
     - bootstrap-kubernetes
@@ -1174,7 +1193,7 @@
 
 ## must first run the kolla-ansible (bootstrap-servers|prechecks|deploy)
 - name: Bootstrap Openstack Cloud
-  hosts: openstack_kolla_node,!node_offline
+  hosts: openstack_kolla_host,!host_offline
   tags:
     - bootstrap-openstack-cloud
     - openstack-cloud
@@ -1198,7 +1217,7 @@
 ## bootstrap_fog
 ## ref: https://github.com/ceph/ceph-cm-ansible/tree/main/roles/fog-server
 - name: Bootstrap FOG server
-  hosts: fog_server,!node_offline
+  hosts: fog_server,!host_offline
   become: true
   tags:
     - bootstrap-fog
@@ -1211,7 +1230,7 @@
 #      private: false
 
 - name: Setup nginx
-  hosts: nginx_service,!node_offline
+  hosts: nginx_service,!host_offline
   tags:
     - nginx-service
   become: true
@@ -1219,7 +1238,7 @@
     - role: bootstrap_nginx_service
 
 - name: Bootstrap iDRAC Automation
-  hosts: dell_idrac_hosts,!node_offline
+  hosts: dell_idrac_hosts,!host_offline
   #  connection: local
   tags:
     - bootstrap-dell-idrac-hosts
@@ -1234,7 +1253,7 @@
 
 # ref: https://dell.github.io/dellemc-openmanage-ansible-modules/GUID-EA8B2754-D62E-4D2C-8951-636D49B0CAA5.html
 - name: Get iDRAC LC Ready Status
-  hosts: dell_idrac_hosts,!node_offline
+  hosts: dell_idrac_hosts,!host_offline
   tags:
     - dell-idrac-get-host-info
 #  connection: local
@@ -1259,15 +1278,15 @@
 
 ## ref: https://github.com/lj020326/ansible-playbooks/blob/main/set_ntp_values.yml
 - name: Change iDRAC NTP Attributes
-  hosts: dell_idrac_hosts,!node_offline
+  hosts: dell_idrac_hosts,!host_offline
   tags:
     - dell-idrac-config-ntp
 #  connection: local
   gather_facts: false
   vars:
-    #    ntpserver1: "1.jp.pool.ntp.org"
-    #    ntpserver1: "192.168.0.1"
-    ntpserver1: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
+    #    _ntp_server: "1.jp.pool.ntp.org"
+    #    _ntp_server: "192.168.0.1"
+    _ntp_server: "{{ gateway_ipv4_subnet_1_2 }}.0.1"
   tasks:
     - name: Enable NTP and set NTP server and Time zone attributes in iDRAC
       community.general.idrac_redfish_config:
@@ -1276,7 +1295,7 @@
         resource_id: iDRAC.Embedded.1
         manager_attributes:
           NTPConfigGroup.1.NTPEnable: Enabled
-          NTPConfigGroup.1.NTP1: "{{ ntpserver1 }}"
+          NTPConfigGroup.1.NTP1: "{{ _ntp_server }}"
         baseuri: "{{ idrac_ip }}"
         username: "{{ idrac_user }}"
         password: "{{ idrac_password }}"
@@ -1317,7 +1336,7 @@
 
 ## ref: https://www.ansible.com/blog/introducing-the-awx-collection
 - name: Bootstrap Tower Resource configs
-  hosts: tower_control_node
+  hosts: tower_control_host
   tags:
     - bootstrap-tower
     - bootstrap-tower-resources
@@ -1331,7 +1350,7 @@
 
 ## ref: https://www.ansible.com/blog/introducing-the-awx-collection
 - name: Remove Tower Modules
-  hosts: tower_control_node
+  hosts: tower_control_host
   tags:
     - remove-awx-resources
     - remove-tower-resources
@@ -1346,7 +1365,7 @@
         tower_resource_state: absent
 
 - name: Export Tower Objects
-  hosts: tower_control_node
+  hosts: tower_control_host
   tags:
     - export-tower-resources
   gather_facts: false
@@ -1355,3 +1374,27 @@
       awx.awx.export:
         all: true
 #        teams: "TEST - Test Team 1"
+
+- name: "Report | Discovered Offline Hosts Summary"
+#  hosts: all
+  hosts: localhost
+  gather_facts: false
+  run_once: true
+  tags:
+    - always
+    - ping-test
+    - report-offline-hosts
+  tasks:
+    - name: Display summary of newly discovered offline hosts
+      when: groups['discovered_host_offline'] | d([]) | length > 0
+      ansible.builtin.debug:
+        msg:
+          - "##########################################################"
+          - "THE FOLLOWING HOSTS WERE DISCOVERED OFFLINE DURING THIS RUN:"
+          - "{{ groups['discovered_host_offline'] | d(['None']) }}"
+          - "##########################################################"
+
+    - name: Notify that all hosts were reachable
+      when: groups['discovered_host_offline'] | d([]) | length == 0
+      ansible.builtin.debug:
+        msg: "All targeted hosts passed the connectivity pre-check."

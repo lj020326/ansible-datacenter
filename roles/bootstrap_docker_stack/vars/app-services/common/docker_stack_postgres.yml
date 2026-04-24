@@ -1,5 +1,14 @@
 ---
 
+## pin the version to 11
+#__docker_stack__postgres__image_default: "postgres:latest"
+__docker_stack__postgres__image_default: "postgres:11"
+__docker_stack__postgres__image: "{{ docker_stack__postgres__image | d(__docker_stack__postgres__image_default) }}"
+
+__docker_stack__postgres__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__postgres__base_dir_default: "{{ __docker_stack__postgres__stack_dir }}/postgres"
+__docker_stack__postgres__base_dir: "{{ docker_stack__postgres__base_dir | d(__docker_stack__postgres__base_dir_default) }}"
+
 __docker_stack__postgres__pgadmin_username: "{{ docker_stack__postgres__pgadmin_username | d('pgadmin4@pgadmin.org') }}"
 __docker_stack__postgres__pgadmin_password: "{{ docker_stack__postgres__pgadmin_password | d('admin') }}"
 __docker_stack__postgres__pgadmin_port: "5050"
@@ -7,7 +16,7 @@ __docker_stack__postgres__pgadmin_port: "5050"
 __docker_stack__postgres__port: 5432
 __docker_stack__postgres__user: "{{ docker_stack__postgres__user | d('postgres') }}"
 __docker_stack__postgres__password: "{{ docker_stack__postgres__password | d('password') }}"
-__docker_stack__postgres__databases: "{{ docker_stack__postgres__databases | d([]) }}"
+__docker_stack__postgres__databases: "{{ docker_stack__postgres__databases | d([], true) }}"
 
 __docker_stack__pgadmin__use_ldap: "{{ docker_stack__pgadmin__use_ldap | d(false) }}"
 
@@ -31,11 +40,22 @@ __docker_stack__pgadmin__config: "{{ __docker_stack__pgadmin__config_default | c
 #.__docker_stack__pgadmin__ldap_config: &tpl__docker_stack__pgadmin__ldap_config
 #  "{{ __docker_stack__pgadmin__ldap_config }}"
 
+__docker_stack__postgres__environment_default:
+  POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__postgres__databases | join(':') }}"
+  POSTGRES_USER: "{{ __docker_stack__postgres__user }}"
+  POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
+  ## ref: https://stackoverflow.com/a/51697579
+  TZ: "{{ docker_stack__timezone }}"
+  PGTZ: "{{ docker_stack__timezone }}"
+
+__docker_stack__postgres__environment: "{{ docker_stack__postgres__environment
+  | d(__docker_stack__postgres__environment_default) }}"
+
 __docker_stack__postgres__config_dirs:
-  - path: "{{ docker_stack__dir }}/postgres"
-  - path: "{{ docker_stack__dir }}/postgres/multiple-dbs"
-  - path: "{{ docker_stack__dir }}/postgres/config"
-  - path: "{{ docker_stack__dir }}/postgres/data"
+  - path: "{{ __docker_stack__postgres__base_dir }}"
+  - path: "{{ __docker_stack__postgres__base_dir }}/multiple-dbs"
+  - path: "{{ __docker_stack__postgres__base_dir }}/config"
+  - path: "{{ __docker_stack__postgres__base_dir }}/data"
     mode: "0755"
   - path: "{{ docker_stack__dir }}/pgadmin"
   - path: "{{ docker_stack__dir }}/pgadmin/data"
@@ -44,10 +64,12 @@ __docker_stack__postgres__config_dirs:
   - path: "{{ docker_stack__dir }}/pgadmin/log/pgadmin"
 
 __docker_stack__postgres__config_tpls:
+  - src: postgres/postgres.env.j2
+    dest: "{{ __docker_stack__postgres__base_dir }}/postgres.env"
   - src: postgres/config-passwd.conf.j2
-    dest: "{{ docker_stack__dir }}/postgres/passwd"
+    dest: "{{ __docker_stack__postgres__base_dir }}/passwd"
   - src: postgres/config-group.conf.j2
-    dest: "{{ docker_stack__dir }}/postgres/group"
+    dest: "{{ __docker_stack__postgres__base_dir }}/group"
   - src: pgadmin/config-passwd.conf.j2
     dest: "{{ docker_stack__dir }}/pgadmin/passwd"
   - src: pgadmin/config-group.conf.j2
@@ -59,15 +81,15 @@ __docker_stack__postgres__firewalld_ports:
 __docker_stack__postgres__config_files:
   - src: files/postgres/create-multiple-pg-databases.sh
     mode: "0755"
-    dest: "{{ docker_stack__dir }}/postgres/multiple-dbs/create-multiple-pg-databases.sh"
+    dest: "{{ __docker_stack__postgres__base_dir }}/multiple-dbs/create-multiple-pg-databases.sh"
 
 docker_stack__appspec__postgres:
-  dirs: "{{ __docker_stack__postgres__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__postgres__config_files | d([]) }}"
-  templates: "{{ __docker_stack__postgres__config_tpls | d([]) }}"
-  firewalld_services: "{{ __docker_stack__postgres__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__postgres__firewalld_ports | d([]) }}"
-  docker_services: "{{ __docker_stack__postgres__services | d({}) }}"
+  dirs: "{{ __docker_stack__postgres__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__postgres__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__postgres__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__postgres__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__postgres__firewalld_ports | d([], true) }}"
+  docker_services: "{{ __docker_stack__postgres__services | d({}, true) }}"
 
 __docker_stack__postgres_pgadmin__traefik_labels: "{{ docker_stack__postgres_pgadmin__traefik_labels
   | d(__docker_stack__postgres_pgadmin__traefik_labels_default) }}"
@@ -78,8 +100,7 @@ __docker_stack__postgres__services:
   ## ref: https://hub.docker.com/_/postgres
   postgres:
     container_name: postgres
-#    image: postgres
-    image: postgres:11
+    image: "{{ __docker_stack__postgres__image }}"
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     ports:
 #      - "{{ __docker_stack__postgres__port }}:5432"
@@ -91,19 +112,14 @@ __docker_stack__postgres__services:
     networks:
       - "{{ docker_stack__network_name__default }}"
     volumes:
-      - "{{ docker_stack__dir }}/postgres/passwd:/etc/passwd:ro"
-      - "{{ docker_stack__dir }}/postgres/group:/etc/group:ro"
-      - "{{ docker_stack__dir }}/postgres/multiple-dbs:/docker-entrypoint-initdb.d"
-      - "{{ docker_stack__dir }}/postgres/config:/config"
-      - "{{ docker_stack__dir }}/postgres/data:/var/lib/postgresql/data"
+      - "{{ __docker_stack__postgres__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__postgres__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__postgres__base_dir }}/multiple-dbs:/docker-entrypoint-initdb.d"
+      - "{{ __docker_stack__postgres__base_dir }}/config:/config"
+      - "{{ __docker_stack__postgres__base_dir }}/data:/var/lib/postgresql/data"
     #        - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__postgres__databases | join(':') }}"
-      POSTGRES_USER: "{{ __docker_stack__postgres__user }}"
-      POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
-      ## ref: https://stackoverflow.com/a/51697579
-      TZ: "{{ docker_stack__timezone }}"
-      PGTZ: "{{ docker_stack__timezone }}"
+    env_file:
+      - "postgres/postgres.env"
     ## ref: https://docs.docker.com/reference/compose-file/services/#healthcheck
     ## ref: https://medium.com/@wilson.wilson/manage-docker-registry-auth-with-keycloak-e0b4356cf7d0
     ## ref: https://stackoverflow.com/questions/35069027/docker-wait-for-postgresql-to-be-running

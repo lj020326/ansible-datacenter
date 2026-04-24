@@ -500,3 +500,296 @@ webq2.test.example.int | SUCCESS => {
 }
 
 ```
+
+
+## Connectivity testing
+
+### Windows ntlm testing
+
+Testing outside of ansible just the ntlm connectivity:
+```shell
+ljohnson@lees-mbp:[ansible-datacenter](main)$ python3 -c "import winrm; s = winrm.Session('win2012-01.johnson.int', auth=(\"$NTLM_USERNAME\", \"$NTLM_PASSWORD\"), transport='ntlm'); print(s.run_cmd('ipconfig').std_out.decode())"
+
+Windows IP Configuration
+
+
+Ethernet adapter Ethernet0:
+
+   Connection-specific DNS Suffix  . : johnson.int
+   IPv4 Address. . . . . . . . . . . : 10.0.7.36
+   Subnet Mask . . . . . . . . . . . : 255.255.0.0
+   Default Gateway . . . . . . . . . : 10.0.0.1
+
+Tunnel adapter isatap.johnson.int:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . : johnson.int
+
+ljohnson@lees-mbp:[ansible-datacenter](main)$
+```
+
+Perform ping and user lookups:
+```shell
+ljohnson@lees-mbp:[ansible-datacenter](main)$ run-ansible.sh ansible win2012-01 -i ./inventory/PROD -m win_ping -v
+SCRIPT_DIR=[/Users/ljohnson/repos/ansible/ansible-datacenter]
+SCRIPT_NAME=[run-ansible.sh]
+REPO_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
+VAULT_FILEPATH=./vars/vault.yml
+VAULT_ID=dcc-vault
+==> ansible --version
+ansible [core 2.20.1]
+  config file = /Users/ljohnson/repos/ansible/ansible-datacenter/ansible.cfg
+  configured module search path = ['/Users/ljohnson/repos/ansible/ansible-datacenter/plugins/modules']
+  ansible python module location = /Users/ljohnson/.pyenv/versions/3.13.5/lib/python3.13/site-packages/ansible
+  ansible collection location = /Users/ljohnson/.ansible/collections
+  executable location = /Users/ljohnson/.pyenv/versions/3.13.5/bin/ansible
+  python version = 3.13.5 (main, Sep 18 2025, 19:11:35) [Clang 16.0.0 (clang-1600.0.26.6)] (/Users/ljohnson/.pyenv/versions/3.13.5/bin/python3.13)
+  jinja version = 3.1.6
+  pyyaml version = 6.0.2 (with libyaml v0.2.5)
+==> Run command arguments: win2012-01 -i ./inventory/PROD -m win_ping -v
+==> Starting new SSH agent
+Agent pid 45471
+==> SSH agent is empty
+Extracted key length: 1680
+Key preview: -----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAzF9HT3L6IiyEd6nb/hVyxP8omtUWIGtvEwUHMu+tsvyOXYDb
+NYS
+Key format valid
+==> Extracted key preview (first line):
+-----BEGIN RSA PRIVATE KEY-----
+==> Successfully added SSH key to agent
+2048 SHA256:zQqJNY8Go3tt9yOJx5sdkJ1NsEODqGc7jvEjeTKVX1s /var/folders/w6/3rcdpp211v5cxml6vg45ww3r0000gn/T/tmp.xJvKaPo3Qv (RSA)
+==> ansible win2012-01 -i ./inventory/PROD -m win_ping -v -e @/var/folders/w6/3rcdpp211v5cxml6vg45ww3r0000gn/T/tmp.2ozSumt2NX -e @./vars/vault.yml --vault-id dcc-vault@/Users/ljohnson/.vault_pass
+Using /Users/ljohnson/repos/ansible/ansible-datacenter/ansible.cfg as config file
+win2012-01 | SUCCESS => {
+    "changed": false,
+    "ping": "pong"
+}
+==> Stopping SSH agent (PID: 45471)
+ljohnson@lees-mbp:[ansible-datacenter](main)$
+ljohnson@lees-mbp:[ansible-datacenter](main)$ run-ansible.sh ansible win2012-01 -i ./inventory/PROD -m win_whoami -v -e "ansible_user=osbuild"
+SCRIPT_DIR=[/Users/ljohnson/repos/ansible/ansible-datacenter]
+SCRIPT_NAME=[run-ansible.sh]
+REPO_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
+VAULT_FILEPATH=./vars/vault.yml
+VAULT_ID=dcc-vault
+==> ansible --version
+ansible [core 2.20.1]
+  config file = /Users/ljohnson/repos/ansible/ansible-datacenter/ansible.cfg
+  configured module search path = ['/Users/ljohnson/repos/ansible/ansible-datacenter/plugins/modules']
+  ansible python module location = /Users/ljohnson/.pyenv/versions/3.13.5/lib/python3.13/site-packages/ansible
+  ansible collection location = /Users/ljohnson/.ansible/collections
+  executable location = /Users/ljohnson/.pyenv/versions/3.13.5/bin/ansible
+  python version = 3.13.5 (main, Sep 18 2025, 19:11:35) [Clang 16.0.0 (clang-1600.0.26.6)] (/Users/ljohnson/.pyenv/versions/3.13.5/bin/python3.13)
+  jinja version = 3.1.6
+  pyyaml version = 6.0.2 (with libyaml v0.2.5)
+==> Run command arguments: win2012-01 -i ./inventory/PROD -m win_whoami -v -e ansible_user=osbuild
+==> Starting new SSH agent
+Agent pid 53038
+==> SSH agent is empty
+Extracted key length: 1680
+Key preview: -----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAzF9HT3L6IiyEd6nb/hVyxP8omtUWIGtvEwUHMu+tsvyOXYDb
+NYS
+Key format valid
+==> Extracted key preview (first line):
+-----BEGIN RSA PRIVATE KEY-----
+==> Successfully added SSH key to agent
+2048 SHA256:zQqJNY8Go3tt9yOJx5sdkJ1NsEODqGc7jvEjeTKVX1s /var/folders/w6/3rcdpp211v5cxml6vg45ww3r0000gn/T/tmp.wpknofoiJQ (RSA)
+==> ansible win2012-01 -i ./inventory/PROD -m win_whoami -v -e ansible_user=osbuild -e @/var/folders/w6/3rcdpp211v5cxml6vg45ww3r0000gn/T/tmp.CDWp1kaD2b -e @./vars/vault.yml --vault-id dcc-vault@/Users/ljohnson/.vault_pass
+Using /Users/ljohnson/repos/ansible/ansible-datacenter/ansible.cfg as config file
+win2012-01 | SUCCESS => {
+    "account": {
+        "account_name": "osbuild",
+        "domain_name": "WIN2012-01",
+        "sid": "S-1-5-21-2543376727-1814313695-3347738010-1004",
+        "type": "User"
+    },
+    "authentication_package": "NTLM",
+    "changed": false,
+    "dns_domain_name": "",
+    "groups": [
+        {
+            "account_name": "None",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "WIN2012-01",
+            "sid": "S-1-5-21-2543376727-1814313695-3347738010-513",
+            "type": "Group"
+        },
+        {
+            "account_name": "Everyone",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "",
+            "sid": "S-1-1-0",
+            "type": "WellKnownGroup"
+        },
+        {
+            "account_name": "Local account and member of Administrators group",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "NT AUTHORITY",
+            "sid": "S-1-5-114",
+            "type": "WellKnownGroup"
+        },
+        {
+            "account_name": "Administrators",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled",
+                "Owner"
+            ],
+            "domain_name": "BUILTIN",
+            "sid": "S-1-5-32-544",
+            "type": "Alias"
+        },
+        {
+            "account_name": "Remote Management Users",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "BUILTIN",
+            "sid": "S-1-5-32-580",
+            "type": "Alias"
+        },
+        {
+            "account_name": "Users",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "BUILTIN",
+            "sid": "S-1-5-32-545",
+            "type": "Alias"
+        },
+        {
+            "account_name": "NETWORK",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "NT AUTHORITY",
+            "sid": "S-1-5-2",
+            "type": "WellKnownGroup"
+        },
+        {
+            "account_name": "Authenticated Users",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "NT AUTHORITY",
+            "sid": "S-1-5-11",
+            "type": "WellKnownGroup"
+        },
+        {
+            "account_name": "This Organization",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "NT AUTHORITY",
+            "sid": "S-1-5-15",
+            "type": "WellKnownGroup"
+        },
+        {
+            "account_name": "Local account",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "NT AUTHORITY",
+            "sid": "S-1-5-113",
+            "type": "WellKnownGroup"
+        },
+        {
+            "account_name": "NTLM Authentication",
+            "attributes": [
+                "Mandatory",
+                "Enabled by default",
+                "Enabled"
+            ],
+            "domain_name": "NT AUTHORITY",
+            "sid": "S-1-5-64-10",
+            "type": "WellKnownGroup"
+        },
+        {
+            "account_name": "High Mandatory Level",
+            "attributes": [
+                "Integrity",
+                "Integrity enabled"
+            ],
+            "domain_name": "Mandatory Label",
+            "sid": "S-1-16-12288",
+            "type": "Label"
+        }
+    ],
+    "impersonation_level": "SecurityAnonymous",
+    "label": {
+        "account_name": "High Mandatory Level",
+        "domain_name": "Mandatory Label",
+        "sid": "S-1-16-12288",
+        "type": "Label"
+    },
+    "login_domain": "WIN2012-01",
+    "login_time": "2026-04-01T10:05:01.0875850-04:00",
+    "logon_id": 60733257,
+    "logon_server": "WIN2012-01",
+    "logon_type": "Network",
+    "privileges": {
+        "SeBackupPrivilege": "enabled-by-default",
+        "SeChangeNotifyPrivilege": "enabled-by-default",
+        "SeCreateGlobalPrivilege": "enabled-by-default",
+        "SeCreatePagefilePrivilege": "enabled-by-default",
+        "SeCreateSymbolicLinkPrivilege": "enabled-by-default",
+        "SeDebugPrivilege": "enabled-by-default",
+        "SeImpersonatePrivilege": "enabled-by-default",
+        "SeIncreaseBasePriorityPrivilege": "enabled-by-default",
+        "SeIncreaseQuotaPrivilege": "enabled-by-default",
+        "SeIncreaseWorkingSetPrivilege": "enabled-by-default",
+        "SeLoadDriverPrivilege": "enabled-by-default",
+        "SeManageVolumePrivilege": "enabled-by-default",
+        "SeProfileSingleProcessPrivilege": "enabled-by-default",
+        "SeRemoteShutdownPrivilege": "enabled-by-default",
+        "SeRestorePrivilege": "enabled-by-default",
+        "SeSecurityPrivilege": "enabled-by-default",
+        "SeShutdownPrivilege": "enabled-by-default",
+        "SeSystemEnvironmentPrivilege": "enabled-by-default",
+        "SeSystemProfilePrivilege": "enabled-by-default",
+        "SeSystemtimePrivilege": "enabled-by-default",
+        "SeTakeOwnershipPrivilege": "enabled-by-default",
+        "SeTimeZonePrivilege": "enabled-by-default",
+        "SeUndockPrivilege": "enabled-by-default"
+    },
+    "rights": [
+        "SeNetworkLogonRight",
+        "SeInteractiveLogonRight",
+        "SeBatchLogonRight",
+        "SeRemoteInteractiveLogonRight"
+    ],
+    "token_type": "TokenPrimary",
+    "upn": "",
+    "user_flags": []
+}
+==> Stopping SSH agent (PID: 53038)
+ljohnson@lees-mbp:[ansible-datacenter](main)$ 
+
+```

@@ -7,26 +7,36 @@ __docker_stack__gluetun__stack_dir: "{{ docker_stack__dir | d('/home/user/docker
 __docker_stack__gluetun__base_dir_default: "{{ __docker_stack__gluetun__stack_dir }}/gluetun"
 __docker_stack__gluetun__base_dir: "{{ docker_stack__gluetun__dir | d(__docker_stack__gluetun__base_dir_default) }}"
 
+__docker_stack__gluetun__config_dir_default: "{{ __docker_stack__gluetun__base_dir }}/config"
+__docker_stack__gluetun__config_dir: "{{ docker_stack__gluetun__config_dir
+  | d(__docker_stack__gluetun__config_dir_default) }}"
+
 __docker_stack__gluetun__external_network: "{{ docker_stack__gluetun__external_network | d('192.168.0.0/24') }}"
 
 __docker_stack__gluetun__http_port: "{{ docker_stack__gluetun__http_port | d('8088') }}"
+__docker_stack__gluetun__bittorrent_port: "{{ docker_stack__gluetun__bittorrent_port | d('8168') }}"
 
 __docker_stack__gluetun__username: "{{ docker_stack__gluetun__username | d('testuser') }}"
 __docker_stack__gluetun__password: "{{ docker_stack__gluetun__password | d('password') }}"
 
 __docker_stack__gluetun__config_dirs:
-  - path: "{{ __docker_stack__gluetun__config_dir }}/gluetun"
+  - path: "{{ __docker_stack__gluetun__base_dir }}"
+  - path: "{{ __docker_stack__gluetun__config_dir }}"
 
 __docker_stack__gluetun__config_tpls:
+  - src: gluetun/gluetun.env.j2
+    dest: "{{ __docker_stack__gluetun__base_dir }}/gluetun.env"
   #  - src: 'media/config-nordvpn.ovpn.j2'
-  #    dest: "{{ __docker_stack__gluetun__config_dir }}/openvpn/nordvpn.ovpn"
+  #    dest: "{{ __docker_stack__gluetun__config_dir }}/gluetun/nordvpn.ovpn"
 
-__docker_stack__gluetun__config_files:
-  #  - src: 'files/openvpn/nordvpn.udp.ovpn'
-  #    dest: "{{ __docker_stack__gluetun__config_dir }}/openvpn/nordvpn.upd.ovpn"
+__docker_stack__gluetun__config_files: []
+#__docker_stack__gluetun__config_files:
+#    - src: 'files/gluetun/nordvpn.udp.ovpn'
+#      dest: "{{ __docker_stack__gluetun__config_dir }}/gluetun/nordvpn.upd.ovpn"
 
 __docker_stack__gluetun__firewalld_ports:
   - "{{ __docker_stack__gluetun__http_port }}/tcp"
+  - "{{ __docker_stack__gluetun__bittorrent_port }}/tcp"
 
 __docker_stack__gluetun__:
 __docker_stack__gluetun__vpn_service_provider_default: surfshark
@@ -71,7 +81,8 @@ __docker_stack__gluetun__log_level: "info"
 # Optional: allow LAN access (your traefik_public subnets)
 #__docker_stack__gluetun__extra_subnets: "192.168.12.0/24,192.168.13.0/24,10.0.0.0/16"
 __docker_stack__gluetun__extra_subnets_default: "{{ __docker_stack__gluetun__external_network }},{{ docker_stack__network_subnet__traefik_proxy }}"
-__docker_stack__gluetun__extra_subnets: "{{ docker_stack__gluetun__extra_subnets | d(__docker_stack__gluetun__extra_subnets_default) }}"
+__docker_stack__gluetun__extra_subnets: "{{ docker_stack__gluetun__extra_subnets
+  | d(__docker_stack__gluetun__extra_subnets_default) }}"
 # Optional: health checks
 __docker_stack__gluetun__healthcheck_enabled: "on"
 
@@ -79,6 +90,8 @@ __docker_stack__gluetun__environment:
   # NordVPN OpenVPN settings
   VPN_SERVICE_PROVIDER: "{{ __docker_stack__gluetun__vpn_service_provider }}"
   VPN_TYPE: "{{ __docker_stack__gluetun__vpn_type }}"
+  OPENVPN_USER: "{{ __docker_stack__gluetun__username }}"
+  OPENVPN_PASSWORD: "{{ __docker_stack__gluetun__password }}"
 #  WIREGUARD_PRIVATE_KEY: "{{ __docker_stack__gluetun__wireguard_private_key }}"
 #  WIREGUARD_ADDRESSES: "{{ __docker_stack__gluetun__wireguard_addresses }}"
 #  WIREGUARD_PERSISTENT_KEEPALIVE: "{{ __docker_stack__gluetun__wireguard_persistent_keepalive }}"
@@ -97,21 +110,22 @@ __docker_stack__gluetun__environment:
   EXTRA_SUBNETS: "{{ __docker_stack__gluetun__extra_subnets }}"
   HEALTHCHECK_ENABLED: "{{ __docker_stack__gluetun__healthcheck_enabled }}"
 
-docker_stack__appspec__media:
-  dirs: "{{ __docker_stack__gluetun__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__gluetun__config_files | d([]) }}"
-  templates: "{{ __docker_stack__gluetun__config_tpls | d([]) }}"
-  firewalld_services: "{{ __docker_stack__gluetun__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__gluetun__firewalld_ports | d([]) }}"
-  networks: "{{ __docker_stack__gluetun__networks | d({}) }}"
-  volumes: "{{ __docker_stack__gluetun__volumes | d({}) }}"
-  docker_services: "{{ __docker_stack__gluetun__services | d({}) }}"
+docker_stack__appspec__gluetun:
+  dirs: "{{ __docker_stack__gluetun__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__gluetun__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__gluetun__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__gluetun__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__gluetun__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__gluetun__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__gluetun__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__gluetun__services | d({}, true) }}"
 
 __docker_stack__gluetun__services:
   openvpn:
     image: "{{ __docker_stack__gluetun__image }}"
     container_name: openvpn
-    environment: "{{ __docker_stack__gluetun__environment }}"
+    env_file:
+      - gluetun/gluetun.env
     cap_add:
       - net_admin
     devices:
@@ -120,6 +134,6 @@ __docker_stack__gluetun__services:
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
     volumes:
-      - "{{ __docker_stack__gluetun__base_dir }}:/gluetun"
+      - "{{ __docker_stack__gluetun__config_dir }}:/gluetun"
     ports:
       - "{{ __docker_stack__gluetun__bittorrent_port }}:8168"

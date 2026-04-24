@@ -3,13 +3,13 @@
 ## Create organizations
 ##
 - name: Organization block
-  when: controller_organizations | d([]) | length > 0
+  when: controller_organizations | d([], true) | length > 0
   block:
     - name: Create organizations
       ansible.controller.organization:
         name: "{{ item['name'] | mandatory }}"
         description: "{{ item.description | d('') }}"
-        # galaxy_credentials: "{{ galaxy_credentials | d([]) }}" # Have to create creds first, then associate w/ org
+        # galaxy_credentials: "{{ galaxy_credentials | d([], true) }}" # Have to create creds first, then associate w/ org
       loop: "{{ controller_organizations }}"
       loop_control:
         label: "{{ item['name'] }}"
@@ -18,13 +18,13 @@
   block:
     - name: Create credential types
       when:
-        - controller_credential_types | d([]) | length>0
+        - controller_credential_types | d([], true) | length>0
       ansible.controller.credential_type:
         name: "{{ item['name'] | mandatory }}"
         description: "{{ item['description'] | d('') }}"
         kind: cloud
-        inputs: "{{ item['inputs'] | d({}) }}"
-        injectors: "{{ item['injectors'] | d({}) }}"
+        inputs: "{{ item['inputs'] | d({}, true) }}"
+        injectors: "{{ item['injectors'] | d({}, true) }}"
       loop: "{{ controller_credential_types }}"
       loop_control:
         label: "{{ item['name'] }}"
@@ -36,14 +36,14 @@
 
     - name: Create org credentials
       when:
-        - controller_credentials | d([]) | length>0
+        - controller_credentials | d([], true) | length>0
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.controller.credential:
         name: "{{ item['name'] | mandatory }}"
         description: "{{ item['description'] | d('') }}"
         credential_type: "{{ item['credential_type'] | mandatory }}"
         organization: "{{ item['organization'] | d('') }}"
-        inputs: "{{ item['inputs'] | d({}) }}"
+        inputs: "{{ item['inputs'] | d({}, true) }}"
       ignore_errors: "{{ ansible_check_mode }}"
       no_log: true
       loop: "{{ controller_credentials }}"
@@ -66,13 +66,13 @@
 
     - name: Remask credentials
       ansible.builtin.set_fact:
-        vaulted_credentials: "{{ vaulted_credentials | d({}) | combine(({item: 'MASKED'})) }}"
+        vaulted_credentials: "{{ vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
       loop: "{{ _vaulted_credentials.keys() | list }}"
 
 - name: Add Galaxy credentials to organizations
   ansible.controller.organization:
     name: "{{ item['name'] | mandatory }}"
-    galaxy_credentials: "{{ item['galaxy_credentials'] | d([]) }}"
+    galaxy_credentials: "{{ item['galaxy_credentials'] | d([], true) }}"
   ignore_errors: "{{ ansible_check_mode }}"
   loop: "{{ controller_organizations }}"
   loop_control:
@@ -99,7 +99,7 @@
 
     - name: Remask credentials
       ansible.builtin.set_fact:
-        vaulted_credentials: "{{ vaulted_credentials | d({}) | combine(({item: 'MASKED'})) }}"
+        vaulted_credentials: "{{ vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
       loop: "{{ _vaulted_credentials.keys() | list }}"
 
 ##
@@ -139,7 +139,7 @@
   block:
     - name: Create projects
       when:
-        - __controller_projects | d([]) | length>0
+        - __controller_projects | d([], true) | length>0
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.controller.project:
         name: "{{ item['name'] | mandatory }}"
@@ -165,7 +165,7 @@
   block:
     - name: Create inventories
       when:
-        - __controller_inventories | d([]) | length>0
+        - __controller_inventories | d([], true) | length>0
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.builtin.include_tasks: create-inventory.yml
       ignore_errors: "{{ ansible_check_mode }}"
@@ -178,7 +178,7 @@
 ##
 
 - name: Notification templates block
-  when: bootstrap_ansible_controller__notification_templates | d([]) | length > 0
+  when: bootstrap_ansible_controller__notification_templates | d([], true) | length > 0
   block:
     - name: Create email notifications
       when:
@@ -189,9 +189,9 @@
         description: "{{ item['description'] | d('') }}"
         organization: "{{ item['organization'] | mandatory }}"
         notification_type: email
-        messages: "{{ item['messages'] | d({}) }}"
+        messages: "{{ item['messages'] | d({}, true) }}"
         notification_configuration: "{{ (item['email_settings'] | d(bootstrap_ansible_controller__default_email_notification_settings) |
-          combine({'recipients': item['recipients']})) | d({}) }}"
+          combine({'recipients': item['recipients']})) | d({}, true) }}"
       loop: "{{ bootstrap_ansible_controller__notification_templates | selectattr('notification_type', 'eq', 'email') }}"
       loop_control:
         label: "{{ item['name'] }}"
@@ -205,7 +205,7 @@
         description: "{{ item['description'] | d('') }}"
         organization: "{{ item['organization'] | mandatory }}"
         notification_type: webhook
-        notification_configuration: "{{ item['notification_configuration'] | d({}) }}"
+        notification_configuration: "{{ item['notification_configuration'] | d({}, true) }}"
       loop: "{{ bootstrap_ansible_controller__notification_templates | selectattr('notification_type', 'eq', 'webhook') }}"
       loop_control:
         label: "{{ item['name'] }}"
@@ -247,7 +247,7 @@
   block:
     - name: Create workflow template
       when:
-        - controller_workflow_templates | d([]) | length>0
+        - controller_workflow_templates | d([], true) | length>0
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.controller.workflow_job_template:
         name: "{{ item['name'] | mandatory }}"
@@ -270,7 +270,7 @@
         loop_var: __schedule_loop_var
         label: "{{ __schedule_loop_var['schedule_name'] }}"
       when:
-        - __controller_schedules | d([]) | length>0
+        - __controller_schedules | d([], true) | length>0
         - __schedule_loop_var['environments'] is not defined or controller_env.lower() in __schedule_loop_var['environments']
 
 ##

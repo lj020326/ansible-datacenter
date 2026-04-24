@@ -1,40 +1,195 @@
 #!/usr/bin/env bash
 
-#echo "params=${@}"
+# Enable strict mode for better error handling
+set -euo pipefail
 
-#DEBUG=0
-REMOTE_USER=administrator
-REMOTE_HOST=vcontrol01.johnson.int
+# Trap to clean up SSH agent and temporary files on exit
+cleanup() {
+  if [ -n "${SSH_AGENT_PID:-}" ]; then
+    echo "==> Stopping SSH agent (PID: $SSH_AGENT_PID)"
+    eval "$(ssh-agent -k)" >/dev/null 2>&1
+  fi
+  test "${KEEP_TEMP_DIR:-0}" = 1 || rm -rf "${TEMP_DIR:-}"
+  rm -f "${TEMP_VARS:-}" "${TEMP_RENDERED_KEY:-}" "${TEMP_KEY:-}"
+}
+trap cleanup EXIT
 
-#RUN_CMD=$(basename ${0})
+# Requirements have to be installed prior to running ansible-playbook
+# because plugins and requirements are loaded before the task runs
+# pip install -r requirements.txt
 
-TARGET_DIR=${PWD}
-#GIT_REMOTE_URL=$(git config --get remote.origin.url)
-GIT_REMOTE_URL=$(git ls-remote --get-url origin)
+VERSION="2025.9.20"
 
-RUN_LOCAL=1
-RUN_VENV=1
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_NAME="$(basename "$0")"
+REPO_DIR="$(cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel)"
 
-DEBUG_LEVEL=0
-if [[ "$-" == *x* ]]; then
-  echo "DEBUG is set"
-  DEBUG_LEVEL=1
-else
-  echo "DEBUG is not set"
+VAULTPASS_FILEPATH="${HOME}/.vault_pass"
+if [[ -f "${REPO_DIR}/.vault_pass" ]]; then
+  VAULTPASS_FILEPATH="${REPO_DIR}/.vault_pass"
 fi
+if [[ ! -f "${VAULTPASS_FILEPATH}" ]]; then
+  echo "Error: Vault password file ${VAULTPASS_FILEPATH} not found"
+  exit 1
+fi
+VAULT_FILEPATH="./vars/vault.yml"
+if [[ ! -f "${VAULT_FILEPATH}" ]]; then
+  echo "Error: Vault file ${VAULT_FILEPATH} not found"
+  exit 1
+fi
+VAULT_ID="dcc-vault"
+
+_INSTALL_GALAXY_COLLECTIONS="${INSTALL_GALAXY_COLLECTIONS:-0}"
+_UPGRADE_GALAXY_COLLECTIONS="${UPGRADE_GALAXY_COLLECTIONS:-0}"
+_FORCE_GALAXY_COLLECTIONS="${FORCE_GALAXY_COLLECTIONS:-0}"
+
+echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
+echo "SCRIPT_NAME=[${SCRIPT_NAME}]"
+echo "REPO_DIR=${REPO_DIR}"
+echo "VAULT_FILEPATH=${VAULT_FILEPATH}"
+echo "VAULT_ID=${VAULT_ID}"
+
+ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.yml"
+#ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.test.yml"
+
+export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible/collections"
+#export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
+#export ANSIBLE_ROLES_PATH=./
+#export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}:${REPO_DIR}/collections:${REPO_PARENT_DIR}/requirements_collections"
+#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections:${REPO_PARENT_DIR}/requirements_collections"
+#export ANSIBLE_COLLECTIONS_PATH="${REPO_PARENT_DIR}/requirements_collections"
+#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections"
+#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
+export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}"
+export ANSIBLE_LOG_PATH="./ansible.log"
+
+#export ANSIBLE_DEBUG=1
+export ANSIBLE_KEEP_REMOTE_FILES=1
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+
+## ref: https://github.com/ansible/ansible/issues/79557#issuecomment-1344168449
+#export ANSIBLE_GALAXY_IGNORE=true
+#export GALAXY_IGNORE_CERTS=true
+
+# SSH agent setup
+start_ssh_agent() {
+  # Check if a user-managed SSH agent is running
+  if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -n "${SSH_AGENT_PID:-}" ] && kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
+    echo "==> SSH agent already running (PID: $SSH_AGENT_PID, SOCK: $SSH_AUTH_SOCK)"
+  else
+    # Start a new agent, overriding any system agent
+    unset SSH_AUTH_SOCK SSH_AGENT_PID
+    echo "==> Starting new SSH agent"
+    eval "$(ssh-agent -s)" || {
+      echo "Error: Failed to start SSH agent"
+      return 1
+    }
+  fi
+  # Verify SSH agent is usable
+  ssh-add -l >/dev/null 2>&1 || echo "==> SSH agent is empty"
+  # Render ansible_ssh_private_key using Ansible to resolve templates
+  TEMP_RENDERED_KEY=$(mktemp)
+  set +e
+  ansible localhost -m debug -a "var=ansible_ssh_private_key" -e "@${VAULT_FILEPATH}" --vault-id "${VAULT_ID}@${VAULTPASS_FILEPATH}" > "${TEMP_RENDERED_KEY}.out" 2> "${TEMP_RENDERED_KEY}.err"
+  RENDER_EXIT=$?
+  set -e
+  if [ $RENDER_EXIT -ne 0 ]; then
+    echo "Error: Failed to render ansible_ssh_private_key:"
+    cat "${TEMP_RENDERED_KEY}.err"
+    rm -f "${TEMP_RENDERED_KEY}" "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err"
+    return 1
+  fi
+  # Extract the rendered key from debug output
+  TEMP_KEY=$(mktemp)
+  grep '"ansible_ssh_private_key":' "${TEMP_RENDERED_KEY}.out" | sed 's/.*"ansible_ssh_private_key": "\(.*\)".*/\1/' | sed 's/\\n/\n/g' > "$TEMP_KEY" 2> "${TEMP_KEY}.err"
+  if [ ! -s "$TEMP_KEY" ]; then
+    echo "Warning: Failed to extract rendered key or key is empty"
+    cat "${TEMP_KEY}.err"
+    rm -f "${TEMP_RENDERED_KEY}" "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err" "$TEMP_KEY" "${TEMP_KEY}.err"
+    return 1
+  fi
+  rm -f "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err" "${TEMP_KEY}.err"
+  # Validate and process the key
+  python3 - <<EOF
+import re
+with open('$TEMP_KEY', 'r') as f:
+    key_content = f.read()
+print("Extracted key length:", len(key_content))
+print("Key preview:", key_content[:100])
+# Validate key format
+if re.match(r'^-{5}BEGIN.*PRIVATE KEY-{5}', key_content) and re.search(r'-{5}END.*PRIVATE KEY-{5}\n?$', key_content):
+    print("Key format valid")
+else:
+    print("Invalid key format: does not match BEGIN/END PRIVATE KEY")
+    import sys
+    sys.exit(1)
+EOF
+  if [ $? -ne 0 ]; then
+    echo "Warning: Invalid SSH key format after rendering"
+    rm -f "$TEMP_KEY"
+    return 1
+  fi
+  if [ -s "$TEMP_KEY" ]; then
+    echo "==> Extracted key preview (first line):"
+    head -n 1 "$TEMP_KEY"
+    chmod 600 "$TEMP_KEY"
+    # Test key validity
+    if ssh-keygen -y -P "" -f "$TEMP_KEY" >/dev/null 2>&1; then
+      if ssh-add "$TEMP_KEY" 2>/dev/null; then
+        echo "==> Successfully added SSH key to agent"
+        ssh-add -l
+      else
+        echo "Warning: Failed to add SSH key to agent (passphrase or format issue?)"
+        rm -f "$TEMP_KEY"
+        return 1
+      fi
+    else
+      echo "Warning: Invalid SSH key format in ansible_ssh_private_key"
+      rm -f "$TEMP_KEY"
+      return 1
+    fi
+  else
+    echo "Warning: Empty or missing SSH key in ansible_ssh_private_key"
+    rm -f "$TEMP_KEY"
+    return 1
+  fi
+}
+
+# Install Galaxy collections if needed
+install_galaxy_collections() {
+  echo "==> ansible-galaxy --version"
+  ansible-galaxy --version
+
+  ## ref: https://github.com/ansible/ansible/issues/79557#issuecomment-1344168449
+  echo "==> Install Galaxy collection requirements"
+#  GALAXY_INSTALL_CMD=("env ANSIBLE_GALAXY_IGNORE=true env GALAXY_IGNORE_CERTS=true")
+#  GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
+#  GALAXY_INSTALL_CMD+=("--ignore-certs")
+#  GALAXY_INSTALL_CMD+=("--force")
+
+  GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
+  if [[ "${_FORCE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+      GALAXY_INSTALL_CMD+=("--force")
+  fi
+
+  if [[ "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+    GALAXY_INSTALL_CMD+=("--upgrade")
+    GALAXY_INSTALL_CMD+=("--clear-response-cache")
+  fi
+  GALAXY_INSTALL_CMD+=("-r" "${ANSIBLE_COLLECTION_REQUIREMENTS}")
+  GALAXY_INSTALL_CMD+=("-p" "${LOCAL_COLLECTIONS_PATH}")
+
+  echo "==> ${GALAXY_INSTALL_CMD[*]}"
+  if ! eval "${GALAXY_INSTALL_CMD[*]} > /dev/null"; then
+    echo "Error: Failed to install Galaxy collections"
+    exit 1
+  fi
+}
 
 usage() {
   retcode=${1-1}
   echo "" 1>&2
   echo "Usage: ${0} [options] [CLI commands]" 1>&2
-  echo "" 1>&2
-  echo "  Options:" 1>&2
-  echo "     -R      : use default remote host to run the following ansible commands, defaults to \"${REMOTE_HOST}\"" 1>&2
-  echo "     -n      : use OS ansible and do NOT bootstrap/use a virtualenv to run ansible" 1>&2
-  echo "     -r HOST : set remote host used to run the following ansible commands" 1>&2
-  echo "     -g URL  : set git repo URL for the site.yml playbook to use" 1>&2
-  echo "     -b URL  : set git repo branch for the site.yml playbook to use" 1>&2
-  echo "     -t DIR  : set git repo target directory to clone to for the site.yml playbook to use" 1>&2
   echo "" 1>&2
   echo "  Required:" 1>&2
   echo "     command:    ansible [ansible options]" 1>&2
@@ -78,186 +233,85 @@ usage() {
   exit ${retcode}
 }
 
-run_command_wrapper_fn() {
-  ## ref: https://stackoverflow.com/questions/16605362/in-bash-you-can-set-x-to-enable-debugging-is-there-any-way-to-know-if-that-has
-  #    pip install --user debops[ansible]
+main() {
+  while getopts "t:hx" opt; do
+    case "${opt}" in
+    h) usage 1 ;;
+    \?) usage 2 ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      usage 3
+      ;;
+    *)
+      usage 4
+      ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  if [ $# -eq 0 ]; then
+    usage 1
+  fi
+
   RUN_CMD=$1
-  GIT_REPO_DIR=$2
-  GIT_REMOTE_URL=$3
-  GIT_BRANCH_NAME=$4
-  DEBUG_LEVEL=$5
-  shift 5
+  shift 1
 
-  ANSIBLE_LOG="ansible.log"
-  OPENSTACK_VENV_PATH="/opt/openstack"
-  BOOTSTRAP_VENV_SCRIPT="${GIT_REPO_DIR}/scripts/bootstrap-ansible-venv.sh"
-  BOOTSTRAP_KOLLA_ENV="/etc/kolla/admin-openrc.sh"
-
-  DEBUG_FLAG=""
-  if [ ${DEBUG_LEVEL} -gt 0 ]; then
-    DEBUG_FLAG="-x"
+  RUN_COMMAND_ARGS=()
+  if [ $# -gt 0 ]; then
+    RUN_COMMAND_ARGS=("$@")
   fi
 
-  GIT_PULL="git pull origin ${GIT_BRANCH_NAME}"
-  echo "HOSTNAME=${HOSTNAME}"
-  echo "RUN_CMD=${RUN_CMD}"
-  #    export ANSIBLE_KEEP_REMOTE_FILES=1
-  #    export ANSIBLE_DEBUG=1
-  #    echo "which ansible-playbook=$(which ansible-playbook)"
-  #    echo "env:\n$(env)"
+  rm -f "$ANSIBLE_LOG_PATH"
 
-  if [ ! -d ${GIT_REPO_DIR} ]; then
-    echo "${GIT_REPO_DIR} not found, cloning from ${GIT_REMOTE_URL}"
-    export PARENT_DIR="$(dirname "${GIT_REPO_DIR}")"
-    mkdir -p ${PARENT_DIR}
-    git clone ${GIT_REMOTE_URL} ${GIT_REPO_DIR}
+  # Set SSL certificate paths for Python
+  CERT_PATH=$(python3 -m certifi 2>/dev/null || echo "")
+  if [ -n "$CERT_PATH" ]; then
+    export SSL_CERT_FILE=${CERT_PATH}
+    export REQUESTS_CA_BUNDLE=${CERT_PATH}
+  else
+    echo "==> Warning: certifi module not found, SSL_CERT_FILE not set"
   fi
 
-  declare -a COMMAND_ARRAY
-  COMMAND_ARRAY=("cd ${GIT_REPO_DIR}")
-  COMMAND_ARRAY+=("${GIT_PULL}")
-  COMMAND_ARRAY+=("git checkout ${GIT_BRANCH_NAME}")
-  COMMAND_ARRAY+=("echo '############# SETUP RUN ENV #####################'")
-
-  if [[ "${RUN_CMD}" == *"kolla-ansible"* ]]; then
-    VENV_INIT="${OPENSTACK_VENV_PATH}/bin/activate"
-    if [[ ${RUN_VENV} -eq 1 ]]; then
-      COMMAND_ARRAY+=("source ${VENV_INIT}")
-    fi
-    COMMAND_ARRAY+=("source ${BOOTSTRAP_KOLLA_ENV}")
-  elif [[ "${RUN_CMD}" == *"ansible-playbook"* ]]; then
-    VENV_INIT="${GIT_REPO_DIR}/venv/bin/activate"
-    if [[ ${RUN_VENV} -eq 1 ]]; then
-      COMMAND_ARRAY+=("bash ${DEBUG_FLAG} ${BOOTSTRAP_VENV_SCRIPT}")
-      COMMAND_ARRAY+=("source ${VENV_INIT}")
-    fi
-    COMMAND_ARRAY+=("[ ! -f ${ANSIBLE_LOG} ] || rm ${ANSIBLE_LOG}")
-  elif [[ "${RUN_CMD}" == *"ansible"* ]]; then
-    VENV_INIT="${GIT_REPO_DIR}/venv/bin/activate"
-    if [[ ${RUN_VENV} -eq 1 ]]; then
-      COMMAND_ARRAY+=("bash ${DEBUG_FLAG} ${BOOTSTRAP_VENV_SCRIPT}")
-      COMMAND_ARRAY+=("source ${VENV_INIT}")
-    fi
-    COMMAND_ARRAY+=("[ ! -f ${ANSIBLE_LOG} ] || rm ${ANSIBLE_LOG}")
+  if [[ "${_INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+    install_galaxy_collections
   fi
-  COMMAND_ARRAY+=("echo '############# RUN COMMAND #######################'")
 
-  echo "VENV_INIT=${VENV_INIT}"
+  echo "==> ansible-galaxy collection list"
+  ansible-galaxy collection list
 
-  PARAMS="${@}"
-  echo "PARAMS=${PARAMS}"
+  echo "==> ansible --version"
+  ansible --version
 
-  COMMAND_ARRAY+=("echo ${RUN_CMD} ${PARAMS}")
-  COMMAND_ARRAY+=("${RUN_CMD} ${PARAMS}")
+  echo "==> Run command arguments: ${RUN_COMMAND_ARGS[*]}"
+  if [[ "${RUN_CMD}" == *"ansible"* ]]; then
+    # Start SSH agent and load key
+    start_ssh_agent
 
-  ## ref: https://stackoverflow.com/questions/13470413/converting-a-bash-array-into-a-delimited-string
-  ## ref: https://stackoverflow.com/questions/15520339/how-to-remove-carriage-return-and-newline-from-a-variable-in-shell-script
-  DELIM=' && \'
-  NL=$'\n'
-  printf -v COMMAND_STRING "%s${DELIM}$NL" "${COMMAND_ARRAY[@]}"
-  COMMAND_STRING=${COMMAND_STRING%$NL}
-  COMMAND_STRING=${COMMAND_STRING%$DELIM}
+    # Null inline key vars to force agent usage, mimicking Jenkins
+    TEMP_VARS=$(mktemp)
+    cat > "$TEMP_VARS" << EOF
+{
+  "ansible_ssh_private_key_file": null,
+  "ansible_ssh_private_key": null
+}
+EOF
 
-  echo "============================"
-  echo "${COMMAND_STRING}"
-  echo "============================"
-  echo "============================"
-  #  ${COMMAND_STRING}
-  eval "${COMMAND_STRING}"
-  echo "============================"
-  echo "============================"
+    RUN_COMMAND_ARGS+=("-e" "@$TEMP_VARS")
+    RUN_COMMAND_ARGS+=("-e" "@${VAULT_FILEPATH}")
+    RUN_COMMAND_ARGS+=("--vault-id" "${VAULT_ID}@${VAULTPASS_FILEPATH}")
+#    RUN_COMMAND_ARGS+=("--vault-password-file" "${VAULTPASS_FILEPATH}")
+  fi
 
-  exit ${?}
+  RUN_COMMAND_ARGS_WITH_ARGS=("${RUN_CMD}")
+  if [[ "${#RUN_COMMAND_ARGS[@]}" -gt 0 ]]; then
+    RUN_COMMAND_ARGS_WITH_ARGS+=("${RUN_COMMAND_ARGS[@]}")
+  fi
+
+  echo "==> ${RUN_COMMAND_ARGS_WITH_ARGS[*]}"
+  if ! eval "${RUN_COMMAND_ARGS_WITH_ARGS[*]}"; then
+    echo "Error: Ansible playbook execution failed"
+    exit 1
+  fi
 }
 
-while getopts "g:b:r:t:Rhx" opt; do
-  case "${opt}" in
-  g) GIT_REMOTE_URL="${OPTARG}" ;;
-  b) GIT_BRANCH_NAME="${OPTARG}" ;;
-  r)
-      RUN_LOCAL=0
-      REMOTE_HOST="${OPTARG}"
-      ;;
-  t) TARGET_DIR="${OPTARG}" ;;
-  R) RUN_LOCAL=0 ;;
-  n) RUN_VENV=0 ;;
-  x) DEBUG_LEVEL=1 ;;
-  h) usage 1 ;;
-  \?) usage 2 ;;
-  :)
-    echo "Option -$OPTARG requires an argument." >&2
-    usage 3
-    ;;
-  *)
-    usage 4
-    ;;
-  esac
-done
-shift $((OPTIND - 1))
-
-RUN_CMD=$1
-shift 1
-
-additional_args=$@
-echo "additional_args=${additional_args}" >&2
-
-if [[ ! -z ${REMOTE_HOST} ]]; then
-  if [[ "${REMOTE_HOST}" == "localhost" ]]; then
-    RUN_LOCAL=1
-  fi
-fi
-
-if [[ -z ${GIT_REMOTE_URL} || "${GIT_REMOTE_URL}" == "origin" ]]; then
-  GIT_REMOTE_URL=${GIT_DC_URL-"https://github.com/lj020326/ansible-datacenter.git"}
-  GIT_BRANCH_NAME=${GIT_DC_BRANCH-"public"}
-else
-  GIT_BRANCH_NAME=$(git symbolic-ref -q HEAD)
-  GIT_BRANCH_NAME=${GIT_BRANCH_NAME##refs/heads/}
-  GIT_BRANCH_NAME=${GIT_BRANCH_NAME:-HEAD}
-
-  git add . && git commit -m 'updates' && git push origin
-fi
-
-## ref: https://stackoverflow.com/questions/1371261/get-current-directory-name-without-full-path-in-a-bash-script
-#PROJECT_DIR=${PWD##*/}
-PROJECT_DIR=${TARGET_DIR##*/}
-PROJECT_DIR="${PROJECT_DIR%"${PROJECT_DIR##*[!/]}"}" # extglob-free multi-trailing-/ trim
-PROJECT_DIR="${PROJECT_DIR##*/}"
-ANSIBLE_LOG="ansible.log"
-
-echo "TARGET_DIR=${TARGET_DIR}"
-echo "PROJECT_DIR=${PROJECT_DIR}"
-
-GIT_REPO_DIR=${TARGET_DIR}
-if [[ ${RUN_LOCAL} -ne 1 ]]; then
-  GIT_REPO_DIR=/home/${REMOTE_USER}/repos/ansible/${PROJECT_DIR}
-fi
-echo "GIT_REPO_DIR=${GIT_REPO_DIR}"
-
-RUN_COMMAND_WITH_ARGS="run_command_wrapper_fn ${RUN_CMD} ${GIT_REPO_DIR} ${GIT_REMOTE_URL} ${GIT_BRANCH_NAME} ${DEBUG_LEVEL} ${@}"
-
-if [[ "${RUN_CMD}" == *"ansible"* ]]; then
-  VAULTPASS_FILEPATH="~/.vault_pass"
-  VAULT_FILEPATH="./vars/vault.yml"
-  RUN_COMMAND_WITH_ARGS+=" --vault-password-file ${VAULTPASS_FILEPATH}"
-  RUN_COMMAND_WITH_ARGS+=" -e @${VAULT_FILEPATH}"
-fi
-
-if [[ ${RUN_LOCAL} -eq 1 ]]; then
-  ${RUN_COMMAND_WITH_ARGS}
-  COMMAND_RET_STATUS=$?
-else
-
-  #COMMAND="$(typeset -f run_command_wrapper_fn); run_command_wrapper_fn ${PROJECT_DIR} ${GIT_REMOTE_URL} ${@}"
-  #COMMAND="$(declare -f run_command_wrapper_fn); run_command_wrapper_fn ${PROJECT_DIR} ${GIT_REMOTE_URL} ${GIT_BRANCH_NAME} ${@}"
-  RUN_COMMAND_WITH_ARGS="$(declare -f run_command_wrapper_fn); ${RUN_COMMAND_WITH_ARGS}"
-
-  ssh -t ${REMOTE_USER}@${REMOTE_HOST} "${RUN_COMMAND_WITH_ARGS}"
-  COMMAND_RET_STATUS=$?
-
-  if [[ "${RUN_CMD}" == *"ansible"* ]]; then
-    echo "fetching ${GIT_REPO_DIR}/${ANSIBLE_LOG}"
-    scp ${REMOTE_USER}@${REMOTE_HOST}:${GIT_REPO_DIR}/${ANSIBLE_LOG} .
-  fi
-fi
-echo "COMMAND_RET_STATUS=${COMMAND_RET_STATUS}"
+main "$@"

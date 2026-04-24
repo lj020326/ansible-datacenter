@@ -6,7 +6,7 @@
       - "Mount Path: {{ deploy_pki_certs__vault_mount_path }}"
       - "KV Mount: {{ deploy_pki_certs__vault_kv_mount_path }}"
       - "Host Cert Role Name: {{ deploy_pki_certs__vault_pki_host_role_name }}"
-    verbosity: 2
+    verbosity: 1
 
 - name: "validate-vault-pki : Display deploy_pki_certs__vault_url"
   ansible.builtin.debug:
@@ -14,8 +14,36 @@
 
 - name: "validate-vault-pki : Display deploy_pki_certs__vault_token length"
   ansible.builtin.debug:
-    msg: "Token Length: {{ deploy_pki_certs__vault_token | length }} chars (censored)"
+    msg: "Token Length: {{ deploy_pki_certs__vault_token | length }} chars"
+
+- name: "validate-vault-pki : Display deploy_pki_certs__vault_token"
+  when: deploy_pki_certs__enable_debug_mode
+  ansible.builtin.debug:
+    var: deploy_pki_certs__vault_token | d('')
     verbosity: 1
+
+- name: "validate-vault-pki : Verify Vault API health"
+  ansible.builtin.uri:
+    url: "{{ deploy_pki_certs__vault_url }}/v1/sys/health"
+    method: GET
+    # 200: initialized, unsealed, and active
+    # 429: unsealed and standby
+    # 501: not initialized
+    # 503: sealed
+    status_code: [200, 429, 501, 503]
+    validate_certs: "{{ deploy_pki_certs__vault_validate_certs | default(false) }}"
+  register: __vault_health
+  until: __vault_health.status == 200
+  retries: 5
+  delay: 5
+  delegate_to: localhost
+  run_once: true
+
+- name: "validate-vault-pki : Assert Vault is initialized and unsealed"
+  ansible.builtin.assert:
+    that:
+      - __vault_health.status == 200
+    fail_msg: "Vault is reachable but not ready (Status: {{ __vault_health.status }}). Ensure it is initialized and unsealed."
 
 - name: "validate-vault-pki : Verify token policies"
   no_log: true
@@ -100,7 +128,7 @@
 
 - name: "validate-vault-pki : Display __mounts_result.data.keys()"
   ansible.builtin.debug:
-    var: __mounts_result.data.keys() | d([]) | list
+    var: __mounts_result.data.keys() | d([], true) | list
   delegate_to: localhost
   run_once: true
 
@@ -144,7 +172,7 @@
   run_once: true
 
 - name: "validate-vault-pki : Set __required_pki_paths (filtered by existing mounts)"
-  when: __real_mount_prefixes | d([]) | length > 0
+  when: __real_mount_prefixes | d([], true) | length > 0
   ansible.builtin.set_fact:
     __required_pki_paths: >-
       {{
@@ -157,12 +185,12 @@
 
 - name: "validate-vault-pki : Display __required_pki_paths"
   ansible.builtin.debug:
-    var: __required_pki_paths | d([]) | list
+    var: __required_pki_paths | d([], true) | list
   delegate_to: localhost
   run_once: true
 
 - name: "validate-vault-pki : Fail if no required mounts found (run bootstrap_pki)"
-  when: __required_pki_paths | d([]) | length == 0
+  when: __required_pki_paths | d([], true) | length == 0
   ansible.builtin.fail:
     msg: |
       No required mounts found for PKI deployment (expected: {{
@@ -277,12 +305,12 @@
 - name: "validate-vault-pki : Assert required read capabilities for PKI/KV endpoints"
   ansible.builtin.assert:
     that:
-      - ( __pki_read_tests.results | d([]) | selectattr('failed', 'equalto', true) | list | length ) == 0
+      - ( __pki_read_tests.results | d([], true) | selectattr('failed', 'equalto', true) | list | length ) == 0
       - not ( __kv_list_test.failed | d(true) )
     success_msg: "All required PKI/KV read paths accessible."
     fail_msg: >-
       Read access failed for PKI: {{
-        (__pki_read_tests.results | d([]) | selectattr('failed', 'equalto', true) | map(attribute='item') | list) | default('none') }}.
+        (__pki_read_tests.results | d([], true) | selectattr('failed', 'equalto', true) | map(attribute='item') | list) | default('none') }}.
       KV folder list failed: {{ 'yes' if __kv_list_test.failed | d(false) else 'no' }} (path: {{
         deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external).
       Policy 'deploy-ca' needs:

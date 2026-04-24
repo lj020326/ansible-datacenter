@@ -4,9 +4,9 @@
     __nested_hosts_list: []
     __nested_hosts_by_name: {}
 
-- name: Display esx_hosts_online minus node_offline
+- name: Display esx_hosts_online minus host_offline
   ansible.builtin.debug:
-    var: groups['vmware_physical_esx_host'] | difference(groups['node_offline'])
+    var: groups['vmware_physical_esx_host'] | difference(groups['host_offline'])
 
 - name: Display bootstrap_vsphere__vcenter_physical_esx_hosts
   ansible.builtin.debug:
@@ -14,7 +14,7 @@
 
 - name: Set __esx_hosts_by_name
   ansible.builtin.set_fact:
-    __esx_hosts_by_name: "{{ __esx_hosts_by_name | d({}) | combine({item.name: item}) }}"
+    __esx_hosts_by_name: "{{ __esx_hosts_by_name | d({}, true) | combine({item.name: item}) }}"
   loop: "{{ bootstrap_vsphere__vcenter_physical_esx_hosts }}"
   loop_control:
     label: "{{ item.name }}"
@@ -55,13 +55,13 @@
 
 - name: Set __nested_hosts_list
   ansible.builtin.set_fact:
-    __nested_hosts_list: "{{ __nested_hosts_list | d([])
+    __nested_hosts_list: "{{ __nested_hosts_list | d([], true)
       + [bootstrap_vsphere__nested_esx_host_defaults | combine(item)] }}"
   loop: "{{ bootstrap_vsphere__nested_hosts }}"
 
 - name: Set __nested_hosts_by_name
   ansible.builtin.set_fact:
-    __nested_hosts_by_name: "{{ __nested_hosts_by_name | d({}) | combine({item.name: item}) }}"
+    __nested_hosts_by_name: "{{ __nested_hosts_by_name | d({}, true) | combine({item.name: item}) }}"
   loop: "{{ __nested_hosts_list }}"
 
 - name: Display __nested_hosts_list
@@ -122,7 +122,7 @@
   ansible.builtin.include_tasks: connect_physical_esx_to_vc.yml
 
 - name: create nested ESXi hosts
-  when: __nested_hosts_list | d([]) | length > 0
+  when: __nested_hosts_list | d([], true) | length > 0
   block:
     - name: Run prepare_esxi_installer_iso.yml
       ansible.builtin.include_tasks: prepare_esxi_installer_iso.yml

@@ -1,7 +1,5 @@
 ---
 
-__docker_stack__keycloak__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
-
 #__docker_stack__keycloak__image: "jboss/keycloak"
 #__docker_stack__keycloak__image: "jboss/keycloak:11.0.3"
 __docker_stack__keycloak__image: quay.io/keycloak/keycloak:11.0.3
@@ -26,6 +24,11 @@ __docker_stack__keycloak__image: quay.io/keycloak/keycloak:11.0.3
 #__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:24.0.3"
 #__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:latest"
 
+__docker_stack__keycloak__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__keycloak__base_dir_default: "{{ __docker_stack__keycloak__stack_dir }}/keycloak"
+__docker_stack__keycloak__base_dir: "{{ docker_stack__keycloak__base_dir
+  | d(__docker_stack__keycloak__base_dir_default) }}"
+
 __docker_stack__keycloak__postgres_user: "{{ docker_stack__keycloak__postgres_user | d('keycloak') }}"
 __docker_stack__keycloak__postgres_password: "{{ docker_stack__keycloak__postgres_password | d('password') }}"
 __docker_stack__keycloak__user: "{{ docker_stack__keycloak__user | d('user') }}"
@@ -34,11 +37,29 @@ __docker_stack__keycloak__password: "{{ docker_stack__keycloak__password | d('pa
 __docker_stack__keycloak__internal_domain: "{{ docker_stack__internal_domain | d('example.int') }}"
 __docker_stack__keycloak__external_domain: "{{ docker_stack__external_domain | d('example.com') }}"
 
-__docker_stack__keycloak__config_dirs:
-  - { path: "{{ docker_stack__dir }}/keycloak" }
-  - { path: "{{ docker_stack__dir }}/keycloak/data" }
-  - { path: "{{ docker_stack__dir }}/keycloak/themes" }
+__docker_stack__keycloak__environment_default:
+  DB_VENDOR: POSTGRES
+  DB_ADDR: postgres
+  DB_DATABASE: "{{ __docker_stack__keycloak__postgres_user }}"
+  DB_USER: "{{ __docker_stack__keycloak__postgres_user }}"
+  DB_PASSWORD: "{{ __docker_stack__keycloak__postgres_password }}"
+  KEYCLOAK_USER: "{{ __docker_stack__keycloak__user }}"
+  KEYCLOAK_PASSWORD: "{{ __docker_stack__keycloak__password }}"
+  KEYCLOAK_LOGLEVEL: DEBUG
+  PROXY_ADDRESS_FORWARDING: "true"
+  #JDBC_PARAMS: "ssl=true"
 
+__docker_stack__keycloak__environment: "{{ docker_stack__keycloak__environment
+  | d(__docker_stack__keycloak__environment_default) }}"
+
+__docker_stack__keycloak__config_dirs:
+  - path: "{{ __docker_stack__keycloak__base_dir }}"
+  - path: "{{ __docker_stack__keycloak__base_dir }}/data"
+  - path: "{{ __docker_stack__keycloak__base_dir }}/themes"
+
+__docker_stack__keycloak__config_tpls:
+  - src: keycloak/keycloak.env.j2
+    dest: "{{ __docker_stack__keycloak__base_dir }}/keycloak.env"
 
 #__docker_stack__keycloak__networks:
 #  ## ref: https://github.com/stefanprodan/swarmprom/blob/master/docker-compose.traefik.yml
@@ -50,14 +71,14 @@ __docker_stack__keycloak__volumes:
   keycloak_data: {}
 
 docker_stack__appspec__keycloak:
-  dirs: "{{ __docker_stack__keycloak__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__keycloak__config_files | d([]) }}"
-  templates: "{{ __docker_stack__keycloak__config_tpls | d([]) }}"
-  firewalld_services: "{{ __docker_stack__keycloak__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__keycloak__firewalld_ports | d([]) }}"
-  networks: "{{ __docker_stack__keycloak__networks | d({}) }}"
-  volumes: "{{ __docker_stack__keycloak__volumes | d({}) }}"
-  docker_services: "{{ __docker_stack__keycloak__services | d({}) }}"
+  dirs: "{{ __docker_stack__keycloak__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__keycloak__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__keycloak__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__keycloak__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__keycloak__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__keycloak__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__keycloak__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__keycloak__services | d({}, true) }}"
 
 __docker_stack__keycloak__traefik_labels: "{{ docker_stack__keycloak__traefik_labels | d(__docker_stack__keycloak__traefik_labels_default) }}"
 
@@ -102,17 +123,8 @@ __docker_stack__keycloak__services:
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
       - "{{ docker_stack__network_name__default }}"
-    environment:
-      DB_VENDOR: POSTGRES
-      DB_ADDR: postgres
-      DB_DATABASE: "{{ __docker_stack__keycloak__postgres_user }}"
-      DB_USER: "{{ __docker_stack__keycloak__postgres_user }}"
-      DB_PASSWORD: "{{ __docker_stack__keycloak__postgres_password }}"
-      KEYCLOAK_USER: "{{ __docker_stack__keycloak__user }}"
-      KEYCLOAK_PASSWORD: "{{ __docker_stack__keycloak__password }}"
-      KEYCLOAK_LOGLEVEL: DEBUG
-      PROXY_ADDRESS_FORWARDING: "true"
-      #JDBC_PARAMS: "ssl=true"
+    env_file:
+      - "keycloak/keycloak.env"
     ports:
       - 8081:8080
     volumes:

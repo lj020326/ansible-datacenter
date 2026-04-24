@@ -12,16 +12,12 @@
     msg:
       - ansible_user={{ ansible_user }}
       - ansible_python_interpreter={{ ansible_python_interpreter }}
-      - bootstrap_pip__packages={{ bootstrap_pip__packages }}
       - bootstrap_pip__env_force_rebuild={{ bootstrap_pip__env_force_rebuild }}
+      - __bootstrap_pip__packages={{ __bootstrap_pip__packages }}
       - __bootstrap_pip__python_executable={{ __bootstrap_pip__python_executable }}
       - __bootstrap_pip__pip_executable={{ __bootstrap_pip__pip_executable }}
       - __bootstrap_pip__pip_version={{ __bootstrap_pip__pip_version }}
       - __bootstrap_pip__virtualenv_command={{ __bootstrap_pip__virtualenv_command }}
-
-- name: Init-vars | Install pip env OS packages
-  ansible.builtin.set_fact:
-    __bootstrap_pip__packages: "{{ bootstrap_pip__packages }}"
 
 #- name: "Init-vars | Add __bootstrap_pip__python_executable to __bootstrap_pip__packages if not python3"
 #  when: __bootstrap_pip__python_executable != 'python3'
@@ -39,14 +35,14 @@
 
 #- name: Init-vars | Set __bootstrap_pip__library_list_by_priority
 #  ansible.builtin.set_fact:
-#    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({})
+#    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}, true)
 #      | combine({ (item.priority | d(bootstrap_pip__lib_priority_default) | int):
 #        { item.state | d(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
 #  loop: "{{ __bootstrap_pip__libs }}"
 #
 #- name: Init-vars | Set __bootstrap_pip__library_list_by_priority
 #  ansible.builtin.set_fact:
-#    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}) | combine({
+#    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}, true) | combine({
 #        (item.priority | d(bootstrap_pip__lib_priority_default) | int): {
 #          item.state | d(bootstrap_pip__lib_state): {
 #            (item is mapping | ternary(item.name, item)): {}
@@ -57,7 +53,7 @@
 
 - name: Init-vars | Set __bootstrap_pip__library_list_by_priority
   ansible.builtin.set_fact:
-    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}) | combine({
+    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}, true) | combine({
       (library_priority | int): {
         (library_state | d(bootstrap_pip__lib_state)): { library_name: {} }
       }
@@ -103,7 +99,7 @@
 
 - name: Init-vars | Coalesce lists from {{ role_pip_env_list_var_prefix }}* vars into merged list
   ansible.builtin.set_fact:
-    __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list | d([]) + lookup('vars', item) | d([]) }}"
+    __bootstrap_pip__env_list: "{{ __bootstrap_pip__env_list | d([], true) + lookup('vars', item) | d([], true) }}"
   loop: "{{ lookup('varnames', role_pip_env_list_var_regex, wantlist=True) }}"
 
 - name: Init-vars | Display __bootstrap_pip__env_list

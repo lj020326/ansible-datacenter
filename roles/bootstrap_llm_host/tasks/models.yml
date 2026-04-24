@@ -1,4 +1,39 @@
 ---
+# =============================================================================
+# Ollama Models Management - Supports native, docker, and swarm runtimes
+# =============================================================================
+- name: Models | Display bootstrap_llm_host__ollama_runtime
+  ansible.builtin.debug:
+    var: bootstrap_llm_host__ollama_runtime
+
+- name: Models | Set Ollama runtime facts
+  ansible.builtin.set_fact:
+    __ollama_binary: >-
+      {%- if bootstrap_llm_host__ollama_runtime in ['docker', 'swarm'] -%}
+        /bin/ollama
+      {%- else -%}
+        /usr/local/bin/ollama
+      {%- endif -%}
+    __ollama_exec: >-
+      {%- if bootstrap_llm_host__ollama_runtime == 'docker' -%}
+        docker exec -u root {{ bootstrap_llm_host__ollama_container_name }}
+      {%- elif bootstrap_llm_host__ollama_runtime == 'swarm' -%}
+        docker exec -u root $(docker ps -q --filter name=^{{
+          bootstrap_llm_host__docker_stack_name }}_{{ bootstrap_llm_host__ollama_service_name }}. --filter status=running | head -n 1)
+      {%- else -%}
+        echo "ERROR: Unknown ollama_runtime {{ bootstrap_llm_host__ollama_runtime }}" && exit 1
+      {%- endif -%}
+    __ollama_models_path: >-
+      {%- if bootstrap_llm_host__ollama_runtime in ['docker', 'swarm'] -%}
+        /root/.ollama/models
+      {%- else -%}
+        {{ bootstrap_llm_host__model_storage_dir }}
+      {%- endif -%}
+    __ollama_host_volume_root: "{{ bootstrap_llm_host__ollama_host_volume_path | default(omit) }}"
+
+- name: Models | Display __ollama_exec
+  ansible.builtin.debug:
+    var: __ollama_exec
 
 - name: Models | Set __models_normalized
   ansible.builtin.set_fact:
@@ -7,23 +42,59 @@
       | selectattr('type', 'defined')
       | list }}"
 
-- name: Models | Display __models_normalized
+- name: Models | Display normalized models list
   ansible.builtin.debug:
     var: __models_normalized
 
-- name: Models | Ensure model storage directory exists and has correct ownership
+# =============================================================================
+# Directory Management
+# =============================================================================
+
+- name: Models | Ensure model storage directory exists (native runtime only)
+  when: bootstrap_llm_host__ollama_runtime == 'native'
   ansible.builtin.file:
-    path: "{{ bootstrap_llm_host__model_storage }}"
+    path: "{{ bootstrap_llm_host__model_storage_dir }}"
     state: directory
     owner: "{{ bootstrap_llm_host__ollama_user }}"
     group: "{{ bootstrap_llm_host__ollama_user }}"
     mode: '0755'
   become: true
 
+- name: Models | Ensure Docker/Swarm volume root exists on host
+  when: bootstrap_llm_host__ollama_runtime in ['docker', 'swarm'] and __ollama_host_volume_root is defined
+  ansible.builtin.file:
+    path: "{{ __ollama_host_volume_root }}"
+    state: directory
+    owner: "{{ bootstrap_llm_host__ollama_user | default(ansible_user) }}"
+    group: "{{ bootstrap_llm_host__ollama_user | default(ansible_user) }}"
+    mode: '0755'
+  become: true
+
+# =============================================================================
+# Model Validation + API Ready Check
+# =============================================================================
+
+#- name: Models | Validate model tags against Ollama registry
+#  ansible.builtin.uri:
+#    url: "https://registry.ollama.ai/v2/library/{{ (item.name.split(':') | first) }}/manifests/{{
+#      (item.name.split(':') | last) if ':' in item.name else 'latest' }}"
+#    method: GET
+#    return_content: false
+#    status_code: 200
+#  loop: "{{ __models_normalized | selectattr('type', 'equalto', 'pull') | list }}"
+#  register: __model_validation
+#  delegate_to: localhost
+#  run_once: true
+#  ignore_errors: true
+
 - name: Models | Validate model tags against Ollama registry
   ansible.builtin.uri:
-    url: "https://registry.ollama.ai/v2/library/{{ (item.name.split(':') | first) }}/manifests/{{
-      (item.name.split(':') | last) if ':' in item.name else 'latest' }}"
+    url: >-
+      {% if '/' in item.name %}
+      https://registry.ollama.ai/v2/{{ (item.name.split(':') | first) }}/manifests/{{ (item.name.split(':') | last) if ':' in item.name else 'latest' }}
+      {% else %}
+      https://registry.ollama.ai/v2/library/{{ (item.name.split(':') | first) }}/manifests/{{ (item.name.split(':') | last) if ':' in item.name else 'latest' }}
+      {% endif %}
     method: GET
     return_content: false
     status_code: 200
@@ -31,7 +102,6 @@
   register: __model_validation
   delegate_to: localhost
   run_once: true
-  # IMPORTANT: Allow the task to complete the loop so we can inspect results in the next step
   ignore_errors: true
 
 - name: Models | Assert all models exist in registry
@@ -39,10 +109,14 @@
   no_log: true
   ansible.builtin.assert:
     that: item.status == 200
-    fail_msg: "Model '{{ item.item.name }}' not found in Ollama registry. Please check for typos (e.g., qwen2.5 vs qwen3)."
+    fail_msg: "Model '{{ item.item.name }}' not found in Ollama registry."
   loop: "{{ __model_validation.results }}"
   loop_control:
     label: "{{ item.item.name }}"
+
+# =============================================================================
+# Wait for Ollama API
+# =============================================================================
 
 - name: Models | Wait for Ollama API to be ready
   ansible.builtin.uri:
@@ -50,13 +124,17 @@
     status_code: 200
   register: _result
   until: _result.status == 200
-  retries: 10
+  retries: 25
   delay: 3
+
+# =============================================================================
+# Pull Models (async)
+# =============================================================================
 
 - name: Models | Pull standard Ollama models
   when: __models_normalized | selectattr('type', 'equalto', 'pull') | list | length > 0
-  ansible.builtin.shell: |
-    sudo -u {{ bootstrap_llm_host__ollama_user }} /usr/local/bin/ollama pull {{ item.name }}
+  ansible.builtin.shell: >
+    {{ __ollama_exec }} {{ __ollama_binary }} pull {{ item.name }}
   loop: "{{ __models_normalized | selectattr('type', 'equalto', 'pull') | list }}"
   async: "{{ bootstrap_llm_host__model_download_timeout }}"
   poll: 0
@@ -69,9 +147,24 @@
     jid: "{{ item.ansible_job_id }}"
   register: __pull_results
   until: __pull_results.finished
-  retries: 120
-  delay: 30
+  retries: 200
+  delay: 20
   loop: "{{ __model_pulls.results | default([]) }}"
+
+- name: Models | Fix ownership of downloaded models
+  when: bootstrap_llm_host__ollama_runtime in ['docker', 'swarm'] and __ollama_host_volume_root is defined
+  ansible.builtin.file:
+    path: "{{ __ollama_host_volume_root }}"
+    state: directory
+    owner: "{{ bootstrap_llm_host__ollama_user | default('container-user') }}"
+    group: "{{ bootstrap_llm_host__ollama_user | default('container-user') }}"
+    recurse: true
+    mode: '0644'
+  become: true
+
+# =============================================================================
+# Custom Models
+# =============================================================================
 
 - name: Models | Create custom models from Modelfile
   when: __models_normalized | selectattr('type', 'equalto', 'custom') | list | length > 0
@@ -79,7 +172,7 @@
     - name: Models | Create Modelfile for custom models
       ansible.builtin.template:
         src: custom.modelfile.j2
-        dest: "/tmp/{{ item.id }}.Modelfile"
+        dest: "/tmp/{{ item.id | default(item.name) }}.Modelfile"
         mode: "0644"
         backup: true
       loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
@@ -88,14 +181,17 @@
 
     - name: Models | Create custom Ollama models
       ansible.builtin.command: >
-        sudo -u {{ bootstrap_llm_host__ollama_user }}
-        /usr/local/bin/ollama create {{ item.name }}
+        {{ __ollama_exec }} {{ __ollama_binary }} create {{ item.name }}
         -f /tmp/{{ item.name }}.Modelfile
       loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
       changed_when: true
-      environment: "{{ item.environment | default({}) | combine({'OLLAMA_MODELS': bootstrap_llm_host__model_storage}) }}"
+      environment:
+        OLLAMA_MODELS: "{{ __ollama_models_path }}"
 
-# Optional: Clean up temp Modelfiles
+# =============================================================================
+# Cleanup
+# =============================================================================
+
 - name: Models | Clean up temporary Modelfiles
   ansible.builtin.file:
     path: "/tmp/{{ item.name }}.Modelfile"

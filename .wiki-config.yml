@@ -1,0 +1,311 @@
+# ================================================
+# Wiki Pipeline Configuration
+# ================================================
+
+wiki:
+  # Output directory for generated documentation
+  output_dir: "wiki"
+
+  # Harvest settings
+  harvest_dir: "raw/legacy-docs"
+  harvest_ignore:
+    - ".continue/"
+    - "archive/"
+    - "inventory/"
+    - "molecule/"
+    - "plugins/"
+    - "save/"
+    - "tests/"
+
+  # skip during ingestion (test, deprecated, or very large roles)
+  ingest_ignore:
+    - "**/vars/vault.yml"
+    - "**/vars/vaulted-credentials.yml"
+    - "venv/"
+    - "molecule/"
+    - roles/bootstrap_cloudstack
+    - roles/bootstrap_cloudstack_controller
+    - roles/bootstrap_cobbler
+    - roles/bootstrap_cobbler_resources
+    - roles/bootstrap_netbootxyz
+    - roles/bootstrap_samba_client
+    - roles/bootstrap_zlib
+    # Add any other roles you want ignored here
+
+  # Top-level wiki index settings
+  title: "Ansible Datacenter Wiki"
+  subtitle: "Central documentation for all roles, playbooks, and infrastructure automation"
+  description: |
+    This wiki is automatically generated and maintained by the LLM-powered wiki pipeline.
+    It provides professional, GitHub-native documentation for the ansible-datacenter repository.
+
+  # Roles that should appear at the very top of the index (most important)
+  # Add your top 20-50 most important roles here
+  priority_roles:
+    - apply_common_groups
+    - apply_ping_test
+    - bootstrap_ansible_controller
+    - bootstrap_docker
+    - bootstrap_docker_stack
+    - bootstrap_gpu_drivers
+    - bootstrap_jenkins_agent
+    - bootstrap_kubernetes
+    - bootstrap_linux
+    - bootstrap_linux_core
+    - bootstrap_linux_systemd
+    - bootstrap_llm_host
+    - bootstrap_netplan
+    - bootstrap_pki
+    - deploy_pki
+    - deploy_vm
+
+  # LLM settings (applied to all LLM calls: ingest, compile, lint, qa)
+  llm:
+    # Connection settings
+    model: "qwen2.5-coder:32b"
+    api_base: "http://gpu02.johnson.int:11434/v1"
+#    api_base: "http://gpu02.johnson.int:11434"
+#    provider: "ollama_chat"
+#    provider: "ollama"
+    provider: "openai"
+#    debug_llm: true
+
+    # Generation settings
+    # Lower = more consistent, higher = more creative
+    temperature: 0.25
+    max_tokens: 4096
+    # 20. minutes (good for large roles)
+    timeout: 1200
+
+  # ================================================
+  # Prompt Templates - Fully Customizable
+  # ================================================
+
+  role_prompt:
+    prefix: |
+      You are an expert Ansible architect and excellent technical writer.
+      Create a **comprehensive, high-quality, professional documentation page** for this Ansible role.
+    suffix: |
+      Requirements:
+      - Start with clean YAML frontmatter (title, role, category, type, tags)
+      - One-paragraph summary of the role's purpose
+      - Sections: Variables, Usage, Dependencies, Tags, Best Practices, Molecule Tests (if any)
+      - Use the existing role's README.md if it exists to help derive role purpose and variable usage/purpose.
+      - Include a '## Backlinks' section with relative links back to original role files.
+        Note role source code back-references must derive the relative path to the role source directory.
+        E.g.,
+        Assuming the `wiki.output_dir` directory is set to the default then the role "apply_common_groups"
+        `defaults/main.yml` reference should be "../../roles/apply_common_groups/defaults/main.yml".
+      - Double-underscore variables (e.g. __internal_var) are internal role variables only. Never document them as user-configurable.
+      - Do not invent "Related Roles" that do not exist in the repository.  Only include roles used in the source for the role.
+      - Use only real relative links to files that actually exist.
+      - Professional tone, clear headings, excellent readability.
+      - Use only standard GitHub Markdown. No Obsidian syntax.
+
+  compile_prompt:
+    prefix: |
+      You are an expert technical writer.
+      Improve and standardize this documentation page for GitHub rendering.
+      Keep all original information and meaning.
+      Use clean, professional Markdown.
+    suffix: |
+      Add or improve YAML frontmatter (title, original_path, category, tags).
+      Ensure clear structure, proper headings, and a "Backlinks" section if missing.
+      Output only the improved Markdown.
+
+  lint_prompt:
+    prefix: |
+      You are a strict technical documentation reviewer.
+      Analyze this documentation page for quality, consistency, and completeness.
+    suffix: |
+      Return findings in this exact format only:
+      ### {filename}
+      **Issues:**
+      - issue 1
+      - issue 2
+      **Suggestions:**
+      - suggestion 1
+      - suggestion 2
+
+  qa_prompt: |
+    You are a helpful technical support engineer for this Ansible datacenter repository.
+    Generate 8-12 important, frequently asked Q&A pairs based on the content of this wiki.
+    Focus on common user questions, troubleshooting steps, best practices, and gotchas.
+    Format as a clean Q&A list using Markdown.
+
+  # Group roles into logical categories (optional but recommended)
+  categories:
+    bootstrap:
+      title: "Bootstrap & Foundation Roles"
+      description: "Core OS and infrastructure setup"
+      roles:
+        - bootstrap_aibrix
+        - bootstrap_ansible
+        - bootstrap_ansible_controller
+        - bootstrap_ansible_user
+        - bootstrap_awstats
+        - bootstrap_awx
+        - bootstrap_awx_config
+        - bootstrap_awx_docker
+        - bootstrap_awx_resources
+        - bootstrap_bind
+        - bootstrap_ca_certs
+        - bootstrap_caddy2
+        - bootstrap_certs
+        - bootstrap_cfssl
+        - bootstrap_chronyclient
+        - bootstrap_chronyserver
+        - bootstrap_cloud_init
+        - bootstrap_cni
+        - bootstrap_dell_opscenter
+        - bootstrap_dell_racadm_host
+        - bootstrap_dhcp
+        - bootstrap_docker
+        - bootstrap_docker_stack
+        - bootstrap_epel_repo
+        - bootstrap_etcd
+        - bootstrap_fog
+        - bootstrap_git
+        - bootstrap_gitea_runner
+        - bootstrap_govc
+        - bootstrap_gpu_drivers
+        - bootstrap_hddtemp
+        - bootstrap_inspec
+        - bootstrap_ipa_client
+        - bootstrap_ipa_config
+        - bootstrap_ipa_krb5
+        - bootstrap_ipa_replica
+        - bootstrap_ipa_server
+        - bootstrap_ipa_sssd
+        - bootstrap_iscsi_client
+        - bootstrap_java
+        - bootstrap_jenkins
+        - bootstrap_jenkins_agent
+        - bootstrap_jenkins_swarm_agent
+        - bootstrap_kubernetes
+        - bootstrap_kubernetes_ca
+        - bootstrap_kubernetes_controller
+        - bootstrap_kubernetes_worker
+        - bootstrap_kvm
+        - bootstrap_kvm_infra
+        - bootstrap_ldap_client
+        - bootstrap_linux
+        - bootstrap_linux_core
+        - bootstrap_linux_cron
+        - bootstrap_linux_firewalld
+        - bootstrap_linux_locale
+        - bootstrap_linux_mount
+        - bootstrap_linux_networking
+        - bootstrap_linux_package
+        - bootstrap_linux_systemd
+        - bootstrap_linux_systemd_mount
+        - bootstrap_linux_upgrade
+        - bootstrap_linux_user
+        - bootstrap_llm_host
+        - bootstrap_logrotate
+        - bootstrap_lxc
+        - bootstrap_maven
+        - bootstrap_mergerfs
+        - bootstrap_nfs
+        - bootstrap_nfs_service
+        - bootstrap_nginx_service
+        - bootstrap_nodejs
+        - bootstrap_ntp
+        - bootstrap_openstack
+        - bootstrap_openstack_cloud
+        - bootstrap_os_network
+        - bootstrap_osclient
+        - bootstrap_osclient_config
+        - bootstrap_ovftool
+        - bootstrap_packer
+        - bootstrap_pdc
+        - bootstrap_pip
+        - bootstrap_pip_libs
+        - bootstrap_pki
+        - bootstrap_plexupdate
+        - bootstrap_postfix
+        - bootstrap_proxmox
+        - bootstrap_pyenv
+        - bootstrap_python3
+        - bootstrap_rsyncd
+        - bootstrap_sanoid
+        - bootstrap_snapraid
+        - bootstrap_solr_cloud
+        - bootstrap_sshd
+        - bootstrap_stepca
+        - bootstrap_systemd_service
+        - bootstrap_telegraf
+        - bootstrap_veeam_agent
+        - bootstrap_veeam_agent_config
+        - bootstrap_vmware_datastores
+        - bootstrap_vmware_esxi
+        - bootstrap_vmware_esxi_hostconf
+        - bootstrap_vmware_esxi_hostconfig
+        - bootstrap_vmware_tools
+        - bootstrap_vsphere
+        - bootstrap_webmin
+        - bootstrap_windows
+        - bootstrap_windows_firewall
+        - bootstrap_windows_openssh
+        - bootstrap_yq
+        - bootstrap_zookeeper
+        - run_terraform
+
+    deployment:
+      title: "Deployment & Provisioning"
+      description: "VM, container, and application deployment"
+      roles:
+        - deploy_authorized_keys
+        - deploy_ca_certs
+        - deploy_pki_certs
+        - deploy_vm
+
+    networking:
+      title: "Networking & Security"
+      description: "Network configuration and hardening"
+      roles:
+        - apply_ping_test
+        - bootstrap_linux_firewalld
+        - bootstrap_linux_networking
+        - bootstrap_netplan
+        - bootstrap_network_interfaces
+        - bootstrap_os_network
+        - bootstrap_sshd
+        - harden_os_linux
+        - harden_os_windows
+
+    monitoring:
+      title: "Monitoring & Observability"
+      description: "Telemetry, logging, and alerting"
+      roles:
+        - bootstrap_telegraf
+        - bootstrap_postfix
+        - run_inspec
+
+    audit:
+      title: "Audit & Information"
+      description: "Roles run to audit and/or information gathering across inventory"
+      roles:
+        - fetch_linux_os_configs
+        - report_inventory_facts
+
+    operational:
+      title: "Operational"
+      description: "Roles run to operational plays (startup, shutdown, etc)"
+      roles:
+        - run_inspec
+        - run_terraform
+        - vmware_remount_datastores
+        - vmware_upgrade_esxi
+
+    utility:
+      title: "Utility"
+      description: "Roles run to perform and/or apply common tasks"
+      roles:
+        - apply_common_groups
+        - apply_ping_test
+        - fetch_os_images
+
+  # Default category for any role not listed above
+  default_category: "other"
+  default_category_title: "Other Roles"

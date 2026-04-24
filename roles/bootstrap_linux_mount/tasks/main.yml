@@ -23,12 +23,12 @@
 
 - name: Init __bootstrap_linux_mount__list
   ansible.builtin.set_fact:
-    __bootstrap_linux_mount__list: "{{ bootstrap_linux_mount__list | d([]) }}"
+    __bootstrap_linux_mount__list: "{{ bootstrap_linux_mount__list | d([], true) }}"
 
 - name: Combine bootstrap_linux_mount__list__* vars into merged list
   ansible.builtin.set_fact:
-    __bootstrap_linux_mount__list: "{{ __bootstrap_linux_mount__list | d([])
-      + lookup('vars', item) | d([]) }}"
+    __bootstrap_linux_mount__list: "{{ __bootstrap_linux_mount__list | d([], true)
+      + lookup('vars', item) | d([], true) }}"
   loop: "{{ lookup('varnames', '^bootstrap_linux_mount__list__', wantlist=True) }}"
 
 - name: Display __bootstrap_linux_mount__list
@@ -43,7 +43,7 @@
 ##
 - name: Add node mounts to fstab
   when:
-    - __bootstrap_linux_mount__list | d([]) | length > 0
+    - __bootstrap_linux_mount__list | d([], true) | length > 0
   ansible.posix.mount:
     name: "{{ item.name }}"
     src: "{{ item.src }}"
@@ -53,19 +53,16 @@
     passno: "{{ item.passno | d(omit) }}"
     fstab: "{{ item.fstab | d(bootstrap_linux_mount__fstab) }}"
     state: "{{ item.state | d('present' if item.fstype in ['tmpfs'] else bootstrap_linux_mount__state) }}"
+    backup: "{{ bootstrap_linux_mount__backup_fstab }}"
   loop: "{{ __bootstrap_linux_mount__list }}"
   register: mount_results
-#  failed_when:
-#    - mount_results.failed
-#    - mount_results.msg | regex_search("umount.* target is busy") is none
   failed_when:
     - mount_results is failed
-    - (mount_results.results | selectattr('failed', 'equalto', True) |
-       rejectattr('msg', 'search', 'umount.* target is busy') | list | length) == 0
+    - "'device is busy' not in mount_results.msg"
 
 ### ref: https://techoverflow.net/2020/10/24/create-a-systemd-service-for-your-docker-compose-project-in-10-seconds/
 #- name: Configure nfs systemd service
-#  when: bootstrap_linux_mount__systemd_service_config | d({}) | length > 0
+#  when: bootstrap_linux_mount__systemd_service_config | d({}, true) | length > 0
 #  ansible.builtin.include_role:
 #    name: bootstrap_systemd_service
 #  vars:

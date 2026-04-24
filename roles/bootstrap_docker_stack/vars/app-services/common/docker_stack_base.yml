@@ -102,11 +102,29 @@ __docker_stack__base__dozzle_image: amir20/dozzle:latest
 __docker_stack__base__watchtower_image: containrrr/watchtower:latest
 __docker_stack__base__gc_image: clockworksoul/docker-gc-cron:latest
 
+__docker_stack__base__watchtower_environment_default:
+  TZ: "{{ docker_stack__timezone }}"
+  WATCHTOWER_CLEANUP: "true"
+  WATCHTOWER_REMOVE_VOLUMES: "true"
+  WATCHTOWER_INCLUDE_STOPPED: "true"
+  WATCHTOWER_NO_STARTUP_MESSAGE: "false"
+  WATCHTOWER_SCHEDULE: 0 30 12 * * * # Everyday at 12:30
+  #      WATCHTOWER_NOTIFICATIONS: shoutrrr
+  WATCHTOWER_NOTIFICATIONS_LEVEL: info
+  #      WATCHTOWER_NOTIFICATION_URL: "telegram://{{ __docker_stack__base__tgram_bot_token }}@telegram?channels={{ __docker_stack__base__tgram_chat_id }}"
+  DOCKER_HOST: tcp://socket-proxy:2375
+#      DOCKER_API_VERSION: "1.40"
+
+__docker_stack__base__watchtower_environment: "{{ docker_stack__base__watchtower_environment
+  | d(__docker_stack__base__watchtower_environment_default) }}"
+
 __docker_stack__traefik__auth_labels:
   ## Middlewares
   traefik.http.routers.traefik-rtr.middlewares: chain-oauth@file
 
 __docker_stack__base__config_tpls:
+  - src: traefik/traefik.env.j2
+    dest: "{{ __docker_stack__traefik__dir }}/traefik.env"
   - src: traefik/config-traefik-{{ docker_stack__traefik__version }}.yml.j2
     dest: "{{ __docker_stack__traefik__dir }}/traefik.yml"
     backup: true
@@ -120,6 +138,8 @@ __docker_stack__base__config_tpls:
     dest: "{{ __docker_stack__traefik__dir }}/rules/tls-opts.yml"
   - src: docker-gc-exclude.conf.j2
     dest: "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude"
+  - src: watchtower/watchtower.env.j2
+    dest: "{{ __docker_stack__base__stack_dir }}/watchtower/watchtower.env"
 
 __docker_stack__base__config_dirs:
   - path: "{{ __docker_stack__base__stack_dir }}"
@@ -135,6 +155,7 @@ __docker_stack__base__config_dirs:
   - path: "{{ __docker_stack__base__stack_dir }}/docker-gc"
   - path: "{{ __docker_stack__base__stack_dir }}/portainer"
   - path: "{{ __docker_stack__base__stack_dir }}/portainer/data"
+  - path: "{{ __docker_stack__base__stack_dir }}/watchtower"
 
 ################################
 ## NOTE: You need the following ports open to traffic to and from each Docker host participating on an overlay network:
@@ -283,14 +304,14 @@ __docker_stack__base__networks: "{{ docker_stack__base_networks | d(__docker_sta
 __docker_stack__base__volumes: {}
 
 docker_stack__appspec__base:
-  dirs: "{{ __docker_stack__base__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__base__config_files | d([]) }}"
-  templates: "{{ __docker_stack__base__config_tpls | d([]) }}"
-  firewalld_services: "{{ __docker_stack__base__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__base__firewalld_ports | d([]) }}"
-  networks: "{{ __docker_stack__base__networks | d({}) }}"
-  volumes: "{{ __docker_stack__base__volumes | d({}) }}"
-  docker_services: "{{ __docker_stack__base__services | d({}) }}"
+  dirs: "{{ __docker_stack__base__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__base__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__base__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__base__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__base__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__base__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__base__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__base__services | d({}, true) }}"
 
 __docker_stack__traefik__labels: "{{ docker_stack__traefik__labels
   | d(__docker_stack__traefik__labels_default) }}"
@@ -345,7 +366,8 @@ __docker_stack__base__services_internal:
     #  published: 8082
     #  protocol: tcp
     #  mode: "{{ __docker_stack__port_mode }}"
-    environment: "{{ __docker_stack__traefik__environment }}"
+    env_file:
+      - traefik/traefik.env
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "{{ __docker_stack__traefik__dir }}:/etc/traefik"
@@ -527,18 +549,8 @@ __docker_stack__base__services_internal:
       - socket-proxy
     #    volumes:
     #      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      TZ: "{{ docker_stack__timezone }}"
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_REMOVE_VOLUMES: "true"
-      WATCHTOWER_INCLUDE_STOPPED: "true"
-      WATCHTOWER_NO_STARTUP_MESSAGE: "false"
-      WATCHTOWER_SCHEDULE: 0 30 12 * * * # Everyday at 12:30
-      #      WATCHTOWER_NOTIFICATIONS: shoutrrr
-      WATCHTOWER_NOTIFICATIONS_LEVEL: info
-      #      WATCHTOWER_NOTIFICATION_URL: "telegram://{{ __docker_stack__base__tgram_bot_token }}@telegram?channels={{ __docker_stack__base__tgram_chat_id }}"
-      DOCKER_HOST: tcp://socket-proxy:2375
-    #      DOCKER_API_VERSION: "1.40"
+    env_file:
+      - watchtower/watchtower.env
     deploy:
 #      endpoint_mode: dnsrr
 #      mode: global

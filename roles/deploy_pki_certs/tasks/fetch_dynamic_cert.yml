@@ -46,6 +46,9 @@
     __key_name: "{{ __cert_info.cert_name }}-key.{{ deploy_pki_certs__ca_cert_extension }}"
     __key_path: ""
     __ca_path: ""
+    __pki_gen_cert: ""
+    __pki_gen_key: ""
+    __pki_gen_chain: ""
     __pki_issue_path: "{{ __deploy_pki_certs__vault_pki_type_to_role_mappings[__cert_info.type] }}"
     __pki_key_usage: ""
     __pki_cert_content: ""
@@ -84,16 +87,15 @@
     __pki_alt_names:
       - "*.{{ __cert_info.common_name }}"
       - "{{ __cert_info.common_name }}"
-  run_once: true
-  delegate_to: localhost
-
+#  run_once: true
+#  delegate_to: localhost
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __pki_alt_names"
   when: __is_host_cert | bool
   ansible.builtin.set_fact:
-    __pki_ip_sans: [ '127.0.0.1' ]
-  run_once: true
-  delegate_to: localhost
+    __pki_ip_sans: ['127.0.0.1']
+#  run_once: true
+#  delegate_to: localhost
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Check if certificate file exists"
   no_log: true
@@ -252,14 +254,14 @@
       community.crypto.x509_certificate_info:
         content: "{{ __kv_cache_res.secret.certificate }}"
       register: __fetched_cert_info
-      run_once: true
+#      run_once: true
       delegate_to: localhost
 
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __fetched_cert_info"
       ansible.builtin.debug:
         var: __fetched_cert_info
         verbosity: 1
-      run_once: true
+#      run_once: true
       delegate_to: localhost
 
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Validate KV Cache certificate"
@@ -356,9 +358,9 @@
         engine_mount_point: "{{ deploy_pki_certs__vault_mount_path }}"
         role_name: "{{ __pki_issue_path }}"
         common_name: "{{ __cert_info.common_name }}"
-        alt_names: "{{ __pki_alt_names | d([]) | join(',') | d(omit, true) }}"
-        ip_sans: "{{ __pki_ip_sans | d([]) | join(',') | d(omit, true) }}"
-        other_sans: "{{ __cert_info.other_sans | d([]) | join(',') | d(omit, true) }}"
+        alt_names: "{{ __pki_alt_names | d([], true) | join(',') | d(omit, true) }}"
+        ip_sans: "{{ __pki_ip_sans | d([], true) | join(',') | d(omit, true) }}"
+        other_sans: "{{ __cert_info.other_sans | d([], true) | join(',') | d(omit, true) }}"
         ttl: "{{ __cert_info.ttl | d(deploy_pki_certs__certificate_ttl) }}"
         validate_certs: false
       register: __pki_gen_res
@@ -372,9 +374,9 @@
 #        path: "{{ __pki_issue_path }}"
 #        data:
 #          common_name: "{{ __cert_info.common_name }}"
-#          alt_names: "{{ __pki_alt_names | d([]) | join(',') | d(omit, true) }}"
+#          alt_names: "{{ __pki_alt_names | d([], true) | join(',') | d(omit, true) }}"
 #          ip_sans: "{{ __cert_info.ip_sans | d(['127.0.0.1']) | join(',') }}"
-#          other_sans: "{{ __cert_info.other_sans | d([]) | join(',') | d(omit, true) }}"
+#          other_sans: "{{ __cert_info.other_sans | d([], true) | join(',') | d(omit, true) }}"
 #          key_bits: "{{ __cert_info.key_bits | d(deploy_pki_certs__pki_cert_key_bits) }}"
 #          key_type: "{{ __cert_info.key_type | d(deploy_pki_certs__pki_cert_key_type) }}"
 #          organization: "{{ __cert_info.organization | default(omit) }}"
@@ -530,13 +532,20 @@
     __pki_cert_content: |-
       {{
         __pki_gen_cert
-        | d(__kv_cache_res.secret.certificate)
+        | d(__kv_cache_res.secret.certificate, true)
       }}
     __pki_key_content: |-
       {{
         __pki_gen_key
-        | d(__kv_cache_res.secret.private_key)
+        | d(__kv_cache_res.secret.private_key, true)
       }}
+
+- name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Validate PKI Content was set"
+  ansible.builtin.assert:
+    that:
+      - __pki_cert_content | length > 0
+      - __pki_key_content | length > 0
+    fail_msg: "The variable __pki_cert_content and/or __pki_key_content is empty. Check Vault KV path/permissions."
 
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Display __pki_cert_content"
   ansible.builtin.debug:
@@ -546,8 +555,8 @@
 - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Set __pki_chain_content"
   ansible.builtin.set_fact:
     __pki_chain_content: |
-      {{ __pki_gen_cert | d(__kv_cache_res.secret.certificate) }}
-      {% for _cert in (__pki_gen_chain | d(__kv_cache_res.secret.ca_chain) | d([])) %}
+      {{ __pki_gen_cert | d(__kv_cache_res.secret.certificate, true) }}
+      {% for _cert in (__pki_gen_chain | d(__kv_cache_res.secret.ca_chain, true) | d([], true)) %}
       {{ _cert }}
       {% endfor %}
 
@@ -560,7 +569,7 @@
   when: __is_signing_cert | bool
   block:
     - name: "fetch-dynamic-cert[{{ __cert_info.type }}:{{ __cert_info.log_prefix | d('') }}] : Get signing certificate key usage / ext usage"
-      no_log: true
+#      no_log: true
       community.crypto.x509_certificate_info:
         content: "{{ __pki_cert_content }}"
       register: __signing_cert_info

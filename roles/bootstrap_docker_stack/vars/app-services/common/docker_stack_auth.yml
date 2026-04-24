@@ -160,23 +160,28 @@ __docker_stack__auth__authelia_regulation: "{{ docker_stack__auth__authelia_regu
 __docker_stack__auth__authelia_storage: "{{ docker_stack__auth__authelia_storage | d(__docker_stack__auth__authelia_storage_default) }}"
 
 __docker_stack__auth__config_dirs:
-  - { path: "{{ __docker_stack__auth__stack_dir }}" }
-  - { path: "{{ __docker_stack__auth__stack_dir }}/authelia" }
-#  - { path: "{{ __docker_stack__auth__stack_dir }}/authelia/data"}
+  - path: "{{ __docker_stack__auth__stack_dir }}"
+  - path: "{{ __docker_stack__auth__stack_dir }}/oauth"
+  - path: "{{ __docker_stack__auth__stack_dir }}/authelia"
+#  - path: "{{ __docker_stack__auth__stack_dir }}/authelia/data"
 
 __docker_stack__auth__config_tpls:
-  - { src: authelia/configuration.yml.j2, dest: "{{ __docker_stack__auth__stack_dir }}/authelia/configuration.yml" }
-  - { src: authelia/users_database.yml.j2, dest: "{{ __docker_stack__auth__stack_dir }}/authelia/users_database.yml" }
+  - src: oauth/oauth.env.j2
+    dest: "{{ __docker_stack__auth__stack_dir }}/oauth/oauth.env"
+  - src: authelia/configuration.yml.j2
+    dest: "{{ __docker_stack__auth__stack_dir }}/authelia/configuration.yml"
+  - src: authelia/users_database.yml.j2
+    dest: "{{ __docker_stack__auth__stack_dir }}/authelia/users_database.yml"
 
 docker_stack__appspec__auth:
-  dirs: "{{ __docker_stack__auth__config_dirs | d([]) }}"
-  files: "{{ __docker_stack__auth__config_files | d([]) }}"
-  templates: "{{ __docker_stack__auth__config_tpls | d([]) }}"
-  firewalld_services: "{{ __docker_stack__auth__firewalld_services | d([]) }}"
-  firewalld_ports: "{{ __docker_stack__auth__firewalld_ports | d([]) }}"
-  networks: "{{ __docker_stack__auth__networks | d({}) }}"
-  volumes: "{{ __docker_stack__auth__volumes | d({}) }}"
-  docker_services: "{{ __docker_stack__auth__services | d({}) }}"
+  dirs: "{{ __docker_stack__auth__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__auth__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__auth__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__auth__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__auth__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__auth__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__auth__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__auth__services | d({}, true) }}"
 
 __docker_stack__auth_oauth__environment: "{{ docker_stack__auth__oauth__environment | d(__docker_stack__auth_oauth__environment_default) }}"
 
@@ -201,7 +206,8 @@ __docker_stack__auth__services:
     # While this is one way, the recommended way is to bypass authentication using Traefik labels shown in some of the apps later.
     # command: --rule.radarr.action=allow --rule.radarr.rule="Headers(`X-Api-Key`, `$RADARR_API_KEY`)"
     # command: --rule.sabnzbd.action=allow --rule.sabnzbd.rule="HeadersRegexp(`X-Forwarded-Uri`, `$SABNZBD_API_KEY`)"
-    environment: "{{ __docker_stack__auth_oauth__environment }}"
+    env_file:
+      - "oauth/oauth.env"
     labels: "{{ __docker_stack__auth_oauth__traefik_labels }}"
 
   # Authelia (Lite) - Self-Hosted Single Sign-On and Two-Factor Authentication

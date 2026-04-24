@@ -10,13 +10,15 @@
 - name: Include dependency installation tasks
   ansible.builtin.include_tasks: dependencies.yml
 
-- name: Install GPU hardware drivers
-  when: bootstrap_llm_host__install_gpu_drivers
-  ansible.builtin.include_role:
-    name: bootstrap_gpu_drivers
-
 - name: Include Ollama installation tasks
+  when:
+    - bootstrap_llm_host__install_ollama
+    - bootstrap_llm_host__ollama_runtime == 'native'
   ansible.builtin.include_tasks: ollama.yml
+
+- name: Include llama.cpp server tasks
+  when: bootstrap_llm_host__install_llama_cpp
+  ansible.builtin.include_tasks: llama_cpp.yml
 
 - name: Include model download tasks
   when: bootstrap_llm_host__download_models
@@ -54,7 +56,7 @@
       Management:
       - Use 'llm-server' command for management
       - Check logs: journalctl -u ollama -f
-      - Model location: {{ bootstrap_llm_host__ollama_home }}/.ollama/models
+      - Model location: {{ bootstrap_llm_host__ollama_home_dir }}/.ollama/models
 
       Next steps:
       1. Access the web UI at http://localhost
