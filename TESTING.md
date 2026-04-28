@@ -1,277 +1,108 @@
 
-# Tests
+# Testing Documentation
 
-## Lint testing
+This repository employs a multi-layered testing strategy, ranging from static analysis (linting) to dynamic infrastructure testing via Molecule.
 
-Run ansible-lint tests:
+## Table of Contents
+- [Lint Testing](#lint-testing)
+- [Automation Scripts](#automation-scripts)
+- [Environment Setup](#prepare-collection-test-environment)
+- [Molecule Functional Testing](#run-molecule-tests)
+
+---
+
+## Lint Testing
+
+We use several static analysis tools to ensure code quality, security, and inclusivity.
+
+- **Ansible-Lint:** Checks playbooks for practices that could potentially be improved.
+- **YAMLlint:** Validates YAML syntax and formatting consistency.
+- **KICS (Keeping Infrastructure as Code Secure):** An open-source static analysis tool used to find security vulnerabilities, compliance issues, and infrastructure misconfigurations.
+
+### Manual Execution
 ```shell
+# Run individual lints
 ansible-lint -p
-```
-
-Run yamllint tests:
-```shell
 yamllint .
+kics scan --ci --config .kics-config.yml
 ```
 
-Run kics-lint tests:
-```shell
-kics scan --ci --config .kics-config
-```
+---
 
-Run all lint tests using local shell script:
-```shell
-run-lint-tests.sh
-```
+## Automation Scripts
 
-## Prepare collection test environment
+To streamline the development workflow, two primary wrapper scripts are provided:
 
-### Create symbolic links to the develop branch tower-inventory repo
-
-In the developer environment, the 'tower-inventory' repo should be located in the same base directory as the 'ansible-datacenter' project repo.
-
-In the project tests directory, create a symbolic link to the 'tower-inventory' `develop` test inventory directory.
+### 1. `run-lint-tests.sh`
+This script serves as a unified entry point for all static analysis. It handles:
+- **Dependency Management:** Automatically detects and installs missing tools (`jq`, `kics`, etc.) based on your OS (macOS, Linux, or MSYS2).
+- **Logging:** Supports granular logging levels (`-L DEBUG`, `INFO`, etc.) to troubleshoot linting failures.
+- **Execution:** Runs the full suite of lints (`ansible-lint`, `yamllint`, and `kics`) in sequence.
 
 ```shell
-$ cd ~/repos/ansible/ansible-datacenter/tests
-$ ln -s ../inventory/DEV inventory
+# List all available lint test cases
+./run-lint-tests.sh -l
+
+# Run all tests with debug logging
+./run-lint-tests.sh -L DEBUG
 ```
 
-### Create symbolic links to the internal develop branch collections
-
-In `requirements_collections`, setup symbolic link to any internal shared collections:
+### 2. `runme.sh`
+This is the primary execution wrapper for running playbooks against real or test environments from the command line.
+- **Environment Orchestration:** Sets up the `ANSIBLE_COLLECTIONS_PATH` and manages temporary variables.
+- **Security:** Automatically initializes an SSH agent and securely extracts your `ansible_ssh_private_key` from the encrypted Vault.
+- **Galaxy Management:** Can be configured to force-install or upgrade Galaxy collections via flags.
 
 ```shell
-$ cd ~/repos/ansible/
-$ mkdir -p requirements_collections/ansible_collections
-$ cd requirements_collections/ansible_collections
-$ ln -s ../../infra-collections/collections/ansible_collections/infra-collections
-$ ls -Fla
-total 0
-drwxr-xr-x 3 username staff 96 Nov 16 08:42 ./
-drwxr-xr-x 3 username staff 96 Nov 16 08:41 ../
-lrwxr-xr-x 1 username staff 87 Nov 16 08:42 infra-collections -> ../../infra-collections/collections/ansible_collections/infra-collections/
-$ cd ~/repos/ansible
-$ git clone https://github.com/lj020326/ansible-datacenter.git
-$ cd ansible-datacenter/tests
-$ PROJECT_DIR="$( git rev-parse --show-toplevel )"
-$ WORKDIR="${PROJECT_DIR}/.."
-$ export ANSIBLE_COLLECTIONS_PATH=${PROJECT_DIR}/collections:${WORKDIR}/requirements_collections
-
+# Execute a specific playbook
+./runme.sh site.yml -t bootstrap-ntp -l testgroup_lnx
 ```
 
-As an example: 
-```shell
-$ cd ~/repos/ansible/
-$ ls -1
-ansible-test-automation
-infra-collections
-ansible-datacenter
-requirements_collections
-tower-inventory
-tower-management
-```
+---
 
-The runme.sh shell script can be used to run test playbooks.  It sets the ANSIBLE_COLLECTIONS_PATH variable to include the 'requirements_collections' directory.
+## Prepare Collection Test Environment
 
-### Use [create_test_symlinks.sh script](./create_test_symlinks.sh) to automate creation of test symbolic links (symlinks)
+### Why use Symbolic Links?
+In a modular Ansible architecture, roles often depend on external inventories or shared collections. Creating symbolic links allows you to:
+- **Facilitate Local Testing:** Points the project to your local `tower-inventory` without duplicating data.
+- **Synchronized Development:** Ensures that any changes made to shared collections are immediately reflected in your test runs without requiring a re-install via `ansible-galaxy`.
 
-Use the following script to set up the symbolic links used for testing.
+### Configuration
+Ensure the `tower-inventory` repo is adjacent to this project in your local directory structure:
 
 ```shell
-$ cd ~/repos/ansible/ansible-datacenter/tests
-$ create_test_symlinks.sh
+# Navigate to the tests directory
+cd ~/repos/ansible/ansible-datacenter/tests
+
+# Link the development inventory to facilitate local execution
+ln -s ../inventory/DEV inventory
 ```
 
-## Run Tests Locally
+---
 
-## Check test inventory
+## Run Molecule Tests
 
-### Check correct hosts appear in the test hosts/groups 
+### What is Molecule?
 
-```shell
-ansible-inventory -i inventory/ --host vmlnxtestd1s1
-ansible-inventory -i inventory/ --yaml --host vmlnxtestd1s1
-ansible-inventory -i inventory/ --yaml --host ntpq1s1
-ansible-inventory -i inventory/ --graph testgroup_lnx
-ansible-inventory -i inventory/ --graph testgroup_ntp
-ansible-inventory -i inventory/ --graph dmz
-```
+Molecule is a testing framework designed to aid in the development and testing of Ansible roles. It automatically provisions isolated Docker containers (using systemd-enabled images), executes your roles (`converge`), verifies the system state, and then tears down the environment. This ensures your roles work across multiple OS platforms (Ubuntu, CentOS, Debian) before they reach production.
 
-### Check the host variable values are correctly set  
+### Execution Pattern
+The `tests/molecule_exec.sh` wrapper manages the `MOLECULE_IMAGE_LABEL` to simplify testing across platforms.
 
-Variable value/state query based on group:
+| Task                  | Command Example                                               |
+|:----------------------|:--------------------------------------------------------------|
+| **Standard Test**     | `tests/molecule_exec.sh centos9 converge`                     |
+| **Specific Scenario** | `tests/molecule_exec.sh ubuntu2404 converge -s bootstrap_pip` |
+| **Debug Mode**        | `tests/molecule_exec.sh centos9 --debug converge`             |
+| **Manual Inspection** | `tests/molecule_exec.sh redhat8 login`                        |
+| **Cleanup**           | `molecule destroy --all`                                      |
 
-```shell
-$ ansible -i inventory/ -m debug -a var=group_names testgroup_lnx
-$ ansible -i inventory/ -m debug -a var=group_names testgroup_ntp
-$ ansible -i inventory/ -m debug -a var=group_names testgroup_ntp_server
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_servers testgroup_ntp_server
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_var_source testgroup_ntp
-```
+---
 
-Query multiple variables based on group:
+## IDE & Tooling Consistency
 
-```shell
-$ ansible -i inventory/ -m debug -a var=bootstrap_ntp_var_source,bootstrap_ntp_servers testgroup_ntp
-```
+### Pathing and Macros
+When using an IDE to trigger these tests (e.g., via External Tools or Run Configurations), ensure your environment variables and content root macros are correctly aligned with the project structure.
 
-Query intersecting groups:
-```shell
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&os_linux
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&testgroup_lnx
-$ ansible -i inventory/ -m debug -a var=group_names dmz:\&testgroup_lnx:\&ntp_network
-```
-
-### Run playbook
-
-```shell
-$ runme.sh bootstrap-ntp.yml -l testgroup_lnx
-```
-
-### Run playbook on hosts
-
-```shell
-$ runme.sh site.yml -t bootstrap-docker-stack -l admin01
-$ runme.sh bootstrap-docker.yml -l admin02
-$ runme.sh bootstrap-docker.yml -v -l testgroup_docker
-$ runme.sh bootstrap-docker.yml -v -l admin03
-$ runme.sh bootstrap-docker-stack.yml -l testgroup_dockerstack
-$ runme.sh bootstrap-docker-stack.yml -v -l infracicdd1s1
-$ runme.sh bootstrap-docker-stack.yml -v -l testgroup_docker
-$ runme.sh bootstrap-docker-stack.yml -v -l admin03
-$ runme.sh get-latest-compose-version.yml 
-$ 
-```
-
-## Test site.yml
-
-### Test site.yml with tags and limit
-
-```shell
-$ runme.sh site.yml -t display-ansible-env -l testgroup_lnx
-$ runme.sh site.yml -t bootstrap-ntp -l testgroup_lnx
-```
-
-## Test Inventory Checks 
-
-Whenever making updates/additions to the inventory
-
-### 1) Check that the correct hosts appear for the test group
-
-Test machine group defined in 'inventory/QA/testgroup.yml':
-```shell
-ansible-inventory -i inventory/ --graph --yaml testgroup_lnx
-@testgroup_lnx:
-  |--@testgroup_lnx_site1:
-  |  |--ntpq1s1
-  |  |--vmlnxtestd1s1
-  |  |--vmlnxtestd2s1
-  |  |--vmlnxtestd3s1
-  |--@testgroup_lnx_site4:
-  |  |--ntpq1s4
-  |  |--vmlnxtestd1s4
-  |  |--vmlnxtestd2s4
-  |  |--vmlnxtestd3s4
-```
-
-```shell
-ansible-inventory -i inventory/ --graph --yaml testgroup_wnd
-@testgroup_wnd:
-  |--@testgroup_wnd_site1:
-  |  |--vmwintestd1s1
-  |  |--vmwintestd2s1
-  |  |--vmwintestd3s1
-  |  |--vmwintestd4s1
-  |--@testgroup_wnd_site4:
-  |  |--vmwintestd1s4
-  |  |--vmwintestd2s4
-  |  |--vmwintestd3s4
-  |  |--vmwintestd4s4
-```
-
-## 2) Check the groups are correctly setup for the test hosts 
-
-Var value query based on group:
-```shell
-ansible -i inventory/ -m debug -a var=group_names testgroup_lnx
-vmlnxtestd1s1 | SUCCESS => {
-    "group_names": ["nondomain_dmz"]
-}
-vmlnxtestd2s1 | SUCCESS => {
-    "group_names": ["nondomain_dmz"]
-}
-
-```
-
-## Run molecule tests
-
-The molecule tests below use the [python enabled docker systemd images defined here](https://github.com/lj020326/systemd-python-dockerfiles/tree/main/systemd).
-
-```shell
-$ git clone https://github.com/lj020326/ansible-datacenter.git
-$ cd ansible-datacenter
-$ export MOLECULE_IMAGE_LABEL=redhat7-systemd-python
-$ molecule create
-$ molecule login
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package
-$ molecule --debug test -s bootstrap_linux_package
-$ molecule destroy
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule --debug test -s bootstrap_linux_package --destroy never
-$ MOLECULE_IMAGE_LABEL=redhat8-systemd-python molecule login
-$ molecule destroy
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule converge --destroy never
-$ MOLECULE_IMAGE_LABEL=centos7-systemd-python molecule login
-$ molecule destroy
-$ MOLECULE_IMAGE_LABEL=centos8-systemd-python --debug converge
-$ molecule destroy
-$ MOLECULE_IMAGE_LABEL=ubuntu2004-systemd-python converge
-$ molecule destroy
-$ MOLECULE_IMAGE_LABEL=ubuntu2204-systemd-python --debug converge
-
-```
-
-Testing with scenarios:
-```shell
-$ tests/molecule_exec.sh centos7 converge
-$ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap_pip
-$ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap_linux
-$ molecule destroy
-$ tests/molecule_exec.sh centos7 converge -s bootstrap_linux_package
-$ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge -s bootstrap_pip
-$ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2004 converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2204 --debug converge
-$ molecule destroy --all
-
-```
-
-To log into container
-
-```shell
-$ molecule destroy
-$ tests/molecule_exec.sh redhat7 create
-$ tests/molecule_exec.sh redhat7 login
-```
-
-```shell
-$ molecule destroy
-$ tests/molecule_exec.sh redhat7 converge
-$ molecule destroy
-$ tests/molecule_exec.sh debian8 converge
-$ molecule destroy
-$ tests/molecule_exec.sh centos7 converge
-$ molecule destroy
-$ tests/molecule_exec.sh centos8 --debug converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2004 converge
-$ molecule destroy
-$ tests/molecule_exec.sh ubuntu2204 --debug converge
-
-```
+- **PyCharm Users:** Be advised that the **PyCharm 2026** IDE has updated the behavior of the `$ContentRoot$` macro. Ensure your external tool paths are updated to account for this change to prevent "file not found" errors during script execution.
+- **VS Code Users:** Ensure your `terminal.integrated.env` includes the correct `PYTHONPATH` and `ANSIBLE_COLLECTIONS_PATH` to match the symbolic links created in the [Environment Setup](#prepare-collection-test-environment).

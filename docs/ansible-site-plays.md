@@ -144,6 +144,7 @@ To run ansible commands from ansible/control node:
 ```shell
 ansible -v -m ping
 ansible -m ping ubuntu18
+ansible all -m debug -a var=groups['ca_domain']
 ```
 
 Run play for specific node:
@@ -264,6 +265,17 @@ ansible-playbook site.yml --tags iscsi-client
 ansible-playbook site.yml --tags nfs-service
 ansible-playbook site.yml --tags vmware-remount-datastores
 ansible-playbook site.yml --tags upgrade-vmware-esxi
+ansible-playbook site.yml --tags display-vars -l control01
+ansible-playbook site.yml --tags display-domain-vars -l os_linux
+ansible-playbook site.yml --tags display-domain-vars -l nas02
+ansible-playbook site.yml --tags display-domain-vars -l control01
+ansible-playbook site.yml --tags bootstrap-bind
+ansible-playbook site.yml --tags bootstrap-cacerts
+ansible-playbook site.yml --tags deploy-cacerts
+ansible-playbook site.yml --tags docker-control-node
+ansible-playbook site.yml --tags docker-admin-node
+ansible-playbook site.yml --tags docker-media-node
+gethist | grep remote | uniq >> ./README.md 
 ```
 
 ## Example inventory checks
@@ -473,20 +485,4 @@ kolla-ansible -i inventory/hosts-openstack.ini destroy --yes-i-really-really-mea
 ```shell
 ansible -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -m ping ubuntu18
 ansible -v -u administrator -e ansible_password=${ANSIBLE_SSH_PASSWORD} -e ansible_pyth/bin/python3 -i inventory/hosts.yml -m ping ubuntu18
-```
-
-```shell
-ansible-playbook site.yml --tags display-vars -l control01
-ansible-playbook site.yml --tags display-domain-vars -l os_linux
-ansible-playbook site.yml --tags display-domain-vars -l nas02
-ansible-playbook site.yml --tags display-domain-vars -l control01
-ansible all -m debug -a var=groups['ca_domain']
-
-ansible-playbook site.yml --tags bootstrap-bind
-ansible-playbook site.yml --tags bootstrap-cacerts
-ansible-playbook site.yml --tags deploy-cacerts
-ansible-playbook site.yml --tags docker-control-node
-ansible-playbook site.yml --tags docker-admin-node
-ansible-playbook site.yml --tags docker-media-node
-gethist | grep remote | uniq >> ./README.md 
 ```

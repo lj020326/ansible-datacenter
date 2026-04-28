@@ -1,5 +1,5 @@
 
-# Set up base configurations for Ansible automation controller using GitLab CI
+# Set up Base Configurations for Ansible Automation Controller Using GitLab CI
 
 ## Objective
 
@@ -7,30 +7,30 @@ Write Ansible automation controller configurations in code and initiate a pipeli
 
 ## Overview
 
-The previous article, [Set up GitLab CI and GitLab Runner to configure Ansible automation controller](aap-gitlab-runner-ansible-config-code.md), explained how to set up GitLab Runner to manage an [Ansible](http://www.redhat.com/en/topics/automation/learning-ansible-tutorial?intcmp=701f20000012ngPAAQ) automation controller with Configuration as Code. The emphasis was on a disconnected environment, although similar settings will work on internet-connected networks. This article focuses on writing the actual automation controller configurations in code and initiating a pipeline with a code commit.
+The previous article, [Set up GitLab CI and GitLab Runner to Configure Ansible Automation Controller](aap-gitlab-runner-ansible-config-code.md), explained how to set up GitLab Runner to manage an [Ansible](http://www.redhat.com/en/topics/automation/learning-ansible-tutorial?intcmp=701f20000012ngPAAQ) automation controller with Configuration as Code. The emphasis was on a disconnected environment, although similar settings will work on internet-connected networks. This article focuses on writing the actual automation controller configurations in code and initiating a pipeline with a code commit.
 
 The following steps continue the process begun in the first article, so complete all the tasks in part 1 to follow along with this tutorial.
 
-**_[ Learn more about server and configuration management by downloading [Ansible for DevOps](https://www.ansible.com/resources/ebooks/ansible-for-devops?intcmp=701f20000012ngPAAQ). ]_**
+**_[Learn more about server and configuration management by downloading [Ansible for DevOps](https://www.ansible.com/resources/ebooks/ansible-for-devops?intcmp=701f20000012ngPAAQ).]_**
 
-## Step 1: Create a GitLab project
+## Step 1: Create a GitLab Project
 
-I'll start by creating a new project in GitLab named Controller Automator.
+I'll start by creating a new project in GitLab named **Controller Automator**.
 
-![](img/new-project.png)
+![Creating a New Project](img/new-project.png)
 
 Once you have created the project, clone it into your working directory.
 
-**_[ Download now: [A system administrator's guide to IT automation](https://www.redhat.com/en/engage/system-administrator-guide-s-202107300146?intcmp=701f20000012ngPAAQ). ]_**
+**_[Download now: [A System Administrator's Guide to IT Automation](https://www.redhat.com/en/engage/system-administrator-guide-s-202107300146?intcmp=701f20000012ngPAAQ).]_**
 
-## Step 2: Configure the pipeline
+## Step 2: Configure the Pipeline
 
 You are now ready to configure the pipeline file. Copy the following text into a file named `.gitlab-ci.yml`. GitLab recognizes this file name by default and will read it as a pipeline.
 
 ```yaml
 # List of pipeline stages
 stages:
- - Ansible EE Information
+  - Ansible EE Information
 
 display-ansible-version:    # Job name (sometimes called a Build Step) - Appropriately named to aid the user at runtime
   tags:  # Tags will ensure GitLab choses the correct runner to run this job
@@ -61,9 +61,9 @@ In the example above, it makes more sense to have one job displaying the Ansible
 
 Give it a try. Commit this code to your main branch and watch the pipeline kick off automatically. You will see the following in GitLab:
 
-![](img/ansible-ee-info.png)
+![Pipeline Running](img/ansible-ee-info.png)
 
-### Job details
+### Job Details
 
 If you click on each job, you will see more details on the performed job. As shown below, each job prepares the environment and executes the given command. I have removed some of the text for readability. Pay particular attention to the `echo "Display Versions"` content.
 

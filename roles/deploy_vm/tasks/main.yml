@@ -1,5 +1,25 @@
 ---
-- name: Install common pip libs
+## ref: https://stackoverflow.com/questions/2589711/find-full-path-of-the-python-interpreter-python-executable
+- name: "Get python exec path"
+  changed_when: false
+  ansible.builtin.shell: |
+    {{ ansible_python_interpreter }} -c "import sys; print(print(sys.executable))"
+  register: __python_path_info
+
+- name: "Display __python_path_info"
+  ansible.builtin.debug:
+    var: __python_path_info.stdout_lines | first
+
+- name: "Display controller variable information"
+  ansible.builtin.debug:
+    msg:
+      - "discovered_interpreter_python={{ discovered_interpreter_python | d('') }}"
+      - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
+      - "ansible_playbook_python={{ ansible_playbook_python | d('') }}"
+      - "ansible_facts['python_version']={{ ansible_facts['python_version'] | d('') }}"
+      - "ansible_facts['pip_interpreter']={{ ansible_facts['pip_interpreter'] | d('') }}"
+
+- name: "Install common pip libs"
   when:
     - deploy_vm__python_pip_depends is defined
     - not(deploy_vm__python_pip_depends is none)
@@ -8,14 +28,23 @@
     state: present
 #    extra_args: --user
 
+- name: Verify vSphere SDK Import
+  ansible.builtin.command: python3 -c "import com.vmware.vcenter.vm_client; print('Success')"
+  changed_when: false
+  register: __python_vcenter_test
+
+- name: "Display __python_vcenter_test"
+  ansible.builtin.debug:
+    var: __python_vcenter_test.stdout_lines | first
+
 #- name: Deploy Proxmox VMs
 #  when: deploy_vm__proxmox_vm_list | d([], true) | length > 0
 #  ansible.builtin.import_tasks: deploy-proxmox-vm.yml
 
-- name: Deploy VMware VMs
+- name: "Deploy VMware VMs"
   when: deploy_vm__vmware_vm_list | length > 0
   ansible.builtin.include_tasks: deploy-vmware-vm.yml
 
-- name: Deploy VMware VMs
+- name: "Deploy VMware VM Appliances"
   when: deploy_vm__vmware_appliance_list | length > 0
   ansible.builtin.include_tasks: deploy-vmware-appliance.yml

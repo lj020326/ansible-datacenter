@@ -1,6 +1,14 @@
 
 # Tests
 
+Testing of the linux OS bootstrap playbooks is performed by molecule with platforms defined in ['molecule.yml'](molecule/default/molecule.yml) and the ['converge.yml'](molecule/default/converge.yml).  Molecule scenarios have been set up to include the overall platform provisioning/orchestration role converge playbook for [bootstrap_linux](./molecule/bootstrap_linux/converge.yml) as well as multiple key roles invoked within the `bootstrap_linux` orchestration role to allow/enable isolated/granular testing when and as needed.
+
+Further details on running molecule tests from this repo can be found in the 'Run molecule tests' section of the [molecule/README.md](molecule/README.md).
+
+The molecule test pipeline is set up in the github action [workflows](.github/workflows) and the molecule converge test results for each platform can be viewed on [github actions results page](https://github.com/lj020326/ansible-datacenter/actions).
+
+The systemd-python enabled docker images used by the molecule tests can be found on [dockerhub](https://hub.docker.com/repositories/lj020326?search=systemd).  The corresponding dockerfile image definitions for the systemd-python enabled docker platform containers used in the molecule tests can be found [here](https://github.com/lj020326/systemd-python-dockerfiles).  
+
 ## Prepare molecule env
 
 ## Run molecule tests
