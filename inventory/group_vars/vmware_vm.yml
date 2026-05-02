@@ -30,7 +30,7 @@ deploy_vm__vmware_vm_gateway_ipv4_netmask: "{{ gateway_ipv4_netmask }}"
 deploy_vm__vmware_vm_host_domain: "dettonville.int"
 deploy_vm__vmware_vm_host: "esx00.{{ deploy_vm__vmware_vm_host_domain }}"
 
-deploy_vm__vmware_vm_guest_domain: "{{ internal_domain }}"
+deploy_vm__vmware_guest_domain: "{{ internal_domain }}"
 
 # deploy_vm__vmware_vm_dns_nameservers:
 #  - "{{ deploy_vm__vmware_vm_gateway_ipv4 }}"
@@ -43,28 +43,30 @@ deploy_vm__vmware_vm_dns_search_domains: "{{ dns_search_domains }}"
 deploy_vm__vmware_vm_nameservers:
   addresses: "{{ deploy_vm__vmware_vm_dns_nameservers }}"
   search: "{{ deploy_vm__vmware_vm_dns_search_domains }}"
-#  search: "{{ [deploy_vm__vmware_vm_guest_domain, deploy_vm__vmware_vm_host_domain] | unique }}"
+#  search: "{{ [deploy_vm__vmware_guest_domain, deploy_vm__vmware_vm_host_domain] | unique }}"
 
-# deploy_vm__vmware_vm_datacenter: "johnsondc"
-deploy_vm__vmware_vm_datacenter: "dettonville-dc-01"
+# deploy_vm__vmware_datacenter: "johnsondc"
+deploy_vm__vmware_datacenter: "dettonville-dc-01"
 deploy_vm__vmware_vm_cluster: "Management"
 # deploy_vm__vmware_vm_cluster: "Compute"
 
-deploy_vm__vmware_root_folder: "/{{ deploy_vm__vmware_vm_datacenter }}/vm"
+deploy_vm__vmware_root_folder: "/{{ deploy_vm__vmware_datacenter }}/vm"
 
 # deploy_vm__vmware_vm_folder: /DC1/vm/
 # deploy_vm__vmware_vm_folder: /johnsondc/vm/
 # deploy_vm__vmware_vm_folder: .
-deploy_vm__vmware_vm_folder: "/{{ deploy_vm__vmware_root_folder }}/vm"
+deploy_vm__vmware_vm_folder: "{{ deploy_vm__vmware_root_folder }}/vm"
 
 # deploy_vm__vmware_vm_datastore: "esx02_ds1"
 # deploy_vm__vmware_vm_datastore: "datastore1"
 deploy_vm__vmware_vm_datastore: "nfs_ds1"
 deploy_vm__vmware_vm_datastore_folder: vm
 
-deploy_vm__vmware_vm_image_id: centos8
+vmware_vm_image_os: centos9
+
 deploy_vm__vmware_vm_guest_id: centos64Guest
 deploy_vm__vmware_vm_os_flavor: linux
+deploy_vm__vmware_vm_template_id: "{{ vmware_vm_image_os }}"
 
 deploy_vm__vmware_vm_name: "{{ inventory_hostname_short }}"
 
@@ -77,10 +79,20 @@ deploy_vm__vmware_vm_controller_number: 1
 deploy_vm__vmware_vm_unit_number: 0
 
 deploy_vm__vmware_vm_network_name: "VM Network"
-# deploy_vm__vmware_vm_network_device_type: e1000
-# deploy_vm__vmware_vm_network_device_type: vmxnet3
 deploy_vm__vmware_vm_network_start_connected: true
 deploy_vm__vmware_vm_network_connected: true
+deploy_vm__vmware_vm_network_device_type: vmxnet3
+# deploy_vm__vmware_vm_network_device_type: e1000
+
+deploy_vm__vmware_vm_networks:
+  - name: "{{ deploy_vm__vmware_vm_network_name }}"
+    device_type: "{{ deploy_vm__vmware_vm_network_device_type | d(omit) }}"
+    type: "{{ deploy_vm__vmware_vm_network_type | d(omit) }}"
+    start_connected: "{{ deploy_vm__vmware_vm_network_start_connected | d(true) }}"
+    connected: "{{ deploy_vm__vmware_vm_network_connected | d(true) }}"
+    mac: "{{ deploy_vm__vmware_vm_mac_address | d(omit) }}"
+    ip: "{{ deploy_vm__vmware_vm_network_ip | d(omit) }}"
+    netmask: "{{ deploy_vm__vmware_vm_network_mask | d(omit) }}"
 
 # deploy_vm__vmware_vm_host: "esx00.dettonville.int"
 
@@ -102,26 +114,16 @@ deploy_vm__vmware_vm_disks:
 #    controller_number: "{{ deploy_vm__vmware_vm_controller_number | d(omit) }}"
 #    unit_number: "{{ deploy_vm__vmware_vm_unit_number | d(omit) }}"
 
-# deploy_vm__vmware_vm_networks:
-#  - name: "{{ deploy_vm__vmware_vm_network_name }}"
-##    device_type: "{{ deploy_vm__vmware_vm_network_device_type | d(omit) }}"
-##    type: "{{ deploy_vm__vmware_vm_network_type | d(omit) }}"
-##    start_connected: "{{ deploy_vm__vmware_vm_network_start_connected | d(true) }}"
-##    connected: "{{ deploy_vm__vmware_vm_network_connected | d(true) }}"
-##    mac: "{{ deploy_vm__vmware_vm_mac_address | d(omit) }}"
-##    ip: "{{ deploy_vm__vmware_vm_network_ip | d(omit) }}"
-##    netmask: "{{ deploy_vm__vmware_vm_network_mask | d(omit) }}"
-
-deploy_vm__vmware_vm_hostname: "{{ deploy_vm__vmware_vm_name }}.{{ deploy_vm__vmware_vm_guest_domain }}"
+deploy_vm__vmware_vm_hostname: "{{ deploy_vm__vmware_vm_name }}.{{ deploy_vm__vmware_guest_domain }}"
 
 deploy_vm__vmware_vm_config:
   name: "{{ deploy_vm__vmware_vm_name }}"
   hostname: "{{ deploy_vm__vmware_vm_hostname }}"
-  template_id: "{{ deploy_vm__vmware_vm_image_id }}"
+  template_id: "{{ deploy_vm__vmware_vm_template_id }}"
   os_flavor: "{{ deploy_vm__vmware_vm_os_flavor }}"
   guest_id: "{{ deploy_vm__vmware_vm_guest_id }}"
-  guest_domain: "{{ deploy_vm__vmware_vm_guest_domain }}"
-  datacenter: "{{ deploy_vm__vmware_vm_datacenter}}"
+  guest_domain: "{{ deploy_vm__vmware_guest_domain }}"
+  datacenter: "{{ deploy_vm__vmware_datacenter}}"
   cluster: "{{ deploy_vm__vmware_vm_cluster }}"
   host: "{{ deploy_vm__vmware_vm_host }}"
   folder: "{{ deploy_vm__vmware_vm_folder }}"
@@ -134,9 +136,9 @@ deploy_vm__vmware_vm_config:
   hardware: "{{ deploy_vm__vmware_vm_hardware }}"
   controller_type: "{{ deploy_vm__vmware_vm_controller_type }}"
   disks: "{{ deploy_vm__vmware_vm_disks }}"
-#  networks: "{{ deploy_vm__vmware_vm_networks }}"
+  networks: "{{ deploy_vm__vmware_vm_networks | d(omit) }}"
   deploy_groups: "{{ deploy_vm__vmware_vm_services | d([]) + vmware_new_vm_group_names | d([]) | flatten }}"
   vm_tags: "{{ vmware_new_vm_tags }}"
-  dns_suffix: "{{ deploy_vm__vmware_vm_guest_domain }}"
+  dns_suffix: "{{ deploy_vm__vmware_guest_domain }}"
 #  dns_servers: "{{ deploy_vm__vmware_vm_dns_nameservers }}"
 #  netmask: "{{ deploy_vm__vmware_vm_gateway_ipv4_netmask | d(omit) }}"

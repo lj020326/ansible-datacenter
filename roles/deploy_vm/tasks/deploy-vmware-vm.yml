@@ -32,6 +32,7 @@
   loop: "{{ deploy_vm__tags_init_all }}"
 
 - name: Set __deploy_vm__vmware_vm_facts_initial
+  no_log: true
   community.vmware.vmware_vm_info:
     hostname: "{{ deploy_vm__vcenter_hostname }}"
     username: "{{ deploy_vm__vcenter_username }}"
@@ -40,35 +41,41 @@
     vm_type: vm
   register: __deploy_vm__vmware_vm_facts_initial
 
-- name: Display deploy_vm__vmware_vm_defaults
+- name: Display __deploy_vm__vmware_vm_defaults
   ansible.builtin.debug:
-    var: deploy_vm__vmware_vm_defaults
+    var: __deploy_vm__vmware_vm_defaults
+    verbosity: 1
 
 - name: Display deploy_vm__vmware_vm_list
   ansible.builtin.debug:
     var: deploy_vm__vmware_vm_list
 
-- name: Set __deploy_vm__vmware_vm_info
+- name: Set __deploy_vm__vmware_vm_config
+  no_log: true
   ansible.builtin.set_fact:
-    __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info | d({}, true) | combine( { item: deploy_vm__vmware_vm_defaults } ) | combine( { item: hostvars[item].deploy_vm__vmware_vm_config
-      | d({}, true) }, recursive=True ) }}"
+    __deploy_vm__vmware_vm_config: "{{ __deploy_vm__vmware_vm_config | d({}, true)
+      | combine( { item: __deploy_vm__vmware_vm_defaults } )
+      | combine( { item: hostvars[item].deploy_vm__vmware_vm_config | d({}, true) }, recursive=True ) }}"
   loop: "{{ deploy_vm__vmware_vm_list }}"
 
-- name: Set static node IP on __deploy_vm__vmware_vm_info fact
+- name: Set static node IP on __deploy_vm__vmware_vm_config fact
+  no_log: true
   ansible.builtin.set_fact:
-    __deploy_vm__vmware_vm_info: "{{ __deploy_vm__vmware_vm_info | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
+    __deploy_vm__vmware_vm_config: "{{ __deploy_vm__vmware_vm_config
+      | combine( { item: { 'ip': hostvars[item].bind_ipv4_address } }, recursive=True ) }}"
   when: hostvars[item].bind_ipv4_address is defined
   loop: "{{ deploy_vm__vmware_vm_list }}"
 
-- name: Display __deploy_vm__vmware_vm_info
+- name: Display __deploy_vm__vmware_vm_config
   ansible.builtin.debug:
-    var: __deploy_vm__vmware_vm_info
+    var: __deploy_vm__vmware_vm_config
 #    verbosity: 1
 
 - name: Set __deploy_vm__vmware_vm_list fact
+  no_log: true
   ansible.builtin.set_fact:
-    __deploy_vm__vmware_vm_list: "{{ __deploy_vm__vmware_vm_list | d([], true) + [ __deploy_vm__vmware_vm_info[item] ] }}"
-  loop: "{{ __deploy_vm__vmware_vm_info | list }}"
+    __deploy_vm__vmware_vm_list: "{{ __deploy_vm__vmware_vm_list | d([], true) + [ __deploy_vm__vmware_vm_config[item] ] }}"
+  loop: "{{ __deploy_vm__vmware_vm_config | list }}"
 
 - name: Display __deploy_vm__vmware_vm_list
   ansible.builtin.debug:
@@ -76,6 +83,7 @@
 #    verbosity: 1
 
 - name: Set __deploy_vm__vmware_vm_facts_initial_by_name fact
+  no_log: true
   ansible.builtin.set_fact:
     __deploy_vm__vmware_vm_facts_initial_by_name: "{{ __deploy_vm__vmware_vm_facts_initial_by_name
       | d({}, true) | combine( {item.guest_name: item} ) }}"
@@ -89,6 +97,7 @@
     verbosity: 1
 
 - name: Clone from Template and Customize Virtual Machine
+  when: __deploy_vm__vmware_vm_facts_initial_by_name[item.name] is not defined
   community.vmware.vmware_guest:
     hostname: "{{ deploy_vm__vcenter_hostname }}"
     username: "{{ deploy_vm__vcenter_username }}"
@@ -102,7 +111,9 @@
     #    state: poweredon
     #    state: poweredoff
     state: present
-    template: "{{ deploy_vm__template_info[item.template_id].name }}"
+    template: "{{ __deploy_vm__vmware_template_folder }}/{{ deploy_vm__template_info[item.template_id].name }}"
+#    template: "/{{ __deploy_vm__vmware_datacenter }}/vm/{{
+#      __deploy_vm__vmware_template_folder }}/{{ deploy_vm__template_info[item.template_id].name }}"
     hardware: "{{ item.hardware }}"
     disk: "{{ item.disks }}"
     notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
@@ -120,7 +131,6 @@
   loop_control:
     label: "{{ item.name }}"
   register: __deploy_vm__job_start
-  when: __deploy_vm__vmware_vm_facts_initial_by_name[item.name] is not defined
   ## ref: https://www.virtualizationhowto.com/2020/07/ansible-deploy-multiple-vm-from-template-vmware/
   async: 2000
   #  poll: 10
@@ -151,14 +161,15 @@
   when: item.ansible_job_id is defined
   register: __deploy_vm__job
   until: __deploy_vm__job.finished
-  # Check every 5 seconds. Adjust as you like.
   delay: "{{ deploy_vm__create_async_delay }}"
   # Retry up to 10 times. Adjust as needed.
   retries: "{{ deploy_vm__create_async_retries }}"
 
 - name: Initialize __deploy_vm__job_results
+  no_log: true
   ansible.builtin.set_fact:
-    __deploy_vm__job_results: "{{ __deploy_vm__job.results | selectattr('changed','defined') | selectattr('changed', 'equalto', true) }}"
+    __deploy_vm__job_results: "{{ __deploy_vm__job.results
+      | selectattr('changed','defined') | selectattr('changed', 'equalto', true) }}"
 
 - name: Display __deploy_vm__job_results
   ansible.builtin.debug:
@@ -166,10 +177,12 @@
     verbosity: 2
 
 - name: Initialize __deploy_vm__new_vm
+  no_log: true
   ansible.builtin.set_fact:
     __deploy_vm__new_vm: {}
 
 - name: Set __deploy_vm__new_vm
+  no_log: true
   ansible.builtin.set_fact:
     __deploy_vm__new_vm: "{{ __deploy_vm__new_vm | d({}, true) | combine( { item.item.item.name: item } ) }}"
   loop: "{{ __deploy_vm__job_results }}"
@@ -182,6 +195,7 @@
 #    verbosity: 1
 
 - name: Set __deploy_vm__vmware_vm_facts
+  no_log: true
   community.vmware.vmware_vm_info:
     hostname: "{{ deploy_vm__vcenter_hostname }}"
     username: "{{ deploy_vm__vcenter_username }}"
@@ -191,6 +205,7 @@
   register: __deploy_vm__vmware_vm_facts
 
 - name: Set __deploy_vmware_vm_info_by_name fact
+  no_log: true
   ansible.builtin.set_fact:
     __deploy_vmware_vm_info_by_name: "{{  __deploy_vmware_vm_info_by_name
       | d({}, true) | combine( {item.guest_name: item} ) }}"

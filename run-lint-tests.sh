@@ -537,7 +537,7 @@ function usage() {
 
 function main() {
 
-  while getopts "L:r:dlpvhk" opt; do
+  while getopts "L:r:dlvhk" opt; do
       case "${opt}" in
           L) setLogLevel "${OPTARG}" ;;
           l) print_test_cases && exit ;;

@@ -21,7 +21,7 @@ Treating the GPU inventory as a specialized "Compute Pool" within the Kubernetes
 * **vLLM Cluster:** Use `gpu01` (GX10) for **Qwen3.6-35B** and `gpu02` (RTX 3090) for **Llama3** or **Codex**.
 * **Aibrix Integration:** Deploy the Aibrix control plane on the ESXi-hosted Kubernetes workers to manage routing and prefix-cache awareness across all GPUs.
 * **Ansible Automation:**
-    * `deploy_vm_nodes`: Automates Ubuntu VM creation on ESXi via the VMware module.
+    * `deploy_vm`: Automates Ubuntu VM creation on ESXi via the VMware module.
     * `bootstrap_k8s_worker`: Joins `gpu01`, `gpu02`, and `control02` to the cluster as GPU-enabled nodes.
 
 ## **Phase 3: Agentic Stack & Routing**

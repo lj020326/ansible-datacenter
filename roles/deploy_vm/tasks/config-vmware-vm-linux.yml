@@ -8,9 +8,15 @@
     var: __deploy_vmware_vm_info_by_name[__vm_info.name]
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Get vm instance facts to use for post-poweron vm configuration operations
+  no_log: true
   ansible.builtin.set_fact:
-    __deploy_vm__hostvar_ip: "{{ hostvars[__vm_info.name]['ansible_facts']['default_ipv4']['address']
-      | d(hostvars[__vm_info.name]['ansible_facts']['all_ipv4_addresses'][0]) | d('') }}"
+    __deploy_vm__hostvar_ip: "{{
+      __deploy_vmware_vm_info_by_name[__vm_info.name].ip_address
+      | d(hostvars[__vm_info.name]['ansible_facts']['default_ipv4']['address'])
+      | d(hostvars[__vm_info.name]['ansible_facts']['all_ipv4_addresses'][0]) 
+      | d('') }}"
+#    __deploy_vm__hostvar_ip: "{{ hostvars[__vm_info.name]['ansible_facts']['default_ipv4']['address']
+#      | d(hostvars[__vm_info.name]['ansible_facts']['all_ipv4_addresses'][0]) | d('') }}"
     __deploy_vm__vm_ansible_user: "{{ hostvars[__vm_info.name]['ansible_facts']['user'] | d(ansible_user) }}"
     __deploy_vm__vm_ansible_password: "{{ hostvars[__vm_info.name]['ansible_facts']['password'] | d(ansible_password__linux) }}"
 
@@ -35,11 +41,6 @@
     boot_firmware: bios
     secure_boot_enabled: false
     boot_order: "{{ __vm_info.boot_order | d(omit) }}"
-#    boot_order:
-#      - floppy
-#      - cdrom
-#      - disk
-#      - ethernet
   register: __config_vm
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Power on Virtual Machine
@@ -49,7 +50,7 @@
     username: "{{ deploy_vm__vcenter_username }}"
     password: "{{ deploy_vm__vcenter_password }}"
     validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
-    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
+    datacenter: "{{ __deploy_vm__vmware_datacenter }}"
     name: "{{ __vm_info.name }}"
     state: poweredon
     wait_for_ip_address: true
@@ -60,7 +61,7 @@
     username: "{{ deploy_vm__vcenter_username }}"
     password: "{{ deploy_vm__vcenter_password }}"
     validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
-    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
+    datacenter: "{{ __deploy_vm__vmware_datacenter }}"
     schema: vsphere
     uuid: "{{ __deploy_vmware_vm_info_by_name[__vm_info.name].uuid }}"
   #  delegate_to: localhost
@@ -281,7 +282,7 @@
     validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
     uuid: "{{ __deploy_vmware_vm_info_by_name[__vm_info.name].uuid }}"
   #    name: "{{ __vm_info.name }}"
-  #    datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
+  #    datacenter: "{{ __deploy_vm__vmware_datacenter }}"
   register: __vmware_guest_tools_wait_result
 
 - name: Config-vm-vmware-linux[{{ __vm_info.name }}] | Display __vmware_guest_tools_wait_result
@@ -313,7 +314,7 @@
         username: "{{ deploy_vm__vcenter_username }}"
         password: "{{ deploy_vm__vcenter_password }}"
         validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
-        datacenter: "{{ deploy_vm__vmware_vm_datacenter }}"
+        datacenter: "{{ __deploy_vm__vmware_datacenter }}"
         name: "{{ __vm_info.name }}"
         state: restarted
         wait_for_ip_address: true

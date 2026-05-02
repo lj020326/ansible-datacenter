@@ -129,13 +129,13 @@
 ###- ansible.builtin.debug: msg="{{reboot_status.results | selectattr("stdout","defined") | map(attribute="stdout") | list}}"
 
 - name: Wait for all the executed jobs to be completed
-  changed_when: false
+  when: reboot_status.results | selectattr('stdout', 'defined') | map(attribute='stdout') | select('search', 'power operation') | list | length > 0
   ansible.builtin.raw: racadm jobqueue view
   register: jobqueue_completion
+  changed_when: false
   until: jobqueue_completion.stdout.find("Running") <= 0 and jobqueue_completion.stdout.find("Scheduled") <= 0 and jobqueue_completion.stdout.find("New") <= 0
   retries: 20
   delay: 30
-  when: reboot_status.results | selectattr('stdout', 'defined') | map(attribute='stdout') | select('search', 'power operation') | list | length > 0
 
 - name: Get racadm Boot Sequence Status
   changed_when: false
