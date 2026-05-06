@@ -8,8 +8,12 @@ SCRIPT_DIR="$(dirname "$0")"
 ## PURPOSE RELATED VARS
 REPO_DIR="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 
+MOLECULE_IMAGE_DEFAULT="ubuntu26"
+MOLECULE_TEST_SCENARIO_DEFAULT="bootstrap_linux_package"
+
 # Define the lookup map using an associative array
 declare -A DOCKER_IMAGE_MAP=(
+    ["ubuntu26"]="lj020326/systemd-python-ubuntu:26.04"
     ["ubuntu24"]="lj020326/systemd-python-ubuntu:24.04"
     ["ubuntu22"]="lj020326/systemd-python-ubuntu:22.04"
     ["centos9"]="lj020326/systemd-python-centos:9"
@@ -210,9 +214,6 @@ function usage() {
 
 
 function main() {
-  MOLECULE_IMAGE_DEFAULT="ubuntu24"
-  MOLECULE_TEST_SCENARIO_DEFAULT="bootstrap_linux_package"
-
   while getopts "L:i:lvh" opt; do
       case "${opt}" in
           L) setLogLevel "${OPTARG}" ;;

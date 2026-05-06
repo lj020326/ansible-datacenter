@@ -1,22 +1,53 @@
-# Ansible Datacenter Wiki
+# Ansible Datacenter
 
 This repository provides a `site.yml` playbook to configure a multi-OS datacenter (Ubuntu/CentOS/Debian and Windows).
 
 ## Table of Contents
+* [Summary](#summary)
 * [CI Status](#ci-status)
+* [Wiki](#wiki)
 * [Linux OS Platform Molecule Tests](#linux-os-platform-molecule-tests)
 * [Ansible Developer Environment](#ansible-developer-environment)
-* [Summary](#summary)
 * [Prerequisites](#prerequisites)
 * [Running Ansible Site Plays](#running-ansible-site-plays)
 * [Jenkins Ansible Jobs](#jenkins-ansible-jobs)
 * [Image Build & Deployment Workflow](#image-build--deployment-workflow)
 * [Contributing & Support](#contributing--support)
 
+---
+
+## Summary
+
+* **Automation Architectures:** Collection of roles, playbooks, and modules.
+* **Image Build Systems:** Integration with Packer and vSphere.
+* **Lifecycle Management:** From OS hardening to application deployment and maintenance.
+
+---
+
 ## CI Status
 
 [![CI](https://github.com/lj020326/ansible-datacenter/actions/workflows/verify_all_green.yml/badge.svg?branch=main)](https://github.com/lj020326/ansible-datacenter/actions/workflows/verify_all_green.yml)
 > **Note:** The badge above tracks the `main` branch. To track a feature branch, update the URL to `.../verify_all_green.yml/badge.svg?branch=<your-branch-name>`.
+
+---
+
+## Wiki
+
+The wiki is automatically generated and maintained by the  [LLM-powered wiki pipeline](https://github.com/lj020326/jenkins-docker-agent/tree/main/image/wiki-pipeline).
+It provides professional, GitHub-native documentation for the ansible-datacenter repository.
+
+* **[Ansible Datacenter WIKI](./wiki/README.md)**
+
+---
+
+## Repository conventions
+
+Note the following conventions used within this repository:
+
+- All role variable names should always start with the `role_name__` (e.g., `role_foobar__enable_option`).  Any cases of variable names within the existing repository roles that do not use this naming convention are considered **deprecated** exceptions that ultimately will be replaced with corrected variable names.
+- Variables starting with the double-underscore  (e.g. `__internal_var`) are internal role variables only.  These variables are meant only for use by the role itself and should never appear as overridden in the inventory and/or command line.
+- Tag usage is limited to the ansible play-level only and not to be used within roles.  Any cases of tag usage within the existing repository roles are considered **deprecated** exceptions that ultimately will be removed.
+- When using loops with `ansible.builtin.include_tasks`, always explicitly name the loop variable (`loop_control`.`loop_var`) to avoid namespace collision with the default variable name `item`.
 
 ---
 
@@ -49,99 +80,6 @@ The installer performs the following:
 INSTALL_REMOTE_SCRIPT="https://raw.githubusercontent.com/lj020326/ansible-developer/main/install.sh"
 bash -c "$(curl -fsSL ${INSTALL_REMOTE_SCRIPT})"
 ```
-
----
-
-## Summary
-
-* **Automation Architectures:** Collection of roles, playbooks, and modules.
-* **Image Build Systems:** Integration with Packer and vSphere.
-* **Lifecycle Management:** From OS hardening to application deployment and maintenance.
-
----
-
-## Priority Roles
-
-- **[apply_common_groups](wiki/roles/apply_common_groups.md)** — Core role
-- **[apply_ping_test](wiki/roles/apply_ping_test.md)** — Core role
-- **[bootstrap_ansible_controller](wiki/roles/bootstrap_ansible_controller.md)** — Core role
-- **[bootstrap_docker](wiki/roles/bootstrap_docker.md)** — Core role
-- **[bootstrap_docker_stack](wiki/roles/bootstrap_docker_stack.md)** — Core role
-- **[bootstrap_gpu_drivers](wiki/roles/bootstrap_gpu_drivers.md)** — Core role
-- **[bootstrap_jenkins_agent](wiki/roles/bootstrap_jenkins_agent.md)** — Core role
-- **[bootstrap_kubernetes](wiki/roles/bootstrap_kubernetes.md)** — Core role
-- **[bootstrap_linux](wiki/roles/bootstrap_linux.md)** — Core role
-- **[bootstrap_linux_core](wiki/roles/bootstrap_linux_core.md)** — Core role
-
-## All Roles by Category
-
-
-### Bootstrap & Foundation Roles
-
-- [bootstrap_aibrix](wiki/roles/bootstrap_aibrix.md)
-- [bootstrap_ansible](wiki/roles/bootstrap_ansible.md)
-- [bootstrap_ansible_controller](wiki/roles/bootstrap_ansible_controller.md)
-- [bootstrap_ansible_user](wiki/roles/bootstrap_ansible_user.md)
-- [bootstrap_awstats](wiki/roles/bootstrap_awstats.md)
-- [bootstrap_awx](wiki/roles/bootstrap_awx.md)
-- [bootstrap_awx_config](wiki/roles/bootstrap_awx_config.md)
-- [bootstrap_awx_docker](wiki/roles/bootstrap_awx_docker.md)
-- [bootstrap_awx_resources](wiki/roles/bootstrap_awx_resources.md)
-- [bootstrap_bind](wiki/roles/bootstrap_bind.md)
-- [bootstrap_ca_certs](wiki/roles/bootstrap_ca_certs.md)
-- [bootstrap_caddy2](wiki/roles/bootstrap_caddy2.md)
-- [bootstrap_certs](wiki/roles/bootstrap_certs.md)
-- [bootstrap_cfssl](wiki/roles/bootstrap_cfssl.md)
-- [bootstrap_chronyclient](wiki/roles/bootstrap_chronyclient.md)
-- [bootstrap_chronyserver](wiki/roles/bootstrap_chronyserver.md)
-- [bootstrap_cloud_init](wiki/roles/bootstrap_cloud_init.md)
-- [bootstrap_cni](wiki/roles/bootstrap_cni.md)
-- [bootstrap_dell_opscenter](wiki/roles/bootstrap_dell_opscenter.md)
-- [bootstrap_dell_racadm_host](wiki/roles/bootstrap_dell_racadm_host.md)
-- [bootstrap_dhcp](wiki/roles/bootstrap_dhcp.md)
-- [bootstrap_docker](wiki/roles/bootstrap_docker.md)
-- [bootstrap_docker_stack](wiki/roles/bootstrap_docker_stack.md)
-- [bootstrap_epel_repo](wiki/roles/bootstrap_epel_repo.md)
-- [bootstrap_etcd](wiki/roles/bootstrap_etcd.md)
-- [bootstrap_fog](wiki/roles/bootstrap_fog.md)
-- [bootstrap_git](wiki/roles/bootstrap_git.md)
-- [bootstrap_gitea_runner](wiki/roles/bootstrap_gitea_runner.md)
-- [bootstrap_govc](wiki/roles/bootstrap_govc.md)
-- [bootstrap_gpu_drivers](wiki/roles/bootstrap_gpu_drivers.md)
-- [bootstrap_hddtemp](wiki/roles/bootstrap_hddtemp.md)
-- [bootstrap_inspec](wiki/roles/bootstrap_inspec.md)
-- [bootstrap_ipa_client](wiki/roles/bootstrap_ipa_client.md)
-- [bootstrap_ipa_config](wiki/roles/bootstrap_ipa_config.md)
-- [bootstrap_ipa_krb5](wiki/roles/bootstrap_ipa_krb5.md)
-- [bootstrap_ipa_replica](wiki/roles/bootstrap_ipa_replica.md)
-- [bootstrap_ipa_server](wiki/roles/bootstrap_ipa_server.md)
-- [bootstrap_ipa_sssd](wiki/roles/bootstrap_ipa_sssd.md)
-- [bootstrap_iscsi_client](wiki/roles/bootstrap_iscsi_client.md)
-- [bootstrap_java](wiki/roles/bootstrap_java.md)
-- [bootstrap_jenkins](wiki/roles/bootstrap_jenkins.md)
-- [bootstrap_jenkins_agent](wiki/roles/bootstrap_jenkins_agent.md)
-- [bootstrap_jenkins_swarm_agent](wiki/roles/bootstrap_jenkins_swarm_agent.md)
-- [bootstrap_kubernetes](wiki/roles/bootstrap_kubernetes.md)
-- [bootstrap_kubernetes_ca](wiki/roles/bootstrap_kubernetes_ca.md)
-- [bootstrap_kubernetes_controller](wiki/roles/bootstrap_kubernetes_controller.md)
-- [bootstrap_kubernetes_worker](wiki/roles/bootstrap_kubernetes_worker.md)
-- [bootstrap_kvm](wiki/roles/bootstrap_kvm.md)
-- [bootstrap_kvm_infra](wiki/roles/bootstrap_kvm_infra.md)
-- [bootstrap_ldap_client](wiki/roles/bootstrap_ldap_client.md)
-- [bootstrap_linux](wiki/roles/bootstrap_linux.md)
-- [bootstrap_linux_core](wiki/roles/bootstrap_linux_core.md)
-- [bootstrap_linux_cron](wiki/roles/bootstrap_linux_cron.md)
-
-
-### Networking & Security
-
-- [apply_ping_test](wiki/roles/apply_ping_test.md)
-
-
-### Utility
-
-- [apply_common_groups](wiki/roles/apply_common_groups.md)
-- [apply_ping_test](wiki/roles/apply_ping_test.md)
 
 ---
 

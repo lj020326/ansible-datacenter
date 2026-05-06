@@ -14,6 +14,41 @@ __docker_stack__llama_cppserver__image: "{{ docker_stack__llama_cppserver__image
 __docker_stack__llama_cppserver__http_port: "{{ docker_stack__llama_cppserver__http_port | d('11432') }}"
 __docker_stack__llama_cppserver__internal_http_port: "8080"
 
+__docker_stack__llama_cppserver__llama_arg_ctx_size_default: 32768
+__docker_stack__llama_cppserver__llama_arg_ctx_size: "{{ docker_stack__llama_cppserver__llama_arg_ctx_size
+  | d(__docker_stack__llama_cppserver__llama_arg_ctx_size_default) }}"
+
+# Instead of 99, set this to a specific number (e.g., 32) to force the remaining layers into System RAM.
+# This is slower but prevents OOMs.
+# LLAMA_ARG_N_GPU_LAYERS=99
+__docker_stack__llama_cppserver__llama_arg_n_gpu_layers_default: 32
+__docker_stack__llama_cppserver__llama_arg_n_gpu_layers: "{{ docker_stack__llama_cppserver__llama_arg_n_gpu_layers
+  | d(__docker_stack__llama_cppserver__llama_arg_n_gpu_layers_default) }}"
+
+__docker_stack__llama_cppserver__llama_arg_flash_attn_default: 1
+__docker_stack__llama_cppserver__llama_arg_flash_attn: "{{ docker_stack__llama_cppserver__llama_arg_flash_attn
+  | d(__docker_stack__llama_cppserver__llama_arg_flash_attn_default) }}"
+
+__docker_stack__llama_cppserver__llama_arg_n_parallel_default: 4
+__docker_stack__llama_cppserver__llama_arg_n_parallel: "{{ docker_stack__llama_cppserver__llama_arg_n_parallel
+  | d(__docker_stack__llama_cppserver__llama_arg_n_parallel_default) }}"
+
+__docker_stack__llama_cppserver__llama_arg_temp_default: 0.7
+__docker_stack__llama_cppserver__llama_arg_temp: "{{ docker_stack__llama_cppserver__llama_arg_temp
+  | d(__docker_stack__llama_cppserver__llama_arg_temp_default) }}"
+
+__docker_stack__llama_cppserver__llama_arg_cont_batch_default: 512
+__docker_stack__llama_cppserver__llama_arg_cont_batch: "{{ docker_stack__llama_cppserver__llama_arg_cont_batch
+  | d(__docker_stack__llama_cppserver__llama_arg_cont_batch_default) }}"
+
+__docker_stack__llama_cppserver__llama_arg_rope_freq_base_default: 512
+__docker_stack__llama_cppserver__llama_arg_rope_freq_base: "{{ docker_stack__llama_cppserver__llama_arg_rope_freq_base
+  | d(__docker_stack__llama_cppserver__llama_arg_rope_freq_base_default) }}"
+
+## ---------
+## In router mode the top-level LLAMA_ARG_CTX_SIZE from the .env file is used as a fallback/default,
+## but individual models often end up with a much smaller context (commonly 8192 or the model's default)
+## unless you explicitly configure them via a models preset (.ini file).
 __docker_stack__llama_cppserver__environment_default: |
   LLAMA_ARG_HOST=0.0.0.0
   LLAMA_ARG_PORT={{ __docker_stack__llama_cppserver__internal_http_port }}
@@ -21,27 +56,24 @@ __docker_stack__llama_cppserver__environment_default: |
   ## To test that models are available in container:
   ## docker exec llama-cpp curl -s http://localhost:8080/v1/models | jq
   LLAMA_ARG_MODELS_DIR=/models
+  LLAMA_ARG_MODELS_PRESET=/app/models.ini
   
   ## we load models after container start
   #LLAMA_ARG_MODEL=/models/gemma-4-31B-it-Q5_K_M.gguf
   #LLAMA_ARG_MODEL_DRAFT=/models/gemma-4-2B-it-Q5_K_M.gguf
   
   # Performance / GPU settings
-  LLAMA_ARG_CTX_SIZE=32768
-  # Instead of 99, set this to a specific number (e.g., 32) to force the remaining layers into System RAM.
-  # This is slower but prevents OOMs.
-  # LLAMA_ARG_N_GPU_LAYERS=99
-  LLAMA_ARG_N_GPU_LAYERS=32
-  LLAMA_ARG_FLASH_ATTN=1
-  LLAMA_ARG_N_PARALLEL=4
-  LLAMA_ARG_TEMP=0.7
-  
-  # faster on modern GPUs
-  LLAMA_ARG_FLASH_ATTN=1
+  LLAMA_ARG_CTX_SIZE={{ __docker_stack__llama_cppserver__llama_arg_ctx_size }}
+
+  LLAMA_ARG_N_GPU_LAYERS={{ __docker_stack__llama_cppserver__llama_arg_n_gpu_layers }}
+  LLAMA_ARG_N_PARALLEL={{ __docker_stack__llama_cppserver__llama_arg_n_parallel }}
+
+  LLAMA_ARG_FLASH_ATTN={{ __docker_stack__llama_cppserver__llama_arg_flash_attn }}
+  LLAMA_ARG_TEMP={{ __docker_stack__llama_cppserver__llama_arg_temp }}
   
   # Optional but recommended
-  LLAMA_ARG_CONT_BATCH=512
-  LLAMA_ARG_ROPE_FREQ_BASE=1000000
+  LLAMA_ARG_CONT_BATCH={{ __docker_stack__llama_cppserver__llama_arg_cont_batch }}
+  LLAMA_ARG_ROPE_FREQ_BASE={{ __docker_stack__llama_cppserver__llama_arg_rope_freq_base }}
 
 __docker_stack__llama_cppserver__environment: "{{ docker_stack__llama_cppserver__environment
   | d(__docker_stack__llama_cppserver__environment_default) }}"
@@ -53,6 +85,8 @@ __docker_stack__llama_cppserver__config_dirs:
 __docker_stack__llama_cppserver__config_tpls:
   - src: llama_cppserver/llama_cpp.env.j2
     dest: "{{ __docker_stack__llama_cppserver__base_dir }}/llama_cpp.env"
+  - src: llama_cppserver/models.ini.j2
+    dest: "{{ __docker_stack__llama_cppserver__base_dir }}/models.ini"
 
 __docker_stack__llama_cppserver__secret_key: "{{ docker_stack__llama_cppserver__secret_key
   | d('CHANGEME123') }}"
@@ -75,6 +109,8 @@ __docker_stack__llama_cppserver__services:
   llama-cpp:
     image: "{{ __docker_stack__llama_cppserver__image }}"
     container_name: llama-cpp
+#    command: >
+#      --models-preset /app/models.ini
     restart: unless-stopped
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
@@ -86,6 +122,7 @@ __docker_stack__llama_cppserver__services:
     volumes:
 #      - /etc/timezone:/etc/timezone:ro
 #      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__llama_cppserver__base_dir }}/models.ini:/app/models.ini:ro"
       - "{{ __docker_stack__llama_cppserver__models_dir }}:/models:ro"
     deploy:
       mode: replicated

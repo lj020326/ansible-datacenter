@@ -15,25 +15,25 @@
 - name: Run setup-{{ ansible_facts['os_family'] }}.yml
   ansible.builtin.include_tasks: "setup-{{ ansible_facts['os_family'] | lower }}.yml"
 
-- name: Define nodejs_install_npm_user
+- name: Define bootstrap_nodejs__install_npm_user
   ansible.builtin.set_fact:
-    nodejs_install_npm_user: "{{ ansible_user | default(lookup('env', 'USER')) }}"
-  when: nodejs_install_npm_user is not defined
+    bootstrap_nodejs__install_npm_user: "{{ ansible_user | default(lookup('env', 'USER')) }}"
+  when: bootstrap_nodejs__install_npm_user is not defined
 
 - name: Create npm global directory
   ansible.builtin.file:
-    path: "{{ npm_config_prefix }}"
-    owner: "{{ nodejs_install_npm_user }}"
-    group: "{{ nodejs_install_npm_user }}"
+    path: "{{ bootstrap_nodejs__npm_config_prefix }}"
+    owner: "{{ bootstrap_nodejs__install_npm_user }}"
+    group: "{{ bootstrap_nodejs__install_npm_user }}"
     state: directory
     mode: "0755"
 
-- name: Add npm_config_prefix bin directory to global $PATH.
+- name: Add bootstrap_nodejs__npm_config_prefix bin directory to global $PATH.
   ansible.builtin.template:
     src: npm.sh.j2
     dest: /etc/profile.d/npm.sh
     mode: "0644"
-  when: nodejs_generate_etc_profile | bool
+  when: bootstrap_nodejs__generate_etc_profile | bool
 
 - name: Ensure npm global packages are installed.
   community.general.npm:
@@ -42,12 +42,12 @@
     global: true
     state: latest
   environment:
-    NPM_CONFIG_PREFIX: "{{ npm_config_prefix }}"
-    NODE_PATH: "{{ npm_config_prefix }}/lib/node_modules"
-    NPM_CONFIG_UNSAFE_PERM: "{{ npm_config_unsafe_perm }}"
-  loop: "{{ nodejs_npm_global_packages }}"
+    NPM_CONFIG_PREFIX: "{{ bootstrap_nodejs__npm_config_prefix }}"
+    NODE_PATH: "{{ bootstrap_nodejs__npm_config_prefix }}/lib/node_modules"
+    NPM_CONFIG_UNSAFE_PERM: "{{ bootstrap_nodejs__npm_config_unsafe_perm }}"
+  loop: "{{ bootstrap_nodejs__npm_global_packages }}"
 
 - name: Install packages defined in a given package.json.
   community.general.npm:
-    path: "{{ nodejs_package_json_path }}"
-  when: nodejs_package_json_path | d('') | length > 0
+    path: "{{ bootstrap_nodejs__package_json_path }}"
+  when: bootstrap_nodejs__package_json_path | d('') | length > 0
