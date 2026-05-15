@@ -8,29 +8,31 @@ tags: caddy, webserver, automation
 
 ## Summary
 
-The `bootstrap_caddy2` role is designed to automate the installation and configuration of Caddy 2 on a Linux system. It handles the creation of a dedicated service account for Caddy, downloads and installs the specified version of Caddy from a provided URL, sets up a systemd service file, creates a Caddyfile with user-defined content, and starts the Caddy service.
+The `bootstrap_caddy2` role is designed to automate the installation and configuration of Caddy 2 on a target system. It handles the creation of a dedicated service account for running Caddy, downloads the specified version of Caddy, installs it in the designated directory, sets up a systemd service file, creates a basic Caddyfile, and starts the Caddy service.
 
 ## Variables
 
-| Variable Name            | Default Value                                                                                         | Description                                                                                                                                 |
-|--------------------------|-------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| `caddy_user`             | `caddy`                                                                                             | The username for the Caddy service account.                                                                                                 |
-| `caddy_install_root`     | `/opt/caddy`                                                                                        | The directory where Caddy will be installed.                                                                                                |
-| `caddy_bin_url`          | `https://github.com/caddyserver/caddy/releases/download/v2.1.0-beta.1/caddy_2.1.0-beta.1_linux_amd64.tar.gz` | The URL to download the Caddy binary tarball.                                                                                               |
-| `caddy_file`             | `""`                                                                                                | The content of the Caddyfile, which can be provided as a string. If left empty, no Caddyfile will be created.                              |
+| Variable Name                      | Default Value                                                                                     | Description                                                                 |
+|------------------------------------|---------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| `bootstrap_caddy2__user`           | `caddy`                                                                                           | The username for the Caddy service account.                                 |
+| `bootstrap_caddy2__version`        | `2.1.0-beta.1`                                                                                  | The version of Caddy to install.                                            |
+| `bootstrap_caddy2__install_root`   | `/opt/caddy`                                                                                    | The installation directory for Caddy.                                       |
+| `bootstrap_caddy2__arch`           | `{{ 'arm64' if ansible_facts.machine == 'aarch64' else 'amd64' }}`                                 | The architecture of the system (automatically detected).                    |
+| `bootstrap_caddy2__base_url`       | `https://github.com/caddyserver/caddy/releases/download`                                          | The base URL for downloading Caddy releases.                                |
+| `bootstrap_caddy2__bin_url`        | `{{ bootstrap_caddy2__base_url }}/v2.1.0-beta.1/{{ bootstrap_caddy2__version }}_linux_{{ bootstrap_caddy2__arch }}.tar.gz` | The full URL for downloading the specified version of Caddy.              |
+| `bootstrap_caddy2__file`           | `""`                                                                                              | The content of the Caddyfile to be created (can be overridden by user).     |
 
 ## Usage
 
-To use this role, include it in your playbook and optionally override any default variables to suit your environment.
-
-### Example Playbook
+To use this role, include it in your playbook and optionally override any variables as needed:
 
 ```yaml
 - hosts: webservers
   roles:
     - role: bootstrap_caddy2
       vars:
-        caddy_file: |
+        bootstrap_caddy2__version: "2.1.0"
+        bootstrap_caddy2__file: |
           :80 {
               root * /var/www/html
               file_server
@@ -39,21 +41,17 @@ To use this role, include it in your playbook and optionally override any defaul
 
 ## Dependencies
 
-This role does not have any external dependencies.
-
-## Tags
-
-No specific tags are defined in this role. The tasks will run as part of the default playbook execution.
+This role does not have any external dependencies other than the standard Ansible modules used in its tasks.
 
 ## Best Practices
 
-- Ensure that the `caddy_bin_url` points to a trusted and secure source.
-- Provide a valid Caddyfile configuration in the `caddy_file` variable to avoid issues with service startup.
-- Regularly update the `caddy_bin_url` to use the latest stable version of Caddy.
+- Always specify a stable version of Caddy to avoid unexpected behavior due to beta or release candidate versions.
+- Customize the `bootstrap_caddy2__file` variable with your desired Caddy configuration to suit your web server needs.
+- Ensure that the target system has internet access to download the specified version of Caddy.
 
 ## Molecule Tests
 
-This role does not include any Molecule tests at this time.
+This role does not currently include any Molecule tests. Consider adding tests to ensure the role behaves as expected across different environments and configurations.
 
 ## Backlinks
 

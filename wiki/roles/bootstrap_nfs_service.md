@@ -4,10 +4,10 @@ role: bootstrap_nfs_service
 category: Ansible Roles
 type: Configuration Management
 tags: nfs, firewalld, veeam
-
 ---
 
 ## Summary
+
 The `bootstrap_nfs_service` role is designed to configure and manage the Network File System (NFS) service on a Linux system. It installs necessary packages, sets up NFS, and configures firewall rules to allow NFS traffic. Additionally, it can be configured to open specific ports required for Veeam backup servers.
 
 ## Variables

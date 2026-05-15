@@ -4,8 +4,10 @@ role: bootstrap_ipa_server
 category: Identity and Access Management
 type: Ansible Role
 tags: identity, ipa, freeipa
+---
 
 ## Summary
+
 The `bootstrap_ipa_server` role is designed to set up an IPA (Identity, Policy, Audit) domain server. This role handles the installation of necessary packages, configuration of firewall rules, copying external certificates if required, and testing the installation.
 
 ## Variables

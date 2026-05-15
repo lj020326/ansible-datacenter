@@ -1,24 +1,50 @@
 ---
-- name: AMD | Scrape latest installer version from repository
-  ansible.builtin.uri:
-    url: "{{ bootstrap_gpu_drivers__amd_deb_package_base_url }}/"
-    return_content: true
-  register: __amd_repo_index
+- name: AMD | Debian / Ubuntu - Install amdgpu-installer
+  when: ansible_facts.os_family == 'Debian'
+  block:
+    - name: AMD | Get latest installer
+      ansible.builtin.uri:
+        url: "https://repo.radeon.com/amdgpu-install/latest/ubuntu/{{ _debian_codename | default('noble') }}/"
+        return_content: true
+      register: __amd_repo
 
-- name: AMD | Extract latest deb filename
-  ansible.builtin.set_fact:
-    __amd_latest_deb: "{{ __amd_repo_index.content | regex_search('amdgpu-install_[^\"\\s>]+\\.deb') }}"
+    - name: AMD | Extract deb name
+      ansible.builtin.set_fact:
+        __amd_latest_deb: "{{ __amd_repo.content | regex_search('amdgpu-install_[^\"\\s>]+\\.deb') }}"
 
-- name: AMD | Display __amd_latest_deb
-  ansible.builtin.debug:
-    var: __amd_latest_deb
+    - name: AMD | Install amdgpu-install deb
+      ansible.builtin.apt:
+        deb: "https://repo.radeon.com/amdgpu-install/latest/ubuntu/{{ _debian_codename | default('noble') }}/{{ __amd_latest_deb }}"
+      when: __amd_latest_deb is defined
 
-- name: AMD | Download ROCm repository installer
-  when: __amd_latest_deb is defined
-  ansible.builtin.apt:
-    deb: "{{ bootstrap_gpu_drivers__amd_deb_package_base_url }}/{{ __amd_latest_deb }}"
-
-- name: AMD | Install AMDGPU and ROCm stack
-  ansible.builtin.command: amdgpu-install -y --usecase=rocm
+- name: AMD | Install stack
+  ansible.builtin.command: >
+    amdgpu-install -y --usecase={{ bootstrap_gpu_drivers__amd_usecase }}
   args:
     creates: /opt/rocm/bin/rocminfo
+  when: ansible_facts.os_family == 'Debian'
+
+- name: AMD | RedHat family - Install amdgpu-dkms + ROCm
+  when: ansible_facts.os_family == 'RedHat'
+  block:
+    - name: Add AMD ROCm repo (RHEL)
+      ansible.builtin.yum_repository:
+        name: amdgpu
+        description: AMD GPU ROCm Repository
+        baseurl: https://repo.radeon.com/amdgpu/latest/rhel/{{ ansible_facts.distribution_major_version }}/main/x86_64/
+        gpgcheck: yes
+        gpgkey: https://repo.radeon.com/rocm/rocm-release-key.asc
+      when: bootstrap_gpu_drivers__nvidia_add_repos | bool   # reuse flag
+
+    - name: Install AMD packages on RHEL
+      ansible.builtin.dnf:
+        name:
+          - amdgpu-dkms
+          - rocm
+        state: "{{ bootstrap_gpu_drivers__package_state }}"
+
+- name: Add user to video/render groups
+  ansible.builtin.user:
+    name: "{{ ansible_user | default('root') }}"
+    groups: video,render
+    append: yes

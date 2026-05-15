@@ -4,7 +4,6 @@ role: bootstrap_os_network
 category: Networking
 type: Ansible Role
 tags: network, configuration, backup, systemd
-
 ---
 
 ## Summary

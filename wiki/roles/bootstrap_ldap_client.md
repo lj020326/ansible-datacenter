@@ -4,7 +4,6 @@ role: bootstrap_ldap_client
 category: Configuration Management
 type: Ansible Role
 tags: ldap, client, nslcd, pam, ssh
-
 ---
 
 ## Summary

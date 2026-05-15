@@ -8,42 +8,43 @@ tags: linux, bootstrap, configuration, automation
 
 ## Summary
 
-The `bootstrap_linux` role is designed to perform a comprehensive setup and configuration of a Linux system. It covers various aspects such as Python environment setup, user management, package installation, network configuration, security settings (including firewalld), and optional services like VMware Tools, NTP, Postfix, Java, SSHD, LDAP client, logrotate, NFS, Samba client, Webmin, Docker, and system hardening. This role ensures that the Linux system is configured according to best practices for a secure and functional environment.
+The `bootstrap_linux` role is designed to automate the initial setup and configuration of a Linux system. It covers a wide range of tasks including setting up Python environments, configuring users, installing packages, managing firewalls, and deploying various services like NTP, Postfix, Java, SSHD, LDAP client, log rotation, NFS, Samba, Webmin, GPU drivers, Docker, and more. The role is highly configurable through a set of variables that allow customization to fit specific requirements.
 
 ## Variables
 
-| Variable Name | Default Value | Description |
-|---------------|---------------|-------------|
-| `bootstrap_linux__os_python_interpreter` | `/usr/bin/env python3` | The path to the Python interpreter used by Ansible. |
-| `bootstrap_linux__firewalld_default_zone` | `internal` | The default firewalld zone for the system. |
-| `bootstrap_linux__firewalld_enabled` | `true` | Whether firewalld should be enabled on the system. |
-| `bootstrap_linux__firewalld_ports__linux` | `[10000/tcp]` | List of ports to open in firewalld. |
-| `bootstrap_linux__firewalld_services__ssh` | `[{name: ssh}]` | List of services to allow through firewalld, specifically SSH. |
-| `bootstrap_linux__firewalld_default_zone_networks` | `[127.0.0.0/8, 172.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16]` | List of networks to be included in the default firewalld zone. |
-| `bootstrap_linux__install_vmware_tools` | `false` | Whether VMware Tools should be installed on the system. |
-| `bootstrap_linux__install_ntp` | `true` | Whether NTP should be installed and configured for time synchronization. |
-| `bootstrap_linux__setup_firewalld` | `true` | Whether firewalld should be set up according to specified configurations. |
-| `bootstrap_linux__setup_postfix` | `true` | Whether Postfix should be installed and configured as the mail transfer agent. |
-| `bootstrap_linux__setup_java` | `true` | Whether Java should be installed on the system. |
-| `bootstrap_linux__setup_sshd` | `true` | Whether SSHD should be set up with default configurations. |
-| `bootstrap_linux__setup_ldap_client` | `true` | Whether LDAP client should be configured for user authentication. |
-| `bootstrap_linux__setup_logrotate` | `true` | Whether logrotate should be installed and configured to manage system logs. |
-| `bootstrap_linux__setup_nfs` | `true` | Whether NFS service should be set up on the system. |
-| `bootstrap_linux__setup_samba_client` | `false` | Whether Samba client should be installed for network file sharing. |
-| `bootstrap_linux__setup_webmin` | `true` | Whether Webmin should be installed and configured as a web-based system administration tool. |
-| `bootstrap_linux__setup_docker` | `true` | Whether Docker should be installed and configured on the system, provided the host is in the 'docker' group. |
-| `bootstrap_linux__setup_network` | `true` | Whether network configurations (DNS, hostname, etc.) should be set up. |
-| `bootstrap_linux__setup_stepca` | `false` | Whether Step CA should be installed and configured for certificate management. |
-| `bootstrap_linux__setup_caroot` | `false` | Placeholder variable; not currently used in the role. |
-| `bootstrap_linux__setup_crons` | `true` | Whether cron jobs should be set up according to specified configurations. |
-| `bootstrap_linux__deploy_ca_certs` | `false` | Whether CA certificates should be deployed on the system. |
-| `bootstrap_linux__deploy_pki_certs` | `true` | Whether PKI certificates should be deployed on the system. |
-| `bootstrap_linux__harden` | `false` | Whether the system should undergo hardening procedures to enhance security. |
-| `bootstrap_linux__container_types` | `[docker, container, containerd]` | List of container types supported by the role for Docker setup. |
+| Variable Name                              | Default Value                                                                 | Description                                                                                                                                                                                                 |
+|--------------------------------------------|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_linux__os_python_interpreter`   | `/usr/bin/env python3`                                                      | Path to the Python interpreter used by Ansible.                                                                                                                                                             |
+| `bootstrap_linux__firewalld_default_zone`  | `internal`                                                                    | Default firewalld zone for the system.                                                                                                                                                                      |
+| `bootstrap_linux__firewalld_enabled`       | `true`                                                                        | Whether to enable and configure firewalld on the system.                                                                                                                                                    |
+| `bootstrap_linux__firewalld_ports__linux`  | `[10000/tcp]`                                                                 | List of ports to open in firewalld for Linux systems.                                                                                                                                                       |
+| `bootstrap_linux__firewalld_services__ssh` | `[name: ssh]`                                                                | List of services to enable in firewalld, e.g., SSH.                                                                                                                                                         |
+| `bootstrap_linux__firewalld_default_zone_networks` | `[127.0.0.0/8, 172.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16]`              | List of networks to be associated with the default firewalld zone.                                                                                                                                          |
+| `bootstrap_linux__install_vmware_tools`    | `false`                                                                       | Whether to install VMware Tools on the system.                                                                                                                                                              |
+| `bootstrap_linux__install_ntp`             | `true`                                                                        | Whether to install and configure NTP (Network Time Protocol) on the system.                                                                                                                               |
+| `bootstrap_linux__setup_firewalld`         | `true`                                                                        | Whether to set up firewalld rules according to the specified configurations.                                                                                                                              |
+| `bootstrap_linux__setup_postfix`           | `true`                                                                        | Whether to install and configure Postfix for email handling on the system.                                                                                                                                |
+| `bootstrap_linux__setup_java`              | `true`                                                                        | Whether to install Java on the system.                                                                                                                                                                      |
+| `bootstrap_linux__setup_sshd`              | `true`                                                                        | Whether to configure SSHD (Secure Shell Daemon) settings on the system.                                                                                                                                   |
+| `bootstrap_linux__setup_ldap_client`       | `true`                                                                        | Whether to set up LDAP client configuration on the system.                                                                                                                                                |
+| `bootstrap_linux__setup_logrotate`         | `true`                                                                        | Whether to configure log rotation policies for system logs.                                                                                                                                                 |
+| `bootstrap_linux__setup_nfs`               | `true`                                                                        | Whether to install and configure NFS (Network File System) client/server on the system.                                                                                                                   |
+| `bootstrap_linux__setup_samba_client`      | `false`                                                                       | Whether to install and configure Samba client on the system.                                                                                                                                              |
+| `bootstrap_linux__setup_webmin`            | `true`                                                                        | Whether to install and configure Webmin for web-based system administration.                                                                                                                              |
+| `bootstrap_linux__setup_network`           | `true`                                                                        | Whether to configure network settings on the system.                                                                                                                                                        |
+| `bootstrap_linux__setup_stepca`            | `false`                                                                       | Whether to set up Step CA (Certificate Authority) on the system.                                                                                                                                          |
+| `bootstrap_linux__setup_caroot`            | `false`                                                                       | Whether to set up CAROOT for managing certificates on the system.                                                                                                                                         |
+| `bootstrap_linux__setup_crons`             | `true`                                                                        | Whether to configure cron jobs on the system.                                                                                                                                                               |
+| `bootstrap_linux__setup_docker`            | `false`                                                                       | Whether to install and configure Docker on the system.                                                                                                                                                    |
+| `bootstrap_linux__setup_gpu_drivers`       | `false`                                                                       | Whether to install GPU drivers on the system.                                                                                                                                                             |
+| `bootstrap_linux__deploy_ca_certs`         | `false`                                                                       | Whether to deploy CA certificates on the system.                                                                                                                                                          |
+| `bootstrap_linux__deploy_pki_certs`        | `true`                                                                        | Whether to deploy PKI (Public Key Infrastructure) certificates on the system.                                                                                                                           |
+| `bootstrap_linux__harden`                  | `false`                                                                       | Whether to apply hardening measures to secure the system.                                                                                                                                                 |
+| `bootstrap_linux__container_types`         | `[docker, container, containerd]`                                             | List of container types supported by the role.                                                                                                                                                            |
 
 ## Usage
 
-To use the `bootstrap_linux` role, include it in your playbook and adjust the variables as needed:
+To use the `bootstrap_linux` role in your Ansible playbook, include it as follows:
 
 ```yaml
 - hosts: all
@@ -54,23 +55,25 @@ To use the `bootstrap_linux` role, include it in your playbook and adjust the va
         bootstrap_linux__setup_webmin: false
 ```
 
+This example enables the installation of VMware Tools and disables the setup of Webmin.
+
 ## Dependencies
 
-This role depends on several other roles that are included conditionally based on the variables set. The dependent roles include:
+The `bootstrap_linux` role depends on several other roles that are included based on the configuration variables. These roles include:
 
 - `bootstrap_pip`
 - `bootstrap_ansible_user`
 - `bootstrap_linux_user`
 - `bootstrap_linux_package`
+- `bootstrap_linux_core`
 - `bootstrap_linux_mount`
 - `bootstrap_linux_cron`
-- `bootstrap_linux_core`
 - `bootstrap_vmware_tools`
 - `bootstrap_logrotate`
 - `bootstrap_ntp`
 - `bootstrap_postfix`
-- `bootstrap_linux_firewalld`
 - `bootstrap_java`
+- `bootstrap_linux_firewalld`
 - `bootstrap_sshd`
 - `bootstrap_ldap_client`
 - `bootstrap_nfs_service`
@@ -79,52 +82,21 @@ This role depends on several other roles that are included conditionally based o
 - `deploy_ca_certs`
 - `deploy_pki_certs`
 - `bootstrap_webmin`
+- `bootstrap_gpu_drivers`
 - `bootstrap_docker`
 - `harden_os_linux`
 
-## Tags
-
-The following tags can be used to selectively run parts of the role:
-
-- `python` - Bootstrap Python environment.
-- `ansible_user` - Bootstrap Ansible user.
-- `linux_users` - Bootstrap Linux users.
-- `packages` - Install Linux packages.
-- `mounts` - Configure Linux mounts.
-- `crons` - Setup Linux crons.
-- `core_features` - Setup core features of the Linux system.
-- `vmware_tools` - Install VMware Tools.
-- `logrotate` - Setup logrotate.
-- `ntp` - Setup NTP.
-- `postfix` - Setup Postfix.
-- `firewalld` - Configure firewalld.
-- `java` - Install Java.
-- `sshd` - Setup SSHD.
-- `ldap_client` - Setup LDAP client.
-- `nfs_service` - Setup NFS service.
-- `samba_client` - Setup Samba client.
-- `stepca` - Setup Step CA.
-- `deploy_ca_certs` - Deploy CA certificates.
-- `deploy_pki_certs` - Deploy PKI certificates.
-- `webmin` - Setup Webmin.
-- `docker` - Setup Docker.
-- `harden_os_linux` - Harden the Linux OS.
+Ensure that these roles are available in your Ansible environment.
 
 ## Best Practices
 
-1. **Use Tags**: Utilize tags to run only specific parts of the role when necessary, reducing execution time and avoiding unnecessary changes.
-2. **Customize Variables**: Adjust variables in your playbook to match your environment's requirements without modifying the role itself.
-3. **Test Changes**: Use Molecule tests (if available) to ensure that changes do not break existing functionality.
+1. **Customize Variables**: Adjust the variables to match your specific requirements before running the role.
+2. **Test Thoroughly**: Use Molecule tests (if available) or other testing frameworks to ensure the role behaves as expected in different environments.
+3. **Security Considerations**: Enable hardening measures (`bootstrap_linux__harden`) and manage certificates properly to secure your systems.
 
 ## Molecule Tests
 
-This role includes Molecule tests to verify its functionality. To run the tests, navigate to the role directory and execute:
-
-```bash
-molecule test
-```
-
-Ensure you have Molecule installed along with any required dependencies for your testing environment.
+This role does not include Molecule tests at this time. It is recommended to create and run Molecule tests to validate the functionality of the role in different environments.
 
 ## Backlinks
 

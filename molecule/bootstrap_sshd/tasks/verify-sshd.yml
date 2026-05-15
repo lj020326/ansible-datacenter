@@ -1,0 +1,80 @@
+---
+- name: Set __relative_role_path for role
+  ansible.builtin.set_fact:
+    __relative_role_path: ../../../roles/bootstrap_sshd
+
+- name: Include role variables.
+  ansible.builtin.include_vars: "{{ __relative_role_path }}/defaults/main.yml"
+
+- name: Normalize distribution name (replace spaces with hyphens)
+  ansible.builtin.set_fact:
+    __normalized_distribution: "{{ ansible_facts['distribution'] | replace(' ', '-') }}"
+
+- name: Set __distribution_lts_offset
+  ansible.builtin.set_fact:
+    __distribution_lts_offset: >-
+      {{
+        ansible_facts['distribution_major_version'] | int % 2
+        if ansible_facts['distribution'] == "Ubuntu"
+        else 0
+      }}
+
+- name: Display __distribution_lts_offset
+  ansible.builtin.debug:
+    var: __distribution_lts_offset
+
+- name: Set __distribution_lts_version
+  ansible.builtin.set_fact:
+    __distribution_lts_version: >-
+      {{
+        ansible_facts['distribution_major_version'] | int -
+        __distribution_lts_offset | int
+        if ansible_facts['distribution'] == "Ubuntu"
+        else ansible_facts['distribution_version']
+      }}
+
+- name: Display __distribution_lts_version
+  ansible.builtin.debug:
+    var: __distribution_lts_version
+
+- name: Include role OS-specific variables.
+  ansible.builtin.include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        # Try normalized name first (e.g. "Arch Linux" → "Arch-Linux")
+        - "{{ __normalized_distribution }}_{{ _distribution_lts_version }}.yml"
+        - "{{ __normalized_distribution }}.yml"
+        # Original patterns as fallback
+        - "{{ ansible_facts['distribution'] }}_{{ _distribution_lts_version }}.yml"
+        - "{{ ansible_facts['os_family'] }}_{{ ansible_facts['distribution_major_version'] }}.yml"
+        - "{{ ansible_facts['distribution'] }}.yml"
+        - "{{ ansible_facts['os_family'] }}.yml"
+        - main.yml
+      paths:
+        - "{{ __relative_role_path }}/vars"
+
+- name: Display __bootstrap_sshd__packages
+  ansible.builtin.debug:
+    var: __bootstrap_sshd__packages
+
+- name: Check sshd package status
+  ansible.builtin.package:
+    name: "{{ __bootstrap_sshd__packages }}"
+    state: present
+  check_mode: true
+  register: pkg_status_sshd
+
+- name: Display pkg_status_sshd
+  ansible.builtin.debug:
+    var: pkg_status_sshd
+
+- name: Check sshd packages are installed
+  ansible.builtin.assert:
+    that:
+      - not pkg_status_sshd.changed
+
+- name: Assert sshd service is installed/running
+  ansible.builtin.assert:
+    that: ansible_facts['services']
+      | intersect([__bootstrap_sshd__service, __bootstrap_sshd__service+'.service']) | d([]) | length > 0

@@ -3,6 +3,7 @@
 # Packages state
 bootstrap_linux_package__state: present
 bootstrap_linux_package__priority_default: 100
+bootstrap_linux_package__skip_repo_management: false
 
 bootstrap_linux_package__exclude_list: []
 
@@ -18,6 +19,23 @@ bootstrap_linux_package__snap_list_default:
 
 bootstrap_linux_package__install_npm_libs: false
 bootstrap_linux_package__npm_list_default: []
+
+__bootstrap_linux_package__package_source_dir_default: "/etc/apt/sources.list.d"
+__bootstrap_linux_package__package_source_dir: "{{ bootstrap_linux_package__package_source_dir
+  | d(__bootstrap_linux_package__package_source_dir_default) }}"
+
+__bootstrap_linux_package__reset_sources_default: false
+__bootstrap_linux_package__reset_sources: "{{ bootstrap_linux_package__reset_sources
+  | d(__bootstrap_linux_package__reset_sources_default) }}"
+
+## Detect DGX OS / Ascent GX10
+__bootstrap_linux_package__is_dgx: >-
+  {{ (ansible_facts.product_name | default('', true) | regex_search('(?i)DGX|Ascent|Grace|Blackwell|gx10')) is not none
+     or ('dgx' in (ansible_facts.os_family | default('', true) | lower))
+     or (ansible_facts.machine == 'aarch64' and 'nvidia' in (ansible_facts.product_version | default('', true) | lower)) }}
+__bootstrap_linux_package__preserve_nvidia_repos_default: true
+__bootstrap_linux_package__preserve_nvidia_repos: "{{ bootstrap_linux_package__preserve_nvidia_repos
+  | d(__bootstrap_linux_package__preserve_nvidia_repos_default) }}"
 
 #__bootstrap_linux_package__npm_list:
 #  # Install a specific version of a package.
@@ -69,13 +87,12 @@ bootstrap_linux_package__apt_ubuntu_mirror_base_url: "http://mirrors.rit.edu"
 #bootstrap_linux_package__apt_ubuntu_security_mirror_base_url: "http://us.archive.ubuntu.com"
 bootstrap_linux_package__apt_ubuntu_security_mirror_base_url: "http://mirrors.rit.edu"
 
-bootstrap_linux_package__apt_repo_path: /etc/apt/sources.list.d
 #bootstrap_linux_package__apt_repo_use_https: false
 bootstrap_linux_package__apt_repo_use_https: true
 
-bootstrap_linux_package__apt_sources_file: /etc/apt/sources.list
-bootstrap_linux_package__apt_backports_file: "{{ bootstrap_linux_package__apt_repo_path }}/backports.list"
-bootstrap_linux_package__apt_experimental_file: "{{ bootstrap_linux_package__apt_repo_path }}/experimental.list"
+__bootstrap_linux_package__apt_sources_file: /etc/apt/sources.list
+bootstrap_linux_package__apt_backports_file: "{{ __bootstrap_linux_package__package_source_dir }}/backports.list"
+bootstrap_linux_package__apt_experimental_file: "{{ __bootstrap_linux_package__package_source_dir }}/experimental.list"
 
 bootstrap_linux_package__apt_debsrc: true
 
@@ -89,7 +106,6 @@ bootstrap_linux_package__apt_contrib_nonfree: true
 
 ## new repo specification method for ubuntu versions >= 24
 bootstrap_linux_package__apt_sources_ubuntu_tpl: apt-sources-ubuntu.list.j2
-bootstrap_linux_package__apt_sources_ubuntu_file: /etc/apt/sources.list.d/ubuntu.sources
 
 ## yum repo vars
 bootstrap_linux_package__setup_yum_repos: true

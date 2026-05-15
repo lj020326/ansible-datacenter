@@ -4,8 +4,10 @@ role: bootstrap_bind
 category: DNS Configuration
 type: Ansible Role
 tags: bind, dns, networking, system
+---
 
 ## Summary
+
 The `bootstrap_bind` role is designed to set up ISC BIND on RHEL/CentOS 6/7, Ubuntu 16.04/18.04 LTS (Xenial/Bionic), Debian Jessie/Stretch, or Arch Linux as an authoritative DNS server for one or more domains, functioning either as a master or slave server.
 
 ## Variables

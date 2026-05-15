@@ -4,8 +4,10 @@ role: bootstrap_hddtemp
 category: System Management
 type: Ansible Role
 tags: hddtemp, system, monitoring
+---
 
 ## Summary
+
 The `bootstrap_hddtemp` role is designed to install and configure the `hddtemp` service on Debian-based Linux distributions. This service provides a way to monitor the temperature of hard disk drives via S.M.A.R.T. data.
 
 ## Variables

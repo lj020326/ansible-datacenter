@@ -4,8 +4,10 @@ role: bootstrap_kubernetes_controller
 category: Kubernetes
 type: Ansible Role
 tags: k8s-controller, system, containers, orchestration, setup
+---
 
 ## Summary
+
 The `bootstrap_kubernetes_controller` role is designed to install and configure the Kubernetes API server, scheduler, and controller manager on a control plane node. It handles the creation of necessary directories, users, groups, and configuration files required for these components to function correctly.
 
 ## Variables

@@ -1,0 +1,26 @@
+---
+- name: Intel | Install base Mesa + VAAPI (all distros)
+  ansible.builtin.package:
+    name:
+      - mesa-vulkan-drivers
+      - intel-media-va-driver
+      - vainfo
+      - intel-gpu-tools
+    state: present
+    update_cache: "{{ ansible_facts.os_family == 'Debian' }}"
+
+- name: Intel | oneAPI Compute (if requested)
+  when: bootstrap_gpu_drivers__intel_install_compute | bool
+  block:
+    - name: Add Intel oneAPI repo (Debian/Ubuntu)
+      when: ansible_facts.os_family == 'Debian'
+      ansible.builtin.apt_repository:
+        repo: deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main
+        filename: intel-oneapi
+        state: present
+
+    - name: Install Intel GPU compute runtime (RHEL)
+      when: ansible_facts.os_family == 'RedHat'
+      ansible.builtin.dnf:
+        name: intel-gpu
+        state: present

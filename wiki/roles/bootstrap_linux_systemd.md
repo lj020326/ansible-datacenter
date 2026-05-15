@@ -4,8 +4,10 @@ role: bootstrap_linux_systemd
 category: System Configuration
 type: Ansible Role
 tags: systemd, journald, timesyncd, resolved, networkd, udev, vconsole, tmpfiles
+---
 
 ## Summary
+
 The `bootstrap_linux_systemd` role is designed to configure various aspects of the systemd system and service manager on Linux systems. It handles configurations for services such as `journald`, `timesyncd`, `resolved`, `networkd`, `udev`, `vconsole`, and `tmpfiles`. This role ensures that these systemd components are properly set up according to user-defined variables, enhancing system management and automation.
 
 ## Variables

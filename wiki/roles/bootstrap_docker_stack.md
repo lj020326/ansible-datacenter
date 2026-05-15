@@ -1,112 +1,91 @@
 ---
-title: Bootstrap Docker Stack Role Documentation
+title: "Docker Stack Bootstrap Role"
 role: bootstrap_docker_stack
-category: Docker Management
+category: Docker
 type: Ansible Role
-tags: docker, ansible, automation, setup, deployment
-
+tags: docker, ansible, automation, devops
 ---
 
 ## Summary
 
-The `bootstrap_docker_stack` role is designed to automate the setup, management, and configuration of a Docker stack. It supports various actions such as setup, start, restart, stop, up, and down. The role handles network configurations, certificate management (both self-signed and CA-based), firewall settings, and service deployment using Docker Compose or Docker Swarm.
+The `bootstrap_docker_stack` role is designed to automate the setup, management, and configuration of a Docker stack. This includes initializing necessary variables, setting up application configurations, managing certificates (both self-signed and CA-based), configuring firewalld rules, and deploying Docker services using Docker Compose or Docker Swarm. The role supports various actions such as `setup`, `start`, `restart`, `stop`, `up`, and `down`.
 
 ## Variables
 
-| Variable Name                             | Default Value                                                                 | Description                                                                                                                                                                                                 |
-|---------------------------------------------|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `docker_stack__environment`               | `DEV`                                                                         | Specifies the environment (e.g., DEV, PROD).                                                                                                                                                              |
-| `docker_stack__host_network`              | `{{ gateway_ipv4_network_cidr }}`                                             | The host network CIDR.                                                                                                                                                                                      |
-| `docker_stack__network_subnet__default`   | `192.168.10.0/24`                                                             | Default subnet for Docker networks.                                                                                                                                                                         |
-| `docker_stack__network_subnet__socket_proxy`| `192.168.11.0/24`                                                             | Subnet for socket proxy network.                                                                                                                                                                            |
-| `docker_stack__network_subnet__traefik_proxy`| `192.168.12.0/24`                                                            | Subnet for Traefik proxy network.                                                                                                                                                                           |
-| `docker_stack__network_subnet__vpn`       | `192.168.13.0/24`                                                             | Subnet for VPN network.                                                                                                                                                                                     |
-| `docker_stack__action`                    | `setup`                                                                       | Action to perform (e.g., setup, start, restart, stop, up, down).                                                                                                                                          |
-| `docker_stack__swarm_mode`                | `false`                                                                       | Enable Docker Swarm mode.                                                                                                                                                                                   |
-| `docker_stack__swarm_manager`             | `false`                                                                       | Designate the node as a swarm manager.                                                                                                                                                                      |
-| `docker_stack__swarm_node_traefik_label`  | `traefik-enabled`                                                             | Label for Traefik-enabled nodes in Swarm mode.                                                                                                                                                              |
-| `docker_stack__debug_mode`                | `true`                                                                        | Enable debug mode for verbose logging.                                                                                                                                                                      |
-| `docker_stack__enable_external_route`     | `false`                                                                       | Enable external routing configuration.                                                                                                                                                                      |
-| `docker_stack__enable_cert_resolver`      | `false`                                                                       | Enable certificate resolver functionality.                                                                                                                                                                    |
-| `docker_stack__cacerts__fetch_method_default` | `vault`                                                                      | Default method for fetching CA certificates (e.g., vault, local).                                                                                                                                         |
-| `docker_stack__cacerts__vault_url_default`| `http://127.0.0.1:8200`                                                       | Default URL for Vault server.                                                                                                                                                                               |
-| `docker_stack__ca_root_cn_default`        | `your-root-ca.example.com`                                                    | Common Name of the Root CA to fetch from Vault.                                                                                                                                                             |
-| `docker_stack__cacerts__vault_kv_mount_point_default` | `secret`                                                                   | Default KV mount point in Vault for certificates.                                                                                                                                                           |
-| `docker_stack__cacerts__vault_kv_path_default`| `{{ __docker_stack__cacerts__vault_kv_mount_point }}/{{ __docker_stack__ca_root_cn }}/certs` | Default path in Vault for certificates.                                                                                                                                                                     |
-| `docker_stack__ca_cert_bundle_default`    | `/etc/pki/tls/certs/ca-bundle.crt`                                            | Path to the CA certificate bundle file.                                                                                                                                                                     |
-| `docker_stack__ca_java_keystore_default`  | `/etc/pki/ca-trust/extracted/java/cacerts`                                    | Path to the Java keystore file for CA certificates.                                                                                                                                                         |
+| Variable Name | Default Value | Description |
+|---------------|---------------|-------------|
+| `docker_stack__environment` | `DEV` | Specifies the environment (e.g., DEV, PROD). |
+| `docker_stack__host_network` | `{{ gateway_ipv4_network_cidr }}` | The host network CIDR. |
+| `docker_stack__network_subnet__default` | `192.168.10.0/24` | Default subnet for Docker networks. |
+| `docker_stack__network_subnet__socket_proxy` | `192.168.11.0/24` | Subnet for socket proxy network. |
+| `docker_stack__network_subnet__traefik_proxy` | `192.168.12.0/24` | Subnet for Traefik proxy network. |
+| `docker_stack__network_subnet__vpn` | `192.168.13.0/24` | Subnet for VPN network. |
+| `docker_stack__action` | `setup` | Action to perform (e.g., setup, start, restart, stop, up, down). |
+| `docker_stack__swarm_mode` | `false` | Enable Docker Swarm mode. |
+| `docker_stack__swarm_manager` | `false` | Designate the host as a swarm manager. |
+| `docker_stack__swarm_node_traefik_label` | `traefik-enabled` | Label for Traefik-enabled nodes. |
+| `docker_stack__debug_mode` | `true` | Enable debug mode for verbose logging. |
+| `docker_stack__enable_external_route` | `false` | Enable external routing. |
+| `docker_stack__enable_cert_resolver` | `false` | Enable certificate resolver. |
+| `docker_stack__cacerts__fetch_method_default` | `vault` | Default method to fetch CA certificates (e.g., vault, local). |
+| `docker_stack__cacerts__fetch_method` | `{{ docker_stack__cacerts__fetch_method \| d(__docker_stack__cacerts__fetch_method_default) }}` | Method to fetch CA certificates. |
+| `docker_stack__cacerts__vault_url_default` | `http://127.0.0.1:8200` | Default URL for Vault server. |
+| `docker_stack__cacerts__vault_url` | `{{ docker_stack__cacerts__vault_url \| d(__docker_stack__cacerts__vault_url_default) }}` | URL for Vault server. |
+| `docker_stack__cacerts__vault_token` | `{{ docker_stack__cacerts__vault_token \| d('') }}` | Token for accessing Vault. |
+| `docker_stack__ca_root_cn_default` | `your-root-ca.example.com` | Default Common Name of the Root CA to fetch. |
+| `docker_stack__ca_root_cn` | `{{ docker_stack__ca_root_cn \| d(__docker_stack__ca_root_cn_default) }}` | Common Name of the Root CA to fetch. |
+| `docker_stack__cacerts__vault_kv_mount_point_default` | `secret` | Default Vault KV mount point for certificates. |
+| `docker_stack__cacerts__vault_kv_mount_point` | `{{ docker_stack__cacerts__vault_kv_mount_point \| d(__docker_stack__cacerts__vault_kv_mount_point_default) }}` | Vault KV mount point for certificates. |
+| `docker_stack__cacerts__vault_kv_path_default` | `{{ __docker_stack__cacerts__vault_kv_mount_point }}/{{ __docker_stack__ca_root_cn }}/certs` | Default Vault KV path for certificates. |
+| `docker_stack__cacerts__vault_kv_path` | `{{ docker_stack__cacerts__vault_kv_path \| d(__docker_stack__cacerts__vault_kv_path_default) }}` | Vault KV path for certificates. |
+| `docker_stack__ca_cert_bundle_default` | `/etc/pki/tls/certs/ca-bundle.crt` | Default CA certificate bundle file path. |
+| `docker_stack__ca_cert_bundle` | `{{ docker_stack__ca_cert_bundle \| d(__docker_stack__ca_cert_bundle_default) }}` | CA certificate bundle file path. |
+| `docker_stack__ca_java_keystore_default` | `/etc/pki/ca-trust/extracted/java/cacerts` | Default Java keystore file path for CA certificates. |
+| `docker_stack__ca_java_keystore` | `{{ docker_stack__ca_java_keystore \| d(__docker_stack__ca_java_keystore_default) }}` | Java keystore file path for CA certificates. |
 
 ## Usage
 
-To use this role, include it in your playbook and specify the desired action:
+To use the `bootstrap_docker_stack` role, include it in your playbook and define the necessary variables as per your requirements. Here is an example of how to include this role in a playbook:
 
 ```yaml
 - name: Bootstrap Docker Stack
   hosts: all
   roles:
     - role: bootstrap_docker_stack
-      docker_stack__action: setup
-```
-
-### Example Playbook
-
-```yaml
----
-- name: Setup Docker Stack with Traefik Proxy
-  hosts: webservers
-  become: yes
-  vars:
-    docker_stack__environment: PROD
-    docker_stack__swarm_mode: true
-    docker_stack__swarm_manager: true
-    docker_stack__enable_external_route: true
-    docker_stack__enable_cert_resolver: true
-
-  roles:
-    - role: bootstrap_docker_stack
-      docker_stack__action: setup
+      vars:
+        docker_stack__environment: PROD
+        docker_stack__action: setup
+        docker_stack__swarm_mode: true
+        docker_stack__swarm_manager: true
 ```
 
 ## Dependencies
 
-- `community.docker`
-- `dettonville.utils`
-- `community.crypto`
-- `bootstrap_linux_firewalld` (for firewall configuration)
-- `bootstrap_systemd_service` (for systemd service management)
+- `community.docker` Ansible collection for Docker management.
+- `dettonville.utils` Ansible collection for utility modules.
+- `bootstrap_linux_firewalld` role for configuring firewalld rules.
+- `bootstrap_systemd_service` role for setting up systemd services.
 
-Ensure these roles and collections are installed in your Ansible environment.
+Ensure these dependencies are installed before running the playbook:
 
-## Tags
-
-The role uses the following tags to allow selective execution of tasks:
-
-- `setup`: Tasks related to initial setup.
-- `start`: Tasks to start Docker services.
-- `restart`: Tasks to restart Docker services.
-- `stop`: Tasks to stop Docker services.
-- `up`: Tasks to bring up Docker stack.
-- `down`: Tasks to shut down Docker stack.
-- `firewalld`: Tasks for firewall configuration.
-- `certs`: Tasks related to certificate management.
-- `services`: Tasks for service configuration and deployment.
+```bash
+ansible-galaxy collection install community.docker dettonville.utils
+ansible-galaxy role install bootstrap_linux_firewalld bootstrap_systemd_service
+```
 
 ## Best Practices
 
-- Always specify the desired action using the `docker_stack__action` variable.
-- Use environment-specific variables to customize configurations (e.g., `docker_stack__environment`).
-- Ensure proper permissions are set for sensitive files, especially when handling certificates.
-- Regularly update the role and its dependencies to benefit from bug fixes and new features.
+1. **Environment Variables**: Use environment variables to manage sensitive information such as passwords and tokens.
+2. **Role Configuration**: Configure the role using variables in your playbook or inventory files to maintain flexibility.
+3. **Testing**: Test the role thoroughly in a development environment before deploying it to production.
 
 ## Molecule Tests
 
-This role includes Molecule tests to verify its functionality. To run the tests:
+This role includes Molecule tests to verify its functionality. To run the tests, ensure you have Molecule installed and execute:
 
 ```bash
 molecule test
 ```
-
-Ensure you have Molecule installed along with the necessary drivers (e.g., Docker).
 
 ## Backlinks
 

@@ -4,8 +4,10 @@ role: bootstrap_ipa_client
 category: Identity Management
 type: Ansible Role
 tags: identity, ipa, freeipa
+---
 
 ## Summary
+
 The `bootstrap_ipa_client` role is designed to join a machine to an IPA (Identity, Policy, Audit) domain. It handles the installation and configuration of the IPA client packages, sets up DNS resolver configurations if required, and ensures that the system can authenticate against the IPA server.
 
 ## Variables

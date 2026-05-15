@@ -4,8 +4,10 @@ role: bootstrap_dell_opscenter
 category: Ansible Roles
 type: Installation and Service Management
 tags: dell, opscenter, installation, service
+---
 
 ## Summary
+
 The `bootstrap_dell_opscenter` role is designed to install the Dell OpsCenter packages and start the associated service on target hosts. This role ensures that the necessary software is installed and running, enabling monitoring and management capabilities provided by Dell OpsCenter.
 
 ## Variables

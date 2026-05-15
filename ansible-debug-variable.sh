@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ANSIBLE_DATACENTER_REPO="$(cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel)"
+#ANSIBLE_DATACENTER_REPO="$(cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel)"
+ANSIBLE_DATACENTER_REPO="${SCRIPT_DIR}"
+ANSIBLE_INVENTORY_DIR="inventory/PROD"
 
 ansible_debug_variable() {
   local ANSIBLE_INVENTORY_HOST=${1:-"control01"};

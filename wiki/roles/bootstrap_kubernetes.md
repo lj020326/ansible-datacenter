@@ -4,6 +4,7 @@ role: bootstrap_kubernetes
 category: System Setup
 type: Kubernetes Bootstrap
 tags: kubernetes, kubeadm, setup, control-plane, node
+---
 
 ## Summary
 

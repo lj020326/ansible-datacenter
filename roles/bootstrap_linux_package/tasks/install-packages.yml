@@ -1,4 +1,31 @@
 ---
+- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Remove all existing repo sources if reset"
+  when: __bootstrap_linux_package__reset_sources | bool
+  block:
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Backup all repo sources"
+      community.general.archive:
+        path: "{{ __bootstrap_linux_package__package_source_dir }}"
+        dest: "{{ __bootstrap_linux_package__package_source_dir | dirname }}/sources.backup_{{ __timestamp }}.tar.gz"
+        format: gz
+        remove: true
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Remove all repo sources"
+      ansible.builtin.file:
+        state: absent
+        path: "{{ __bootstrap_linux_package__package_source_dir }}"
+
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install DGX repo source files"
+      when: __bootstrap_linux_package__is_dgx | d(False) | bool
+      ansible.builtin.template:
+        src: "{{ item }}"
+        dest: "{{ __bootstrap_linux_package__package_source_dir }}/{{ item | regex_replace('\\.j2$', '') }}"
+        mode: "0644"
+        backup: true
+      loop: "{{ lookup('fileglob', 'templates/dgx/*.j2', wantlist=True) | map('basename') | list }}"
+
 #######################
 ## the CentOS 8 image/template should already be switched to stream
 ## ref: https://www.techrepublic.com/article/how-to-convert-centos-8-to-centos-8-stream/
@@ -37,11 +64,21 @@
     - ansible_facts['distribution'] == 'Debian'
   ansible.builtin.include_tasks: update-repo-apt.yml
 
+- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Display __bootstrap_linux_package__is_dgx"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__is_dgx
+
+- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Skip repo reconfiguration on DGX systems"
+  when: __bootstrap_linux_package__is_dgx | default(false) | bool
+  ansible.builtin.debug:
+    msg: "DGX OS detected - preserving NVIDIA/DGX repositories"
+
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Update apt package repos for ubuntu versions >= 24"
   when:
     - ansible_facts['pkg_mgr'] == 'apt'
     - ansible_facts['distribution'] == 'Ubuntu'
     - ansible_facts['distribution_major_version'] | int >= 24
+    - not (__bootstrap_linux_package__is_dgx | default(false) | bool)
   ansible.builtin.include_tasks: update-repo-apt-ubuntu.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install present packages"
@@ -62,7 +99,7 @@
   # Retry logic for transient lock issues
   until: __apt_present_result is succeeded
   retries: 5
-  delay: 10
+  delay: 20
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install latest packages" # noqa: package-latest
   when:

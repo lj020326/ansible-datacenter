@@ -4,62 +4,51 @@ role: bootstrap_plexupdate
 category: Automation
 type: Ansible Role
 tags: plex, update, automation, cron
-
 ---
 
 ## Summary
 
-The `bootstrap_plexupdate` role is designed to automate the installation and configuration of PlexUpdate on a target system. This role installs necessary prerequisites, clones the PlexUpdate repository from GitHub, sets up configuration files, configures daily updates via cron, and ensures that the Plex user is added to the media group.
+The `bootstrap_plexupdate` role is designed to automate the installation and configuration of PlexUpdate on a target system. It installs necessary prerequisites, clones the PlexUpdate repository from GitHub, sets up configuration files, configures daily updates via cron, and ensures that the Plex user is added to the media group.
 
 ## Variables
 
-The following variables are used within this role:
-
-| Variable Name               | Default Value                                      | Description                                                                 |
-|-----------------------------|----------------------------------------------------|-----------------------------------------------------------------------------|
-| `plexupdate_download_dir`   | `/tmp`                                             | Directory where temporary files for PlexUpdate will be downloaded.          |
-| `plexupdate_repo`           | `https://github.com/lj020326/plexupdate.git`     | URL of the PlexUpdate GitHub repository to clone.                             |
-| `plexupdate_dir`            | `/opt/plexupdate`                                  | Directory where PlexUpdate will be installed.                               |
-| `plexupdate_version`        | `main`                                             | Branch or tag of the PlexUpdate repository to checkout.                     |
+| Variable Name               | Default Value                             | Description                                                                 |
+|-----------------------------|-------------------------------------------|-----------------------------------------------------------------------------|
+| `plexupdate_download_dir`   | `/tmp`                                    | The directory where PlexUpdate will be temporarily downloaded.              |
+| `plexupdate_repo`           | `https://github.com/lj020326/plexupdate.git` | The GitHub repository URL for PlexUpdate.                                   |
+| `plexupdate_dir`            | `/opt/plexupdate`                         | The directory where PlexUpdate will be installed.                           |
+| `plexupdate_version`        | `main`                                    | The branch or tag of the PlexUpdate repository to clone.                    |
 
 ## Usage
 
-To use this role, include it in your playbook as follows:
+To use this role, include it in your Ansible playbook and optionally override any default variables as needed.
 
+### Example Playbook
 ```yaml
 - hosts: all
   roles:
-    - bootstrap_plexupdate
-```
-
-You can override any default variables by specifying them in your playbook or inventory file. For example:
-
-```yaml
-- hosts: all
-  vars:
-    plexupdate_dir: /usr/local/plexupdate
-  roles:
-    - bootstrap_plexupdate
+    - role: bootstrap_plexupdate
+      vars:
+        plexupdate_dir: /usr/local/plexupdate
 ```
 
 ## Dependencies
 
-This role has the following dependencies:
+This role depends on the following packages being available in your package manager:
 
-- `git` package must be available for installation on the target system.
+- `git` (for cloning the PlexUpdate repository)
 
-## Tags
-
-No specific tags are defined within this role. However, you can use the default Ansible tags to control task execution (e.g., `--tags install`, `--skip-tags configure`).
+No other roles are required for this role to function.
 
 ## Best Practices
 
-- Ensure that the Plex user exists before running this role or include a role that creates it.
-- Verify that the media group is present and correctly configured on your system.
+1. **Backup Configuration Files**: Before running this role, ensure you have backups of any existing configuration files that might be overwritten.
+2. **Review Cron Jobs**: Verify that the cron job created by this role aligns with your update schedule requirements.
+3. **User Permissions**: Ensure that the `plex` user and `media` group exist on your system before running this role.
 
 ## Molecule Tests
 
-This role does not currently include Molecule tests. Consider adding them for future testing and validation purposes.
+This role does not currently include any Molecule tests. Consider adding tests to ensure the role behaves as expected in different environments.
 
 ## Backlinks
 

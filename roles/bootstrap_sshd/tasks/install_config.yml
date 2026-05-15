@@ -1,49 +1,66 @@
 ---
 - name: Create a directory for drop-in configuration snippets
-  ansible.builtin.file:
-    path: "{{ sshd_config_file | dirname }}"
-    state: directory
-    mode: "{{ sshd_drop_in_dir_mode }}"
   when:
-    - sshd_main_config_file is not none
-    - sshd_config_file | dirname == sshd_main_config_file ~ '.d'
+    - bootstrap_sshd__main_config_file is not none
+    - bootstrap_sshd__config_file | dirname == bootstrap_sshd__main_config_file ~ '.d'
+  ansible.builtin.file:
+    path: "{{ bootstrap_sshd__config_file | dirname }}"
+    state: directory
+    mode: "{{ bootstrap_sshd__drop_in_dir_mode }}"
+
+- name: Display bootstrap_sshd__config_file
+  ansible.builtin.debug:
+    var: bootstrap_sshd__config_file
+
+- name: Display bootstrap_sshd__test_hostkey
+  ansible.builtin.debug:
+    var: bootstrap_sshd__test_hostkey | d('')
+
+- name: Display __bootstrap_sshd__defaults
+  ansible.builtin.debug:
+    var: __bootstrap_sshd__defaults
+
+- name: Display final sshd config before validation
+  when: ansible_verbosity > 0
+  ansible.builtin.debug:
+    msg: "{{ lookup('template', 'sshd_config.j2') }}"
 
 - name: Create the complete configuration file
   ansible.builtin.template:
     src: sshd_config.j2
-    dest: "{{ sshd_config_file }}"
-    owner: "{{ sshd_config_owner }}"
-    group: "{{ sshd_config_group }}"
-    mode: "{{ sshd_config_mode }}"
+    dest: "{{ bootstrap_sshd__config_file }}"
+    owner: "{{ bootstrap_sshd__config_owner }}"
+    group: "{{ bootstrap_sshd__config_group }}"
+    mode: "{{ bootstrap_sshd__config_mode }}"
     validate: >-
-      {% if not __sshd_supports_validate %}
+      {% if not __bootstrap_sshd__supports_validate %}
         true %s
-      {% elif sshd_test_hostkey is defined and sshd_test_hostkey.path is defined %}
-        {{ sshd_binary }} -t -f %s -h {{ sshd_test_hostkey.path }}/rsa_key
+      {% elif bootstrap_sshd__test_hostkey is defined and bootstrap_sshd__test_hostkey.path is defined %}
+        {{ bootstrap_sshd__binary }} -t -f %s -h {{ bootstrap_sshd__test_hostkey.path }}/rsa_key
       {% else %}
-        {{ sshd_binary }} -t -f %s
+        {{ bootstrap_sshd__binary }} -t -f %s
       {% endif %}
-    backup: "{{ sshd_backup }}"
+    backup: "{{ bootstrap_sshd__backup }}"
   notify: Reload_sshd
 
 - name: Make sure the include path is present in the main sshd_config
+  when:
+    - bootstrap_sshd__main_config_file is not none
+    - bootstrap_sshd__config_file | dirname == bootstrap_sshd__main_config_file ~ '.d'
   ansible.builtin.lineinfile:
     insertbefore: BOF
-    line: Include {{ sshd_config_file | dirname }}/*.conf
-    path: "{{ sshd_main_config_file }}"
-    owner: "{{ sshd_config_owner }}"
-    group: "{{ sshd_config_group }}"
-    mode: "{{ sshd_config_mode }}"
+    line: Include {{ bootstrap_sshd__config_file | dirname }}/*.conf
+    path: "{{ bootstrap_sshd__main_config_file }}"
+    owner: "{{ bootstrap_sshd__config_owner }}"
+    group: "{{ bootstrap_sshd__config_group }}"
+    mode: "{{ bootstrap_sshd__config_mode }}"
     validate: >-
-      {% if not __sshd_supports_validate %}
+      {% if not __bootstrap_sshd__supports_validate %}
         true %s
-      {% elif sshd_test_hostkey is defined and sshd_test_hostkey.path is defined %}
-        {{ sshd_binary }} -t -f %s -h {{ sshd_test_hostkey.path }}/rsa_key
+      {% elif bootstrap_sshd__test_hostkey is defined and bootstrap_sshd__test_hostkey.path is defined %}
+        {{ bootstrap_sshd__binary }} -t -f %s -h {{ bootstrap_sshd__test_hostkey.path }}/rsa_key
       {% else %}
-        {{ sshd_binary }} -t -f %s
+        {{ bootstrap_sshd__binary }} -t -f %s
       {% endif %}
-    backup: "{{ sshd_backup }}"
+    backup: "{{ bootstrap_sshd__backup }}"
   notify: Reload_sshd
-  when:
-    - sshd_main_config_file is not none
-    - sshd_config_file | dirname == sshd_main_config_file ~ '.d'

@@ -4,8 +4,10 @@ role: bootstrap_awstats
 category: Monitoring
 type: Ansible Role
 tags: awstats, apache, monitoring, setup, removal
+---
 
 ## Summary
+
 The `bootstrap_awstats` role is designed to automate the installation and configuration of AWStats for web server log analysis. It handles both the setup and removal of AWStats along with its Apache virtual host configurations. The role supports enabling or disabling AWStats based on user-defined variables.
 
 ## Variables

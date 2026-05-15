@@ -35,26 +35,26 @@ Record these variables into each host's vars.yml:
 
 ```yaml
 # Your organisations name
-bootstrap_awx_org_name: Example
+bootstrap_awx__org_name: Example
 # URL of the AWX instance.
-bootstrap_awx_awx_url: awx.example.org
+bootstrap_awx__awx_url: awx.example.org
 # AWX database password.
-bootstrap_awx_pg_password: strong-password
+bootstrap_awx__pg_password: strong-password
 # AWX admin user password.
-bootstrap_awx_admin_password: strong-password
+bootstrap_awx__admin_password: strong-password
 # AWX secrets password.
-bootstrap_awx_secret_key: strong-password
+bootstrap_awx__secret_key: strong-password
 # Time periods for schedules, eg: 
 # 'MINUTELY', 'HOURLY', 'DAILY', 'WEEKLY','MONTHLY'
-bootstrap_awx_update_schedule_frequency: 'WEEKLY'
+bootstrap_awx__update_schedule_frequency: 'WEEKLY'
 # Number of hours/days/weeks to schedule updates too:
-bootstrap_awx_update_schedule_interval: 4
+bootstrap_awx__update_schedule_interval: 4
 # Project repository URL.
-bootstrap_awx_deploy_source: https://github.com/PC-Admin/project-repository.git
+bootstrap_awx__deploy_source: https://github.com/PC-Admin/project-repository.git
 # Branch of the project repository.
-bootstrap_awx_deploy_branch: testing
+bootstrap_awx__deploy_branch: testing
 # The organisations email for LetsEncrypt.
-bootstrap_awx_certbot_email: michael@perthchat.org
+bootstrap_awx__certbot_email: michael@perthchat.org
 ```
 
 

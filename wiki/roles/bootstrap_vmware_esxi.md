@@ -1,81 +1,55 @@
 ---
-title: "Bootstrap Vmware Esxi Role"
-role: roles/bootstrap_vmware_esxi
-category: Roles
-type: ansible-role
-tags: [ansible, role, bootstrap_vmware_esxi]
+title: "Bootstrap VMware ESXi Role"
+role: bootstrap_vmware_esxi
+category: Ansible Roles
+type: Technical Documentation
+tags: ansible, vmware, esxi, automation
 ---
 
-# Role: `bootstrap_vmware_esxi`
+## Summary
 
-## Overview
+The `bootstrap_vmware_esxi` role is designed to automate the initial setup of VMware ESXi hosts. It primarily focuses on testing SSH connectivity for the root user and adding an SSH public key to the ESXi servers for passwordless authentication.
 
-The `bootstrap_vmware_esxi` role is designed to automate the initial setup of VMware ESXi hosts by ensuring SSH connectivity and adding an SSH public key for secure access. This role is particularly useful in environments where manual configuration can be time-consuming and error-prone.
+## Variables
 
-## Role Path
-```
-roles/bootstrap_vmware_esxi
-```
+| Variable Name                         | Default Value        | Description                                                                 |
+|---------------------------------------|----------------------|-----------------------------------------------------------------------------|
+| `bootstrap_vmware_esxi__esxi_password` | `foobar`             | The default password used for authenticating to the ESXi host. **Deprecated** and will be replaced with a more secure method. |
 
-## Default Variables
+## Usage
 
-The following variables are defined in `defaults/main.yml`:
-
-- **bootstrap_vmware_esxi__esxi_password**: The password for the ESXi root user. This variable is intended for internal use only and should be overridden with a secure value in your inventory or group_vars.
-
-  ```yaml
-  bootstrap_vmware_esxi__esxi_password: foobar
-  ```
-
-## Tasks
-
-The tasks defined in `tasks/main.yml` are executed to ensure the ESXi host is properly configured:
-
-1. **Run locally**
-   - Delegates the task execution to the local machine where Ansible is running.
-   - Ensures that the correct Python interpreter is used for executing commands.
-
-2. **Test ESXi connectivity for root**
-   - Attempts to SSH into the ESXi host using the specified user and domain.
-   - Uses `sshpass` with the provided password to authenticate if necessary.
-   - Ignores errors during this step to allow subsequent tasks to handle any issues.
-
-3. **Display login_enabled**
-   - Outputs the result of the previous SSH connectivity test for debugging purposes.
-
-4. **Add ssh auth key to ESXi servers**
-   - Executes only if the initial SSH connection was successful (`not login_enabled.failed`).
-   - Appends the specified public SSH key to the authorized keys file on the ESXi host, allowing passwordless SSH access.
-   - Uses `sshpass` with the provided password for authentication.
-
-## Important Notes
-
-- **Double-underscore variables**: Variables prefixed with double underscores (e.g., `bootstrap_vmware_esxi__esxi_password`) are intended for internal use within this role. They should not be modified directly in playbooks or inventory files unless absolutely necessary.
-  
-- **Security Considerations**:
-  - Ensure that the `bootstrap_vmware_esxi__esxi_password` variable is overridden with a secure password in your inventory or group_vars to avoid exposing sensitive information.
-  - It is recommended to use SSH key-based authentication instead of passwords for better security.
-
-## Example Playbook
-
-Here is an example playbook that demonstrates how to use the `bootstrap_vmware_esxi` role:
+To use this role, include it in your playbook and ensure that the necessary variables are set. Below is an example of how to include this role in a playbook:
 
 ```yaml
----
-- name: Bootstrap VMware ESXi hosts
+- name: Bootstrap VMware ESXi Hosts
   hosts: esxi_hosts
-  become: yes
-  vars:
-    ansible_user: root
-    ca_domain: example.com
-    admin_ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
-    bootstrap_vmware_esxi__esxi_password: "{{ vault_esxi_password }}"
+  gather_facts: false
   roles:
     - role: bootstrap_vmware_esxi
+      vars:
+        admin_ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
 ```
 
-In this example, the `bootstrap_vmware_esxi` role is applied to all hosts in the `esxi_hosts` group. The `ansible_user`, `ca_domain`, and `admin_ssh_public_key` variables are specified directly in the playbook, while the ESXi password is retrieved from an Ansible Vault variable (`vault_esxi_password`) for security.
+Ensure that the `admin_ssh_public_key` variable is set to your public SSH key.
 
-## Conclusion
+## Dependencies
 
-The `bootstrap_vmware_esxi` role simplifies the initial setup of VMware ESXi hosts by automating SSH connectivity testing and authorized key management. By following the guidelines provided in this documentation, you can ensure a secure and efficient deployment process for your ESXi environments.
+This role does not have any external dependencies. However, it requires:
+
+- The `sshpass` utility to be installed on the control machine.
+- Properly configured SSH access to the ESXi hosts with the specified user and domain.
+
+## Best Practices
+
+1. **Security**: Avoid using plain text passwords in your playbooks. Consider using Ansible Vault or environment variables for sensitive information.
+2. **SSH Key Management**: Ensure that the `admin_ssh_public_key` is securely managed and distributed.
+3. **Inventory Configuration**: Properly configure your inventory file with the correct hostnames, user details, and domain.
+
+## Molecule Tests
+
+This role does not currently include Molecule tests. Consider adding Molecule scenarios to ensure the role functions as expected in different environments.
+
+## Backlinks
+
+- [defaults/main.yml](../../roles/bootstrap_vmware_esxi/defaults/main.yml)
+- [tasks/main.yml](../../roles/bootstrap_vmware_esxi/tasks/main.yml)

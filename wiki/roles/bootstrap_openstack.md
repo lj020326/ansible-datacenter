@@ -4,6 +4,7 @@ role: bootstrap_openstack
 category: Infrastructure
 type: Ansible Role
 tags: openstack, kolla, ansible, virtualenv
+---
 
 ## Summary
 

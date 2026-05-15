@@ -1,100 +1,61 @@
 ---
-title: "Bootstrap Sanoid Role"
-role: roles/bootstrap_sanoid
-category: Roles
-type: ansible-role
-tags: [ansible, role, bootstrap_sanoid]
+title: Bootstrap Sanoid Role Documentation
+role: bootstrap_sanoid
+category: Ansible Roles
+type: Configuration Management
+tags: sanoid, replication, cron, ansible
 ---
 
-# Role Documentation: `bootstrap_sanoid`
+## Summary
+The `bootstrap_sanoid` role is designed to automate the installation and configuration of Sanoid, a tool for managing ZFS snapshots and replications. This role supports both installing Sanoid via APT package manager or building it from source using a provided Git repository.
 
-## Overview
+## Variables
 
-The `bootstrap_sanoid` role is designed to automate the installation and configuration of [Sanoid](https://github.com/jimsalterjrs/sanoid) and its replication tool, Syncoid, on a Debian-based system. This role provides flexibility in installing Sanoid either via pre-built packages or by building it from source.
+| Variable Name                      | Default Value                          | Description                                                                 |
+|------------------------------------|----------------------------------------|-----------------------------------------------------------------------------|
+| `role_bootstrap_sanoid__build_from_source` | `false`                              | Determines whether to build Sanoid from source. If set to `true`, the role will clone a Git repository and build the package. |
+| `role_bootstrap_sanoid__apt_package_name`  | `sanoid`                             | The name of the APT package for Sanoid if building from source is disabled.   |
+| `syncoid_binary_path`              | `/usr/sbin/syncoid`                    | Path to the Syncoid binary, used in cron jobs for replication tasks.        |
 
-## Role Variables
+## Usage
 
-### Default Variables
+To use this role, include it in your playbook and optionally override any of the default variables as needed.
 
-The following variables are defined in `defaults/main.yml`:
-
-- **sanoid_build_from_source**: (Boolean) Determines whether to build Sanoid from source (`true`) or install it using a package manager (`false`).  
-  *Default: false*
-
-- **sanoid_apt_package_name**: (String) The name of the Sanoid package as recognized by the APT package manager.  
-  *Default: sanoid*
-
-- **syncoid_binary_path**: (String) The path where the Syncoid binary is installed.  
-  *Default: /usr/sbin/syncoid*
-
-### Customizable Variables
-
-- **sanoid_config_source**: (String) Specifies the source file for the Sanoid configuration that will be copied to `/etc/sanoid/sanoid.conf`. This variable should point to a file within your Ansible project's `files` or `templates` directory.  
-  *Example: sanoid.conf.j2*
-
-- **syncoid_cron_jobs**: (List of Dictionaries) A list of cron jobs for Syncoid replication tasks. Each dictionary can specify the following keys:
-  - **name**: (String) The name of the cron job.
-  - **job**: (String) The command to be executed by the cron job.
-  - **weekday**: (String, Optional) The day of the week on which the job should run.  
-    *Default: `*` (every day)*
-  - **minute**: (String, Optional) The minute at which the job should run.  
-    *Default: `00`*
-  - **hour**: (String, Optional) The hour at which the job should run.  
-    *Default: `00`*
-  - **dom**: (String, Optional) The day of the month on which the job should run.  
-    *Default: `*` (every day)*
-
-## Role Tasks
-
-The role is structured into several tasks to handle different aspects of Sanoid and Syncoid setup:
-
-### Main Tasks (`tasks/main.yml`)
-
-- **Run sanoid setup**: Includes the `sanoid.yml` task file, which handles the installation and configuration of Sanoid.
-- **Run replication setup**: Includes the `replication.yml` task file, which sets up cron jobs for Syncoid replication.
-
-### Sanoid Setup (`tasks/sanoid.yml`)
-
-1. **Check whether sanoid is installed**: Verifies if Sanoid is already installed using the APT package manager.
-2. **Install sanoid?**: Sets a fact `install_sanoid` based on the value of `sanoid_build_from_source` and the result of the installation check.
-3. **Build sanoid | clone git repo**: Clones the Sanoid builder repository from GitHub if building from source is enabled.
-4. **Build sanoid | make build script executable**: Makes the build script executable.
-5. **Build sanoid | build .deb package**: Executes the build script to create a Debian package.
-6. **Install dependencies for sanoid**: Installs necessary dependencies required by Sanoid.
-7. **Build sanoid | install built .deb**: Installs the built Debian package of Sanoid.
-8. **Ensure sanoid is installed**: Ensures that Sanoid is installed via APT if not already done.
-9. **Create target dir for sanoid config**: Creates the directory `/etc/sanoid` to store configuration files.
-10. **Configure sanoid**: Copies the specified Sanoid configuration file to `/etc/sanoid/sanoid.conf`.
-
-### Replication Setup (`tasks/replication.yml`)
-
-- **Setup cron job for replication**: Configures cron jobs based on the `syncoid_cron_jobs` variable, allowing scheduled Syncoid replication tasks.
-
-## Example Playbook
-
-Below is an example playbook that demonstrates how to use the `bootstrap_sanoid` role:
-
+### Example Playbook
 ```yaml
----
-- name: Setup Sanoid and Syncoid
-  hosts: all
-  become: yes
-  vars:
-    sanoid_build_from_source: true
-    sanoid_config_source: sanoid.conf.j2
-    syncoid_cron_jobs:
-      - name: "Daily Sync"
-        job: "/usr/sbin/syncoid zpool1/dataset1 zpool2/dataset1"
-        weekday: "*"
-        minute: "0"
-        hour: "3"
+- hosts: all
   roles:
     - role: bootstrap_sanoid
+      vars:
+        role_bootstrap_sanoid__build_from_source: true
 ```
 
-## Notes
+## Dependencies
 
-- **Double-underscore variables**: These are internal to the role and should not be modified.
-- **No related roles**: This role does not depend on any other roles for its functionality.
+This role depends on the following packages:
 
-This documentation provides a comprehensive guide to using the `bootstrap_sanoid` role, ensuring that Sanoid and Syncoid are installed and configured correctly according to your requirements.
+- `libcapture-tiny-perl` (required for Sanoid)
+- Git (if building from source)
+
+Ensure these dependencies are available in your target environment.
+
+## Best Practices
+
+1. **Configuration Management**: Always manage configuration files through Ansible to ensure consistency across environments.
+2. **Source Control**: If building from source, consider pinning the Git repository to a specific tag or branch for stability.
+3. **Cron Jobs**: Customize `syncoid_cron_jobs` in your inventory to suit your replication needs.
+
+## Molecule Tests
+
+This role does not currently include Molecule tests. Consider adding test scenarios to ensure the role behaves as expected across different environments.
+
+## Backlinks
+
+- [defaults/main.yml](../../roles/bootstrap_sanoid/defaults/main.yml)
+- [tasks/main.yml](../../roles/bootstrap_sanoid/tasks/main.yml)
+- [tasks/replication.yml](../../roles/bootstrap_sanoid/tasks/replication.yml)
+- [tasks/sanoid.yml](../../roles/bootstrap_sanoid/tasks/sanoid.yml)
+
+---
+
+This documentation provides a comprehensive overview of the `bootstrap_sanoid` role, including its purpose, configuration options, and usage guidelines. For further customization or troubleshooting, refer to the linked source files.

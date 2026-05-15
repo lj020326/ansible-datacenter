@@ -1,47 +1,86 @@
 ---
-- name: Ensure pciutils is installed
-  ansible.builtin.apt:
-    name: pciutils
+- name: Ensure basic tools
+  ansible.builtin.package:
+    name:
+      - pciutils
+      - "{{ 'mesa-utils' if ansible_facts.os_family == 'Debian' else 'mesa-demos' | default(omit) }}"
+      - "{{ 'dkms' if ansible_facts.os_family == 'RedHat' else omit }}"
     state: present
+    update_cache: "{{ ansible_facts.os_family == 'Debian' }}"
 
-- name: Detect GPU Vendors
+- name: Detect GPUs via lspci
   ansible.builtin.command: lspci -nn
   register: __lspci_output
   changed_when: false
 
-- name: Set __present_gpu_vendors
+- name: Display __lspci_output
+  ansible.builtin.debug:
+    var: __lspci_output
+
+- name: Auto-detect GPU vendors
   ansible.builtin.set_fact:
-    __present_gpu_vendors: "{{ (['nvidia'] if '10de:' in __lspci_output.stdout else [])
-      + (['amd'] if '1002:' in __lspci_output.stdout else []) }}"
+    __detected_nvidia: "{{ '10de:' in __lspci_output.stdout }}"
+    __detected_amd: "{{ '1002:' in __lspci_output.stdout }}"
+    __detected_intel: "{{ '8086:' in __lspci_output.stdout }}"
 
-- name: Display __present_gpu_vendors
+- name: Merge detection with overrides
+  ansible.builtin.set_fact:
+    __bootstrap_gpu_drivers__enable_nvidia: "{{ bootstrap_gpu_drivers__enable_nvidia | default(__detected_nvidia) }}"
+    __bootstrap_gpu_drivers__enable_amd: "{{ bootstrap_gpu_drivers__enable_amd | default(__detected_amd) }}"
+    __bootstrap_gpu_drivers__enable_intel: "{{ bootstrap_gpu_drivers__enable_intel | default(__detected_intel) }}"
+
+- name: Show detected GPUs
   ansible.builtin.debug:
-    var: __present_gpu_vendors
+    msg: |
+      GPU Detection:
+      • NVIDIA: {{ __bootstrap_gpu_drivers__enable_nvidia }}
+      • AMD:    {{ __bootstrap_gpu_drivers__enable_amd }}
+      • Intel:  {{ __bootstrap_gpu_drivers__enable_intel }}
 
-- name: Assert that at least one GPU was found
+- name: Fail if no GPUs detected and no manual enable
   ansible.builtin.assert:
-    that: __present_gpu_vendors | length > 0
-    fail_msg: "No supported Nvidia or AMD GPUs detected."
+    that: (__bootstrap_gpu_drivers__enable_nvidia or __bootstrap_gpu_drivers__enable_amd or __bootstrap_gpu_drivers__enable_intel)
+    fail_msg: "No supported GPUs detected and none were manually enabled."
 
-- name: Include Driver Installations
-  ansible.builtin.include_tasks: "install-{{ item }}.yml"
-  loop: "{{ __present_gpu_vendors }}"
+# === Install per vendor ===
+- name: Install NVIDIA drivers
+  when: __bootstrap_gpu_drivers__enable_nvidia | bool
+  block:
+    - name: "GPU Drivers | NVIDIA | Skip driver install on DGX OS (pre-installed)"
+      when:
+        - __bootstrap_gpu_drivers__is_dgx | bool
+        - bootstrap_gpu_drivers__skip_driver_install_on_dgx | bool
+      ansible.builtin.debug:
+        msg: "🚀 DGX OS detected with GB10 - skipping NVIDIA driver installation (already provided by DGX)"
 
-- name: Install NVIDIA Container Toolkit + CDI (if enabled)
-  when:
-    - "'nvidia' in __present_gpu_vendors"
-    - bootstrap_gpu_drivers__nvidia_install_container_toolkit | bool
-  ansible.builtin.include_tasks: nvidia/install-container-toolkit.yml
+    - name: "GPU Drivers | NVIDIA | Install drivers (standard x86 Ubuntu)"
+      when:
+        - not (__bootstrap_gpu_drivers__is_dgx | bool)
+        - not (bootstrap_gpu_drivers__skip_driver_install_on_dgx | bool)
+      ansible.builtin.include_tasks: install-nvidia.yml
 
-- name: Verify Driver Load
-  ansible.builtin.command: "{{ 'nvidia-smi' if item == 'nvidia' else 'rocminfo' }}"
+- name: Install AMD drivers
+  when: __bootstrap_gpu_drivers__enable_amd | bool
+  ansible.builtin.include_tasks: install-amd.yml
+
+- name: Install Intel drivers
+  when: __bootstrap_gpu_drivers__enable_intel | bool
+  ansible.builtin.include_tasks: install-intel.yml
+
+# === Post-install verification ===
+- name: Verify NVIDIA
+  when: __bootstrap_gpu_drivers__enable_nvidia | bool
+  ansible.builtin.command: nvidia-smi
   changed_when: false
-  loop: "{{ __present_gpu_vendors }}"
-  ignore_errors: true
-  register: _gpu_verify
 
-- name: Check for GPU driver initialization
-  ansible.builtin.debug:
-    msg: "GPU Driver installed but not yet loaded. A reboot is required to initialize the {{ item.item }} hardware."
-  when: item.failed
-  loop: "{{ _gpu_verify.results }}"
+- name: Verify AMD
+  when: __bootstrap_gpu_drivers__enable_amd | bool
+  ansible.builtin.command: rocminfo || echo "AMD driver loaded (amdgpu)"
+  changed_when: false
+
+- name: Reboot if needed
+  when:
+    - not bootstrap_gpu_drivers__skip_reboot
+    - (nvidia_verify.changed | default(false)) or ansible_facts['changed'] | default(false)
+  ansible.builtin.reboot:
+    reboot_timeout: 600

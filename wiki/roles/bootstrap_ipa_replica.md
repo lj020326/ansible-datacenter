@@ -4,7 +4,6 @@ role: bootstrap_ipa_replica
 category: Identity Management
 type: Ansible Role
 tags: identity, ipa, freeipa
-
 ---
 
 ## Summary

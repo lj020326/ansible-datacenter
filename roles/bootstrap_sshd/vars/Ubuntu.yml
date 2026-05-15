@@ -1,0 +1,42 @@
+---
+__bootstrap_sshd__os_supported: true
+
+__bootstrap_sshd__service: ssh
+__bootstrap_sshd__packages:
+  - openssh-server
+  - openssh-sftp-server
+# Ubuntu 24.04 finally ships with drop-in directory support so we touch
+# just included file with highest priority by default
+__bootstrap_sshd__config_file: "/etc/ssh/sshd_config.d/00-{{ role_name }}.conf"
+__bootstrap_sshd__config_mode: "0644"
+# the defaults here represent the defaults shipped in the main sshd_config
+__bootstrap_sshd__defaults:
+  Include: /etc/ssh/sshd_config.d/*.conf
+  KbdInteractiveAuthentication: false
+  UsePAM: true
+  PrintMotd: false
+  AcceptEnv: LANG LC_*
+  Subsystem: sftp  /usr/lib/openssh/sftp-server
+  KexAlgorithms: curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256,diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1
+  Ciphers: aes256-gcm@openssh.com,aes128-cbc,aes128-ctr,aes192-ctr,aes256-ctr,3des-cbc,blowfish-cbc
+  # Modern secure defaults for Ubuntu 26.04 (no DSA)
+  HostKeyAlgorithms: ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,ssh-rsa,rsa-sha2-256,rsa-sha2-512
+  PubkeyAcceptedAlgorithms: ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,ssh-rsa,rsa-sha2-256,rsa-sha2-512
+
+# Explicitly exclude DSA (no longer supported)
+__bootstrap_sshd__hostkeys_nofips:
+  - /etc/ssh/ssh_host_dsa_key
+
+__bootstrap_sshd__runtime_directory: sshd
+
+__bootstrap_sshd__drop_in_dir_mode: "0755"
+__bootstrap_sshd__main_config_file: /etc/ssh/sshd_config
+
+__bootstrap_sshd__environment_file: /etc/default/ssh
+__bootstrap_sshd__environment_variable: $SSHD_OPTS
+__bootstrap_sshd__service_after: auditd.service
+__bootstrap_sshd__service_alias: sshd
+
+__bootstrap_sshd__socket_accept: false
+__bootstrap_sshd__socket_freebind: true
+__bootstrap_sshd__socket_required_by: ssh.service

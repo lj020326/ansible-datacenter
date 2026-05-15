@@ -4,8 +4,10 @@ role: bootstrap_kubernetes_ca
 category: Ansible Roles
 type: Infrastructure as Code
 tags: tls, certificate, security, kubernetes
+---
 
 ## Summary
+
 The `bootstrap_kubernetes_ca` role is designed to generate a Certificate Authority (CA) for Kubernetes and issue certificates for etcd and the Kubernetes API server. This role supports both generating a new CA or using an existing one, and it integrates with HashiCorp Vault for secure storage of certificates.
 
 ## Variables

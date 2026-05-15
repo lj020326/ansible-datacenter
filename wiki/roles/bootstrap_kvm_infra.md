@@ -4,6 +4,7 @@ role: bootstrap_kvm_infra
 category: Infrastructure
 type: Ansible Role
 tags: kvm, libvirt, virtualization, cloud-init
+---
 
 ## Summary
 

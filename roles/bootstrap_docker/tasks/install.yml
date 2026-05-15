@@ -1,21 +1,31 @@
 ---
 
-- name: Docker | OS not supported by docker-ce
-  ansible.builtin.fail:
-    msg: This OS is not supported by Docker-CE, and therefore not supported by this role.
+- name: "Docker | OS not supported by docker-ce"
   when:
     - bootstrap_docker__edition == "ce"
     - (ansible_facts['distribution'] | lower == "centos"
-       and ansible_facts['distribution_major_version'] | int <= "6")
+       and ansible_facts['distribution_major_version'] | int <= 6)
       or ansible_facts['distribution'] | lower == "oraclelinux"
+  ansible.builtin.fail:
+    msg: This OS is not supported by Docker-CE, and therefore not supported by this role.
 
-- name: Docker | Include {{ ansible_facts['distribution'] }} specific variables
+- name: "Docker | Include {{ ansible_facts['distribution'] }} specific variables"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
     - "{{ ansible_facts['distribution'] | lower }}.yml"
     - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
+
+- name: "Docker | Display __bootstrap_docker__is_dgx"
+  ansible.builtin.debug:
+    var: __bootstrap_docker__is_dgx
+
+- name: "Docker | Ensure DGX-OS specific settings"
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - __bootstrap_docker__is_dgx | bool
+  ansible.builtin.include_vars: dgx.yml
 
 - name: Docker | EE | Check Requirements
   when:
@@ -74,6 +84,11 @@
   ansible.builtin.service:
     name: docker
     state: started
+    enabled: true
+  register: __docker_start_result
+  retries: 3
+  delay: 5
+  until: __docker_start_result is success
 
 - name: Docker | Setup docker-compose
   when:

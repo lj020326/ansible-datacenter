@@ -4,10 +4,10 @@ role: bootstrap_lxc
 category: System Configuration
 type: Ansible Role
 tags: lxc, containerization, automation
-
 ---
 
 ## Summary
+
 The `bootstrap_lxc` role is designed to automate the setup and configuration of LXC (Linux Containers) on a system. It handles tasks such as setting up SSH keys, extracting cached root filesystems, preparing base containers, and installing necessary packages for different profiles. This role ensures that the environment is ready for running LXC containers with minimal manual intervention.
 
 ## Variables

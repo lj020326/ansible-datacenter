@@ -1,73 +1,73 @@
 ---
 
 - name: OS is supported
-  ansible.builtin.meta: end_host
   when:
-    - not __sshd_os_supported | bool
+    - not __bootstrap_sshd__os_supported | bool
+  ansible.builtin.meta: end_host
 
 - name: Install ssh packages
   ansible.builtin.package:
-    name: "{{ sshd_packages }}"
+    name: "{{ bootstrap_sshd__packages }}"
     state: present
-    use: "{{ (__sshd_is_ostree | d(false)) | ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
+    use: "{{ (__bootstrap_sshd__is_ostree | d(false)) | ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
 
 - name: Sysconfig configuration
+  when:
+    - bootstrap_sshd__sysconfig | bool
+    - __bootstrap_sshd__sysconfig_supports_use_strong_rng or __bootstrap_sshd__sysconfig_supports_crypto_policy
   ansible.builtin.template:
     src: sysconfig.j2
     dest: /etc/sysconfig/sshd
     owner: root
     group: root
     mode: "600"
-    backup: "{{ sshd_backup }}"
-  when:
-    - sshd_sysconfig | bool
-    - __sshd_sysconfig_supports_use_strong_rng or __sshd_sysconfig_supports_crypto_policy
+    backup: "{{ bootstrap_sshd__backup }}"
   notify: Reload_sshd
 
 - name: Check FIPS mode
+  when: __bootstrap_sshd__hostkeys_nofips | d([], true) | length > 0
   ansible.builtin.include_tasks: check_fips.yml
-  when: __sshd_hostkeys_nofips | d([], true) | length > 0
 
 - name: Make sure hostkeys are available and have expected permissions
   vars: &share_vars
     # 'MAo=' evaluates to '0\n' in base 64 encoding, which is default
-    __sshd_fips_mode: >-
-      {{ __sshd_hostkeys_nofips | d([], true) and
-         (__sshd_kernel_fips_mode.content | d('MAo=') | b64decode | trim == '1' or
-          __sshd_userspace_fips_mode.content | d('MAo=') | b64decode | trim != '0') }}
+    __bootstrap_sshd__fips_mode: >-
+      {{ __bootstrap_sshd__hostkeys_nofips | d([], true) and
+         (__bootstrap_sshd__kernel_fips_mode.content | d('MAo=') | b64decode | trim == '1' or
+          __bootstrap_sshd__userspace_fips_mode.content | d('MAo=') | b64decode | trim != '0') }}
     # This mimics the macro body_option() in sshd_config.j2
     # The explicit to_json filter is needed for Python 2 compatibility
-    __sshd_hostkeys_from_config: >-
-      {% if sshd_HostKey is defined %}
-        {{ sshd_HostKey | to_json }}
+    __bootstrap_sshd__hostkeys_from_config: >-
+      {% if bootstrap_sshd__HostKey is defined %}
+        {{ bootstrap_sshd__HostKey | to_json }}
       {% elif sshd['HostKey'] is defined %}
         {{ sshd['HostKey'] | to_json }}
-      {% elif __sshd_defaults['HostKey'] is defined and not sshd_skip_defaults %}
-        {% if __sshd_fips_mode %}
-          {{ __sshd_defaults['HostKey'] | difference(__sshd_hostkeys_nofips) | to_json }}
+      {% elif __bootstrap_sshd__defaults['HostKey'] is defined and not bootstrap_sshd__skip_defaults %}
+        {% if __bootstrap_sshd__fips_mode %}
+          {{ __bootstrap_sshd__defaults['HostKey'] | difference(__bootstrap_sshd__hostkeys_nofips) | to_json }}
         {% else %}
-          {{ __sshd_defaults['HostKey'] | to_json }}
+          {{ __bootstrap_sshd__defaults['HostKey'] | to_json }}
         {% endif %}
       {% else %}
         {{ [] | to_json }}
       {% endif %}
-    __sshd_verify_hostkeys: >-
-      {% if not sshd_verify_hostkeys %}
+    __bootstrap_sshd__verify_hostkeys: >-
+      {% if not bootstrap_sshd__verify_hostkeys %}
         {{ [] | to_json }}
-      {% elif sshd_verify_hostkeys == 'auto' %}
-        {% if not __sshd_hostkeys_from_config | from_json %}
-          {% if __sshd_fips_mode %}
-            {{ __sshd_verify_hostkeys_default | difference(__sshd_hostkeys_nofips) | to_json }}
+      {% elif bootstrap_sshd__verify_hostkeys == 'auto' %}
+        {% if not __bootstrap_sshd__hostkeys_from_config | from_json %}
+          {% if __bootstrap_sshd__fips_mode %}
+            {{ __bootstrap_sshd__verify_hostkeys_default | difference(__bootstrap_sshd__hostkeys_nofips) | to_json }}
           {% else %}
-            {{ __sshd_verify_hostkeys_default | to_json }}
+            {{ __bootstrap_sshd__verify_hostkeys_default | to_json }}
           {% endif %}
-        {% elif __sshd_hostkeys_from_config | from_json is string %}
-          {{ [__sshd_hostkeys_from_config | from_json] | to_json }}
+        {% elif __bootstrap_sshd__hostkeys_from_config | from_json is string %}
+          {{ [__bootstrap_sshd__hostkeys_from_config | from_json] | to_json }}
         {% else %}
-          {{ __sshd_hostkeys_from_config }}
+          {{ __bootstrap_sshd__hostkeys_from_config }}
         {% endif %}
       {% else %}
-        {{ sshd_verify_hostkeys | to_json }}
+        {{ bootstrap_sshd__verify_hostkeys | to_json }}
       {% endif %}
   block:
     - name: Make sure hostkeys are available
@@ -76,81 +76,81 @@
         if set -o | grep pipefail 2>&1 /dev/null ; then
           set -o pipefail
         fi
-        {% if sshd_sysconfig %}
+        {% if bootstrap_sshd__sysconfig %}
           source /etc/sysconfig/sshd
         {% endif %}
         ssh-keygen -q -t {{ item | regex_search('(rsa|dsa|ecdsa|ed25519)') }} -f {{ item }} -C '' -N ''
       args:
         creates: "{{ item }}"
-      loop: "{{ __sshd_verify_hostkeys | from_json | list }}"
+      loop: "{{ __bootstrap_sshd__verify_hostkeys | from_json | list }}"
       changed_when: false
 
     - name: Make sure private hostkeys have expected permissions
       ansible.builtin.file:
         path: "{{ item }}"
-        owner: "{{ sshd_hostkey_owner }}"
-        group: "{{ sshd_hostkey_group }}"
-        mode: "{{ sshd_hostkey_mode }}"
-      loop: "{{ __sshd_verify_hostkeys | from_json | list }}"
+        owner: "{{ bootstrap_sshd__hostkey_owner }}"
+        group: "{{ bootstrap_sshd__hostkey_group }}"
+        mode: "{{ bootstrap_sshd__hostkey_mode }}"
+      loop: "{{ __bootstrap_sshd__verify_hostkeys | from_json | list }}"
 
 - name: Apply configuration
   vars:
     <<: *share_vars
   block:
     - name: Create a temporary hostkey for syntax verification if needed
+      when:
+        - __bootstrap_sshd__hostkeys_from_config | from_json == []
+        - __bootstrap_sshd__supports_validate
       ansible.builtin.tempfile:
         state: directory
-      register: sshd_test_hostkey
+      register: __bootstrap_sshd__test_hostkey
       changed_when: false
-      when:
-        - __sshd_hostkeys_from_config | from_json == []
-        - __sshd_supports_validate
 
     - name: Generate temporary hostkey
+      when: __bootstrap_sshd__test_hostkey.path is defined
       ansible.builtin.command: >
-        ssh-keygen -q -t rsa -f '{{ sshd_test_hostkey.path }}/rsa_key' -C '' -N ''
+        ssh-keygen -q -t rsa -f '{{ __bootstrap_sshd__test_hostkey.path }}/rsa_key' -C '' -N ''
       changed_when: false
-      when: sshd_test_hostkey.path is defined
 
     - name: Make sure sshd runtime directory is present
+      when:
+        - __bootstrap_sshd__runtime_directory is not none
       ansible.builtin.file:
-        path: /run/{{ __sshd_runtime_directory }}
+        path: /run/{{ __bootstrap_sshd__runtime_directory }}
         state: directory
         owner: root
         group: root
-        mode: "{{ __sshd_runtime_directory_mode }}"
-      when:
-        - __sshd_runtime_directory is not none
+        mode: "{{ __bootstrap_sshd__runtime_directory_mode }}"
 
     - name: Find SSHD ports
       ansible.builtin.include_tasks: find_ports.yml
 
     - name: Configure firewall
-      ansible.builtin.include_tasks: firewall.yml
       when:
-        - sshd_manage_firewall | bool
+        - bootstrap_sshd__manage_firewall | bool
         - ansible_facts['os_family'] == 'RedHat'
         - ansible_facts['distribution_version'] is version('7', '>=')
-        - ansible_facts['virtualization_type'] | d(None) not in __sshd_skip_virt_env
+        - ansible_facts['virtualization_type'] | d(None) not in __bootstrap_sshd__skip_virt_env
+      ansible.builtin.include_tasks: firewall.yml
 
     - name: Configure selinux
-      ansible.builtin.include_tasks: selinux.yml
       when:
-        - sshd_manage_selinux | bool
+        - bootstrap_sshd__manage_selinux | bool
         - ansible_facts['os_family'] == 'RedHat'
-        - ansible_facts['virtualization_type'] | d(None) not in __sshd_skip_virt_env
+        - ansible_facts['virtualization_type'] | d(None) not in __bootstrap_sshd__skip_virt_env
+      ansible.builtin.include_tasks: selinux.yml
 
     - name: Create the complete configuration file
+      when: bootstrap_sshd__config_namespace is none
       ansible.builtin.include_tasks: install_config.yml
-      when: sshd_config_namespace is none
 
     - name: Update configuration file snippet
+      when: bootstrap_sshd__config_namespace is not none
       ansible.builtin.include_tasks: install_namespace.yml
-      when: sshd_config_namespace is not none
 
     - name: Configure sshd to use SSH certificates
+      when: bootstrap_sshd__trusted_user_ca_keys_list != []
       ansible.builtin.include_tasks: certificates.yml
-      when: sshd_trusted_user_ca_keys_list != []
 
   rescue:
     - name: Re-raise the error
@@ -158,16 +158,16 @@
         msg: "{{ ansible_failed_result }}"
   always:
     - name: Remove temporary host keys
+      when: __bootstrap_sshd__test_hostkey.path is defined
       ansible.builtin.file:
-        path: "{{ sshd_test_hostkey.path }}"
+        path: "{{ __bootstrap_sshd__test_hostkey.path }}"
         state: absent
       changed_when: false
-      when: sshd_test_hostkey.path is defined
 
 - name: Install and start systemd service
   ansible.builtin.include_tasks: install_service.yml
 
 - name: Register that this role has run
+  when: bootstrap_sshd__has_run is not defined
   ansible.builtin.set_fact:
-    sshd_has_run: true
-  when: sshd_has_run is not defined
+    bootstrap_sshd__has_run: true

@@ -1,0 +1,13 @@
+
+- Add support for DGX OS to GPU / CUDA verification role (bootstrap_gpu_drivers)
+- Update roles for installing common LLM tools (Ollama, vLLM, ComfyUI, etc.)
+    - bootstrap_llm_host - for baremetal use cases (not common)
+    - bootstrap_docker_stack  - for docker stack use cases (most common)
+    - bootstrap_k8s_pod (TBD) - for setup of LLM mesh on k8s (need to setup new role)
+      - the role depends on the role `bootstrap_kubernetes` to setup kubernetes
+- Docker + NVIDIA Container Toolkit config
+    - bootstrap_gpu_drivers - to setup gpu drivers and if nvidia type gpu, nvidia container toolkit
+    - bootstrap_docker - to setup install and setup configuration (for both docker and swarm use cases)
+- Security hardening (fail2ban, key-only SSH, ufw, etc.)
+- Monitoring (node_exporter, etc.)
+- Any specific directory layout or user conventions

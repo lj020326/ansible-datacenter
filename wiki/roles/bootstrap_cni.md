@@ -4,8 +4,10 @@ role: bootstrap_cni
 category: Kubernetes Networking
 type: Ansible Role
 tags: kubernetes, cni, calico, flannel
+---
 
 ## Summary
+
 The `bootstrap_cni` role is designed to set up and configure Container Network Interface (CNI) plugins for a Kubernetes cluster. It supports both Calico and Flannel CNI configurations, ensuring that the specified network daemonset is deployed and operational on the controller host.
 
 ## Variables

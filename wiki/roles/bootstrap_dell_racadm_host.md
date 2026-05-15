@@ -4,7 +4,6 @@ role: bootstrap_dell_racadm_host
 category: Ansible Roles
 type: Configuration Management
 tags: dell, racadm, ansible, idrac, bios, firmware, raid
-
 ---
 
 ## Summary

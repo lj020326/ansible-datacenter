@@ -4,8 +4,10 @@ role: bootstrap_jenkins
 category: CI/CD
 type: Ansible Role
 tags: jenkins, ci-cd, automation
+---
 
 ## Summary
+
 The `bootstrap_jenkins` role is designed to automate the installation and configuration of Jenkins on Debian and RedHat-based systems. It handles repository setup, package installation, service management, initial configuration settings, plugin installation, and proxy configuration.
 
 ## Variables

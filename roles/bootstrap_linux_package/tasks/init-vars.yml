@@ -10,13 +10,23 @@
         - "{{ ansible_facts['pkg_mgr'] }}.yml"
       skip: true
 
-- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include {{ __os_dist }} specific variables"
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Ensure {{ __os_dist }} specific settings"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "{{ __os_dist }}-{{ ansible_facts['distribution_major_version'] }}.yml"
     - "{{ __os_dist }}.yml"
     - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Display __bootstrap_linux_package__is_dgx"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__is_dgx
+
+- name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Ensure DGX-OS specific settings"
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - __bootstrap_linux_package__is_dgx | bool
+  ansible.builtin.include_vars: dgx.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_initvars }} Include rhsm/{{ __os_dist }} specific variables if defined"
   when: bootstrap_linux_package__redhat_use_rhsm | bool

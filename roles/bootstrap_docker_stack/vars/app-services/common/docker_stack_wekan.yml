@@ -1,0 +1,71 @@
+---
+
+__docker_stack__wekan__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}/wekan"
+__docker_stack__wekan__base_dir: "{{ __docker_stack__wekan__stack_dir }}"
+
+__docker_stack__wekan__domain: "{{ docker_stack__internal_domain }}"
+__docker_stack__wekan__endpoint: "wekan.{{ __docker_stack__wekan__domain }}"
+
+__docker_stack__wekan__http_port: "{{ docker_stack__wekan__http_port | d('8088') }}"  # internal port, Traefik will handle external
+
+__docker_stack__wekan__mongo_port: 27017
+
+__docker_stack__wekan__root_url: "https://{{ __docker_stack__wekan__endpoint }}"
+
+__docker_stack__wekan__config_dirs:
+  - path: "{{ __docker_stack__wekan__base_dir }}"
+  - path: "{{ __docker_stack__wekan__base_dir }}/mongo"
+  - path: "{{ __docker_stack__wekan__base_dir }}/wekan"
+
+__docker_stack__wekan__traefik_labels: "{{ docker_stack__wekan__traefik_labels | d(__docker_stack__wekan__traefik_labels_default) }}"
+
+__docker_stack__wekan__services:
+  wekan-mongo:
+    image: mongo:6
+    container_name: wekan-mongo
+    restart: unless-stopped
+    command: mongod --oplogSize 128 --replSet rs0 --quiet
+    volumes:
+      - "{{ __docker_stack__wekan__base_dir }}/mongo:/data/db"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  wekan:
+    image: ghcr.io/wekan/wekan:latest
+    container_name: wekan
+    restart: unless-stopped
+    depends_on:
+      - wekan-mongo
+    environment:
+      MONGO_URL: "mongodb://wekan-mongo:27017/wekan"
+      MONGO_OPLOG_URL: "mongodb://wekan-mongo:27017/local?replicaSet=rs0"
+      ROOT_URL: "{{ __docker_stack__wekan__root_url }}"
+      WITH_API: "true"
+      BROWSER_POLICY_ENABLED: "true"
+      TRUSTED_URL: "{{ __docker_stack__wekan__root_url }}"
+      # Optional: MAIL_URL, MAIL_FROM, etc. if you want email
+    volumes:
+      - "{{ __docker_stack__wekan__base_dir }}/wekan:/data"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    labels: "{{ __docker_stack__wekan__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+
+docker_stack__appspec__wekan:
+  dirs: "{{ __docker_stack__wekan__config_dirs | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__wekan__firewalld_ports | d([], true) }}"
+  docker_services: "{{ __docker_stack__wekan__services | d({}, true) }}"
+  networks: "{{ __docker_stack__wekan__networks | d({}, true) }}"

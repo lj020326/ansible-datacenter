@@ -1,12 +1,12 @@
 ---
 
 - name: Ensure ansible_facts used by role
-  when: not ansible_facts.keys() | list | intersect(__sshd_required_facts) == __sshd_required_facts
+  when: not ansible_facts.keys() | list | intersect(__bootstrap_sshd__required_facts) == __bootstrap_sshd__required_facts
   ansible.builtin.setup:
     gather_subset: min
 
 - name: Determine if system is ostree and set flag
-  when: not __sshd_is_ostree is defined
+  when: not __bootstrap_sshd__is_ostree is defined
   block:
     - name: Check if system is ostree
       no_log: true
@@ -16,31 +16,52 @@
 
     - name: Set flag to indicate system is ostree
       ansible.builtin.set_fact:
-        __sshd_is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
+        __bootstrap_sshd__is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
 
-- name: Set OS dependent variables
-  ansible.builtin.include_vars: "{{ lookup('first_found', params) }}"
-  vars:
-    _distribution_lts_offset: >-
+- name: Normalize distribution name (replace spaces with hyphens)
+  ansible.builtin.set_fact:
+    __normalized_distribution: "{{ ansible_facts['distribution'] | replace(' ', '-') }}"
+
+- name: Set __distribution_lts_offset
+  ansible.builtin.set_fact:
+    __distribution_lts_offset: >-
       {{
         ansible_facts['distribution_major_version'] | int % 2
         if ansible_facts['distribution'] == "Ubuntu"
         else 0
       }}
-    _distribution_lts_version: >-
+
+- name: Display __distribution_lts_offset
+  ansible.builtin.debug:
+    var: __distribution_lts_offset
+
+- name: Set __distribution_lts_version
+  ansible.builtin.set_fact:
+    __distribution_lts_version: >-
       {{
         ansible_facts['distribution_major_version'] | int -
-        _distribution_lts_offset | int
+        __distribution_lts_offset | int
         if ansible_facts['distribution'] == "Ubuntu"
         else ansible_facts['distribution_version']
       }}
+
+- name: Display __distribution_lts_version
+  ansible.builtin.debug:
+    var: __distribution_lts_version
+
+- name: Set OS dependent variables
+  ansible.builtin.include_vars: "{{ lookup('first_found', params) }}"
+  vars:
     params:
       files:
-        - "{{ ansible_facts['distribution'] }}_{{ _distribution_lts_version }}.yml"
+        # Try normalized name first (e.g. "Arch Linux" → "Arch-Linux")
+        - "{{ __normalized_distribution }}_{{ __distribution_lts_version }}.yml"
+        - "{{ __normalized_distribution }}.yml"
+        # Original patterns as fallback
+        - "{{ ansible_facts['distribution'] }}_{{ __distribution_lts_version }}.yml"
         - "{{ ansible_facts['os_family'] }}_{{ ansible_facts['distribution_major_version'] }}.yml"
         - "{{ ansible_facts['distribution'] }}.yml"
         - "{{ ansible_facts['os_family'] }}.yml"
-        - main.yml # fallback, vars/main.yml is always loaded by Ansible
+        - main.yml
       paths:
         - "{{ role_path }}/vars"
-        - "{{ playbook_dir }}/vars"

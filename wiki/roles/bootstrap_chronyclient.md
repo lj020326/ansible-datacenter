@@ -4,8 +4,10 @@ role: bootstrap_chronyclient
 category: Ansible Roles
 type: Configuration Management
 tags: chrony, ntp, timezone, ansible
+---
 
 ## Summary
+
 The `bootstrap_chronyclient` role is designed to configure and manage the NTP (Network Time Protocol) service on target systems using the Chrony client. This role sets the system timezone, ensures that the deprecated `ntpdate` package is not installed, disables and masks the traditional NTP service (`ntpd`), installs and configures the Chrony client, and manages its configuration files.
 
 ## Variables

@@ -1,14 +1,22 @@
 ---
-- name: Retrieve container log
-  ansible.builtin.command:
-    cmd: >-
-      {% raw %}
-      docker logs
-      {% endraw %}
-      {{ item.stdout_lines[0] }}
-  changed_when: false
-  register: logfile_cmd
 
-- name: Display container log
-  ansible.builtin.fail:
-    msg: "{{ logfile_cmd.stderr }}"
+- name: Print _container_info
+  ansible.builtin.debug:
+    msg: "{{ _container_info }}"
+
+- name: Get and display container log
+  when: _container_info.stdout_lines | d([]) | length > 0
+  block:
+    - name: Retrieve container log
+      ansible.builtin.command:
+        cmd: >-
+          {% raw %}
+          docker logs
+          {% endraw %}
+          {{ _container_info.stdout_lines[0] }}
+      changed_when: false
+      register: logfile_cmd
+
+    - name: Display container log
+      ansible.builtin.fail:
+        msg: "{{ logfile_cmd.stderr }}"

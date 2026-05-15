@@ -4,7 +4,6 @@ role: bootstrap_network_interfaces
 category: Networking
 type: Ansible Role
 tags: network, interfaces, bonds, bridges, vlans, ovs
-
 ---
 
 ## Summary

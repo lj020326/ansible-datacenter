@@ -14,6 +14,14 @@ bootstrap_docker__config: {}
 bootstrap_docker__options_prefix: "{{ role_name }}__options__"
 bootstrap_docker__options_regex: "^{{ bootstrap_docker__options_prefix }}"
 
+# DGX / ARM64 specific overrides
+bootstrap_docker__arch: "{{ 'arm64' if ansible_facts.machine == 'aarch64' else 'amd64' }}"
+## Detect DGX OS / Ascent GX10
+__bootstrap_docker__is_dgx: >-
+  {{ (ansible_facts.product_name | default('', true) | regex_search('(?i)DGX|Ascent|Grace|Blackwell|gx10')) is not none
+     or ('dgx' in (ansible_facts.os_family | default('', true) | lower))
+     or (ansible_facts.machine == 'aarch64' and 'nvidia' in (ansible_facts.product_version | default('', true) | lower)) }}
+
 # This will hold the final merged result
 __bootstrap_docker__options_merged: {}
 
@@ -33,8 +41,8 @@ bootstrap_docker__deploy_registry_certs: true
 bootstrap_docker__service_manage: true
 bootstrap_docker__service_state: started
 bootstrap_docker__service_enabled: true
-bootstrap_docker__restart_handler_state: restarted
 bootstrap_docker__service_started: true
+bootstrap_docker__service_restarted: true
 
 #bootstrap_docker__daemon_flags:
 #  - "-H unix://"
@@ -85,8 +93,12 @@ bootstrap_docker__swarm_secrets: []
 #    value: secret-value-1
 #    state: absent
 
+__bootstrap_docker__features_enable_buildkit_default: true
+__bootstrap_docker__features_enable_buildkit: "{{ bootstrap_docker__features_buildkit
+  | d(__bootstrap_docker__features_enable_buildkit_default) }}"
+
 bootstrap_docker__features:
-  buildkit: true
+  buildkit: "{{ __bootstrap_docker__features_enable_buildkit }}"
 
 bootstrap_docker__base_options:
   api-cors-header: "{{ bootstrap_docker__api_cors_header | d(None) }}"
@@ -284,13 +296,15 @@ bootstrap_docker__apt_system_keyring_dir: /usr/share/keyrings
 
 bootstrap_docker__ce_repo_file_url: "{{ bootstrap_docker__ce_repo_url }}/docker-ce.repo"
 
-#bootstrap_docker__apt_repo_url: "deb [arch=amd64] {{ bootstrap_docker__ce_repo_url }} {{ ansible_facts['distribution_release'] }} stable"
-#bootstrap_docker__apt_repo_url_edge: "deb [arch=amd64] {{ bootstrap_docker__ce_repo_url }} {{ ansible_facts['distribution_release'] }} edge"
-bootstrap_docker__apt_repo_url: "deb [arch=amd64 signed-by={{ 
+#bootstrap_docker__apt_repo_url: "deb [arch={{ bootstrap_docker__arch }}] {{
+#  bootstrap_docker__ce_repo_url }} {{ ansible_facts['distribution_release'] }} stable"
+#bootstrap_docker__apt_repo_url_edge: "deb [arch={{ bootstrap_docker__arch }}] {{
+#  bootstrap_docker__ce_repo_url }} {{ ansible_facts['distribution_release'] }} edge"
+bootstrap_docker__apt_repo_url: "deb [arch={{ bootstrap_docker__arch }} signed-by={{ 
   bootstrap_docker__apt_keyring_dir }}/docker.asc] {{ bootstrap_docker__ce_repo_url }} {{ 
   ansible_facts['distribution_release'] }} stable"
 
-bootstrap_docker__apt_repo_url_edge: "deb [arch=amd64 signed-by={{ 
+bootstrap_docker__apt_repo_url_edge: "deb [arch={{ bootstrap_docker__arch }} signed-by={{
     bootstrap_docker__apt_keyring_dir }}/docker.asc] {{ bootstrap_docker__ce_repo_url }} {{ 
     ansible_facts['distribution_release'] }} edge"
 

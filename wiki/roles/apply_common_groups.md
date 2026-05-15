@@ -4,7 +4,6 @@ role: apply_common_groups
 category: Ansible Roles
 type: Configuration Management
 tags: ansible, role, common-groups, os-grouping, machine-grouping, systemd-status
-
 ---
 
 ## Summary

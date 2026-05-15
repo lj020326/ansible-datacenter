@@ -163,11 +163,7 @@ Once a template is verified and stored in the vSphere library or Docker registry
 
 ---
 
-### Documentation Source Reference
-* **:** `README.md` - Outlines the role of `bootstrap_linux` and general architecture.
-* **:** `image-templates.md` - Provides the Mermaid workflow diagram and repository links.
-* **:** `buildVmTemplate.groovy` - Details the Jenkins function used to invoke Packer and build templates.
-* **:** `site.yml` - Contains the primary orchestration logic and deployment tags.
+### Machine Image Templates
 
 The workflow to build a machine image (docker image or virtual machine template) leverages the Ansible `bootstrap_linux` role to set up the machine image before archival and distribution to the respective platform image manager (docker registry or VMware template library).  It is custom to have this image build process performed regularly/periodically in order to enable an efficient provisioning process for creating container or virtual machine instances utilizing the most secure, modern versions and configuration:
 
@@ -186,4 +182,3 @@ The workflow to build a machine image (docker image or virtual machine template)
 ## Documentation Links
 * [Jenkins Operations & Job Control](./docs/jenkins-ansible-jobs.md)
 * [Image Templates](docs/image-templates.md)
-

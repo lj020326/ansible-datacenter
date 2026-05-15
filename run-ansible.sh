@@ -304,7 +304,7 @@ EOF
 
   RUN_COMMAND_ARGS_WITH_ARGS=("${RUN_CMD}")
   if [[ "${#RUN_COMMAND_ARGS[@]}" -gt 0 ]]; then
-    RUN_COMMAND_ARGS_WITH_ARGS+=("${RUN_COMMAND_ARGS[@]}")
+    RUN_COMMAND_ARGS_WITH_ARGS+=("${RUN_COMMAND_ARGS[*]}")
   fi
 
   echo "==> ${RUN_COMMAND_ARGS_WITH_ARGS[*]}"

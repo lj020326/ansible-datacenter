@@ -1,167 +1,75 @@
 ---
-title: "Bootstrap Rsyncd Role"
-role: roles/bootstrap_rsyncd
-category: Roles
-type: ansible-role
-tags: [ansible, role, bootstrap_rsyncd]
+title: Bootstrap Rsyncd Role Documentation
+role: bootstrap_rsyncd
+category: Ansible Roles
+type: Configuration Management
+tags: rsync, automation, configuration
 ---
 
-# Role Documentation: `bootstrap_rsyncd`
+## Summary
 
-## Overview
+The `bootstrap_rsyncd` role is designed to automate the installation and configuration of the `rsync` daemon (`rsyncd`) on target hosts. It ensures that `rsync` is installed, configures the `rsyncd.conf` file, sets up SELinux policies if necessary, and manages the `rsyncd` service state. Additionally, it provides tasks for synchronizing files between source and remote hosts.
 
-The `bootstrap_rsyncd` Ansible role is designed to automate the setup and configuration of the Rsync daemon (`rsyncd`) on target hosts. It ensures that Rsync is installed, configured, and running correctly, facilitating secure file synchronization between a source host and a remote host.
+## Variables
 
-## Role Variables
+| Variable Name                      | Default Value                                    | Description                                                                 |
+|------------------------------------|--------------------------------------------------|-----------------------------------------------------------------------------|
+| `role_bootstrap_rsyncd__packages`  | `['rsync']`                                      | List of packages to install.                                                |
+| `role_bootstrap_rsyncd__config`    | `/etc/rsyncd.conf`                               | Path to the rsync daemon configuration file.                                |
+| `role_bootstrap_rsyncd__service`   | `rsyncd.service`                                 | Name of the rsync service.                                                  |
+| `role_bootstrap_rsyncd__temp_sudoers_file` | `/etc/sudoers.d/rsyncuser`                  | Path to the temporary sudoers file for granting `NOPASSWD` permissions.     |
 
-### Default Variables
+## Usage
 
-The following variables are defined in `defaults/main.yml`:
-
-- **`rsync_packages`**: A list of packages to be installed for Rsync. By default, it includes only the `rsync` package.
-  ```yaml
-  rsync_packages:
-    - rsync
-  ```
-
-- **`rsyncd_config`**: The path to the Rsync daemon configuration file.
-  ```yaml
-  rsyncd_config: /etc/rsyncd.conf
-  ```
-
-- **`rsyncd_service`**: The name of the Rsync service.
-  ```yaml
-  rsyncd_service: rsyncd.service
-  ```
-
-- **`rsyncd_temp_sudoers_file`**: The path to a temporary sudoers file used for granting permissions to the Ansible user for running Rsync with elevated privileges.
-  ```yaml
-  rsyncd_temp_sudoers_file: /etc/sudoers.d/rsyncuser
-  ```
-
-## Tasks
-
-### `tasks/main.yml`
-
-1. **Install Rsync**: Ensures that Rsync is installed on both the source and remote hosts.
-   - Uses the `ansible.builtin.package` module to install the necessary packages.
-
-2. **Set `__rsync_dict`**: Creates a fact dictionary containing installation status and IP addresses of the target hosts.
-   - Utilizes the `ansible.builtin.set_fact` module to store this information.
-
-3. **Backup `rsyncd.conf`**: Backs up the existing Rsync configuration file if it exists and has not been modified.
-   - Uses the `ansible.builtin.copy` module with `remote_src: true`.
-
-4. **Start and Enable the Service**: Starts and enables the Rsync service on both the source and remote hosts.
-   - Employs the `ansible.builtin.service` module.
-
-5. **Configure `/etc/rsyncd.conf`**: Configures the Rsync daemon using a Jinja2 template.
-   - Utilizes the `ansible.builtin.template` module to generate the configuration file.
-
-6. **Restart Rsyncd**: Restarts the Rsync service on the remote host to apply the new configuration.
-   - Uses the `ansible.builtin.service` module with `become: true`.
-
-7. **Run Rsync**: Executes a synchronization command from the source host to the remote host.
-   - Utilizes the `ansible.builtin.command` module.
-
-8. **Restore Backup of `rsyncd.conf`**: Restores the backup of the Rsync configuration file if necessary.
-   - Uses the `ansible.builtin.copy` module with `remote_src: true`.
-
-### `tasks/execute_sync.yml`
-
-1. **Assert Variables are Defined**: Ensures that required variables (`remote_host`, `source_filesystem_path`) are defined and not empty.
-   - Utilizes the `ansible.builtin.assert` module.
-
-2. **Perform Stat on Source Filesystem Path**: Checks if the source filesystem path exists on the source host.
-   - Uses the `ansible.builtin.stat` module.
-
-3. **Error Handling for Source Path**: Handles errors related to the source filesystem path not existing.
-   - Utilizes a block and rescue structure with `ansible.builtin.assert` and `ansible.builtin.set_fact`.
-
-4. **Synchronize Files**: Synchronizes files from the source host to the remote host using Rsync if no errors were detected.
-   - Employs the `ansible.builtin.command` module.
-
-### `tasks/rsync_cleanup.yml`
-
-1. **Clean Up Temporary Sudoers Files**: Removes temporary sudoers files used for granting permissions.
-   - Uses the `ansible.builtin.file` module.
-
-2. **Clean Up SELinux State**: Cleans up any changes made to SELinux policies and booleans if necessary.
-   - Utilizes a block structure with `ansible.builtin.command` and `ansible.builtin.file`.
-
-3. **Show Rsync Variables**: Displays internal variables related to the Rsync configuration and service state.
-   - Uses the `ansible.builtin.debug` module.
-
-4. **Restore `rsyncd.conf` to Previous State**: Restores the backup of the Rsync configuration file if it was modified.
-   - Uses the `ansible.builtin.copy` module with `remote_src: true`.
-
-5. **Restore Rsyncd Service to Previous State**: Restores the Rsync service to its previous state (started or stopped).
-   - Utilizes the `ansible.builtin.service` module.
-
-### `tasks/rsync_listener.yml`
-
-1. **Assert Remote Filesystem Path is Defined**: Ensures that the `remote_filesystem_path` variable is defined and not empty.
-   - Utilizes the `ansible.builtin.assert` module.
-
-2. **Gather Current Services State**: Gathers facts about the current state of services on the remote host.
-   - Uses the `ansible.builtin.service_facts` module.
-
-3. **Set Rsyncd Service State**: Sets the desired state of the Rsync service based on its current state.
-   - Utilizes the `ansible.builtin.set_fact` module.
-
-4. **Gather Current SELinux State**: Checks the current SELinux enforcement mode.
-   - Uses the `ansible.builtin.command` module.
-
-5. **Configure SELinux**: Configures SELinux policies and booleans if necessary to allow Rsync operations.
-   - Utilizes a block structure with `ansible.builtin.copy`, `ansible.builtin.command`, and `ansible.builtin.set_fact`.
-
-6. **Configure Rsyncd**: Configures the Rsync daemon using a static configuration string.
-   - Uses the `ansible.builtin.copy` module.
-
-7. **Create Remote Filesystem Path**: Ensures that the remote filesystem path exists as a directory.
-   - Utilizes the `ansible.builtin.file` module.
-
-8. **Set Rsyncd Backup Path**: Sets a fact containing the backup path of the Rsync configuration file if it was modified.
-   - Uses the `ansible.builtin.set_fact` module.
-
-9. **(Re)start Rsyncd**: Restarts the Rsync service to apply the new configuration.
-   - Utilizes the `ansible.builtin.service` module.
-
-### `tasks/rsync_prep.yml`
-
-1. **Gather Facts**: Gathers facts about the target host to determine its operating system and version.
-   - Uses the `ansible.builtin.gather_facts` module.
-
-2. **Ensure Rsync is Installed (RHEL 7 and Earlier)**: Installs Rsync on Red Hat Enterprise Linux versions 7 and earlier.
-   - Utilizes the `ansible.builtin.package` module.
-
-3. **Ensure Rsync is Installed (RHEL 8 and Later)**: Installs Rsync and its daemon package on Red Hat Enterprise Linux versions 8 and later.
-   - Uses the `ansible.builtin.package` module.
-
-4. **Configure Temporary Sudo Permissions for Ansible Rsync**: Configures temporary sudo permissions for the Ansible user to run Rsync with elevated privileges.
-   - Utilizes the `ansible.builtin.lineinfile` module.
-
-## Important Notes
-
-- **Double-underscore Variables**: Variables prefixed with double underscores (e.g., `__rsync_failures_detected`) are internal and should not be modified outside of this role.
-  
-- **No Related Roles**: This documentation does not include related roles. The `bootstrap_rsyncd` role is self-contained.
-
-## Usage Example
-
-Below is an example playbook that demonstrates how to use the `bootstrap_rsyncd` role:
+### Example Playbook
 
 ```yaml
----
-- name: Bootstrap Rsync Daemon and Synchronize Files
-  hosts: all
-  become: true
-  vars:
-    remote_host: "remote.example.com"
-    source_filesystem_path: "/path/to/source/files"
-    remote_filesystem_path: "/path/to/remote/files"
+- hosts: all
   roles:
     - role: bootstrap_rsyncd
+      vars:
+        role_bootstrap_rsyncd__remote_host: "target.example.com"
+        role_bootstrap_rsyncd__source_filesystem_path: "/path/to/source/files"
+        role_bootstrap_rsyncd__remote_filesystem_path: "/path/to/remote/files"
 ```
 
-This playbook will install and configure the Rsync daemon on all hosts specified in your inventory, synchronize files from the source host to the remote host, and clean up any temporary configurations after the synchronization is complete.
+### Synchronizing Files
+
+To synchronize files from a source host to a remote host, ensure the following variables are defined:
+
+- `role_bootstrap_rsyncd__source_host`: The hostname or IP address of the source host.
+- `role_bootstrap_rsyncd__source_filesystem_path`: The path on the source host containing the files to be synchronized.
+- `role_bootstrap_rsyncd__remote_host`: The hostname or IP address of the remote host.
+- `role_bootstrap_rsyncd__remote_filesystem_path`: The path on the remote host where files will be synchronized.
+
+### Configuring SELinux
+
+If SELinux is in enforcing mode, the role will create a local policy to allow `rsync` operations and enable the `rsync_full_access` boolean. This ensures that `rsync` can operate without being blocked by SELinux policies.
+
+## Dependencies
+
+- **Ansible**: The role requires Ansible 2.9 or later.
+- **OS Family**: The role is primarily tested on Red Hat Enterprise Linux (RHEL) and CentOS distributions, but it should work on other Linux distributions with minor adjustments.
+
+## Best Practices
+
+1. **Backup Configuration Files**: Always ensure that the `rsyncd.conf` file is backed up before making changes to prevent data loss.
+2. **SELinux Management**: When SELinux is in enforcing mode, carefully manage SELinux policies to avoid unintended disruptions.
+3. **User Permissions**: Ensure that the user running the Ansible playbook has the necessary permissions to install packages and modify system files.
+
+## Molecule Tests
+
+This role does not currently include Molecule tests. Consider adding Molecule scenarios to ensure the role behaves as expected across different environments.
+
+## Backlinks
+
+- [defaults/main.yml](../../roles/bootstrap_rsyncd/defaults/main.yml)
+- [tasks/execute_sync.yml](../../roles/bootstrap_rsyncd/tasks/execute_sync.yml)
+- [tasks/main.yml](../../roles/bootstrap_rsyncd/tasks/main.yml)
+- [tasks/rsync_cleanup.yml](../../roles/bootstrap_rsyncd/tasks/rsync_cleanup.yml)
+- [tasks/rsync_listener.yml](../../roles/bootstrap_rsyncd/tasks/rsync_listener.yml)
+- [tasks/rsync_prep.yml](../../roles/bootstrap_rsyncd/tasks/rsync_prep.yml)
+
+---
+
+This documentation provides a comprehensive overview of the `bootstrap_rsyncd` role, including its purpose, variables, usage, dependencies, best practices, and backlinks to the source code.

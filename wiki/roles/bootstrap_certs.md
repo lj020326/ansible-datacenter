@@ -4,8 +4,10 @@ role: bootstrap_certs
 category: Security
 type: Ansible Role
 tags: certificates, ssl, tls, cfssl, openssl, java-keystore
+---
 
 ## Summary
+
 The `bootstrap_certs` role is designed to automate the creation and management of SSL/TLS certificates using OpenSSL and CFSSL. It handles the generation of root and intermediate Certificate Authorities (CAs), as well as server and service route certificates. The role also manages the trust of these certificates on target nodes, including updating system CA stores and Java keystores.
 
 ## Variables

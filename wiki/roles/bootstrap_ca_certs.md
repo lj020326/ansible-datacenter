@@ -4,6 +4,7 @@ role: bootstrap_ca_certs
 category: Security
 type: Ansible Role
 tags: tls, certificate, security, kubernetes
+---
 
 ## Summary
 

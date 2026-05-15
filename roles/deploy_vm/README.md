@@ -1,13 +1,91 @@
 
-# Guest Operating System Setup and Validation on vSphere using Ansible
+# "Deploy VM Role Documentation"
 
-## Getting Started
+## Summary
 
-### Prerequisites
+The `deploy_vm` role is designed to automate the deployment of virtual machines (VMs) and appliances on VMware vSphere and Proxmox environments. This role handles the creation, configuration, and management of VMs, including setting boot order, power state, network configurations, and deploying OVF templates for appliances.
 
-Make sure the following pip libraries are installed:
-  - pyVmomi
-  - vsphere-automation-sdk
+## Variables
+
+| Variable Name                           | Default Value                                                                                          | Description                                                                                                                                                                                                 |
+|-----------------------------------------|--------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `deploy_vm__python_pip_depends`         | `['pyVmomi']`                                                                                          | List of Python packages to be installed via pip.                                                                                                                                                            |
+| `deploy_vm__vcenter_hostname`           | `vcenter.example.int`                                                                                  | The hostname or IP address of the vCenter server.                                                                                                                                                           |
+| `deploy_vm__vcenter_username`           | `administrator`                                                                                        | Username for authenticating with the vCenter server.                                                                                                                                                        |
+| `deploy_vm__vcenter_password`           | `password`                                                                                             | Password for authenticating with the vCenter server. **(Sensitive)**                                                                                                                                        |
+| `deploy_vm__vcenter_validate_certs`     | `false`                                                                                                | Whether to validate SSL certificates when connecting to the vCenter server.                                                                                                                                   |
+| `deploy_vm__tags_init_all`              | List of tags (e.g., `vm_pre_bootstrap`, `vm_new`)                                                      | Initial list of tags to be created in vSphere for categorizing VMs.                                                                                                                                         |
+| `deploy_vm__vmware_appliance_list`      | `[]`                                                                                                   | List of VMware appliances to deploy using OVF templates.                                                                                                                                                  |
+| `deploy_vm__vmware_vm_list`             | `[]`                                                                                                   | List of VMs to be deployed on vSphere.                                                                                                                                                                      |
+| `deploy_vm__govc_version`               | `0.23.0`                                                                                               | Version of the govc tool to be used for VMware operations.                                                                                                                                                |
+| `deploy_vm__govc_path`                  | `/usr/local/bin`                                                                                       | Path where the govc binary will be installed.                                                                                                                                                               |
+| `deploy_vm__govc_file`                  | `"{{ deploy_vm__govc_path }}/govc"`                                                                     | Full path to the govc binary.                                                                                                                                                                               |
+| `deploy_vm__govc_host`                  | `"{{ deploy_vm__vcenter_hostname }}"`                                                                    | Hostname or IP address of the vCenter server for govc operations.                                                                                                                                           |
+| `deploy_vm__govc_username`              | `"{{ deploy_vm__vcenter_username }}"`                                                                    | Username for authenticating with the vCenter server using govc.                                                                                                                                             |
+| `deploy_vm__govc_password`              | `"{{ deploy_vm__vcenter_password }}"`                                                                    | Password for authenticating with the vCenter server using govc. **(Sensitive)**                                                                                                                             |
+| `deploy_vm__govc_insecure`              | `1`                                                                                                    | Whether to allow insecure connections when using govc.                                                                                                                                                    |
+| `deploy_vm__govc_environment`           | Dictionary containing environment variables for govc operations (e.g., `GOVC_HOST`, `GOVC_USERNAME`)     | Environment variables required for govc operations.                                                                                                                                                       |
+| `deploy_vm__create_async_delay`         | `30`                                                                                                   | Delay in seconds between asynchronous operations during VM creation.                                                                                                                                        |
+| `deploy_vm__create_async_retries`       | `1000`                                                                                                 | Number of retries for asynchronous operations during VM creation.                                                                                                                                           |
+| `deploy_vm__template_info`              | Dictionary containing template information (e.g., `ubuntu24`, `centos9`)                                | Information about the VM templates available for deployment, including their names and network services.                                                                                                    |
+
+## Usage
+
+### Deploying VMware VMs
+
+To deploy VMs on a VMware vSphere environment, define the list of VMs in `deploy_vm__vmware_vm_list` with appropriate configurations such as name, template, datacenter, etc.
+
+```yaml
+deploy_vm__vmware_vm_list:
+  - name: vm-ubuntu24-01
+    template: ubuntu24-medium
+    datacenter: Datacenter1
+    cluster: Cluster1
+    datastore: datastore1
+    network: VM Network
+    ip_address: 192.168.1.100
+    netmask: 255.255.255.0
+    gateway: 192.168.1.1
+    dns_servers:
+      - 8.8.8.8
+      - 8.8.4.4
+```
+
+### Deploying VMware Appliances
+
+To deploy appliances using OVF templates, define the list of appliances in `deploy_vm__vmware_appliance_list` with appropriate configurations such as name, datacenter, etc.
+
+```yaml
+deploy_vm__vmware_appliance_list:
+  - name: appliance-01
+    ova_path: /path/to/appliance.ova
+    datacenter: Datacenter1
+    cluster: Cluster1
+    datastore: datastore1
+    network: VM Network
+    ip_address: 192.168.1.101
+    netmask: 255.255.255.0
+    gateway: 192.168.1.1
+    dns_servers:
+      - 8.8.8.8
+      - 8.8.4.4
+```
+
+### Deploying Proxmox VMs
+
+To deploy containers on a Proxmox environment, define the list of containers in `deploy_vm__containers` with appropriate configurations such as node, cores, memory, etc.
+
+```yaml
+deploy_vm__containers:
+  - vmid: 100
+    hostname: container-01
+    deploy_vm__vm_proxmox_node: pve-node1
+    cores: 2
+    cpus: 2
+    memory: 4096
+    disk: 30G
+    storage: lvm-thinpool
+```
 
 ## Role details
 
@@ -145,6 +223,31 @@ k8s-cp-01 | SUCCESS => {
 [ansible-datacenter](develop-lj)$
 ```
 
+## Dependencies
+
+- `community.vmware` collection for VMware operations.
+- `community.general.proxmox` module for Proxmox operations.
+- Python packages listed in `deploy_vm__python_pip_depends`.
+
+## Best Practices
+
+1. **Security**: Ensure that sensitive variables such as passwords are stored securely using Ansible Vault or environment variables.
+2. **Validation**: Validate SSL certificates when connecting to vCenter servers by setting `deploy_vm__vcenter_validate_certs` to `true`.
+3. **Configuration Management**: Use the provided templates and configurations to ensure consistent deployment practices across environments.
+
+## Molecule Tests
+
+This role does not include Molecule tests at this time. Consider adding Molecule scenarios for testing different deployment configurations.
+
+## Backlinks
+
+- [defaults/main.yml](./defaults/main.yml)
+- [tasks/config-vmware-vm-linux.yml](./tasks/config-vmware-vm-linux.yml)
+- [tasks/deploy-proxmox-vm.yml](./tasks/deploy-proxmox-vm.yml)
+- [tasks/deploy-vmware-appliance.yml](./tasks/deploy-vmware-appliance.yml)
+- [tasks/deploy-vmware-vm.yml](./tasks/deploy-vmware-vm.yml)
+- [tasks/main.yml](./tasks/main.yml)
+- [handlers/main.yml](./handlers/main.yml)
 
 ## Reference
 

@@ -4,7 +4,6 @@ role: bootstrap_kvm
 category: Ansible Roles
 type: Configuration
 tags: kvm, libvirt, virtualization
-
 ---
 
 ## Summary

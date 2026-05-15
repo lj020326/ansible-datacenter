@@ -1,102 +1,77 @@
 ---
-title: "Bootstrap Veeam Agent Role"
-role: roles/bootstrap_veeam_agent
-category: Roles
-type: ansible-role
-tags: [ansible, role, bootstrap_veeam_agent]
+title: Bootstrap Veeam Agent Role Documentation
+role: bootstrap_veeam_agent
+category: Ansible Roles
+type: Configuration
+tags: veeam, agent, backup, ansible
 ---
 
-# Role Documentation: `bootstrap_veeam_agent`
+## Summary
 
-## Overview
-
-The `bootstrap_veeam_agent` Ansible role is designed to automate the installation and configuration of the Veeam Agent on various operating systems, including CentOS, Debian-based distributions (like Ubuntu), and Windows. This role handles package management, repository setup, and service configuration for a seamless deployment process.
-
-## Role Path
-```
-roles/bootstrap_veeam_agent
-```
+The `bootstrap_veeam_agent` role is designed to automate the installation and configuration of the Veeam Backup & Replication (VBR) Agent on various operating systems including CentOS, Debian, and Windows. This role ensures that the Veeam Agent is installed, configured with necessary agreements, and services are properly managed.
 
 ## Variables
 
-### Default Variables (`defaults/main.yml`)
+| Variable Name                         | Default Value                                                                                   | Description                                                                                                                                                                                                 |
+|---------------------------------------|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `role_bootstrap_veeam_agent__architecture` | `ansible_facts['architecture'] == x86_64`                                                       | Specifies the architecture of the system. By default, it checks if the architecture is x86_64.                                                                                                                |
+| `role_bootstrap_veeam_agent__veeam_recovery_media_url` | `http://repository.veeam.com/backup/linux/agent/veeam-recovery-media/x64/veeam-recovery-media-4.0.0.iso` | URL to the Veeam Recovery Media ISO file.                                                                                                                                                                       |
+| `role_bootstrap_veeam_agent__veeam_vbrserver_name`     | (empty)                                                                                         | Name of the VBR server. This variable is required for configuring the agent to connect to a specific VBR server.                                                                                             |
+| `role_bootstrap_veeam_agent__veeam_vbrserver_endpoint` | (empty)                                                                                         | Endpoint URL of the VBR server. Required for agent configuration.                                                                                                                                             |
+| `role_bootstrap_veeam_agent__veeam_vbrserver_login`    | (empty)                                                                                         | Login username for authenticating with the VBR server.                                                                                                                                                      |
+| `role_bootstrap_veeam_agent__veeam_vbrserver_domain`   | (empty)                                                                                         | Domain name for the login user, if applicable.                                                                                                                                                                |
+| `role_bootstrap_veeam_agent__veeam_vbrserver_password` | (empty)                                                                                         | Password for the login user. This should be handled securely in your inventory or using Ansible Vault.                                                                                                          |
+| `role_bootstrap_veeam_agent__veeam_repo_name`          | (empty)                                                                                         | Name of the backup repository where backups will be stored.                                                                                                                                                   |
+| `role_bootstrap_veeam_agent__veeam_repo_path`          | (empty)                                                                                         | Path to the backup repository on the VBR server.                                                                                                                                                              |
+| `role_bootstrap_veeam_agent__veeam_job_name`           | (empty)                                                                                         | Name of the backup job that will be created or configured for this agent.                                                                                                                                     |
+| `role_bootstrap_veeam_agent__veeam_job_restopoints`    | (empty)                                                                                         | Number of restore points to keep in the backup job configuration.                                                                                                                                             |
+| `role_bootstrap_veeam_agent__veeam_job_day`            | (empty)                                                                                         | Day of the week when the backup job should run.                                                                                                                                                               |
+| `role_bootstrap_veeam_agent__veeam_job_at`             | (empty)                                                                                         | Time of day when the backup job should start, in HH:MM format.                                                                                                                                                |
 
-| Variable Name                      | Description                                                                                   | Default Value                                                                 |
-|------------------------------------|-----------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| `architecture`                     | Architecture check to ensure the system is x86_64.                                            | `ansible_facts['architecture'] == 'x86_64'`                                   |
-| `veeam_recovery_media_url`         | URL for Veeam Recovery Media ISO.                                                             | `http://repository.veeam.com/backup/linux/agent/veeam-recovery-media/x64/veeam-recovery-media-4.0.0.iso` |
-| `veeam_vbrserver.name`             | Name of the VBR server.                                                                       | (empty)                                                                       |
-| `veeam_vbrserver.endpoint`         | Endpoint URL for the VBR server.                                                              | (empty)                                                                       |
-| `veeam_vbrserver.login`            | Login username for the VBR server.                                                            | (empty)                                                                       |
-| `veeam_vbrserver.domain`           | Domain for the VBR server login.                                                              | (empty)                                                                       |
-| `veeam_vbrserver.password`         | Password for the VBR server login.                                                            | (empty)                                                                       |
-| `veeam_repo.name`                  | Name of the backup repository.                                                                | (empty)                                                                       |
-| `veeam_repo.path`                  | Path to the backup repository.                                                                | (empty)                                                                       |
-| `veeam_job.name`                   | Name of the Veeam backup job.                                                                 | (empty)                                                                       |
-| `veeam_job.restopoints`            | Number of restore points to keep.                                                             | (empty)                                                                       |
-| `veeam_job.day`                    | Day of the week for the backup job.                                                           | (empty)                                                                       |
-| `veeam_job.at`                     | Time of day for the backup job.                                                               | (empty)                                                                       |
+## Usage
 
-**Note:** Variables related to VBR server, repository, and job configuration are placeholders and should be populated with actual values as per your environment.
+To use this role, include it in your playbook and provide the necessary variables for VBR server details, repository information, and backup job configuration.
 
-## Tasks
-
-### CentOS (`tasks/CentOS.yml`)
-- **Install veeam agent packages**: Installs the necessary Veeam Agent packages on CentOS systems using the `ansible.builtin.package` module.
-
-### Debian (`tasks/Debian.yml`)
-1. **Add Veeam key**: Adds the Veeam repository GPG key using the `ansible.builtin.apt_key` module.
-2. **Add Veeam repository**: Configures the Veeam repository in APT sources using the `ansible.builtin.apt_repository` module.
-3. **Update veeam agent packages**: Installs or updates the Veeam Agent packages on Debian-based systems.
-
-### Windows (`tasks/Windows.yml`)
-1. **Install veeam agent**: Installs the Veeam Agent for Microsoft Windows using Chocolatey via the `chocolatey.chocolatey.win_chocolatey` module.
-2. **Disable Tray**: Disables the Veeam EndPoint Tray application from starting automatically by modifying the Windows Registry using the `ansible.windows.win_regedit` module.
-
-### Main (`tasks/main.yml`)
-1. **Add OS specific variables**: Includes OS-specific variable files based on the distribution and version facts.
-2. **Include distribution tasks**: Executes OS-specific task files to handle package installation and configuration.
-3. **Accept EULA**: Accepts the End User License Agreement (EULA) for Veeam Agent using the `ansible.builtin.command` module.
-4. **Accept EULA 3rd party**: Accepts third-party licenses required by Veeam Agent.
-
-## Handlers
-
-### Main (`handlers/main.yml`)
-1. **Restart veeamservices**: Restarts the Veeam services to apply any configuration changes.
-2. **Enable veeamservices**: Ensures that the Veeam services are enabled to start on system boot.
-
-## Usage Example
-
-Below is an example playbook demonstrating how to use the `bootstrap_veeam_agent` role:
+### Example Playbook
 
 ```yaml
----
-- name: Deploy Veeam Agent
-  hosts: all
-  become: yes
+- name: Bootstrap Veeam Agent on CentOS
+  hosts: centos_servers
   roles:
     - role: bootstrap_veeam_agent
       vars:
-        veeam_vbrserver:
-          name: "vbr-server"
-          endpoint: "https://vbr-server.example.com"
-          login: "admin"
-          domain: "example.com"
-          password: "securepassword"
-        veeam_repo:
-          name: "BackupRepo"
-          path: "/mnt/backuprepo"
-        veeam_job:
-          name: "DailyBackup"
-          restopoints: 7
-          day: "Monday"
-          at: "02:00"
+        role_bootstrap_veeam_agent__veeam_vbrserver_name: vbr-server.example.com
+        role_bootstrap_veeam_agent__veeam_vbrserver_endpoint: https://vbr-server.example.com:9398/
+        role_bootstrap_veeam_agent__veeam_vbrserver_login: admin
+        role_bootstrap_veeam_agent__veeam_vbrserver_password: "{{ vault_veeam_password }}"
+        role_bootstrap_veeam_agent__veeam_repo_name: DefaultBackupRepo
+        role_bootstrap_veeam_agent__veeam_job_name: DailyFullBackup
+        role_bootstrap_veeam_agent__veeam_job_restopoints: 7
+        role_bootstrap_veeam_agent__veeam_job_day: Monday
+        role_bootstrap_veeam_agent__veeam_job_at: "02:00"
 ```
 
-## Important Notes
+## Dependencies
 
-- **Double-underscore variables**: These are internal to the role and should not be modified.
-- **Related Roles**: This documentation does not invent or reference related roles. All configurations are handled within this role.
-- **Markdown Format**: This documentation is written in standard GitHub Markdown.
+- **CentOS**: Requires the `ansible.builtin.package` module.
+- **Debian**: Requires the `ansible.builtin.apt_key`, `ansible.builtin.apt_repository`, and `ansible.builtin.package` modules.
+- **Windows**: Requires the `chocolatey.chocolatey.win_chocolatey` and `ansible.windows.win_regedit` modules.
 
-This comprehensive guide provides a clear understanding of how to deploy and configure the Veeam Agent across different operating systems using Ansible.
+## Best Practices
+
+1. **Secure Passwords**: Use Ansible Vault to manage sensitive information such as passwords.
+2. **Variable Naming**: Always use the `role_bootstrap_veeam_agent__` prefix for all user-configurable variables.
+3. **Testing**: Test your playbooks in a staging environment before deploying them to production.
+
+## Molecule Tests
+
+This role does not currently include Molecule tests. Consider adding Molecule scenarios to ensure the role behaves as expected across different operating systems and configurations.
+
+## Backlinks
+
+- [defaults/main.yml](../../roles/bootstrap_veeam_agent/defaults/main.yml)
+- [tasks/CentOS.yml](../../roles/bootstrap_veeam_agent/tasks/CentOS.yml)
+- [tasks/Debian.yml](../../roles/bootstrap_veeam_agent/tasks/Debian.yml)
+- [tasks/Windows.yml](../../roles/bootstrap_veeam_agent/tasks/Windows.yml)
+- [tasks/main.yml](../../roles/bootstrap_veeam_agent/tasks/main.yml)
+- [handlers/main.yml](../../roles/bootstrap_veeam_agent/handlers/main.yml)

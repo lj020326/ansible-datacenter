@@ -4,7 +4,6 @@ role: bootstrap_fog
 category: Ansible Roles
 type: Installation and Configuration
 tags: fogproject, ansible-role, automation
-
 ---
 
 ## Summary

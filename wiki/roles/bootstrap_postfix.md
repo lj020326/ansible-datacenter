@@ -1,148 +1,127 @@
 ---
-title: "Bootstrap Postfix Role"
-role: roles/bootstrap_postfix
-category: Roles
-type: ansible-role
-tags: [ansible, role, bootstrap_postfix]
+title: Bootstrap Postfix Role Documentation
+role: bootstrap_postfix
+category: Ansible Roles
+type: Configuration Management
+tags: postfix, email, mailserver, ansible
 ---
 
-# Role Documentation: `bootstrap_postfix`
+## Summary
 
-## Overview
+The `bootstrap_postfix` role is designed to automate the installation and configuration of Postfix on a target system. It handles package installation, service management, and configuration file setup, allowing for extensive customization through variables. This role ensures that Postfix is properly configured according to best practices and user-defined settings.
 
-The `bootstrap_postfix` Ansible role is designed to automate the installation, configuration, and management of Postfix on a target system. This role handles various aspects of Postfix setup, including package installation, service management, and configuration file customization.
+## Variables
 
-## Role Variables
+Below are the configurable variables along with their default values and descriptions:
 
-### Default Variables
-
-All variables in this role are prefixed with `bootstrap_postfix__` to avoid conflicts with other roles or playbooks. Below is a comprehensive list of default variables along with their descriptions:
-
-| Variable Name                                  | Description                                                                                           | Default Value                                                                 |
-|------------------------------------------------|-------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| `bootstrap_postfix__config_file`               | Path to the main Postfix configuration file.                                                        | `/etc/postfix/main.cf`                                                      |
-| `bootstrap_postfix__service_name`              | The name of the Postfix service.                                                                      | `postfix`                                                                     |
-| `bootstrap_postfix__service_state`             | Desired state of the Postfix service (`started`, `stopped`).                                          | `started`                                                                   |
-| `bootstrap_postfix__service_enabled`           | Whether to enable the Postfix service at boot time.                                                   | `true`                                                                      |
-| `bootstrap_postfix__service_packages`          | List of packages to install for Postfix.                                                              | `['postfix', 'postfix-pcre']`                                               |
-| `bootstrap_postfix__hostname`                  | Fully Qualified Domain Name (FQDN) of the host.                                                       | `{{ ansible_facts['fqdn'] }}`                                                 |
-| `bootstrap_postfix__mailname`                  | Mail name for the system, typically the FQDN.                                                         | `{{ ansible_facts['fqdn'] }}`                                                 |
-| `bootstrap_postfix__compatibility_level`       | Postfix compatibility level to use.                                                                   | `3.6`                                                                       |
-| `bootstrap_postfix__map_type`                  | Type of map files used by Postfix (e.g., `hash`).                                                     | `"hash"`                                                                    |
-| `bootstrap_postfix__aliases`                   | List of email aliases.                                                                                | `[]`                                                                        |
-| `bootstrap_postfix__virtual_aliases`           | List of virtual email aliases.                                                                        | `[]`                                                                        |
-| `bootstrap_postfix__sender_canonical_maps`     | Sender canonical maps configuration.                                                                  | `[]`                                                                        |
-| `bootstrap_postfix__sender_canonical_maps_database_type` | Database type for sender canonical maps.                                                      | `"{{ bootstrap_postfix__map_type }}"`                                         |
-| `bootstrap_postfix__recipient_canonical_maps`  | Recipient canonical maps configuration.                                                               | `[]`                                                                        |
-| `bootstrap_postfix__recipient_canonical_maps_database_type` | Database type for recipient canonical maps.                                                 | `"{{ bootstrap_postfix__map_type }}"`                                         |
-| `bootstrap_postfix__transport_maps`            | Transport maps configuration.                                                                         | `[]`                                                                        |
-| `bootstrap_postfix__transport_maps_database_type` | Database type for transport maps.                                                                   | `"{{ bootstrap_postfix__map_type }}"`                                         |
-| `bootstrap_postfix__sender_dependent_relayhost_maps` | Sender-dependent relay host maps configuration.                                                   | `[]`                                                                        |
-| `bootstrap_postfix__smtp_header_checks`        | SMTP header checks configuration.                                                                     | `[]`                                                                        |
-| `bootstrap_postfix__smtp_header_checks_database_type` | Database type for SMTP header checks.                                                           | `"{{ bootstrap_postfix__map_type }}"`                                         |
-| `bootstrap_postfix__smtp_generic_maps`         | SMTP generic maps configuration.                                                                      | `[]`                                                                        |
-| `bootstrap_postfix__smtp_generic_maps_database_type` | Database type for SMTP generic maps.                                                              | `"{{ bootstrap_postfix__map_type }}"`                                         |
-| `bootstrap_postfix__relayhost`                 | Relay host to use for outgoing mail.                                                                  | `""`                                                                        |
-| `bootstrap_postfix__relayhost_mxlookup`        | Whether to perform MX lookup for the relay host.                                                      | `false`                                                                     |
-| `bootstrap_postfix__relayhost_port`            | Port number for the relay host.                                                                       | `587`                                                                       |
-| `bootstrap_postfix__relaytls`                  | Whether to use TLS with the relay host.                                                               | `false`                                                                     |
-| `bootstrap_postfix__sasl_auth_enable`          | Enable SASL authentication.                                                                         | `true`                                                                      |
-| `bootstrap_postfix__sasl_user`                 | SASL username for authentication.                                                                     | `postmaster@{{ ansible_domain }}`                                             |
-| `bootstrap_postfix__sasl_password`             | SASL password for authentication.                                                                     | `k8+haga4@#pR`                                                              |
-| `bootstrap_postfix__sasl_security_options`     | Security options for SASL authentication.                                                           | `noanonymous`                                                               |
-| `bootstrap_postfix__sasl_tls_security_options` | TLS security options for SASL authentication.                                                       | `noanonymous`                                                               |
-| `bootstrap_postfix__sasl_mechanism_filter`     | Filter for SASL mechanisms to use.                                                                    | `""`                                                                        |
-| `bootstrap_postfix__smtp_tls_security_level`   | Security level for SMTP TLS.                                                                        | `encrypt`                                                                   |
-| `bootstrap_postfix__smtp_tls_wrappermode`      | Whether to use TLS wrapper mode.                                                                      | `false`                                                                     |
-| `bootstrap_postfix__smtp_tls_note_starttls_offer` | Whether to offer STARTTLS in the SMTP banner.                                                     | `true`                                                                      |
-| `bootstrap_postfix__inet_interfaces`           | Interfaces Postfix should listen on (`all`, `loopback-only`).                                         | `all`                                                                       |
-| `bootstrap_postfix__inet_protocols`            | Protocols Postfix should support (`all`, `ipv4`, `ipv6`).                                           | `all`                                                                       |
-| `bootstrap_postfix__mydestination`             | List of domains that this mail system considers local.                                                | `[ "{{ bootstrap_postfix__hostname }}", "localdomain", "localhost", "localhost.localdomain" ]` |
-| `bootstrap_postfix__mynetworks`                | Networks considered as trusted.                                                                       | `[ "127.0.0.0/8", "[::ffff:127.0.0.0]/104", "[::1]/128" ]`                   |
-| `bootstrap_postfix__smtpd_banner`              | Banner to display in the SMTP greeting message.                                                       | `$myhostname ESMTP $mail_name (Ubuntu)`                                       |
-| `bootstrap_postfix__disable_vrfy_command`      | Whether to disable the VRFY command.                                                                  | `true`                                                                      |
-| `bootstrap_postfix__message_size_limit`        | Maximum size of a message, in bytes.                                                                | `10240000`                                                                  |
-| `bootstrap_postfix__smtpd_use_tls`             | Whether to use TLS for incoming connections.                                                        | `false`                                                                     |
-| `bootstrap_postfix__smtpd_tls_cert_file`       | Path to the TLS certificate file.                                                                   | `/etc/ssl/certs/ssl-cert-snakeoil.pem`                                      |
-| `bootstrap_postfix__smtpd_tls_key_file`        | Path to the TLS key file.                                                                           | `/etc/ssl/private/ssl-cert-snakeoil.key`                                    |
-| `bootstrap_postfix__raw_options`               | Additional raw options to add to `main.cf`.                                                         | `[]`                                                                        |
-| `bootstrap_postfix__backup_configs`            | Whether to back up existing configuration files before overwriting.                                   | `true`                                                                      |
-| `bootstrap_postfix__main_cf`                   | Path to the main Postfix configuration file.                                                        | `/etc/postfix/main.cf`                                                      |
-| `bootstrap_postfix__master_cf`                 | Path to the master Postfix configuration file.                                                      | `/etc/postfix/master.cf`                                                    |
-| `bootstrap_postfix__mailname_file`             | Path to the mail name file.                                                                         | `/etc/mailname`                                                             |
-| `bootstrap_postfix__aliases_file`              | Path to the aliases file.                                                                           | `/etc/aliases`                                                              |
-| `bootstrap_postfix__virtual_aliases_file`      | Path to the virtual aliases file.                                                                   | `/etc/postfix/virtual`                                                      |
-| `bootstrap_postfix__canonical_maps_file`       | Path to the canonical maps file.                                                                    | `/etc/postfix/canonical_maps`                                               |
-| `bootstrap_postfix__sasl_passwd_file`          | Path to the SASL password file.                                                                     | `/etc/postfix/sasl_passwd`                                                  |
-| `bootstrap_postfix__tls_policy_file`           | Path to the TLS policy file.                                                                        | `/etc/postfix/tls_policy`                                                   |
-| `bootstrap_postfix__sender_canonical_maps_file`| Path to the sender canonical maps file.                                                             | `/etc/postfix/sender_canonical_maps`                                        |
-| `bootstrap_postfix__recipient_canonical_maps_file` | Path to the recipient canonical maps file.                                                       | `/etc/postfix/recipient_canonical_maps`                                     |
-| `bootstrap_postfix__transport_maps_file`       | Path to the transport maps file.                                                                    | `/etc/postfix/transport_maps`                                               |
-| `bootstrap_postfix__sender_dependent_relayhost_maps_file` | Path to the sender-dependent relay host maps file.                                          | `/etc/postfix/sender_dependent_relayhost_maps`                              |
-| `bootstrap_postfix__smtp_generic_maps_file`    | Path to the SMTP generic maps file.                                                                 | `/etc/postfix/generic`                                                      |
-| `bootstrap_postfix__smtp_header_checks_file`   | Path to the SMTP header checks file.                                                                | `/etc/postfix/smtp_header_checks`                                           |
-| `bootstrap_postfix__sender_canonical_classes`  | Classes of addresses that should be canonicalized by sender canonical maps.                         | `[]`                                                                        |
-| `bootstrap_postfix__masquerade_domains`        | Domains to masquerade as.                                                                           | `[]`                                                                        |
-| `bootstrap_postfix__masquerade_recipient_addresses` | Whether to masquerade recipient addresses.                                                      | `true`                                                                      |
-| `bootstrap_postfix__debug_host_list`           | List of hosts for debugging purposes.                                                               | `[]`                                                                        |
-
-### Internal Variables
-
-Variables prefixed with double underscores (`__`) are internal and should not be modified directly by users of the role.
-
-- `__postfix_installed_version_info`: Stores the output from the `postconf -d mail_version` command.
-- `__postfix_installed_version`: Extracted version number from `__postfix_installed_version_info`.
-
-## Tasks
-
-The tasks in this role are designed to perform the following actions:
-
-1. **Set OS-specific variables**: Include OS-specific variable files if available, otherwise use default values.
-2. **Display debug information**: Output key variables for debugging purposes.
-3. **Ensure Postfix is installed**: Install the necessary packages for Postfix.
-4. **Retrieve and display Postfix version**: Get the installed version of Postfix.
-5. **Create necessary directories and files**: Ensure that `/etc/postfix` directory exists and create a placeholder file.
-6. **Find existing hash DB files**: Locate any existing hash database files in `/etc/postfix`.
-7. **Configure main.cf**: Generate the `main.cf` configuration file based on provided variables.
-8. **Configure master.cf**: Generate the `master.cf` configuration file if necessary.
-9. **Manage aliases and virtual aliases**: Update alias files and regenerate maps as needed.
-10. **Configure SASL authentication**: Set up SASL authentication for Postfix.
-11. **Configure TLS settings**: Apply TLS configurations based on provided variables.
-
-## Handlers
-
-Handlers in this role are triggered by specific tasks to perform actions like restarting the Postfix service or regenerating map files.
-
-- `restart_postfix`: Restart the Postfix service if changes require it.
-- `new_aliases`: Regenerate aliases using `newaliases` command.
-- `new_virtual_aliases`: Regenerate virtual aliases using `postmap`.
-- `postmap_sasl_passwd`: Regenerate SASL password maps.
-- `postmap_generic`: Regenerate SMTP generic maps.
-- `postmap_sender_canonical_maps`: Regenerate sender canonical maps.
-- `postmap_sender_dependent_relayhost_maps`: Regenerate sender-dependent relay host maps.
-- `postmap_recipient_canonical_maps`: Regenerate recipient canonical maps.
-- `postmap_transport_maps`: Regenerate transport maps.
+| Variable Name                                      | Default Value                                                                                         | Description                                                                                                                                                                                                 |
+|----------------------------------------------------|-------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_postfix__config_file`                   | `/etc/postfix/main.cf`                                                                                | Path to the main Postfix configuration file.                                                                                                                                                                |
+| `bootstrap_postfix__service_name`                  | `postfix`                                                                                             | Name of the Postfix service.                                                                                                                                                                                |
+| `bootstrap_postfix__service_state`                 | `started`                                                                                             | Desired state of the Postfix service (e.g., started, stopped).                                                                                                                                            |
+| `bootstrap_postfix__service_enabled`               | `true`                                                                                                | Whether the Postfix service should be enabled to start on boot.                                                                                                                                             |
+| `bootstrap_postfix__service_packages`              | `[postfix, postfix-pcre]`                                                                             | List of packages to install for Postfix.                                                                                                                                                                    |
+| `bootstrap_postfix__hostname`                      | `{{ ansible_facts['fqdn'] }}`                                                                         | Fully Qualified Domain Name (FQDN) of the host.                                                                                                                                                           |
+| `bootstrap_postfix__mailname`                      | `{{ ansible_facts['fqdn'] }}`                                                                         | Mail name to be used by Postfix.                                                                                                                                                                            |
+| `bootstrap_postfix__compatibility_level`           | `3.6`                                                                                                 | Compatibility level for Postfix configuration.                                                                                                                                                              |
+| `bootstrap_postfix__map_type`                      | `hash`                                                                                                | Type of map files used by Postfix (e.g., hash, btree).                                                                                                                                                    |
+| `bootstrap_postfix__aliases`                       | `[]`                                                                                                  | List of aliases to be configured in `/etc/aliases`.                                                                                                                                                         |
+| `bootstrap_postfix__virtual_aliases`               | `[]`                                                                                                  | List of virtual aliases to be configured.                                                                                                                                                                   |
+| `bootstrap_postfix__sender_canonical_maps`         | `[]`                                                                                                  | Sender canonical maps configuration.                                                                                                                                                                        |
+| `bootstrap_postfix__sender_canonical_maps_database_type` | `{{ bootstrap_postfix__map_type }}`                                                              | Database type for sender canonical maps.                                                                                                                                                                    |
+| `bootstrap_postfix__recipient_canonical_maps`      | `[]`                                                                                                  | Recipient canonical maps configuration.                                                                                                                                                                     |
+| `bootstrap_postfix__recipient_canonical_maps_database_type` | `{{ bootstrap_postfix__map_type }}`                                                           | Database type for recipient canonical maps.                                                                                                                                                                 |
+| `bootstrap_postfix__transport_maps`                | `[]`                                                                                                  | Transport maps configuration.                                                                                                                                                                               |
+| `bootstrap_postfix__transport_maps_database_type`  | `{{ bootstrap_postfix__map_type }}`                                                                   | Database type for transport maps.                                                                                                                                                                           |
+| `bootstrap_postfix__sender_dependent_relayhost_maps` | `[]`                                                                                                | Sender-dependent relay host maps configuration.                                                                                                                                                             |
+| `bootstrap_postfix__smtp_header_checks`            | `[]`                                                                                                  | SMTP header checks configuration.                                                                                                                                                                             |
+| `bootstrap_postfix__smtp_header_checks_database_type` | `{{ bootstrap_postfix__map_type }}`                                                                | Database type for SMTP header checks.                                                                                                                                                                       |
+| `bootstrap_postfix__smtp_generic_maps`             | `[]`                                                                                                  | SMTP generic maps configuration.                                                                                                                                                                            |
+| `bootstrap_postfix__smtp_generic_maps_database_type` | `{{ bootstrap_postfix__map_type }}`                                                                  | Database type for SMTP generic maps.                                                                                                                                                                        |
+| `bootstrap_postfix__relayhost`                     | `""`                                                                                                  | Relay host to which mail is sent.                                                                                                                                                                           |
+| `bootstrap_postfix__relayhost_mxlookup`            | `false`                                                                                               | Whether to perform MX lookup on the relay host.                                                                                                                                                             |
+| `bootstrap_postfix__relayhost_port`                | `587`                                                                                                 | Port used for connecting to the relay host.                                                                                                                                                                 |
+| `bootstrap_postfix__relaytls`                      | `false`                                                                                               | Whether TLS is used when relaying mail.                                                                                                                                                                     |
+| `bootstrap_postfix__sasl_auth_enable`              | `true`                                                                                                | Enable SASL authentication.                                                                                                                                                                                 |
+| `bootstrap_postfix__sasl_user`                     | `postmaster@{{ ansible_domain }}`                                                                      | SASL username for authentication.                                                                                                                                                                           |
+| `bootstrap_postfix__sasl_password`                 | `k8+haga4@#pR`                                                                                        | SASL password for authentication. **Note:** This should be changed in production environments.                                                                                                                |
+| `bootstrap_postfix__sasl_security_options`         | `noanonymous`                                                                                         | Security options for SASL authentication.                                                                                                                                                                   |
+| `bootstrap_postfix__sasl_tls_security_options`     | `noanonymous`                                                                                         | TLS security options for SASL authentication.                                                                                                                                                               |
+| `bootstrap_postfix__sasl_mechanism_filter`         | `""`                                                                                                  | Filter for SASL mechanisms.                                                                                                                                                                                 |
+| `bootstrap_postfix__smtp_tls_security_level`       | `encrypt`                                                                                             | Security level for SMTP TLS connections.                                                                                                                                                                    |
+| `bootstrap_postfix__smtp_tls_wrappermode`          | `false`                                                                                               | Whether to use TLS wrapper mode.                                                                                                                                                                            |
+| `bootstrap_postfix__smtp_tls_note_starttls_offer`  | `true`                                                                                                | Whether to note STARTTLS offer in the SMTP banner.                                                                                                                                                          |
+| `bootstrap_postfix__inet_interfaces`               | `all`                                                                                                 | Interfaces on which Postfix listens for incoming connections.                                                                                                                                             |
+| `bootstrap_postfix__inet_protocols`                | `all`                                                                                                 | Protocols supported by Postfix (e.g., ipv4, ipv6, all).                                                                                                                                                  |
+| `bootstrap_postfix__mydestination`                 | `[{{ bootstrap_postfix__hostname }}, localdomain, localhost, localhost.localdomain]`                   | List of domains that are delivered locally.                                                                                                                                                                   |
+| `bootstrap_postfix__mynetworks`                    | `[127.0.0.0/8, [::ffff:127.0.0.0]/104, [::1]/128]`                                                    | List of trusted networks.                                                                                                                                                                                   |
+| `bootstrap_postfix__smtpd_banner`                  | `$myhostname ESMTP $mail_name (Ubuntu)`                                                                 | Banner displayed by the Postfix SMTP server.                                                                                                                                                                |
+| `bootstrap_postfix__disable_vrfy_command`          | `true`                                                                                                | Disable the VRFY command to prevent address probing.                                                                                                                                                        |
+| `bootstrap_postfix__message_size_limit`            | `10240000`                                                                                            | Maximum size of a message, in bytes.                                                                                                                                                                        |
+| `bootstrap_postfix__smtpd_use_tls`                 | `false`                                                                                               | Whether TLS is used for incoming connections.                                                                                                                                                               |
+| `bootstrap_postfix__smtpd_tls_cert_file`           | `/etc/ssl/certs/ssl-cert-snakeoil.pem`                                                                | Path to the SSL certificate file for SMTPD TLS.                                                                                                                                                             |
+| `bootstrap_postfix__smtpd_tls_key_file`            | `/etc/ssl/private/ssl-cert-snakeoil.key`                                                              | Path to the SSL key file for SMTPD TLS.                                                                                                                                                                     |
+| `bootstrap_postfix__raw_options`                   | `[]`                                                                                                  | List of raw configuration options to be added to `main.cf`.                                                                                                                                                 |
+| `bootstrap_postfix__backup_configs`                | `true`                                                                                                | Whether to back up existing configuration files before overwriting them.                                                                                                                                    |
+| `bootstrap_postfix__main_cf`                       | `/etc/postfix/main.cf`                                                                                | Path to the main Postfix configuration file.                                                                                                                                                                |
+| `bootstrap_postfix__master_cf`                     | `/etc/postfix/master.cf`                                                                              | Path to the master Postfix configuration file.                                                                                                                                                              |
+| `bootstrap_postfix__mailname_file`                 | `/etc/mailname`                                                                                       | Path to the mail name file.                                                                                                                                                                                 |
+| `bootstrap_postfix__aliases_file`                  | `/etc/aliases`                                                                                        | Path to the aliases file.                                                                                                                                                                                   |
+| `bootstrap_postfix__virtual_aliases_file`          | `/etc/postfix/virtual`                                                                                | Path to the virtual aliases file.                                                                                                                                                                           |
+| `bootstrap_postfix__canonical_maps_file`           | `/etc/postfix/canonical_maps`                                                                         | Path to the canonical maps file.                                                                                                                                                                            |
+| `bootstrap_postfix__sasl_passwd_file`              | `/etc/postfix/sasl_passwd`                                                                            | Path to the SASL password file.                                                                                                                                                                             |
+| `bootstrap_postfix__tls_policy_file`               | `/etc/postfix/tls_policy`                                                                             | Path to the TLS policy file.                                                                                                                                                                                |
+| `bootstrap_postfix__sender_canonical_maps_file`    | `/etc/postfix/sender_canonical_maps`                                                                  | Path to the sender canonical maps file.                                                                                                                                                                     |
+| `bootstrap_postfix__recipient_canonical_maps_file` | `/etc/postfix/recipient_canonical_maps`                                                               | Path to the recipient canonical maps file.                                                                                                                                                                  |
+| `bootstrap_postfix__transport_maps_file`           | `/etc/postfix/transport_maps`                                                                         | Path to the transport maps file.                                                                                                                                                                            |
+| `bootstrap_postfix__sender_dependent_relayhost_maps_file` | `/etc/postfix/sender_dependent_relayhost_maps`                                                   | Path to the sender-dependent relay host maps file.                                                                                                                                                          |
+| `bootstrap_postfix__smtp_generic_maps_file`        | `/etc/postfix/generic`                                                                                | Path to the SMTP generic maps file.                                                                                                                                                                         |
+| `bootstrap_postfix__smtp_header_checks_file`       | `/etc/postfix/smtp_header_checks`                                                                     | Path to the SMTP header checks file.                                                                                                                                                                        |
+| `bootstrap_postfix__sender_canonical_classes`      | `[]`                                                                                                  | Classes of addresses that are subject to sender canonicalization.                                                                                                                                             |
+| `bootstrap_postfix__masquerade_domains`            | `[]`                                                                                                  | Domains for which masquerading is enabled.                                                                                                                                                                  |
+| `bootstrap_postfix__masquerade_recipient_addresses` | `true`                                                                                                | Whether recipient addresses should be masqueraded.                                                                                                                                                          |
+| `bootstrap_postfix__debug_host_list`               | `[]`                                                                                                  | List of hosts to enable debugging for.                                                                                                                                                                      |
 
 ## Usage
 
-To use this role, include it in your playbook and provide any necessary variable overrides. Here is an example playbook:
+To use the `bootstrap_postfix` role, include it in your playbook and optionally override any default variables as needed:
 
 ```yaml
----
-- name: Configure Postfix on target hosts
-  hosts: all
-  become: yes
+- name: Configure Postfix on target servers
+  hosts: mail_servers
   roles:
     - role: bootstrap_postfix
       vars:
         bootstrap_postfix__relayhost: smtp.example.com
-        bootstrap_postfix__sasl_user: user@example.com
-        bootstrap_postfix__sasl_password: securepassword
+        bootstrap_postfix__sasl_password: securepassword123
 ```
 
-## Notes
+## Dependencies
 
-- **Double-underscore variables**: These are internal and should not be modified directly.
-- **No related roles**: This role does not depend on any other roles. It is self-contained for configuring Postfix.
+This role does not have any external dependencies other than the packages specified in `bootstrap_postfix__service_packages`.
 
-This documentation provides a comprehensive overview of the `bootstrap_postfix` Ansible role, including its purpose, variables, tasks, handlers, usage instructions, and important notes.
+## Best Practices
+
+- **Security:** Always change default passwords and sensitive information such as `bootstrap_postfix__sasl_password` to secure values.
+- **Configuration Management:** Use version control for your Ansible playbooks and roles to track changes and ensure consistency across environments.
+- **Testing:** Test the role in a staging environment before deploying it to production to verify that all configurations are correct and that Postfix functions as expected.
+
+## Molecule Tests
+
+This role includes Molecule tests to validate its functionality. To run the tests, navigate to the role directory and execute:
+
+```bash
+molecule test
+```
+
+Ensure you have Molecule installed along with the necessary drivers (e.g., Docker) before running the tests.
+
+## Backlinks
+
+- [defaults/main.yml](../../roles/bootstrap_postfix/defaults/main.yml)
+- [tasks/main.yml](../../roles/bootstrap_postfix/tasks/main.yml)
+- [handlers/main.yml](../../roles/bootstrap_postfix/handlers/main.yml)
+
+---
+
+This documentation provides a comprehensive overview of the `bootstrap_postfix` role, including its purpose, configurable variables, usage instructions, dependencies, best practices, and testing procedures. For more detailed information, refer to the linked source files.

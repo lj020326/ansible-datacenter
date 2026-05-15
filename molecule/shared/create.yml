@@ -22,21 +22,27 @@
         state: started
         log_driver: json-file
       loop: "{{ molecule_yml.platforms }}"
-      register: result
+      register: _create_container
 
     - name: Print some info
       ansible.builtin.debug:
-        msg: "{{ result.results }}"
+        msg:
+          - "container.State.ExitCode={{ item.container.State.ExitCode }}"
+          - "container.State.Running={{ item.container.State.Running }}"
+      loop: "{{ _create_container.results }}"
+      loop_control:
+        label: "{{ item.container.Name }}"
 
     - name: Fail if container is not running
       when: >
-        item.container.State.ExitCode != 0 or
-        not item.container.State.Running
+        _container_info.container.State.ExitCode != 0 or
+        not _container_info.container.State.Running
       ansible.builtin.include_tasks:
         file: tasks/create-fail.yml
-      loop: "{{ result.results }}"
+      loop: "{{ _create_container.results }}"
       loop_control:
-        label: "{{ item.container.Name }}"
+        label: "{{ _container_info.container.Name }}"
+        loop_var: _container_info
 
     - name: Add container to molecule_inventory
       vars:
@@ -84,14 +90,14 @@
       ansible.builtin.debug:
         var: group_names
 
-    - name: Check uname
-      ansible.builtin.raw: uname -a
-      register: result
-      changed_when: false
-
-    - name: Display uname info
-      ansible.builtin.debug:
-        msg: "{{ result.stdout }}"
+#    - name: Check uname
+#      ansible.builtin.raw: uname -a
+#      register: _uname_result
+#      changed_when: false
+#
+#    - name: Display uname info
+#      ansible.builtin.debug:
+#        msg: "{{ _uname_result.stdout }}"
 
 #    - name: Pre-create ansible tmp directory
 #      ansible.builtin.file:

@@ -4,7 +4,6 @@ role: bootstrap_ovftool
 category: Ansible Roles
 type: Installation
 tags: ovftool, vmware, automation
-
 ---
 
 ## Summary

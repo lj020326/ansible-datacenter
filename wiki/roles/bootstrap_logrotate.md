@@ -4,8 +4,10 @@ role: bootstrap_logrotate
 category: System Configuration
 type: Ansible Role
 tags: logrotate, logging, system, configuration
+---
 
 ## Summary
+
 The `bootstrap_logrotate` Ansible role is designed to install and configure the `logrotate` utility on Linux systems. It manages global log rotation settings, application-specific log rotation configurations, and optional hourly rotation symlinks.
 
 ## Variables
