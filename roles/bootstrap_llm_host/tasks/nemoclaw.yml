@@ -1,0 +1,77 @@
+---
+# =============================================================================
+# NemoClaw Installation & Agent Runtime Setup
+# =============================================================================
+
+- name: NemoClaw | Create isolated system group
+  ansible.builtin.group:
+    name: "{{ bootstrap_llm_host__nemoclaw_user }}"
+    system: true
+
+- name: NemoClaw | Create system service user without host execution privileges
+  ansible.builtin.user:
+    name: "{{ bootstrap_llm_host__nemoclaw_user }}"
+    group: "{{ bootstrap_llm_host__nemoclaw_user }}"
+    home: "{{ bootstrap_llm_host__nemoclaw_home_dir }}"
+    shell: /bin/bash
+    system: true
+    create_home: true
+
+- name: NemoClaw | Build secure application and sandboxing path structures
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ bootstrap_llm_host__nemoclaw_user }}"
+    group: "{{ bootstrap_llm_host__nemoclaw_user }}"
+    mode: '0750' # Hardened permissions (prevent other local unprivileged users from reading workspaces)
+  loop:
+    - "{{ bootstrap_llm_host__nemoclaw_home_dir }}/.config/nemoclaw"
+    - "{{ bootstrap_llm_host__nemoclaw_workspace_dir }}"
+    - "{{ bootstrap_llm_host__nemoclaw_sandbox_root }}"
+
+- name: NemoClaw | Pull deployment installer
+  ansible.builtin.get_url:
+    url: "https://www.nvidia.com/nemoclaw.sh" # Reference endpoint for the core script bootstrap
+    dest: "/tmp/nemoclaw_install.sh"
+    mode: "0755"
+  environment:
+    # Safely passes downstream proxies if present in your environment
+    HTTP_PROXY: "{{ lookup('env', 'http_proxy') | default(omit) }}"
+
+- name: NemoClaw | Execute system software compilation and installation
+  ansible.builtin.command: "sh /tmp/nemoclaw_install.sh --prefix=/usr/local"
+  register: __nemoclaw_install_output
+  changed_when: "'Installing' in __nemoclaw_install_output.stdout"
+
+- name: NemoClaw | Deploy hardened runtime policies configurations
+  ansible.builtin.template:
+    src: nemoclaw_config.yaml.j2
+    dest: "{{ bootstrap_llm_host__nemoclaw_home_dir }}/.config/nemoclaw/config.yaml"
+    owner: "{{ bootstrap_llm_host__nemoclaw_user }}"
+    group: "{{ bootstrap_llm_host__nemoclaw_user }}"
+    mode: "0600"
+  notify: Restart nemoclaw
+
+- name: NemoClaw | Generate systemd service definition unit
+  ansible.builtin.template:
+    src: nemoclaw.service.j2
+    dest: /etc/systemd/system/nemoclaw.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart nemoclaw
+
+- name: NemoClaw | Flush handlers to guarantee instant unit awareness
+  ansible.builtin.meta: flush_handlers
+
+- name: NemoClaw | Ensure service is started and enabled
+  ansible.builtin.systemd:
+    name: nemoclaw
+    enabled: true
+    state: started
+    daemon_reload: true
+
+#- name: NemoClaw | Clean up local setup script
+#  ansible.builtin.file:
+#    path: "/tmp/nemoclaw_install.sh"
+#    state: absent

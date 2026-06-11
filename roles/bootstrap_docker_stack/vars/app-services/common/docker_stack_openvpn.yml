@@ -19,6 +19,40 @@ __docker_stack__openvpn__http_port: "{{ docker_stack__openvpn__http_port | d('80
 __docker_stack__openvpn__username: "{{ docker_stack__openvpn__username | d('testuser') }}"
 __docker_stack__openvpn__password: "{{ docker_stack__openvpn__password | d('password') }}"
 
+__docker_stack__openvpn__environment_default:
+  USER: "{{ __docker_stack__openvpn__username }}"
+  PASS: "{{ __docker_stack__openvpn__password }}"
+  TZ: "{{ docker_stack__timezone }}"
+  #      CATEGORY: P2P
+  COUNTRY: "NL;CA;MX"
+  #      COUNTRY: "United States;CA;153"
+  #      COUNTRY: United_States
+  #      CITY: "Toronto;Montreal"
+  #      CITY: "Toronto;New York;Montreal"
+  #      CITY: "New York;2619989"
+  #      CITY: "New York"
+  #      SERVER_ID: "us8408"
+  #      GROUP: "Standard VPN servers"
+  #      GROUP: 11
+  TECHNOLOGY: openvpn_udp
+  #      SERVER_ID: "us8481"
+  #      SERVER_ID: "ca1669"
+  NETWORK: "{{ __docker_stack__openvpn__external_network }};{{ docker_stack__network_subnet__vpn }};{{ docker_stack__network_subnet__traefik_proxy }}"
+#      NETWORK: "{{ docker_stack__network_subnet__vpn }};{{ docker_stack__network_subnet__traefik_proxy }}"
+  OPENVPN_OPTS: --pull-filter ignore "ping-restart" --ping-exit 180
+#      OPENVPN_OPTS: --mute-replay-warnings --ping-exit 60
+  RANDOM_TOP: 10
+#      RECREATE_VPN_CRON: "5 */3 * * *"
+  CHECK_CONNECTION_CRON: "*/5 * * * *"
+  CHECK_CONNECTION_URL: "https://1.1.1.1;https://8.8.8.8"
+  UPDATE_METADATA: true
+  FORCE_COLOR: 1
+#      LOG_LEVEL: DEBUG
+#      DEBUG: trace
+
+__docker_stack__openvpn__environment: "{{ docker_stack__openvpn__environment
+  | d(__docker_stack__openvpn__environment_default) }}"
+
 #__docker_stack__openvpn__networks:
 #  vpn:
 #    attachable: true
@@ -38,6 +72,8 @@ __docker_stack__openvpn__config_dirs:
   - path: "{{ __docker_stack__openvpn__config_dir }}"
 
 __docker_stack__openvpn__config_tpls:
+  - src: openvpn/openvpn.env.j2
+    dest: "{{ __docker_stack__openvpn__base_dir }}/openvpn.env"
   #  - src: 'media/config-nordvpn.ovpn.j2'
   #    dest: "{{ __docker_stack__openvpn__config_dir }}/openvpn/nordvpn.ovpn"
 
@@ -87,39 +123,13 @@ __docker_stack__openvpn__services:
     networks:
       - vpn
       - "{{ docker_stack__network_name__traefik_proxy }}"
+    env_file:
+      - openvpn/openvpn.env
     ports:
       - "{{ __docker_stack__openvpn__bittorrent_port }}:8168"
-    #      - "{{ __docker_stack__openvpn__sabnzbd_port }}:8080"
-    #      - "{{ __docker_stack__openvpn__bittorrent_port }}:9091"
-    #      - "6881:6881"
-    #      - "6881:6881/udp"
-    environment:
-      USER: "{{ __docker_stack__openvpn__username }}"
-      PASS: "{{ __docker_stack__openvpn__password }}"
-      TZ: "{{ docker_stack__timezone }}"
-      #      CATEGORY: P2P
-      COUNTRY: "NL;CA;MX"
-      #      COUNTRY: "United States;CA;153"
-      #      COUNTRY: United_States
-      #      CITY: "Toronto;Montreal"
-      #      CITY: "Toronto;New York;Montreal"
-      #      CITY: "New York;2619989"
-      #      CITY: "New York"
-      #      SERVER_ID: "us8408"
-      #      GROUP: "Standard VPN servers"
-      #      GROUP: 11
-      TECHNOLOGY: openvpn_udp
-      #      SERVER_ID: "us8481"
-      #      SERVER_ID: "ca1669"
-      NETWORK: "{{ __docker_stack__openvpn__external_network }};{{ docker_stack__network_subnet__vpn }};{{ docker_stack__network_subnet__traefik_proxy }}"
-#      NETWORK: "{{ docker_stack__network_subnet__vpn }};{{ docker_stack__network_subnet__traefik_proxy }}"
-      OPENVPN_OPTS: --pull-filter ignore "ping-restart" --ping-exit 180
-#      OPENVPN_OPTS: --mute-replay-warnings --ping-exit 60
-      RANDOM_TOP: 10
-#      RECREATE_VPN_CRON: "5 */3 * * *"
-      CHECK_CONNECTION_CRON: "*/5 * * * *"
-      CHECK_CONNECTION_URL: "https://1.1.1.1;https://8.8.8.8"
-      UPDATE_METADATA: true
-      FORCE_COLOR: 1
-#      LOG_LEVEL: DEBUG
-#      DEBUG: trace
+      # HTTP proxy
+      - 8888:8888/tcp
+      # Shadowsocks
+      - 8388:8388/tcp
+      # Shadowsocks
+      - 8388:8388/udp

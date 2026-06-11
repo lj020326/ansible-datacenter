@@ -3,42 +3,45 @@ title: "Bootstrap Netplan Role Documentation"
 role: bootstrap_netplan
 category: Networking
 type: Ansible Role
-tags: netplan, networking, configuration, automation
+tags: netplan, networking, configuration, ansible
 ---
 
 ## Summary
 
-The `bootstrap_netplan` role is designed to automate the setup and management of network configurations using Netplan on Linux systems. It handles package installation, existing configuration removal, custom or default Netplan configuration generation, and applies the configuration. This ensures consistent network settings across multiple hosts.
+The `bootstrap_netplan` role is designed to manage and configure network settings using Netplan on Linux systems. It handles the installation of necessary packages, removal of existing configurations, generation of a new Netplan configuration file from templates, and application of the configuration. This role ensures that the system's networking is set up according to specified parameters, making it suitable for both static and dynamic IP configurations.
 
 ## Variables
 
-| Variable Name                         | Default Value                                                                 | Description                                                                                                                                                                                                 |
-|---------------------------------------|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bootstrap_netplan__config_file`      | `/etc/netplan/01-ens160.yaml`                                               | The path to the Netplan configuration file.                                                                                                                                                                   |
-| `bootstrap_netplan__enabled`          | `true`                                                                        | Whether the role should be enabled and executed.                                                                                                                                                              |
-| `bootstrap_netplan__remove_existing`  | `true`                                                                        | If set to true, existing Netplan configurations will be removed before applying new ones.                                                                                                                     |
-| `bootstrap_netplan__dhcp4`            | `true`                                                                        | Enable or disable DHCP for IPv4.                                                                                                                                                                            |
-| `bootstrap_netplan__dhcp6`            | `true`                                                                        | Enable or disable DHCP for IPv6.                                                                                                                                                                            |
-| `bootstrap_netplan__renderer`         | `networkd`                                                                    | The renderer to use for Netplan (e.g., networkd, NetworkManager).                                                                                                                                             |
-| `bootstrap_netplan__ethernet_interface_name` | `"ens160"`                                                               | The name of the Ethernet interface.                                                                                                                                                                           |
-| `bootstrap_netplan__ethernet_primary_interface` | `"{{ ansible_facts['default_ipv4']['interface'] }}"`                | The primary Ethernet interface determined from Ansible facts.                                                                                                                                             |
-| `bootstrap_netplan__ethernet_primary_mac` | `"{{ ansible_facts['default_ipv4']['macaddress'] }}"`                    | The MAC address of the primary Ethernet interface determined from Ansible facts.                                                                                                                            |
-| `bootstrap_netplan__netplan_interfaces` | `[]`                                                                        | A list of interfaces to be configured (internal variable, not user-configurable).                                                                                                                             |
-| `bootstrap_netplan__configuration`    | `{}`                                                                          | Custom Netplan configuration dictionary. If provided, it will override the default template-based configuration.                                                                                            |
-| `bootstrap_netplan__static_addresses` | `[]`                                                                        | A list of static IP addresses to be configured for the interface.                                                                                                                                             |
-| `bootstrap_netplan__routes`           | `[]`                                                                        | A list of routes to be added in the Netplan configuration.                                                                                                                                                  |
-| `bootstrap_netplan__nameservers`      | `[]`                                                                        | A list of nameservers to be configured.                                                                                                                                                                       |
-| `bootstrap_netplan__packages`         | `[nplan, netplan.io]`                                                         | List of packages required for Netplan.                                                                                                                                                                        |
-| `bootstrap_netplan__pri_domain`       | `example.org`                                                                 | The primary domain name to be used in the configuration.                                                                                                                                                    |
-| `bootstrap_netplan__check_install`    | `true`                                                                        | Whether to check and install required packages before applying configurations.                                                                                                                                |
-| `bootstrap_netplan__apply`            | `true`                                                                        | Whether to apply the Netplan configuration after generation.                                                                                                                                                |
+| Variable Name                             | Default Value                                                                                       | Description                                                                                                                                                                                                 |
+|-------------------------------------------|-----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_netplan__config_file`          | `/etc/netplan/01-ens160.yaml`                                                                       | The path to the Netplan configuration file that will be generated and applied.                                                                                                                              |
+| `bootstrap_netplan__enabled`              | `true`                                                                                              | A boolean flag to enable or disable the role's functionality.                                                                                                                                             |
+| `bootstrap_netplan__remove_existing`      | `true`                                                                                              | A boolean flag to determine whether existing Netplan configurations should be removed before applying a new configuration.                                                                                  |
+| `bootstrap_netplan__dhcp4`                | `true`                                                                                              | A boolean flag indicating whether DHCPv4 should be enabled for the network interface.                                                                                                                       |
+| `bootstrap_netplan__dhcp6`                | `true`                                                                                              | A boolean flag indicating whether DHCPv6 should be enabled for the network interface.                                                                                                                       |
+| `bootstrap_netplan__renderer`             | `networkd`                                                                                            | The renderer to use for Netplan, such as `networkd` or `NetworkManager`.                                                                                                                                    |
+| `bootstrap_netplan__ethernet_interface_name`| `"ens160"`                                                                                          | The name of the Ethernet interface to configure.                                                                                                                                                            |
+| `bootstrap_netplan__ethernet_primary_interface`| `{{ ansible_facts['default_ipv4']['interface'] }}`                                                   | The primary Ethernet interface determined from Ansible facts.                                                                                                                                               |
+| `bootstrap_netplan__ethernet_primary_mac`   | `{{ ansible_facts['default_ipv4']['macaddress'] }}`                                                    | The MAC address of the primary Ethernet interface determined from Ansible facts.                                                                                                                              |
+| `bootstrap_netplan__configuration`        | `{}`                                                                                                | A dictionary to hold custom Netplan configuration settings. If provided, it will be used instead of generating a configuration from templates.                                                                |
+| `bootstrap_netplan__static_addresses`     | `[]`                                                                                                | A list of static IP addresses to configure for the network interface.                                                                                                                                       |
+| `bootstrap_netplan__routes`               | `[]`                                                                                                | A list of routes to add to the Netplan configuration.                                                                                                                                                       |
+| `bootstrap_netplan__nameservers`          | `[]`                                                                                                | A list of nameservers to configure in the Netplan settings.                                                                                                                                                 |
+| `bootstrap_netplan__packages`             | `[nplan, netplan.io]`                                                                               | A list of packages required for Netplan functionality that will be installed by the role.                                                                                                                   |
+| `bootstrap_netplan__pri_domain`           | `example.org`                                                                                       | The primary domain name to configure in the Netplan settings.                                                                                                                                               |
+| `bootstrap_netplan__check_install`        | `true`                                                                                              | A boolean flag indicating whether to check and install required packages before proceeding with configuration.                                                                                                 |
+| `bootstrap_netplan__apply`                | `true`                                                                                              | A boolean flag indicating whether to apply the Netplan configuration after generating it.                                                                                                                   |
 
 ## Usage
 
-To use this role, include it in your playbook and optionally override any of the default variables as needed:
+To use the `bootstrap_netplan` role, include it in your Ansible playbook and optionally override any of the default variables as needed.
+
+### Example Playbook
 
 ```yaml
-- hosts: all
+- name: Configure network using Netplan
+  hosts: all
+  become: yes
   roles:
     - role: bootstrap_netplan
       vars:
@@ -54,20 +57,22 @@ To use this role, include it in your playbook and optionally override any of the
 
 ## Dependencies
 
+The `bootstrap_netplan` role depends on the following packages:
+
 - `nplan`
 - `netplan.io`
 
-These packages are installed by the role if not already present.
+These packages will be installed by the role if they are not already present.
 
 ## Best Practices
 
-1. **Backup Configurations**: Always ensure you have backups of existing Netplan configurations before running this role.
-2. **Test Changes**: Test changes in a staging environment before applying them to production systems.
-3. **Custom Configuration**: Use `bootstrap_netplan__configuration` for complex or custom configurations that cannot be easily managed with the default variables.
+1. **Configuration Management**: Use the `bootstrap_netplan__configuration` variable to provide a custom Netplan configuration dictionary when needed, ensuring precise control over network settings.
+2. **Static vs DHCP**: Set `bootstrap_netplan__dhcp4` and `bootstrap_netplan__dhcp6` appropriately based on whether you want to use static IP addresses or DHCP for your network interfaces.
+3. **Package Management**: Ensure that the required packages (`nplan`, `netplan.io`) are installed before applying Netplan configurations.
 
 ## Molecule Tests
 
-This role does not currently include Molecule tests. Consider adding Molecule scenarios to ensure the role behaves as expected in different environments.
+This role does not include any Molecule tests at this time. Consider adding Molecule scenarios to test different configurations and ensure the role behaves as expected across various environments.
 
 ## Backlinks
 

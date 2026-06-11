@@ -13,18 +13,22 @@
   retries: 10
   delay: 2
 
+
+# ==============================================================================
+# SYSTEM SPECIFIC PLATFORM EXECUTION & INSTALL
+# ==============================================================================
 - name: Docker | EE | APT | Perform specific os tasks
-  ansible.builtin.include_tasks: "{{ lookup('first_found', __file_params) }}"
+  when: __os_task_file | length > 0
   vars:
+    __os_task_file: "{{ lookup('first_found', __file_params, errors='ignore') }}"
     __file_params:
+      skip: true
       files:
         - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
         - "{{ ansible_facts['distribution'] | lower }}.yml"
-        - "{{ ansible_facts['distribution'] | lower }}.yml"
-        - default.yml
       paths:
         - tasks/ee/os
-#        - "{{ role_path }}/tasks/ce/os"
+  ansible.builtin.include_tasks: "{{ __os_task_file }}"
 
 - name: Docker | EE | APT | Remove old repo lxc-docker
   ansible.builtin.apt:

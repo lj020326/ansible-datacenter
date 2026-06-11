@@ -102,6 +102,50 @@ __docker_stack__base__dozzle_image: amir20/dozzle:latest
 __docker_stack__base__watchtower_image: containrrr/watchtower:latest
 __docker_stack__base__gc_image: clockworksoul/docker-gc-cron:latest
 
+__docker_stack__base__socket_proxy_environment_default:
+  LOG_LEVEL: debug # debug,info,notice,warning,err,crit,alert,emerg
+  ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
+  # 0 to revoke access.
+  # 1 to grant access.
+  ## Granted by Default
+  EVENTS: 1
+  PING: 1
+  VERSION: 1
+  ## Revoked by Default
+  # Security critical
+  AUTH: 0
+  SECRETS: 0
+  POST: 1 # Watchtower
+  DELETE: 1 # Watchtower
+  # GET Optons
+  BUILD: 0
+  COMMIT: 0
+  CONFIGS: 0
+  CONTAINERS: 1 # Traefik, portainer, etc.
+  DISTRIBUTION: 0
+  EXEC: 0
+  IMAGES: 1 # Portainer, Watchtower
+  INFO: 1 # Portainer
+  NETWORKS: 1 # Portainer, Watchtower
+  NODES: 1
+  PLUGINS: 0
+  SERVICES: 1 # Portainer
+  SESSION: 0
+  SWARM: "{{ __docker_stack__socket_proxy_mode | int }}"
+  SYSTEM: 0
+  TASKS: 1 # Portainer
+  VOLUMES: 1 # Portainer
+  # POST Options
+  CONTAINERS_CREATE: 1 # WatchTower
+  CONTAINERS_START: 1 # WatchTower
+  CONTAINERS_UPDATE: 1 # WatchTower
+  # DELETE Options
+  CONTAINERS_DELETE: 1 # WatchTower
+  IMAGES_DELETE: 1 # WatchTower
+
+__docker_stack__base__socket_proxy_environment: "{{ docker_stack__base__socket_proxy_environment
+  | d(__docker_stack__base__socket_proxy_environment_default) }}"
+
 __docker_stack__base__watchtower_environment_default:
   TZ: "{{ docker_stack__timezone }}"
   WATCHTOWER_CLEANUP: "true"
@@ -138,6 +182,8 @@ __docker_stack__base__config_tpls:
     dest: "{{ __docker_stack__traefik__dir }}/rules/tls-opts.yml"
   - src: docker-gc-exclude.conf.j2
     dest: "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude"
+  - src: socket_proxy/socket-proxy.env.j2
+    dest: "{{ __docker_stack__base__stack_dir }}/socket_proxy/socket-proxy.env"
   - src: watchtower/watchtower.env.j2
     dest: "{{ __docker_stack__base__stack_dir }}/watchtower/watchtower.env"
 
@@ -155,6 +201,7 @@ __docker_stack__base__config_dirs:
   - path: "{{ __docker_stack__base__stack_dir }}/docker-gc"
   - path: "{{ __docker_stack__base__stack_dir }}/portainer"
   - path: "{{ __docker_stack__base__stack_dir }}/portainer/data"
+  - path: "{{ __docker_stack__base__stack_dir }}/socket_proxy"
   - path: "{{ __docker_stack__base__stack_dir }}/watchtower"
 
 ################################
@@ -422,46 +469,8 @@ __docker_stack__base__services_internal:
 #        mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      LOG_LEVEL: debug # debug,info,notice,warning,err,crit,alert,emerg
-      ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
-      # 0 to revoke access.
-      # 1 to grant access.
-      ## Granted by Default
-      EVENTS: 1
-      PING: 1
-      VERSION: 1
-      ## Revoked by Default
-      # Security critical
-      AUTH: 0
-      SECRETS: 0
-      POST: 1 # Watchtower
-      DELETE: 1 # Watchtower
-      # GET Optons
-      BUILD: 0
-      COMMIT: 0
-      CONFIGS: 0
-      CONTAINERS: 1 # Traefik, portainer, etc.
-      DISTRIBUTION: 0
-      EXEC: 0
-      IMAGES: 1 # Portainer, Watchtower
-      INFO: 1 # Portainer
-      NETWORKS: 1 # Portainer, Watchtower
-      NODES: 1
-      PLUGINS: 0
-      SERVICES: 1 # Portainer
-      SESSION: 0
-      SWARM: "{{ __docker_stack__socket_proxy_mode | int }}"
-      SYSTEM: 0
-      TASKS: 1 # Portainer
-      VOLUMES: 1 # Portainer
-      # POST Options
-      CONTAINERS_CREATE: 1 # WatchTower
-      CONTAINERS_START: 1 # WatchTower
-      CONTAINERS_UPDATE: 1 # WatchTower
-      # DELETE Options
-      CONTAINERS_DELETE: 1 # WatchTower
-      IMAGES_DELETE: 1 # WatchTower
+    env_file:
+      - socket_proxy/socket-proxy.env
     deploy:
 #      endpoint_mode: dnsrr
 #      mode: global

@@ -166,7 +166,7 @@ function usage() {
   echo ""
   echo "  Options:"
   echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : log level (default: ${LOGLEVEL_TO_STR[${LOG_LEVEL}]})"
-  echo "       -a : MOLECULE_COMMAND (create|login|converge|test|destroy|...)"
+  echo "       -a : MOLECULE_COMMAND (create|login|converge|verify|test|destroy|...)"
   echo "       -i : MOLECULE_IMAGE_SHORT (${DOCKER_IMAGE_KEYS})"
   echo "       -d : run molecule with '--debug' flag"
   echo "       -l : list test cases"

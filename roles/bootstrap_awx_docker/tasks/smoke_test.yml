@@ -3,7 +3,7 @@
 - name: Wait for the environment to be ready
   ansible.builtin.uri:
     #    url: "http://localhost:8013/api/v2/ping/"
-    url: http://localhost:{{ awx_host_port }}/api/v2/ping/
+    url: http://localhost:{{ bootstrap_awx_docker__host_port }}/api/v2/ping/
   register: _result
   retries: 120
   delay: 5
@@ -11,15 +11,15 @@
 
 #- name: Reset admin password
 #  ansible.builtin.shell: |
-#    docker exec -i {{ awx_container_prefix }}_task bash <<EOSH
-#      awx-manage update_password --username=admin --password={{ awx_admin_password }}
+#    docker exec -i {{ bootstrap_awx_docker__container_prefix }}_task bash <<EOSH
+#      awx-manage update_password --username=admin --password={{ bootstrap_awx_docker__admin_password }}
 #      awx-manage create_preload_data
 #    EOSH
 
 - name: Run create_preload_data
   changed_when: false
   ansible.builtin.shell: |
-    docker exec -i {{ awx_container_prefix }}_task bash <<EOSH
+    docker exec -i {{ bootstrap_awx_docker__container_prefix }}_task bash <<EOSH
       awx-manage create_preload_data
     EOSH
 
@@ -27,8 +27,8 @@
 - name: Reset admin password
   changed_when: false
   ansible.builtin.shell: |
-    docker exec -i {{ awx_container_prefix }}_task bash <<EOSH
-      awx-manage update_password --username=admin --password={{ awx_admin_password }}
+    docker exec -i {{ bootstrap_awx_docker__container_prefix }}_task bash <<EOSH
+      awx-manage update_password --username=admin --password={{ bootstrap_awx_docker__admin_password }}
     EOSH
   register: result
   failed_when:
@@ -42,15 +42,15 @@
         name: Demo Job Template
         wait: true
         validate_certs: false
-        controller_host: http://localhost:{{ awx_host_port }}
+        controller_host: http://localhost:{{ bootstrap_awx_docker__host_port }}
         controller_username: admin
-        controller_password: "{{ awx_admin_password }}"
+        controller_password: "{{ bootstrap_awx_docker__admin_password }}"
   rescue:
     - name: Get list of project updates and jobs
       ansible.builtin.uri:
-        url: http://localhost:{{ awx_host_port }}/api/v2/{{ resource }}/
+        url: http://localhost:{{ bootstrap_awx_docker__host_port }}/api/v2/{{ resource }}/
         user: admin
-        password: "{{ awx_admin_password }}"
+        password: "{{ bootstrap_awx_docker__admin_password }}"
         force_basic_auth: true
       register: job_lists
       loop:
@@ -61,9 +61,9 @@
 
     - name: Get all job and project details
       ansible.builtin.uri:
-        url: http://localhost:{{ awx_host_port }}{{ endpoint }}
+        url: http://localhost:{{ bootstrap_awx_docker__host_port }}{{ endpoint }}
         user: admin
-        password: "{{ awx_admin_password }}"
+        password: "{{ bootstrap_awx_docker__admin_password }}"
         force_basic_auth: true
       loop: |
         {{ job_lists.results | map(attribute='json') | map(attribute='results') | flatten | map(attribute='url') }}

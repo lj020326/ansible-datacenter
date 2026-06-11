@@ -1,5 +1,24 @@
 ---
-- name: Docker | CE | Debian | Install the Debian Backports repository
-  ansible.builtin.apt_repository:
-    repo: deb http://ftp.debian.org/debian {{ ansible_facts['distribution_release'] }}-backports main
-    update_cache: true
+- name: Docker | CE | Debian | Set Backports suite fact with custom container fallback
+  ansible.builtin.set_fact:
+    __bootstrap_docker__backports_suite: >-
+      {%- if ansible_facts['distribution_release'] in ['bookworm', 'bullseye', 'buster'] -%}
+        {{ ansible_facts['distribution_release'] }}-backports
+      {%- else -%}
+        {%- if ansible_facts['distribution_major_version'] == '12' -%}
+          bookworm-backports
+        {%- elif ansible_facts['distribution_major_version'] == '11' -%}
+          bullseye-backports
+        {%- else -%}
+          {{ ansible_facts['distribution_release'] }}-backports
+        {%- endif -%}
+      {%- endif -%}
+
+- name: Docker | CE | Debian | Install the Debian Backports repository using DEB822 format
+  ansible.builtin.deb822_repository:
+    name: debian-backports
+    types: [deb]
+    uris: ["http://ftp.debian.org/debian"]
+    suites: ["{{ __bootstrap_docker__backports_suite }}"]
+    components: [main]
+    state: present

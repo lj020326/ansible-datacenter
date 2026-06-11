@@ -1,0 +1,205 @@
+---
+
+__docker_stack__plane__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__plane__base_dir_default: "{{ __docker_stack__plane__stack_dir }}/plane"
+__docker_stack__plane__base_dir: "{{ docker_stack__plane__base_dir | d(__docker_stack__plane__base_dir_default) }}"
+
+__docker_stack__plane__domain: "{{ docker_stack__internal_domain }}"
+__docker_stack__plane__endpoint: "plane.{{ __docker_stack__plane__domain }}"
+__docker_stack__plane__root_url: "https://{{ __docker_stack__plane__endpoint }}"
+
+__docker_stack__plane__db_password: "{{ docker_stack__plane__db_password | d('plane_secure_password_change_me') }}"
+__docker_stack__plane__minio_password: "{{ docker_stack__plane__minio_password | d('plane_minio_secure_change_me') }}"
+__docker_stack__plane__secret_key: "{{ docker_stack__plane__secret_key | d('change_me_super_secret_key_please') }}"
+
+__docker_stack__plane__debug: "{{ docker_stack__plane__debug | d('true') }}"
+__docker_stack__plane__email_verification: "{{ docker_stack__plane__email_verification | d('false') }}"
+
+__docker_stack__plane__environment_default:
+  # === Core URLs ===
+  NEXT_PUBLIC_APP_URL: "{{ __docker_stack__plane__root_url }}"
+  # The backend needs to know its own base URL for API calls
+  API_BASE_URL: "http://plane-api:3000"
+
+  # === Database ===
+  DATABASE_URL: "postgresql://plane:{{ __docker_stack__plane__db_password }}@plane-postgres:5432/plane"
+
+  # === Cache / Queue ===
+  REDIS_URL: "redis://plane-valkey:6379"
+  RABBITMQ_URL: "amqp://guest:guest@plane-rabbitmq:5672/"
+
+  # MinIO / Storage
+  MINIO_URL: "http://plane-minio:9000"
+  MINIO_ACCESS_KEY: plane
+  MINIO_SECRET_KEY: "{{ __docker_stack__plane__minio_password }}"
+  MINIO_BUCKET: plane-uploads
+
+  # === Security ===
+  SECRET_KEY: "{{ __docker_stack__plane__secret_key }}"
+
+  # === Optional but recommended ===
+  DEBUG: "{{ __docker_stack__plane__debug }}"
+  # Disable email verification for initial setup
+  EMAIL_VERIFICATION: "{{ __docker_stack__plane__email_verification }}"
+
+__docker_stack__plane__environment: "{{ docker_stack__plane__environment
+  | d(__docker_stack__plane__environment_default) }}"
+
+__docker_stack__plane__postgres_environment_default:
+  POSTGRES_DB: plane
+  POSTGRES_USER: plane
+  POSTGRES_PASSWORD: "{{ __docker_stack__plane__db_password }}"
+
+__docker_stack__plane__postgres_environment: "{{ docker_stack__plane__postgres_environment
+  | d(__docker_stack__plane__postgres_environment_default) }}"
+
+__docker_stack__plane__config_dirs:
+  - path: "{{ __docker_stack__plane__base_dir }}"
+  - path: "{{ __docker_stack__plane__base_dir }}/postgres"
+  - path: "{{ __docker_stack__plane__base_dir }}/valkey"
+  - path: "{{ __docker_stack__plane__base_dir }}/rabbitmq"
+  - path: "{{ __docker_stack__plane__base_dir }}/minio"
+  - path: "{{ __docker_stack__plane__base_dir }}/uploads"
+
+__docker_stack__plane__config_tpls:
+  - src: plane/postgres.env.j2
+    dest: "{{ __docker_stack__plane__base_dir }}/postgres.env"
+  - src: plane/minio.env.j2
+    dest: "{{ __docker_stack__plane__base_dir }}/minio.env"
+  - src: plane/plane.env.j2
+    dest: "{{ __docker_stack__plane__base_dir }}/plane.env"
+
+__docker_stack__plane__traefik_labels: "{{ docker_stack__plane__traefik_labels
+  | d(__docker_stack__plane__traefik_labels_default) }}"
+
+__docker_stack__plane__services:
+  plane-postgres:
+    image: postgres:16-alpine
+    container_name: plane-postgres
+    restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    env_file:
+      - "plane/postgres.env"
+    environment:
+      POSTGRES_DB: plane
+      POSTGRES_USER: plane
+      POSTGRES_PASSWORD: "{{ docker_stack__plane__db_password | d('plane_secure_password_change_me') }}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__plane__base_dir }}/postgres:/var/lib/postgresql/data"
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plane -d plane"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  plane-valkey:
+    image: valkey/valkey:8-alpine
+    container_name: plane-valkey
+    restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    command: valkey-server --save 60 1 --loglevel warning
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__plane__base_dir }}/valkey:/data"
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  plane-rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: plane-rabbitmq
+    restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    volumes:
+      - "{{ __docker_stack__plane__base_dir }}/rabbitmq:/var/lib/rabbitmq"
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  plane-minio:
+    image: minio/minio:latest
+    container_name: plane-minio
+    restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    command: server /data --console-address ":9001"
+    env_file:
+      - "plane/minio.env"
+    volumes:
+      - "{{ __docker_stack__plane__base_dir }}/minio:/data"
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  # Minimal backend - required for frontend to work
+  plane-api:
+    image: makeplane/plane-backend:latest
+    container_name: plane-api
+#    command: ["./bin/api"]
+    restart: unless-stopped
+    depends_on:
+      plane-postgres:
+        condition: service_healthy
+      plane-valkey:
+        condition: service_healthy
+      plane-rabbitmq:
+        condition: service_healthy
+      plane-minio:
+        condition: service_healthy
+    env_file:
+      - plane/plane.env
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+
+  plane-web:
+    image: makeplane/plane-frontend:latest
+    container_name: plane-web
+    restart: unless-stopped
+    depends_on:
+      - plane-api
+    env_file:
+      - plane/plane.env
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    labels: "{{ __docker_stack__plane__traefik_labels }}"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  # TODO: Add plane-api, plane-worker, plane-space, plane-live later
+
+docker_stack__appspec__plane:
+  dirs: "{{ __docker_stack__plane__config_dirs | d([], true) }}"
+  templates: "{{ __docker_stack__plane__config_tpls | d([], true) }}"
+  docker_services: "{{ __docker_stack__plane__services | d({}, true) }}"

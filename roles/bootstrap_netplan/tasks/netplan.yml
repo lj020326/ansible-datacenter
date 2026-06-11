@@ -1,11 +1,4 @@
 ---
-- name: "Set OS specific variables"
-  ansible.builtin.include_vars: "{{ item }}"
-  with_first_found:
-    - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
-    - "{{ ansible_facts['distribution'] | lower }}.yml"
-    - "{{ ansible_facts['os_family'] | lower }}.yml"
-    - default.yml
 
 - name: "Install netplan packages"
   when:
@@ -22,18 +15,35 @@
   when: bootstrap_netplan__remove_existing | bool
   ansible.builtin.import_tasks: remove-existing.yml
 
+- name: "Set bootstrap_netplan__configuration fact from template"
+  when: bootstrap_netplan__configuration | length == 0
+  ansible.builtin.set_fact:
+    bootstrap_netplan__configuration: "{{ lookup('ansible.builtin.template', 'netplan.yml.j2') | from_yaml }}"
+
 - name: "Display bootstrap_netplan__configuration"
   ansible.builtin.debug:
     var: bootstrap_netplan__configuration
 
 - name: "Ensure custom netplan configuration"
   when: bootstrap_netplan__configuration | length > 0
-  ansible.builtin.template:
-    src: config.yml.j2
-    dest: "{{ bootstrap_netplan__config_file }}"
-    mode: "0600"
-  become: true
-  notify: netplan generate config
+  block:
+    - name: "Ensure custom netplan configuration"
+      ansible.builtin.template:
+        src: config.yml.j2
+        dest: "{{ bootstrap_netplan__config_file }}"
+        mode: "0600"
+      become: true
+      notify: netplan generate config
+
+    - name: "Slurp netplan configuration file"
+      ansible.builtin.slurp:
+        src: "{{ bootstrap_netplan__config_file }}"
+      become: true
+      register: netplan_slurp
+
+    - name: "Display netplan configuration content for {{ bootstrap_netplan__config_file }}"
+      ansible.builtin.debug:
+        msg: "{{ (netplan_slurp['content'] | b64decode).splitlines() }}"
 
 - name: "Ensure netplan configuration"
   when: bootstrap_netplan__configuration | length == 0

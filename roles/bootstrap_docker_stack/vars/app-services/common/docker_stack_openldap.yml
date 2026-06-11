@@ -422,9 +422,33 @@ __docker_stack__openldap__environment_default:
   LDAP_TLS_CA_CRT_FILENAME: "{{ __docker_stack__openldap__tls_ca_crt_filename }}"
   LDAP_TLS_DH_PARAM_PATH: "{{ __docker_stack__openldap__tls_dh_param_path }}"
 
-
 __docker_stack__openldap__environment: "{{ docker_stack__openldap__environment |
   d(__docker_stack__openldap__environment_default) }}"
+
+__docker_stack__openldap__ldapadmin_environment_default:
+  LDAP_URI: ldap://openldap
+  LDAP_BASE_DN: "{{ __docker_stack__openldap__base_dn }}"
+  LDAP_REQUIRE_STARTTLS: "FALSE"
+  LDAP_ADMINS_GROUP: admins
+  LDAP_ADMIN_BIND_DN: "{{ __docker_stack__openldap__admin_dn }}"
+  LDAP_ADMIN_BIND_PWD: "{{ __docker_stack__openldap__admin_password }}"
+  LDAP_IGNORE_CERT_ERRORS: "true"
+  LDAP_USER_OU: users
+  LDAP_GROUP_OU: groups
+  LDAP_GROUP_MEMBERSHIP_USES_UID: "FALSE"
+  #      LDAP_GROUP_MEMBERSHIP_ATTRIBUTE: "memberUID"
+  #      FORCE_RFC2307BIS: "TRUE"
+  DEFAULT_USER_GROUP: users
+  USERNAME_FORMAT: "{first_name_initial}{last_name}"
+  #      EMAIL_DOMAIN: "{{ docker_stack__internal_domain }}"
+  EMAIL_DOMAIN: "{{ docker_stack__external_domain }}"
+  NO_HTTPS: "true"
+  PASSWORD_HASH: SSHA
+  SERVER_HOSTNAME: "ldapadmin.{{ docker_stack__internal_domain }}"
+#  SERVER_HOSTNAME: localhost
+
+__docker_stack__openldap__ldapadmin_environment: "{{ docker_stack__openldap__ldapadmin_environment |
+  d(__docker_stack__openldap__ldapadmin_environment_default) }}"
 
 __docker_stack__openldap__config_dirs:
   - path: "{{ __docker_stack__openldap__base_dir }}"
@@ -479,8 +503,11 @@ __docker_stack__openldap__config_files:
 #  - src: 'openldap/ldif/09-cache.ldif'
 #    dest: "{{ __docker_stack__openldap__base_dir }}/ldif/09-cache.ldif"
 
-
 __docker_stack__openldap__config_tpls:
+  - src: openldap/openldap.env.j2
+    dest: "{{ __docker_stack__openldap__base_dir }}/openldap.env"
+  - src: openldap/ldapadmin.env.j2
+    dest: "{{ __docker_stack__openldap__base_dir }}/ldapadmin.env"
   - src: openldap/ldap_seed_info.ldif.j2
     dest: "{{ __docker_stack__openldap__base_dir }}/ldif/10-bootstrap.ldif"
 
@@ -541,7 +568,8 @@ __docker_stack__openldap__services:
       ## custom schema
       ## ref: https://github.com/osixia/docker-openldap/issues/177
       - "{{ __docker_stack__openldap__base_dir }}/schema:/container/service/slapd/assets/config/bootstrap/schema"
-    environment: "{{ __docker_stack__openldap__environment }}"
+    env_file:
+      - openldap/openldap.env
     deploy:
       mode: replicated
       placement:
@@ -590,27 +618,8 @@ __docker_stack__openldap__services:
   ldapadmin:
     image: wheelybird/ldap-user-manager:v1.5
     container_name: ldapadmin
-    environment:
-      LDAP_URI: ldap://openldap
-      LDAP_BASE_DN: "{{ __docker_stack__openldap__base_dn }}"
-      LDAP_REQUIRE_STARTTLS: "FALSE"
-      LDAP_ADMINS_GROUP: admins
-      LDAP_ADMIN_BIND_DN: "{{ __docker_stack__openldap__admin_dn }}"
-      LDAP_ADMIN_BIND_PWD: "{{ __docker_stack__openldap__admin_password }}"
-      LDAP_IGNORE_CERT_ERRORS: "true"
-      LDAP_USER_OU: users
-      LDAP_GROUP_OU: groups
-      LDAP_GROUP_MEMBERSHIP_USES_UID: "FALSE"
-      #      LDAP_GROUP_MEMBERSHIP_ATTRIBUTE: "memberUID"
-      #      FORCE_RFC2307BIS: "TRUE"
-      DEFAULT_USER_GROUP: users
-      USERNAME_FORMAT: "{first_name_initial}{last_name}"
-      #      EMAIL_DOMAIN: "{{ docker_stack__internal_domain }}"
-      EMAIL_DOMAIN: "{{ docker_stack__external_domain }}"
-      NO_HTTPS: "true"
-      PASSWORD_HASH: SSHA
-      SERVER_HOSTNAME: ldapadmin.{{ docker_stack__internal_domain }}
-    #      SERVER_HOSTNAME: localhost
+    env_file:
+      - openldap/ldapadmin.env
     depends_on:
       - openldap
     restart: unless-stopped
@@ -705,7 +714,7 @@ __docker_stack__openldap__domain_group_map_combined: "{{ __docker_stack__openlda
 
 __docker_stack__openldap__domain_host_map_yaml: |-
   {
-  {% for host_key in __docker_stack__openldap__domain_host_list %}
+  {% for host_key in __docker_stack__openldap__domain_host_list | sort %}
     {% set _host_ldap_config = hostvars[host_key].ldap_host_config %}
     {% set _uid = _host_ldap_config.uid | d(host_key) %}
     {% set _uid_number_default = (range(100, 999) | random(seed=_uid)) | int + 50000 %}

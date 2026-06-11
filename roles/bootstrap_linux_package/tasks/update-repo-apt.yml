@@ -6,8 +6,10 @@
     name: apt-transport-https
     state: present
 
-- name: Package | APT - Install repositories
-  when: ansible_facts['distribution_major_version'] | int <= 11
+- name: Package | APT - Install repositories (debian)
+  when:
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] | int <= 11
   block:
 
     - name: Package | APT - Display bootstrap_linux_package__apt_sources
@@ -15,8 +17,7 @@
         var: bootstrap_linux_package__apt_sources
 
     - name: Package | APT - Install sources.list
-      when:
-        - bootstrap_linux_package__apt_sources | bool
+      when: bootstrap_linux_package__apt_sources | bool
       ansible.builtin.template:
         src: "{{ bootstrap_linux_package__apt_sources_tpl }}"
         dest: "{{ __bootstrap_linux_package__apt_sources_file }}"
@@ -33,7 +34,6 @@
     - name: Package | APT - Install backports.list
       when:
         - bootstrap_linux_package__apt_backports | bool
-        - ansible_facts['distribution'] == 'Debian'
       ansible.builtin.template:
         src: "{{ bootstrap_linux_package__apt_backports_tpl }}"
         dest: "{{ bootstrap_linux_package__apt_backports_file }}"
@@ -48,9 +48,7 @@
         var: bootstrap_linux_package__apt_experimental
 
     - name: Package | APT - Install experimental.list
-      when:
-        - bootstrap_linux_package__apt_experimental | bool
-        - ansible_facts['distribution'] == 'Debian'
+      when: bootstrap_linux_package__apt_experimental | bool
       ansible.builtin.template:
         src: "{{ bootstrap_linux_package__apt_experimental_tpl }}"
         dest: "{{ bootstrap_linux_package__apt_experimental_file }}"
@@ -60,26 +58,68 @@
         backup: true
       notify: APT Update Cache
 
+- name: Package | APT - Install repositories (ubuntu)
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - ansible_facts['distribution_major_version'] | int >= 24
+  block:
+
+    - name: Package | APT - Empty sources.list
+      when: not (__bootstrap_linux_package__reset_sources | bool)
+      ansible.builtin.copy:
+        dest: "{{ __bootstrap_linux_package__apt_sources_file }}"
+        content: "# Ubuntu sources have moved to {{ __bootstrap_linux_package__package_source_dir }}/ubuntu.sources\n"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+
+    - name: "Package | APT - Install {{ __bootstrap_linux_package__apt_sources_file }}"
+      ansible.builtin.template:
+        src: "{{ bootstrap_linux_package__apt_sources_ubuntu_tpl }}"
+        dest: "{{ __bootstrap_linux_package__apt_sources_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: APT Update Cache
+
 - name: Package | APT - Custom repos
   when: bootstrap_linux_package__custom_repo_list.apt | length > 0
   block:
-    - name: Package | APT - Install Custom repo key
-      ansible.builtin.apt_key:
-        url: "{{ item.key_url }}"
+    - name: Package | APT - Install Custom repo (Deb822 format)
+      ansible.builtin.deb822_repository:
+        name: "{{ item.filename | d(item.name) | lower }}"
         state: "{{ item.state | d(package__state) }}"
+        types: [ deb ]
+        uris: "{{ item.repo_url }}"
+        suites: "{{ item.suites | d(omit) }}"
+#        suites: [ "{{ ansible_facts['distribution_release'] }}" ]
+        components: "{{ item.components | d(omit) }}"
+#        components: "{{ item.components | d(['stable']) }}"
+        architectures: [ "{{ bootstrap_linux_package__apt_arch }}" ]
+        signed_by: "{{ item.key_url }}"
       loop: "{{ bootstrap_linux_package__custom_repo_list.apt }}"
       loop_control:
         label: "{{ item.name }}"
 
-    - name: Package | APT - Install Custom repo
-      ansible.builtin.apt_repository:
-        repo: "{{ item.repo_url }}"
-        state: "{{ item.state | d(package__state) }}"
-        filename: "{{ item.filename | d(item.name) | lower }}"
-        update_cache: "{{ package__update_cache }}"
-      loop: "{{ bootstrap_linux_package__custom_repo_list.apt }}"
-      loop_control:
-        label: "{{ item.name }}"
+#    - name: Package | APT - Install Custom repo key
+#      ansible.builtin.apt_key:
+#        url: "{{ item.key_url }}"
+#        state: "{{ item.state | d(package__state) }}"
+#      loop: "{{ bootstrap_linux_package__custom_repo_list.apt }}"
+#      loop_control:
+#        label: "{{ item.name }}"
+#
+#    - name: Package | APT - Install Custom repo
+#      ansible.builtin.apt_repository:
+#        repo: "{{ item.repo_url }}"
+#        state: "{{ item.state | d(package__state) }}"
+#        filename: "{{ item.filename | d(item.name) | lower }}"
+#        update_cache: "{{ package__update_cache }}"
+#      loop: "{{ bootstrap_linux_package__custom_repo_list.apt }}"
+#      loop_control:
+#        label: "{{ item.name }}"
 
 - name: Package | APT - Update System Package Cache
   ansible.builtin.apt:

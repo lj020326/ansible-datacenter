@@ -1,0 +1,140 @@
+{{ 'Ansible managed' | comment(format="# {}") }}
+{% macro render_service_option(key, container, swarm_mode, filter_type='scalar', indent=4) %}
+  {%- set swarm_restricted_keys = ['container_name', 'network_mode', 'restart', 'privileged', 'security_opt', 'links', 'labels', 'secrets'] %}
+  {%- if not (swarm_mode | bool and key in swarm_restricted_keys) %}
+    {%- if container[key] is defined %}
+      {%- set padding = " " * indent %}
+{{ "\n" }}{{ padding }}{{ key }}:
+      {%- if filter_type == 'scalar' %} {{ container[key] }}
+      {%- elif filter_type == 'list_loop' %}
+        {%- for item in container[key] %}
+{{ "\n" }}{{ padding }}  - {{ item }}
+        {%- endfor %}
+      {%- elif filter_type == 'yaml' %}
+{{ "\n" }}{{ padding }}  {{ container[key]
+    | to_nice_yaml
+    | indent(indent + 2, first=True) | trim }}
+      {%- elif filter_type == 'command' %}
+        {%- if container[key] is not string and container[key] is not mapping and container[key] is iterable %}
+{{ "\n" }}{{ padding }}  {{ container[key]
+    | to_nice_yaml
+    | indent(indent + 2, first=True) | trim }}
+        {%- else %} >-
+{{ padding }}  {{ container[key] | indent(indent + 2, first=True) | trim }}
+        {%- endif %}
+      {%- endif %}
+    {%- endif %}
+  {%- endif %}
+{% endmacro %}
+
+{% if __docker_stack__networks | d({}) | length > 0 %}
+
+networks:
+  {%- for _network_key, _network_config in __docker_stack__networks.items() %}
+{{ "\n" }}  {{ _network_key }}:
+    {%- if _network_config.external | d(False) | bool %}
+{{ "\n" }}    external: true
+    {%- else %}
+      {%- if docker_stack__swarm_mode | d(False) | bool %}
+{{ "\n" }}    {{ _network_config
+      | ansible.utils.remove_keys(target=['ipam_config','scope'])
+      | to_nice_yaml
+      | indent(4, first=False) | trim }}
+      {%- else %}
+{{ "\n" }}    {{ _network_config
+      | ansible.utils.remove_keys(target=['driver','ipam_config','scope'])
+      | to_nice_yaml
+      | indent(4, first=False) | trim }}
+      {%- endif %}
+    {%- endif %}
+  {%- endfor %}
+
+{% endif %}
+
+{%- if __docker_stack__volumes | d({}) | length > 0 %}
+
+volumes:
+  {{ __docker_stack__volumes | to_nice_yaml | indent(2, first=False) | trim }}
+{% endif %}
+
+{%- if docker_stack__swarm_mode | d(False) | bool %}
+  {%- if __docker_stack__secrets | d({}) | length > 0 %}
+
+secrets:
+    {%- for _secret_name in __docker_stack__secrets.keys() | sort %}
+{{ "\n" }}  {{ _secret_name }}:
+    external: true
+    {%- endfor %}
+  {%- endif %}
+
+{% endif %}
+
+{%- if docker_stack__configs | d({}) | length > 0 %}
+
+configs:
+  {{ docker_stack__configs | to_nice_yaml | indent(2, first=False) | trim }}
+
+{%- endif %}
+
+services:
+{% for service_group in __docker_stack__service_groups | sort(attribute='name') %}
+  {%- if __docker_stack__service_group_configs_tpl[service_group.name] | d([]) | length > 0 %}
+  ########################
+  ## {{ service_group.name | upper }} GROUP SERVICES
+    {%- for key, container in __docker_stack__service_group_configs_tpl[service_group.name].items() %}
+      {%- if (container.active | d(True)) %}
+      {%- if not loop.first %}
+{{ "\n" }}
+      {%- endif %}
+{{ "\n" }}  {{ container.service_name if container.service_name is defined else key }}:
+    image: {{ container.image }}
+    {{- render_service_option("container_name", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("network_mode", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("restart", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("privileged", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("security_opt", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("mem_limit", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("hostname", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("extra_hosts", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("shm_size", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("user", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("cap_add", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("devices", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("depends_on", container, docker_stack__swarm_mode, filter_type='list_loop') }}
+    {{- render_service_option("links", container, docker_stack__swarm_mode, filter_type='list_loop') }}
+    {{- render_service_option("networks", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("ports", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("environment", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("env_file", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("healthcheck", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("command", container, docker_stack__swarm_mode, filter_type='command') }}
+    {{- render_service_option("entrypoint", container, docker_stack__swarm_mode, filter_type='command') }}
+    {{- render_service_option("dns", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("secrets", container, not docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("labels", container, docker_stack__swarm_mode, filter_type='yaml') }}
+
+        {#- Handle complex deploy block conditional fallback separately #}
+        {%- set _deploy_config = {} %}
+        {%- if container.deploy is defined %}
+            {%- if docker_stack__swarm_mode | d(False) | bool %}
+                {%- set _deploy_config = container.deploy %}
+            {%- else %}
+                {%- set _deploy_config = container.deploy | ansible.utils.keep_keys(['resources']) %}
+            {%- endif %}
+        {%- endif %}
+        {%- if docker_stack__swarm_mode | d(False) | bool %}
+            {%- if container.labels is defined %}
+                {%- set _ = _deploy_config.update({ 'labels': container.labels }) %}
+            {%- endif %}
+        {%- endif %}
+        {%- if _deploy_config.keys() | length > 0 %}
+{{ "\n" }}    deploy:
+      {{ _deploy_config | to_nice_yaml | indent(6, first=False) | trim }}
+        {%- endif %}
+
+    {{- render_service_option("volumes", container, false, filter_type='yaml') }}
+      {%- endif %}
+    {%- endfor %}
+  {%- endif %}
+{{ "\n" }}
+{% endfor %}

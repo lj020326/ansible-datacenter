@@ -6,262 +6,233 @@
 ##  https://github.com/mrlesmithjr/ansible-openldap/blob/master/templates/etc/ldap/slapd.d/populate_content.ldif.j2
 ##
 
+##################################
 ## LDAP System Users
-{% for _uid,_user_config in __docker_stack__openldap__base_user_map.items() %}
+##################################
+{% for _uid, _user_config in __docker_stack__openldap__base_user_map.items() -%}
+    {% set _has_pass = _user_config.user_password is defined -%}
+    {% set _has_ssha = _user_config.ssha_password is defined -%}
+    {% set sys_user_entry = {
+       'dn': 'cn=' + _uid + ',' + __docker_stack__openldap__base_dn,
+       'changetype': 'add',
+       'objectClass': _user_config.object_class_list | d(['organizationalRole', 'simpleSecurityObject']),
+       'cn': _uid,
+       'description': _user_config.description | d(_uid)
+     } -%}
 
-dn: cn={{ _uid }},{{ __docker_stack__openldap__base_dn }}
-changetype: add
-    {% if _user_config.object_class_list | d([]) | length > 0 %}
-        {% for object_class in _user_config.object_class_list %}
-objectClass: {{ object_class }}
-        {% endfor %}
-    {% else %}
-objectClass: organizationalRole
-objectClass: simpleSecurityObject
-    {% endif %}
-cn: {{ _uid }}
-    {% if _user_config.user_password is defined %}
-userPassword:: {{ _user_config.user_password }}
-    {% endif %}
-    {% if _user_config.ssha_password is defined %}
-userPassword: {{ _user_config.ssha_password }}
-    {% endif %}
-description: {{ _user_config.description | d(_uid) }}
+    {# Handle regular vs base64 user passwords dynamically #}
+    {% if _has_pass -%}
+        {% set _rc = sys_user_entry.update({'userPassword::': _user_config.user_password}) -%}
+    {% elif _has_ssha -%}
+        {% set _rc = sys_user_entry.update({'userPassword': _user_config.ssha_password}) -%}
+    {% endif -%}
+
+{{ sys_user_entry | dettonville.utils.to_ldif }}
 {% endfor %}
 
+##################################
 ## LDAP Org Units (OUs)
-{% if __docker_stack__openldap__domain_ou_map | d({}) | dict2items | length > 0 %}
-    {% for ou,ou_config in __docker_stack__openldap__domain_ou_map.items() %}
+##################################
+{% if __docker_stack__openldap__domain_ou_map | d({}) | dict2items | length > 0 -%}
+    {% for ou, ou_config in __docker_stack__openldap__domain_ou_map.items() -%}
+        {% set _ou = ou_config.ou | d(ou) -%}
+        {% set _parent = ou_config.parent_ou + ',' if ou_config.parent_ou is defined else '' -%}
+        {% set ou_entry = {
+           'dn': 'ou=' + _ou + ',' + _parent + __docker_stack__openldap__base_dn,
+           'changetype': 'add',
+           'objectClass': ['top', 'organizationalUnit'],
+           'ou': ou
+         } -%}
 
-        {% set _ou = ou_config.ou | d(ou) %}
-        {% if ou_config.parent_ou is defined %}
-            {% set _ou_dn = 'ou='+_ou+','+ou_config.parent_ou+','+__docker_stack__openldap__base_dn %}
-        {% else %}
-            {% set _ou_dn = 'ou='+_ou+','+__docker_stack__openldap__base_dn %}
-        {% endif %}
-dn: {{ _ou_dn }}
-changetype: add
-objectClass: top
-objectClass: organizationalUnit
-ou: {{ ou }}
-    {% endfor %}
+{{ ou_entry | dettonville.utils.to_ldif }}
+    {% endfor -%}
 {% endif %}
 
+##################################
 ## LDAP samba domains
-{% for domain_name,domain_config in __docker_stack__openldap__samba_domain_map.items() %}
+##################################
+{% for domain_name, domain_config in __docker_stack__openldap__samba_domain_map.items() -%}
+    {% set samba_domain_entry = {
+       'dn': 'sambaDomainName=' + domain_name + ',' + __docker_stack__openldap__base_dn,
+       'changetype': 'add',
+       'objectClass': 'sambaDomain',
+       'sambaDomainName': domain_name,
+       'sambaSID': domain_config.sid,
+       'sambaAlgorithmicRidBase': 1000,
+       'sambaForceLogoff': -1,
+       'sambaLockoutDuration': 30,
+       'sambaLockoutObservationWindow': 30,
+       'sambaLockoutThreshold': 0,
+       'sambaLogonToChgPwd': 0,
+       'sambaMaxPwdAge': -1,
+       'sambaMinPwdAge': 0,
+       'sambaMinPwdLength': 5,
+       'sambaNextUserRid': 1000,
+       'sambaPwdHistoryLength': 0,
+       'sambaRefuseMachinePwdChange': 0
+     } -%}
 
-dn: sambaDomainName={{ domain_name }},{{ __docker_stack__openldap__base_dn }}
-changetype: add
-objectClass: sambaDomain
-sambaDomainName: {{ domain_name }}
-sambaSID: {{ domain_config.sid }}
-sambaAlgorithmicRidBase: 1000
-sambaForceLogoff: -1
-sambaLockoutDuration: 30
-sambaLockoutObservationWindow: 30
-sambaLockoutThreshold: 0
-sambaLogonToChgPwd: 0
-sambaMaxPwdAge: -1
-sambaMinPwdAge: 0
-sambaMinPwdLength: 5
-sambaNextUserRid: 1000
-sambaPwdHistoryLength: 0
-sambaRefuseMachinePwdChange: 0
+{{ samba_domain_entry | dettonville.utils.to_ldif }}
 {% endfor %}
 
-## LDAP Domain Users
-{% for _user_key,_user_config in __docker_stack__openldap__domain_user_map_combined.items() %}
+##################################
+# LDAP Domain Users
+##################################
+{% for _user_key, _user_config in __docker_stack__openldap__domain_user_map_combined.items() -%}
+    {% set _uid = _user_config.uid | d(_user_key) -%}
+    {% set _samba = _user_config.samba | d(none) -%}
+    {# Define the core structure and stitch it together with any conditional samba attributes #}
+    {% set _core_entry = {
+       'dn': _user_config.dn,
+       'changetype': 'add',
+       'objectClass': _user_config.object_class_list | d(['top', 'person']),
+       'cn': _user_config.cn | d(_uid),
+       'sn': _user_config.sn | d(_uid),
+       'uid': _uid,
+       'homeDirectory': _user_config.home_dir | d('/home/' + _uid),
+       'loginShell': _user_config.login_shell | d('/bin/bash'),
+       'gidNumber': _user_config.gid_number | d(none),
+       'uidNumber': _user_config.uid_number | d(none),
+       'userPassword': _user_config.ssha_password | d(_user_config.user_password | d(none)),
+       'gecos': _user_config.gecos | d(none),
+       'displayName': _user_config.display_name | d(none),
+       'givenName': _user_config.given_name | d(none),
+       'initials': _user_config.initials | d(none),
+       'mail': _user_config.mail | d(none),
+       'sshPublicKey': _user_config.ssh_public_key | d(none)
+     } -%}
 
-    {% set _uid = _user_config.uid | d(_user_key) %}
-dn: {{ _user_config.dn }}
-changetype: add
-    {% set _object_class_list = _user_config.object_class_list %}
-    {% if _object_class_list | d([]) | length > 0 %}
-        {% for object_class in _object_class_list %}
-objectClass: {{ object_class }}
-        {% endfor %}
-    {% endif %}
-cn: {{ _user_config.cn | d(_uid) }}
-    {% if _user_config.gecos is defined %}
-gecos: {{ _user_config.gecos }}
-    {% endif %}
-    {% if _user_config.gid_number is defined %}
-gidNumber: {{ _user_config.gid_number }}
-    {% endif %}
-homeDirectory: {{ _user_config.home_dir | d('/home/' + _uid) }}
-sn: {{ _user_config.sn | d(_uid) }}
-uid: {{ _uid }}
-    {% if _user_config.uid_number is defined %}
-uidNumber: {{ _user_config.uid_number }}
-    {% endif %}
-    {% if _user_config.display_name is defined %}
-displayName: {{ _user_config.display_name }}
-    {% endif %}
-    {% if _user_config.given_name is defined %}
-givenName: {{ _user_config.given_name }}
-    {% endif %}
-    {% if _user_config.initials is defined %}
-initials: {{ _user_config.initials }}
-    {% endif %}
-    {% if _user_config.login_shell is defined %}
-loginShell: {{ _user_config.login_shell }}
-    {% else %}
-loginShell: /bin/bash
-    {% endif %}
-    {% if _user_config.mail is defined %}
-mail: {{ _user_config.mail }}
-    {% endif %}
-    {% if _user_config.samba is defined %}
-        {% set _samba_sid = _user_config.samba.sid %}
-        {% set _samba_group_sid = _user_config.samba.primary_group_sid | d(_samba_group_sid_default) %}
-sambaSID: {{ _samba_sid }}
-        {% if _user_config.samba.primary_group_sid is defined %}
-sambaPrimaryGroupSID: {{ _user_config.samba.primary_group_sid }}
-        {% endif %}
-        {% if _user_config.samba.nt_password is defined %}
-sambaNTPassword: {{ _user_config.samba.nt_password }}
-        {% endif %}
-        {% if _user_config.samba.account_flags is defined %}
-sambaAcctFlags: {{ _user_config.samba.account_flags }}
-        {% else %}
-sambaAcctFlags: [XU         ]
-        {% endif %}
-sambaDomainName: {{ __docker_stack__openldap__domain }}
-        {% if _user_config.home_dir | d('') != '/nonexistent' %}
-sambaHomeDrive: H:
-sambaHomePath: {{ __docker_stack__openldap__user_smb_profile_base }}\{{ _uid }}
-sambaProfilePath: \\%L\profiles\{{ _uid }}
-        {% endif %}
-        {% if _user_config.samba.workstations is defined %}
-sambaUserWorkstations: {{ _user_config.samba.workstations }}
-        {% endif %}
-    {% endif %}
-    {% if _user_config.user_password is defined %}
-userPassword:: {{ _user_config.user_password }}
-    {% endif %}
-    {% if _user_config.ssha_password is defined %}
-userPassword: {{ _user_config.ssha_password }}
-    {% endif %}
-    {% if _user_config.ssh_public_key is defined %}
-sshPublicKey: {{ _user_config.ssh_public_key }}
-    {% endif %}
+    {# Build samba properties block inline if samba is active #}
+    {% set _samba_attrs = {} -%}
+    {% if _samba -%}
+        {% set _samba_home_attrs = {
+            'sambaHomeDrive': 'H:',
+            'sambaHomePath': __docker_stack__openldap__user_smb_profile_base + '\\' + _uid,
+            'sambaProfilePath': '\\\\%L\\profiles\\' + _uid
+        } if _user_config.home_dir | d('') != '/nonexistent' else {} -%}
+
+        {% set _samba_workstation_attrs = {'sambaUserWorkstations': _samba.workstations} if _samba.workstations is defined else {} -%}
+
+        {% set _samba_base_attrs = {
+            'sambaSID': _samba.sid,
+            'sambaPrimaryGroupSID': _samba.primary_group_sid | d(_samba_group_sid_default | d(none)),
+            'sambaNTPassword': _samba.nt_password | d(none),
+            'sambaAcctFlags': _samba.account_flags | d('[XU         ]'),
+            'sambaDomainName': __docker_stack__openldap__domain
+        } -%}
+
+        {# Merge the conditional samba sub-dictionaries cleanly using standard jinja assignment #}
+        {% set _samba_attrs = _samba_base_attrs | combine(_samba_home_attrs) | combine(_samba_workstation_attrs) -%}
+    {% endif -%}
+
+    {# Combine core properties with any calculated samba attributes #}
+    {% set user_entry = _core_entry | combine(_samba_attrs) -%}
+
+{{ user_entry | dettonville.utils.to_ldif }}
+# --- END RECORD: uid={{ _uid }} ---
 {% endfor %}
 
-## LDAP Domain Groups
-{% for _group_key,_group_config in __docker_stack__openldap__domain_group_map_combined.items() %}
+##################################
+# LDAP Domain Groups
+##################################
+{% for _group_key, _group_config in __docker_stack__openldap__domain_group_map_combined.items() -%}
+    {% set _group_cn = _group_config.cn | d(_group_key) -%}
 
-    {% set _group_cn = _group_config.cn | d(_group_key) %}
-dn: {{ _group_config.dn }}
-changetype: add
-    {% set _object_class_list = _group_config.object_class_list %}
-    {% if _object_class_list | d([]) | length > 0 %}
-        {% for _object_class in _object_class_list %}
-objectClass: {{ _object_class }}
-        {% endfor %}
-    {% endif %}
-cn: {{ _group_cn }}
-    {% if _group_config.gid_number is defined %}
-gidNumber: {{ _group_config.gid_number }}
-    {% endif %}
-    {% if _group_config.description is defined %}
-description: {{ _group_config.description }}
-    {% endif %}
-    {% if _group_config.display_name is defined %}
-displayName: {{ _group_config.display_name }}
-    {% endif %}
-    {% if _group_config.sudo is defined %}
-        {% for _sudo_key,_sudo_value in _group_config.sudo.items() %}
-            {% if _sudo_key == 'sudoOptions' %}
-                {% for _sudo_option in _sudo_value %}
-sudoOption: {{ _sudo_option }}
-                {% endfor %}
-            {% else %}
-{{ _sudo_key }}: {{ _sudo_value }}
-            {% endif %}
-        {% endfor %}
-    {% endif %}
-    {% if _group_config.memberURL is defined %}
-memberURL: {{ _group_config.memberURL }}
-    {% endif %}
-    {% if _group_config.memberDnList | d([]) | length > 0 %}
-        {% for _uid in _group_config.memberDnList %}
-member: uid={{ _uid }},{{ __docker_stack__openldap__user_base_dn }}
-        {% endfor %}
-    {% endif %}
-    {% if _group_config.memberUidList | d([]) | length > 0 %}
-        {% for _uid in _group_config.memberUidList %}
-memberUid: {{ _uid }}
-        {% endfor %}
-    {% endif %}
-    {% if _group_config.samba is defined %}
-        {% set _group_samba_sid = _group_config.samba.sid %}
-sambaSID: {{ _group_samba_sid }}
-sambaGroupType: {{ _group_config.samba.group_type | d(2) }}
-        {% if _group_config.samba.users | d([]) | length > 0 %}
-            {% for _uid in _group_config.samba.users %}
-                {% set _user_config = __docker_stack__openldap__domain_user_map_combined[_uid] %}
-                {% set _user_samba_sid = _user_config.samba.sid %}
-sambaSIDList: {{ _user_samba_sid }}
-            {% endfor %}
-        {% endif %}
-        {% if _group_config.samba.groups | d([]) | length > 0 %}
-            {% for _gid in _group_config.samba.groups %}
-                {% set _samba_group_config = __docker_stack__openldap__domain_group_map_combined[_gid] %}
-                {% set _group_samba_sid = _samba_group_config.samba.sid %}
-sambaSIDList: {{ _group_samba_sid }}
-            {% endfor %}
-        {% endif %}
-    {% endif %}
+    {# Safe tracking arrays #}
+    {% set _member_dns = [] -%}
+    {% for _uid in _group_config.memberDnList | d([]) -%}
+        {% set _rc = _member_dns.append("uid=" + _uid + "," + __docker_stack__openldap__user_base_dn) -%}
+    {% endfor -%}
+
+    {% set _samba_sid_list = [] -%}
+    {% if _group_config.samba is defined -%}
+        {% for _uid in _group_config.samba.users | d([]) -%}
+            {% set _rc = _samba_sid_list.append(__docker_stack__openldap__domain_user_map_combined[_uid].samba.sid) -%}
+        {% endfor -%}
+        {% for _gid in _group_config.samba.groups | d([]) -%}
+            {% set _rc = _samba_sid_list.append(__docker_stack__openldap__domain_group_map_combined[_gid].samba.sid) -%}
+        {% endfor -%}
+    {% endif -%}
+
+    {% set group_entry = {
+       'dn': _group_config.dn,
+       'changetype': 'add',
+       'objectClass': _group_config.object_class_list | d(['top', 'posixGroup']),
+       'cn': _group_cn,
+       'gidNumber': _group_config.gid_number | d(none),
+       'description': _group_config.description | d(none),
+       'displayName': _group_config.display_name | d(none),
+       'memberURL': _group_config.memberURL | d(none),
+       'member': _member_dns,
+       'memberUid': _group_config.memberUidList | d(none),
+       'sambaSID': _group_config.samba.sid if _group_config.samba is defined else none,
+       'sambaGroupType': _group_config.samba.group_type | d(2) if _group_config.samba is defined else none,
+       'sambaSIDList': _samba_sid_list
+     } -%}
+
+    {# Process standard sudo map assignments safely #}
+    {% if _group_config.sudo is defined -%}
+        {% set _sudo_options = [] -%}
+        {% for _sudo_key, _sudo_value in _group_config.sudo.items() -%}
+            {% if _sudo_key == 'sudoOptions' -%}
+                {% for _option in _sudo_value -%}{% set _rc = _sudo_options.append(_option) -%}{% endfor -%}
+            {# Safe handling for incoming secondary objectClass elements #}
+            {% elif _sudo_key == 'objectClass' -%}
+                {% set _existing_classes = group_entry.objectClass if group_entry.objectClass is iterable and group_entry.objectClass is not string else [group_entry.objectClass] -%}
+                {% set _incoming_classes = _sudo_value if _sudo_value is iterable and _sudo_value is not string else [_sudo_value] -%}
+                {% set _rc = group_entry.update({'objectClass': (_existing_classes + _incoming_classes) | unique}) -%}
+            {% else -%}
+                {% set _rc = group_entry.update({_sudo_key: _sudo_value}) -%}
+            {% endif -%}
+        {% endfor -%}
+        {% set _rc = group_entry.update({'sudoOption': _sudo_options}) -%}
+    {% endif -%}
+
+{{ group_entry | dettonville.utils.to_ldif }}
+# --- END RECORD: cn={{ _group_cn }} ---
 {% endfor %}
 
-## LDAP domain hosts
-{% if __docker_stack__openldap__domain_host_map | d({}) | dict2items | length > 0 %}
-    {% for _host_cn,_host_config in __docker_stack__openldap__domain_host_map.items() %}
+##################################
+# LDAP domain hosts
+##################################
+{% if __docker_stack__openldap__domain_host_map | d({}) | dict2items | length > 0 -%}
+    {% for _host_cn, _host_config in __docker_stack__openldap__domain_host_map.items() -%}
+        {% set _samba = _host_config.samba | d(none) -%}
+        {% set host_entry = {
+           'dn': _host_config.dn,
+           'changetype': 'add',
+           'objectClass': _host_config.object_class_list | d(['top', 'account', 'posixAccount']),
+           'cn': _host_cn,
+           'gidNumber': _host_config.gid_number | d(none),
+           'homeDirectory': '/dev/null',
+           'uid': _host_cn + '$',
+           'uidNumber': _host_config.uid_number | d(none),
+           'description': _host_config.description | d(_host_cn),
+           'displayName': _host_config.display_name | d(_host_cn),
+           'loginShell': '/bin/false',
+           'sambaSID': _samba.sid if (_samba and _samba.sid is defined) else none,
+           'sambaAcctFlags': '[W          ]' if _samba else none,
+           'sambaDomainName': __docker_stack__openldap__domain if _samba else none,
+           'sambaPrimaryGroupSID': _samba.primary_group_sid if (_samba and _samba.primary_group_sid is defined) else none,
+           'sambaNTPassword': _samba.nt_password if (_samba and _samba.nt_password is defined) else none
+         } -%}
 
-dn: {{ _host_config.dn }}
-changetype: add
-        {% set _object_class_list = _host_config.object_class_list %}
-        {% if _object_class_list | d([]) | length > 0 %}
-            {% for _object_class in _object_class_list %}
-objectClass: {{ _object_class }}
-            {% endfor %}
-        {% endif %}
-cn: {{ _host_cn }}
-        {% if _host_config.gid_number is defined %}
-gidNumber: {{ _host_config.gid_number }}
-        {% endif %}
-homeDirectory: /dev/null
-uid: {{ _host_cn }}$
-        {% if _host_config.uid_number is defined %}
-uidNumber: {{ _host_config.uid_number }}
-        {% endif %}
-description: {{ _host_config.description | d(_host_cn) }}
-displayName: {{ _host_config.display_name | d(_host_cn) }}
-loginShell: /bin/false
-        {% if _host_config.samba is defined %}
-            {% if _host_config.samba.sid is defined %}
-sambaSID: {{ _host_config.samba.sid }}
-            {% endif %}
-sambaAcctFlags: [W          ]
-sambaDomainName: {{ __docker_stack__openldap__domain }}
-            {% if _host_config.samba.primary_group_sid is defined %}
-sambaPrimaryGroupSID: {{ _host_config.samba.primary_group_sid }}
-            {% endif %}
-            {% if _host_config.samba.nt_password is defined %}
-sambaNTPassword: {{ _host_config.samba.nt_password }}
-            {% endif %}
-        {% endif %}
+{{ host_entry | dettonville.utils.to_ldif }}
+# --- END RECORD: cn={{ _host_cn }} ---
     {% endfor %}
-{% endif %}
+{% endif -%}
 
-cn=lastGID,{{ __docker_stack__openldap__base_dn }}
+##################################
+# final - lastGID and lastUID
+##################################
+dn: cn=lastGID,{{ __docker_stack__openldap__base_dn }}
 changetype: add
 objectClass: top
 objectClass: device
 description: Records the last GID used to create a Posix group. This prevents the re-use of a GID from a deleted group.
 serialNumber: 2000
 
-cn=lastUID,{{ __docker_stack__openldap__base_dn }}
+dn: cn=lastUID,{{ __docker_stack__openldap__base_dn }}
 changetype: add
 objectClass: top
 objectClass: device

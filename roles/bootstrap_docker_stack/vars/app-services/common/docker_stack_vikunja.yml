@@ -1,0 +1,186 @@
+---
+
+#__docker_stack__vikunja__image_default: vikunja/api:latest
+__docker_stack__vikunja__image_default: vikunja/vikunja:latest
+__docker_stack__vikunja__image: "{{ docker_stack__vikunja__image | d(__docker_stack__vikunja__image_default) }}"
+
+__docker_stack__vikunja__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__vikunja__base_dir: "{{ __docker_stack__vikunja__stack_dir }}/vikunja"
+
+__docker_stack__vikunja__endpoint: "kanban.{{ docker_stack__internal_domain }}"
+__docker_stack__vikunja__root_url: "https://{{ __docker_stack__vikunja__endpoint }}"
+
+__docker_stack__vikunja__db_password: "{{ docker_stack__vikunja__db_password
+  | d('vikunja_secure_password_change_me') }}"
+
+__docker_stack__vikunja__jwt_secret: "{{ docker_stack__vikunja__jwt_secret
+  | d('change_me_very_long_random_secret') }}"
+
+#####
+# LDAP
+#####
+__docker_stack__vikunja__ldap_host: "{{ docker_stack__vikunja__ldap_host | d(docker_stack__ldap__host) }}"
+__docker_stack__vikunja__ldap_port: "{{ docker_stack__vikunja__ldap_port | d(docker_stack__ldap__port) }}"
+__docker_stack__vikunja__ldap_usetls: "{{ docker_stack__vikunja__ldap_usetls | d(false) }}"
+
+__docker_stack__vikunja__ldap_base_dn_default: "{{ docker_stack__ldap__base_dn | d('dc=example,dc=int') }}"
+#__docker_stack__vikunja__ldap_base_dn_default: "ou=users,{{ docker_stack__ldap__base_dn }}"
+__docker_stack__vikunja__ldap_base_dn: "{{ docker_stack__vikunja__ldap_base_dn
+  | d(__docker_stack__vikunja__ldap_base_dn_default) }}"
+
+__docker_stack__vikunja__ldap_groups_dn_default: "ou=vikunja,{{ docker_stack__ldap__application_groups_base_dn
+  | d('ou=applications,ou=groups,dc=example,dc=int') }}"
+__docker_stack__vikunja__ldap_groups_dn: "{{ docker_stack__vikunja__ldap_groups_dn
+  | d(__docker_stack__vikunja__ldap_groups_dn_default) }}"
+
+__docker_stack__vikunja__ldap_user_filter_default: "(&(objectClass=inetOrgPerson)(uid=%s))"
+#__docker_stack__vikunja__ldap_user_filter_default: "(&(|(objectclass=inetOrgPerson))(|(memberof=cn=admin,ou=vikunja,{{
+#  docker_stack__ldap__application_groups_base_dn }})))"
+#__docker_stack__vikunja__ldap_user_filter_default: "(&(objectClass=inetOrgPerson)(uid=%s)(memberOf=cn=admin,ou=vikunja,{{
+#  docker_stack__ldap__application_groups_base_dn }})))"
+
+__docker_stack__vikunja__ldap_user_filter: "{{ docker_stack__vikunja__ldap_user_filter
+  | d(__docker_stack__vikunja__ldap_user_filter_default) }}"
+
+__docker_stack__vikunja__ldap_bind_user_dn_default: "cn=readonly,{{ __docker_stack__vikunja__ldap_base_dn
+  | d(docker_stack__ldap__user_base_dn) }}"
+__docker_stack__vikunja__ldap_bind_user_dn: "{{ docker_stack__vikunja__ldap_bind_user_dn
+  | d(__docker_stack__vikunja__ldap_bind_user_dn_default) }}"
+__docker_stack__vikunja__ldap_bind_user_password: "{{ docker_stack__vikunja__ldap_bind_user_password
+  | d(docker_stack__ldap__bind_user_password) }}"
+
+__docker_stack__vikunja__environment_default:
+  # ======================
+  # General Configuration
+  # ======================
+  VIKUNJA_SERVICE_FRONTENDURL: "{{ __docker_stack__vikunja__root_url }}"
+
+  # ======================
+  # LDAP
+  # ======================
+  VIKUNJA_AUTH_LDAP_BINDDN: "{{ 'dksec://ldap_username' if docker_stack__swarm_mode | bool
+    else __docker_stack__vikunja__ldap_bind_user_dn }}"
+  VIKUNJA_AUTH_LDAP_BINDPASSWORD: "{{ 'dksec://ldap_password' if docker_stack__swarm_mode | bool
+    else __docker_stack__vikunja__ldap_bind_user_password }}"
+
+  ## defined in app config.yml
+  # ======================
+  # Database (PostgreSQL)
+  # ======================
+  VIKUNJA_DATABASE_TYPE: postgres
+  VIKUNJA_DATABASE_HOST: vikunja-db
+  VIKUNJA_DATABASE_PORT: 5432
+  VIKUNJA_DATABASE_USER: vikunja
+  VIKUNJA_DATABASE_PASSWORD: "{{ 'dksec://vikunja_db_password' if docker_stack__swarm_mode | bool
+    else __docker_stack__vikunja__db_password }}"
+  VIKUNJA_DATABASE_DATABASE: vikunja
+  VIKUNJA_DATABASE_SSLMODE: disable
+
+#  # ======================
+#  # File Storage
+#  # ======================
+#  VIKUNJA_FILES_BASEPATH: "/app/vikunja/files"
+
+  # ======================
+  # Authentication
+  # ======================
+  VIKUNJA_SERVICE_ENABLEEMAILREMINDERS: false
+  VIKUNJA_SERVICE_ENABLEREGISTRATION: true
+  VIKUNJA_SERVICE_ENABLETASKCOMMENTS: true
+
+#  # ======================
+#  # Security
+#  # ======================
+#  VIKUNJA_SERVICE_JWTSECRET: "{{ 'dksec://vikunja_service_jwt_secret' if docker_stack__swarm_mode | bool
+#    else __docker_stack__vikunja__jwt_secret }}"
+
+  # Optional: Rate limiting
+  VIKUNJA_RATE_LIMIT_ENABLED: true
+  VIKUNJA_RATE_LIMIT_MAXREQUESTS: 1000
+
+__docker_stack__vikunja__environment: "{{ docker_stack__vikunja__environment
+  | d(__docker_stack__vikunja__environment_default) }}"
+
+__docker_stack__vikunja__postgres_environment_default:
+  POSTGRES_DB: vikunja
+  POSTGRES_USER: vikunja
+  POSTGRES_PASSWORD: "{{ 'dksec://vikunja_db_password' if docker_stack__swarm_mode | bool
+    else __docker_stack__vikunja__db_password }}"
+#  POSTGRES_PASSWORD: "{{ __docker_stack__vikunja__db_password }}"
+
+__docker_stack__vikunja__postgres_environment: "{{ docker_stack__vikunja__postgres_environment
+  | d(__docker_stack__vikunja__postgres_environment_default) }}"
+
+__docker_stack__vikunja__secrets:
+  - name: ldap_username
+    value: "{{ __docker_stack__vikunja__ldap_bind_user_dn }}"
+  - name: ldap_password
+    value: "{{ __docker_stack__vikunja__ldap_bind_user_password }}"
+  - name: vikunja_db_password
+    value: "{{ __docker_stack__vikunja__db_password }}"
+  - name: vikunja_service_jwt_secret
+    value: "{{ __docker_stack__vikunja__jwt_secret }}"
+
+__docker_stack__vikunja__config_dirs:
+  - path: "{{ __docker_stack__vikunja__base_dir }}"
+  - path: "{{ __docker_stack__vikunja__base_dir }}/files"
+  - path: "{{ __docker_stack__vikunja__base_dir }}/db"
+
+__docker_stack__vikunja__config_tpls:
+  - src: vikunja/postgres.env.j2
+    dest: "{{ __docker_stack__vikunja__base_dir }}/postgres.env"
+  - src: vikunja/vikunja.env.j2
+    dest: "{{ __docker_stack__vikunja__base_dir }}/vikunja.env"
+  - src: vikunja/config.yml.j2
+    dest: "{{ __docker_stack__vikunja__base_dir }}/config.yml"
+
+__docker_stack__vikunja__traefik_labels: "{{ docker_stack__vikunja__traefik_labels | d(__docker_stack__vikunja__traefik_labels_default) }}"
+
+__docker_stack__vikunja__services:
+  vikunja-db:
+    image: postgres:16-alpine
+    container_name: vikunja-db
+    restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    env_file:
+      - vikunja/postgres.env
+    secrets: "{{ __docker_stack__vikunja__secrets | map(attribute='name') | list }}"
+    volumes:
+      - "{{ __docker_stack__vikunja__base_dir }}/db:/var/lib/postgresql/data"
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vikunja"]
+      interval: 10s
+
+  vikunja:
+    image: "{{ __docker_stack__vikunja__image }}"
+    container_name: vikunja
+    restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    depends_on:
+      vikunja-db:
+        condition: service_healthy
+    env_file:
+      - vikunja/vikunja.env
+    secrets: "{{ __docker_stack__vikunja__secrets | map(attribute='name') | list }}"
+    volumes:
+      - "{{ __docker_stack__vikunja__base_dir }}/files:/app/vikunja/files"
+      - "{{ __docker_stack__vikunja__base_dir }}/config.yml:/etc/vikunja/config.yml:ro"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
+    labels: "{{ __docker_stack__vikunja__traefik_labels }}"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+docker_stack__appspec__vikunja:
+  dirs: "{{ __docker_stack__vikunja__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__vikunja__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__vikunja__config_tpls | d([], true) }}"
+  secrets: "{{ __docker_stack__vikunja__secrets | d({}, true) }}"
+  firewalld_services: "{{ __docker_stack__vikunja__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__vikunja__firewalld_ports | d([], true) }}"
+  docker_services: "{{ __docker_stack__vikunja__services | d({}, true) }}"

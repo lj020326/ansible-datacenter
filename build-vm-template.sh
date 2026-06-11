@@ -33,7 +33,7 @@ main() {
   fi
 
   PLAYBOOK_CMD+=("-c local")
-  #PLAYBOOK_CMD+=("-i xenv_hosts.yml")
+  PLAYBOOK_CMD+=("-i xenv_groups.yml")
 
   echo "==> ${PLAYBOOK_CMD[*]}"
   if ! eval "${PLAYBOOK_CMD[*]}"; then

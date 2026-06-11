@@ -1,35 +1,59 @@
 ---
-- name: Docker Stack | registry | pre-start | Install htpasswd deps with pip
-  ansible.builtin.pip:
-    name: passlib[bcrypt]
-    state: present
+- name: "Docker Stack | registry | pre-start | Set __registry_auth_file"
+  ansible.builtin.set_fact:
+    __registry_auth_file: "{{ __docker_stack__registry__auth_path }}/{{ __docker_stack__registry__auth_file }}"
 
-- name: Docker Stack | registry | pre-start | Display docker registry vars
+- name: "Docker Stack | registry | pre-start | Check if {{ __registry_auth_file }} exists"
+  ansible.builtin.stat:
+    path: "{{ __registry_auth_file }}"
+  register: __registry_auth_file_stat
+
+- name: "Docker Stack | registry | pre-start | Display __registry_auth_file_stat.stat.exists"
   ansible.builtin.debug:
-    msg:
-      - "__docker_stack__registry__enable_auth: {{ __docker_stack__registry__enable_auth }}"
-      - "__docker_stack__registry__auth_path: {{ __docker_stack__registry__auth_path }}"
-      - "__docker_stack__registry__auth_file: {{ __docker_stack__registry__auth_file }}"
-      # - "__docker_stack__registry__users: {{ __docker_stack__registry__users | to_nice_json }}"
-      - "__docker_stack__registry__env: {{ __docker_stack__registry__env | to_nice_json }}"
+    var: __registry_auth_file_stat.stat.exists
 
-- name: Docker Stack | registry | pre-start | Remove registry, if it exists
-  no_log: true
-  community.docker.docker_container:
-    name: "{{ __docker_stack__registry__container_name }}"
-    container_default_behavior: compatibility
-    #    container_default_behavior: no_defaults
-    state: absent
+- name: "Docker Stack | registry | pre-start | Setup {{ __registry_auth_file }}"
+  when:
+    - __docker_stack__registry__enable_auth | bool
+    - not __registry_auth_file_stat.stat.exists | bool
+  block:
+    - name: "Docker Stack | registry | pre-start | Install htpasswd deps with pip"
+      ansible.builtin.pip:
+        name: passlib[bcrypt]
+        state: present
 
-- name: Docker Stack | registry | pre-start | Configure {{ __docker_stack__registry__auth_file }} users file
-  when: __docker_stack__registry__enable_auth | bool
-  no_log: true
-  community.general.htpasswd:
-    path: "{{ __docker_stack__registry__auth_path }}/{{ __docker_stack__registry__auth_file }}"
-    name: "{{ item.username }}"
-    password: "{{ item.password }}"
-    owner: root
-    group: root
-    mode: "0600"
-    crypt_scheme: bcrypt
-  loop: "{{ __docker_stack__registry__users }}"
+    - name: "Docker Stack | registry | pre-start | Display docker registry vars"
+      ansible.builtin.debug:
+        msg:
+          - "__docker_stack__registry__enable_auth: {{ __docker_stack__registry__enable_auth }}"
+          - "__docker_stack__registry__auth_path: {{ __docker_stack__registry__auth_path }}"
+          - "__docker_stack__registry__auth_file: {{ __docker_stack__registry__auth_file }}"
+          # - "__docker_stack__registry__users: {{ __docker_stack__registry__users | to_nice_json }}"
+          - "__docker_stack__registry__env: {{ __docker_stack__registry__env | to_nice_json }}"
+
+    - name: "Docker Stack | registry | pre-start | Stop registry service"
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_stack__dir }}"
+        services:
+          - registry
+        state: stopped
+
+    #- name: "Docker Stack | registry | pre-start | Remove registry, if it exists"
+    #  no_log: true
+    #  community.docker.docker_container:
+    #    name: "{{ __docker_stack__registry__container_name }}"
+    #    container_default_behavior: compatibility
+    #    #    container_default_behavior: no_defaults
+    #    state: absent
+
+    - name: "Docker Stack | registry | pre-start | Configure {{ __docker_stack__registry__auth_file }} users file"
+      no_log: true
+      community.general.htpasswd:
+        path: "{{ __registry_auth_file }}"
+        name: "{{ item.username }}"
+        password: "{{ item.password }}"
+        owner: root
+        group: root
+        mode: "0600"
+        crypt_scheme: bcrypt
+      loop: "{{ __docker_stack__registry__users }}"

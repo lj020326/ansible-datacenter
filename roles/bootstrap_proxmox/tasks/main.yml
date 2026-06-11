@@ -64,31 +64,57 @@
     name: gpg
     state: present
 
-- name: Trust Proxmox' packaging key
-  ansible.builtin.apt_key:
-    data: "{{ lookup('file', pve_release_key) }}"
-    id: "{{ pve_release_key_id }}"
+#- name: Trust Proxmox' packaging key
+#  ansible.builtin.apt_key:
+#    data: "{{ lookup('file', pve_release_key) }}"
+#    id: "{{ pve_release_key_id }}"
+#    state: present
+
+# --- UPDATED TO DEB822 FORMAT ---
+- name: Configure Proxmox APT repository
+  ansible.builtin.deb822_repository:
+    name: proxmox
     state: present
+    types: [deb]
+    uris: "{{ pve_repository_line.split(' ')[1] }}"
+    suites: ["{{ pve_repository_line.split(' ')[2] }}"]
+    components: ["{{ pve_repository_line.split(' ')[3:] | join(' ') }}"]
+    # Pass raw GPG key data directly via signed_by
+    signed_by: "{{ lookup('file', pve_release_key) }}"
+  register: _pve_repo
 
 - name: Remove os-prober package
   ansible.builtin.apt:
     name: os-prober
     state: absent
 
-- name: Add Proxmox repository
-  ansible.builtin.apt_repository:
-    repo: "{{ pve_repository_line }}"
-    filename: proxmox
-    state: present
-  register: _pve_repo
+#- name: Add Proxmox repository
+#  ansible.builtin.apt_repository:
+#    repo: "{{ pve_repository_line }}"
+#    filename: proxmox
+#    state: present
+#  register: _pve_repo
 
-- name: Add Proxmox Ceph repository
+# --- UPDATED TO DEB822 FORMAT ---
+- name: Configure Proxmox Ceph repository
   when: pve_ceph_enabled | bool
-  ansible.builtin.apt_repository:
-    repo: "{{ pve_ceph_repository_line }}"
-    filename: ceph
+  ansible.builtin.deb822_repository:
+    name: ceph
     state: present
+    types: [deb]
+    uris: "{{ pve_ceph_repository_line.split(' ')[1] }}"
+    suites: ["{{ pve_ceph_repository_line.split(' ')[2] }}"]
+    components: ["{{ pve_ceph_repository_line.split(' ')[3:] | join(' ') }}"]
+    signed_by: "{{ lookup('file', pve_release_key) }}"
   register: _pve_ceph_repo
+
+#- name: Add Proxmox Ceph repository
+#  when: pve_ceph_enabled | bool
+#  ansible.builtin.apt_repository:
+#    repo: "{{ pve_ceph_repository_line }}"
+#    filename: ceph
+#    state: present
+#  register: _pve_ceph_repo
 
 - name: Run apt-get dist-upgrade on repository changes
   when: _pve_repo is changed or _pve_ceph_repo is changed
@@ -124,14 +150,20 @@
 - name: Remove automatically installed PVE Enterprise repo configuration
   when: "'pve-no-subscription' in pve_repository_line"
   block:
-    - name: Remove automatically installed PVE Enterprise repo configuration
-      ansible.builtin.apt_repository:
-        repo: "{{ item }}"
-        filename: pve-enterprise
+    # --- UPDATED TO DEB822 FORMAT ---
+    - name: Ensure PVE Enterprise repo configuration is absent
+      ansible.builtin.deb822_repository:
+        name: pve-enterprise
         state: absent
-      loop:
-        - deb https://enterprise.proxmox.com/debian {{ ansible_facts['distribution_release'] }} pve-enterprise
-        - deb https://enterprise.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-enterprise
+
+#    - name: Remove automatically installed PVE Enterprise repo configuration
+#      ansible.builtin.apt_repository:
+#        repo: "{{ item }}"
+#        filename: pve-enterprise
+#        state: absent
+#      loop:
+#        - deb https://enterprise.proxmox.com/debian {{ ansible_facts['distribution_release'] }} pve-enterprise
+#        - deb https://enterprise.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-enterprise
 
     - name: Remove subscription check wrapper function in web UI
       ansible.posix.patch:

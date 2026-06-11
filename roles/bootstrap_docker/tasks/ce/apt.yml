@@ -8,7 +8,7 @@
     state: absent
   register: task_result
   until: task_result is success
-  retries: 10
+  retries: 5
   delay: 2
 
 - name: "{{ __bootstrap_docker__log_prefix_apt }} Install Prerequisites for APT"
@@ -19,6 +19,7 @@
       - curl
       - software-properties-common
       - gnupg2
+      - python3-debian
     state: present
   register: task_result
   until: task_result is success
@@ -30,83 +31,73 @@
     name: "{{ bootstrap_docker__apt_system_keyring_dir }}/docker.gpg"
     state: absent
 
-- name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure docker gpg key in system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure docker gpg key in system keyring dir {{ bootstrap_docker__apt_keyring_dir }}"
   ansible.builtin.get_url:
     url: "{{ bootstrap_docker__ce_gpg_key }}"
     dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
     mode: "0644"
     force: true
 
-#- name: "{{ __bootstrap_docker__log_prefix_apt }} Add repository key"
-#  block:
-#
-#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure key absent from system keyring dir {{ bootstrap_docker__apt_system_keyring_dir }}"
-#      ansible.builtin.file:
-#        name: "{{ bootstrap_docker__apt_system_keyring_dir }}/docker.gpg"
-#        state: absent
-#
-#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Add Docker GPG Key"
-#      ansible.builtin.apt_key:
-#        id: "{{ bootstrap_docker__ce_gpg_key_id }}"
-#        url: "{{ bootstrap_docker__ce_gpg_key }}"
-#        dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
-#        validate_certs: "{{ bootstrap_docker__ce_gpg_key_validate_certs }}"
-#
-##    ## ref: https://github.com/ansible/ansible/issues/78063
-##    ## ref: https://github.com/lj020326/ansible-datacenter/blob/main/docs/linux-package/ansible-how-to-fix-aptkey-deprecated-debianubuntu.md
-##    - name: "{{ __bootstrap_docker__log_prefix_apt }} Add Docker GPG Key"
-##      ansible.builtin.get_url:
-##        url: "{{ bootstrap_docker__ce_gpg_key }}"
-##        dest: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
-##        mode: '0644'
-##        force: true
-#  rescue:
-#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Ensure curl is present (systems without SNI)."
-#      ansible.builtin.package: name=curl
-#
-#    ## ref: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-22-04
-#    - name: "{{ __bootstrap_docker__log_prefix_apt }} Download GPG key (systems without SNI)."
-#      ansible.builtin.shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} -o {{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
-##      ansible.builtin.shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo gpg --dearmor -o {{ bootstrap_docker__apt_keyring_dir }}/docker.gpg"
-##      ansible.builtin.shell: "curl -sSL {{ bootstrap_docker__ce_gpg_key }} | sudo apt-key add -"
-
-- name: "{{ __bootstrap_docker__log_prefix_apt }} Remove existing Docker repository"
-  ansible.builtin.apt_repository:
-    repo: "{{ item.url }}"
-    filename: "{{ item.filename | d(omit) }}"
+# ==============================================================================
+# REMOVE LEGACY DEPRECATED REPOSITORY DEFINITIONS
+# ==============================================================================
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Remove existing legacy Docker repository file"
+  ansible.builtin.file:
+    path: "/etc/apt/sources.list.d/{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}.list"
     state: absent
-  loop:
-    #    - url: "{{ bootstrap_docker__apt_repo_url }}"
-    - url: "{{ bootstrap_docker__apt_repo_url }}"
-      filename: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}"
 
-- name: "{{ __bootstrap_docker__log_prefix_apt }} Configure Docker repository"
-  ansible.builtin.apt_repository:
-    repo: "{{ bootstrap_docker__apt_repo_url }}"
-    filename: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}"
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Install python-debian for DEB822 support"
+  ansible.builtin.pip:
+    name: python-debian
     state: present
-  register: task_result
-  until: task_result is success
-  retries: 5
-  delay: 5
-
-- name: "{{ __bootstrap_docker__log_prefix_apt }} Enable Edge repository"
-  when: bootstrap_docker__channel == "edge"
-  ansible.builtin.apt_repository:
-    repo: "{{ bootstrap_docker__apt_repo_url_edge }}"
-
-- name: "{{ __bootstrap_docker__log_prefix_apt }} Perform specific os tasks"
-  ansible.builtin.include_tasks: "{{ lookup('first_found', __file_params) }}"
+    executable: "{{ ansible_virtualenv_python_interpreter | replace('python', 'pip') }}"
   vars:
+    # Use system python to execute the pip module code, but target the venv binary
+    ansible_python_interpreter: "{{ os_python_interpreter }}"
+
+# ==============================================================================
+# UPGRADE TO MODERN DEB822 REPOSITORY SCHEMAS
+# ==============================================================================
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Configure Docker repository using DEB822 format"
+  ansible.builtin.deb822_repository:
+    name: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}"
+    types: [deb]
+    uris: ["{{ bootstrap_docker__ce_repo_url }}"]
+    suites: ["{{ ansible_facts['distribution_release'] }}"]
+    components: ["{{ bootstrap_docker__channel }}"]
+    signed_by: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+    state: present
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Enable Edge repository using DEB822 format"
+  when: bootstrap_docker__channel == "edge"
+  ansible.builtin.deb822_repository:
+    name: "{{ bootstrap_docker__repo }}-{{ bootstrap_docker__edition }}-edge"
+    types: [deb]
+    uris: ["{{ bootstrap_docker__ce_repo_url }}"]
+    suites: ["{{ ansible_facts['distribution_release'] }}"]
+    components: [edge]
+    signed_by: "{{ bootstrap_docker__apt_keyring_dir }}/docker.asc"
+    state: present
+
+# ==============================================================================
+# SYSTEM SPECIFIC PLATFORM EXECUTION & INSTALL
+# ==============================================================================
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Perform specific os tasks"
+  when: __os_task_file | length > 0
+  vars:
+    __os_task_file: "{{ lookup('first_found', __file_params, errors='ignore') }}"
     __file_params:
+      skip: true
       files:
         - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
         - "{{ ansible_facts['distribution'] | lower }}.yml"
-        - "{{ ansible_facts['distribution'] | lower }}.yml"
-        - default.yml
       paths:
         - tasks/ce/os
-#        - "{{ role_path }}/tasks/ce/os"
+  ansible.builtin.include_tasks: "{{ __os_task_file }}"
+
+- name: "{{ __bootstrap_docker__log_prefix_apt }} Refresh APT cache for new repositories"
+  ansible.builtin.apt:
+    update_cache: true
 
 - name: "{{ __bootstrap_docker__log_prefix_apt }} Install docker-ce"
   ansible.builtin.package:
@@ -119,11 +110,9 @@
   delay: 5
 
 - name: "{{ __bootstrap_docker__log_prefix_apt }} Clean BuildKit state on DGX / ARM64"
-  when: not (__bootstrap_docker__features_enable_buildkit | bool)
+  when:
+    - __bootstrap_docker__is_dgx | bool
+    - "'docker-ce' in bootstrap_docker__packages"
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: /var/lib/docker/buildkit
     state: absent
-  loop:
-    - /var/lib/docker/buildkit
-    - /var/lib/buildkit
-  notify: Docker | Restart Docker

@@ -17,15 +17,6 @@
         state: absent
         path: "{{ __bootstrap_linux_package__package_source_dir }}"
 
-    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install DGX repo source files"
-      when: __bootstrap_linux_package__is_dgx | d(False) | bool
-      ansible.builtin.template:
-        src: "{{ item }}"
-        dest: "{{ __bootstrap_linux_package__package_source_dir }}/{{ item | regex_replace('\\.j2$', '') }}"
-        mode: "0644"
-        backup: true
-      loop: "{{ lookup('fileglob', 'templates/dgx/*.j2', wantlist=True) | map('basename') | list }}"
-
 #######################
 ## the CentOS 8 image/template should already be switched to stream
 ## ref: https://www.techrepublic.com/article/how-to-convert-centos-8-to-centos-8-stream/
@@ -62,6 +53,7 @@
   when:
     - ansible_facts['pkg_mgr'] == 'apt'
     - ansible_facts['distribution'] == 'Debian'
+    - not (__bootstrap_linux_package__is_dgx | default(false) | bool)
   ansible.builtin.include_tasks: update-repo-apt.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Display __bootstrap_linux_package__is_dgx"
@@ -70,16 +62,18 @@
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Skip repo reconfiguration on DGX systems"
   when: __bootstrap_linux_package__is_dgx | default(false) | bool
-  ansible.builtin.debug:
-    msg: "DGX OS detected - preserving NVIDIA/DGX repositories"
+  block:
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Skip repo reconfiguration on DGX systems"
+      ansible.builtin.debug:
+        msg: "DGX OS detected - preserving NVIDIA/DGX repositories"
 
-- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Update apt package repos for ubuntu versions >= 24"
-  when:
-    - ansible_facts['pkg_mgr'] == 'apt'
-    - ansible_facts['distribution'] == 'Ubuntu'
-    - ansible_facts['distribution_major_version'] | int >= 24
-    - not (__bootstrap_linux_package__is_dgx | default(false) | bool)
-  ansible.builtin.include_tasks: update-repo-apt-ubuntu.yml
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install DGX repo source files"
+      ansible.builtin.template:
+        src: "{{ item }}"
+        dest: "{{ __bootstrap_linux_package__package_source_dir }}/{{ item | regex_replace('\\.j2$', '') }}"
+        mode: "0644"
+        backup: true
+      loop: "{{ lookup('fileglob', 'templates/dgx/*.j2', wantlist=True) | map('basename') | list }}"
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install present packages"
   when:

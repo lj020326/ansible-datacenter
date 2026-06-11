@@ -1,0 +1,58 @@
+{{ 'Ansible managed' | comment(format="# {}") }}
+
+service:
+  frontendurl: "{{ __docker_stack__vikunja__root_url }}"
+  publicurl: "{{ __docker_stack__vikunja__root_url }}"
+  enableRegistration: true
+  enableTaskComments: true
+  enableEmailReminders: false
+
+database:
+  type: postgres
+  host: vikunja-db
+  port: 5432
+  user: vikunja
+  password: "${VIKUNJA_DATABASE_PASSWORD}"
+  database: vikunja
+  sslmode: disable
+
+files:
+  basepath: /app/vikunja/files
+
+jwt:
+  secret: "${VIKUNJA_SERVICE_JWTSECRET}"
+
+ratelimit:
+  enabled: true
+  maxrequests: 1000
+
+auth:
+  local:
+    enabled: true
+  ldap:
+    enabled: true
+    host: "{{ __docker_stack__vikunja__ldap_host }}"
+    port: {{ __docker_stack__vikunja__ldap_port }}
+    usetls: {{ __docker_stack__vikunja__ldap_usetls | lower }}
+
+    basedn: "{{ __docker_stack__vikunja__ldap_base_dn }}"
+    userfilter: "{{ __docker_stack__vikunja__ldap_user_filter }}"
+
+    attribute:
+      id: "uid"
+      username: "uid"
+      mail: "mail"
+      name: "cn"
+
+    # Optional: group mapping
+    group:
+      enabled: true
+      base: "{{ __docker_stack__vikunja__ldap_groups_dn }}"
+      filter: "(objectClass=*)"
+#      filter: "(objectClass=groupOfURLS)"
+#      attribute: "member"
+      attribute: "cn"
+
+    # Group sync filter - accept multiple group objectClasses
+    groupsyncenabled: true
+    groupsyncfilter: "(|(objectClass=group)(objectClass=posixGroup)(objectClass=groupOfNames)(objectClass=groupOfURLs))"

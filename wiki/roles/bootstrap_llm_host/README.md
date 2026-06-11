@@ -3,7 +3,7 @@
 title: Bootstrap LLM Host Role Documentation
 original_path: roles/bootstrap_llm_host/README.md
 category: Ansible Roles
-tags: [LLM, GPU, Ollama, WebUI, Nginx, Traefik, Firewall]
+tags: [LLM, GPU, Ollama, Open WebUI, Nginx, Traefik, Firewall]
 ---
 
 # Bootstrap LLM Host Role Documentation
@@ -15,18 +15,19 @@ The `bootstrap_llm_host` role is designed to automate the setup of a Large Langu
 ## Features
 
 - Installs NVIDIA drivers/CUDA (via included role)
-- Installs Ollama as dedicated user
+- Installs Ollama as a dedicated user
 - Optional Open WebUI (recommended) or legacy Ollama-WebUI
-- Nginx reverse proxy (optional)
+- Nginx or Traefik reverse proxy (optional)
 - UFW firewall configuration
 - Management script: `/usr/local/bin/llm-server`
 - Unified model handling: pull standard tags or create custom from GGUF + Modelfile
 - Model storage configurable (defaults to large /home disk)
+- NemoClaw setup (optional)
 
 ## Requirements
 
 - Ubuntu 24.04+
-- NVIDIA GPU (tested RTX 3090 24GB)
+- NVIDIA/AMD/Intel GPU (tested with RTX 3090 24GB) (must be NVIDIA for NemoClaw)
 - Ansible 2.14+
 - Community collections: `community.general`, `ansible.posix`
 
@@ -50,9 +51,7 @@ The `bootstrap_llm_host` role is designed to automate the setup of a Large Langu
 
 ## Backlinks
 
-- [Ansible Roles](/ansible-roles)
-- [LLM Setup Guide](/llm-setup-guide)
-
+- [Ansible Roles](../ansible_roles.md)
 ```
 
-This improved version includes a standardized YAML frontmatter with additional metadata, clear structure, and headings. The "Backlinks" section has been added to provide context for navigation within the documentation.
+This improved Markdown document includes a standardized YAML frontmatter with additional metadata, ensures clear structure and proper headings, and adds a "Backlinks" section for better navigation.

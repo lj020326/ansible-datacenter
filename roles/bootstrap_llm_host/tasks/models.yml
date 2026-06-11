@@ -35,9 +35,21 @@
   ansible.builtin.debug:
     var: __ollama_exec
 
+- name: Models | Initialized __bootstrap_llm_host__models
+  ansible.builtin.set_fact:
+    __bootstrap_llm_host__models: "{{ bootstrap_llm_host__models }}"
+
+- name: Models | Combine __bootstrap_llm_host__models
+  when:
+    - bootstrap_llm_host__install_nemoclaw | bool
+    - __bootstrap_llm_host__is_dgx
+  ansible.builtin.set_fact:
+    __bootstrap_llm_host__models: "{{ __bootstrap_llm_host__models
+      + (__bootstrap_llm_host__nemoclaw_models | d([])) }}"
+
 - name: Models | Set __models_normalized
   ansible.builtin.set_fact:
-    __models_normalized: "{{ bootstrap_llm_host__models
+    __models_normalized: "{{ __bootstrap_llm_host__models
       | map('combine', {'type': item.type | d('pull')})
       | selectattr('type', 'defined')
       | list }}"

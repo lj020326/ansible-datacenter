@@ -7,6 +7,25 @@
     - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
 
+# --- NEW EXTENSION: AUTOMATED SWAP REMOVAL ---
+- name: Enforce Swap Absence for Kubernetes Node Topology
+  when: bootstrap_linux_mount__disable_swap | d(false) | bool
+  block:
+    - name: Disable system swap mapping in live runtime environment
+      ansible.builtin.command: swapoff -a
+      changed_when: false # Safe fallback context if already unmapped
+
+    - name: Purge /swap.img reference lines completely from fstab
+      ansible.posix.mount:
+        name: none
+        path: none
+        src: /swap.img
+        fstype: swap
+        state: absent
+        fstab: "{{ bootstrap_linux_mount__fstab }}"
+        backup: "{{ bootstrap_linux_mount__backup_fstab }}"
+# ---------------------------------------------
+
 - name: Display key parameters for {{ role_name }}
   block:
     - name: Display bootstrap_linux_mount__list
