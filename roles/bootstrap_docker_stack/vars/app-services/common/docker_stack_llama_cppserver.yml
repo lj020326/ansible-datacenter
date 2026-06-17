@@ -50,6 +50,12 @@ __docker_stack__llama_cppserver__llama_arg_rope_freq_base: "{{ docker_stack__lla
 ## but individual models often end up with a much smaller context (commonly 8192 or the model's default)
 ## unless you explicitly configure them via a models preset (.ini file).
 __docker_stack__llama_cppserver__environment_default: |
+  # If the shared objects are built but just hidden away inside a secondary directory 
+  # inside the image (like /app/build/), you can force the linker to look for them 
+  # by setting the LD_LIBRARY_PATH variable
+  # Fixes the upstream dynamic linking issue natively without breaking the entrypoint script
+  LD_LIBRARY_PATH=/app:/app/build:/usr/local/lib:/usr/local/cuda/lib64
+
   LLAMA_ARG_HOST=0.0.0.0
   LLAMA_ARG_PORT={{ __docker_stack__llama_cppserver__internal_http_port }}
   
@@ -78,6 +84,30 @@ __docker_stack__llama_cppserver__environment_default: |
 __docker_stack__llama_cppserver__environment: "{{ docker_stack__llama_cppserver__environment
   | d(__docker_stack__llama_cppserver__environment_default) }}"
 
+__docker_stack__llama_cppserver__deploy_resources_standalone:
+  reservations:
+    devices:
+      - driver: nvidia
+        count: 1
+        capabilities: [gpu]
+#      - driver: nvidia
+#        # or device_ids: ["0"] if you want specific GPU
+#        count: all
+#        capabilities: [gpu]
+
+__docker_stack__llama_cppserver__deploy_resources_swarm:
+  reservations:
+    generic_resources:
+      - discrete_resource_spec:
+          kind: NVIDIA-GPU
+          value: 1
+
+__docker_stack__llama_cppserver__deploy_resources: "{{ __docker_stack__llama_cppserver__deploy_resources_swarm
+  if docker_stack__swarm_mode else __docker_stack__llama_cppserver__deploy_resources_standalone }}"
+
+__docker_stack__llama_cppserver__secret_key: "{{ docker_stack__llama_cppserver__secret_key
+  | d('CHANGEME123') }}"
+
 __docker_stack__llama_cppserver__config_dirs:
   - path: "{{ __docker_stack__llama_cppserver__base_dir }}"
   - path: "{{ __docker_stack__llama_cppserver__models_dir }}"
@@ -87,9 +117,6 @@ __docker_stack__llama_cppserver__config_tpls:
     dest: "{{ __docker_stack__llama_cppserver__base_dir }}/llama_cpp.env"
   - src: llama_cppserver/models.ini.j2
     dest: "{{ __docker_stack__llama_cppserver__base_dir }}/models.ini"
-
-__docker_stack__llama_cppserver__secret_key: "{{ docker_stack__llama_cppserver__secret_key
-  | d('CHANGEME123') }}"
 
 __docker_stack__llama_cppserver__firewalld_ports:
   - "{{ __docker_stack__llama_cppserver__http_port }}/tcp"
@@ -109,6 +136,9 @@ __docker_stack__llama_cppserver__services:
   llama-cpp:
     image: "{{ __docker_stack__llama_cppserver__image }}"
     container_name: llama-cpp
+#    command: >-
+#        export LD_LIBRARY_PATH=/app:/app/build:/usr/local/lib:$$LD_LIBRARY_PATH &&
+#        /app/llama-server -m /models/gemma-4-31B-it-Q5_K_M.gguf -c 32768 -ngl 32 --fa
 #    command: >
 #      --models-preset /app/models.ini
     restart: unless-stopped
@@ -124,6 +154,7 @@ __docker_stack__llama_cppserver__services:
 #      - /etc/localtime:/etc/localtime:ro
       - "{{ __docker_stack__llama_cppserver__base_dir }}/models.ini:/app/models.ini:ro"
       - "{{ __docker_stack__llama_cppserver__models_dir }}:/models:ro"
+#    devices: "{{ __docker_stack__llama_cppserver__deploy_resources }}"
     deploy:
       mode: replicated
       placement:
@@ -139,18 +170,5 @@ __docker_stack__llama_cppserver__services:
         parallelism: 1
         delay: 10s
         order: stop-first
-      resources:
-        reservations:
-          generic_resources:
-            - discrete_resource_spec:
-                kind: 'NVIDIA-GPU'
-                value: 1
-#          devices:
-#            - driver: nvidia
-#              # or device_ids: ["0"] if you want specific GPU
-#              count: all
-#              capabilities: [gpu]
-#          devices:
-#            - driver: nvidia
-#              count: 1
-#              capabilities: [gpu]
+      # Explicitly designed to interface with the nvidia-container-toolkit CLI layer on single-node environments.
+      resources: "{{ __docker_stack__llama_cppserver__deploy_resources }}"

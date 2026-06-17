@@ -1,0 +1,70 @@
+{{ 'Ansible managed' | comment(format="# {}") }}
+
+service:
+  frontendurl: "{{ __docker_stack__vikunja__root_url }}"
+  publicurl: "{{ __docker_stack__vikunja__root_url }}"
+  enableRegistration: true
+  enableTaskComments: true
+  enableEmailReminders: false
+
+database:
+  type: postgres
+  host: vikunja-db
+  port: 5432
+  user: vikunja
+{% if docker_stack__swarm_mode | bool %}
+  password:
+    file: /run/secrets/vikunja_db_password
+{% else %}
+  password: "{{ __docker_stack__vikunja__db_password }}"
+{% endif %}
+  database: vikunja
+  sslmode: disable
+
+files:
+  basepath: /app/vikunja/files
+
+ratelimit:
+  enabled: true
+  maxrequests: 1000
+
+auth:
+  local:
+    enabled: true
+  ldap:
+    enabled: true
+    host: "{{ __docker_stack__vikunja__ldap_host }}"
+    port: {{ __docker_stack__vikunja__ldap_port }}
+    usetls: {{ __docker_stack__vikunja__ldap_usetls | lower }}
+
+    basedn: "{{ __docker_stack__vikunja__ldap_base_dn }}"
+    userfilter: "{{ __docker_stack__vikunja__ldap_user_filter }}"
+
+{% if docker_stack__swarm_mode | bool %}
+    binddn:
+      file: /run/secrets/ldap_username
+    bindpassword:
+      file: /run/secrets/ldap_password
+{% else %}
+    binddn: {{ __docker_stack__vikunja__ldap_bind_user_dn }}
+    bindpassword: {{ __docker_stack__vikunja__ldap_bind_user_password }}
+{% endif %}
+
+    attribute:
+      id: "uid"
+      username: "uid"
+      mail: "mail"
+      name: "cn"
+
+    # Optional: group mapping
+    group:
+      enabled: true
+      base: "{{ __docker_stack__vikunja__ldap_groups_dn }}"
+      filter: "(objectClass=*)"
+#      filter: "(objectClass=groupOfURLS)"
+#      attribute: "member"
+      attribute: "cn"
+
+    # Group sync filter - accept multiple group objectClasses
+    groupsyncenabled: true
+    groupsyncfilter: "(|(objectClass=group)(objectClass=posixGroup)(objectClass=groupOfNames)(objectClass=groupOfURLs))"

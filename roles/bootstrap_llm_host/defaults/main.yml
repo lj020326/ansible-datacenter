@@ -1,13 +1,20 @@
 ---
 
 # Feature Flags
+bootstrap_llm_host__configure_firewall: true
+bootstrap_llm_host__configure_proxy: false
+bootstrap_llm_host__download_models: true
 bootstrap_llm_host__install_gpu_drivers: true
+bootstrap_llm_host__install_nemoclaw: false
 bootstrap_llm_host__install_ollama: true
 bootstrap_llm_host__install_ollama_webui: false
-bootstrap_llm_host__install_open_webui: true
-bootstrap_llm_host__configure_firewall: true
-bootstrap_llm_host__download_models: true
-bootstrap_llm_host__configure_proxy: true
+bootstrap_llm_host__install_open_webui: false
+
+# DGX / GB10 specific handling
+__bootstrap_llm_host__is_dgx: >-
+  {{ (ansible_facts.product_name | default('', true) | regex_search('(?i)DGX|Ascent|Grace|Blackwell|gx10')) is not none
+     or ('dgx' in (ansible_facts.os_family | default('', true) | lower))
+     or (ansible_facts.machine == 'aarch64' and 'nvidia' in (ansible_facts.product_version | default('', true) | lower)) }}
 
 # Ollama runtime mode: "native", "docker", or "swarm"
 #   "native" (default, systemd), "docker" (container), or "swarm" (docker swarm service)
@@ -40,8 +47,13 @@ bootstrap_llm_host__traefik_archive_url: "https://github.com/traefik/traefik/rel
   'amd64' if ansible_facts['architecture'] == 'x86_64' else 'arm64' }}.tar.gz"
 
 # Nginx specific
-__bootstrap_llm_host__nginx_conf_path: "/etc/nginx/sites-available"
-__bootstrap_llm_host__nginx_enabled_path: "/etc/nginx/sites-enabled"
+__bootstrap_llm_host__nginx_conf_path_default: "/etc/nginx/sites-available"
+__bootstrap_llm_host__nginx_conf_path: "{{ bootstrap_llm_host__nginx_conf_path
+  | d(__bootstrap_llm_host__nginx_conf_path_default) }}"
+
+__bootstrap_llm_host__nginx_enabled_path_default: "/etc/nginx/sites-enabled"
+__bootstrap_llm_host__nginx_enabled_path: "{{ bootstrap_llm_host__nginx_enabled_path
+  | d(__bootstrap_llm_host__nginx_enabled_path_default) }}"
 
 # User Configuration
 bootstrap_llm_host__ollama_user: ollama
@@ -166,3 +178,25 @@ bootstrap_llm_host__llama_cpp_ctx_size: 32768
 bootstrap_llm_host__llama_cpp_n_gpu_layers: 99
 bootstrap_llm_host__llama_cpp_temp: 0.7
 bootstrap_llm_host__llama_cpp_flash_attn: 1
+
+# =============================================================================
+# NemoClaw Deployment Configuration
+# =============================================================================
+bootstrap_llm_host__nemoclaw_version: "latest"
+bootstrap_llm_host__nemoclaw_user: "nemoclaw"
+bootstrap_llm_host__nemoclaw_home_dir: "/home/{{ bootstrap_llm_host__nemoclaw_user }}"
+bootstrap_llm_host__nemoclaw_port: "9000"
+
+# OpenShell Workspace & Sandboxing Paths
+bootstrap_llm_host__nemoclaw_workspace_dir: "{{ bootstrap_llm_host__nemoclaw_home_dir }}/workspace"
+bootstrap_llm_host__nemoclaw_sandbox_root: "/var/lib/nemoclaw/sandboxes"
+
+# Target Orchestration / Router Core Model Configuration
+bootstrap_llm_host__nemoclaw_orchestration_model: "deepseek-r1:14b" # Optimized for tool execution loops
+
+__bootstrap_llm_host__nemoclaw_models:
+  - type: pull
+    name: "qwen3.5:27b"
+  - type: pull
+    # Explicit addition for NemoClaw framework tool execution logic
+    name: "deepseek-r1:14b"

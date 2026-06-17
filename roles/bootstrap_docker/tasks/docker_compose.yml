@@ -1,13 +1,7 @@
 ---
 
-- name: "{{ __bootstrap_docker__log_prefix_compose }} Install docker-compose package from package manager {{ ansible_facts['pkg_mgr'] }}"
-  when: bootstrap_docker__compose_package is defined
-  ansible.builtin.package:
-    state: present
-    name: "{{ bootstrap_docker__compose_package }}"
-
 - name: "{{ __bootstrap_docker__log_prefix_compose }} Check current docker-compose version."
-  ansible.builtin.command: "{{ bootstrap_docker__compose_path }} --version"
+  ansible.builtin.command: "{{ bootstrap_docker__cli_plugins_dir }}/docker-compose --version"
   register: __bootstrap_docker__installed_compose_version
   ignore_errors: false
   check_mode: false
@@ -20,11 +14,11 @@
     verbosity: 2
 
 - name: "{{ __bootstrap_docker__log_prefix_compose }} Set __bootstrap_docker__compose_current_version"
-  when: >
-    __bootstrap_docker__installed_compose_version.stdout is defined
-    and (__bootstrap_docker__installed_compose_version.stdout | length > 0)
+  when:
+    - __bootstrap_docker__installed_compose_version.stdout is defined
+    - __bootstrap_docker__installed_compose_version.stdout | length > 0
   ansible.builtin.set_fact:
-    __bootstrap_docker__compose_current_version: "{{ __bootstrap_docker__installed_compose_version.stdout 
+    __bootstrap_docker__compose_current_version: "{{ __bootstrap_docker__installed_compose_version.stdout
       | regex_search('(\\d+(\\.\\d+)+)') }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_compose }} Display __bootstrap_docker__compose_current_version"
@@ -35,126 +29,67 @@
   ansible.builtin.set_fact:
     __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d('', true) }}"
 
-- name: "{{ __bootstrap_docker__log_prefix_compose }} Get __bootstrap_docker__compose_version"
+- name: "{{ __bootstrap_docker__log_prefix_compose }} Get __bootstrap_docker__compose_version from GitHub"
   when: bootstrap_docker__compose_version | d('', true) | length == 0
   run_once: true
   block:
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Set __compose_latest_version_result"
+    - name: "{{ __bootstrap_docker__log_prefix_compose }} Fetch latest release metadata text"
       ansible.builtin.uri:
-        url: "{{ bootstrap_docker__compose_url_latest }}"
+        url: "https://api.github.com/repos/docker/compose/releases/latest"
+        return_content: true
       register: __compose_latest_version_result
+      run_once: true
 
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Display __compose_latest_version_result"
+    - name: "{{ __bootstrap_docker__log_prefix_compose }} Display __compose_latest_version_result.json.tag_name"
       ansible.builtin.debug:
-        var: __compose_latest_version_result
-        verbosity: 2
+        var: __compose_latest_version_result.json.tag_name | d('')
 
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Set __docker_compose_latest_version_url"
+    - name: "{{ __bootstrap_docker__log_prefix_compose }} Set fallback version context from content block"
       ansible.builtin.set_fact:
-        __docker_compose_latest_version_url: "{{ __compose_latest_version_result.url }}"
+        __bootstrap_docker__compose_version: >-
+          {{
+            (__compose_latest_version_result.content | from_json).tag_name
+            if __compose_latest_version_result.content is defined
+            else (__compose_latest_version_result.json.tag_name | default('v2.29.2'))
+          }}
 
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Display __docker_compose_latest_version_url"
-      ansible.builtin.debug:
-        var: __docker_compose_latest_version_url
+# ==============================================================================
+# ENHANCED ENGINE DEPLOYMENT & PLATFORM-SPECIFIC SYMLINK FRAMEWORK
+# ==============================================================================
 
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Set __docker_compose_latest_version"
-      ansible.builtin.set_fact:
-        __docker_compose_latest_version: "{{ __docker_compose_latest_version_url | regex_replace('.*tag\\/(.*)', '\\1') }}"
+- name: "{{ __bootstrap_docker__log_prefix_compose }} Ensure cli-plugins directory exists"
+  ansible.builtin.file:
+    path: "{{ bootstrap_docker__cli_plugins_dir }}"
+    state: directory
+    mode: "0755"
 
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Display __docker_compose_latest_version"
-      ansible.builtin.debug:
-        var: __docker_compose_latest_version
+- name: "{{ __bootstrap_docker__log_prefix_compose }} Download official native Go docker-compose engine to CLI plugins"
+  ansible.builtin.get_url:
+    url: "{{ bootstrap_docker__compose_url }}"
+    dest: "{{ bootstrap_docker__cli_plugins_dir }}/docker-compose"
+    mode: "0755"
+    force: "{{ __bootstrap_docker__compose_current_version != __bootstrap_docker__compose_version | regex_search('(\\d+(\\.\\d+)+)') }}"
 
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Set __bootstrap_docker__compose_version"
-      ansible.builtin.set_fact:
-        __bootstrap_docker__compose_version: "{{ bootstrap_docker__compose_version | d(__docker_compose_latest_version) }}"
+- name: "{{ __bootstrap_docker__log_prefix_compose }} Clean out legacy standalone docker-compose binary"
+  ansible.builtin.file:
+    path: /usr/bin/docker-compose
+    state: absent
 
-- name: "{{ __bootstrap_docker__log_prefix_compose }} Init __replace_docker_compose"
-  ansible.builtin.set_fact:
-    __replace_docker_compose: false
+- name: "{{ __bootstrap_docker__log_prefix_compose }} Link standalone command line wrapper to official framework version"
+  ansible.builtin.file:
+    src: "{{ bootstrap_docker__cli_plugins_dir }}/docker-compose"
+    dest: /usr/bin/docker-compose
+    state: link
+    force: true
 
-- name: "{{ __bootstrap_docker__log_prefix_compose }} Set __replace_docker_compose"
-  when: >
-    __bootstrap_docker__installed_compose_version.failed | d(false)
-    or __bootstrap_docker__compose_current_version is not defined
-    or (__bootstrap_docker__compose_current_version | length == 0)
-  ansible.builtin.set_fact:
-    __replace_docker_compose: true
-
-- name: "{{ __bootstrap_docker__log_prefix_compose }} Set __replace_docker_compose"
-  when:
-    - bootstrap_docker__compose_version is defined
-    - bootstrap_docker__update_exist_compose_version | d(false) | bool
-    - (__bootstrap_docker__compose_version | regex_replace('v', '')) not in __bootstrap_docker__compose_current_version
-  ansible.builtin.set_fact:
-    __replace_docker_compose: true
-
-- name: "{{ __bootstrap_docker__log_prefix_compose }} Replace existing docker-compose"
-  when: __replace_docker_compose | bool
-  block:
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Delete existing docker-compose version if it's different."
-      ansible.builtin.file:
-        path: "{{ bootstrap_docker__compose_path }}"
-        state: absent
-
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Install Docker Compose"
-      ansible.builtin.get_url:
-        url: "{{ bootstrap_docker__compose_url }}"
-        dest: "{{ bootstrap_docker__compose_path }}"
-        mode: "0755"
-
-##########
-### Docker virtualenv for ansible docker-compose automation
-##########
-#- name: "{{ __bootstrap_docker__log_prefix_compose }} Install Python docker packages"
-#  ansible.builtin.include_role:
-#    name: bootstrap_pip
-#  vars:
-#    bootstrap_pip__environment_vars:
-#      SETUPTOOLS_USE_DISTUTILS: stdlib
-#    bootstrap_pip__env_list__bootstrap_docker:
-#      - libraries: "{{ __bootstrap_docker__pip_packages }}"
-#        extra_args: --user
-
-#- name: "{{ __bootstrap_docker__log_prefix_compose }} pip self-update {{ bootstrap_docker__pip_executable }}"
-#  ansible.builtin.pip:
-#    name: pip
-#    state: latest
-#    executable: "{{ bootstrap_docker__pip_executable }}"
-#
-#- name: "{{ __bootstrap_docker__log_prefix_compose }} Install Python docker packages"
-#  ansible.builtin.pip:
-#    name: >
-#      {{ item.name }}{% if item.version | d() %}=={{ item.version }}{% endif %}
-#    state: "{{ item.state | d('present') }}"
-#    extra_args: "--user"
-#    executable: "{{ bootstrap_docker__pip_executable }}"
-#  loop: "{{ __bootstrap_docker__pip_packages }}"
-#  when: item.name | d('') | length > 0
-#
-#- name: "{{ __bootstrap_docker__log_prefix_compose }} pip self-update"
-#  ansible.builtin.pip:
-#    name: pip
-#    state: latest
-#    virtualenv: "{{ bootstrap_docker__pip_virtualenv }}"
-#    virtualenv_command: "{{ bootstrap_docker__python_virtualenv_command }}"
-#
-### Unable to find pip in the virtualenv (python 3.10)
-### https://github.com/ansible/ansible/issues/77604
-#- name: "{{ __bootstrap_docker__log_prefix_compose }} Install Python docker packages into docker-python virtualenv"
-#  ansible.builtin.pip:
-#    name: >
-#      {{ item.name }}{% if item.version | d('') | length > 0 %}=={{ item.version }}{% endif %}
-#    state: "{{ item.virtualenv_state | d('present') }}"
-#    virtualenv: "{{ bootstrap_docker__pip_virtualenv }}"
-#    virtualenv_command: "{{ bootstrap_docker__python_virtualenv_command }}"
-#  loop: "{{ __bootstrap_docker__pip_packages }}"
-#  when: item.name | d('') | length > 0
-#  environment:
-#    SETUPTOOLS_USE_DISTUTILS: stdlib
-#
-#- name: "{{ __bootstrap_docker__log_prefix_compose }} Symlink Docker Python binary to {{ __bootstrap_docker_python_docker_interpreter }}"
-#  ansible.builtin.file:
-#    path: "{{ __bootstrap_docker_python_docker_interpreter }}"
-#    src: "{{ bootstrap_docker__pip_virtualenv }}/bin/python"
-#    state: link
+# ==============================================================================
+# PIP DEPENDENCIES (Maintained for Ansible Core Module Hooks)
+# ==============================================================================
+- name: "{{ __bootstrap_docker__log_prefix_compose }} Ensure docker-compose pip packages are installed"
+  when: bootstrap_docker__compose_pip_packages | length > 0
+  ansible.builtin.pip:
+    name: "{{ item.name }}"
+    state: "{{ item.state | d('present') }}"
+    version: "{{ item.version | d(omit) }}"
+    virtualenv: "{{ bootstrap_docker__pip_virtualenv | d(omit, true) }}"
+  loop: "{{ bootstrap_docker__compose_pip_packages }}"

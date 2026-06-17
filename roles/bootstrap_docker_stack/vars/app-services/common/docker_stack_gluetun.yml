@@ -13,8 +13,9 @@ __docker_stack__gluetun__config_dir: "{{ docker_stack__gluetun__config_dir
 
 __docker_stack__gluetun__external_network: "{{ docker_stack__gluetun__external_network | d('192.168.0.0/24') }}"
 
-__docker_stack__gluetun__http_port: "{{ docker_stack__gluetun__http_port | d('8088') }}"
 __docker_stack__gluetun__bittorrent_port: "{{ docker_stack__gluetun__bittorrent_port | d('8168') }}"
+__docker_stack__gluetun__http_proxy_port: "{{ docker_stack__gluetun__http_proxy_port | d('8888') }}"
+__docker_stack__gluetun__shadowsocks_port: "{{ docker_stack__gluetun__shadowsocks_port | d('8388') }}"
 
 __docker_stack__gluetun__username: "{{ docker_stack__gluetun__username | d('testuser') }}"
 __docker_stack__gluetun__password: "{{ docker_stack__gluetun__password | d('password') }}"
@@ -35,17 +36,22 @@ __docker_stack__gluetun__config_files: []
 #      dest: "{{ __docker_stack__gluetun__config_dir }}/gluetun/nordvpn.upd.ovpn"
 
 __docker_stack__gluetun__firewalld_ports:
-  - "{{ __docker_stack__gluetun__http_port }}/tcp"
+  - "{{ __docker_stack__gluetun__http_proxy_port }}/tcp"
   - "{{ __docker_stack__gluetun__bittorrent_port }}/tcp"
+  - "{{ __docker_stack__gluetun__shadowsocks_port }}/tcp"
+  - "{{ __docker_stack__gluetun__shadowsocks_port }}/udp"
 
 __docker_stack__gluetun__:
 __docker_stack__gluetun__vpn_service_provider_default: surfshark
 __docker_stack__gluetun__vpn_service_provider: "{{ docker_stack__gluetun__vpn_service_provider
   | d(__docker_stack__gluetun__vpn_service_provider_default) }}"
 
-__docker_stack__gluetun__vpn_type: openvpn
-#__docker_stack__gluetun__vpn_type: wireguard
+#__docker_stack__gluetun__vpn_type: openvpn
+__docker_stack__gluetun__vpn_type: wireguard
 
+## use the following docker image utility to get the key:
+## NORDVPN_TOKEN=private_key_here
+## docker run --rm --cap-add=NET_ADMIN -e TOKEN="$NORDVPN_TOKEN" ghcr.io/bubuntux/nordvpn:get_private_key
 __docker_stack__gluetun__wireguard_private_key: "{{ docker_stack__gluetun__wireguard_private_key | d('') }}"
 
 __docker_stack__gluetun__wireguard_addresses_default: "10.5.0.2/32,fd00::2/128"
@@ -86,10 +92,10 @@ __docker_stack__gluetun__extra_subnets: "{{ docker_stack__gluetun__extra_subnets
 # Optional: health checks
 __docker_stack__gluetun__healthcheck_enabled: "on"
 
-__docker_stack__gluetun__environment:
+__docker_stack__gluetun__openvpn_environment_default:
   # NordVPN OpenVPN settings
   VPN_SERVICE_PROVIDER: "{{ __docker_stack__gluetun__vpn_service_provider }}"
-  VPN_TYPE: "{{ __docker_stack__gluetun__vpn_type }}"
+  VPN_TYPE: openvpn
   OPENVPN_USER: "{{ __docker_stack__gluetun__username }}"
   OPENVPN_PASSWORD: "{{ __docker_stack__gluetun__password }}"
 #  WIREGUARD_PRIVATE_KEY: "{{ __docker_stack__gluetun__wireguard_private_key }}"
@@ -109,6 +115,31 @@ __docker_stack__gluetun__environment:
   LOG_LEVEL: "{{ __docker_stack__gluetun__log_level }}"
   EXTRA_SUBNETS: "{{ __docker_stack__gluetun__extra_subnets }}"
   HEALTHCHECK_ENABLED: "{{ __docker_stack__gluetun__healthcheck_enabled }}"
+
+## wireguard as default
+## https://github.com/qdm12/gluetun-wiki/blob/main/setup/providers/nordvpn.md
+__docker_stack__gluetun__environment_default:
+  FIREWALL: "{{ __docker_stack__gluetun__firewall }}"
+  # leave empty unless you need specific inbound
+  FIREWALL_VPN_INPUT_PORTS: "{{ __docker_stack__gluetun__firewall_vpn_input_ports }}"
+  TZ: "{{ __docker_stack__gluetun__tz }}"
+  LOG_LEVEL: "{{ __docker_stack__gluetun__log_level }}"
+  EXTRA_SUBNETS: "{{ __docker_stack__gluetun__extra_subnets }}"
+  HEALTHCHECK_ENABLED: "{{ __docker_stack__gluetun__healthcheck_enabled }}"
+  VPN_SERVICE_PROVIDER: "{{ __docker_stack__gluetun__vpn_service_provider }}"
+  VPN_TYPE: "{{ __docker_stack__gluetun__vpn_type }}"
+  # NordVPN wireguard settings
+  WIREGUARD_PRIVATE_KEY: "{{ __docker_stack__gluetun__wireguard_private_key }}"
+#  WIREGUARD_ADDRESSES: "{{ __docker_stack__gluetun__wireguard_addresses }}"
+#  WIREGUARD_PERSISTENT_KEEPALIVE: "{{ __docker_stack__gluetun__wireguard_persistent_keepalive }}"
+  # server selection settings
+  SERVER_COUNTRIES: "{{ __docker_stack__gluetun__server_countries }}"
+  # Force fresh server selection on reconnect (this is the key fix)
+#  SERVER_SELECTION_METHOD: "random"
+#  SERVER_HOSTNAMES: "{{ __docker_stack__gluetun__server_hostnames }}"
+
+__docker_stack__gluetun__environment: "{{ docker_stack__gluetun__environment
+  | d(__docker_stack__gluetun__environment_default) }}"
 
 docker_stack__appspec__gluetun:
   dirs: "{{ __docker_stack__gluetun__config_dirs | d([], true) }}"
@@ -137,3 +168,9 @@ __docker_stack__gluetun__services:
       - "{{ __docker_stack__gluetun__config_dir }}:/gluetun"
     ports:
       - "{{ __docker_stack__gluetun__bittorrent_port }}:8168"
+      # HTTP proxy
+      - "{{ __docker_stack__gluetun__http_proxy_port }}:8888/tcp"
+      # Shadowsocks
+      - "{{ __docker_stack__gluetun__shadowsocks_port }}:8388/tcp"
+      # Shadowsocks
+      - "{{ __docker_stack__gluetun__shadowsocks_port }}:8388/udp"

@@ -40,14 +40,17 @@ It provides professional, GitHub-native documentation for the ansible-datacenter
 
 ---
 
-## Repository conventions
+## Repository architectural conventions
 
-Note the following conventions used within this repository:
+Note the following architectural conventions used within this repository:
 
-- All role variable names should always start with the `role_name__` (e.g., `role_foobar__enable_option`).  Any cases of variable names within the existing repository roles that do not use this naming convention are considered **deprecated** exceptions that ultimately will be replaced with corrected variable names.
-- Variables starting with the double-underscore  (e.g. `__internal_var`) are internal role variables only.  These variables are meant only for use by the role itself and should never appear as overridden in the inventory and/or command line.
-- Tag usage is limited to the ansible play-level only and not to be used within roles.  Any cases of tag usage within the existing repository roles are considered **deprecated** exceptions that ultimately will be removed.
-- When using loops with `ansible.builtin.include_tasks`, always explicitly name the loop variable (`loop_control`.`loop_var`) to avoid namespace collision with the default variable name `item`.
+- **Variable Namespacing:** All public role variable names must be prefixed with `role_name__` (e.g., `role_foobar__enable_option`). Any existing role variables that violate this convention are considered **deprecated** and will be refactored in future updates.
+- **Internal Variables:** Variables prefixed with a double-underscore (e.g., `__internal_var`) are strictly internal to the role. These variables handle local logic and must never be overridden via inventory or the command line.
+- **Tag Scope:** Tag usage is restricted to the Ansible play level and must not be defined within individual roles. Any legacy tags currently embedded within roles are considered **deprecated** and will be systematically removed.
+- **Loop Controls:** When looping over `ansible.builtin.include_tasks`, always explicitly define the loop variable using `loop_control.loop_var`. This prevents implicit namespace collisions with the default `item` variable.
+- **Inventory Decoupling:** Ansible roles must be completely divorced from inventory-specific architecture. Relying on explicit group facts or magic variables (e.g., `groups`, `group_names`) inside a role is considered bad practice. Design roles to depend strictly on input parameters and role-specific defaults to ensure maximum portability.
+- **Configuration Desensitization:** Default variables within roles must never contain environment-specific or production data. Real-world implementation details must be replaced with neutral, generic defaults (e.g., setting `role_name__domain_name` to `example.com` or `example.int` rather than an actual corporate domain). Actual environmental configurations belong in the inventory, while sensitive secrets belong exclusively in the Ansible Vault.
+- **Role Parameterization & Topology Toggling:** Roles responsible for handling multi-tiered or heterogeneous architectures (e.g., master/worker, server/client, leader/follower) must remain topology-agnostic. Instead of checking inventory groups directly within the tasks, the role must expose a clear behavior-toggling input variable (e.g., `role_name__node_type: "client"`). The responsibility of assigning these types falls entirely on the inventory's `group_vars` (e.g., leveraging child group variable overrides so that a `postfix_server` group overrides the defaults of a parent `postfix_network` group).
 
 ---
 
@@ -119,6 +122,15 @@ bash -c "$(curl -fsSL ${INSTALL_REMOTE_SCRIPT})"
 4. **Configure Inventory:** Add host(s) to inventory hosts.yml and ping the host(s)
    ```shell
    ansible -i inventory/hosts.yml all -m ping -b -vvvv
+   ```
+
+4. **Run playbook:** Run playbook for specified tag(s) and/or group(s)
+   ```shell
+   run-playbook.sh -t bootstrap-linux -l admin01 site.yml
+   ## install collections
+   INSTALL_GALAXY_COLLECTIONS=1 run-playbook.sh --tags bootstrap-docker -l control01  site.yml
+   ## install and upgrade collections
+   FORCE_GALAXY_COLLECTIONS=1 UPGRADE_GALAXY_COLLECTIONS=1 run-playbook.sh --tags bootstrap-docker-control -l control02 site.yml
    ```
 
 ---

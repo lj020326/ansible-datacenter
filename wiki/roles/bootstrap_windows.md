@@ -3,71 +3,60 @@ title: Bootstrap Windows Role Documentation
 role: bootstrap_windows
 category: Ansible Roles
 type: Configuration Management
-tags: windows, ansible, automation, configuration
+tags: ansible, windows, automation, configuration
 ---
 
 ## Summary
 
-The `bootstrap_windows` role is designed to automate the initial setup and configuration of Windows machines. It includes tasks for enabling remote desktop, configuring firewall rules, installing necessary software (such as OpenSSH, BleachBit, UltraDefrag), updating system drivers, applying Windows updates, and more. This role ensures that a Windows machine is ready for further automation and management.
+The `bootstrap_windows` role is designed to perform initial setup and configuration tasks on Windows machines. This includes enabling Remote Desktop, configuring firewall rules, downloading and installing necessary tools like OpenSSH, BleachBit, UltraDefrag, and optionally VirtIO drivers and Windows updates. The role also handles the installation of VD Agent for SPICE integration.
 
 ## Variables
 
-| Variable Name | Default Value | Description |
-|---------------|---------------|-------------|
-| `role_bootstrap_windows__ntp_servers` | `['0.centos.pool.ntp.org', '1.centos.pool.ntp.org', '2.centos.pool.ntp.org']` | List of NTP servers to synchronize the system time. |
-| `role_bootstrap_windows__allow_windows_reboot_during_win_updates` | `true` | Allows the role to reboot the Windows machine if required during Windows updates installation. |
-| `role_bootstrap_windows__ansible_user` | `ansible` | The username for Ansible management on the Windows machine. |
-| `role_bootstrap_windows__ssh_pub_authorized_key` | `{{ lookup('file', '~/.ssh/id_rsa.pub' \| expanduser) }}` | The public SSH key to be added to the authorized keys of the Ansible user. |
-| `role_bootstrap_windows__install_windows_updates` | `false` | If set to true, the role will install all available Windows updates. |
-| `role_bootstrap_windows__install_virtio_drivers` | `false` | If set to true, the role will install VirtIO drivers on the machine. |
-| `role_bootstrap_windows__install_vdagent` | `false` | If set to true, the role will install VD Agent for SPICE support. |
-| `role_bootstrap_windows__bleachbit_url` | `https://download.bleachbit.org/BleachBit-4.4.2-portable.zip` | URL to download BleachBit portable version. |
-| `role_bootstrap_windows__openssh_url` | `https://github.com/PowerShell/Win32-OpenSSH/releases/download/V8.6.0.0p1-Beta/OpenSSH-Win64.zip` | URL to download OpenSSH for Windows. |
-| `role_bootstrap_windows__ultradefrag_version` | `7.1.4` | Version of UltraDefrag to install. |
-| `role_bootstrap_windows__ultradefrag_msi_file_name` | `ultradefrag-portable-{{ role_bootstrap_windows__ultradefrag_version }}.bin.amd64.zip` | Filename for the UltraDefrag portable version. |
-| `role_bootstrap_windows__ultradefrag_download_url` | `https://archiva.admin.dettonville.int/repository/internal/org/dettonville/infra/ultradefrag-portable/{{ role_bootstrap_windows__ultradefrag_version }}.bin.amd64/{{ role_bootstrap_windows__ultradefrag_msi_file_name }}` | URL to download UltraDefrag portable version. |
-| `role_bootstrap_windows__vdagent_win_version` | `0.10.0` | Version of VD Agent for Windows. |
-| `role_bootstrap_windows__virtio_win_iso_url` | `https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso` | URL to download VirtIO drivers ISO. |
-| `role_bootstrap_windows__virtio_win_iso_path` | `E:\\virtio-win\\` | Path where the VirtIO drivers ISO will be mounted or stored. |
-| `role_bootstrap_windows__putty_regedit` | `{ path: HKCU:\SOFTWARE\SimonTatham\PuTTY\Sessions\Default%20Settings, configs: [{ name: TCPKeepalives, data: 1, type: dword }, { name: PingIntervalSecs, data: 30, type: dword }, { name: Compression, data: 1 }, { name: AgentFwd, data: 1 }, { name: LinuxFunctionKeys, data: 1 }, { name: MouseIsXterm, data: 1 }, { name: ConnectionSharing, data: 1 }] }` | Configuration for PuTTY default settings. |
-| `role_bootstrap_windows__install_vdagent_url` | `https://www.spice-space.org/download/windows/vdagent/vdagent-win-{{ role_bootstrap_windows__vdagent_win_version }}/vdagent-win-{{ role_bootstrap_windows__vdagent_win_version }}-x64.zip` | URL to download VD Agent for Windows. |
+| Variable Name                                             | Default Value                                                                                           | Description                                                                                                                                                                                                 |
+|-----------------------------------------------------------|---------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_windows_ntp_servers`                           | `['0.centos.pool.ntp.org', '1.centos.pool.ntp.org', '2.centos.pool.ntp.org']`                          | List of NTP servers to synchronize the system clock.                                                                                                                                                            |
+| `bootstrap_windows_allow_windows_reboot_during_win_updates` | `true`                                                                                                  | Whether to allow reboots during Windows updates installation.                                                                                                                                                |
+| `bootstrap_windows_ansible_user`                          | `ansible`                                                                                               | The username for Ansible management on the target machine.                                                                                                                                                  |
+| `bootstrap_windows_ssh_pub_authorized_key`                | `{{ lookup('file', '~/.ssh/id_rsa.pub' \| expanduser) }}`                                                | Public SSH key to be added to the authorized keys of the specified user.                                                                                                                                    |
+| `bootstrap_windows_install_windows_updates`               | `false`                                                                                                 | Whether to install Windows updates during the bootstrap process.                                                                                                                                            |
+| `bootstrap_windows_install_virtio_drivers`                | `false`                                                                                                 | Whether to install VirtIO drivers for virtualized environments.                                                                                                                                             |
+| `bootstrap_windows_install_vdagent`                       | `false`                                                                                                 | Whether to install VD Agent for SPICE integration.                                                                                                                                                          |
+| `bootstrap_windows_bleachbit_url`                         | `https://download.bleachbit.org/BleachBit-4.4.2-portable.zip`                                            | URL to download BleachBit portable version.                                                                                                                                                                   |
+| `bootstrap_windows_openssh_url`                           | `https://github.com/PowerShell/Win32-OpenSSH/releases/download/V8.6.0.0p1-Beta/OpenSSH-Win64.zip`        | URL to download OpenSSH for Windows.                                                                                                                                                                        |
+| `bootstrap_windows_ultradefrag_version`                   | `7.1.4`                                                                                                 | Version of UltraDefrag to be installed.                                                                                                                                                                       |
+| `bootstrap_windows_ultradefrag_msi_file_name`             | `ultradefrag-portable-{{ bootstrap_windows_ultradefrag_version }}.bin.amd64.zip`                         | Filename for the UltraDefrag portable version.                                                                                                                                                                |
+| `bootstrap_windows_ultradefrag_download_url`              | `https://archiva.admin.dettonville.int/repository/internal/org/dettonville/infra/ultradefrag-portable/{{ bootstrap_windows_ultradefrag_version }}.bin.amd64/{{ bootstrap_windows_ultradefrag_msi_file_name}}` | URL to download UltraDefrag portable version.                                                                                                                                                                 |
+| `bootstrap_windows_vdagent_win_version`                   | `0.10.0`                                                                                                | Version of VD Agent for Windows.                                                                                                                                                                              |
+| `bootstrap_windows_virtio_win_iso_url`                    | `https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso`            | URL to download the VirtIO drivers ISO file.                                                                                                                                                                  |
+| `bootstrap_windows_virtio_win_iso_path`                   | `E:\\virtio-win\\`                                                                                      | Path where the VirtIO drivers ISO will be mounted or already exists.                                                                                                                                        |
+| `bootstrap_windows_putty_regedit`                         | `{ path: HKCU:\SOFTWARE\SimonTatham\PuTTY\Sessions\Default%20Settings, configs: [...] }`                 | Registry settings for PuTTY default session configuration.                                                                                                                                                  |
 
 ## Usage
 
-To use the `bootstrap_windows` role, include it in your playbook and configure the necessary variables as needed:
+To use the `bootstrap_windows` role in your Ansible playbook, include it as follows:
 
 ```yaml
----
 - hosts: windows_servers
   roles:
     - role: bootstrap_windows
       vars:
-        role_bootstrap_windows__install_windows_updates: true
-        role_bootstrap_windows__install_virtio_drivers: true
+        bootstrap_windows_install_virtio_drivers: true
+        bootstrap_windows_install_windows_updates: true
 ```
 
 ## Dependencies
 
-The `bootstrap_windows` role depends on the following Ansible collections:
-
-- `ansible.windows`
-- `community.windows`
-
-Ensure these collections are installed before running the role:
-
-```bash
-ansible-galaxy collection install ansible.windows community.windows
-```
+This role does not have any external dependencies beyond the standard Ansible modules and Windows-specific modules provided by `ansible.windows` and `community.windows`.
 
 ## Best Practices
 
-1. **Backup Data**: Before applying this role, ensure that all important data is backed up.
-2. **Test Environment**: Test the role in a non-production environment to verify its behavior and make necessary adjustments.
-3. **Review Variables**: Review and customize variables as per your specific requirements.
+- Ensure that the target machines are reachable via WinRM.
+- Configure appropriate permissions for the Ansible user to perform administrative tasks on the target machines.
+- Verify network connectivity to the URLs specified in the variables, especially if using a proxy or restricted network environment.
 
 ## Molecule Tests
 
-This role does not currently include Molecule tests. Consider adding them for automated testing of the role's functionality.
+This role does not include any Molecule tests. To ensure the role functions correctly, it is recommended to manually test the role in a controlled environment before deploying it in production.
 
 ## Backlinks
 

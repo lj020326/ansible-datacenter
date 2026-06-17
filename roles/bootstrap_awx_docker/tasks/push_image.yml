@@ -1,25 +1,25 @@
 ---
 - name: Authenticate with Docker registry if registry password given
   community.docker.docker_login:
-    registry: "{{ awx_docker_registry }}"
-    username: "{{ awx_docker_registry_username }}"
-    password: "{{ awx_docker_registry_password | quote }}"
+    registry: "{{ bootstrap_awx_docker__docker_registry }}"
+    username: "{{ bootstrap_awx_docker__docker_registry_username }}"
+    password: "{{ bootstrap_awx_docker__docker_registry_password | quote }}"
     reauthorize: true
-  when: awx_docker_registry is defined and awx_docker_registry_password is defined
+  when: bootstrap_awx_docker__docker_registry is defined and bootstrap_awx_docker__docker_registry_password is defined
 #  delegate_to: localhost
 
 - name: Remove local images to ensure proper push behavior
   block:
     - name: Remove web image
       community.docker.docker_image:
-        name: "{{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_web_image }}"
-        tag: "{{ awx_version }}"
+        name: "{{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__web_image }}"
+        tag: "{{ bootstrap_awx_docker__version }}"
         state: absent
 
     - name: Remove task image
       community.docker.docker_image:
-        name: "{{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_task_image }}"
-        tag: "{{ awx_version }}"
+        name: "{{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__task_image }}"
+        tag: "{{ bootstrap_awx_docker__version }}"
         state: absent
 #  delegate_to: localhost
 
@@ -27,28 +27,28 @@
   block:
     - name: Tag and push web image to registry
       community.docker.docker_image:
-        name: "{{ awx_web_image }}"
-        repository: "{{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_web_image }}"
+        name: "{{ bootstrap_awx_docker__web_image }}"
+        repository: "{{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__web_image }}"
         tag: "{{ item }}"
         push: true
       loop:
         - latest
-        - "{{ awx_version }}"
+        - "{{ bootstrap_awx_docker__version }}"
 
     - name: Tag and push task image to registry
       community.docker.docker_image:
-        name: "{{ awx_task_image }}"
-        repository: "{{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_task_image }}"
+        name: "{{ bootstrap_awx_docker__task_image }}"
+        repository: "{{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__task_image }}"
         tag: "{{ item }}"
         push: true
       loop:
         - latest
-        - "{{ awx_version }}"
+        - "{{ bootstrap_awx_docker__version }}"
 #  delegate_to: localhost
 
 - name: Set full image path for Registry
   ansible.builtin.set_fact:
-    awx_web_docker_actual_image: >-
-      {{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_web_image }}:{{ awx_version }}
-    awx_task_docker_actual_image: >-
-      {{ awx_docker_registry }}/{{ awx_docker_registry_repository }}/{{ awx_task_image }}:{{ awx_version }}
+    bootstrap_awx_docker__web_docker_actual_image: >-
+      {{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__web_image }}:{{ bootstrap_awx_docker__version }}
+    bootstrap_awx_docker__task_docker_actual_image: >-
+      {{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__task_image }}:{{ bootstrap_awx_docker__version }}

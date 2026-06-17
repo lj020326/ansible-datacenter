@@ -1,11 +1,4 @@
 ---
-- name: "Set OS specific variables"
-  ansible.builtin.include_vars: "{{ item }}"
-  with_first_found:
-    - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
-    - "{{ ansible_facts['distribution'] | lower }}.yml"
-    - "{{ ansible_facts['os_family'] | lower }}.yml"
-    - default.yml
 
 - name: "Install netplan packages"
   when:
@@ -18,9 +11,53 @@
   register: result
   until: result is successful
 
-- name: "Remove existing configurations"
+- name: "Ensure netplan directory exists"
+  ansible.builtin.file:
+    path: "{{ bootstrap_netplan__config_dir }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: "Backup all existing netplan sources"
   when: bootstrap_netplan__remove_existing | bool
-  ansible.builtin.import_tasks: remove-existing.yml
+  block:
+    - name: "Get current timestamp for backup"
+      ansible.builtin.set_fact:
+        __timestamp: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+      run_once: true
+
+    - name: "Backup all existing netplan sources into parent directory"
+      community.general.archive:
+        path: "{{ bootstrap_netplan__config_dir }}"
+        dest: "{{ bootstrap_netplan__config_dir | dirname }}/netplan.backup_{{ __timestamp }}.tar.gz"
+        format: gz
+        remove: false
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: "Find all files in the netplan directory {{ bootstrap_netplan__config_dir }}"
+      ansible.builtin.find:
+        paths: "{{ bootstrap_netplan__config_dir }}"
+        file_type: any
+        recurse: false
+      register: __found_files
+
+    - name: "Remove the contents of {{ bootstrap_netplan__config_dir }}"
+      when: __found_files.matched > 0
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ __found_files.files }}"
+
+    - name: "Remove existing configurations"
+      ansible.builtin.import_tasks: remove-existing.yml
+
+- name: "Set default bootstrap_netplan__configuration from netplan template if none specified"
+  when: bootstrap_netplan__configuration | length == 0
+  ansible.builtin.set_fact:
+    bootstrap_netplan__configuration: "{{ lookup('ansible.builtin.template', 'netplan.yml.j2') | from_yaml }}"
 
 - name: "Display bootstrap_netplan__configuration"
   ansible.builtin.debug:
@@ -28,12 +65,24 @@
 
 - name: "Ensure custom netplan configuration"
   when: bootstrap_netplan__configuration | length > 0
-  ansible.builtin.template:
-    src: config.yml.j2
-    dest: "{{ bootstrap_netplan__config_file }}"
-    mode: "0600"
-  become: true
-  notify: netplan generate config
+  block:
+    - name: "Ensure custom netplan configuration"
+      ansible.builtin.template:
+        src: config.yml.j2
+        dest: "{{ bootstrap_netplan__config_file }}"
+        mode: "0600"
+      become: true
+      notify: netplan generate config
+
+    - name: "Slurp netplan configuration file"
+      ansible.builtin.slurp:
+        src: "{{ bootstrap_netplan__config_file }}"
+      become: true
+      register: netplan_slurp
+
+    - name: "Display netplan configuration content for {{ bootstrap_netplan__config_file }}"
+      ansible.builtin.debug:
+        msg: "{{ (netplan_slurp['content'] | b64decode).splitlines() }}"
 
 - name: "Ensure netplan configuration"
   when: bootstrap_netplan__configuration | length == 0

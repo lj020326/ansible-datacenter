@@ -1,74 +1,94 @@
 ---
-title: "Bootstrap Pyenv Role"
-role: bootstrap_pyenv
-category: Ansible Roles
-type: Configuration Management
-tags: pyenv, python, automation, ansible
+title: "Ansible Role - bootstrap_pyenv"
+role: "bootstrap_pyenv"
+category: "Roles"
+type: "Documentation"
+tags: ["ansible", "pyenv", "python", "virtualenv"]
 ---
 
-## Summary
+# Ansible Role: `bootstrap_pyenv`
 
-The `bootstrap_pyenv` role is designed to automate the installation and configuration of [pyenv](https://github.com/pyenv/pyenv) on both Linux and macOS systems. It handles the installation of pyenv along with its plugins (`pyenv-virtualenv`, `pyenv-virtualenvwrapper`) and sets up the necessary environment variables and shell configurations to enable seamless usage of pyenv.
+The `bootstrap_pyenv` role is designed to automate the installation and configuration of pyenv, a tool for managing multiple Python versions on a single system. This role supports both macOS and Linux systems, providing flexibility in how pyenv is installed (via package manager or Git) and configured to manage different Python versions efficiently.
 
 ## Variables
 
-| Variable Name                             | Default Value                                                                 | Description                                                                                                                                                                                                 |
-|-------------------------------------------|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `pyenv_home`                              | `"{{ ansible_env.HOME }}"`                                                    | The home directory where pyenv will be installed. By default, it uses the user's home directory.                                                                                                          |
-| `pyenv_root`                              | `"{{ ansible_env.HOME }}/.pyenv"`                                             | The root directory for pyenv installation.                                                                                                                                                                  |
-| `pyenv_init_shell`                        | `true`                                                                        | Whether to initialize the shell with pyenv by adding necessary environment variables and commands to shell configuration files (e.g., `.bash_profile`, `.zprofile`).                                         |
-| `pyenv_version`                           | `v2.2.5`                                                                      | The version of pyenv to install.                                                                                                                                                                            |
-| `pyenv_virtualenv_version`                | `v1.1.5`                                                                      | The version of the `pyenv-virtualenv` plugin to install.                                                                                                                                                    |
-| `pyenv_virtualenvwrapper_version`         | `v20140609`                                                                   | The version of the `pyenv-virtualenvwrapper` plugin to install.                                                                                                                                             |
-| `pyenv_python37_version`                  | `3.7.13`                                                                      | The version of Python 3.7 to be installed via pyenv.                                                                                                                                                        |
-| `pyenv_python38_version`                  | `3.8.13`                                                                      | The version of Python 3.8 to be installed via pyenv.                                                                                                                                                        |
-| `pyenv_python39_version`                  | `3.9.11`                                                                      | The version of Python 3.9 to be installed via pyenv.                                                                                                                                                        |
-| `pyenv_python310_version`                 | `3.10.3`                                                                      | The version of Python 3.10 to be installed via pyenv.                                                                                                                                                       |
-| `pyenv_python_versions`                   | `[ "{{ pyenv_python310_version }}" ]`                                          | A list of Python versions to install using pyenv. By default, it installs Python 3.10.                                                                                                                   |
-| `pyenv_global`                            | `"{{ pyenv_python310_version }} system"`                                      | The global Python version(s) to set after installation. This can include specific Python versions and the system version.                                                                               |
-| `pyenv_virtualenvwrapper`                 | `false`                                                                       | Whether to install and configure `pyenv-virtualenvwrapper`.                                                                                                                                             |
-| `pyenv_virtualenvwrapper_home`            | `"{{ ansible_env.HOME }}/.virtualenvs"`                                       | The directory where virtual environments will be stored if `pyenv-virtualenvwrapper` is enabled.                                                                                                          |
-| `pyenv_install_from_package_manager`      | `true`                                                                        | Whether to install pyenv and its plugins using the package manager (Homebrew on macOS, system packages on Linux).                                                                                         |
-| `pyenv_detect_existing_install`           | `true`                                                                        | Whether to detect an existing pyenv installation before proceeding with a new installation.                                                                                                                |
-| `pyenv_homebrew_on_linux`                 | `false`                                                                       | Whether to use Homebrew for installing pyenv and its plugins on Linux systems, instead of the system package manager.                                                                                    |
+| Variable Name                           | Default Value                                                                 | Description                                                                                                                                                                                                 |
+|-----------------------------------------|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pyenv_home`                            | `"{{ ansible_facts.env.HOME }}"`                                            | The home directory where pyenv will be installed. By default, it uses the user's home directory.                                                                                                           |
+| `pyenv_root`                            | `"{{ ansible_facts.env.HOME }}/.pyenv"`                                     | The root directory for pyenv installation.                                                                                                                                                                  |
+| `pyenv_init_shell`                      | `true`                                                                        | Whether to initialize the shell environment to use pyenv.                                                                                                                                                   |
+| `pyenv_version`                         | `v2.2.5`                                                                      | The version of pyenv to install.                                                                                                                                                                            |
+| `pyenv_virtualenv_version`              | `v1.1.5`                                                                      | The version of pyenv-virtualenv to install.                                                                                                                                                                 |
+| `pyenv_virtualenvwrapper_version`       | `v20140609`                                                                   | The version of pyenv-virtualenvwrapper to install.                                                                                                                                                          |
+| `pyenv_python37_version`                | `3.7.13`                                                                      | The version of Python 3.7 to be installed via pyenv.                                                                                                                                                        |
+| `pyenv_python38_version`                | `3.8.13`                                                                      | The version of Python 3.8 to be installed via pyenv.                                                                                                                                                        |
+| `pyenv_python39_version`                | `3.9.11`                                                                      | The version of Python 3.9 to be installed via pyenv.                                                                                                                                                        |
+| `pyenv_python310_version`               | `3.10.3`                                                                      | The version of Python 3.10 to be installed via pyenv.                                                                                                                                                       |
+| `pyenv_python_versions`                 | `[ "{{ pyenv_python310_version }}" ]`                                         | A list of Python versions to install using pyenv. By default, it includes Python 3.10.                                                                                                                   |
+| `pyenv_global`                          | `"{{ pyenv_python310_version }} system"`                                      | The global Python version(s) to set with pyenv.                                                                                                                                                             |
+| `pyenv_virtualenvwrapper`               | `false`                                                                       | Whether to install and configure pyenv-virtualenvwrapper.                                                                                                                                                    |
+| `pyenv_virtualenvwrapper_home`          | `"{{ ansible_facts.env.HOME }}/.virtualenvs"`                               | The home directory for virtual environments managed by pyenv-virtualenvwrapper.                                                                                                                           |
+| `pyenv_install_from_package_manager`    | `true`                                                                        | Whether to install pyenv using the system's package manager (Homebrew on macOS/Linux).                                                                                                                      |
+| `pyenv_detect_existing_install`         | `true`                                                                        | Whether to detect an existing pyenv installation and determine if it should be reinstalled.                                                                                                                |
+| `pyenv_homebrew_on_linux`               | `false`                                                                       | Whether to use Homebrew for installing pyenv on Linux systems instead of the system's package manager.                                                                                                      |
 
 ## Usage
 
-To use the `bootstrap_pyenv` role in your Ansible playbook, include it as follows:
+To utilize this role, include it in your playbook as follows:
 
 ```yaml
-- name: Bootstrap pyenv installation
-  hosts: all
+- hosts: all
   roles:
     - role: bootstrap_pyenv
       vars:
         pyenv_python_versions:
-          - "{{ pyenv_python38_version }}"
-          - "{{ pyenv_python39_version }}"
-        pyenv_global: "{{ pyenv_python39_version }} system"
+          - "3.7.13"
+          - "3.8.13"
+          - "3.9.11"
+        pyenv_global: "3.9.11 system"
 ```
 
-This example installs Python 3.8 and 3.9, setting the global version to Python 3.9 followed by the system version.
+### Example Playbook
+
+```yaml
+---
+- name: Install and configure pyenv on all hosts
+  hosts: all
+  become: yes
+  roles:
+    - role: bootstrap_pyenv
+      vars:
+        pyenv_python_versions:
+          - "3.7.13"
+          - "3.8.13"
+          - "3.9.11"
+        pyenv_global: "3.9.11 system"
+```
 
 ## Dependencies
 
-- `community.general` Ansible collection (for Homebrew module support).
+This role depends on the following Ansible collections:
 
-Ensure that the `community.general` collection is installed:
+- `ansible.builtin`
+- `community.general`
 
-```bash
-ansible-galaxy collection install community.general
-```
+Ensure these collections are installed in your environment before running this role.
 
 ## Best Practices
 
-1. **Version Control**: Always specify exact versions for pyenv and its plugins to avoid unexpected changes.
-2. **Environment Isolation**: Use virtual environments (`pyenv-virtualenv`) to manage dependencies for different projects separately.
-3. **Shell Configuration**: Ensure that your shell configuration files (e.g., `.bash_profile`, `.zprofile`) are correctly set up to load pyenv.
+- **Version Control**: Always specify the version of pyenv and its plugins to ensure consistency across environments.
+- **Environment Isolation**: Use virtual environments (via pyenv-virtualenv) to isolate dependencies for different projects.
+- **Testing**: Utilize Molecule tests to verify the role's functionality in various scenarios.
 
 ## Molecule Tests
 
-This role does not include Molecule tests at the moment. Consider adding Molecule scenarios to automate testing of the role in different environments.
+This role includes Molecule tests to validate its behavior. To run the tests, execute:
+
+```bash
+molecule test
+```
+
+Ensure you have Molecule and the necessary drivers installed on your system.
 
 ## Backlinks
 

@@ -95,37 +95,40 @@
 - name: Bootstrap ansible venv
   hosts: vm_template_linux
   tags:
-    - bootstrap-ansible-venv
-    - bootstrap-pip
-    - bootstrap-linux-docker
-#    - bootstrap-linux
-    - bootstrap-docker
+    - bootstrap-linux
+    - bootstrap-linux-template
+    - bootstrap-vm-template
     - vm-template
     - vm-template-linux
   become: true
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
-    bootstrap_pip__env_force_rebuild: false
     ansible_become: true
     ansible_become_user: root
     ansible_become_method: ansible.builtin.sudo
+    bootstrap_pip__env_force_rebuild: false
   roles:
     - role: bootstrap_pip
 
 - name: Bootstrap linux OS on vm template
   hosts: vm_template_linux
   tags:
-    - vm-template
-    - bootstrap-vm-template
+    - bootstrap-linux
     - bootstrap-linux-template
+    - bootstrap-vm-template
+    - vm-template
+    - vm-template-linux
   connection: local
   become: true
-  become_user: root
-  become_method: ansible.builtin.sudo
+  # Force Ansible to Ignore Site-Packages Globally
+  # Explicitly tell Python to ignore sitecustomize files altogether
+  # This enforces the environment rule across ALL tasks and roles invoked by this play
+  environment:
+    PYTHONNOUSERSITE: "1"
+    PYTHONUNBUFFERED: "1"
   vars:
     ansible_user: "{{ os_build_user }}"
     ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
-#    ansible_user: "{{ lookup('env', 'USER') }}"
 #    ansible_python_interpreter: "{{ os_python_interpreter }}"
     ansible_become: true
     ansible_become_user: root

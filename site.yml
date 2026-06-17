@@ -149,11 +149,8 @@
     - display-tower-vars
   tasks:
     - name: "Display tower vars - excluding sensitive keys"
-      ansible.builtin.debug:
-        var: vars | dict2items
-          | selectattr('key', 'match', '^tower.*')
-          | list | items2dict
-          | dettonville.utils.redact_sensitive_values
+      dettonville.utils.debug_sanitized:
+        var: ansible_facts | dict2items | selectattr('key', 'match', '^tower.*')
 
 - name: Display ansible_localhost vars
 #  hosts: ansible_localhost
@@ -163,10 +160,8 @@
     - deploy-vm
   tasks:
     - name: "Display controller vars - excluding sensitive keys"
-      ansible.builtin.debug:
-        var: vars | dict2items
-          | list | items2dict
-          | dettonville.utils.redact_sensitive_values
+      dettonville.utils.debug_sanitized:
+        var: ansible_facts
         verbosity: 2
 
     ## ref: https://stackoverflow.com/questions/2589711/find-full-path-of-the-python-interpreter-python-executable
@@ -235,17 +230,17 @@
     - debug-envvars
     - debug-env-vars
   tasks:
-    - name: "Display ansible_env - excluding sensitive keys"
-      ansible.builtin.debug:
-        var: ansible_env | dettonville.utils.redact_sensitive_values
+    - name: "Display ansible_facts.env - excluding sensitive keys"
+      dettonville.utils.debug_sanitized:
+        var: ansible_facts.env
 
 #    ## Debugging purposes: print all environment variables
 #    ## ref: https://gryzli.info/2017/12/21/ansible-debug-print-variables/
 #    - name: "Display controller environment variables"
 #      tasks:
 #        - name: Print env var debug information
-#          ansible.builtin.debug:
-#            var: environment | dettonville.utils.redact_sensitive_values
+#          dettonville.utils.debug_sanitized:
+#            var: environment
 
 - name: Display hostvars
   hosts: all,!host_offline
@@ -258,10 +253,8 @@
   tasks:
     ## ref: https://stackoverflow.com/questions/53264221/in-ansible-how-to-filter-a-dictionary-based-on-regex-pattern-on-the-keys
     - name: "Display host vars - excluding sensitive keys"
-      ansible.builtin.debug:
-        var: hostvars[inventory_hostname] | dict2items 
-          | list | items2dict
-          | dettonville.utils.redact_sensitive_values
+      dettonville.utils.debug_sanitized:
+        var: hostvars[inventory_hostname]
 
 - name: Display cert info
   hosts: all,!ansible_localhost,!host_offline
@@ -283,8 +276,8 @@
 #    - deploy-certs
   tasks:
     - name: Display vault_config
-      ansible.builtin.debug:
-        var: vault_config | dettonville.utils.redact_sensitive_values
+      dettonville.utils.debug_sanitized:
+        var: vault_config
         verbosity: 2
 
     - name: Display vault_url
@@ -572,7 +565,7 @@
         var: ansible_user
 
 #    - name: Display os_build_user_password
-#      ansible.builtin.debug:
+#      dettonville.utils.debug_sanitized:
 #        var: os_build_user_password
 #        verbosity: 1
 
@@ -804,7 +797,7 @@
     - role: bootstrap_sshd
 
 - name: Bootstrap ldap client
-  hosts: ldap_client,!host_offline
+  hosts: ldap_network,!host_offline
   tags:
     - bootstrap-ldap
     - bootstrap-ldap-client
@@ -903,7 +896,6 @@
     - deploy-certs
     - deploy-cacerts
     - deploy-ca-certs
-    - bootstrap-docker-admin
 #    - bootstrap-docker-stack
   become: true
   roles:
@@ -937,7 +929,6 @@
   tags:
     - bootstrap
     - docker
-    - bootstrap-linux
     - bootstrap-linux-docker
     - bootstrap-docker
     - bootstrap-kubernetes
@@ -985,8 +976,6 @@
     - bootstrap-docker-stack
     - docker-stack
   become: true
-#  vars:
-#    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
@@ -997,8 +986,6 @@
     - bootstrap-docker-control
     - docker-control-host
   become: true
-  #  vars:
-  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
   roles:
     - role: bootstrap_docker_stack
 
@@ -1008,8 +995,15 @@
     - bootstrap-docker-llm
     - docker-llm-host
   become: true
-  #  vars:
-  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
+  roles:
+    - role: bootstrap_docker_stack
+
+- name: "Bootstrap docker LLM agents"
+  hosts: docker_stack_llm_agent,!host_offline
+  tags:
+    - bootstrap-docker-llm-agent
+    - docker-llm-host-agent
+  become: true
   roles:
     - role: bootstrap_docker_stack
 
@@ -1017,10 +1011,29 @@
   hosts: docker_stack_admin,!host_offline
   tags:
     - bootstrap-admin-host
+    - bootstrap-docker-admin
     - docker-admin-host
   become: true
-  #  vars:
-  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
+  roles:
+    - role: bootstrap_docker_stack
+
+- name: "Bootstrap docker jenkins hosts"
+  hosts: docker_stack_jenkins,!host_offline
+  tags:
+    - bootstrap-jenkins-host
+    - bootstrap-docker-jenkins
+    - docker-jenkins-host
+  become: true
+  roles:
+    - role: bootstrap_docker_stack
+
+- name: "Bootstrap docker gitea hosts"
+  hosts: docker_stack_gitea,!host_offline
+  tags:
+    - bootstrap-gitea-host
+    - bootstrap-docker-gitea
+    - docker-gitea-host
+  become: true
   roles:
     - role: bootstrap_docker_stack
 
@@ -1028,10 +1041,42 @@
   hosts: docker_stack_media,!host_offline
   tags:
     - bootstrap-media-host
+    - bootstrap-docker-media
     - docker-media-host
   become: true
-  #  vars:
-  #    ansible_python_interpreter: "{{ ansible_virtualenv_docker_python_interpreter }}"
+  roles:
+    - role: bootstrap_docker_stack
+
+- name: "Bootstrap docker openbao hosts"
+  hosts: docker_stack_openbao,!host_offline
+  tags:
+    - bootstrap-docker-openbao
+    - bootstrap-docker-vault
+    - bootstrap-openbao-host
+    - bootstrap-vault-host
+    - docker-openbao-host
+    - docker-vault-host
+  become: true
+  roles:
+    - role: bootstrap_docker_stack
+
+- name: "Bootstrap docker openldap hosts"
+  hosts: docker_stack_openldap,!host_offline
+  tags:
+    - bootstrap-openldap-host
+    - bootstrap-docker-openldap
+    - docker-openldap-host
+  become: true
+  roles:
+    - role: bootstrap_docker_stack
+
+- name: "Bootstrap docker kanban hosts"
+  hosts: docker_stack_kanban,!host_offline
+  tags:
+    - bootstrap-kanban-host
+    - bootstrap-docker-kanban
+    - docker-kanban-host
+  become: true
   roles:
     - role: bootstrap_docker_stack
 

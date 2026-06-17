@@ -29,7 +29,8 @@ __docker_stack__media__bazarr_image: "{{ docker_stack__media__bazarr_image | d('
 __docker_stack__media__readarr_image: "{{ docker_stack__media__readarr_image | d('ghcr.io/pennydreadful/bookshelf:hardcover') }}"
 
 #__docker_stack__media__lazylibrarian_image: "lscr.io/linuxserver/lazylibrarian:latest"
-__docker_stack__media__lazylibrarian_image: "{{ docker_stack__media__readarr_image | d('lscr.io/linuxserver/lazylibrarian:latest') }}"
+__docker_stack__media__lazylibrarian_image: "{{ docker_stack__media__readarr_image
+  | d('lscr.io/linuxserver/lazylibrarian:latest') }}"
 
 #__docker_stack__media__prowlarr_image: "lscr.io/linuxserver/prowlarr:latest"
 #__docker_stack__media__prowlarr_image: "ghcr.io/linuxserver/prowlarr:develop"
@@ -122,7 +123,7 @@ __docker_stack__media__newsgroups_servers_default:
 
 __docker_stack__media__newsgroups_servers: "{{ docker_stack__media__newsgroups_servers | d(__docker_stack__media__newsgroups_servers_default) }}"
 
-__docker_stack__media__postgres_password: "{{ docker_stack__media__postgres_passwd | d('password') }}"
+__docker_stack__media__postgres_password: "{{ docker_stack__media__postgres_password | d('password') }}"
 
 __docker_stack__media__hardcover_token: "{{ docker_stack__media__hardcover_token | d('password') }}"
 __docker_stack__media__couchpotato_password: "{{ docker_stack__media__couchpotato_password | d('password') }}"
@@ -138,6 +139,25 @@ __docker_stack__media__transmission_rpc_password: "{{ docker_stack__media__trans
 __docker_stack__media__calibre_server_port: "48081" # Webserver GUI
 __docker_stack__media__calibre_gui_port: "48080" # Desktop GUI
 __docker_stack__media__calibre_gui_https_port: "48181"
+
+__docker_stack__media__reading_glasses_db_environment:
+  POSTGRES_USER: rreading-glasses
+  POSTGRES_PASSWORD: "{{ __docker_stack__media__postgres_password }}"
+  POSTGRES_DB: rreading-glasses
+
+__docker_stack__media__reading_glasses_environment:
+  ## app envs
+  PUID: "{{ docker_stack__user_uid }}"
+  PGID: "{{ docker_stack__user_gid }}"
+  TZ: "{{ docker_stack__timezone }}"
+  DOTNET_SYSTEM_NET_DISABLEIPV6: true
+  DOTNET_EnableIPv6: false
+  # Only used for Hardcover. Starts with Bearer
+  HARDCOVER_AUTH: "{{ __docker_stack__media__hardcover_token }}"
+  POSTGRES_HOST: localhost
+  POSTGRES_DATABASE: rreading-glasses
+  POSTGRES_USER: rreading-glasses
+  POSTGRES_PASSWORD: "{{ __docker_stack__media__postgres_password }}"
 
 ### piwigo
 #docker_piwigo_mysql_host: "db.example.int:3306"
@@ -194,6 +214,7 @@ __docker_stack__media__config_dirs:
   - path: "{{ __docker_stack__media__config_dir }}/lidarr/custom-cont-init.d"
   - path: "{{ __docker_stack__media__config_dir }}/lidarr/certs"
   #  - path: "{{ __docker_stack__media__config_dir }}/lazylibrarian"
+  - path: "{{ __docker_stack__media__config_dir }}/rreading-glasses"
   - path: "{{ __docker_stack__media__config_dir }}/rreading-glasses-db"
   - path: "{{ __docker_stack__media__config_dir }}/rreading-glasses-db/data"
   - path: "{{ __docker_stack__media__config_dir }}/readarr"
@@ -255,6 +276,10 @@ __docker_stack__media__config_dirs:
   - path: /opt/scripts
 
 __docker_stack__media__config_tpls:
+  - src: media/reading_glasses_db.env.j2
+    dest: "{{ __docker_stack__media__config_dir }}/rreading-glasses-db/reading_glasses_db.env"
+  - src: media/reading_glasses.env.j2
+    dest: "{{ __docker_stack__media__config_dir }}/rreading-glasses/reading_glasses.env"
   #  - src: 'media/config-nordvpn.ovpn.j2'
   #    dest: "{{ __docker_stack__media__config_dir }}/openvpn/nordvpn.ovpn"
   - src: media/config-sabnzbd.ini.j2
@@ -695,10 +720,8 @@ __docker_stack__media__services:
     restart: unless-stopped
     network_mode: service:openvpn
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
-    environment:
-      POSTGRES_USER: rreading-glasses
-      POSTGRES_PASSWORD: "{{ __docker_stack__media__postgres_password }}"
-      POSTGRES_DB: rreading-glasses
+    env_file:
+      - rreading-glasses-db/reading_glasses_db.env
 #    ports:
 #      - "5432:5432"
     volumes:
@@ -714,19 +737,8 @@ __docker_stack__media__services:
 #      - --upstream=www.goodreads.com
     restart: unless-stopped
     mem_limit: 128m
-    environment:
-      ## app envs
-      PUID: "{{ docker_stack__user_uid }}"
-      PGID: "{{ docker_stack__user_gid }}"
-      TZ: "{{ docker_stack__timezone }}"
-      DOTNET_SYSTEM_NET_DISABLEIPV6: true
-      DOTNET_EnableIPv6: false
-      # Only used for Hardcover. Starts with Bearer
-      HARDCOVER_AUTH: "{{ __docker_stack__media__hardcover_token }}"
-      POSTGRES_HOST: localhost
-      POSTGRES_DATABASE: rreading-glasses
-      POSTGRES_USER: rreading-glasses
-      POSTGRES_PASSWORD: "{{ __docker_stack__media__postgres_password }}"
+    env_file:
+      - rreading-glasses/reading_glasses.env
     depends_on:
       - openvpn
       - rreading-glasses-db

@@ -314,7 +314,7 @@ docker_stack__appspec__jenkins:
   dirs: "{{ __docker_stack__jenkins__config_dirs | d([], true) }}"
   files: "{{ __docker_stack__jenkins__config_files | d([], true) }}"
   templates: "{{ __docker_stack__jenkins__config_tpls | d([], true) }}"
-  #  secrets: "{{ __docker_stack__jenkins__secrets | d({}, true) }}"
+  secrets: "{{ __docker_stack__jenkins__secrets | d({}, true) }}"
   firewalld_services: "{{ __docker_stack__jenkins__firewalld_services | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__jenkins__firewalld_ports | d([], true) }}"
   networks: "{{ __docker_stack__jenkins__networks | d({}, true) }}"
@@ -351,42 +351,9 @@ __docker_stack__jenkins__services:
     #      - "{{ __docker_stack__jenkins__http }}:8080/tcp"  ## jenkins web server
     #      - "{{ __docker_stack__jenkins__agent_port }}:9000/tcp"
     #      command: "--httpsCertificate=/var/lib/jenkins/cert --httpsPrivateKey=/var/lib/jenkins/pk"
-    volumes:
-      - /etc/localtime:/etc/localtime
-      - /var/run/docker.sock:/var/run/docker.sock
-      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
-      - "{{ __docker_stack__ca_java_keystore }}:/var/lib/jenkins/cacerts"
-      - "{{ __docker_stack__jenkins__base_dir }}/passwd:/etc/passwd:ro"
-      - "{{ __docker_stack__jenkins__base_dir }}/group:/etc/group:ro"
-      - "{{ __docker_stack__jenkins__base_dir }}/jenkins_home:/var/jenkins_home"
-      - "{{ __docker_stack__jenkins__data_dir }}:/data"
-      - "{{ __docker_stack__jenkins__vmware_data_dir }}:/vmware"
     env_file:
       - "{{ __docker_stack__jenkins__base_dir }}/jenkins.env"
-    #    secrets:
-    #      - ldap_username
-    #      - ldap_password
-    #      - jenkins_admin_username
-    #      - jenkins_admin_password
-    #      - jenkins_git_password
-    #      - vsphere_username
-    #      - vsphere_password
-    #      - vmware_esxi_password
-    #      - packer_user_username
-    #      - packer_user_password
-    #      - packer_user_ssh_public_key
-    #      - ansible_vault_password
-    #      - ansible_ssh_username
-    #      - ansible_ssh_password
-    #      - ansible_ssh_private_key
-    #      - bitbucket_ssh_username
-    #      - bitbucket_ssh_private_key
-    #      - bitbucket_cloud_oauth_username
-    #      - bitbucket_cloud_oauth_password
-    #      - docker_registry_admin_username
-    #      - docker_registry_admin_password
-    #      - github_ssh_username
-    #      - github_ssh_password
+    secrets: "{{ __docker_stack__jenkins__secrets | map(attribute='name') | list }}"
     deploy:
       #############
       ## Set endpoint_mode to `dnsrr` for container to have local dns access
@@ -407,3 +374,13 @@ __docker_stack__jenkins__services:
         parallelism: 1
         order: stop-first
     labels: "{{ __docker_stack__jenkins__traefik_labels }}"
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+      - "{{ __docker_stack__ca_java_keystore }}:/var/lib/jenkins/cacerts"
+      - "{{ __docker_stack__jenkins__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__jenkins__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__jenkins__base_dir }}/jenkins_home:/var/jenkins_home"
+      - "{{ __docker_stack__jenkins__data_dir }}:/data"
+      - "{{ __docker_stack__jenkins__vmware_data_dir }}:/vmware"

@@ -321,22 +321,29 @@ ansible-inventory -i inventory/PROD/ --graph vmware_vcenter
 
 ```shell
 ## for control node certs - skip apply_ping_test
-$ runme.sh -t bootstrap-ca-certs -l ca_keystore site.yml
-$ runme.sh -t deploy-ca-certs --skip-tags=always site.yml
+$ runme.sh -t bootstrap-pki-certs -l ca_domain site.yml
+## also same script in repo root dir
+$ run-playbook.sh -t deploy-pki-certs --skip-tags=always site.yml
 ## no vault ca certs setup
-$ runme.sh -t bootstrap-certs -l ca_keystore site.yml
-$ runme.sh -t deploy-certs --skip-tags=always -l admin01 site.yml
-$ runme.sh -t bootstrap-linux -l admin01 site.yml
-$ runme.sh -t bootstrap-pip -l admin01 site.yml
-$ runme.sh -t bootstrap-webmin -l admin01 site.yml
-$ runme.sh -t bootstrap-docker -l admin01 site.yml
-$ runme.sh -t bootstrap-docker-stack -l admin01 site.yml
-$ runme.sh -t bootstrap-docker-stack -l docker_stack_control site.yml
-$ runme.sh -t bootstrap-docker-stack -l docker_stack_openldap site.yml
-$ runme.sh -t bootstrap-docker-stack -l docker_stack_jenkins_jcac site.yml
-$ runme.sh -t bootstrap-docker-stack -l docker_stack_media site.yml
-$ runme.sh -t bootstrap-jenkins-agent -l admin01 site.yml
-$ runme.sh -vvv -t bootstrap-docker -l admin01 site.yml
+$ run-playbook.sh -t bootstrap-certs -l ca_keystore site.yml
+$ run-playbook.sh -t deploy-certs --skip-tags=always -l admin01 site.yml
+$ run-playbook.sh -t bootstrap-linux -l admin01 site.yml
+$ run-playbook.sh -t bootstrap-pip -l admin01 site.yml
+$ run-playbook.sh -t bootstrap-webmin -l admin01 site.yml
+$ run-playbook.sh -t bootstrap-docker -l admin01 site.yml
+$ run-playbook.sh -t bootstrap-docker-stack -l admin01 site.yml
+$ run-playbook.sh -t bootstrap-docker-stack -l docker_stack_control site.yml
+$ run-playbook.sh -t bootstrap-docker-stack -l docker_stack_openldap site.yml
+$ run-playbook.sh -t bootstrap-docker-stack -l docker_stack_jenkins_jcac site.yml
+$ run-playbook.sh -t bootstrap-docker-stack -l docker_stack_media site.yml
+$ run-playbook.sh -t bootstrap-jenkins-agent -l admin01 site.yml
+$ run-playbook.sh -vvv -t bootstrap-docker -l admin01 site.yml
+## install collections
+$ INSTALL_GALAXY_COLLECTIONS=1 run-playbook.sh --tags bootstrap-docker -l control01  site.yml
+## update collections
+$ UPGRADE_GALAXY_COLLECTIONS=1 run-playbook.sh --tags bootstrap-jenkins-agent -l control02 site.yml
+## if need to force update of collection(s) - usually in case where a specific collection version has been updated
+$ FORCE_GALAXY_COLLECTIONS=1 UPGRADE_GALAXY_COLLECTIONS=1 run-playbook.sh --tags bootstrap-docker-control -l control02 site.yml
 ```
 
 ## Using run-ansible.sh launch script
@@ -357,6 +364,7 @@ $ run-ansible.sh ansible -i ./inventory/PROD -m win_shell -a "ipconfig" -v win20
 $ run-ansible.sh ansible-playbook --tags ping-test -l ca_domain site.yml
 $ run-ansible.sh ansible-playbook --tags bootstrap-ansible-user -l control01 site.yml
 $ run-ansible.sh ansible-playbook --tags bootstrap-ansible-user -l media01 site.yml
+$ run-ansible.sh ansible-playbook --tags bootstrap-docker-control -l docker_stack_control site.yml
 $ run-ansible.sh ansible-playbook --tags bootstrap-docker-stack -l media01 site.yml
 $ run-ansible.sh ansible-playbook --tags bootstrap-linux -l control01 site.yml
 $ run-ansible.sh ansible-playbook --tags bootstrap-linux -l media01 site.yml

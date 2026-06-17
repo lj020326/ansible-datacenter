@@ -1,0 +1,43 @@
+---
+- name: "Docker Stack | plane-api | pre-start | Display Plane service info"
+  ansible.builtin.debug:
+    msg:
+      - "Running pre-start tasks for Plane CE"
+      - "Base directory: {{ __docker_stack__plane__base_dir }}"
+
+# Stop running Plane services before migration
+- name: "Docker Stack | plane-api | pre-start | Stop plane-api and plane-web before migration"
+  when: docker_stack__action == 'setup'
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_stack__dir }}"
+    services:
+      - plane-api
+      - plane-web
+    state: stopped
+
+# Run database migrations (one-time)
+- name: "Docker Stack | plane-api | pre-start | Run Plane migrations"
+  community.docker.docker_container:
+    name: "plane-migrator"
+    image: "makeplane/plane-backend:latest"
+    command: "./bin/docker-entrypoint-migrator.sh"
+    env_file: "{{ __docker_stack__plane__base_dir }}/plane.env"
+    volumes:
+      - "{{ __docker_stack__plane__base_dir }}/plane.env:/app/plane.env:ro"
+    auto_remove: true
+    state: started
+    recreate: true
+  register: __plane_migration_result
+
+- name: "Docker Stack | plane-api | pre-start | Show migration result"
+  ansible.builtin.debug:
+    var: __plane_migration_result.container.State | d('')
+
+- name: "Docker Stack | plane-api | pre-start | Show __plane_migration_result if failed"
+  when: __plane_migration_result is failed
+  dettonville.utils.debug_sanitized:
+    var: __plane_migration_result
+
+- name: "Docker Stack | plane-api | pre-start | Wait a few seconds for migration to settle"
+  ansible.builtin.pause:
+    seconds: 10

@@ -5,7 +5,7 @@
 
 ## **Phase 1: Infrastructure Consolidation (VMware & Kubernetes)**
 
-Transitioning from standalone Docker to a multi-node Kubernetes cluster allows for better resource distribution between your Supermicro servers and GPU hosts.
+Transitioning from standalone Docker to a multi-node Kubernetes cluster allows for better resource distribution between the Supermicro servers and GPU hosts.
 
 * **Kubernetes Control Plane:** Deploy a 3-node High Availability (HA) control plane across `esx00`, `esx01`, and `esx02` using Ubuntu 24.04 VMs.
 * **Offloading Services to Ubuntu VMs:** Deploy the following non-GPU services as VMs on the ESXi cluster to maximize GPU availability:

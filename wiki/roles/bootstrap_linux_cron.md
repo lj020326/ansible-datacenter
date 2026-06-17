@@ -1,27 +1,26 @@
 ---
 title: Bootstrap Linux Cron Role Documentation
 role: bootstrap_linux_cron
-category: System Management
-type: Ansible Role
-tags: cron, linux, automation
+category: Ansible Roles
+type: Configuration Management
+tags: ansible, cron, linux, automation
 ---
 
 ## Summary
 
-The `bootstrap_linux_cron` role is designed to manage cron jobs on Linux systems. It allows users to define and configure cron jobs using a structured format, supporting both schedule arrays and standard cron module inputs. The role can add or remove cron jobs based on the provided configuration.
+The `bootstrap_linux_cron` role is designed to manage cron jobs on Linux systems. It allows users to define and configure cron jobs using a structured format, supports the creation of daily batch scripts, and ensures that specified cron job files are present or absent as required.
 
 ## Variables
 
-| Variable Name                      | Default Value | Description                                                                 |
-|------------------------------------|---------------|-----------------------------------------------------------------------------|
-| `bootstrap_linux_cron__list`       | `[]`          | A list of dictionaries defining cron jobs to be managed.                    |
-| `bootstrap_linux_cron__state`      | `present`     | The state of the cron job (can be `present` or `absent`).                 |
+| Variable Name                           | Default Value                | Description                                                                 |
+|-----------------------------------------|------------------------------|-----------------------------------------------------------------------------|
+| `bootstrap_linux_cron__list`            | `[]`                         | A list of dictionaries defining the cron jobs to be managed. Each dictionary can specify details like name, schedule, job command, user, etc. |
+| `bootstrap_linux_cron__state`           | `present`                    | The desired state for the cron jobs (`present` or `absent`).                |
+| `bootstrap_linux_cron__setup_daily_scripts` | `true`                     | A boolean flag indicating whether to set up daily batch scripts and directories. |
 
 ## Usage
 
-To use this role, define your cron jobs in the `bootstrap_linux_cron__list` variable. Each item in the list should be a dictionary with keys corresponding to the cron job parameters.
-
-### Example Playbook
+To use this role, include it in your playbook and define the necessary variables. Here is an example of how to configure a simple cron job:
 
 ```yaml
 - hosts: all
@@ -30,44 +29,42 @@ To use this role, define your cron jobs in the `bootstrap_linux_cron__list` vari
       vars:
         bootstrap_linux_cron__list:
           - name: "Daily Backup"
-            schedule: [0, 2, "*", "*", "*"]
+            schedule: [0, 2, '*', '*', '*']  # Every day at 2 AM
             job: "/usr/local/bin/backup.sh"
-            user: "root"
-          - name: "Weekly Report"
-            minute: "30"
-            hour: "14"
-            day: "*"
-            month: "*"
-            weekday: "0"
-            job: "/usr/local/bin/report.sh"
-            user: "admin"
+            user: root
+```
+
+To remove a cron job, you can specify the state as `absent`:
+
+```yaml
+- hosts: all
+  roles:
+    - role: bootstrap_linux_cron
+      vars:
+        bootstrap_linux_cron__list:
+          - name: "Daily Backup"
+            schedule: [0, 2, '*', '*', '*']
+            job: "/usr/local/bin/backup.sh"
+            user: root
+            state: absent
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies.
-
-## Tags
-
-- `cron` - Manage cron jobs.
-
-To run the role with a specific tag, use:
-
-```bash
-ansible-playbook playbook.yml --tags=cron
-```
+This role does not have any external dependencies. It relies solely on Ansible's built-in modules.
 
 ## Best Practices
 
-1. **Use Descriptive Names**: Ensure that each cron job has a descriptive name for easier management.
-2. **Specify Users**: Always specify the user under which the cron job should run to avoid permission issues.
-3. **Backup Cron Files**: Use the `backup` parameter to create backups of existing cron files before making changes.
+- **Consistent Naming**: Ensure that the names of your cron jobs are descriptive and unique to avoid conflicts.
+- **State Management**: Use the `state` parameter to manage the presence or absence of cron jobs effectively.
+- **User Specification**: Always specify the user under which the cron job should run, defaulting to `root` if not specified.
 
 ## Molecule Tests
 
-This role does not currently include Molecule tests.
+This role does not include Molecule tests. However, it is recommended to write and execute Molecule tests to ensure the reliability and correctness of the role in different environments.
 
 ## Backlinks
 
 - [defaults/main.yml](../../roles/bootstrap_linux_cron/defaults/main.yml)
 - [tasks/main.yml](../../roles/bootstrap_linux_cron/tasks/main.yml)
+- [tasks/setup-daily-scripts.yml](../../roles/bootstrap_linux_cron/tasks/setup-daily-scripts.yml)

@@ -1,0 +1,68 @@
+---
+- name: Ensure daily-maintenance directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/daily-maintenance/pre-update.d
+    - /etc/daily-maintenance/update.d
+    - /etc/daily-maintenance/post-update.d
+
+- name: Deploy master daily-maintenance.sh script
+  ansible.builtin.copy:
+    src: daily-maintenance.sh
+    dest: /usr/local/bin/daily-maintenance.sh
+    mode: '0755'
+
+- name: Deploy perform-os-updates.sh script
+  ansible.builtin.copy:
+    src: perform-os-updates.sh
+    dest: /usr/local/bin/perform-os-updates.sh
+    mode: '0755'
+
+## this is maintained by inventory bootstrap_linux_cron__daily_batch_hooks__*
+#- name: Deploy OS update script (e.g., apt/dnf update)
+#  ansible.builtin.copy:
+#    src: 50-os-update.sh
+#    dest: /etc/daily-maintenance/update.d/50-os-update.sh
+#    mode: '0755'
+
+- name: Ensure daily maintenance hook directories exist
+  ansible.builtin.file:
+    path: "/etc/daily-maintenance/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - pre-update.d
+    - update.d
+    - post-update.d
+
+- name: Init __bootstrap_linux_cron__daily_batch_hooks
+  ansible.builtin.set_fact:
+    __bootstrap_linux_cron__daily_batch_hooks: "{{ bootstrap_linux_cron__daily_batch_hooks | d([], true) }}"
+
+- name: Combine bootstrap_linux_cron__daily_batch_hooks__* vars into merged list
+  ansible.builtin.set_fact:
+    __bootstrap_linux_cron__daily_batch_hooks: "{{ __bootstrap_linux_cron__daily_batch_hooks | d([], true)
+      + lookup('vars', item) | d([], true) }}"
+  loop: "{{ lookup('varnames','^bootstrap_linux_cron__daily_batch_hooks__', wantlist=True) }}"
+
+- name: Display __bootstrap_linux_cron__daily_batch_hooks
+  ansible.builtin.debug:
+    var: __bootstrap_linux_cron__daily_batch_hooks
+
+- name: Deploy daily batch hook scripts
+  when: item.state | d('present') == "present"
+  ansible.builtin.copy:
+    dest: "/etc/daily-maintenance/{{ item.hook_type }}/{{ item.filename }}"
+    mode: '0755'
+    content: "{{ item.content }}"
+  loop: "{{ __bootstrap_linux_cron__daily_batch_hooks }}"
+
+- name: Remove absent daily batch hook scripts
+  when: item.state | d('present') == "absent"
+  ansible.builtin.file:
+    path: "/etc/daily-maintenance/{{ item.hook_type }}/{{ item.filename }}"
+    state: absent
+  loop: "{{ __bootstrap_linux_cron__daily_batch_hooks }}"

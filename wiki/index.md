@@ -174,6 +174,7 @@ It provides professional, GitHub-native documentation for the ansible-datacenter
 - [bootstrap_os_network](roles/bootstrap_os_network.md)
 - [bootstrap_sshd](roles/bootstrap_sshd.md)
 - [harden_os_linux](roles/harden_os_linux.md)
+- [harden_os_windows](roles/harden_os_windows.md)
 
 ### Operational
 *Roles run to operational plays (startup, shutdown, etc)*

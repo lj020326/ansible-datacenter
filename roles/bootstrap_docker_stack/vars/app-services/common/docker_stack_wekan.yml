@@ -1,7 +1,8 @@
 ---
 
-__docker_stack__wekan__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}/wekan"
-__docker_stack__wekan__base_dir: "{{ __docker_stack__wekan__stack_dir }}"
+__docker_stack__wekan__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__wekan__base_dir_default: "{{ __docker_stack__wekan__stack_dir }}/wekan"
+__docker_stack__wekan__base_dir: "{{ docker_stack__wekan__base_dir | d(__docker_stack__wekan__base_dir_default) }}"
 
 __docker_stack__wekan__domain: "{{ docker_stack__internal_domain }}"
 __docker_stack__wekan__endpoint: "wekan.{{ __docker_stack__wekan__domain }}"
@@ -17,6 +18,30 @@ __docker_stack__wekan__config_dirs:
   - path: "{{ __docker_stack__wekan__base_dir }}/mongo"
   - path: "{{ __docker_stack__wekan__base_dir }}/wekan"
 
+__docker_stack__wekan__environment_default:
+  MONGO_URL: "mongodb://wekan-mongo:27017/wekan"
+  MONGO_OPLOG_URL: "mongodb://wekan-mongo:27017/local?replicaSet=rs0"
+  ROOT_URL: "{{ __docker_stack__wekan__root_url }}"
+  WITH_API: "true"
+  PORT: 8080
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  DEBUG: true
+  MAIL_URL: "smtp://{{ docker_stack__smtp_host }}:{{ docker_stack__smtp_port }}"
+#  BROWSER_POLICY_ENABLED: "true"
+#  TRUSTED_URL: "{{ __docker_stack__wekan__root_url }}"
+  # Optional: MAIL_URL, MAIL_FROM, etc. if you want email
+
+__docker_stack__wekan__environment: "{{ docker_stack__wekan__environment
+  | d(__docker_stack__wekan__environment_default) }}"
+
+__docker_stack__wekan__config_tpls:
+  - src: wekan/wekan.env.j2
+    dest: "{{ __docker_stack__wekan__base_dir }}/wekan.env"
+  - src: wekan/config-group.conf.j2
+    dest: "{{ __docker_stack__wekan__base_dir }}/group"
+  - src: wekan/config-passwd.conf.j2
+    dest: "{{ __docker_stack__wekan__base_dir }}/passwd"
+
 __docker_stack__wekan__traefik_labels: "{{ docker_stack__wekan__traefik_labels | d(__docker_stack__wekan__traefik_labels_default) }}"
 
 __docker_stack__wekan__services:
@@ -24,11 +49,48 @@ __docker_stack__wekan__services:
     image: mongo:6
     container_name: wekan-mongo
     restart: unless-stopped
-    command: mongod --oplogSize 128 --replSet rs0 --quiet
+    command: mongod --oplogSize 128 --replSet rs0 --quiet --bind_ip_all
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     volumes:
+      - /etc/localtime:/etc/localtime
       - "{{ __docker_stack__wekan__base_dir }}/mongo:/data/db"
     networks:
-      - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  # One-time replica set initializer
+  wekan-mongo-init:
+    image: mongo:6
+    container_name: wekan-mongo-init
+    restart: on-failure:3
+    depends_on:
+      wekan-mongo:
+        condition: service_healthy
+    command: >
+      bash -c "
+        until mongosh --host wekan-mongo --eval 'db.runCommand({ ping: 1 })' &> /dev/null; do
+          echo 'Waiting for MongoDB...'; sleep 2;
+        done
+        echo 'Initializing replica set rs0...'
+        mongosh --host wekan-mongo --eval '
+          rs.initiate({
+            _id: \"rs0\",
+            members: [{ _id: 0, host: \"wekan-mongo:27017\" }]
+          })
+        '
+        echo 'Replica set initialized.'
+      "
+    networks:
+      - "{{ docker_stack__network_name__default }}"
     deploy:
       placement:
         constraints:
@@ -37,22 +99,41 @@ __docker_stack__wekan__services:
   wekan:
     image: ghcr.io/wekan/wekan:latest
     container_name: wekan
+#    command: >
+#      bash -c 'ulimit -s 65500 && exec node --stack-size=65500 main.js'
     restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     depends_on:
-      - wekan-mongo
-    environment:
-      MONGO_URL: "mongodb://wekan-mongo:27017/wekan"
-      MONGO_OPLOG_URL: "mongodb://wekan-mongo:27017/local?replicaSet=rs0"
-      ROOT_URL: "{{ __docker_stack__wekan__root_url }}"
-      WITH_API: "true"
-      BROWSER_POLICY_ENABLED: "true"
-      TRUSTED_URL: "{{ __docker_stack__wekan__root_url }}"
-      # Optional: MAIL_URL, MAIL_FROM, etc. if you want email
+      wekan-mongo:
+        condition: service_healthy
+      wekan-mongo-init:
+        condition: service_completed_successfully
+#      - wekan-mongo
+#      - wekan-mongo-init
+    env_file:
+      - wekan/wekan.env
     volumes:
+      - /etc/localtime:/etc/localtime
+      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+      - "{{ __docker_stack__wekan__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__wekan__base_dir }}/group:/etc/group:ro"
       - "{{ __docker_stack__wekan__base_dir }}/wekan:/data"
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
     labels: "{{ __docker_stack__wekan__traefik_labels }}"
+    healthcheck:
+      interval: 15s
+      retries: 5
+      start_period: 60s
+      test: ["CMD-SHELL", "node -e '
+        const http = require(\"http\");
+        const options = { hostname: \"localhost\", port: 8080, path: \"/api/healthz\", method: \"GET\", timeout: 8000 };
+        const req = http.request(options, (res) => process.exit(res.statusCode === 200 ? 0 : 1));
+        req.on(\"error\", () => process.exit(1));
+        req.end();
+      '"]
+      timeout: 5s
     deploy:
       mode: replicated
       placement:
@@ -66,6 +147,7 @@ __docker_stack__wekan__services:
 
 docker_stack__appspec__wekan:
   dirs: "{{ __docker_stack__wekan__config_dirs | d([], true) }}"
+  templates: "{{ __docker_stack__wekan__config_tpls | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__wekan__firewalld_ports | d([], true) }}"
   docker_services: "{{ __docker_stack__wekan__services | d({}, true) }}"
   networks: "{{ __docker_stack__wekan__networks | d({}, true) }}"

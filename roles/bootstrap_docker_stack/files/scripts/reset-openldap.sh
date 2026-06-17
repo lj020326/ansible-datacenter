@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
-#DOCKER_CONFIG_DIR=/home/adminuser/docker
-CONTAINER_NAME=openldap
+# ================================================
+# Reset OpenLDAP - Docker Compose + Swarm Support
+# ================================================
+
+SERVICE_NAME="openldap"
+STACK_PREFIX="docker_stack_"
 CLEANUP_DIRS="
 openldap/slapd/database
 openldap/slapd/config
@@ -9,74 +13,124 @@ openldap/slapd/config
 
 usage() {
     echo "" 1>&2
-    echo "Usage: ${0} [command]" 1>&2
+    echo "Usage: ${0} [command] [options]" 1>&2
+    echo "" 1>&2
+    echo "  Commands:" 1>&2
+    echo "     build      (default) - Reset data only" 1>&2
+    echo "     restart    - Reset data and restart service" 1>&2
     echo "" 1>&2
     echo "  Options:" 1>&2
-    echo "     command:    build (only resets and builds docker image)" 1>&2
-    echo "                 restart (default - resets, builds and restarts the openldap container)" 1>&2
+    echo "     --service NAME         Service name (default: openldap)" 1>&2
+    echo "     --stack-prefix PREFIX  Swarm stack prefix (default: docker_stack_)" 1>&2
+    echo "     --force-standalone     Force standalone mode" 1>&2
     echo "" 1>&2
     echo "  Examples:" 1>&2
-    echo "     ${0}"
-    echo "     ${0} build"
-    echo "     ${0} restart"
+    echo "     ${0} restart" 1>&2
+    echo "     ${0} restart --force-standalone" 1>&2
     exit 1
 }
 
-reset_container() {
+# Parse arguments
+FORCE_STANDALONE=false
+COMMAND="build"
 
-    ACTION=${1-"BUILD"}
-
-#    cd ${DOCKER_CONFIG_DIR}
-
-    if [ "$(docker ps -qa --no-trunc --filter name=^/${CONTAINER_NAME}$)" ]; then
-        echo "stopping ${CONTAINER_NAME}..." >&2
-        docker-compose stop ${CONTAINER_NAME}
-        echo "removing ${CONTAINER_NAME} container..." >&2
-        docker-compose rm -f ${CONTAINER_NAME}
-    fi
-
-    echo "cleaning openldap database & configs..." >&2
-
-#    rm openldap/slapd/database/*
-#    rm -fr openldap/slapd/config/*
-    IFS=$'\n'
-    for dir in $CLEANUP_DIRS
-    do
-        rm -fr $dir/*
-    done
-
-#    shopt -s nocasematch
-#    if [[ ${ACTION} =~ "restart" ]]; then
-    if [ "${ACTION,,}" = "restart" ]; then
-        echo "starting ${CONTAINER_NAME} container..." >&2
-        docker-compose up -d ${CONTAINER_NAME}
-        docker-compose logs -f ${CONTAINER_NAME}
-    fi
-}
-
-while getopts "h" opt; do
-    case "${opt}" in
-        h) usage 1 ;;
-        \?) usage 2 ;;
-        :)
-            echo "Option -$OPTARG requires an argument." >&2
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --service)
+            SERVICE_NAME="$2"
+            shift 2
+            ;;
+        --stack-prefix)
+            STACK_PREFIX="$2"
+            shift 2
+            ;;
+        --force-standalone)
+            FORCE_STANDALONE=true
+            shift
+            ;;
+        build|restart)
+            COMMAND="$1"
+            shift
+            ;;
+        -h|--help)
             usage
             ;;
         *)
+            echo "Unknown option: $1" >&2
             usage
             ;;
     esac
 done
-shift $((OPTIND-1))
 
-command="BUILD"
-echo "$# = ${#}"
-echo "$@ = ${@}"
+reset_container() {
+    local action=$1
+    local full_service_name="${STACK_PREFIX}${SERVICE_NAME}"
 
-if [ $# -eq 1 ]; then
-    command=$1
-else
-    echo "command not specified, defaulting to build-only..." >&2
-fi
+    echo "=== Resetting OpenLDAP Service: ${SERVICE_NAME} ==="
 
-reset_container ${command}
+    # === Swarm Detection ===
+    if [[ "$FORCE_STANDALONE" == true ]]; then
+        MODE="standalone"
+        echo "Standalone mode forced."
+    else
+        SWARM_STATUS=$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || echo "inactive")
+        if [[ "$SWARM_STATUS" == "active" ]]; then
+            MODE="swarm"
+            echo "Swarm mode detected."
+        else
+            MODE="standalone"
+            echo "Standalone (docker-compose) mode detected."
+        fi
+    fi
+
+    # === Choose correct service identifier ===
+    if [ "${MODE}" = "swarm" ]; then
+        SERVICE_ID="${full_service_name}"
+    else
+        SERVICE_ID="${SERVICE_NAME}"
+    fi
+
+    echo "Using service name: ${SERVICE_ID}"
+
+    # === Stop / Remove ===
+    if [ "${MODE}" = "swarm" ]; then
+        echo "Stopping Swarm service ${SERVICE_ID}..." >&2
+        docker service scale "${SERVICE_ID}=0" 2>/dev/null || true
+        sleep 2
+        docker rm -f $(docker ps -aq --filter "name=^${SERVICE_ID}" 2>/dev/null) 2>/dev/null || true
+    else
+        echo "Stopping ${SERVICE_ID} via docker-compose..." >&2
+        if docker ps -qa --no-trunc --filter "name=^/${SERVICE_ID}$" | grep -q .; then
+            docker-compose stop "${SERVICE_ID}" 2>/dev/null || true
+            docker-compose rm -f "${SERVICE_ID}" 2>/dev/null || true
+        fi
+    fi
+
+    # === Clean data ===
+    echo "Cleaning OpenLDAP database & configs..." >&2
+    for dir in $CLEANUP_DIRS; do
+        if [ -d "$dir" ]; then
+            echo "  Cleaning ${dir}/*" >&2
+            rm -fr "$dir/"* 2>/dev/null || true
+        fi
+    done
+
+    # === Restart + Follow Logs ===
+    if [ "${action,,}" = "restart" ]; then
+        echo "Starting ${SERVICE_ID}..." >&2
+
+        if [ "${MODE}" = "swarm" ]; then
+            docker service scale "${SERVICE_ID}=1"
+            echo "Service started. Following logs (Ctrl+C to stop)..."
+            sleep 3
+            docker service logs -f --tail=50 "${SERVICE_ID}"
+        else
+            docker-compose up -d "${SERVICE_ID}"
+            echo "Showing logs (Ctrl+C to stop)..."
+            docker-compose logs -f "${SERVICE_ID}"
+        fi
+    fi
+}
+
+reset_container "${COMMAND}"
+echo "=== OpenLDAP reset completed in ${MODE} mode ==="

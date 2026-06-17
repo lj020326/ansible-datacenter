@@ -7,7 +7,7 @@
 ## exit when any command fails
 #set -e
 
-VERSION="2026.1.28"
+VERSION="2026.6.9"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
@@ -234,25 +234,31 @@ function set_log_level() {
 
 }
 
-function execute() {
+function execute_command() {
   log_info "${*}"
-  if ! "$@"
+  eval "${*} >/dev/null 2>&1" || true
+}
+
+function execute_command_with_abort() {
+  log_info "${*}"
+  if ! "${*}"
   then
     abort "$(printf "Failed during: %s" "$(shell_join "$@")")"
   fi
 }
 
 function execute_eval_command() {
-  local RUN_COMMAND=${*}
+  local RUN_COMMAND="${*}"
 
   log_info "${RUN_COMMAND}"
   COMMAND_RESULT=$(eval "${RUN_COMMAND}")
 #  COMMAND_RESULT=$(eval "${RUN_COMMAND} > /dev/null 2>&1")
   local RETURN_STATUS=$?
 
-  if [[ $RETURN_STATUS -eq 0 ]]; then
-    log_info $'\n'"${COMMAND_RESULT}"
-  else
+#  log_info $'\n'"${COMMAND_RESULT}"
+  echo "${COMMAND_RESULT}"
+
+  if [[ $RETURN_STATUS -ne 0 ]]; then
     log_error "ERROR (${RETURN_STATUS})"
     abort "$(printf "Failed during: %s" "${RUN_COMMAND}")"
   fi
@@ -266,7 +272,8 @@ function remove_docker_stack() {
   log_info "Removing stack [${DOCKER_STACK_NAME}].."
 
   DOCKER_STACK_PS_COMMAND="docker compose --file=${DOCKER_COMPOSE_FILE} ps -q"
-  DOCKER_STACK_RM_COMMAND="docker-compose down"
+  # FIXED: Replaced legacy hyphenated standalone binary wrapper with modern plugin command
+  DOCKER_STACK_RM_COMMAND="docker compose --file=${DOCKER_COMPOSE_FILE} down"
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
       #docker stack rm ${DOCKER_STACK_NAME} >/dev/null 2>&1 || true
       ## ref: https://github.com/moby/moby/issues/32620#issuecomment-439050180
@@ -276,8 +283,9 @@ function remove_docker_stack() {
     abort "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}], skipping stack removal"
   fi
 
-  log_info "${DOCKER_STACK_PS_COMMAND} && ${DOCKER_STACK_RM_COMMAND}"
-  eval "${DOCKER_STACK_PS_COMMAND} >/dev/null 2>&1" && eval "${DOCKER_STACK_RM_COMMAND}" || true
+#  log_info "${DOCKER_STACK_PS_COMMAND} && ${DOCKER_STACK_RM_COMMAND}"
+#  eval "${DOCKER_STACK_PS_COMMAND} >/dev/null 2>&1" && eval "${DOCKER_STACK_RM_COMMAND}" || true
+  execute_command "${DOCKER_STACK_PS_COMMAND}" && execute_eval_command "${DOCKER_STACK_RM_COMMAND}"
 
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
     DOCKER_LABEL_FILTER="label=com.docker.stack.namespace=${DOCKER_STACK_NAME}"
@@ -303,7 +311,17 @@ function remove_docker_stack() {
     local DOCKER_NETWORK_NAME=${DOCKER_NETWORK_INFO_ARRAY[0]}
 
     log_info "Removing external network ${DOCKER_NETWORK_NAME}"
-    docker network rm "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || true
+#    execute_command "docker network rm ${DOCKER_NETWORK_NAME}"
+    # Try removing the network up to 5 times to account for lingering 'lb-' endpoints
+    local net_retry=0
+    until [ $net_retry -ge 5 ] || ! docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1; do
+      execute_command "docker network rm ${DOCKER_NETWORK_NAME}"
+      if docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1; then
+        log_warn "Network ${DOCKER_NETWORK_NAME} is still busy (waiting for Swarm cleanup)..."
+        sleep 3
+        net_retry=$((net_retry+1))
+      fi
+    done
   done
 
   log_info "Pruning unused containers"
@@ -393,7 +411,9 @@ function deploy_docker_stack() {
 
     ## ref: https://stackoverflow.com/questions/48643466/docker-create-network-should-ignore-existing-network
     ## ref: https://docs.docker.com/reference/cli/docker/network/create/
-    docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || execute_eval_command "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
+#    docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || execute_eval_command "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
+#    execute_eval_command "docker network inspect ${DOCKER_NETWORK_NAME} || ${DOCKER_CREATE_NETWORK_COMMAND[*]}"
+    execute_eval_command "docker network inspect ${DOCKER_NETWORK_NAME} >/dev/null 2>&1 || ${DOCKER_CREATE_NETWORK_COMMAND[*]}"
   done
 
   if [ "${DOCKER_PULL_IMAGES}" -eq 1 ]; then
@@ -419,7 +439,6 @@ function deploy_docker_stack() {
     DOCKER_DEPLOY_COMMAND+=("${DOCKER_STACK_NAME}")
 
   elif [[ "${DOCKER_SWARM_MODE}" -eq 0 ]]; then
-#    DOCKER_DEPLOY_COMMAND+=("docker-compose up -d")
     DOCKER_DEPLOY_COMMAND+=("docker compose")
     DOCKER_DEPLOY_COMMAND+=("--file=${DOCKER_COMPOSE_FILE}")
     DOCKER_DEPLOY_COMMAND+=("up --detach")
@@ -490,7 +509,7 @@ function main() {
     __DOCKER_STACK_LIST=("$@")
   fi
 
-  cd "${SCRIPT_DIR}"
+  cd "${SCRIPT_DIR}" || abort "unable to cd to SCRIPT_DIR ${SCRIPT_DIR}"
 
   if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
     if [ "$EUID" -ne 0 ]; then
@@ -502,6 +521,9 @@ function main() {
     abort "docker compose file ${DOCKER_COMPOSE_FILE} not found, quitting now!"
   fi
 
+  execute_eval_command "docker version"
+  execute_eval_command "docker compose version"
+
   if [[ "${DOCKER_SWARM_NODE_STATE}" == "active" ]]; then
     if [[ "${DOCKER_SWARM_CONTROL_NODE}" == "true" ]]; then
       DOCKER_SWARM_MODE=1
@@ -512,15 +534,16 @@ function main() {
   fi
 
   if [ -n "${CONFIG_FILEPATH}" ]; then
-    if [ ! -e $CONFIG_FILEPATH ]; then
+    if [ ! -e "$CONFIG_FILEPATH" ]; then
       log_warn "Config file ${CONFIG_FILEPATH} not found, skip loading it!"
     else
       log_info "Reading configs from ${CONFIG_FILEPATH} ...."
-      source ${CONFIG_FILEPATH}
+      # shellcheck disable=SC1090
+      source "${CONFIG_FILEPATH}"
     fi
   fi
 
-  log_debug "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}]"
+  log_info "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}]"
   log_debug "DOCKER_CLEANUP_POSTGRES_PIDFILE => [${DOCKER_CLEANUP_POSTGRES_PIDFILE}]"
   log_debug "REMOVE_DOCKER_STACK => [${REMOVE_DOCKER_STACK}]"
   log_debug "DEPLOY_DOCKER_STACK => [${DEPLOY_DOCKER_STACK}]"

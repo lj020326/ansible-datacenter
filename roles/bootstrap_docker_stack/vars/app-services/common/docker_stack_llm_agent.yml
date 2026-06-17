@@ -1,0 +1,106 @@
+---
+
+__docker_stack__llm_agent__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__llm_agent__base_dir: "{{ __docker_stack__llm_agent__stack_dir }}/agent_stack"
+
+__docker_stack__llm_agent__llm_base_url_default: "http://ollama.{{ docker_stack__internal_domain }}:11434"
+__docker_stack__llm_agent__llm_base_url: "{{ docker_stack__llm_agent__llm_base_url
+  | d(__docker_stack__llm_agent__llm_base_url_default) }}"
+
+__docker_stack__llm_agent__llm_model_default: "nemoclaw"
+__docker_stack__llm_agent__llm_model: "{{ docker_stack__llm_agent__llm_model
+  | d(__docker_stack__llm_agent__llm_model_default) }}"
+
+__docker_stack__llm_agent__langgraph_app_env: production
+__docker_stack__llm_agent__crewai_logging_level: INFO
+
+__docker_stack__llm_agent__vikunja_endpoint_default: "kanban.{{ docker_stack__internal_domain }}"
+__docker_stack__llm_agent__vikunja_endpoint: "{{ docker_stack__llm_agent__vikunja_endpoint
+  | d(__docker_stack__llm_agent__vikunja_endpoint_default) }}"
+
+__docker_stack__llm_agent__vikunja_api_url_default: "https://{{ __docker_stack__llm_agent__vikunja_endpoint }}/api/v1"
+__docker_stack__llm_agent__vikunja_api_url: "{{ docker_stack__llm_agent__vikunja_api_url
+  | d(__docker_stack__llm_agent__vikunja_api_url_default) }}"
+
+__docker_stack__llm_agent__vikunja_agent_api_token: "{{ docker_stack__llm_agent__vikunja_agent_api_token | d('') }}"
+
+__docker_stack__llm_agent__vikunja_agent_secret_key: "{{ docker_stack__llm_agent__vikunja_agent_secret_key | d('') }}"
+
+__docker_stack__llm_agent__environment_default:
+  # Core Framework State Parameters
+  LANGGRAPH_APP_ENV: "{{ __docker_stack__llm_agent__langgraph_app_env }}"
+  CREWAI_LOGGING_LEVEL: "{{ __docker_stack__llm_agent__crewai_logging_level }}"
+
+  # Local Workstation Inference Backends
+  LOCAL_LLM_BASE_URL: "{{ __docker_stack__llm_agent__llm_base_url }}"
+  LOCAL_LLM_MODEL: "{{ __docker_stack__llm_agent__llm_model }}"
+
+  # Vikunja Kanban Orchestration Coordinate
+  VIKUNJA_API_URL: "{{ __docker_stack__llm_agent__vikunja_api_url }}"
+  VIKUNJA_BEARER_TOKEN: "{{ __docker_stack__llm_agent__vikunja_agent_api_token }}"
+
+  # Security Signatures
+  AGENT_SECRET_KEY: "{{ __docker_stack__llm_agent__vikunja_agent_secret_key }}"
+
+__docker_stack__llm_agent__environment: "{{ docker_stack__llm_agent__environment
+  | d(__docker_stack__llm_agent__environment_default) }}"
+
+__docker_stack__llm_agent__config_dirs:
+  - { path: "{{ __docker_stack__llm_agent__base_dir }}" }
+  - { path: "{{ __docker_stack__llm_agent__base_dir }}/router" }
+  - { path: "{{ __docker_stack__llm_agent__base_dir }}/workers" }
+
+__docker_stack__llm_agent__config_tpls:
+  - src: "llm_agent/llm_agent.env.j2"
+    dest: "{{ __docker_stack__llm_agent__base_dir }}/llm_agent.env"
+
+docker_stack__appspec__llm_agent:
+  dirs: "{{ __docker_stack__llm_agent__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__llm_agent__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__llm_agent__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__llm_agent__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__llm_agent__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__llm_agent__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__llm_agent__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__llm_agent__services | d({}, true) }}"
+
+# Sourced cleanly via Traefik spec files matching routing method constraints
+__docker_stack__llm_agent__traefik_labels: "{{ docker_stack__llm_agent__traefik_labels | d(__docker_stack__llm_agent__traefik_labels_default | d([])) }}"
+
+__docker_stack__llm_agent__services:
+  langgraph-router:
+    image: python:3.11-slim
+    container_name: langgraph-router
+    restart: unless-stopped
+    working_dir: /app
+    user: "{{ docker_stack__user_uid | d('1000') }}:{{ docker_stack__user_gid | d('1000') }}"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__llm_agent__base_dir }}/router:/app"
+    env_file:
+      - "{{ __docker_stack__llm_agent__base_dir }}/llm_agent.env"
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+    labels: "{{ __docker_stack__llm_agent__traefik_labels }}"
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  crewai-workers:
+    image: python:3.11-slim
+    container_name: crewai-workers
+    restart: unless-stopped
+    working_dir: /app
+    user: "{{ docker_stack__user_uid | d('1000') }}:{{ docker_stack__user_gid | d('1000') }}"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__llm_agent__base_dir }}/workers:/app"
+    env_file:
+      - "{{ __docker_stack__llm_agent__base_dir }}/llm_agent.env"
+    command: python worker_daemon.py
+    deploy:
+      mode: replicated
+      replicas: 1

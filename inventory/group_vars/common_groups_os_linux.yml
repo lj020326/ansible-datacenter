@@ -50,6 +50,28 @@ ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
 
 bootstrap_linux__os_python_interpreter: "{{ os_python_interpreter }}"
 
+bootstrap_linux_core__ca_certs_config: |
+  # host[:port]|jdk|system|docker|python
+  pfsense.johnson.int|1|1|0|1
+  vault.admin.johnson.int|1|1|0|1
+  vault.admin.dettonville.int|1|1|0|1
+  vcenter7.dettonville.int|1|1|0|1
+  gitea.admin.dettonville.int|1|1|0|1
+  admin.dettonville.int|1|1|0|1
+  media.johnson.int|1|1|0|1
+  diskstation01.johnson.int:5001|1|1|0|1
+  pypi.python.org|1|1|0|1
+  files.pythonhosted.org|1|1|0|1
+  bootstrap.pypa.io|1|1|0|1
+  galaxy.ansible.com|1|1|0|1
+  ## maven repos
+  repo.maven.apache.org|1|1|0|1
+  repo.jenkins-ci.org|1|1|0|1
+  # docker
+  admin.dettonville.int:5000|1|1|1|1
+  media.johnson.int:5000|1|1|1|1
+
+
 ca_local_cert_dir: /usr/local/ssl/certs
 ca_local_key_dir: /usr/local/ssl/private
 
@@ -118,3 +140,19 @@ bootstrap_linux_cron__list__linux:
   - name: "mount all nfs shares"
     schedule: ["0", "*", "*", "*", "0"]
     job: "mount -a"
+
+##########
+## daily batch hooks
+##   list of hooks to be setup for linux machines.
+##########
+bootstrap_linux_cron__daily_batch_hooks__linux_common:
+  # 2. Update Hook: Perform OS Updates
+  - name: "Perform OS Updates"
+    state: present
+    hook_type: "update.d"
+    filename: "50-os-update.sh"
+    content: |
+      #!/usr/bin/env bash
+      echo "Running OS Updates..."
+      apt-get update && apt-get upgrade -y
+      apt-get autoremove -y

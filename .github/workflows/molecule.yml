@@ -9,6 +9,9 @@ on:
   workflow_call:  # allow this workflow to be called from other workflows
   workflow_dispatch:  # allow this workflow to be called from user
 
+env:
+  MOLECULE_TEST_RESULTS_DIR: '.test-results.'
+
 jobs:
   molecule_test_platforms:
     name: Run Molecule Platform Tests
@@ -79,6 +82,7 @@ jobs:
           MOLECULE_PLATFORM: ${{ matrix.architecture }}
           MOLECULE_DOCKER_COMMAND: ${{ matrix.command || '/lib/systemd/systemd' }}
           MOLECULE_BUILD_ID: ${{ github.run_number }}
+          MOLECULE_TEST_RESULTS_DIR: ${{ env.MOLECULE_TEST_RESULTS_DIR }}
 #          ## ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
 #          MOLECULE_DOCKER_GROUP: ${{ matrix.inventory_group || 'molecule_docker_linux_github' }}
         working-directory: "${{ github.repository }}"
@@ -94,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ env.IMAGE_NAME_SAFE }}-${{ matrix.scenario }}
-          path: .test-reports/*.xml
+          path: ${{ env.MOLECULE_TEST_RESULTS_DIR }}/*.xml
           retention-days: 7
           if-no-files-found: warn
 
@@ -102,6 +106,7 @@ jobs:
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           files: .test-reports/*.xml
           check_name: Molecule Verify ${{ matrix.image }} ${{ matrix.scenario }}
           # hard failure on test problems:

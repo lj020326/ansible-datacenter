@@ -10,16 +10,17 @@ The `bootstrap_llm_host` role is designed to automate the setup of a Large Langu
 - Installs NVIDIA drivers/CUDA (via included role)
 - Installs Ollama as dedicated user
 - Optional Open WebUI (recommended) or legacy Ollama-WebUI
-- Nginx reverse proxy (optional)
+- Nginx or Traefik reverse proxy (optional)
 - UFW firewall configuration
 - Management script: `/usr/local/bin/llm-server`
 - Unified model handling: pull standard tags or create custom from GGUF + Modelfile
 - Model storage configurable (defaults to large /home disk)
+- NemoClaw setup (optional)
 
 ## Requirements
 
 - Ubuntu 24.04+
-- NVIDIA GPU (tested RTX 3090 24GB)
+- NVIDIA/AMD/Intel GPU (tested RTX 3090 24GB) (must be NVidia for NemoClaw)
 - Ansible 2.14+
 - Community collections: `community.general`, `ansible.posix`
 

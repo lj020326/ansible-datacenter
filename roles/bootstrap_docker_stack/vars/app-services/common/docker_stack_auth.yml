@@ -1,6 +1,7 @@
 ---
 
 __docker_stack__auth__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__auth__authelia_base_dir: "{{ __docker_stack__auth__stack_dir }}/authelia"
 
 __docker_stack__auth__google_client_id: "{{ docker_stack__auth__google_client_id | d('123456789.apps.googleusercontent.com') }}"
 __docker_stack__auth__google_client_secret: "{{ docker_stack__auth__google_client_secret | d('gooaogogoaogogooagoaogoag') }}"
@@ -142,36 +143,60 @@ __docker_stack__auth__authelia_storage_default:
   local:
     path: /config/db.sqlite3
 
-__docker_stack__auth__authelia_users: "{{ docker_stack__auth__authelia_users | d(__docker_stack__auth__authelia_users_default) }}"
+__docker_stack__auth__authelia_users: "{{ docker_stack__auth__authelia_users
+  | d(__docker_stack__auth__authelia_users_default) }}"
 
-__docker_stack__auth__authelia_notifier: "{{ docker_stack__auth__authelia_notifier | d(__docker_stack__auth__authelia_notifier_default) }}"
+__docker_stack__auth__authelia_notifier: "{{ docker_stack__auth__authelia_notifier
+  | d(__docker_stack__auth__authelia_notifier_default) }}"
 
-__docker_stack__auth__authelia_totp: "{{ docker_stack__auth__authelia_totp | d(__docker_stack__auth__authelia_totp_default) }}"
+__docker_stack__auth__authelia_totp: "{{ docker_stack__auth__authelia_totp
+  | d(__docker_stack__auth__authelia_totp_default) }}"
 
 __docker_stack__auth__authelia_authentication_backend: "{{ docker_stack__auth__authelia_authentication_backend
   | d(__docker_stack__auth__authelia_authentication_backend_default) }}"
 
 __docker_stack__auth__authelia_access_control: "{{ docker_stack__auth__authelia_access_control | d(__docker_stack__auth__authelia_access_control_default) }}"
 
-__docker_stack__auth__authelia_session: "{{ docker_stack__auth__authelia_session | d(__docker_stack__auth__authelia_session_default) }}"
+__docker_stack__auth__authelia_session: "{{ docker_stack__auth__authelia_session
+  | d(__docker_stack__auth__authelia_session_default) }}"
 
 __docker_stack__auth__authelia_regulation: "{{ docker_stack__auth__authelia_regulation | d(__docker_stack__auth__authelia_regulation_default) }}"
 
-__docker_stack__auth__authelia_storage: "{{ docker_stack__auth__authelia_storage | d(__docker_stack__auth__authelia_storage_default) }}"
+__docker_stack__auth__authelia_storage: "{{ docker_stack__auth__authelia_storage
+  | d(__docker_stack__auth__authelia_storage_default) }}"
+
+__docker_stack__auth__authelia_environment_default:
+  # ======================
+  # General Configuration
+  # ======================
+  TZ: "{{ docker_stack__timezone }}"
+
+  AUTHELIA_JWT_SECRET: "{{ __docker_stack__auth__authelia_jwt_secret }}"
+  #      AUTHELIA_JWT_SECRET_FILE: /run/secrets/authelia_jwt_secret
+  #      AUTHELIA_SESSION_SECRET_FILE: /run/secrets/authelia_session_secret
+  #      AUTHELIA_STORAGE_MYSQL_PASSWORD_FILE: /run/secrets/authelia_storage_mysql_password
+  #      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE: /run/secrets/authelia_notifier_smtp_password
+  #      AUTHELIA_DUO_API_SECRET_KEY_FILE: /run/secrets/authelia_duo_api_secret_key
+
+__docker_stack__auth__authelia_environment: "{{ docker_stack__auth__authelia_environment
+  | d(__docker_stack__auth__authelia_environment_default) }}"
 
 __docker_stack__auth__config_dirs:
   - path: "{{ __docker_stack__auth__stack_dir }}"
   - path: "{{ __docker_stack__auth__stack_dir }}/oauth"
-  - path: "{{ __docker_stack__auth__stack_dir }}/authelia"
-#  - path: "{{ __docker_stack__auth__stack_dir }}/authelia/data"
+  - path: "{{ __docker_stack__auth__authelia_base_dir }}"
+  - path: "{{ __docker_stack__auth__authelia_base_dir }}/config"
+#  - path: "{{ __docker_stack__auth__authelia_base_dir }}/data"
 
 __docker_stack__auth__config_tpls:
   - src: oauth/oauth.env.j2
     dest: "{{ __docker_stack__auth__stack_dir }}/oauth/oauth.env"
+  - src: authelia/authelia.env.j2
+    dest: "{{ __docker_stack__auth__authelia_base_dir }}/authelia.env"
   - src: authelia/configuration.yml.j2
-    dest: "{{ __docker_stack__auth__stack_dir }}/authelia/configuration.yml"
+    dest: "{{ __docker_stack__auth__authelia_base_dir }}/config/configuration.yml"
   - src: authelia/users_database.yml.j2
-    dest: "{{ __docker_stack__auth__stack_dir }}/authelia/users_database.yml"
+    dest: "{{ __docker_stack__auth__authelia_base_dir }}/config/users_database.yml"
 
 docker_stack__appspec__auth:
   dirs: "{{ __docker_stack__auth__config_dirs | d([], true) }}"
@@ -225,14 +250,9 @@ __docker_stack__auth__services:
     # ports:
     #   - "9091:9091"
     volumes:
-      - "{{ __docker_stack__auth__stack_dir }}/authelia:/config"
-    environment:
-      TZ: "{{ docker_stack__timezone }}"
-    #      AUTHELIA_JWT_SECRET_FILE: /run/secrets/authelia_jwt_secret
-    #      AUTHELIA_SESSION_SECRET_FILE: /run/secrets/authelia_session_secret
-    #      AUTHELIA_STORAGE_MYSQL_PASSWORD_FILE: /run/secrets/authelia_storage_mysql_password
-    #      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE: /run/secrets/authelia_notifier_smtp_password
-    #      AUTHELIA_DUO_API_SECRET_KEY_FILE: /run/secrets/authelia_duo_api_secret_key
+      - "{{ __docker_stack__auth__authelia_base_dir }}/config:/config"
+    env_file:
+      - authelia/authelia.env
     #    secrets:
     #      - authelia_jwt_secret
     #      - authelia_session_secret

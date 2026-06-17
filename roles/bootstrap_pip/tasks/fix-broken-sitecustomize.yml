@@ -1,0 +1,26 @@
+---
+- name: Find sitecustomize.py
+  ansible.builtin.find:
+    paths: /usr/lib/python3
+    patterns: "sitecustomize.py"
+    recurse: yes
+  register: __sitecustomize_files
+
+- name: Backup and fix sitecustomize.py
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ item.path }}.bak"
+    remote_src: yes
+    mode: "0644"
+  loop: "{{ __sitecustomize_files.files }}"
+
+- name: Empty or fix sitecustomize.py
+  ansible.builtin.copy:
+    content: |
+      # Fixed by bootstrap - disable broken sitecustomize
+      import sys
+      if 'ansible' in sys.modules or 'sitecustomize' in sys.modules:
+          pass
+    dest: "{{ item.path }}"
+    mode: "0644"
+  loop: "{{ __sitecustomize_files.files }}"

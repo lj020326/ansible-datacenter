@@ -18,9 +18,20 @@ __docker_stack__postgres__user: "{{ docker_stack__postgres__user | d('postgres')
 __docker_stack__postgres__password: "{{ docker_stack__postgres__password | d('password') }}"
 __docker_stack__postgres__databases: "{{ docker_stack__postgres__databases | d([], true) }}"
 
+__docker_stack__postgres__environment_default:
+  POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__postgres__databases | join(':') }}"
+  POSTGRES_USER: "{{ __docker_stack__postgres__user }}"
+  POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
+  ## ref: https://stackoverflow.com/a/51697579
+  TZ: "{{ docker_stack__timezone }}"
+  PGTZ: "{{ docker_stack__timezone }}"
+
+__docker_stack__postgres__environment: "{{ docker_stack__postgres__environment
+  | d(__docker_stack__postgres__environment_default) }}"
+
 __docker_stack__pgadmin__use_ldap: "{{ docker_stack__pgadmin__use_ldap | d(false) }}"
 
-__docker_stack__pgadmin__config_default:
+__docker_stack__pgadmin__environment_default:
   PGADMIN_DEFAULT_EMAIL: "{{ __docker_stack__postgres__pgadmin_username }}"
   PGADMIN_DEFAULT_PASSWORD: "{{ __docker_stack__postgres__pgadmin_password }}"
 
@@ -33,23 +44,14 @@ __docker_stack__pgadmin__ldap_config_default:
   PGADMIN_CONFIG_LDAP_SEARCH_BASE_DN: "{{ docker_stack__pgadmin_config_ldap_search_base_dn | d('') }}"
   PGADMIN_CONFIG_LDAP_SEARCH_FILTER: "{{ docker_stack__pgadmin_config_ldap_search_filter | d('(cn=*)') }}"
 
-__docker_stack__pgadmin__ldap_config: "{{ __docker_stack__pgadmin__ldap_config_default if __docker_stack__pgadmin__use_ldap else {} }}"
+__docker_stack__pgadmin__ldap_config: "{{ __docker_stack__pgadmin__ldap_config_default
+  if __docker_stack__pgadmin__use_ldap else {} }}"
 
-__docker_stack__pgadmin__config: "{{ __docker_stack__pgadmin__config_default | combine(__docker_stack__pgadmin__ldap_config) }}"
+__docker_stack__pgadmin__environment: "{{ __docker_stack__pgadmin__environment_default
+  | combine(__docker_stack__pgadmin__ldap_config) }}"
 
 #.__docker_stack__pgadmin__ldap_config: &tpl__docker_stack__pgadmin__ldap_config
 #  "{{ __docker_stack__pgadmin__ldap_config }}"
-
-__docker_stack__postgres__environment_default:
-  POSTGRES_MULTIPLE_DATABASES: "{{ __docker_stack__postgres__databases | join(':') }}"
-  POSTGRES_USER: "{{ __docker_stack__postgres__user }}"
-  POSTGRES_PASSWORD: "{{ __docker_stack__postgres__password }}"
-  ## ref: https://stackoverflow.com/a/51697579
-  TZ: "{{ docker_stack__timezone }}"
-  PGTZ: "{{ docker_stack__timezone }}"
-
-__docker_stack__postgres__environment: "{{ docker_stack__postgres__environment
-  | d(__docker_stack__postgres__environment_default) }}"
 
 __docker_stack__postgres__config_dirs:
   - path: "{{ __docker_stack__postgres__base_dir }}"
@@ -70,6 +72,8 @@ __docker_stack__postgres__config_tpls:
     dest: "{{ __docker_stack__postgres__base_dir }}/passwd"
   - src: postgres/config-group.conf.j2
     dest: "{{ __docker_stack__postgres__base_dir }}/group"
+  - src: postgres/pgadmin.env.j2
+    dest: "{{ docker_stack__dir }}/pgadmin/pgadmin.env"
   - src: pgadmin/config-passwd.conf.j2
     dest: "{{ docker_stack__dir }}/pgadmin/passwd"
   - src: pgadmin/config-group.conf.j2
@@ -172,7 +176,8 @@ __docker_stack__postgres__services:
     depends_on:
       - postgres
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
-    environment: "{{ __docker_stack__pgadmin__config }}"
+    env_file:
+      - pgadmin/pgadmin.env
     volumes:
       #         - pgadmin:/root/.pgadmin
       #      - "{{ docker_stack__dir }}/pgadmin:/root/.pgadmin"

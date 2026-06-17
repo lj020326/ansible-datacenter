@@ -2,29 +2,34 @@
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Remove all existing repo sources if reset"
   when: __bootstrap_linux_package__reset_sources | bool
   block:
+    - name: "Get current timestamp for backup"
+      ansible.builtin.set_fact:
+        __timestamp: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+      run_once: true
+
     - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Backup all repo sources"
       community.general.archive:
         path: "{{ __bootstrap_linux_package__package_source_dir }}"
         dest: "{{ __bootstrap_linux_package__package_source_dir | dirname }}/sources.backup_{{ __timestamp }}.tar.gz"
         format: gz
-        remove: true
+        remove: false
         mode: '0700'
         owner: root
         group: root
 
-    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Remove all repo sources"
-      ansible.builtin.file:
-        state: absent
-        path: "{{ __bootstrap_linux_package__package_source_dir }}"
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Find all files in the repo sources directory {{ __bootstrap_linux_package__package_source_dir }}"
+      ansible.builtin.find:
+        paths: "{{ __bootstrap_linux_package__package_source_dir }}"
+        file_type: any
+        recurse: false
+      register: __found_files
 
-    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install DGX repo source files"
-      when: __bootstrap_linux_package__is_dgx | d(False) | bool
-      ansible.builtin.template:
-        src: "{{ item }}"
-        dest: "{{ __bootstrap_linux_package__package_source_dir }}/{{ item | regex_replace('\\.j2$', '') }}"
-        mode: "0644"
-        backup: true
-      loop: "{{ lookup('fileglob', 'templates/dgx/*.j2', wantlist=True) | map('basename') | list }}"
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Remove the contents of {{ __bootstrap_linux_package__package_source_dir }}"
+      when: __found_files.matched > 0
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ __found_files.files }}"
 
 #######################
 ## the CentOS 8 image/template should already be switched to stream
@@ -62,6 +67,7 @@
   when:
     - ansible_facts['pkg_mgr'] == 'apt'
     - ansible_facts['distribution'] == 'Debian'
+    - not (__bootstrap_linux_package__is_dgx | default(false) | bool)
   ansible.builtin.include_tasks: update-repo-apt.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Display __bootstrap_linux_package__is_dgx"
@@ -70,16 +76,19 @@
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Skip repo reconfiguration on DGX systems"
   when: __bootstrap_linux_package__is_dgx | default(false) | bool
-  ansible.builtin.debug:
-    msg: "DGX OS detected - preserving NVIDIA/DGX repositories"
+  block:
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Skip repo reconfiguration on DGX systems"
+      ansible.builtin.debug:
+        msg: "DGX OS detected - preserving NVIDIA/DGX repositories"
 
-- name: "{{ __bootstrap_linux_package__log_prefix_packages }} Update apt package repos for ubuntu versions >= 24"
-  when:
-    - ansible_facts['pkg_mgr'] == 'apt'
-    - ansible_facts['distribution'] == 'Ubuntu'
-    - ansible_facts['distribution_major_version'] | int >= 24
-    - not (__bootstrap_linux_package__is_dgx | default(false) | bool)
-  ansible.builtin.include_tasks: update-repo-apt-ubuntu.yml
+    - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install DGX repo source files"
+#      when: not __bootstrap_linux_package__preserve_nvidia_repos | default(true)
+      ansible.builtin.template:
+        src: "dgx/{{ item }}"
+        dest: "{{ __bootstrap_linux_package__package_source_dir }}/{{ item | regex_replace('\\.j2$', '') }}"
+        mode: "0644"
+        backup: true
+      loop: "{{ lookup('fileglob', 'templates/dgx/*.j2', wantlist=True) | map('basename') | list }}"
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install present packages"
   when:
