@@ -44,6 +44,8 @@ bootstrap_docker__service_enabled: true
 bootstrap_docker__service_started: true
 bootstrap_docker__service_restarted: true
 
+bootstrap_docker__multiarch_builder_enabled: true
+
 #bootstrap_docker__daemon_flags:
 #  - "-H unix://"
 bootstrap_docker__daemon_flags:
@@ -54,8 +56,10 @@ bootstrap_docker__swarm_leader_host: test123
 bootstrap_docker__swarm_manager: false
 bootstrap_docker__swarm_leader: false
 bootstrap_docker__swarm_worker: false
-bootstrap_docker__swarm_node: "{{ (bootstrap_docker__swarm_manager or bootstrap_docker__swarm_leader or bootstrap_docker__swarm_worker) | bool }}"
-bootstrap_docker__swarm_role: "{{ 'manager' if (bootstrap_docker__swarm_leader or bootstrap_docker__swarm_manager) else 'worker' }}"
+bootstrap_docker__swarm_node: "{{ (bootstrap_docker__swarm_manager
+  or bootstrap_docker__swarm_leader or bootstrap_docker__swarm_worker) | bool }}"
+bootstrap_docker__swarm_role: "{{ 'manager'
+  if (bootstrap_docker__swarm_leader or bootstrap_docker__swarm_manager) else 'worker' }}"
 
 bootstrap_docker__swarm_leave: false
 #bootstrap_docker__swarm_adv_addr: "0.0.0.0:2377"
@@ -264,6 +268,17 @@ bootstrap_docker__packages:
 
 bootstrap_docker__additional_packages: []
 
+bootstrap_docker__qemu_packages:
+  - qemu-user-static
+  - binfmt-support
+
+#__bootstrap_docker__expected_binfmt_file: >-
+#  {{
+#    '/proc/sys/fs/binfmt_misc/qemu-x86_64'
+#    if ansible_facts['architecture'] in ['aarch64', 'arm64']
+#    else '/proc/sys/fs/binfmt_misc/qemu-aarch64'
+#  }}
+
 #bootstrap_docker__default_pip_packages:
 #  - name: requests
 #    state: "{{ bootstrap_docker__pip_docker_state }}"
@@ -380,7 +395,16 @@ __bootstrap_docker__swarm_firewalld_ports:
 #bootstrap_docker__keystore_cert_base_dir: /usr/share/ca-certs
 #bootstrap_docker__keystore_python_interpreter: "{{ hostvars[ca_keystore_inventory_host]['ansible_python_interpreter'] }}"
 
-bootstrap_docker__ca_local_cert_dir: "{{ ca_local_cert_dir }}"
-bootstrap_docker__docker_registries: "{{ docker_registries }}"
+bootstrap_docker__ca_local_cert_dir: /usr/local/ssl/certs
+bootstrap_docker__docker_registries:
+  - certname: "registry.example.int.pem"
+    host: "registry.example.int"
+    endpoint: "registry.example.int:5000"
+    url: "https://registry.example.int:5000"
+  - certname: "passthru-registry.example.int.pem"
+    host: "passthru-registry.example.int"
+    endpoint: "passthru-registry.example.int:5000"
+    url: "https://passthru-registry.example.int:5000"
+    is_passthru: true
 
 __bootstrap_docker__log_prefix_deploy_certs: Docker Registry | Deploy certs |

@@ -266,8 +266,7 @@ docker_stack__registry__data_path: "/data/docker_registry_local"
 #  systemctl restart docker &&
 #  docker-compose up -d
 
-docker_stack__restart_stack_command: >
-  {{ docker_container_base_dir }}/recreate-stack.sh
+docker_stack__restart_stack_command: "{{ docker_container_base_dir }}/recreate-stack.sh"
 
 ## run 2:10 AM every day
 docker_stack__restart_stack_schedule: ["10", "2", "*", "*", "*"]
@@ -291,7 +290,7 @@ bootstrap_linux_cron__list__docker_stack:
     cron_file: "docker-large-logfile-clean-up"
 #    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
 
-#  ## moved to bootstrap_linux_cron__daily_batch_hooks__docker_stack
+#  ## moved to bootstrap_linux_cron__os_update_hooks__docker_stack
 #  - name: "Restart the docker stack"
 #    job: "{{ docker_stack__restart_stack_command }}"
 #    schedule: "{{ docker_stack__restart_stack_schedule }}"
@@ -302,23 +301,23 @@ bootstrap_linux_cron__list__docker_stack:
 ## daily batch hooks
 ##   list of hooks to be setup for docker_stack machines.
 ##########
-bootstrap_linux_cron__daily_batch_hooks__docker_stack:
+bootstrap_linux_cron__os_update_hooks__docker_stack:
   # 1. Pre-Update Hook: Stop Docker
   - name: "Stop Docker Stack Pre-Update"
     state: present
     hook_type: "pre-update.d"
-    filename: "10-docker-stop.sh"
+    filename: "10-docker-stop"
     content: |
       #!/usr/bin/env bash
       echo "Stopping Docker Stack..."
-      /usr/local/bin/recreate-stack.sh -sr
+      {{ docker_stack__restart_stack_command }} -sr
 
   # 3. Post-Update Hook: Start Docker
   - name: "Start Docker Stack Post-Update"
     state: present
     hook_type: "post-update.d"
-    filename: "90-docker-start.sh"
+    filename: "90-docker-start"
     content: |
       #!/usr/bin/env bash
       echo "Starting Docker Stack..."
-      systemctl restart docker
+      {{ docker_stack__restart_stack_command }}

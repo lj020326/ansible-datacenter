@@ -1,0 +1,91 @@
+---
+
+- name: Integration Tests for dettonville.utils.debug_sanitized
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  vars:
+    # Setup test fixture variables matching the unit test requirements
+    my_secret_dict:
+      username: "lee"
+      password: "dont-log-me"
+
+    secret_payload:
+      account_identifier: "id-1"
+      custom_secret_field: "sensitive-data"
+
+  tasks:
+
+    - name: "TEST debug_sanitized | Display collection version information"
+      ansible.builtin.debug:
+        msg:
+          - "dettonville.utils version={{ lookup('community.general.collection_version', 'dettonville.utils') }}"
+
+    # -------------------------------------------------------------------------
+    # Test Case 1: Default Message Fallback (test_debug_sanitized_msg_default)
+    # -------------------------------------------------------------------------
+    - name: "TC-1: Verify default message handles execution cleanly when no arguments exist"
+      dettonville.utils.debug_sanitized:
+      register: tc1_result
+
+    - name: "TC-1: Assert default message defaults to ''"
+      ansible.builtin.assert:
+        that:
+          - tc1_result.msg == ""
+          - tc1_result.failed is not defined or not tc1_result.failed
+        fail_msg: "TC-1 Failed: Default message structure did not fall back cleanly."
+
+    # -------------------------------------------------------------------------
+    # Test Case 2: Mutually Exclusive Parameters (test_debug_sanitized_mutually_exclusive)
+    # -------------------------------------------------------------------------
+    - name: "TC-2: Expect failure when providing both msg and var options"
+      dettonville.utils.debug_sanitized:
+        msg: "explicit text"
+        var: my_secret_dict
+      register: tc2_result
+      ignore_errors: true
+
+    - name: "TC-2: Assert early termination enforcement occurs"
+      ansible.builtin.assert:
+        that:
+          - tc2_result.failed is defined and tc2_result.failed == true
+          - "'mutually exclusive' in tc2_result.msg"
+        fail_msg: "TC-2 Failed: The plugin allowed mutually exclusive arguments to execute."
+
+    # -------------------------------------------------------------------------
+    # Test Case 3: Key-Based Variable Resolution (test_debug_sanitized_var_resolution)
+    # -------------------------------------------------------------------------
+    - name: "TC-3: Process dynamic multi-tier dictionary lookups"
+      dettonville.utils.debug_sanitized:
+        var: my_secret_dict
+      register: tc3_result
+
+    - name: "TC-3: Display tc3_result"
+      ansible.builtin.debug:
+        var: tc3_result
+
+    - name: "TC-3: Assert matching signature targets get cleanly redacted"
+      ansible.builtin.assert:
+        that:
+          - tc3_result.my_secret_dict is defined
+          - tc3_result.my_secret_dict.username == "lee"
+          - tc3_result.my_secret_dict.password == "<redacted_password>"
+        fail_msg: "TC-3 Failed: Password key signature missed sanitize filters."
+
+    # -------------------------------------------------------------------------
+    # Test Case 4: Custom Matching Patterns (test_debug_sanitized_with_custom_additional_patterns)
+    # -------------------------------------------------------------------------
+    - name: "TC-4: Execute redactions with additional custom evaluation regex layers"
+      dettonville.utils.debug_sanitized:
+        var: "{{ secret_payload }}"
+        additional_key_patterns:
+          - '(?i).*secret.*'
+      register: tc4_result
+
+    - name: "TC-4: Assert custom regex catches domain identifiers cleanly"
+      ansible.builtin.assert:
+        that:
+          - tc4_result.var is defined
+          - tc4_result.var.account_identifier == "id-1"
+          - tc4_result.var.custom_secret_field == "<redacted_custom_secret_field>"
+        fail_msg: "TC-4 Failed: Custom additional key pattern criteria failed to catch targeted key values."

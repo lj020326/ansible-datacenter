@@ -3,26 +3,22 @@
 # Enable strict mode for better error handling
 set -euo pipefail
 
-# Trap to clean up SSH agent and temporary files on exit
-cleanup() {
-  if [ -n "${SSH_AGENT_PID:-}" ]; then
-    echo "==> Stopping SSH agent (PID: $SSH_AGENT_PID)"
-    eval "$(ssh-agent -k)" >/dev/null 2>&1
-  fi
-  test "${KEEP_TEMP_DIR:-0}" = 1 || rm -rf "${TEMP_DIR:-}"
-  rm -f "${TEMP_VARS:-}" "${TEMP_RENDERED_KEY:-}" "${TEMP_KEY:-}"
-}
-trap cleanup EXIT
-
 # Requirements have to be installed prior to running ansible-playbook
 # because plugins and requirements are loaded before the task runs
 # pip install -r requirements.txt
 
-VERSION="2025.9.20"
+VERSION="2026.6.18"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
+
 REPO_DIR="$(cd "$SCRIPT_DIR/" && git rev-parse --show-toplevel)"
+
+## only needed if sourcing local private collections by source instead of galaxy
+## NEEDED when there is are updates/changes to the dependent collections
+## to be deployed along with the project repo update(s)
+#REPO_PARENT_DIR="${REPO_DIR}/.."
+REPO_PARENT_DIR="$(dirname "${REPO_DIR}")"
 
 VAULTPASS_FILEPATH="${HOME}/.vault_pass"
 if [[ -f "${REPO_DIR}/.vault_pass" ]]; then
@@ -43,9 +39,14 @@ _INSTALL_GALAXY_COLLECTIONS="${INSTALL_GALAXY_COLLECTIONS:-0}"
 _UPGRADE_GALAXY_COLLECTIONS="${UPGRADE_GALAXY_COLLECTIONS:-0}"
 _FORCE_GALAXY_COLLECTIONS="${FORCE_GALAXY_COLLECTIONS:-0}"
 
+USE_SOURCE_COLLECTIONS=0
+SOURCE_COLLECTIONS_PATH="${REPO_PARENT_DIR}/requirements_collections"
+
 echo "SCRIPT_DIR=[${SCRIPT_DIR}]"
 echo "SCRIPT_NAME=[${SCRIPT_NAME}]"
+echo "REPO_PARENT_DIR=${REPO_PARENT_DIR}"
 echo "REPO_DIR=${REPO_DIR}"
+
 echo "VAULT_FILEPATH=${VAULT_FILEPATH}"
 echo "VAULT_ID=${VAULT_ID}"
 
@@ -53,6 +54,7 @@ ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.yml"
 #ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.test.yml"
 
 export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible/collections"
+#export LOCAL_COLLECTIONS_PATH="${REPO_DIR}/.ansible/collections"
 #export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
 #export ANSIBLE_ROLES_PATH=./
 #export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}:${REPO_DIR}/collections:${REPO_PARENT_DIR}/requirements_collections"
@@ -63,6 +65,10 @@ export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible/collections"
 export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}"
 export ANSIBLE_LOG_PATH="./ansible.log"
 
+if [[ "${USE_SOURCE_COLLECTIONS}" -eq 1 ]]; then
+  export ANSIBLE_COLLECTIONS_PATH="${SOURCE_COLLECTIONS_PATH}:${ANSIBLE_COLLECTIONS_PATH}"
+fi
+
 #export ANSIBLE_DEBUG=1
 export ANSIBLE_KEEP_REMOTE_FILES=1
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
@@ -70,6 +76,20 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 ## ref: https://github.com/ansible/ansible/issues/79557#issuecomment-1344168449
 #export ANSIBLE_GALAXY_IGNORE=true
 #export GALAXY_IGNORE_CERTS=true
+
+cleanup_tmpdir() {
+  test "${KEEP_TEMP_DIR:-0}" = 1 || rm -rf "${TEMP_DIR:-}"
+}
+
+# Trap to clean up SSH agent and temporary files on exit
+cleanup() {
+  if [ -n "${SSH_AGENT_PID:-}" ]; then
+    echo "==> Stopping SSH agent (PID: $SSH_AGENT_PID)"
+    eval "$(ssh-agent -k)" >/dev/null 2>&1
+  fi
+  cleanup_tmpdir
+  rm -f "${TEMP_VARS:-}" "${TEMP_RENDERED_KEY:-}" "${TEMP_KEY:-}"
+}
 
 # SSH agent setup
 start_ssh_agent() {
@@ -87,10 +107,12 @@ start_ssh_agent() {
   fi
   # Verify SSH agent is usable
   ssh-add -l >/dev/null 2>&1 || echo "==> SSH agent is empty"
+
   # Render ansible_ssh_private_key using Ansible to resolve templates
   TEMP_RENDERED_KEY=$(mktemp)
   set +e
-  ansible localhost -m debug -a "var=ansible_ssh_private_key" -e "@${VAULT_FILEPATH}" --vault-id "${VAULT_ID}@${VAULTPASS_FILEPATH}" > "${TEMP_RENDERED_KEY}.out" 2> "${TEMP_RENDERED_KEY}.err"
+  # OVERRIDE: Prefixing the command with ANSIBLE_LOG_PATH=/dev/null blocks writing to ansible.log
+  ANSIBLE_LOG_PATH=/dev/null ansible localhost -m debug -a "var=ansible_ssh_private_key" -e "@${VAULT_FILEPATH}" --vault-id "${VAULT_ID}@${VAULTPASS_FILEPATH}" > "${TEMP_RENDERED_KEY}.out" 2> "${TEMP_RENDERED_KEY}.err"
   RENDER_EXIT=$?
   set -e
   if [ $RENDER_EXIT -ne 0 ]; then
@@ -99,6 +121,7 @@ start_ssh_agent() {
     rm -f "${TEMP_RENDERED_KEY}" "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err"
     return 1
   fi
+
   # Extract the rendered key from debug output
   TEMP_KEY=$(mktemp)
   grep '"ansible_ssh_private_key":' "${TEMP_RENDERED_KEY}.out" | sed 's/.*"ansible_ssh_private_key": "\(.*\)".*/\1/' | sed 's/\\n/\n/g' > "$TEMP_KEY" 2> "${TEMP_KEY}.err"
@@ -109,8 +132,9 @@ start_ssh_agent() {
     return 1
   fi
   rm -f "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err" "${TEMP_KEY}.err"
-  # Validate and process the key
-  python3 - <<EOF
+
+  # Validate key format
+  if ! python3 - <<EOF
 import re
 with open('$TEMP_KEY', 'r') as f:
     key_content = f.read()
@@ -124,7 +148,7 @@ else:
     import sys
     sys.exit(1)
 EOF
-  if [ $? -ne 0 ]; then
+  then
     echo "Warning: Invalid SSH key format after rendering"
     rm -f "$TEMP_KEY"
     return 1
@@ -153,16 +177,19 @@ EOF
     rm -f "$TEMP_KEY"
     return 1
   fi
+
+  trap cleanup EXIT
 }
 
 # Install Galaxy collections if needed
-install_galaxy_collections() {
+function install_galaxy_collections() {
   echo "==> ansible-galaxy --version"
   ansible-galaxy --version
 
   ## ref: https://github.com/ansible/ansible/issues/79557#issuecomment-1344168449
   echo "==> Install Galaxy collection requirements"
-#  GALAXY_INSTALL_CMD=("env ANSIBLE_GALAXY_IGNORE=true env GALAXY_IGNORE_CERTS=true")
+#  GALAXY_INSTALL_CMD=("env ANSIBLE_GALAXY_IGNORE=true")
+#  GALAXY_INSTALL_CMD+=("env GALAXY_IGNORE_CERTS=true")
 #  GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
 #  GALAXY_INSTALL_CMD+=("--ignore-certs")
 #  GALAXY_INSTALL_CMD+=("--force")
@@ -186,7 +213,7 @@ install_galaxy_collections() {
   fi
 }
 
-usage() {
+function usage() {
   retcode=${1-1}
   echo "" 1>&2
   echo "Usage: ${0} [options] [CLI commands]" 1>&2
@@ -233,7 +260,7 @@ usage() {
   exit ${retcode}
 }
 
-main() {
+function main() {
   while getopts "t:hx" opt; do
     case "${opt}" in
     h) usage 1 ;;
@@ -276,13 +303,14 @@ main() {
     install_galaxy_collections
   fi
 
+  echo "==> ANSIBLE_COLLECTIONS_PATH=${ANSIBLE_COLLECTIONS_PATH}"
+
   echo "==> ansible-galaxy collection list"
   ansible-galaxy collection list
 
   echo "==> ansible --version"
   ansible --version
 
-  echo "==> Run command arguments: ${RUN_COMMAND_ARGS[*]}"
   if [[ "${RUN_CMD}" == *"ansible"* ]]; then
     # Start SSH agent and load key
     start_ssh_agent
@@ -302,6 +330,7 @@ EOF
 #    RUN_COMMAND_ARGS+=("--vault-password-file" "${VAULTPASS_FILEPATH}")
   fi
 
+  echo "==> Run command arguments: ${RUN_COMMAND_ARGS[*]}"
   RUN_COMMAND_ARGS_WITH_ARGS=("${RUN_CMD}")
   if [[ "${#RUN_COMMAND_ARGS[@]}" -gt 0 ]]; then
     RUN_COMMAND_ARGS_WITH_ARGS+=("${RUN_COMMAND_ARGS[*]}")

@@ -35,26 +35,32 @@
     msg: Variable bootstrap_docker__ee_url is required and is not defined.
 
 - name: Docker | Storage Driver
-  ansible.builtin.include_tasks: storage_drivers/{{ bootstrap_docker__storage_driver }}.yml
   when: bootstrap_docker__storage_driver is defined
+  ansible.builtin.include_tasks: storage_drivers/{{ bootstrap_docker__storage_driver }}.yml
 
 - name: Docker | Start Installation using {{ ansible_facts['pkg_mgr'] }} package manager
-  ansible.builtin.include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_facts['pkg_mgr'] }}.yml"
   when: bootstrap_docker__repo == "docker"
+  ansible.builtin.include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_facts['pkg_mgr'] }}.yml"
 
 - name: Docker | Start Installation using {{ ansible_facts['pkg_mgr'] }} package manager using RHSM
-  ansible.builtin.include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_facts['pkg_mgr'] }}-rhsm.yml"
   when: bootstrap_docker__repo == "rhsm"
+  ansible.builtin.include_tasks: "{{ bootstrap_docker__edition }}/{{ ansible_facts['pkg_mgr'] }}-rhsm.yml"
 
 - name: Docker | Start Installation | Other repo
-  ansible.builtin.include_tasks: other_repo.yml
   when: bootstrap_docker__repo == "other"
+  ansible.builtin.include_tasks: other_repo.yml
 
 - name: Docker | Install additional packages
   when: bootstrap_docker__additional_packages | d([], true) | length > 0
   ansible.builtin.package:
     name: "{{ bootstrap_docker__additional_packages }}"
     state: present
+
+- name: Docker | Configure cross-platform QEMU emulation
+  when:
+    - bootstrap_docker__multiarch_builder_enabled | bool
+    - (not bootstrap_docker__swarm_node) or (bootstrap_docker__swarm_leader | bool)
+  ansible.builtin.include_tasks: ensure_multiarch_builder.yml
 
 - name: Docker | Ensure service starts at boot
   ansible.builtin.service:
@@ -70,8 +76,11 @@
   ansible.builtin.include_tasks: deploy_config.yml
 
 - name: Docker | Proxy configuration
+  when: >
+    bootstrap_docker__http_proxy is defined 
+    or bootstrap_docker__https_proxy is defined 
+    or bootstrap_docker__no_proxy_params is defined
   ansible.builtin.include_tasks: proxy.yml
-  when: bootstrap_docker__http_proxy is defined or bootstrap_docker__https_proxy is defined or bootstrap_docker__no_proxy_params is defined
 
 - name: Docker | Setup docker users
   when:
@@ -107,9 +116,19 @@
       community.docker.docker_host_info:
       register: __docker_info_result
 
-    - name: Docker | Display __docker_info_result
+    - name: Docker | Display essential docker system info
+      ansible.builtin.debug:
+        msg:
+          can_talk_to_docker: "{{ __docker_info_result.can_talk_to_docker }}"
+          server_version: "{{ __docker_info_result.host_info.ServerVersion | default('N/A') }}"
+          operating_system: "{{ __docker_info_result.host_info.OperatingSystem | default('N/A') }}"
+          swarm_state: "{{ __docker_info_result.host_info.Swarm.LocalNodeState | default('inactive') }}"
+          containers_running: "{{ __docker_info_result.host_info.ContainersRunning | default(0) }}"
+
+    - name: Docker | Display full __docker_info_result
       ansible.builtin.debug:
         var: __docker_info_result
+        verbosity: 2
 
     - name: Docker | Assert docker setup successful
       ansible.builtin.assert:

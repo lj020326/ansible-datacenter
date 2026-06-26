@@ -1,8 +1,6 @@
 {{ 'Ansible managed' | comment(format="# {}") }}
 {% macro render_service_option(key, container, swarm_mode, filter_type='scalar', indent=4) %}
-  {%- set swarm_restricted_keys = ['container_name', 'network_mode', 'restart', 'privileged', 'security_opt', 'links', 'devices', 'labels'] %}
-  {%- set standalone_restricted_keys = ['secrets'] %}
-  {%- set skip_key = (swarm_mode | bool and key in swarm_restricted_keys) or (not swarm_mode | bool and key in standalone_restricted_keys) %}
+  {%- set skip_key = (swarm_mode | bool and key in __docker_stack__swarm_restricted_keys) or (not swarm_mode | bool and key in __docker_stack__standalone_restricted_keys) %}
   {%- if not skip_key %}
     {%- if container[key] is defined %}
       {%- set padding = " " * indent %}
@@ -93,13 +91,21 @@ services:
     {{- render_service_option("container_name", container, docker_stack__swarm_mode) }}
     {{- render_service_option("network_mode", container, docker_stack__swarm_mode) }}
     {{- render_service_option("restart", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("user", container, docker_stack__swarm_mode) }}
     {{- render_service_option("privileged", container, docker_stack__swarm_mode) }}
     {{- render_service_option("security_opt", container, docker_stack__swarm_mode, filter_type='yaml') }}
     {{- render_service_option("mem_limit", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("working_dir", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("configs", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("logging", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("stop_grace_period", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("init", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("profiles", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("shm_size", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("sysctls", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("tmpfs", container, docker_stack__swarm_mode) }}
     {{- render_service_option("hostname", container, docker_stack__swarm_mode) }}
     {{- render_service_option("extra_hosts", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("shm_size", container, docker_stack__swarm_mode) }}
-    {{- render_service_option("user", container, docker_stack__swarm_mode) }}
     {{- render_service_option("cap_add", container, docker_stack__swarm_mode, filter_type='yaml') }}
     {{- render_service_option("devices", container, docker_stack__swarm_mode, filter_type='yaml') }}
     {{- render_service_option("depends_on", container, docker_stack__swarm_mode, filter_type='list_loop') }}
@@ -137,7 +143,7 @@ services:
       {{ _deploy_config | dettonville.utils.to_nice_yaml | indent(6, first=False) | trim }}
         {%- endif %}
 
-    {{- render_service_option("volumes", container, false, filter_type='yaml') }}
+    {{- render_service_option("volumes", container, docker_stack__swarm_mode, filter_type='yaml') }}
       {%- endif %}
     {%- endfor %}
   {%- endif %}

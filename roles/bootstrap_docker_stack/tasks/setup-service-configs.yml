@@ -33,15 +33,9 @@
 - name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__secrets.keys()"
   when: __docker_stack__secrets | d({}, true) | length > 0
   ansible.builtin.debug:
-    var: __docker_stack__secrets.keys() | list
-
-#- name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__secrets"
-#  ansible.builtin.debug:
-#     var: __docker_stack__secrets
-##     verbosity: 2
+    var: __docker_stack__secrets.keys() | list | sort
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Create docker secrets for stack if necessary"
-  no_log: true
   when:
     - docker_stack__swarm_mode | d(false) | bool
     - docker_stack__swarm_manager | d(false) | bool
@@ -52,7 +46,7 @@
     labels: "{{ item.labels | d(omit) }}"
     state: present
   #    force: true
-  loop: "{{ __docker_stack__secrets.values() }}"
+  loop: "{{ __docker_stack__secrets.values() | list | dettonville.utils.sort_dict_list('name') }}"
   loop_control:
     label: "{{ item.name }}"
   register: __configure_docker_secrets

@@ -7,7 +7,7 @@ set -u
 # Ensure pipelines fail if any command in the pipe fails
 set -o pipefail
 
-BASE_DIR="/etc/daily-maintenance"
+BASE_DIR="/etc/run-os-update"
 PRE_DIR="${BASE_DIR}/pre-update.d"
 UPDATE_DIR="${BASE_DIR}/update.d"
 POST_DIR="${BASE_DIR}/post-update.d"
@@ -21,7 +21,7 @@ log_error() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $1" >&2
 }
 
-log_message "Starting daily maintenance wave."
+log_message "Starting OS update."
 
 # 1. Run Pre-Update Hooks (e.g., stopping Docker, unmounting specific drives)
 if [ -d "$PRE_DIR" ] && [ "$(ls -A $PRE_DIR)" ]; then
@@ -47,5 +47,5 @@ else
     log_message "No post-update hooks found. Skipping."
 fi
 
-log_message "Daily maintenance wave completed successfully."
+log_message "OS update completed successfully."
 exit 0

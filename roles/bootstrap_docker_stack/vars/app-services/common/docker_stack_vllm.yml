@@ -1,0 +1,170 @@
+---
+
+__docker_stack__vllm__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__vllm__base_dir: "{{ __docker_stack__vllm__stack_dir }}/vllm"
+
+__docker_stack__vllm__llm_base_url_default: "http://ollama.{{ docker_stack__internal_domain }}:11434"
+__docker_stack__vllm__llm_base_url: "{{ docker_stack__vllm__llm_base_url
+  | d(__docker_stack__vllm__llm_base_url_default) }}"
+
+__docker_stack__vllm__http_port: "{{ docker_stack__vllm__http_port | d('8000') }}"
+
+__docker_stack__vllm__api_key: "{{ docker_stack__vllm__api_key | d('') }}"
+
+#__docker_stack__vllm__llm_model_default: "nemoclaw"
+__docker_stack__vllm__llm_model_default: "Qwen/Qwen2.5-Coder-32B-Instruct"
+__docker_stack__vllm__llm_model: "{{ docker_stack__vllm__llm_model
+  | d(__docker_stack__vllm__llm_model_default) }}"
+
+__docker_stack__vllm__llm_max_model_len_default: 32768
+__docker_stack__vllm__llm_max_model_len: "{{ docker_stack__vllm__llm_max_model_len
+  | d(__docker_stack__vllm__llm_max_model_len_default) }}"
+
+__docker_stack__vllm__langgraph_app_env: production
+__docker_stack__vllm__crewai_logging_level: INFO
+
+__docker_stack__vllm__vikunja_endpoint_default: "kanban.{{ docker_stack__internal_domain }}"
+__docker_stack__vllm__vikunja_endpoint: "{{ docker_stack__vllm__vikunja_endpoint
+  | d(__docker_stack__vllm__vikunja_endpoint_default) }}"
+
+__docker_stack__vllm__vikunja_api_url_default: "https://{{ __docker_stack__vllm__vikunja_endpoint }}/api/v1"
+__docker_stack__vllm__vikunja_api_url: "{{ docker_stack__vllm__vikunja_api_url
+  | d(__docker_stack__vllm__vikunja_api_url_default) }}"
+
+__docker_stack__vllm__vikunja_agent_api_token: "{{ docker_stack__vllm__vikunja_agent_api_token | d('') }}"
+__docker_stack__vllm__vikunja_agent_secret_key: "{{ docker_stack__vllm__vikunja_agent_secret_key | d('') }}"
+
+#__docker_stack__vllm__container_cache_dir_default: "/app/.cache/huggingface"
+__docker_stack__vllm__container_cache_dir_default: "/app/.cache"
+__docker_stack__vllm__container_cache_dir: "{{ docker_stack__vllm__container_cache_dir
+  | d(__docker_stack__vllm__container_cache_dir_default) }}"
+
+__docker_stack__vllm__container_config_dir_default: "/app/.config"
+__docker_stack__vllm__container_config_dir: "{{ docker_stack__vllm__container_config_dir
+  | d(__docker_stack__vllm__container_config_dir_default) }}"
+
+__docker_stack__vllm__environment_default:
+  VLLM_ATTENTION_BACKEND: FLASH_ATTN
+  CUDA_VISIBLE_DEVICES: "0"
+
+  HF_HOME: "{{ __docker_stack__vllm__container_cache_dir }}"
+
+  # --- Prevents FlashInfer from trying to write to root-level /.cache ---
+  FLASHINFER_WORKSPACE_DIR: "{{ __docker_stack__vllm__container_cache_dir }}/flashinfer"
+
+  # --- Redirect Triton away from /app/.triton ---
+  TRITON_CACHE_DIR: "{{ __docker_stack__vllm__container_cache_dir }}/triton"
+
+  # --- Bypasses the PyTorch getpwuid() KeyError ---
+  USER: "{{ docker_stack__user_username }}"
+  LOGNAME: "{{ docker_stack__user_username }}"
+
+  # --- Secure the API Server ---
+  # Replace with a vault variable or secure string
+  VLLM_API_KEY: "{{ __docker_stack__vllm__api_key }}"
+
+  # Vikunja Kanban Orchestration Coordinate
+  VIKUNJA_API_URL: "{{ __docker_stack__vllm__vikunja_api_url }}"
+  VIKUNJA_BEARER_TOKEN: "{{ __docker_stack__vllm__vikunja_agent_api_token }}"
+
+__docker_stack__vllm__environment: "{{ docker_stack__vllm__environment
+  | d(__docker_stack__vllm__environment_default) }}"
+
+__docker_stack__vllm__deploy_resources_standalone:
+  reservations:
+    devices:
+      - driver: nvidia
+        count: 1
+        capabilities: [gpu]
+#      - driver: nvidia
+#        # or device_ids: ["0"] if you want specific GPU
+#        count: all
+#        capabilities: [gpu]
+
+__docker_stack__vllm__deploy_resources_swarm:
+  reservations:
+    generic_resources:
+      - discrete_resource_spec:
+          kind: NVIDIA-GPU
+          value: 1
+
+__docker_stack__vllm__deploy_resources: "{{ __docker_stack__vllm__deploy_resources_swarm
+  if docker_stack__swarm_mode else __docker_stack__vllm__deploy_resources_standalone }}"
+
+__docker_stack__vllm__config_dirs:
+  - path: "{{ __docker_stack__vllm__base_dir }}"
+  - path: "{{ __docker_stack__vllm__base_dir }}/cache"
+  - path: "{{ __docker_stack__vllm__base_dir }}/config"
+
+__docker_stack__vllm__config_tpls:
+  - src: "vllm/vllm.env.j2"
+    dest: "{{ __docker_stack__vllm__base_dir }}/vllm.env"
+  - src: "vllm/config-group.conf.j2"
+    dest: "{{ __docker_stack__vllm__base_dir }}/group"
+  - src: "vllm/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__vllm__base_dir }}/passwd"
+
+__docker_stack__vllm__firewalld_ports:
+  - "{{ __docker_stack__vllm__http_port }}/tcp"
+
+__docker_stack__vllm__services:
+  vllm-coder:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-coder
+    restart: unless-stopped
+    working_dir: /app
+    user: "{{ docker_stack__user_uid | d('1000') }}:{{ docker_stack__user_gid | d('1000') }}"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    ports:
+      - "{{ __docker_stack__vllm__http_port }}:8000"
+    env_file:
+      - vllm/vllm.env
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__vllm__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__vllm__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__vllm__base_dir }}/cache:{{ __docker_stack__vllm__container_cache_dir }}"
+      - "{{ __docker_stack__vllm__base_dir }}/config:{{ __docker_stack__vllm__container_config_dir }}"
+    command: >
+      {{ __docker_stack__vllm__llm_model }}
+      --max-model-len {{ __docker_stack__vllm__llm_max_model_len }}
+      --enforce-eager
+    healthcheck:
+      test: [
+        "CMD-SHELL",
+        "curl -f -H 'Authorization: Bearer {{ __docker_stack__vllm__api_key }}' http://localhost:8000/health || exit 1"
+      ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Generous window for 32B model disk-to-VRAM transfers
+      start_period: 10m
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      # Explicitly designed to interface with the nvidia-container-toolkit CLI layer on single-node environments.
+      resources: "{{ __docker_stack__vllm__deploy_resources }}"
+
+docker_stack__appspec__vllm:
+  dirs: "{{ __docker_stack__vllm__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__vllm__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__vllm__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__vllm__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__vllm__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__vllm__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__vllm__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__vllm__services | d({}, true) }}"

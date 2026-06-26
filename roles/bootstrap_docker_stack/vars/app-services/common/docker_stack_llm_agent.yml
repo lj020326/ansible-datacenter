@@ -3,6 +3,16 @@
 __docker_stack__llm_agent__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
 __docker_stack__llm_agent__base_dir: "{{ __docker_stack__llm_agent__stack_dir }}/agent_stack"
 
+#__docker_stack__llm_agent__langgraph_router_image_default: "lj020326/langgraph-router:latest"
+__docker_stack__llm_agent__langgraph_router_image_default: "{{ docker_stack__registry__endpoint }}/langgraph-router:latest"
+__docker_stack__llm_agent__langgraph_router_image: "{{ docker_stack__llm_agent__langgraph_router_image
+  | d(__docker_stack__llm_agent__langgraph_router_image_default) }}"
+
+#__docker_stack__llm_agent__crewai_image_default: "lj020326/langgraph-router:latest"
+__docker_stack__llm_agent__crewai_image_default: "{{ docker_stack__registry__endpoint }}/crewai-workers:latest"
+__docker_stack__llm_agent__crewai_image: "{{ docker_stack__llm_agent__crewai_image
+  | d(__docker_stack__llm_agent__crewai_image_default) }}"
+
 __docker_stack__llm_agent__llm_base_url_default: "http://ollama.{{ docker_stack__internal_domain }}:11434"
 __docker_stack__llm_agent__llm_base_url: "{{ docker_stack__llm_agent__llm_base_url
   | d(__docker_stack__llm_agent__llm_base_url_default) }}"
@@ -46,9 +56,15 @@ __docker_stack__llm_agent__environment: "{{ docker_stack__llm_agent__environment
   | d(__docker_stack__llm_agent__environment_default) }}"
 
 __docker_stack__llm_agent__config_dirs:
-  - { path: "{{ __docker_stack__llm_agent__base_dir }}" }
-  - { path: "{{ __docker_stack__llm_agent__base_dir }}/router" }
-  - { path: "{{ __docker_stack__llm_agent__base_dir }}/workers" }
+  - path: "{{ __docker_stack__llm_agent__base_dir }}"
+  - path: "{{ __docker_stack__llm_agent__base_dir }}/router"
+  - path: "{{ __docker_stack__llm_agent__base_dir }}/workers"
+
+__docker_stack__llm_agent__config_files:
+  - src: "llm_agent/langgraph-router/main.py"
+    dest: "{{ __docker_stack__llm_agent__base_dir }}/router/main.py"
+  - src: "llm_agent/crewai-workers/worker_daemon.py"
+    dest: "{{ __docker_stack__llm_agent__base_dir }}/workers/worker_daemon.py"
 
 __docker_stack__llm_agent__config_tpls:
   - src: "llm_agent/llm_agent.env.j2"
@@ -65,42 +81,45 @@ docker_stack__appspec__llm_agent:
   docker_services: "{{ __docker_stack__llm_agent__services | d({}, true) }}"
 
 # Sourced cleanly via Traefik spec files matching routing method constraints
-__docker_stack__llm_agent__traefik_labels: "{{ docker_stack__llm_agent__traefik_labels | d(__docker_stack__llm_agent__traefik_labels_default | d([])) }}"
+__docker_stack__llm_agent__traefik_labels: "{{ docker_stack__llm_agent__traefik_labels
+  | d(__docker_stack__llm_agent__traefik_labels_default | d([])) }}"
 
 __docker_stack__llm_agent__services:
   langgraph-router:
-    image: python:3.11-slim
+    image: "{{ __docker_stack__llm_agent__langgraph_router_image }}"
     container_name: langgraph-router
     restart: unless-stopped
     working_dir: /app
-    user: "{{ docker_stack__user_uid | d('1000') }}:{{ docker_stack__user_gid | d('1000') }}"
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
     volumes:
+      - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - "{{ __docker_stack__llm_agent__base_dir }}/router:/app"
     env_file:
-      - "{{ __docker_stack__llm_agent__base_dir }}/llm_agent.env"
-    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+      - agent_stack/llm_agent.env
+#    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
     labels: "{{ __docker_stack__llm_agent__traefik_labels }}"
     deploy:
       mode: replicated
       replicas: 1
 
   crewai-workers:
-    image: python:3.11-slim
+    image: "{{ __docker_stack__llm_agent__crewai_image }}"
     container_name: crewai-workers
     restart: unless-stopped
     working_dir: /app
-    user: "{{ docker_stack__user_uid | d('1000') }}:{{ docker_stack__user_gid | d('1000') }}"
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
     volumes:
+      - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - "{{ __docker_stack__llm_agent__base_dir }}/workers:/app"
     env_file:
-      - "{{ __docker_stack__llm_agent__base_dir }}/llm_agent.env"
-    command: python worker_daemon.py
+      - agent_stack/llm_agent.env
+#    command: python worker_daemon.py
     deploy:
       mode: replicated
       replicas: 1

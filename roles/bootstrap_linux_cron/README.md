@@ -1,17 +1,23 @@
 
 # bootstrap_linux_cron
 
-Use this role to configure cron jobs and manage sequential daily maintenance batch workflows using structured hooks.
+This Ansible role manages system cron jobs and coordinates sequential daily maintenance workflows using structured execution hooks. It provides a modular framework for managing both standard recurring tasks and complex multi-stage maintenance batches (pre-update, update, post-update).
 
 ## Role Variables
 
-| Variable                                     | Description                                                                                                                                                                                                           | Default value |
-|----------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| `bootstrap_linux_cron__list`                 | List of crons **(see cron dict details in next section)**                                                                                                                                                             | `[]`          |
-| `bootstrap_linux_cron__list__*`              | Variables with prefix `bootstrap_linux_cron__list__` are dereferenced and merged into a single cron list. Each list should contain a list of `dicts`. Each `dict` defines/specifies the cron configuration to modify. | `[]`          |
-| `bootstrap_linux_cron__setup_daily_scripts`  | Boolean flag to enable or disable the deployment of the master daily maintenance framework and hooks.                                                                                                                 | `false`       |
-| `bootstrap_linux_cron__daily_batch_hooks`    | List of custom maintenance hook dictionaries to register globally.                                                                                                                                                    | `[]`          |
-| `bootstrap_linux_cron__daily_batch_hooks__*` | Variables with prefix `bootstrap_linux_cron__daily_batch_hooks__` are automatically gathered across inventory groups and merged into a structured script directory scheme.                                            | `[]`          |
+### Core Configuration
+
+| Variable                                    | Description                                                                                                                                                                                                           | Default value |
+|---------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| `bootstrap_linux_cron__list`                | List of crons **(see cron dict details in next section)**                                                                                                                                                             | `[]`          |
+| `bootstrap_linux_cron__list__*`             | Variables with prefix `bootstrap_linux_cron__list__` are dereferenced and merged into a single cron list. Each list should contain a list of `dicts`. Each `dict` defines/specifies the cron configuration to modify. | `[]`          |
+| `bootstrap_linux_cron__setup_daily_scripts` | Boolean flag to enable or disable the deployment of the primary daily maintenance framework and hooks.                                                                                                                | `false`       |
+| `bootstrap_linux_cron__reset_daily_scripts` | Boolean flag to determine if daily script dirs should get reset before deployment.                                                                                                                                    | `true`        |
+| `bootstrap_linux_cron__os_update_hooks`     | List of custom maintenance hook dictionaries to register globally.                                                                                                                                                    | `[]`          |
+| `bootstrap_linux_cron__os_update_hooks__*`  | Variables with prefix `bootstrap_linux_cron__os_update_hooks__` are automatically gathered across inventory groups and merged into a structured script directory scheme.                                              | `[]`          |
+
+
+### Cron Definition Attributes
 
 #### `bootstrap_linux_cron__list` details
 
@@ -37,24 +43,24 @@ The cron list allows you to define a list of jobs. Each item in the list can hav
 
 ---
 
-#### `bootstrap_linux_cron__daily_batch_hooks` details
+### Daily Batch Hook Attributes
 
-When `bootstrap_linux_cron__setup_daily_scripts` is set to `true`, the role sets up an alphanumeric execution frame under `/etc/daily-maintenance/`. Hook files are deployed dynamically into target lifecycle stages using the keys below:
+#### `bootstrap_linux_cron__os_update_hooks` details
+
+When `bootstrap_linux_cron__setup_daily_scripts` is set to `true`, the role sets up an alphanumeric execution frame under `/etc/run-os-update/`. Hook files are deployed dynamically into target lifecycle stages using the keys below:
 
 | Attribute | Type | Description | Required |
-|---|---|---|---|
-| `name` | str | Descriptive identifier for the lifecycle hook. | yes |
-| `state` | C(present, absent) | Dictates if the hook file should be created or deleted. Defaults to `present`. | no |
-| `hook_type` | str | Targeted lifecycle stage directory: `pre-update.d`, `update.d`, or `post-update.d`. | yes |
-| `filename` | str | The target filename (e.g., `10-docker-stop.sh`). Prepended integers ensure predictable sorting order. | yes |
-| `content` | str | The exact multi-line script body to inject inside the deployed script. | yes |
+| :--- | :--- | :--- | :--- |
+| `name` | str | Descriptive identifier for the hook. | Yes |
+| `hook_type` | str | Lifecycle stage: `pre-update.d`, `update.d`, or `post-update.d`. | Yes |
+| `filename` | str | Target filename (e.g., `10-docker-stop`). Use prefix integers for sort order. | Yes |
+| `content` | str | The multi-line script body to execute. | Yes |
 
 ---
 
-## Examples
+## Usage Examples
 
-### Playbook Example
-
+### 1. Simple Playbook Integration
 ```yaml
 - hosts: os_linux
   become: true
@@ -77,32 +83,11 @@ When `bootstrap_linux_cron__setup_daily_scripts` is set to `true`, the role sets
           schedule: ["30", "3", "*", "*", "*"]
 ```
 
-### Inventory group_vars/ Example
+### 2. Group-Specific Variable Merging
+The role automatically merges lists sharing the `bootstrap_linux_cron__list__` prefix. 
 
-#### Standard Cron Definitions (`inventory/group_vars/control_node.yml`)
+**`inventory/group_vars/docker_stack.yml`:**
 ```yaml
-bootstrap_linux_cron__list:
-  - name: "daily fw backups job"
-    special_time: daily
-    job: "{{ bootstrap_linux_backup_script_dir }}/fwbackup.sh 2>&1 | tee -a {{ bootstrap_linux_backups_log_dir }}/fwbackup_daily.log"
-
-  - name: "daily backups job"
-    minute: "5"
-    hour: "18"
-    job: "python3 {{ bootstrap_linux_backup_script_dir }}/run-backups.py daily"
-
-  - name: "monthly backups job"
-    special_time: monthly
-    job: "python3 {{ bootstrap_linux_backup_script_dir }}/run-backups.py monthly"
-```
-
-### Variable Lookup Example
-
-The role evaluates lists sharing the prefix `bootstrap_linux_cron__list__` and merges them together seamlessly for target hosts at runtime.
-
-#### Group-Specific Crons (`inventory/group_vars/docker_stack.yml`)
-```yaml
-# list of CRONs to be setup for docker_stack machines.
 bootstrap_linux_cron__list__docker_stack:
   - name: "Docker disk clean up"
     job: "docker system prune -{{ bootstrap_docker__cron_jobs_prune_flags }} 2>&1"
@@ -115,66 +100,60 @@ bootstrap_linux_cron__list__docker_stack:
     cron_file: "docker-large-logfile-clean-up"
 ```
 
----
+### 3. OS Update Processing & Lifecycle Hooks
+The `run-os-update.sh` script executes hooks sequentially via `run-parts`. Use `bootstrap_linux_cron__os_update_hooks__*` to decouple business logic from code.
 
-### Daily Batch Processing & Lifecycle Hooks Example
+The OS update framework sets up a central runner script (`/usr/local/bin/run-os-update.sh`) which loops across step phases (`pre-update.d` $\rightarrow$ `update.d` $\rightarrow$ `post-update.d`) sequentially using `run-parts`.
 
-To move business logic entirely out of code and into inventory configuration, use the `bootstrap_linux_cron__daily_batch_hooks__*` pattern. The master framework sets up a central runner script (`/usr/local/bin/daily-maintenance.sh`) which loops across step phases (`pre-update.d` $\rightarrow$ `update.d` $\rightarrow$ `post-update.d`) sequentially using `run-parts`.
-
-#### 1. Baseline Linux Updates (`inventory/group_vars/common_groups_os_linux.yml`)
-Configure a generic update baseline across all Linux endpoints utilizing the cross-platform platform execution script deployed by the role:
+**Defining Hooks in Inventory:**
 ```yaml
-bootstrap_linux_cron__daily_batch_hooks__linux_common:
-  - name: "Perform OS Updates"
-    state: present
-    hook_type: "update.d"
-    filename: "50-os-update.sh"
-    content: |
-      #!/usr/bin/env bash
-      echo "Running OS Updates via core platform script..."
-      /usr/local/bin/perform-os-updates.sh
-```
-
-#### 2. Service Orchestration Overrides (`inventory/group_vars/docker_stack.yml`)
-Safely decouple state dependencies by wrapping the core update tier with environment specific actions using lower or higher execution sorting weights (`10-` vs `90-`):
-```yaml
-bootstrap_linux_cron__daily_batch_hooks__docker_stack:
-  - name: "Stop Docker Stack Pre-Update"
-    state: present
+bootstrap_linux_cron__os_update_hooks__docker_stack:
+  - name: "Stop Docker Stack"
     hook_type: "pre-update.d"
     filename: "10-docker-stop.sh"
     content: |
       #!/usr/bin/env bash
-      echo "Stopping active workloads on Docker Stack..."
-      /usr/local/bin/recreate-stack.sh -sr
+      echo "Stopping Docker services..."
+      docker stack rm my_stack
 
-  - name: "Start Docker Stack Post-Update"
-    state: present
+  - name: "Start Docker Stack"
     hook_type: "post-update.d"
     filename: "90-docker-start.sh"
     content: |
       #!/usr/bin/env bash
-      echo "Starting workloads and restarting Docker service..."
-      systemctl restart docker
+      echo "Redeploying Docker services..."
+      docker stack deploy -c /home/user/docker-compose.yml my_stack
 ```
 
-#### 3. Wave-Based Execution Triggers
-Map different timing offsets across targeted logical segments using the cron structure to trigger the consolidated maintenance frame safely without overloading shared network or virtualization resources.
+### 4. Wave-Based Execution Strategy
+To avoid overloading infrastructure (e.g., network bandwidth or CPU spikes), use inventory group hierarchy to stagger maintenance execution windows.
 
+**Inventory Structure (`xenv_groups.yml`):**
+```yaml
+all:
+  children:
+    os_linux_cron_wave:
+      children:
+        os_linux_cron_wave_01:
+          children:
+            os_linux_cron_wave_02: {} # Wave 02 inherits Wave 01 group vars
+```
+
+**Wave Configuration:**
 * `inventory/group_vars/os_linux_cron_wave_01.yml`:
   ```yaml
   ## Executed at 01:00 AM
-  bootstrap_linux_cron__list__wave_01:
-    - name: "Daily Maintenance Batch - Wave 01"
-      job: "/usr/local/bin/daily-maintenance.sh >> /var/log/daily-maintenance.log 2>&1"
+  bootstrap_linux_cron__list__os_update:
+    - name: "OS Update Batch - Wave 01"
+      job: "/usr/local/bin/run-os-update.sh 2>&1 | tee -a /var/log/run-os-update.log"
       schedule: ["0", "1", "*", "*", "*"]
   ```
 
 * `inventory/group_vars/os_linux_cron_wave_02.yml`:
   ```yaml
   ## Executed at 02:00 AM
-  bootstrap_linux_cron__list__wave_02:
-    - name: "Daily Maintenance Batch - Wave 02"
-      job: "/usr/local/bin/daily-maintenance.sh >> /var/log/daily-maintenance.log 2>&1"
+  bootstrap_linux_cron__list__os_update:
+    - name: "OS Update Batch - Wave 02"
+      job: "/usr/local/bin/run-os-update.sh 2>&1 | tee -a /var/log/run-os-update.log"
       schedule: ["0", "2", "*", "*", "*"]
   ```

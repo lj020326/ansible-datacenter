@@ -1,33 +1,33 @@
 ```markdown
 ---
-title: Ansible Role for Bootstrapping Pip (for Python)
+title: Ansible Role for Bootstrapping Pip
 original_path: roles/bootstrap_pip/README.md
 category: Ansible Roles
-tags: ansible, pip, python, virtualenv
+tags: [ansible, pip, python, virtualenv]
 ---
 
-# Ansible Role: Bootstrap Pip (for Python)
+# Ansible Role: bootstrap_pip (for Python)
 
 This Ansible role installs [Pip](https://pip.pypa.io) on Linux systems.
 
 ## Requirements
 
-On RedHat/CentOS, you may need to have EPEL installed before running this role. You can use the `geerlingguy.repo-epel` role if you need a simple way to ensure it's installed.
+On RedHat/CentOS systems, you may need to have EPEL installed before running this role. You can use the `geerlingguy.repo-epel` role if you need a simple way to ensure it's installed.
 
 ## Role Variables
 
-| Variable                              | Required | Default                               | Comments                                                                                                                                                                                                                                                                                                                                                                            |
-|---------------------------------------|----------|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bootstrap_pip__virtualenv_command`   | No       | `python3 -m venv`                     | Command used to install pip virtualenv.                                                                                                                                                                                                                                                                                                                                             |
-| `bootstrap_pip__python_executable`    | No       | `python3.10`                          | Python executable to use, which also determines the python executable in the virtualenv.                                                                                                                                                                                                                                                                                         |
-| `bootstrap_pip__env_force_rebuild`    | No       | `False`                               | Force the rebuild of any specified virtual environments.                                                                                                                                                                                                                                                                                                                            |
-| `bootstrap_pip__env_list__*`          | No       | `[]`                                  | Variables with the prefix `bootstrap_pip__env_list__` are dereferenced and merged into a single list of pip environments to install. Each list should contain a list of dictionaries, where each dictionary defines a pip environment. Dictionary options include: `pip_executable`, `version`, `virtualenv`, `virtualenv_command`, `extra_args`, `libraries`. The `libraries` option is a list of Python libraries to set up in the respective pip environment. |
-| `bootstrap_pip__config_dir`           | No       | `{{ ansible_env.HOME }}/.config/pip`  | Directory for Pip configuration.                                                                                                                                                                                                                                                                                                                                                  |
-| `bootstrap_pip__pip_version`          | No       | `latest`                              | Version of Pip to install.                                                                                                                                                                                                                                                                                                                                                          |
-| `bootstrap_pip__lib_state`            | No       | `present`                             | State of Pip library installation (`present`, `absent`).                                                                                                                                                                                                                                                                                                                            |
-| `bootstrap_pip__lib_priority_default` | No       | `100`                                 | Priority for Pip library installation. An integer value to determine the order of library installations. One or more packages are installed at each priority level.                                                                                                                                                                                                                      |
-| `bootstrap_pip__libs`                 | No       | See `defaults/main.yml` for defaults. | List of Pip libraries to install. Each item can be a string specifying the library name or a dictionary specifying the library `name` and optionally the installation `priority`.                                                                                                                                                                                                        |
-| `bootstrap_pip__environment_vars`     | No       | None                                  | Dictionary containing environment variables to use during pip installation.                                                                                                                                                                                                                                                                                                         |
+| Variable                              | Required | Default                               | Comments                                                                                                                                                                                                                                            |
+|---------------------------------------|----------|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_pip__virtualenv_command`   | No       | `python3 -m venv`                     | Command to install pip virtualenv.                                                                                                                                                                                                                  |
+| `bootstrap_pip__python_executable`    | No       | `python3.10`                          | Python executable to use, also determines the python executable to setup in the virtualenv.                                                                                                                                                    |
+| `bootstrap_pip__env_force_rebuild`    | No       | `False`                               | Force the rebuild of any specified virtual envs.                                                                                                                                                                                                      |
+| `bootstrap_pip__env_list__*`          | No       | `[]`                                  | Variables with prefix `bootstrap_pip__env_list__` are dereferenced and merged to a single list of pip environments to install. Each list should contain a list of `dicts`. Each `dict` defines the pip environment to setup. Options include: `pip_executable`, `version`, `virtualenv`, `virtualenv_command`, `extra_args`, `libraries`. Where `libraries` is a list of python libraries to setup in the respective pip env. |
+| `bootstrap_pip__config_dir`           | No       | `{{ ansible_env.HOME }}/.config/pip`  | Pip configuration directory.                                                                                                                                                                                                                        |
+| `bootstrap_pip__pip_version`          | No       | `latest`                              | Pip version to install.                                                                                                                                                                                                                               |
+| `bootstrap_pip__lib_state`            | No       | `latest`                              | Pip library install state (`present`, `absent`).                                                                                                                                                                                                      |
+| `bootstrap_pip__lib_priority_default` | No       | `100`                                 | Pip library install priority. An integer value to determine the order of the library install. One or more packages are installed at each priority order level.                                                                                           |
+| `bootstrap_pip__libs`                 | No       | See `defaults/main.yml` for defaults. | Pip libraries to install. Each item may either be a string specifying the library name or dict specifying library `name` and optionally the install `priority` order.                                                                                    |
+| `bootstrap_pip__environment_vars`     | No       | None                                  | Dict containing environment vars to use for pip install.                                                                                                                                                                                              |
 
 ## Example Playbook
 
@@ -58,7 +58,7 @@ On RedHat/CentOS, you may need to have EPEL installed before running this role. 
 
 ## Backlinks
 
-- [Ansible Roles](/ansible-roles)
+- [Ansible Roles](../ansible_roles.md)
 ```
 
-This improved version maintains all the original information while adhering to clean, professional Markdown formatting suitable for GitHub rendering.
+This improved version maintains the original content while adhering to clean, professional Markdown formatting suitable for GitHub rendering. It includes a YAML frontmatter with additional metadata and ensures clear structure with proper headings.

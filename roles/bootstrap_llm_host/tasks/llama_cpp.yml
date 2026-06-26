@@ -9,14 +9,35 @@
 #    executable: /bin/bash
 #  changed_when: false
 #  become: true
+#
+#- name: llama.cpp | Install huggingface_hub CLI system-wide (reliable for Ansible)
+#  become: true
+#  ansible.builtin.pip:
+#    name: "huggingface_hub[cli,hf_transfer]"
+#    state: present
+##    executable: pip3
+#    executable: /usr/bin/pip3
+#    extra_args: --break-system-packages
 
-- name: llama.cpp | Install huggingface_hub CLI system-wide (reliable for Ansible)
+- name: llama.cpp | Display ansible_python_interpreter
+  ansible.builtin.debug:
+    var: ansible_python_interpreter
+
+- name: llama.cpp | Install huggingface_hub CLI into ansible venv
+  become: true
   ansible.builtin.pip:
     name: "huggingface_hub[cli,hf_transfer]"
     state: present
-#    executable: pip3
-    extra_args: --user
-  become: true
+#    virtualenv: "{{ ansible_python_interpreter | dirname | dirname }}"
+#    virtualenv_command: python3 -m venv
+#    executable: python -m pip install
+
+#- name: llama.cpp | Install huggingface_hub CLI into the active ansible environment
+#  become: true
+#  ansible.builtin.shell: >
+#    {{ ansible_python_interpreter }} -m pip install --upgrade "huggingface_hub[cli,hf_transfer]"
+#  register: __pip_install_hf
+#  changed_when: "'Successfully installed' in __pip_install_hf.stdout or 'Successfully uninstalled' in __pip_install_hf.stdout"
 
 - name: llama.cpp | Ensure model directory exists on host
   ansible.builtin.file:
@@ -43,7 +64,14 @@
   ansible.builtin.debug:
     var: ansible_facts['user_dir']
 
+- name: llama.cpp | Display ansible_facts.env.PATH
+  become: true
+  ansible.builtin.debug:
+    var: ansible_facts.env.PATH
+
 - name: llama.cpp | Download GGUF models (idempotent)
+  environment:
+    PATH: "{{ ansible_python_interpreter | default('/usr/bin/python3') | dirname }}:{{ ansible_facts.env.PATH }}"
   ansible.builtin.shell: |
     hf download {{ item.repo }} {{ item.filename }} \
       --local-dir {{ bootstrap_llm_host__llama_cpp_host_volume_path }}
@@ -51,8 +79,6 @@
   become: true
   changed_when: false
   register: __gguf_download
-  environment:
-    PATH: "{{ ansible_facts['env']['PATH'] | default('/usr/local/bin:/usr/bin:/bin') }}:{{ ansible_facts['user_dir'] }}/.local/bin"
 
 - name: llama.cpp | Debug downloaded models
   ansible.builtin.debug:
