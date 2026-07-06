@@ -3,7 +3,7 @@
 title: How to Test Enhancements to the docker-compose.yml.j2 Template
 original_path: roles/bootstrap_docker_stack/templates/docker-compose-test-swarm.md
 category: Docker Compose Testing
-tags: [docker, compose, ansible, testing]
+tags: [docker, compose, testing, ansible]
 ---
 
 # How to Test Enhancements to the `docker-compose.yml.j2` Template
@@ -15,6 +15,7 @@ Use the site [https://ansible.sivel.net/test/](https://ansible.sivel.net/test/) 
 Convert the Ansible logged variable values from JSON to YAML using a tool like [JSON Formatter & Validator](https://jsonformatter.org/json-to-yaml).
 
 ### Example Variables Section
+
 ```yaml
 docker_stack__swarm_mode: true
 
@@ -216,11 +217,12 @@ __docker_stack__service_group_configs_tpl:
         CRON: 0 0 0 * * ?
         DOCKER_HOST: 'tcp://socket-proxy:2375'
         DRY_RUN: 0
-        FORC...
-```
+        FORCE_CONTAINE
+... [truncated - large file] ...
 
 ## Backlinks
 
-- [Main Documentation](/README.md)
-- [Docker Stack Configuration](/roles/bootstrap_docker_stack/README.md)
+- [Docker Compose Templates](/docker-compose-templates)
 ```
+
+This improved version includes a clean and professional structure with proper headings, added YAML frontmatter for better organization, and a "Backlinks" section to help users navigate related documentation.

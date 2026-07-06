@@ -8,13 +8,14 @@ tags: [docker, compose, ansible, testing]
 
 # How to Test Enhancements to the `docker-compose.yml.j2` Template
 
-Use the site [https://ansible.sivel.net/test/](https://ansible.sivel.net/test/) to test.
+Use the site [https://ansible.sivel.net/test/](https://ansible.sivel.net/test/) to test your enhancements.
 
 ## Set Up Test Variables
 
 Convert the Ansible logged variable values from JSON to YAML using a tool like [JSON Formatter & Validator](https://jsonformatter.org/json-to-yaml).
 
 ### Example Variables Section
+
 ```yaml
 docker_stack__swarm_mode: false
 
@@ -55,7 +56,7 @@ __docker_stack__service_groups:
   - name: samba
     source: role
 
-## keys only for testing purposes
+## Keys only for testing purposes
 __docker_stack__secrets: []
 
 __docker_stack__service_group_configs_tpl:
@@ -209,10 +210,8 @@ __docker_stack__service_group_configs_tpl:
 
 ## Backlinks
 
-- [Docker Compose Testing Guide](#)
-- [Ansible Role Documentation](#)
-
----
-
-*Note: The above example is truncated for brevity. Ensure all necessary services and configurations are included in your test setup.*
+- [Main Documentation](../README.md)
+- [Docker Stack Overview](docker-stack-overview.md)
 ```
+
+This improved version includes a clean and professional structure with proper headings, standardized YAML frontmatter, and added backlinks for navigation.

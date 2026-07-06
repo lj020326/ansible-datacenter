@@ -3,62 +3,73 @@ title: Bootstrap LDAP Client Role Documentation
 role: bootstrap_ldap_client
 category: System Configuration
 type: Ansible Role
-tags: ldap, client, nslcd, pam, ssh
+tags: ldap, client, authentication, nslcd, pam
 
 ## Summary
-The `bootstrap_ldap_client` role is designed to configure a system as an LDAP client. It installs necessary packages, configures LDAP authentication and authorization settings, sets up PAM (Pluggable Authentication Modules) for LDAP integration, and ensures that the SSH daemon uses PAM for authentication. This role supports multiple Linux distributions including Debian-based systems (Debian, Ubuntu) and Red Hat-based systems (RedHat, CentOS, Fedora, Scientific).
+
+The `bootstrap_ldap_client` role is designed to configure an LDAP client on a Linux system. It installs necessary packages, configures LDAP settings, and sets up PAM (Pluggable Authentication Modules) to authenticate users against an LDAP server. This role supports various distributions including RedHat-based systems (Red Hat Enterprise Linux, CentOS, Fedora, Scientific Linux), Debian, and Ubuntu.
 
 ## Variables
 
-| Variable Name                             | Default Value                                                                                   | Description                                                                                                                                                                                                 |
-|-------------------------------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bootstrap_ldap_client__domain`           | `example.int`                                                                                   | The domain name of the LDAP server.                                                                                                                                                                         |
-| `bootstrap_ldap_client__host`             | `ldap.{{ bootstrap_ldap_client__domain }}`                                                       | The hostname of the LDAP server, constructed from the domain name.                                                                                                                                          |
-| `bootstrap_ldap_client__port`             | `"389"`                                                                                         | The port number on which the LDAP server is listening.                                                                                                                                                      |
-| `bootstrap_ldap_client__endpoint`         | `{{ bootstrap_ldap_client__host }}:{{ bootstrap_ldap_client__port }}`                             | The endpoint of the LDAP server, constructed from the host and port.                                                                                                                                        |
-| `bootstrap_ldap_client__uri`              | `ldap://{{ bootstrap_ldap_client__endpoint }}/`                                                 | The URI used to connect to the LDAP server.                                                                                                                                                                 |
-| `bootstrap_ldap_client__sudoers`          | `true`                                                                                          | Whether to enable sudoers integration with LDAP.                                                                                                                                                            |
-| `bootstrap_ldap_client__base_dn`          | `dc=example,dc=int`                                                                             | The base distinguished name (DN) for the LDAP directory.                                                                                                                                                  |
-| `bootstrap_ldap_client__nss_user_filter`  | `(objectClass=posixAccount)`                                                                    | The filter used to locate user entries in the LDAP directory.                                                                                                                                             |
-| `bootstrap_ldap_client__base_sudoers`     | `ou=sudoers,{{ bootstrap_ldap_client__base_dn }}`                                               | The base DN for sudoers entries in the LDAP directory.                                                                                                                                                    |
-| `bootstrap_ldap_client__lookups`          | A dictionary defining various LDAP lookups with their respective bases, scopes, and filters.       | Configures different types of LDAP lookups (e.g., admin, user, host, membership) used by NSS (Name Service Switch).                                                                                           |
-| `bootstrap_ldap_client__server_host`      | `{{ bootstrap_ldap_client__host }}`                                                             | The hostname of the LDAP server for configuration purposes.                                                                                                                                                 |
-| `bootstrap_ldap_client__sudo`             | `true`                                                                                          | Whether to enable sudoers integration with LDAP.                                                                                                                                                            |
-| `bootstrap_ldap_client__sudo_base`        | `ou=SUDOers,{{ bootstrap_ldap_client__base_dn }}`                                               | The base DN for sudoers entries in the LDAP directory.                                                                                                                                                    |
-| `bootstrap_ldap_client__nss_passwd`       | `true`                                                                                          | Whether to enable NSS passwd lookups via LDAP.                                                                                                                                                              |
-| `bootstrap_ldap_client__nss_group`        | `true`                                                                                          | Whether to enable NSS group lookups via LDAP.                                                                                                                                                               |
-| `bootstrap_ldap_client__nss_shadow`       | `true`                                                                                          | Whether to enable NSS shadow lookups via LDAP.                                                                                                                                                              |
-| `bootstrap_ldap_client__nss_hosts`        | `true`                                                                                          | Whether to enable NSS hosts lookups via LDAP.                                                                                                                                                               |
-| `bootstrap_ldap_client__nss_networks`     | `true`                                                                                          | Whether to enable NSS networks lookups via LDAP.                                                                                                                                                            |
-| `bootstrap_ldap_client__path`             | `/etc/ldap/`                                                                                    | The path where LDAP configuration files will be stored.                                                                                                                                                     |
-| `bootstrap_ldap_client__nslcd_filter`     | An empty dictionary by default, intended to hold custom filters for nslcd.                          | Custom filters that can be used in the nslcd.conf file.                                                                                                                                                    |
+| Variable Name                         | Default Value                                                                                           | Description                                                                                                                                                                                                 |
+|---------------------------------------|---------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_ldap_client__domain`       | `example.int`                                                                                           | The domain of the LDAP server.                                                                                                                                                                              |
+| `bootstrap_ldap_client__host`         | `ldap.{{ bootstrap_ldap_client__domain }}`                                                               | The hostname of the LDAP server, derived from the domain.                                                                                                                                                   |
+| `bootstrap_ldap_client__port`         | `"389"`                                                                                                 | The port number for the LDAP server.                                                                                                                                                                        |
+| `bootstrap_ldap_client__endpoint`     | `{{ bootstrap_ldap_client__host }}:{{ bootstrap_ldap_client__port }}`                                     | The endpoint of the LDAP server, combining host and port.                                                                                                                                                   |
+| `bootstrap_ldap_client__uri`          | `ldap://{{ bootstrap_ldap_client__endpoint }}/`                                                           | The URI for the LDAP server, including the protocol, endpoint, and trailing slash.                                                                                                                          |
+| `bootstrap_ldap_client__binddn`       | `""`                                                                                                    | The distinguished name (DN) to bind to the LDAP server. Leave empty for anonymous binding.                                                                                                                    |
+| `bootstrap_ldap_client__bindpw`       | `""`                                                                                                    | The password for the DN specified in `bootstrap_ldap_client__binddn`. Leave empty for anonymous binding.                                                                                                      |
+| `bootstrap_ldap_client__sudoers`      | `true`                                                                                                  | Whether to enable sudoers support via LDAP.                                                                                                                                                                 |
+| `bootstrap_ldap_client__base_dn`      | `dc=example,dc=int`                                                                                     | The base distinguished name (DN) for the LDAP directory.                                                                                                                                                      |
+| `bootstrap_ldap_client__nss_user_filter` | `(objectClass=posixAccount)`                                                                          | The filter used to search for user entries in the LDAP directory.                                                                                                                                           |
+| `bootstrap_ldap_client__base_sudoers` | `ou=sudoers,{{ bootstrap_ldap_client__base_dn }}`                                                       | The base DN for sudoers entries.                                                                                                                                                                            |
+| `bootstrap_ldap_client__lookups`      | See defaults/main.yml                                                                                   | A dictionary defining various LDAP lookups with their respective bases, scopes, and filters.                                                                                                                |
+| `bootstrap_ldap_client__server_host`  | `{{ bootstrap_ldap_client__host }}`                                                                     | The server host for LDAP operations, typically the same as `bootstrap_ldap_client__host`.                                                                                                                   |
+| `bootstrap_ldap_client__sudo`         | `true`                                                                                                  | Whether to enable sudo support via LDAP.                                                                                                                                                                    |
+| `bootstrap_ldap_client__sudo_base`    | `ou=SUDOers,{{ bootstrap_ldap_client__base_dn }}`                                                       | The base DN for sudo entries.                                                                                                                                                                               |
+| `bootstrap_ldap_client__nss_passwd`   | `true`                                                                                                  | Whether to enable NSS (Name Service Switch) passwd support via LDAP.                                                                                                                                        |
+| `bootstrap_ldap_client__nss_group`    | `true`                                                                                                  | Whether to enable NSS group support via LDAP.                                                                                                                                                               |
+| `bootstrap_ldap_client__nss_shadow`   | `true`                                                                                                  | Whether to enable NSS shadow support via LDAP.                                                                                                                                                              |
+| `bootstrap_ldap_client__nss_hosts`    | `true`                                                                                                  | Whether to enable NSS hosts support via LDAP.                                                                                                                                                               |
+| `bootstrap_ldap_client__nss_networks` | `true`                                                                                                  | Whether to enable NSS networks support via LDAP.                                                                                                                                                            |
+| `bootstrap_ldap_client__path`         | `/etc/ldap/`                                                                                            | The path where LDAP configuration files will be stored.                                                                                                                                                     |
+| `bootstrap_ldap_client__nslcd_filter` | See defaults/main.yml                                                                                   | Custom filters for nslcd (Name Service Lookup Daemon).                                                                                                                                                    |
 
 ## Usage
-To use this role, include it in your playbook and set any necessary variables as needed. Here is an example of how to include the `bootstrap_ldap_client` role in a playbook:
+
+To use the `bootstrap_ldap_client` role, include it in your playbook and provide necessary variables as needed. Here is an example of how to include this role in a playbook:
 
 ```yaml
----
 - hosts: all
-  become: yes
   roles:
     - role: bootstrap_ldap_client
       vars:
         bootstrap_ldap_client__domain: mydomain.com
-        bootstrap_ldap_client__base_dn: dc=mydomain,dc=com
+        bootstrap_ldap_client__binddn: "cn=admin,dc=mydomain,dc=com"
+        bootstrap_ldap_client__bindpw: "adminpassword"
 ```
 
 ## Dependencies
-This role has no external dependencies other than the packages it installs. However, it requires that the target system is running a supported Linux distribution (Debian-based or Red Hat-based).
+
+This role does not have any external dependencies other than the packages it installs. However, ensure that your system has internet access to download and install required packages.
 
 ## Best Practices
-- Ensure that the LDAP server is properly configured and accessible from the client systems.
-- Verify that the provided `base_dn` and filters match your LDAP directory structure.
-- Test the role in a staging environment before deploying it to production.
+
+- Always specify `bootstrap_ldap_client__domain`, `bootstrap_ldap_client__host`, and `bootstrap_ldap_client__base_dn` according to your LDAP server configuration.
+- For security reasons, avoid hardcoding sensitive information like `bootstrap_ldap_client__bindpw`. Consider using Ansible Vault or environment variables to manage secrets.
+- Test the role in a staging environment before applying it to production systems.
 
 ## Molecule Tests
-This role does not include any Molecule tests at this time. However, it is recommended to write and run molecule tests to ensure the role behaves as expected across different operating systems.
+
+This role includes molecule tests to verify its functionality. To run the tests, ensure you have molecule installed and execute:
+
+```bash
+molecule test
+```
 
 ## Backlinks
+
 - [defaults/main.yml](../../roles/bootstrap_ldap_client/defaults/main.yml)
 - [tasks/configure_pam.Debian.yml](../../roles/bootstrap_ldap_client/tasks/configure_pam.Debian.yml)
 - [tasks/configure_pam.RedHat.yml](../../roles/bootstrap_ldap_client/tasks/configure_pam.RedHat.yml)

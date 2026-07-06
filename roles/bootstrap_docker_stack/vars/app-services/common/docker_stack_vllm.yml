@@ -1,0 +1,225 @@
+---
+
+__docker_stack__vllm__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__vllm__base_dir: "{{ __docker_stack__vllm__stack_dir }}/vllm"
+
+__docker_stack__vllm__image_default: vllm/vllm-openai:latest
+#__docker_stack__vllm__image_default: vllm/vllm-openai:v0.24.0
+__docker_stack__vllm__image: "{{ docker_stack__vllm__image
+  | d(__docker_stack__vllm__image_default) }}"
+
+__docker_stack__vllm__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__vllm__host_addr_default: "vllm.{{ __docker_stack__vllm__domain }}"
+__docker_stack__vllm__host_addr: "{{ docker_stack__vllm__host_addr
+  | d(__docker_stack__vllm__host_addr_default) }}"
+
+__docker_stack__vllm__internal_http_port: 8000
+
+__docker_stack__vllm__llm_base_url_default: "http://ollama.{{
+  docker_stack__internal_domain }}:11434"
+__docker_stack__vllm__llm_base_url: "{{ docker_stack__vllm__llm_base_url
+  | d(__docker_stack__vllm__llm_base_url_default) }}"
+
+__docker_stack__vllm__http_port: "{{ docker_stack__vllm__http_port | d('8000') }}"
+
+__docker_stack__vllm__api_key: "{{ docker_stack__vllm__api_key | d('') }}"
+
+#__docker_stack__vllm__model_default: "nemoclaw"
+#__docker_stack__vllm__model_default: "Qwen/Qwen2.5-Coder-32B-Instruct"
+__docker_stack__vllm__model_default: "Qwen/Qwen2.5-Coder-32B-Instruct-AWQ"
+__docker_stack__vllm__model: "{{ docker_stack__vllm__model
+  | d(__docker_stack__vllm__model_default) }}"
+
+__docker_stack__vllm__served_model_names_default:
+  - "{{ __docker_stack__vllm__model }}"
+  - "nemoclaw"
+__docker_stack__vllm__served_model_names: "{{ docker_stack__vllm__served_model_names
+  | d(__docker_stack__vllm__served_model_names_default) }}"
+
+__docker_stack__vllm__max_model_len_default: 32768
+__docker_stack__vllm__max_model_len: "{{ docker_stack__vllm__max_model_len
+  | d(__docker_stack__vllm__max_model_len_default) }}"
+
+__docker_stack__vllm__langgraph_app_env: production
+__docker_stack__vllm__crewai_logging_level: INFO
+
+__docker_stack__vllm__vikunja_endpoint_default: "kanban.{{ docker_stack__internal_domain }}"
+__docker_stack__vllm__vikunja_endpoint: "{{ docker_stack__vllm__vikunja_endpoint
+  | d(__docker_stack__vllm__vikunja_endpoint_default) }}"
+
+__docker_stack__vllm__vikunja_api_url_default: "https://{{ __docker_stack__vllm__vikunja_endpoint }}/api/v1"
+__docker_stack__vllm__vikunja_api_url: "{{ docker_stack__vllm__vikunja_api_url
+  | d(__docker_stack__vllm__vikunja_api_url_default) }}"
+
+__docker_stack__vllm__vikunja_agent_api_token: "{{ docker_stack__vllm__vikunja_agent_api_token | d('') }}"
+__docker_stack__vllm__vikunja_agent_secret_key: "{{ docker_stack__vllm__vikunja_agent_secret_key | d('') }}"
+
+#__docker_stack__vllm__container_cache_dir_default: "/app/.cache/huggingface"
+__docker_stack__vllm__container_cache_dir_default: "/app/.cache"
+__docker_stack__vllm__container_cache_dir: "{{ docker_stack__vllm__container_cache_dir
+  | d(__docker_stack__vllm__container_cache_dir_default) }}"
+
+__docker_stack__vllm__container_config_dir_default: "/app/.config"
+__docker_stack__vllm__container_config_dir: "{{ docker_stack__vllm__container_config_dir
+  | d(__docker_stack__vllm__container_config_dir_default) }}"
+
+__docker_stack__vllm__kv_cache_dtype: "{{ docker_stack__vllm__kv_cache_dtype | d('auto') }}"
+__docker_stack__vllm__gpu_memory_utilization: "{{ docker_stack__vllm__gpu_memory_utilization | d('0.80') }}"
+__docker_stack__vllm__attention_backend: "{{ docker_stack__vllm__attention_backend | d('FLASH_ATTN') }}"
+
+## Since vllm-coder is utilizing a Qwen2.5-Coder variant, qwen is ideal.
+__docker_stack__vllm__tool_call_parser_default: "qwen_coder"
+#__docker_stack__vllm__tool_call_parser_default: "herring"
+#__docker_stack__vllm__tool_call_parser_default: "mistral"
+#__docker_stack__vllm__tool_call_parser_default: "llama"
+#__docker_stack__vllm__tool_call_parser_default: "hermes"
+__docker_stack__vllm__tool_call_parser: "{{ docker_stack__vllm__tool_call_parser
+  | d(__docker_stack__vllm__tool_call_parser_default) }}"
+
+__docker_stack__vllm__quantization_default: "awq"
+__docker_stack__vllm__quantization: "{{ docker_stack__vllm__quantization
+  | d(__docker_stack__vllm__quantization_default) }}"
+
+__docker_stack__vllm__environment_default:
+  # vLLM Engine Configuration Settings
+  VLLM_ATTENTION_BACKEND: "{{ __docker_stack__vllm__attention_backend }}"
+  VLLM_ENABLE_AUTO_TOOL_CHOICE: "true"
+  VLLM_ENFORCE_EAGER: "true"
+  VLLM_GPU_MEMORY_UTILIZATION: "{{ __docker_stack__vllm__gpu_memory_utilization }}"
+  VLLM_KV_CACHE_DTYPE: "{{ __docker_stack__vllm__kv_cache_dtype }}"
+  VLLM_MAX_MODEL_LEN: "{{ __docker_stack__vllm__max_model_len }}"
+  VLLM_MODEL: "{{ __docker_stack__vllm__model }}"
+  VLLM_QUANTIZATION: "{{ __docker_stack__vllm__quantization }}"
+  VLLM_TOOL_CALL_PARSER: "{{ __docker_stack__vllm__tool_call_parser }}"
+
+  # --- Secure the API Server ---
+  # Replace with a vault variable or secure string
+  VLLM_API_KEY: "{{ __docker_stack__vllm__api_key }}"
+
+  CUDA_VISIBLE_DEVICES: "0"
+
+  HF_HOME: "{{ __docker_stack__vllm__container_cache_dir }}"
+
+  # --- Prevents FlashInfer from trying to write to root-level /.cache ---
+  FLASHINFER_WORKSPACE_DIR: "{{ __docker_stack__vllm__container_cache_dir }}/flashinfer"
+
+  # --- Redirect Triton away from /app/.triton ---
+  TRITON_CACHE_DIR: "{{ __docker_stack__vllm__container_cache_dir }}/triton"
+
+  # --- Bypasses the PyTorch getpwuid() KeyError ---
+  USER: "{{ docker_stack__user_username }}"
+  LOGNAME: "{{ docker_stack__user_username }}"
+
+  # Vikunja Kanban Orchestration Coordinate
+  VIKUNJA_API_URL: "{{ __docker_stack__vllm__vikunja_api_url }}"
+  VIKUNJA_BEARER_TOKEN: "{{ __docker_stack__vllm__vikunja_agent_api_token }}"
+
+__docker_stack__vllm__environment: "{{ docker_stack__vllm__environment
+  | d(__docker_stack__vllm__environment_default) }}"
+
+__docker_stack__vllm__deploy_resources_standalone:
+  reservations:
+    devices:
+      - driver: nvidia
+        count: 1
+        capabilities: [gpu]
+#      - driver: nvidia
+#        # or device_ids: ["0"] if you want specific GPU
+#        count: all
+#        capabilities: [gpu]
+
+__docker_stack__vllm__deploy_resources_swarm:
+  reservations:
+    generic_resources:
+      - discrete_resource_spec:
+          kind: NVIDIA-GPU
+          value: 1
+
+__docker_stack__vllm__deploy_resources: "{{ __docker_stack__vllm__deploy_resources_swarm
+  if docker_stack__swarm_mode else __docker_stack__vllm__deploy_resources_standalone }}"
+
+__docker_stack__vllm__config_dirs:
+  - path: "{{ __docker_stack__vllm__base_dir }}"
+  - path: "{{ __docker_stack__vllm__base_dir }}/cache"
+  - path: "{{ __docker_stack__vllm__base_dir }}/config"
+
+__docker_stack__vllm__config_tpls:
+  - src: "vllm/vllm.env.j2"
+    dest: "{{ __docker_stack__vllm__base_dir }}/vllm.env"
+  - src: "vllm/config-group.conf.j2"
+    dest: "{{ __docker_stack__vllm__base_dir }}/group"
+  - src: "vllm/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__vllm__base_dir }}/passwd"
+
+__docker_stack__vllm__firewalld_ports:
+  - "{{ __docker_stack__vllm__http_port }}/tcp"
+
+__docker_stack__vllm__traefik_labels: "{{ docker_stack__vllm__traefik_labels
+  | d(__docker_stack__vllm__traefik_labels_default) }}"
+
+__docker_stack__vllm__services:
+  vllm-coder:
+    image: "{{ __docker_stack__vllm__image }}"
+    container_name: vllm-coder
+    restart: unless-stopped
+    working_dir: /app
+    user: "{{ docker_stack__user_uid | d('1000') }}:{{ docker_stack__user_gid | d('1000') }}"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    ports:
+      - "{{ __docker_stack__vllm__http_port }}:{{ __docker_stack__vllm__internal_http_port }}"
+    env_file:
+      - vllm/vllm.env
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__vllm__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__vllm__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__vllm__base_dir }}/cache:{{ __docker_stack__vllm__container_cache_dir }}"
+      - "{{ __docker_stack__vllm__base_dir }}/config:{{ __docker_stack__vllm__container_config_dir }}"
+    command: >-
+      --model {{ __docker_stack__vllm__model }}
+      --served-model-name {{ __docker_stack__vllm__served_model_names | join(' ') }}
+      --safetensors-load-strategy prefetch
+      --enable-auto-tool-choice
+      --tool-call-parser {{ __docker_stack__vllm__tool_call_parser }}
+    healthcheck:
+      test: >-
+        curl -f -H 'Authorization: Bearer "$${VLLM_API_KEY}"' http://localhost:8000/health || exit 1
+#      test: [
+#        "CMD-SHELL",
+#        "curl -f -H 'Authorization: Bearer $${VLLM_API_KEY}' http://localhost:8000/health || exit 1"
+#      ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Generous window for 32B model disk-to-VRAM transfers
+      start_period: 10m
+    labels: "{{ __docker_stack__vllm__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      # Explicitly designed to interface with the nvidia-container-toolkit CLI layer on single-node environments.
+      resources: "{{ __docker_stack__vllm__deploy_resources }}"
+
+docker_stack__appspec__vllm:
+  dirs: "{{ __docker_stack__vllm__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__vllm__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__vllm__config_tpls | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__vllm__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__vllm__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__vllm__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__vllm__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__vllm__services | d({}, true) }}"

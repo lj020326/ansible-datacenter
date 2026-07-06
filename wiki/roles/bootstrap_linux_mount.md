@@ -1,33 +1,34 @@
 ---
-title: "bootstrap_linux_mount Role Documentation"
+title: Bootstrap Linux Mount Role Documentation
 role: bootstrap_linux_mount
 category: Ansible Roles
-type: Configuration Management
-tags: linux, mount, fstab, swap, tmpfs
+type: Technical Documentation
 ---
 
 ## Summary
 
-The `bootstrap_linux_mount` role is designed to manage filesystem mounts on Linux systems. It allows users to define custom mount points and options via variables, ensuring they are correctly configured in the `/etc/fstab` file. Additionally, it provides functionality to disable system swap if required, which can be particularly useful for Kubernetes nodes.
+The `bootstrap_linux_mount` role is designed to manage and configure mount points on Linux systems using Ansible. It allows users to define custom mounts, handle swap file configurations, and ensure that these settings are correctly applied and reflected in the `/etc/fstab` file.
 
 ## Variables
 
-| Variable Name                           | Default Value                                      | Description                                                                 |
-|-----------------------------------------|----------------------------------------------------|-----------------------------------------------------------------------------|
-| `bootstrap_linux_mount__list`           | `[]`                                               | A list of dictionaries defining mount points and their properties.          |
-| `bootstrap_linux_mount__state`          | `mounted`                                          | The desired state for the mounts (e.g., mounted, present).                  |
-| `bootstrap_linux_mount__fstab`          | `/etc/fstab`                                       | Path to the fstab file where mount configurations will be written.        |
-| `bootstrap_linux_mount__backup_fstab`   | `true`                                             | Whether to back up the existing fstab file before making changes.           |
-| `bootstrap_linux_mount__disable_swap`   | `false`                                            | If set to true, disables system swap and removes swap entries from fstab.   |
-| `bootstrap_linux_mount__systemd_service_config` | `{}`                                          | Configuration for systemd services related to mounts (not used in this role).|
-| `bootstrap_linux_mount__list__tmpdir`   | `- name: "/tmp"<br>&nbsp;&nbsp;src: "tmpfs"<br>&nbsp;&nbsp;fstype: "tmpfs"<br>&nbsp;&nbsp;options: "defaults,nosuid,nodev,noexec,mode=1777"` | Default configuration for the `/tmp` directory using `tmpfs`.             |
+| Variable Name                          | Default Value                                                                                     | Description                                                                                                                                                                                                 |
+|----------------------------------------|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bootstrap_linux_mount__list`          | `[]`                                                                                            | A list of dictionaries defining mount points to be configured. Each dictionary should include keys like `name`, `src`, `fstype`, and optionally `options`, `dump`, `passno`, and `state`.               |
+| `bootstrap_linux_mount__state`         | `mounted`                                                                                         | The desired state for the mounts (e.g., `mounted`, `unmounted`).                                                                                                                                              |
+| `bootstrap_linux_mount__fstab`         | `/etc/fstab`                                                                                    | Path to the fstab file where mount points will be configured.                                                                                                                                                 |
+| `bootstrap_linux_mount__backup_fstab`  | `true`                                                                                          | Whether to back up the existing fstab file before making changes.                                                                                                                                             |
+| `bootstrap_linux_mount__disable_swap`  | `false`                                                                                         | If set to true, swap configuration will be skipped.                                                                                                                                                           |
+| `bootstrap_linux_mount__swap_disk`     | `{ file: /swap.img, size: 4G }`                                                                   | Configuration for the swap disk, including the file path and size.                                                                                                                                          |
+| `bootstrap_linux_mount__systemd_service_config` | `{}`                                                                                        | A dictionary to configure systemd services related to mounts (not used in the provided snippet).                                                                                                                |
+| `bootstrap_linux_mount__list__tmpdir`  | `- name: "/tmp"<br>- src: "tmpfs"<br>- fstype: "tmpfs"<br>- options: "defaults,nosuid,nodev,noexec,mode=1777"` | A predefined list of mount points that can be included in the `bootstrap_linux_mount__list`.                                                                                                                |
 
 ## Usage
 
 To use this role, include it in your playbook and define the necessary variables. Here is an example:
 
 ```yaml
-- hosts: all
+- name: Configure mounts on Linux systems
+  hosts: all
   roles:
     - role: bootstrap_linux_mount
       vars:
@@ -36,26 +37,19 @@ To use this role, include it in your playbook and define the necessary variables
             src: "/dev/sdb1"
             fstype: "ext4"
             options: "defaults,noatime"
-            dump: "0"
-            passno: "2"
-        bootstrap_linux_mount__disable_swap: true
+            dump: 0
+            passno: 2
 ```
-
-This example configures a mount point for `/mnt/data` and disables system swap.
 
 ## Dependencies
 
-- No external dependencies are required for this role. However, it utilizes the `ansible.posix.mount` module, which is part of the Ansible POSIX collection.
+This role does not have any external dependencies. However, it relies on the `ansible.posix.mount` module, which is part of the Ansible POSIX collection.
 
 ## Best Practices
 
-1. **Backup Fstab**: Always ensure that `bootstrap_linux_mount__backup_fstab` is set to `true` to prevent data loss in case of errors.
-2. **Disable Swap for Kubernetes Nodes**: If deploying Kubernetes nodes, consider setting `bootstrap_linux_mount__disable_swap` to `true`.
-3. **Custom Mount Options**: Use the `options`, `dump`, and `passno` parameters to fine-tune mount behavior according to your requirements.
-
-## Molecule Tests
-
-This role does not include Molecule tests at this time. However, it is recommended to write and run tests to ensure the role behaves as expected in different environments.
+- **Backup Fstab**: Always ensure that `bootstrap_linux_mount__backup_fstab` is set to `true` to prevent accidental data loss.
+- **Swap Configuration**: If you do not require swap space, set `bootstrap_linux_mount__disable_swap` to `true`.
+- **Custom Mounts**: Define all custom mounts in the `bootstrap_linux_mount__list` variable. Use the predefined list as a reference for formatting.
 
 ## Backlinks
 

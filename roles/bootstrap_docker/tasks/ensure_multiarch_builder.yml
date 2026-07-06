@@ -1,0 +1,168 @@
+---
+
+- name: Docker | Multi-Arch | Configure cross-platform QEMU emulation
+  when:
+    - bootstrap_docker__service_started | bool
+    - bootstrap_docker__qemu_packages is defined
+  block:
+    - name: Docker | Multi-Arch | Install cross-platform QEMU emulation support
+      ansible.builtin.package:
+        name: "{{ bootstrap_docker__qemu_packages }}"
+        state: present
+
+    - name: Docker | Multi-Arch | Ensure binfmt_misc kernel filesystem is mounted
+      ansible.posix.mount:
+        path: /proc/sys/fs/binfmt_misc
+        src: binfmt_misc
+        fstype: binfmt_misc
+        state: mounted
+
+    # This needs to run on BOTH RedHat and Debian to tell the kernel to load package definitions
+    - name: Docker | Multi-Arch | Restart systemd-binfmt service to load handlers
+      ansible.builtin.systemd:
+        name: systemd-binfmt
+        state: restarted
+      register: __binfmt_restart_result
+      failed_when:
+        - __binfmt_restart_result is failed
+        - "'Host is down' not in __binfmt_restart_result.msg"
+        - "'connect to system bus' not in __binfmt_restart_result.msg"
+        - "'Service is not loaded' not in __binfmt_restart_result.msg"
+
+    # Dynamic lookups: Ensure the kernel actually registered the opposite architectures
+    - name: Docker | Multi-Arch | Find registered cross-compilation kernel emulators
+      ansible.builtin.find:
+        paths: /proc/sys/fs/binfmt_misc
+        patterns: >-
+          {{
+            ['*x86*', '*amd64*']
+            if ansible_facts['architecture'] in ['aarch64', 'arm64']
+            else ['*aarch64*', '*arm*']
+          }}
+      register: __found_binfmt_handlers
+
+    # REQUIRED TASK: Forcefully register handlers into the kernel via container if systemd left it empty
+    - name: Docker | Multi-Arch | Register handlers via binfmt container if missing from kernel
+      when: __found_binfmt_handlers.matched | int == 0
+      ansible.builtin.command:
+        cmd: docker run --privileged --rm tonistiigi/binfmt --install all
+      changed_when: true
+
+    # Re-verify handlers after container registration running
+    - name: Docker | Multi-Arch | Re-verify cross-compilation kernel emulators
+      when: __found_binfmt_handlers.matched | int == 0
+      ansible.builtin.find:
+        paths: /proc/sys/fs/binfmt_misc
+        patterns: >-
+          {{
+            ['*x86*', '*amd64*']
+            if ansible_facts['architecture'] in ['aarch64', 'arm64']
+            else ['*aarch64*', '*arm*']
+          }}
+      register: __found_binfmt_handlers_retry
+
+    - name: Docker | Multi-Arch | Verify cross-compilation registration handlers exist
+      ansible.builtin.assert:
+        that: >
+          (__found_binfmt_handlers.matched | int > 0) or 
+          (__found_binfmt_handlers_retry.matched | d(0) | int > 0)
+        fail_msg: "No binfmt handlers found for cross-compiling on this {{ ansible_facts['architecture'] }} host."
+        success_msg: "Successfully verified dynamic binfmt emulation handlers are active."
+
+    # =========================================================================
+    # Generate BuildKit Configuration for Trust & Insecure Registries
+    # =========================================================================
+    - name: Docker | Multi-Arch | Create BuildKit configuration directory
+      ansible.builtin.file:
+        path: /etc/docker/buildx
+        state: directory
+        mode: '0755'
+
+    - name: Docker | Multi-Arch | Create host buildx cert directories
+      when: bootstrap_docker__docker_registries is defined
+      ansible.builtin.file:
+        path: "/etc/docker/buildx/certs.d/{{ item.endpoint }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ bootstrap_docker__docker_registries }}"
+
+    - name: Docker | Multi-Arch | Copy host registry cert chains to buildx cert context
+      ansible.builtin.copy:
+        src: "{{ bootstrap_docker__ca_local_cert_dir }}/{{ item.host }}.chain.pem"
+        dest: "/etc/docker/buildx/certs.d/{{ item.endpoint }}/ca.crt"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ bootstrap_docker__docker_registries }}"
+      when: bootstrap_docker__docker_registries is defined
+      register: __buildx_certs_copied
+
+    - name: Docker | Multi-Arch | Generate clean buildkitd configuration
+      ansible.builtin.copy:
+        dest: /etc/docker/buildx/buildkitd.toml
+        mode: '0644'
+        content: |
+          debug = true
+          
+          {% if bootstrap_docker__docker_registries is defined %}
+          {% for registry in bootstrap_docker__docker_registries %}
+          # Configuration for {{ registry.endpoint }}
+          [registry."{{ registry.endpoint }}"]
+            ca = ["/etc/docker/certs.d/{{ registry.endpoint }}/ca.crt"]
+            {% if registry.is_passthru | default(false) | bool -%}
+            http = true
+            insecure = true
+            {% endif %}
+
+          {% endfor %}
+          {% endif %}
+      register: __buildkit_toml_generated
+
+    # =========================================================================
+    # AUTOMATION: Detect if Container Needs Reconstruct
+    # =========================================================================
+    - name: Docker | Multi-Arch | Check existing buildx builders
+      ansible.builtin.command:
+        cmd: docker buildx ls
+      register: __docker_builders
+      changed_when: false
+
+    - name: Docker | Multi-Arch | Determine if builder must be reconstructed
+      ansible.builtin.set_fact:
+        __reconstruct_builder: >-
+          {{
+            ('multiarch-builder' not in __docker_builders.stdout) or
+            __buildkit_toml_generated.changed or
+            __buildx_certs_copied.changed
+          }}
+
+    - name: Docker | Multi-Arch | Tear down stale/unconfigured builder context
+      when:
+        - __reconstruct_builder | bool
+        - "'multiarch-builder' in __docker_builders.stdout"
+      ansible.builtin.command:
+        cmd: docker buildx rm multiarch-builder
+      changed_when: true
+
+    - name: Docker | Multi-Arch | Reconstruct builder with explicit config and certificate volume mounts
+      when: __reconstruct_builder | bool
+      ansible.builtin.command:
+        cmd: >
+          docker buildx create 
+          --name multiarch-builder 
+          --driver docker-container 
+          --buildkitd-config /etc/docker/buildx/buildkitd.toml 
+          --use
+      changed_when: true
+
+    - name: Docker | Multi-Arch | Ensure multiarch-builder is selected as default
+      ansible.builtin.command:
+        cmd: docker buildx use multiarch-builder
+      changed_when: false
+
+    - name: Docker | Multi-Arch | Bootstrap/Start the buildx builder instance
+      ansible.builtin.command:
+        cmd: docker buildx inspect --bootstrap
+      register: __builder_inspect
+      changed_when: "'running' not in __builder_inspect.stdout"

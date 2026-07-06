@@ -34,7 +34,7 @@ __docker_stack__networks:
 #__docker_stack__service_groups:
 #  - name: base
 #    source: role
-#  - name: llama_cppserver
+#  - name: llama
 #    source: role
 #  - name: ollama
 #    source: role

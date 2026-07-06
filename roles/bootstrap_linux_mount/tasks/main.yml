@@ -7,25 +7,6 @@
     - "{{ ansible_facts['os_family'] | lower }}.yml"
     - default.yml
 
-# --- NEW EXTENSION: AUTOMATED SWAP REMOVAL ---
-- name: Enforce Swap Absence for Kubernetes Node Topology
-  when: bootstrap_linux_mount__disable_swap | d(false) | bool
-  block:
-    - name: Disable system swap mapping in live runtime environment
-      ansible.builtin.command: swapoff -a
-      changed_when: false # Safe fallback context if already unmapped
-
-    - name: Purge /swap.img reference lines completely from fstab
-      ansible.posix.mount:
-        name: none
-        path: none
-        src: /swap.img
-        fstype: swap
-        state: absent
-        fstab: "{{ bootstrap_linux_mount__fstab }}"
-        backup: "{{ bootstrap_linux_mount__backup_fstab }}"
-# ---------------------------------------------
-
 - name: Display key parameters for {{ role_name }}
   block:
     - name: Display bootstrap_linux_mount__list
@@ -87,3 +68,90 @@
 #  vars:
 #    bootstrap_systemd_service__config_map: "{{ bootstrap_linux_mount__systemd_service_config }}"
 ##    bootstrap_systemd_service__name: nfs-server
+
+- name: Handle Swap File Configuration Space
+  when: not (bootstrap_linux_mount__disable_swap | bool)
+  block:
+    - name: Gather filesystem statistics for existing swap targets
+      ansible.builtin.stat:
+        path: "{{ bootstrap_linux_mount__swap_disk.file }}"
+        get_checksum: false
+      register: swap_file_stat
+
+    - name: Handle Swap File Size Verification and Resizing Loop
+      when: swap_file_stat.stat.exists
+      block:
+        - name: Collect target swap sizing parameters in bytes via shell math
+          ansible.builtin.shell: |
+            set -o pipefail
+            desired_bytes=$(numfmt --from=iec "{{ bootstrap_linux_mount__swap_disk.size }}")
+            echo "$desired_bytes"
+          args:
+            executable: /bin/bash
+          register: parsed_desired_size
+          changed_when: false
+
+        - name: Flag size mismatch if disk bytes do not match expected bounds
+          ansible.builtin.set_fact:
+            swap_size_mismatch: "{{ swap_file_stat.stat.size | int != parsed_desired_size.stdout | int }}"
+
+        - name: Deactivate active swap space safely if size correction is required
+          ansible.builtin.command: swapoff "{{ bootstrap_linux_mount__swap_disk.file }}"
+          when: swap_size_mismatch | bool
+          failed_when: false
+          changed_when: true
+
+        - name: Erase old undersized swap image structure to allow expansion
+          ansible.builtin.file:
+            path: "{{ bootstrap_linux_mount__swap_disk.file }}"
+            state: absent
+          when: swap_size_mismatch | bool
+
+    - name: Allocate raw storage space for the swap file image
+      ansible.builtin.command: >
+        fallocate -l {{ bootstrap_linux_mount__swap_disk.size }} {{ bootstrap_linux_mount__swap_disk.file }}
+      when: not swap_file_stat.stat.exists or (swap_size_mismatch | default(false) | bool)
+      changed_when: true
+
+    - name: Secure file permissions to prevent system data exposure
+      ansible.builtin.file:
+        path: "{{ bootstrap_linux_mount__swap_disk.file }}"
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Format the allocated space image as Linux Swap signature block
+      ansible.builtin.command: mkswap {{ bootstrap_linux_mount__swap_disk.file }}
+      when: not swap_file_stat.stat.exists or (swap_size_mismatch | default(false) | bool)
+      changed_when: true
+
+    - name: Bind swap file layout properties inside system fstab record tables
+      ansible.posix.mount:
+        path: none
+        src: "{{ bootstrap_linux_mount__swap_disk.file }}"
+        fstype: swap
+        opts: sw
+        state: present
+
+    # Skip if inside a Docker container
+    - name: Re-activate system swap space live on host
+      when: ansible_facts['virtualization_type'] | d('') != 'docker'
+      ansible.builtin.command: swapon -a
+      changed_when: false
+
+- name: Enforce Swap Absence for Kubernetes Node Topology
+  when: bootstrap_linux_mount__disable_swap | d(false) | bool
+  block:
+    - name: Disable system swap mapping in live runtime environment
+      ansible.builtin.command: swapoff -a
+      changed_when: false # Safe fallback context if already unmapped
+
+    - name: Purge /swap.img reference lines completely from fstab
+      ansible.posix.mount:
+        name: none
+        path: none
+        src: /swap.img
+        fstype: swap
+        state: absent
+        fstab: "{{ bootstrap_linux_mount__fstab }}"
+        backup: "{{ bootstrap_linux_mount__backup_fstab }}"

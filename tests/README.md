@@ -189,13 +189,17 @@ $
 ### Test site.yml with tags and limit
 
 ```shell
-$ runme.sh site.yml -t display-common-vars -l testd1s4.example.int
-$ runme.sh site.yml -t display-common-vars -l admin01
-$ runme.sh site.yml -t display-common-vars -l testgroup
-$ runme.sh site.yml -t display-controller-vars
-$ runme.sh site.yml -t bootstrap-ntp -l testgroup
-$ runme.sh site.yml -t bootstrap-docker -l docker
-$ runme.sh site.yml -t bootstrap-docker-stack
+$ runme.sh -l localhost test-export-dicts.yml
+$ runme.sh -l localhost test-debug-sanitized.yml
+$ UPGRADE_GALAXY_COLLECTIONS=1 runme.sh -l localhost test-debug-sanitized.yml
+$ FORCE_GALAXY_COLLECTIONS= 1 UPGRADE_GALAXY_COLLECTIONS=1 runme.sh -l localhost test-debug-sanitized.yml
+$ runme.sh -t display-common-vars -l testd1s4.example.int site.yml
+$ runme.sh -t display-common-vars -l admin01 site.yml
+$ runme.sh -t display-common-vars -l testgroup site.yml
+$ runme.sh -t display-controller-vars site.yml
+$ runme.sh -t bootstrap-ntp -l testgroup site.yml
+$ runme.sh -t bootstrap-docker -l docker site.yml
+$ runme.sh -t bootstrap-docker-stack site.yml
 ```
 
 ## Test Inventory Checks 
@@ -324,6 +328,8 @@ $ tests/molecule_exec.sh systemd-python-ubuntu:22.04 --debug converge
 ```
 
 ```shell
+runme.sh test-export-dicts.yml -l localhost
+runme.sh test-debug-sanitized.yml -l localhost
 runme.sh deploy-cacerts.yml -l admin01
 runme.sh bootstrap_ansible.yml -l admin01
 runme.sh bootstrap-docker-stack -l admin03

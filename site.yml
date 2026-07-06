@@ -83,10 +83,10 @@
     - always
     - display-common-vars
     - display-network-vars
-  vars:
-    ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ os_build_user }}"
-    ansible_password: "{{ os_build_user_password }}"
+#  vars:
+#    ansible_python_interpreter: "{{ os_python_interpreter }}"
+#    ansible_user: "{{ os_build_user }}"
+#    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
@@ -105,6 +105,7 @@
         msg:
           - netbase_hostname={{ netbase_hostname }}
           - internal_domain={{ internal_domain }}
+          - internal_subdomain={{ internal_subdomain | d('') }}
           - ldap_internal_domain={{ ldap_internal_domain }}
           - ldap_internal_domain_parts={{ ldap_internal_domain_parts }}
           - ldap_internal_base_dn={{ ldap_internal_base_dn }}
@@ -115,10 +116,10 @@
   tags:
     - always
     - display-collection-versions
-  vars:
-    ansible_python_interpreter: "{{ os_python_interpreter }}"
-    ansible_user: "{{ os_build_user }}"
-    ansible_password: "{{ os_build_user_password }}"
+#  vars:
+#    ansible_python_interpreter: "{{ os_python_interpreter }}"
+#    ansible_user: "{{ os_build_user }}"
+#    ansible_password: "{{ os_build_user_password }}"
   tasks:
     - name: "Display important collection versions" # noqa run-once[task]
       run_once: true
@@ -141,6 +142,36 @@
           - "cyberark.conjur version={{ lookup('community.general.collection_version', 'cyberark.conjur') }}"
           - "cyberark.pas version={{ lookup('community.general.collection_version', 'cyberark.pas') }}"
           - "microsoft.ad version={{ lookup('community.general.collection_version', 'microsoft.ad') }}"
+
+- name: "Display remote ansible environment info"
+  hosts: os_linux,!host_offline
+  tags:
+    - always
+  tasks:
+
+    - name: "Display remote ansible environment info"
+      ansible.builtin.debug:
+        msg:
+          - ansible_user={{ ansible_user | d('') }}
+          - ansible_python_interpreter={{ ansible_python_interpreter | d('') }}
+          - ansible_virtualenv_python_interpreter={{ ansible_virtualenv_python_interpreter | d('') }}
+          - ansible_facts.env.PATH={{ ansible_facts.env.PATH | d('') }}
+          - ansible_connection={{ ansible_connection | d('') }}
+          - ansible_facts['hostname']={{ ansible_facts['hostname'] | d('') }}
+          - ansible_facts['port']={{ ansible_facts['port'] | d('') }}
+          - ansible_facts['fqdn']={{ ansible_facts['fqdn'] | d('') }}
+          - ansible_facts['default_ipv4']['address']={{ ansible_facts['default_ipv4']['address']
+              | d(ansible_facts['all_ipv4_addresses'][0]) | d('') }}
+          - ansible_facts['architecture']={{ ansible_facts['architecture'] | d('') }}
+          - ansible_facts['virtualization_type']={{ ansible_facts['virtualization_type'] | d('') }}
+          - ansible_facts['virtualization_role']={{ ansible_facts['virtualization_role'] | d('') }}
+          - ansible_facts['os_family']={{ ansible_facts['os_family'] | d('') }}
+          - ansible_facts['distribution']={{ ansible_facts['distribution'] | d('') }}
+          - ansible_facts['distribution_release']={{ ansible_facts['distribution_release'] | d('') }}
+          - ansible_facts['distribution_major_version']={{ ansible_facts['distribution_major_version'] | d('') }}
+          - ansible_facts['distribution_version']={{ ansible_facts['distribution_version'] | d('') }}
+          - inventory_hostname={{ inventory_hostname | d('') }}
+          - inventory_hostname_short={{ inventory_hostname_short | d('') }}
 
 - name: "Display tower vars"
 #  hosts: ansible_localhost
@@ -574,11 +605,11 @@
   gather_facts: true
   become: true
   remote_user: "{{ os_build_user }}"
-  vars:
-#    ansible_ssh_user: "{{ os_build_user }}"
-    ansible_user: "{{ os_build_user }}"
-    ansible_password: "{{ os_build_user_password }}"
-    ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+#  vars:
+##    ansible_ssh_user: "{{ os_build_user }}"
+#    ansible_user: "{{ os_build_user }}"
+#    ansible_password: "{{ os_build_user_password }}"
+#    ansible_ssh_common_args: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   tags:
 #    - bootstrap-linux
     - bootstrap-linux-user
@@ -594,14 +625,18 @@
   tags:
     - bootstrap-ansible-venv
     - bootstrap-pip
-    - bootstrap-linux-docker
 #    - bootstrap-linux
+    - bootstrap-linux-docker
     - bootstrap-docker
+    - bootstrap-vm-template
     - vm-template
     - vm-template-linux
   become: true
   vars:
     ansible_python_interpreter: "{{ os_python_interpreter }}"
+    ansible_become: true
+    ansible_become_user: root
+    ansible_become_method: ansible.builtin.sudo
     bootstrap_pip__env_force_rebuild: false
   roles:
     - role: bootstrap_pip
@@ -994,6 +1029,15 @@
   tags:
     - bootstrap-docker-llm
     - docker-llm-host
+  become: true
+  roles:
+    - role: bootstrap_docker_stack
+
+- name: "Bootstrap docker vLLM hosts"
+  hosts: docker_stack_vllm,!host_offline
+  tags:
+    - bootstrap-docker-vllm
+    - docker-vllm-host
   become: true
   roles:
     - role: bootstrap_docker_stack

@@ -90,6 +90,12 @@ __docker_stack__traefik__image: "{{ docker_stack__traefik__image | d(__docker_st
 #__docker_stack__base__socket_image: fluencelabs/docker-socket-proxy:latest
 __docker_stack__base__socket_image: tecnativa/docker-socket-proxy:latest
 
+#__docker_stack__base__whoami_image: containous/whoami
+#__docker_stack__base__whoami_image: traefik/whoami:v1.11
+__docker_stack__base__whoami_image: traefik/whoami:latest
+
+__docker_stack__base__certdumper_image: humenius/traefik-certs-dumper:latest
+
 ######
 ## 'sts' tag resolves portainer image details/console access issue WRT docker v26.*
 ## ref: https://github.com/portainer/portainer/issues/11436
@@ -180,8 +186,8 @@ __docker_stack__base__config_tpls:
     dest: "{{ __docker_stack__traefik__dir }}/rules/certs-traefik.yml"
   - src: traefik/rules/tls-opts.yml.j2
     dest: "{{ __docker_stack__traefik__dir }}/rules/tls-opts.yml"
-  - src: docker-gc-exclude.conf.j2
-    dest: "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude"
+#  - src: docker-gc-exclude.conf.j2
+#    dest: "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude"
   - src: socket_proxy/socket-proxy.env.j2
     dest: "{{ __docker_stack__base__stack_dir }}/socket_proxy/socket-proxy.env"
   - src: watchtower/watchtower.env.j2
@@ -198,7 +204,7 @@ __docker_stack__base__config_dirs:
   - path: "{{ __docker_stack__base__stack_dir }}/dynamic"
   - path: "{{ __docker_stack__base__stack_dir }}/shared"
   - path: "{{ __docker_stack__base__stack_dir }}/shared/certs"
-  - path: "{{ __docker_stack__base__stack_dir }}/docker-gc"
+#  - path: "{{ __docker_stack__base__stack_dir }}/docker-gc"
   - path: "{{ __docker_stack__base__stack_dir }}/portainer"
   - path: "{{ __docker_stack__base__stack_dir }}/portainer/data"
   - path: "{{ __docker_stack__base__stack_dir }}/socket_proxy"
@@ -515,7 +521,7 @@ __docker_stack__base__services_internal:
   #  X-Forwarded-Server: 85b516941465
   #  X-Real-Ip: 172.19.0.1
   whoami:
-    image: containous/whoami
+    image: "{{ __docker_stack__base__whoami_image }}"
     container_name: whoami
     #    hostname: "whoami"
     networks:
@@ -576,36 +582,36 @@ __docker_stack__base__services_internal:
   #        max_attempts: 3
   #        window: 120s
 
-  # Docker-GC - Automatic Docker Garbage Collection
-  # Create docker-gc-exclude file
-  dockergc:
-    image: "{{ __docker_stack__base__gc_image }}"
-    container_name: docker-gc
-    restart: unless-stopped
-    networks:
-      - "{{ docker_stack__network_name__socket_proxy }}"
-    depends_on:
-      - socket-proxy
-    volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock # Use Docker Socket Proxy instead for improved security
-      ## https://github.com/clockworksoul/docker-gc-cron
-      - "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude:/etc/docker-gc-exclude"
-    environment:
-      CRON: 0 0 0 * * ? # Everyday at midnight. Previously 0 0 * * *
-      FORCE_IMAGE_REMOVAL: 1
-      FORCE_CONTAINER_REMOVAL: 0
-      GRACE_PERIOD_SECONDS: 604800
-      DRY_RUN: 0
-      CLEAN_UP_VOLUMES: 1
-      TZ: "{{ docker_stack__timezone }}"
-      DOCKER_HOST: tcp://socket-proxy:2375
-    deploy:
-      mode: global
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 3
-        window: 120s
+#  # Docker-GC - Automatic Docker Garbage Collection
+#  # Create docker-gc-exclude file
+#  dockergc:
+#    image: "{{ __docker_stack__base__gc_image }}"
+#    container_name: docker-gc
+#    restart: unless-stopped
+#    networks:
+#      - "{{ docker_stack__network_name__socket_proxy }}"
+#    depends_on:
+#      - socket-proxy
+#    volumes:
+#      # - /var/run/docker.sock:/var/run/docker.sock # Use Docker Socket Proxy instead for improved security
+#      ## https://github.com/clockworksoul/docker-gc-cron
+#      - "{{ __docker_stack__base__stack_dir }}/docker-gc/docker-gc-exclude:/etc/docker-gc-exclude"
+#    environment:
+#      CRON: 0 0 0 * * ? # Everyday at midnight. Previously 0 0 * * *
+#      FORCE_IMAGE_REMOVAL: 1
+#      FORCE_CONTAINER_REMOVAL: 0
+#      GRACE_PERIOD_SECONDS: 604800
+#      DRY_RUN: 0
+#      CLEAN_UP_VOLUMES: 1
+#      TZ: "{{ docker_stack__timezone }}"
+#      DOCKER_HOST: tcp://socket-proxy:2375
+#    deploy:
+#      mode: global
+#      restart_policy:
+#        condition: on-failure
+#        delay: 10s
+#        max_attempts: 3
+#        window: 120s
 
   ## ref: https://blog.antosubash.com/posts/setup-traefik-docker
   ## ref: https://stackoverflow.com/questions/64735377/deploy-portainer-portainer-agent-using-docker-compose
@@ -641,6 +647,9 @@ __docker_stack__base__services_internal:
     image: "{{ __docker_stack__base__portainer_image }}"
     container_name: portainer
     restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__docker_group_gid | d(docker_stack__user_gid) }}"
+#    group_add:
+#      - "{{ docker_stack__docker_group_gid }}"
     #    command: -H unix:///var/run/docker.sock # # Use Docker Socket Proxy instead for improved security
     #    command: -H tcp://socket-proxy:2375 # appears to not work. Workaround was to create a new socket-proxy:2375 endpoint on portainer settings
     command: -H tcp://tasks.portainer-agent:9001 --tlsskipverify
@@ -727,7 +736,7 @@ __docker_stack__base__services_external:
   # Traefik Certs Dumper - Extract LetsEncrypt Certificates - Traefik2 Compatible
   certdumper:
     container_name: traefik_certdumper
-    image: humenius/traefik-certs-dumper:latest
+    image: "{{ __docker_stack__base__certdumper_image }}"
     #    network_mode: none
     networks:
       - "{{ docker_stack__network_name__default }}"

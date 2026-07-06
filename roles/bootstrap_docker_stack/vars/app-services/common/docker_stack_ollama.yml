@@ -23,6 +23,10 @@ __docker_stack__ollama__ollama_host_default: "host.docker.internal"
 __docker_stack__ollama__ollama_host: "{{ docker_stack__ollama__ollama_host
   | d(__docker_stack__ollama__ollama_host_default) }}"
 
+__docker_stack__ollama__container_home_dir_default: "/ollama"
+__docker_stack__ollama__container_home_dir: "{{ docker_stack__ollama__container_home_dir
+  | d(__docker_stack__ollama__container_home_dir_default) }}"
+
 __docker_stack__ollama__environment_default:
   OLLAMA_HOST: "0.0.0.0:{{ __docker_stack__ollama__internal_http_port }}"
   # OLLAMA_ORIGINS: "http://{{ __docker_stack__ollama__host_addr }};http://{{ ansible_facts['default_ipv4'].address }};http://localhost:8080;http://127.0.0.1"
@@ -35,12 +39,18 @@ __docker_stack__ollama__environment_default:
   # OR Ensure OLLAMA_MAX_LOADED_MODELS=1 to force Ollama to unload current model before loading another model
   # OLLAMA_MAX_LOADED_MODELS: 1
 
+  OLLAMA_MODELS: "{{ __docker_stack__ollama__container_home_dir }}/.ollama/models"
+
+  # Change this from /root to /ollama
+  HOME: "{{ __docker_stack__ollama__container_home_dir }}"
+
 __docker_stack__ollama__environment: "{{ docker_stack__ollama__environment
   | d(__docker_stack__ollama__environment_default) }}"
 
 __docker_stack__ollama__config_dirs:
   - path: "{{ __docker_stack__ollama__base_dir }}"
   - path: "{{ __docker_stack__ollama__data_dir }}"
+  - path: "{{ __docker_stack__ollama__data_dir }}/.ollama/models"
 
 __docker_stack__ollama__config_tpls:
   - src: ollama/ollama.env.j2
@@ -57,9 +67,6 @@ docker_stack__appspec__ollama:
   firewalld_services: "{{ __docker_stack__ollama__firewalld_services | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__ollama__firewalld_ports | d([], true) }}"
   docker_services: "{{ __docker_stack__ollama__services | d({}, true) }}"
-
-__docker_stack__ollama__traefik_labels: "{{ docker_stack__ollama__traefik_labels
-  | d(__docker_stack__ollama__traefik_labels_default) }}"
 
 __docker_stack__ollama__deploy_resources_standalone:
   reservations:
@@ -90,12 +97,13 @@ __docker_stack__ollama__services:
     env_file:
       - ollama/ollama.env
     restart: unless-stopped
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
     volumes:
-#      - /etc/timezone:/etc/timezone:ro
-#      - /etc/localtime:/etc/localtime:ro
-      - "{{ __docker_stack__ollama__data_dir }}:/root/.ollama"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__ollama__data_dir }}:{{ __docker_stack__ollama__container_home_dir }}"
     ports:
       - "{{ __docker_stack__ollama__http_port }}:{{ __docker_stack__ollama__internal_http_port }}"
 #    devices: "{{ __docker_stack__ollama__deploy_resources }}"

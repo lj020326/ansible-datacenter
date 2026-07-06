@@ -6,6 +6,7 @@ This repository provides a `site.yml` playbook to configure a multi-OS datacente
 * [Summary](#summary)
 * [CI Status](#ci-status)
 * [Wiki](#wiki)
+* [Repository architectural conventions](#repository-architectural-conventions)
 * [Linux OS Platform Molecule Tests](#linux-os-platform-molecule-tests)
 * [Ansible Developer Environment](#ansible-developer-environment)
 * [Prerequisites](#prerequisites)
@@ -50,7 +51,7 @@ Note the following architectural conventions used within this repository:
 - **Loop Controls:** When looping over `ansible.builtin.include_tasks`, always explicitly define the loop variable using `loop_control.loop_var`. This prevents implicit namespace collisions with the default `item` variable.
 - **Inventory Decoupling:** Ansible roles must be completely divorced from inventory-specific architecture. Relying on explicit group facts or magic variables (e.g., `groups`, `group_names`) inside a role is considered bad practice. Design roles to depend strictly on input parameters and role-specific defaults to ensure maximum portability.
 - **Configuration Desensitization:** Default variables within roles must never contain environment-specific or production data. Real-world implementation details must be replaced with neutral, generic defaults (e.g., setting `role_name__domain_name` to `example.com` or `example.int` rather than an actual corporate domain). Actual environmental configurations belong in the inventory, while sensitive secrets belong exclusively in the Ansible Vault.
-- **Role Parameterization & Topology Toggling:** Roles responsible for handling multi-tiered or heterogeneous architectures (e.g., master/worker, server/client, leader/follower) must remain topology-agnostic. Instead of checking inventory groups directly within the tasks, the role must expose a clear behavior-toggling input variable (e.g., `role_name__node_type: "client"`). The responsibility of assigning these types falls entirely on the inventory's `group_vars` (e.g., leveraging child group variable overrides so that a `postfix_server` group overrides the defaults of a parent `postfix_network` group).
+- **Role Parameterization & Topology Toggling:** Roles responsible for handling multi-tiered or heterogeneous architectures (e.g., controller/worker, primary/secondary, server/client, leader/follower) must remain topology-agnostic. Instead of checking inventory groups directly within the tasks, the role must expose a clear behavior-toggling input variable (e.g., `role_name__node_type: "client"`). The responsibility of assigning these types falls entirely on the inventory's `group_vars` (e.g., leveraging child group variable overrides so that a `postfix_server` group overrides the defaults of a parent `postfix_network` group).
 
 ---
 
