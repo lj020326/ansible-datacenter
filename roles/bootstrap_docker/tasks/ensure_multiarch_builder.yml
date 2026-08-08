@@ -41,12 +41,17 @@
           }}
       register: __found_binfmt_handlers
 
-    # REQUIRED TASK: Forcefully register handlers into the kernel via container if systemd left it empty
+    # Clean Host Kernel Emulation Layer Setup
     - name: Docker | Multi-Arch | Register handlers via binfmt container if missing from kernel
       when: __found_binfmt_handlers.matched | int == 0
-      ansible.builtin.command:
-        cmd: docker run --privileged --rm tonistiigi/binfmt --install all
-      changed_when: true
+      community.docker.docker_container:
+        name: binfmt_installer
+        image: tonistiigi/binfmt
+        command: --install arm64
+        privileged: true
+        cleanup: true
+        detach: false
+        state: started
 
     # Re-verify handlers after container registration running
     - name: Docker | Multi-Arch | Re-verify cross-compilation kernel emulators
@@ -64,7 +69,7 @@
     - name: Docker | Multi-Arch | Verify cross-compilation registration handlers exist
       ansible.builtin.assert:
         that: >
-          (__found_binfmt_handlers.matched | int > 0) or 
+          (__found_binfmt_handlers.matched | int > 0) or
           (__found_binfmt_handlers_retry.matched | d(0) | int > 0)
         fail_msg: "No binfmt handlers found for cross-compiling on this {{ ansible_facts['architecture'] }} host."
         success_msg: "Successfully verified dynamic binfmt emulation handlers are active."
@@ -81,7 +86,7 @@
     - name: Docker | Multi-Arch | Create host buildx cert directories
       when: bootstrap_docker__docker_registries is defined
       ansible.builtin.file:
-        path: "/etc/docker/buildx/certs.d/{{ item.endpoint }}"
+        path: "{{ bootstrap_docker__buildkit_certs_dir }}/{{ item.endpoint }}"
         state: directory
         mode: '0755'
       loop: "{{ bootstrap_docker__docker_registries }}"
@@ -89,7 +94,7 @@
     - name: Docker | Multi-Arch | Copy host registry cert chains to buildx cert context
       ansible.builtin.copy:
         src: "{{ bootstrap_docker__ca_local_cert_dir }}/{{ item.host }}.chain.pem"
-        dest: "/etc/docker/buildx/certs.d/{{ item.endpoint }}/ca.crt"
+        dest: "{{ bootstrap_docker__buildkit_certs_dir }}/{{ item.endpoint }}/ca.crt"
         remote_src: true
         owner: root
         group: root
@@ -104,12 +109,12 @@
         mode: '0644'
         content: |
           debug = true
-          
+
           {% if bootstrap_docker__docker_registries is defined %}
           {% for registry in bootstrap_docker__docker_registries %}
           # Configuration for {{ registry.endpoint }}
           [registry."{{ registry.endpoint }}"]
-            ca = ["/etc/docker/certs.d/{{ registry.endpoint }}/ca.crt"]
+            ca = ["{{ bootstrap_docker__buildkit_certs_dir }}/{{ registry.endpoint }}/ca.crt"]
             {% if registry.is_passthru | default(false) | bool -%}
             http = true
             insecure = true
@@ -118,51 +123,162 @@
           {% endfor %}
           {% endif %}
       register: __buildkit_toml_generated
+      notify: Docker | Restart buildkit
+
+    - name: Docker | Multi-Arch | Flush handlers to ensure BuildKit is running with the clean configuration
+      ansible.builtin.meta: flush_handlers
 
     # =========================================================================
-    # AUTOMATION: Detect if Container Needs Reconstruct
+    # APPROACH A: Permanent System Service (PREFERRED DEFAULT)
     # =========================================================================
-    - name: Docker | Multi-Arch | Check existing buildx builders
-      ansible.builtin.command:
-        cmd: docker buildx ls
-      register: __docker_builders
-      changed_when: false
+    - name: Docker | Multi-Arch | Setup Systemd Service Approach
+      when: bootstrap_docker__multiarch_builder_driver == "service"
+      block:
+        - name: Docker | Multi-Arch (Service) | Download and unarchive BuildKit binaries
+          ansible.builtin.unarchive:
+            src: "{{ bootstrap_docker__buildkit_url }}"
+            dest: /usr/local/bin
+            remote_src: true
+            extra_opts: [--strip-components=1]
+            creates: /usr/local/bin/buildkitd
 
-    - name: Docker | Multi-Arch | Determine if builder must be reconstructed
-      ansible.builtin.set_fact:
-        __reconstruct_builder: >-
-          {{
-            ('multiarch-builder' not in __docker_builders.stdout) or
-            __buildkit_toml_generated.changed or
-            __buildx_certs_copied.changed
-          }}
+        - name: Docker | Multi-Arch (Service) | Deploy Systemd Unit File
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/buildkit.service
+            mode: '0644'
+            content: |
+              [Unit]
+              Description=BuildKit
+              Documentation=https://github.com/moby/buildkit
+              After=docker.service binfmt-support.service
 
-    - name: Docker | Multi-Arch | Tear down stale/unconfigured builder context
-      when:
-        - __reconstruct_builder | bool
-        - "'multiarch-builder' in __docker_builders.stdout"
-      ansible.builtin.command:
-        cmd: docker buildx rm multiarch-builder
-      changed_when: true
+              [Service]
+              Type=notify
+              ExecStart=/usr/local/bin/buildkitd --config /etc/docker/buildx/buildkitd.toml
+              ExecStartPost=/usr/bin/timeout 5 sh -c 'while [ ! -S /run/buildkit/buildkitd.sock ]; do sleep 0.2; done; chgrp docker /run/buildkit/buildkitd.sock && chmod 0660 /run/buildkit/buildkitd.sock'
+              KillMode=process
+              Delegate=yes
+              LimitNOFILE=infinity
+              LimitNPROC=infinity
 
-    - name: Docker | Multi-Arch | Reconstruct builder with explicit config and certificate volume mounts
-      when: __reconstruct_builder | bool
-      ansible.builtin.command:
-        cmd: >
-          docker buildx create 
-          --name multiarch-builder 
-          --driver docker-container 
-          --buildkitd-config /etc/docker/buildx/buildkitd.toml 
-          --use
-      changed_when: true
+              [Unit]
+              Requires=docker.socket
 
-    - name: Docker | Multi-Arch | Ensure multiarch-builder is selected as default
-      ansible.builtin.command:
-        cmd: docker buildx use multiarch-builder
-      changed_when: false
+              [Install]
+              WantedBy=multi-user.target
+          register: __buildkit_service_file
 
-    - name: Docker | Multi-Arch | Bootstrap/Start the buildx builder instance
-      ansible.builtin.command:
-        cmd: docker buildx inspect --bootstrap
-      register: __builder_inspect
-      changed_when: "'running' not in __builder_inspect.stdout"
+        - name: Docker | Multi-Arch (Service) | Force daemon-reload if service modified
+          when: __buildkit_service_file.changed # noqa: no-handler
+          ansible.builtin.systemd:
+            daemon_reload: true
+
+        - name: Docker | Multi-Arch (Service) | Ensure BuildKit daemon is enabled and running
+          ansible.builtin.systemd:
+            name: buildkit
+            state: "{{ 'restarted' if __buildkit_toml_generated.changed else 'started' }}"
+            enabled: true
+
+        - name: Docker | Multi-Arch (Service) | Get list of existing buildx builders
+          ansible.builtin.command: docker buildx ls
+          register: buildx_ls
+          changed_when: false
+
+        - name: Docker | Multi-Arch (Service) | Clean container builder if shifting driver patterns
+          when: "'multiarch-builder' in buildx_ls.stdout"
+          ansible.builtin.command: docker buildx rm multiarch-builder
+          changed_when: true
+
+        - name: Docker | Multi-Arch (Service) | Clear conflicting buildx context if it exists without correct constraints
+          when: "'systemd-builder' in buildx_ls.stdout"
+          ansible.builtin.command: docker buildx rm systemd-builder
+          changed_when: true
+
+        - name: Docker | Multi-Arch (Service) | Create multiarch remote buildx builder context
+          ansible.builtin.command: >
+            docker buildx create --name systemd-builder
+            --driver remote
+            --platform linux/amd64,linux/arm64
+            unix:///run/buildkit/buildkitd.sock
+            --use
+          register: create_builder
+          changed_when: true
+
+        - name: Docker | Multi-Arch (Service) | Bootstrap and validate the new buildx context
+          ansible.builtin.command: docker buildx inspect --bootstrap
+          register: bootstrap_output
+          changed_when: false
+
+        - name: Docker | Multi-Arch (Service) | Fail if arm64 is missing from verified platforms list
+          ansible.builtin.fail:
+            msg: "BuildKit failed to bootstrap with arm64 support! Current output: {{ bootstrap_output.stdout }}"
+          when: "'linux/arm64*' not in bootstrap_output.stdout"
+
+        - name: Docker | Multi-Arch (Service) | Ensure systemd-builder is selected as active default
+          ansible.builtin.command:
+            cmd: docker buildx use systemd-builder
+          changed_when: false
+
+    # =========================================================================
+    # APPROACH B: Isolated Docker-Container Fallback
+    # =========================================================================
+    - name: Docker | Multi-Arch | Setup Container Driver Approach
+      when: bootstrap_docker__multiarch_builder_driver == "container"
+      block:
+        - name: Docker | Multi-Arch (Container) | Stop and disable host service if running
+          ansible.builtin.systemd:
+            name: buildkit
+            state: stopped
+            enabled: false
+          failed_when: false
+
+        - name: Docker | Multi-Arch (Container) | Check existing buildx builders
+          ansible.builtin.command:
+            cmd: docker buildx ls
+          register: __docker_builders
+          changed_when: false
+
+        - name: Docker | Multi-Arch (Container) | Clean systemd builder if shifting patterns
+          when: "'systemd-builder' in __docker_builders.stdout"
+          ansible.builtin.command:
+            cmd: docker buildx rm systemd-builder
+          changed_when: true
+
+        - name: Docker | Multi-Arch (Container) | Determine if builder must be reconstructed
+          ansible.builtin.set_fact:
+            __reconstruct_builder: >-
+              {{
+                ('multiarch-builder' not in __docker_builders.stdout) or
+                __buildkit_toml_generated.changed or
+                __buildx_certs_copied.changed
+              }}
+
+        - name: Docker | Multi-Arch (Container) | Tear down stale/unconfigured builder context
+          when:
+            - __reconstruct_builder | bool
+            - "'multiarch-builder' in __docker_builders.stdout"
+          ansible.builtin.command:
+            cmd: docker buildx rm multiarch-builder
+          changed_when: true
+
+        - name: Docker | Multi-Arch (Container) | Reconstruct builder with explicit config and certificate volume mounts
+          when: __reconstruct_builder | bool
+          ansible.builtin.command:
+            cmd: >
+              docker buildx create
+              --name multiarch-builder
+              --driver docker-container
+              --buildkitd-config /etc/docker/buildx/buildkitd.toml
+              --use
+          changed_when: true
+
+        - name: Docker | Multi-Arch (Container) | Ensure multiarch-builder is selected as default
+          ansible.builtin.command:
+            cmd: docker buildx use multiarch-builder
+          changed_when: false
+
+        - name: Docker | Multi-Arch (Container) | Bootstrap/Start the buildx builder instance
+          ansible.builtin.command:
+            cmd: docker buildx inspect --bootstrap
+          register: __builder_inspect
+          changed_when: "'running' not in __builder_inspect.stdout"

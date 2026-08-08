@@ -285,7 +285,7 @@ you're attempting to use OverlayFS inside of the LXC container), set
 Contributors
 ------------
 
-Musee Ullah ([@lae](https://github.com/lae), <lae@lae.is>)  
+Musee Ullah ([@lae](https://github.com/lae), <lae@lae.is>)
 Wilmar den Ouden ([@wilmardo](https://github.com/wilmardo))
 
 Stability

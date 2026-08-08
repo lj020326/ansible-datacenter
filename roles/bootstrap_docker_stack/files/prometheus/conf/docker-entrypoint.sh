@@ -45,4 +45,3 @@ mv /tmp/weave-cortex.yml /etc/prometheus/weave-cortex.yml
 set -- /bin/prometheus "$@"
 
 exec "$@"
-

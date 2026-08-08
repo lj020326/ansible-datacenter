@@ -221,6 +221,7 @@
     label: "{{ item.name | d(item) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set the common app services vars"
+  no_log: true
   #  when: item.source | d('role') == 'role'
 #  when: (role_path + '/vars/app-services/common/docker_stack_' + item.name + '.yml') is file
   ansible.builtin.include_vars: app-services/common/docker_stack_{{ item.name }}.yml
@@ -379,7 +380,7 @@
   when: __docker_stack__app_configs[item.name].dirs | d([], true) | length > 0
   ansible.builtin.set_fact:
     __docker_stack__app_config_dirs: "{{ (__docker_stack__app_config_dirs | d([], true) +
-      __docker_stack__app_configs[item.name].dirs | d([], true)) | unique }}"
+      __docker_stack__app_configs[item.name].dirs | d([], true)) | unique | sort(attribute='path') }}"
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
     label: "{{ item.name }}"
@@ -397,7 +398,7 @@
   when: __docker_stack__app_configs[item.name].files | d([], true) | length > 0
   ansible.builtin.set_fact:
     __docker_stack__app_config_files: "{{ (__docker_stack__app_config_files | d([], true) +
-      __docker_stack__app_configs[item.name].files | d([], true)) | unique }}"
+      __docker_stack__app_configs[item.name].files | d([], true)) | unique | sort(attribute='dest') }}"
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
     label: "{{ item.name }}"
@@ -407,22 +408,22 @@
     var: __docker_stack__app_config_files
     verbosity: 1
 
-- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_tpls"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__app_config_templates"
   ansible.builtin.set_fact:
-    __docker_stack__app_config_tpls: "{{ docker_stack__config_tpls | d([], true) }}"
+    __docker_stack__app_config_templates: "{{ docker_stack__config_templates | d([], true) }}"
 
-- name: "{{ __docker_stack__log_prefix__init_vars }} Add service templates to __docker_stack__app_config_tpls"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Add service templates to __docker_stack__app_config_templates"
   when: __docker_stack__app_configs[item.name].templates | d([], true) | length > 0
   ansible.builtin.set_fact:
-    __docker_stack__app_config_tpls: "{{ (__docker_stack__app_config_tpls | d([], true) +
+    __docker_stack__app_config_templates: "{{ (__docker_stack__app_config_templates | d([], true) +
       __docker_stack__app_configs[item.name].templates | d([], true)) | unique }}"
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
     label: "{{ item.name }}"
 
-- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_tpls"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_config_templates"
   ansible.builtin.debug:
-    var: __docker_stack__app_config_tpls
+    var: __docker_stack__app_config_templates
     verbosity: 1
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Init __docker_stack__service_group_configs_tpl"
@@ -440,7 +441,7 @@
     label: "{{ item.name }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__base__services"
-  ansible.builtin.debug:
+  dettonville.utils.debug_sanitized:
     var: __docker_stack__base__services
     verbosity: 1
 

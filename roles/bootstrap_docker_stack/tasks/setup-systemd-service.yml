@@ -4,24 +4,37 @@
   ansible.builtin.include_role:
     name: bootstrap_systemd_service
   vars:
-    bootstrap_systemd_service__name: docker-compose-{{ docker_stack__dir | replace('/','-') }} # noqa: var-naming[pattern]
+    bootstrap_systemd_service__name: "{{
+      __docker_stack__systemd_service__name }}"
     bootstrap_systemd_service__force_update: true
     bootstrap_systemd_service__envs:
-      - PATH=$PATH:/usr/local/bin
-    bootstrap_systemd_service__Unit_Description: Docker Compose Service for {{ docker_stack__dir }} # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Unit_Requires: docker.service # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Unit_Wants: network.target # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Unit_After: docker.service # noqa: var-naming[pattern]
-    #    bootstrap_systemd_service__Service_Restart: always # noqa: var-naming[pattern]
-    #    bootstrap_systemd_service__Service_Restart: on-success # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Service_Restart: on-abort # noqa: var-naming[pattern]
-#    bootstrap_systemd_service__Service_User: "{{ docker_stack__user_username }}" # noqa: var-naming[pattern]
-#    bootstrap_systemd_service__Service_Group: "{{ docker_stack__user_username }}" # noqa: var-naming[pattern]
-##    bootstrap_systemd_service__Service_Group: docker # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Service_ExecStartPre: # noqa: var-naming[pattern]
-      - docker compose down
-    bootstrap_systemd_service__Service_ExecStart: docker compose up # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Service_ExecStop: docker compose down # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Service_WorkingDirectory: "{{ docker_stack__dir }}" # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Service_TimeoutSec: "{{ docker_stack__systemd_service_timeout_sec }}" # noqa: var-naming[pattern]
-    bootstrap_systemd_service__Install_WantedBy: multi-user.target # noqa: var-naming[pattern]
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+#      - PATH=$PATH:/usr/local/bin
+    bootstrap_systemd_service__unit_description: "Docker Compose Service for {{
+      docker_stack__dir }}"
+    bootstrap_systemd_service__service_type: oneshot
+    bootstrap_systemd_service__unit_requires: docker.service
+    bootstrap_systemd_service__unit_wants: network.target
+    bootstrap_systemd_service__unit_after: docker.service
+    #    bootstrap_systemd_service__service_restart: always
+    #    bootstrap_systemd_service__service_restart: on-success
+    bootstrap_systemd_service__service_restart: on-failure
+    bootstrap_systemd_service__service_remainafterexit: true
+#    bootstrap_systemd_service__service_user: "{{ docker_stack__user_username }}"
+#    bootstrap_systemd_service__service_group: "{{ docker_stack__user_username }}"
+##    bootstrap_systemd_service__service_group: docker
+#    bootstrap_systemd_service__service_execstartpre:
+#      - docker compose down
+#    bootstrap_systemd_service__service_execstart: docker compose up
+#    bootstrap_systemd_service__service_execstop: docker compose down
+
+    bootstrap_systemd_service__service_execstartpre: "{{
+      docker_stack__stack_command }} -sr -f {{ docker_stack__dir }}/docker-compose.yml"
+    bootstrap_systemd_service__service_execstart: "{{
+      docker_stack__stack_command }} -f {{ docker_stack__dir }}/docker-compose.yml"
+    bootstrap_systemd_service__service_execstop: "{{
+      docker_stack__stack_command }} -sr -f {{ docker_stack__dir }}/docker-compose.yml"
+    bootstrap_systemd_service__service_workingdirectory: "{{ docker_stack__dir }}"
+    bootstrap_systemd_service__service_timeoutsec: "{{
+      docker_stack__systemd_service_timeout_sec }}"
+    bootstrap_systemd_service__install_wantedby: multi-user.target

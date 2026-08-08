@@ -27,4 +27,3 @@ Example Playbook
   roles:
     - { role: bootstrap_linux_mount, become: true }
 ```
-

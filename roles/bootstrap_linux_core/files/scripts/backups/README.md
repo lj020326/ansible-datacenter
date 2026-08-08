@@ -173,4 +173,3 @@ This was inspired by:
 
 * [Incremental Backups on Linux](http://www.admin-magazine.com/Articles/Using-rsync-for-Backups).
 * [Rsync full system backup](https://wiki.archlinux.org/index.php/Rsync#Full_system_backup).
-

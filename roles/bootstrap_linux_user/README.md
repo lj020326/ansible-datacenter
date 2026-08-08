@@ -17,24 +17,24 @@ A role for managing linux users.
 
 #### `bootstrap_linux_user_list` details
 
-`bootstrap_linux_user_list__*` vars are merged when running the role. 
+`bootstrap_linux_user_list__*` vars are merged when running the role.
 
 The user list allows you to define users. Each item in the list can have the following attributes:
 
 | Variable         | Type               | Default | Required |
 |------------------|--------------------|---------|----------|
 | state            | C(present, absent) | present | no       |
-| name             | str                |         | yes      |                                   
-| system           | boolean            |         | no       |        
-| shell            | str                |         | no       |         
-| append           | boolean            |         | no       | 
-| uid              | int                |         | no       |         
-| group            | str                |         | no       |   
-| groups           | list               |         | no       |   
-| password         | str                |         | no       |                                                 
-| generate_ssh_key | boolean            |         | no       |         
-| ssh_key_bits     | int                |         | no       | 
-| ssh_key_file     | filepath           |         | no       |         
+| name             | str                |         | yes      |
+| system           | boolean            |         | no       |
+| shell            | str                |         | no       |
+| append           | boolean            |         | no       |
+| uid              | int                |         | no       |
+| group            | str                |         | no       |
+| groups           | list               |         | no       |
+| password         | str                |         | no       |
+| generate_ssh_key | boolean            |         | no       |
+| ssh_key_bits     | int                |         | no       |
+| ssh_key_file     | filepath           |         | no       |
 
 ##### `bootstrap_linux_user_list` example
 Adding users:

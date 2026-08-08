@@ -70,4 +70,3 @@ Playbook:
 
       roles:
       - { role: bootstrap, bootstrap_operation: 'configure' }
-

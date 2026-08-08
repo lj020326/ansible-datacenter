@@ -1,0 +1,121 @@
+---
+- name: llama | Display ansible_python_interpreter
+  ansible.builtin.debug:
+    var: ansible_python_interpreter
+
+- name: llama | Assert bootstrap_llm_host__llama_runtime is valid
+  ansible.builtin.assert:
+    that: bootstrap_llm_host__llama_runtime in __bootstrap_llm_host__runtime_choices
+
+- name: llama | Install huggingface_hub CLI into ansible venv
+  become: true
+  ansible.builtin.pip:
+    name: "huggingface_hub[cli,hf_transfer]"
+    state: present
+
+- name: llama | Ensure model directory exists on host
+  ansible.builtin.file:
+    path: "{{ bootstrap_llm_host__llama_host_volume_path }}"
+    state: directory
+    owner: "{{ bootstrap_llm_host__ollama_user | default('container-user') }}"
+    group: "{{ bootstrap_llm_host__ollama_user | default('container-user') }}"
+    mode: '0755'
+  become: true
+
+- name: llama | Display ansible_facts['user_dir']
+  become: true
+  ansible.builtin.debug:
+    var: ansible_facts['user_dir']
+
+- name: llama | Display ansible_facts.env.PATH
+  become: true
+  ansible.builtin.debug:
+    var: ansible_facts.env.PATH
+
+- name: llama | Check if GGUF models already exist locally
+  ansible.builtin.stat:
+    path: "{{ bootstrap_llm_host__llama_host_volume_path }}/{{ item.filename }}"
+  loop: "{{ bootstrap_llm_host__llama_models }}"
+  register: __gguf_model_stats
+
+#- name: llama | Download GGUF models from Hugging Face if missing
+#  environment:
+#    PATH: "{{ ansible_python_interpreter | default('/usr/bin/python3') | dirname }}:{{ ansible_facts.env.PATH }}"
+#  ansible.builtin.shell: |
+#    hf download {{ item.item.repo }} {{ item.item.filename }} \
+#      --local-dir {{ bootstrap_llm_host__llama_host_volume_path }}
+#  loop: "{{ __gguf_model_stats.results }}"
+#  when: not item.stat.exists
+#  changed_when: not item.stat.exists
+#  become: true
+#  register: __gguf_download
+#
+#- name: llama | Debug downloaded models status
+#  ansible.builtin.debug:
+#    msg: "{{ __gguf_download.results | default([])
+#      | selectattr('changed', 'equalto', true) | map(attribute='stdout_lines') | flatten }}"
+
+- name: llama | Download GGUF models from Hugging Face if missing
+  when: not item.stat.exists or bootstrap_llm_host__install_force | bool
+  dettonville.llm.hf_download:
+    repo_id: "{{ item.item.repo }}"
+    filename: "{{ item.item.filename }}"
+    local_dir: "{{ bootstrap_llm_host__llama_host_volume_path }}"
+  loop: "{{ __gguf_model_stats.results }}"
+  become: true
+  register: __gguf_download
+
+- name: llama | Debug downloaded models status
+  ansible.builtin.debug:
+    msg: "{{ __gguf_download.results | default([])
+      | selectattr('changed', 'equalto', true) | map(attribute='path') | list }}"
+
+- name: llama | Verify models are present inside container
+  when: bootstrap_llm_host__llama_runtime in ['docker', 'swarm']
+  block:
+    - name: llama | Wait for container to be running
+      ansible.builtin.command: >
+        docker ps --filter "name={{ (bootstrap_llm_host__llama_container_name
+          if bootstrap_llm_host__llama_runtime == 'docker'
+          else bootstrap_llm_host__llama_service_name) }}" --format "{{ '{{.Names}}' }}"
+      register: __llama_cpp_ps
+      until: __llama_cpp_ps.stdout | length > 0
+      retries: 30
+      delay: 5
+      changed_when: false
+
+    - name: llama | Set __llama_container_cmd
+      ansible.builtin.set_fact:
+        __llama_container_cmd: >-
+          {% if bootstrap_llm_host__llama_runtime == 'swarm' %}
+          docker exec -u root $(docker ps -q --filter "name=^{{
+            bootstrap_llm_host__docker_stack_name }}_{{
+            bootstrap_llm_host__llama_service_name }}." --filter "status=running" | head -n 1)
+          {% else %}
+          docker exec -u root {{ bootstrap_llm_host__llama_container_name }}
+          {% endif %}
+
+    - name: llama | Verify models are present inside container
+      ansible.builtin.command: >
+        {{ __llama_container_cmd }} ls -1 /models/
+      register: __model_check
+      changed_when: false
+      failed_when: false
+
+    - name: llama | Debug model directory content
+      ansible.builtin.debug:
+        msg: "Models found inside container: {{ __model_check.stdout_lines | default([]) }}"
+
+- name: llama | Wait for llama OpenAI-compatible API to be ready
+  dettonville.llm.llama_api:
+    url: "{{ __bootstrap_llm_host__llama_api_url }}"
+    api_key: "{{ bootstrap_llm_host__llama_api_key | d(omit) }}"
+    action: health
+  register: __health_result
+  until: __health_result is succeeded
+  retries: 3
+  delay: 5
+
+- name: llama | Display __health_result
+  ansible.builtin.debug:
+    var: __health_result

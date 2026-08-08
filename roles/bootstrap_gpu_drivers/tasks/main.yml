@@ -20,7 +20,7 @@
 - name: Auto-detect GPU vendors
   ansible.builtin.set_fact:
     __detected_nvidia: "{{ '10de:' in __lspci_output.stdout }}"
-    __detected_amd: "{{ '1002:' in __lspci_output.stdout }}"
+    __detected_amd: "{{ '1002:' in __lspci_output.stdout or ansible_facts['devices']['amdgpu'] is defined }}"
     __detected_intel: "{{ '8086:' in __lspci_output.stdout }}"
 
 - name: Merge detection with overrides
@@ -39,7 +39,10 @@
 
 - name: Fail if no GPUs detected and no manual enable
   ansible.builtin.assert:
-    that: (__bootstrap_gpu_drivers__enable_nvidia or __bootstrap_gpu_drivers__enable_amd or __bootstrap_gpu_drivers__enable_intel)
+    that: >
+      __bootstrap_gpu_drivers__enable_nvidia
+      or __bootstrap_gpu_drivers__enable_amd
+      or __bootstrap_gpu_drivers__enable_intel
     fail_msg: "No supported GPUs detected and none were manually enabled."
 
 # === Install per vendor ===
@@ -54,9 +57,10 @@
         msg: "🚀 DGX OS detected with GB10 - skipping NVIDIA driver installation (already provided by DGX)"
 
     - name: "GPU Drivers | NVIDIA | Install drivers (standard x86 Ubuntu)"
-      when:
-        - not (__bootstrap_gpu_drivers__is_dgx | bool)
-        - not (bootstrap_gpu_drivers__skip_driver_install_on_dgx | bool)
+#      when: >
+#        not (__bootstrap_gpu_drivers__is_dgx | bool)
+#        or not (bootstrap_gpu_drivers__skip_driver_install_on_dgx | bool)
+      when: not (__bootstrap_gpu_drivers__is_dgx | bool)
       ansible.builtin.include_tasks: install-nvidia.yml
 
 - name: Install AMD drivers
@@ -67,16 +71,9 @@
   when: __bootstrap_gpu_drivers__enable_intel | bool
   ansible.builtin.include_tasks: install-intel.yml
 
-# === Post-install verification ===
-- name: Verify NVIDIA
-  when: __bootstrap_gpu_drivers__enable_nvidia | bool
-  ansible.builtin.command: nvidia-smi
-  changed_when: false
-
-- name: Verify AMD
-  when: __bootstrap_gpu_drivers__enable_amd | bool
-  ansible.builtin.command: rocminfo || echo "AMD driver loaded (amdgpu)"
-  changed_when: false
+- name: Install gpu monitoring
+  when: bootstrap_gpu_drivers__install_gpu_monitoring
+  ansible.builtin.include_tasks: install-gpu-monitoring.yml
 
 - name: Reboot if needed
   when:

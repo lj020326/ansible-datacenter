@@ -7,8 +7,10 @@
 ## exit when any command fails
 #set -e
 
-VERSION="2026.6.9"
+VERSION="2026.7.1"
 
+# Store the execution directory (Current Working Directory)
+CWD="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
@@ -28,13 +30,14 @@ DOCKER_EXTERNAL_NETWORK_LIST=()
 #DOCKER_EXTERNAL_NETWORK_LIST+=("traefik_public,172.28.0.0/16")
 #DOCKER_EXTERNAL_NETWORK_LIST+=("traefik_public,192.168.12.0/24")
 
-DOCKER_COMPOSE_FILE=docker-compose.yml
+# Default filename to check if -f is not provided
+DEFAULT_COMPOSE_FILENAME="docker-compose.yml"
+DOCKER_COMPOSE_FILE=""
 
 DOCKER_CLEANUP_POSTGRES_PIDFILE=0
 DOCKER_POSTGRES_PIDFILE_PATH=postgres/data/postmaster.pid
 
 DOCKER_DEPLOY_DETACHED=1
-
 DOCKER_PULL_IMAGES=0
 
 REMOVE_DOCKER_STACK=0
@@ -74,11 +77,8 @@ tty_reset="$(tty_escape 0)"
 function reverse_array() {
   local -n ARRAY_SOURCE_REF=$1
   local -n REVERSED_ARRAY_REF=$2
-  # Iterate over the keys of the LOGLEVEL_TO_STR array
   for KEY in "${!ARRAY_SOURCE_REF[@]}"; do
-    # Get the value associated with the current key
     VALUE="${ARRAY_SOURCE_REF[$KEY]}"
-    # Add the reversed key-value pair to the REVERSED_ARRAY_REF array
     REVERSED_ARRAY_REF[$VALUE]="$KEY"
   done
 }
@@ -86,7 +86,6 @@ function reverse_array() {
 declare -A LOGLEVELSTR_TO_LEVEL
 reverse_array LOGLEVEL_TO_STR LOGLEVELSTR_TO_LEVEL
 
-#LOG_LEVEL=${LOG_DEBUG}
 LOG_LEVEL=${LOG_INFO}
 
 function log_error() {
@@ -145,19 +144,10 @@ function abort() {
 
 function warn() {
   log_warn "$@"
-#  log_warn "$(chomp "$1")"
-#  printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
 }
-
-#function abort() {
-#  printf "%s\n" "$@" >&2
-#  exit 1
-#}
 
 function error() {
   log_error "$@"
-#  printf "%s\n" "$@" >&2
-##  echo "$@" 1>&2;
 }
 
 function fail() {
@@ -168,28 +158,20 @@ function fail() {
 function log_message() {
   local LOG_MESSAGE_LEVEL="${1}"
   local LOG_MESSAGE="${2}"
-  ## remove first item from FUNCNAME array
-#  local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2}")
-  ## Get the length of the array
   local CALLING_FUNCTION_ARRAY_LENGTH=${#FUNCNAME[@]}
   local CALLING_FUNCTION_ARRAY=("${FUNCNAME[@]:2:$((CALLING_FUNCTION_ARRAY_LENGTH - 3))}")
-#  echo "CALLING_FUNCTION_ARRAY[@]=${CALLING_FUNCTION_ARRAY[@]}"
 
   local CALL_ARRAY_LENGTH=${#CALLING_FUNCTION_ARRAY[@]}
   local REVERSED_CALL_ARRAY=()
   for (( i = CALL_ARRAY_LENGTH - 1; i >= 0; i-- )); do
     REVERSED_CALL_ARRAY+=( "${CALLING_FUNCTION_ARRAY[i]}" )
   done
-#  echo "REVERSED_CALL_ARRAY[@]=${REVERSED_CALL_ARRAY[@]}"
 
-#  local CALLING_FUNCTION_STR="${CALLING_FUNCTION_ARRAY[*]}"
-  ## ref: https://stackoverflow.com/questions/1527049/how-can-i-join-elements-of-a-bash-array-into-a-delimited-string#17841619
   local SEPARATOR=":"
   local CALLING_FUNCTION_STR
   CALLING_FUNCTION_STR=$(printf "${SEPARATOR}%s" "${REVERSED_CALL_ARRAY[@]}")
   CALLING_FUNCTION_STR=${CALLING_FUNCTION_STR:${#SEPARATOR}}
 
-  ## ref: https://stackoverflow.com/a/13221491
   if [ "${LOGLEVEL_TO_STR[${LOG_MESSAGE_LEVEL}]+abc}" ]; then
     LOG_LEVEL_STR="${LOGLEVEL_TO_STR[${LOG_MESSAGE_LEVEL}]}"
   else
@@ -197,41 +179,31 @@ function log_message() {
   fi
 
   local LOG_LEVEL_PADDING_LENGTH=5
-
   local PADDED_LOG_LEVEL
   PADDED_LOG_LEVEL=$(printf "%-${LOG_LEVEL_PADDING_LENGTH}s" "${LOG_LEVEL_STR}")
 
   local LOG_PREFIX="${CALLING_FUNCTION_STR}():"
   local __LOG_MESSAGE="${LOG_PREFIX} ${LOG_MESSAGE}"
-#  echo -e "[${PADDED_LOG_LEVEL}]: ==> ${__LOG_MESSAGE}"
+
   if [ "${LOG_MESSAGE_LEVEL}" -eq $LOG_INFO ]; then
     printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_reset} %s\n" "${LOG_MESSAGE}" >&2
-#    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==>${tty_reset} %s\n" "${__LOG_MESSAGE}" >&2
-#    printf "${tty_blue}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}"
   elif [ "${LOG_MESSAGE_LEVEL}" -eq $LOG_WARN ]; then
     printf "${tty_orange}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_bold} %s${tty_reset}\n" "${LOG_MESSAGE}" >&2
-#    printf "${tty_orange}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}" >&2
-#    printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
   elif [ "${LOG_MESSAGE_LEVEL}" -le $LOG_ERROR ]; then
     printf "${tty_red}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_bold} %s${tty_reset}\n" "${LOG_MESSAGE}" >&2
-#    printf "${tty_red}[${PADDED_LOG_LEVEL}]: ==>${tty_bold} %s${tty_reset}\n" "${__LOG_MESSAGE}" >&2
-#    printf "${tty_red}Warning${tty_reset}: %s\n" "$(chomp "$1")" >&2
   else
     printf "${tty_bold}[${PADDED_LOG_LEVEL}]: ==> ${LOG_PREFIX}${tty_reset} %s\n" "${LOG_MESSAGE}" >&2
-#    printf "[${PADDED_LOG_LEVEL}]: ==> %s\n" "${LOG_PREFIX} ${LOG_MESSAGE}"
   fi
 }
 
 function set_log_level() {
   LOG_LEVEL_STR=$1
 
-  ## ref: https://stackoverflow.com/a/13221491
   if [ "${LOGLEVELSTR_TO_LEVEL[${LOG_LEVEL_STR}]+abc}" ]; then
     LOG_LEVEL="${LOGLEVELSTR_TO_LEVEL[${LOG_LEVEL_STR}]}"
   else
     abort "Unknown log level of [${LOG_LEVEL_STR}]"
   fi
-
 }
 
 function execute_command() {
@@ -252,17 +224,14 @@ function execute_eval_command() {
 
   log_info "${RUN_COMMAND}"
   COMMAND_RESULT=$(eval "${RUN_COMMAND}")
-#  COMMAND_RESULT=$(eval "${RUN_COMMAND} > /dev/null 2>&1")
   local RETURN_STATUS=$?
 
-#  log_info $'\n'"${COMMAND_RESULT}"
   echo "${COMMAND_RESULT}"
 
   if [[ $RETURN_STATUS -ne 0 ]]; then
     log_error "ERROR (${RETURN_STATUS})"
     abort "$(printf "Failed during: %s" "${RUN_COMMAND}")"
   fi
-
 }
 
 function remove_docker_stack() {
@@ -272,19 +241,14 @@ function remove_docker_stack() {
   log_info "Removing stack [${DOCKER_STACK_NAME}].."
 
   DOCKER_STACK_PS_COMMAND="docker compose --file=${DOCKER_COMPOSE_FILE} ps -q"
-  # FIXED: Replaced legacy hyphenated standalone binary wrapper with modern plugin command
   DOCKER_STACK_RM_COMMAND="docker compose --file=${DOCKER_COMPOSE_FILE} down"
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
-      #docker stack rm ${DOCKER_STACK_NAME} >/dev/null 2>&1 || true
-      ## ref: https://github.com/moby/moby/issues/32620#issuecomment-439050180
     DOCKER_STACK_PS_COMMAND="docker stack ps ${DOCKER_STACK_NAME} -q"
     DOCKER_STACK_RM_COMMAND="docker stack rm --detach=false ${DOCKER_STACK_NAME}"
   elif [[ "${DOCKER_SWARM_MODE}" -ne 0 ]]; then
     abort "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}], skipping stack removal"
   fi
 
-#  log_info "${DOCKER_STACK_PS_COMMAND} && ${DOCKER_STACK_RM_COMMAND}"
-#  eval "${DOCKER_STACK_PS_COMMAND} >/dev/null 2>&1" && eval "${DOCKER_STACK_RM_COMMAND}" || true
   execute_command "${DOCKER_STACK_PS_COMMAND}" && execute_eval_command "${DOCKER_STACK_RM_COMMAND}"
 
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
@@ -305,8 +269,6 @@ function remove_docker_stack() {
   fi
 
   for DOCKER_EXTERNAL_NETWORK in "${DOCKER_EXTERNAL_NETWORK_LIST[@]}"; do
-    # ref: https://stackoverflow.com/questions/12317483/array-of-arrays-in-bash
-    # split server name from sub-list
     IFS="," read -a DOCKER_NETWORK_INFO_ARRAY <<< $DOCKER_EXTERNAL_NETWORK
     local DOCKER_NETWORK_NAME=${DOCKER_NETWORK_INFO_ARRAY[0]}
 
@@ -332,7 +294,6 @@ function remove_docker_stack() {
 
   if [ "${RESTART_DOCKER_DAEMON}" -ne 0 ]; then
     local RESTART_DOCKER_COMMAND="systemctl restart docker"
-#    log_info "${RESTART_DOCKER_COMMAND}"
     execute_eval_command "${RESTART_DOCKER_COMMAND}"
   fi
 
@@ -354,16 +315,13 @@ function remove_docker_stack() {
   log_info "Docker stack completely removed and ready to recreate."
 }
 
-## ref: https://github.com/moby/moby/issues/25981#issuecomment-244783392
 function cleanup_stale_docker_networks() {
   local STOP_DOCKER_COMMAND="systemctl stop docker"
-#  log_info "${STOP_DOCKER_COMMAND}"
   execute_eval_command "${STOP_DOCKER_COMMAND}"
 
   rm -fr /var/lib/docker/network/files/*
 
   local START_DOCKER_COMMAND="systemctl start docker"
-#  log_info "${START_DOCKER_COMMAND}"
   execute_eval_command "${START_DOCKER_COMMAND}"
 
   DOCKER_PROXY_PORTS_STILL_EXIST=$(netstat -tulnp | grep -c "docker-proxy")
@@ -372,19 +330,13 @@ function cleanup_stale_docker_networks() {
     log_error "[${DOCKER_PROXY_PORTS_STILL_EXIST}] docker-proxy port binds CONTINUE to exist after network cleanup"
     abort "quitting!"
   fi
-
 }
 
 function deploy_docker_stack() {
   local DOCKER_STACK_NAME=$1
   local wait_limit=20
 
-  #docker build --pull -t ${DOCKER_STACK_NAME} .
-
   for DOCKER_EXTERNAL_NETWORK in "${DOCKER_EXTERNAL_NETWORK_LIST[@]}"; do
-
-    # ref: https://stackoverflow.com/questions/12317483/array-of-arrays-in-bash
-    # split server name from sub-list
     IFS="," read -a DOCKER_NETWORK_INFO_ARRAY <<< $DOCKER_EXTERNAL_NETWORK
     local DOCKER_NETWORK_NAME=${DOCKER_NETWORK_INFO_ARRAY[0]}
     local DOCKER_NETWORK_SUBNET=${DOCKER_NETWORK_INFO_ARRAY[1]}
@@ -394,7 +346,6 @@ function deploy_docker_stack() {
 
     DOCKER_CREATE_NETWORK_COMMAND=("docker network create")
     if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
-      ## ref: https://github.com/moby/moby/issues/34153
       DOCKER_CREATE_NETWORK_COMMAND+=("--scope=swarm")
       DOCKER_CREATE_NETWORK_COMMAND+=("--driver=overlay")
       DOCKER_CREATE_NETWORK_COMMAND+=("--opt com.docker.network.driver.mtu=1450")
@@ -407,26 +358,19 @@ function deploy_docker_stack() {
       DOCKER_CREATE_NETWORK_COMMAND+=("--subnet=${DOCKER_NETWORK_SUBNET}")
     fi
     DOCKER_CREATE_NETWORK_COMMAND+=("${DOCKER_NETWORK_NAME}")
-#    log_info "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
 
-    ## ref: https://stackoverflow.com/questions/48643466/docker-create-network-should-ignore-existing-network
-    ## ref: https://docs.docker.com/reference/cli/docker/network/create/
-#    docker network inspect "${DOCKER_NETWORK_NAME}" >/dev/null 2>&1 || execute_eval_command "${DOCKER_CREATE_NETWORK_COMMAND[*]}"
-#    execute_eval_command "docker network inspect ${DOCKER_NETWORK_NAME} || ${DOCKER_CREATE_NETWORK_COMMAND[*]}"
     execute_eval_command "docker network inspect ${DOCKER_NETWORK_NAME} >/dev/null 2>&1 || ${DOCKER_CREATE_NETWORK_COMMAND[*]}"
   done
 
   if [ "${DOCKER_PULL_IMAGES}" -eq 1 ]; then
     log_info "Pull latest images for stack [${DOCKER_STACK_NAME}]:"
-    grep "image:" docker-compose.yml | awk '{print $2}' | xargs -L1 docker pull
+    grep "image:" "${DOCKER_COMPOSE_FILE}" | awk '{print $2}' | xargs -L1 docker pull
   fi
 
   log_info "Deploy stack [${DOCKER_STACK_NAME}].."
 
   DOCKER_DEPLOY_COMMAND=()
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
-
-    ## ref: https://github.com/moby/moby/issues/34153
     DOCKER_DEPLOY_COMMAND+=("docker stack deploy")
     DOCKER_DEPLOY_COMMAND+=("--with-registry-auth")
     DOCKER_DEPLOY_COMMAND+=("--resolve-image=always")
@@ -445,17 +389,16 @@ function deploy_docker_stack() {
   else
     abort "DOCKER_SWARM_MODE => [${DOCKER_SWARM_MODE}], skipping stack deploy"
   fi
-#  log_info "${DOCKER_DEPLOY_COMMAND[*]}"
+
   execute_eval_command "${DOCKER_DEPLOY_COMMAND[*]}"
 
   log_info "Running containers for stack [${DOCKER_STACK_NAME}]:"
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then
-    #docker stack ps --filter="desired-state=running" ${DOCKER_STACK_NAME}
     DOCKER_PS_COMMAND="docker stack ps --filter=\"desired-state=running\" ${DOCKER_STACK_NAME}"
   elif [[ "${DOCKER_SWARM_MODE}" -eq 0 ]]; then
-    DOCKER_PS_COMMAND="docker compose ps"
+    DOCKER_PS_COMMAND="docker compose --file=${DOCKER_COMPOSE_FILE} ps"
   fi
-#  log_info "${DOCKER_PS_COMMAND}"
+
   execute_eval_command "${DOCKER_PS_COMMAND}"
 }
 
@@ -465,7 +408,7 @@ function usage() {
   echo "  Options:"
   echo "       -L [ERROR|WARN|INFO|TRACE|DEBUG] : run with specified log level (default INFO)"
   echo "       -c CONFIG_FILEPATH : default 'deploy-stack.cfg'"
-  echo "       -f DOCKER_COMPOSE_FILE : default 'docker-compose.yml'"
+  echo "       -f DOCKER_COMPOSE_FILE : auto-discovers docker-compose.yml in \$CWD, then \$SCRIPT_DIR if not set"
   echo "       -p : make sure postgres pid file is cleaned up after stopping"
   echo "       -r : remove specified docker stack before deploying the specified docker stack"
   echo "       -s : skip docker stack deployment - may be used with 'remove' option to ONLY remove the stack"
@@ -482,6 +425,33 @@ function usage() {
   echo "       ${0} -r -s"
   echo "       ${0} -rs"
 	[ -z "$1" ] || exit "$1"
+}
+
+function resolve_docker_compose_file() {
+  # 1. If explicitly defined by the user with -f, ensure it exists
+  if [ -n "${DOCKER_COMPOSE_FILE}" ]; then
+    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
+      abort "Specified docker compose file [${DOCKER_COMPOSE_FILE}] not found!"
+    fi
+    return 0
+  fi
+
+  # 2. Check current working directory ($CWD / $PWD)
+  if [ -f "${CWD}/${DEFAULT_COMPOSE_FILENAME}" ]; then
+    DOCKER_COMPOSE_FILE="${CWD}/${DEFAULT_COMPOSE_FILENAME}"
+    log_info "Using docker compose file found in working directory: ${DOCKER_COMPOSE_FILE}"
+    return 0
+  fi
+
+  # 3. Check script directory ($SCRIPT_DIR)
+  if [ -f "${SCRIPT_DIR}/${DEFAULT_COMPOSE_FILENAME}" ]; then
+    DOCKER_COMPOSE_FILE="${SCRIPT_DIR}/${DEFAULT_COMPOSE_FILENAME}"
+    log_info "Using docker compose file found in script directory: ${DOCKER_COMPOSE_FILE}"
+    return 0
+  fi
+
+  # 4. Return error if not found in either
+  abort "Docker compose file '${DEFAULT_COMPOSE_FILENAME}' not found in current directory (${CWD}) or script directory (${SCRIPT_DIR})!"
 }
 
 function main() {
@@ -509,17 +479,14 @@ function main() {
     __DOCKER_STACK_LIST=("$@")
   fi
 
-  cd "${SCRIPT_DIR}" || abort "unable to cd to SCRIPT_DIR ${SCRIPT_DIR}"
-
   if [[ "$UNAME" != "cygwin" && "$UNAME" != "msys" ]]; then
     if [ "$EUID" -ne 0 ]; then
       abort "Must run this script as root. run 'sudo $SCRIPT_NAME'"
     fi
   fi
 
-  if [ ! -e "${DOCKER_COMPOSE_FILE}" ]; then
-    abort "docker compose file ${DOCKER_COMPOSE_FILE} not found, quitting now!"
-  fi
+  # Resolve/Discover compose file before executing actions
+  resolve_docker_compose_file
 
   execute_eval_command "docker version"
   execute_eval_command "docker compose version"
@@ -547,6 +514,7 @@ function main() {
   log_debug "DOCKER_CLEANUP_POSTGRES_PIDFILE => [${DOCKER_CLEANUP_POSTGRES_PIDFILE}]"
   log_debug "REMOVE_DOCKER_STACK => [${REMOVE_DOCKER_STACK}]"
   log_debug "DEPLOY_DOCKER_STACK => [${DEPLOY_DOCKER_STACK}]"
+  log_debug "CWD=[${CWD}]"
   log_debug "SCRIPT_DIR=[${SCRIPT_DIR}]"
 
   if [[ "${DOCKER_SWARM_MODE}" -eq 1 ]]; then

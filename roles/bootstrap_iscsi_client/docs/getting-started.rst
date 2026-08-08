@@ -84,4 +84,3 @@ Here's an example playbook which uses ``dettonville.iscsi`` role::
 
         - role: dettonville.iscsi
           tags: [ 'role::iscsi' ]
-

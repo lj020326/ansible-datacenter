@@ -11,7 +11,7 @@ This Ansible role manages system cron jobs and coordinates sequential daily main
 |---------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
 | `bootstrap_linux_cron__list`                | List of crons **(see cron dict details in next section)**                                                                                                                                                             | `[]`          |
 | `bootstrap_linux_cron__list__*`             | Variables with prefix `bootstrap_linux_cron__list__` are dereferenced and merged into a single cron list. Each list should contain a list of `dicts`. Each `dict` defines/specifies the cron configuration to modify. | `[]`          |
-| `bootstrap_linux_cron__setup_daily_scripts` | Boolean flag to enable or disable the deployment of the primary daily maintenance framework and hooks.                                                                                                                | `false`       |
+| `bootstrap_linux_cron__setup_os_update` | Boolean flag to enable or disable the deployment of the primary daily maintenance framework and hooks.                                                                                                                | `false`       |
 | `bootstrap_linux_cron__reset_daily_scripts` | Boolean flag to determine if daily script dirs should get reset before deployment.                                                                                                                                    | `true`        |
 | `bootstrap_linux_cron__os_update_hooks`     | List of custom maintenance hook dictionaries to register globally.                                                                                                                                                    | `[]`          |
 | `bootstrap_linux_cron__os_update_hooks__*`  | Variables with prefix `bootstrap_linux_cron__os_update_hooks__` are automatically gathered across inventory groups and merged into a structured script directory scheme.                                              | `[]`          |
@@ -21,7 +21,7 @@ This Ansible role manages system cron jobs and coordinates sequential daily main
 
 #### `bootstrap_linux_cron__list` details
 
-`bootstrap_linux_cron__list__*` vars are merged when running the role. 
+`bootstrap_linux_cron__list__*` vars are merged when running the role.
 
 The cron list allows you to define a list of jobs. Each item in the list can have the following attributes:
 
@@ -47,7 +47,7 @@ The cron list allows you to define a list of jobs. Each item in the list can hav
 
 #### `bootstrap_linux_cron__os_update_hooks` details
 
-When `bootstrap_linux_cron__setup_daily_scripts` is set to `true`, the role sets up an alphanumeric execution frame under `/etc/run-os-update/`. Hook files are deployed dynamically into target lifecycle stages using the keys below:
+When `bootstrap_linux_cron__setup_os_update` is set to `true`, the role sets up an alphanumeric execution frame under `/etc/run-os-update/`. Hook files are deployed dynamically into target lifecycle stages using the keys below:
 
 | Attribute | Type | Description | Required |
 | :--- | :--- | :--- | :--- |
@@ -84,7 +84,7 @@ When `bootstrap_linux_cron__setup_daily_scripts` is set to `true`, the role sets
 ```
 
 ### 2. Group-Specific Variable Merging
-The role automatically merges lists sharing the `bootstrap_linux_cron__list__` prefix. 
+The role automatically merges lists sharing the `bootstrap_linux_cron__list__` prefix.
 
 **`inventory/group_vars/docker_stack.yml`:**
 ```yaml

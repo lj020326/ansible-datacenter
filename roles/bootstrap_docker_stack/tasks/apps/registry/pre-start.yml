@@ -15,7 +15,7 @@
 - name: "Docker Stack | registry | pre-start | Setup {{ __registry_auth_file }}"
   when:
     - __docker_stack__registry__enable_auth | bool
-    - not __registry_auth_file_stat.stat.exists | bool
+    - __docker_stack__registry__users | d([]) | length > 0
   block:
     - name: "Docker Stack | registry | pre-start | Install htpasswd deps with pip"
       ansible.builtin.pip:
@@ -46,14 +46,24 @@
     #    #    container_default_behavior: no_defaults
     #    state: absent
 
+    - name: "Docker Stack | registry | pre-start | Display __docker_stack__registry__users info"
+      ansible.builtin.debug:
+        msg:
+          - "username: {{ item.username }}"
+          - "password length: {{ item.password | length }}"
+        verbosity: 1
+      loop: "{{ __docker_stack__registry__users }}"
+      loop_control:
+        label: "{{ item.username }}"
+
     - name: "Docker Stack | registry | pre-start | Configure {{ __docker_stack__registry__auth_file }} users file"
       no_log: true
-      community.general.htpasswd:
+      dettonville.utils.htpasswd:
         path: "{{ __registry_auth_file }}"
-        name: "{{ item.username }}"
-        password: "{{ item.password }}"
+        user_list: "{{ __docker_stack__registry__users }}"
         owner: root
         group: root
         mode: "0600"
         crypt_scheme: bcrypt
-      loop: "{{ __docker_stack__registry__users }}"
+        overwrite: true
+        backup: true

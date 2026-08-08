@@ -46,7 +46,7 @@ Copy the roles included to your Ansible roles directory, then use as below.
 ---
   name: Sample playbook
   host: localhost
-  
+
   roles:
     - role: bootstrap_stepca
       vars:

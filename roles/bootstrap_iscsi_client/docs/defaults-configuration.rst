@@ -207,4 +207,3 @@ Remove a mounted Logical Volume (destroys the data)::
         mount: '/srv/trash'
         state: 'absent'
         force: True
-

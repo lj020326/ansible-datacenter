@@ -1,31 +1,45 @@
 ---
 - name: "{{ __docker_stack__log_prefix__app_config }} Configure htpasswd users file"
-  when:
-    - docker_stack__http_username | d('') | length > 0
-    - docker_stack__http_password | d('') | length > 0
+  when: docker_stack__basic_auth_users | d([]) | length > 0
   block:
-    - name: "{{ __docker_stack__log_prefix__app_config }} Install python module passlib required for community.general.htpasswd"
+    - name: "{{ __docker_stack__log_prefix__app_config }} Install python module passlib required for htpasswd password hashing"
       ansible.builtin.pip:
         name: passlib
         state: present
 
-    - name: "{{ __docker_stack__log_prefix__app_config }} Configure htpasswd users file"
+    - name: "{{ __docker_stack__log_prefix__app_config }} Display docker_stack__basic_auth_users info"
+      ansible.builtin.debug:
+        msg:
+          - "username: {{ item.username }}"
+          - "password length: {{ item.password | length }}"
+        verbosity: 1
+      loop: "{{ docker_stack__basic_auth_users }}"
+      loop_control:
+        label: "{{ item.username }}"
+
+    - name: "{{ __docker_stack__log_prefix__app_config }} Populate valid htpasswd users"
       no_log: true
-      community.general.htpasswd:
+      dettonville.utils.htpasswd:
         path: "{{ docker_stack__dir }}/shared/.htpasswd"
-        name: "{{ docker_stack__http_username }}"
-        password: "{{ docker_stack__http_password }}"
+        user_list: "{{ docker_stack__basic_auth_users }}"
         owner: "{{ docker_stack__user_username }}"
         group: "{{ docker_stack__user_group }}"
         mode: "0600"
         crypt_scheme: bcrypt
+        overwrite: true
+        backup: true
 
-    ## ref: https://stackoverflow.com/questions/24003880/ansible-set-variable-to-file-content/24014549
     - name: "{{ __docker_stack__log_prefix__app_config }} Load htpasswd data"
       no_log: true
       ansible.builtin.slurp:
         src: "{{ docker_stack__dir }}/shared/.htpasswd"
-      register: htpasswd
+      register: __slurp_htpasswd
+
+- name: "{{ __docker_stack__log_prefix__app_config }} Display __docker_stack__app_config_dirs"
+  when: __docker_stack__app_config_dirs | length > 0
+  ansible.builtin.debug:
+    var: __docker_stack__app_config_dirs
+    verbosity: 1
 
 - name: "{{ __docker_stack__log_prefix__app_config }} Ensure docker dirs exist"
   ansible.builtin.file:
@@ -52,9 +66,9 @@
     owner: "{{ docker_stack__user_username }}"
     group: "{{ docker_stack__user_group }}"
 
-- name: "{{ __docker_stack__log_prefix__app_config }} Display __docker_stack__app_config_tpls"
+- name: "{{ __docker_stack__log_prefix__app_config }} Display __docker_stack__app_config_templates"
   ansible.builtin.debug:
-    var: __docker_stack__app_config_tpls
+    var: __docker_stack__app_config_templates
     verbosity: 1
 
 - name: "{{ __docker_stack__log_prefix__app_config }} Install docker stack app config template"
@@ -66,7 +80,7 @@
     mode: "{{ item.mode | d('0664') }}"
     owner: "{{ docker_stack__user_username }}"
     group: "{{ docker_stack__user_group }}"
-  loop: "{{ __docker_stack__app_config_tpls }}"
+  loop: "{{ __docker_stack__app_config_templates }}"
 
 - name: "{{ __docker_stack__log_prefix__app_config }} Display __docker_stack__app_config_files"
   ansible.builtin.debug:

@@ -19,14 +19,18 @@ __docker_stack__llama__host_addr: "{{ docker_stack__llama__host_addr
 __docker_stack__llama__http_port: "{{ docker_stack__llama__http_port | d('11432') }}"
 __docker_stack__llama__internal_http_port: "8080"
 
-__docker_stack__llama__llama_arg_ctx_size_default: 32768
+# api key
+__docker_stack__llama__api_key: "{{ docker_stack__llama__api_key | d('') }}"
+
+#__docker_stack__llama__llama_arg_ctx_size_default: 32768
+__docker_stack__llama__llama_arg_ctx_size_default: 16384
 __docker_stack__llama__llama_arg_ctx_size: "{{ docker_stack__llama__llama_arg_ctx_size
   | d(__docker_stack__llama__llama_arg_ctx_size_default) }}"
 
-# Instead of 99, set this to a specific number (e.g., 32) to force the remaining layers into System RAM.
+# Fully offload all layers to GPU (gemma-4-31B has 60 layers; 99 ensures all layers + embeddings offload)
 # This is slower but prevents OOMs.
-# LLAMA_ARG_N_GPU_LAYERS=99
-__docker_stack__llama__llama_arg_n_gpu_layers_default: 32
+# __docker_stack__llama__llama_arg_n_gpu_layers_default: 99
+__docker_stack__llama__llama_arg_n_gpu_layers_default: 999
 __docker_stack__llama__llama_arg_n_gpu_layers: "{{ docker_stack__llama__llama_arg_n_gpu_layers
   | d(__docker_stack__llama__llama_arg_n_gpu_layers_default) }}"
 
@@ -34,7 +38,8 @@ __docker_stack__llama__llama_arg_flash_attn_default: 1
 __docker_stack__llama__llama_arg_flash_attn: "{{ docker_stack__llama__llama_arg_flash_attn
   | d(__docker_stack__llama__llama_arg_flash_attn_default) }}"
 
-__docker_stack__llama__llama_arg_n_parallel_default: 4
+# Reduce parallel slots to 1 unless serving multi-tenant traffic
+__docker_stack__llama__llama_arg_n_parallel_default: 1
 __docker_stack__llama__llama_arg_n_parallel: "{{ docker_stack__llama__llama_arg_n_parallel
   | d(__docker_stack__llama__llama_arg_n_parallel_default) }}"
 
@@ -46,45 +51,68 @@ __docker_stack__llama__llama_arg_cont_batch_default: 512
 __docker_stack__llama__llama_arg_cont_batch: "{{ docker_stack__llama__llama_arg_cont_batch
   | d(__docker_stack__llama__llama_arg_cont_batch_default) }}"
 
+#__docker_stack__llama__llama_arg_rope_freq_base_default: 1000000
 __docker_stack__llama__llama_arg_rope_freq_base_default: 512
 __docker_stack__llama__llama_arg_rope_freq_base: "{{ docker_stack__llama__llama_arg_rope_freq_base
   | d(__docker_stack__llama__llama_arg_rope_freq_base_default) }}"
+
+# validate the model configurations are correct at runtime:
+# docker exec llama curl -s http://localhost:8080/v1/models | jq
+__docker_stack__llama__models_default: |
+  [gemma-4-31B-it-Q5_K_M]
+  model = /models/gemma-4-31B-it-Q5_K_M.gguf
+  ctx-size = {{ __docker_stack__llama__llama_arg_ctx_size }}
+  n-gpu-layers = {{ __docker_stack__llama__llama_arg_n_gpu_layers }}
+  parallel = {{ __docker_stack__llama__llama_arg_n_parallel }}
+  flash-attn = {{ __docker_stack__llama__llama_arg_flash_attn }}
+
+  [gemma-4-E2B-it-Q5_K_M]
+  model = /models/gemma-4-E2B-it-Q5_K_M.gguf
+  ctx-size = {{ __docker_stack__llama__llama_arg_ctx_size }}
+  n-gpu-layers = {{ __docker_stack__llama__llama_arg_n_gpu_layers }}
+  parallel = {{ __docker_stack__llama__llama_arg_n_parallel }}
+  flash-attn = {{ __docker_stack__llama__llama_arg_flash_attn }}
+
+__docker_stack__llama__models: "{{ docker_stack__llama__models
+  | d(__docker_stack__llama__models_default) }}"
 
 ## ---------
 ## In router mode the top-level LLAMA_ARG_CTX_SIZE from the .env file is used as a fallback/default,
 ## but individual models often end up with a much smaller context (commonly 8192 or the model's default)
 ## unless you explicitly configure them via a models preset (.ini file).
-__docker_stack__llama__environment_default: |
-  # If the shared objects are built but just hidden away inside a secondary directory 
-  # inside the image (like /app/build/), you can force the linker to look for them 
+__docker_stack__llama__environment_default:
+  # If the shared objects are built but just hidden away inside a secondary directory
+  # inside the image (like /app/build/), you can force the linker to look for them
   # by setting the LD_LIBRARY_PATH variable
   # Fixes the upstream dynamic linking issue natively without breaking the entrypoint script
-  LD_LIBRARY_PATH=/app:/app/build:/usr/local/lib:/usr/local/cuda/lib64
+  LD_LIBRARY_PATH: "/app:/app/build:/usr/local/lib:/usr/local/cuda/lib64"
 
-  LLAMA_ARG_HOST=0.0.0.0
-  LLAMA_ARG_PORT={{ __docker_stack__llama__internal_http_port }}
-  
+  LLAMA_ARG_HOST: "0.0.0.0"
+  LLAMA_ARG_PORT: "{{ __docker_stack__llama__internal_http_port }}"
+
+  LLAMA_ARG_API_KEY: "{{ __docker_stack__llama__api_key }}"
+
   ## To test that models are available in container:
   ## docker exec llama curl -s http://localhost:8080/v1/models | jq
-  LLAMA_ARG_MODELS_DIR=/models
-  LLAMA_ARG_MODELS_PRESET=/app/models.ini
-  
+  LLAMA_ARG_MODELS_DIR: "/models"
+  LLAMA_ARG_MODELS_PRESET: "/app/models.ini"
+
   ## we load models after container start
-  #LLAMA_ARG_MODEL=/models/gemma-4-31B-it-Q5_K_M.gguf
-  #LLAMA_ARG_MODEL_DRAFT=/models/gemma-4-2B-it-Q5_K_M.gguf
-  
+  #LLAMA_ARG_MODEL: /models/gemma-4-31B-it-Q5_K_M.gguf
+  #LLAMA_ARG_MODEL_DRAFT: /models/gemma-4-2B-it-Q5_K_M.gguf
+
   # Performance / GPU settings
-  LLAMA_ARG_CTX_SIZE={{ __docker_stack__llama__llama_arg_ctx_size }}
+  LLAMA_ARG_CTX_SIZE: "{{ __docker_stack__llama__llama_arg_ctx_size }}"
 
-  LLAMA_ARG_N_GPU_LAYERS={{ __docker_stack__llama__llama_arg_n_gpu_layers }}
-  LLAMA_ARG_N_PARALLEL={{ __docker_stack__llama__llama_arg_n_parallel }}
+  LLAMA_ARG_N_GPU_LAYERS: "{{ __docker_stack__llama__llama_arg_n_gpu_layers }}"
+  LLAMA_ARG_N_PARALLEL: "{{ __docker_stack__llama__llama_arg_n_parallel }}"
 
-  LLAMA_ARG_FLASH_ATTN={{ __docker_stack__llama__llama_arg_flash_attn }}
-  LLAMA_ARG_TEMP={{ __docker_stack__llama__llama_arg_temp }}
-  
+  LLAMA_ARG_FLASH_ATTN: "{{ __docker_stack__llama__llama_arg_flash_attn }}"
+  LLAMA_ARG_TEMP: "{{ __docker_stack__llama__llama_arg_temp }}"
+
   # Optional but recommended
-  LLAMA_ARG_CONT_BATCH={{ __docker_stack__llama__llama_arg_cont_batch }}
-  LLAMA_ARG_ROPE_FREQ_BASE={{ __docker_stack__llama__llama_arg_rope_freq_base }}
+  LLAMA_ARG_CONT_BATCH: "{{ __docker_stack__llama__llama_arg_cont_batch }}"
+  # LLAMA_ARG_ROPE_FREQ_BASE: "{{ __docker_stack__llama__llama_arg_rope_freq_base }}"
 
 __docker_stack__llama__environment: "{{ docker_stack__llama__environment
   | d(__docker_stack__llama__environment_default) }}"
@@ -93,8 +121,8 @@ __docker_stack__llama__deploy_resources_standalone:
   reservations:
     devices:
       - driver: nvidia
-        count: 1
-        capabilities: [gpu]
+        count: all
+        capabilities: [ gpu ]
 #      - driver: nvidia
 #        # or device_ids: ["0"] if you want specific GPU
 #        count: all
@@ -107,8 +135,10 @@ __docker_stack__llama__deploy_resources_swarm:
           kind: NVIDIA-GPU
           value: 1
 
-__docker_stack__llama__deploy_resources: "{{ __docker_stack__llama__deploy_resources_swarm
-  if docker_stack__swarm_mode else __docker_stack__llama__deploy_resources_standalone }}"
+__docker_stack__llama__deploy_resources: "{{
+  __docker_stack__llama__deploy_resources_swarm
+  if docker_stack__swarm_mode
+  else __docker_stack__llama__deploy_resources_standalone }}"
 
 __docker_stack__llama__secret_key: "{{ docker_stack__llama__secret_key
   | d('CHANGEME123') }}"
@@ -117,19 +147,20 @@ __docker_stack__llama__config_dirs:
   - path: "{{ __docker_stack__llama__base_dir }}"
   - path: "{{ __docker_stack__llama__models_dir }}"
 
-__docker_stack__llama__config_tpls:
+__docker_stack__llama__config_templates:
   - src: llama/llama.env.j2
     dest: "{{ __docker_stack__llama__base_dir }}/llama.env"
   - src: llama/models.ini.j2
     dest: "{{ __docker_stack__llama__base_dir }}/models.ini"
 
-__docker_stack__llama__firewalld_ports:
-  - "{{ __docker_stack__llama__http_port }}/tcp"
+__docker_stack__llama__firewalld_ports: [ ]
+#__docker_stack__llama__firewalld_ports:
+#  - "{{ __docker_stack__llama__http_port }}/tcp"
 
 docker_stack__appspec__llama:
   dirs: "{{ __docker_stack__llama__config_dirs | d([], true) }}"
   files: "{{ __docker_stack__llama__config_files | d([], true) }}"
-  templates: "{{ __docker_stack__llama__config_tpls | d([], true) }}"
+  templates: "{{ __docker_stack__llama__config_templates | d([], true) }}"
   secrets: "{{ __docker_stack__llama__secrets | d({}, true) }}"
   firewalld_services: "{{ __docker_stack__llama__firewalld_services | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__llama__firewalld_ports | d([], true) }}"
@@ -144,27 +175,33 @@ __docker_stack__llama__services:
   llama:
     image: "{{ __docker_stack__llama__image }}"
     container_name: llama
-#    command: >-
-#        export LD_LIBRARY_PATH=/app:/app/build:/usr/local/lib:$$LD_LIBRARY_PATH &&
-#        /app/llama-server -m /models/gemma-4-31B-it-Q5_K_M.gguf -c 32768 -ngl 32 --fa
-#    command: >
-#      --models-preset /app/models.ini
+    #    command: >-
+    #        export LD_LIBRARY_PATH=/app:/app/build:/usr/local/lib:$$LD_LIBRARY_PATH &&
+    #        /app/llama-server -m /models/gemma-4-31B-it-Q5_K_M.gguf -c 32768 -ngl 32 --fa
+    #    command: >
+    #      --models-preset /app/models.ini
     restart: unless-stopped
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
-    ports:
-      # OpenAI-compatible endpoint
-      - "{{ __docker_stack__llama__http_port }}:{{ __docker_stack__llama__internal_http_port }}"
+    #    ports:
+    #      # OpenAI-compatible endpoint
+    #      - "{{ __docker_stack__llama__http_port }}:{{ __docker_stack__llama__internal_http_port }}"
     env_file:
       - llama/llama.env
     volumes:
-#      - /etc/timezone:/etc/timezone:ro
-#      - /etc/localtime:/etc/localtime:ro
+      #      - /etc/timezone:/etc/timezone:ro
+      #      - /etc/localtime:/etc/localtime:ro
       - "{{ __docker_stack__llama__base_dir }}/models.ini:/app/models.ini:ro"
       - "{{ __docker_stack__llama__models_dir }}:/models:ro"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     labels: "{{ __docker_stack__llama__traefik_labels }}"
-#    devices: "{{ __docker_stack__llama__deploy_resources }}"
+    #    devices: "{{ __docker_stack__llama__deploy_resources }}"
     deploy:
       mode: replicated
       placement:

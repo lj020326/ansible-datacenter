@@ -5,7 +5,7 @@ This playbook bootstraps an AWX/Automation Controller system that can create and
 
 It also can install [rancher](https://www.rancher.com/), a tool for managing Kubernetes.
 
-Ideally this system can manage the updates, configuration, backups and monitoring of servers on its own. 
+Ideally this system can manage the updates, configuration, backups and monitoring of servers on its own.
 
 
 ## Installation
@@ -32,4 +32,4 @@ To configure and install this AWX/Automation Controller setup on your own server
 ## Reference
 
 * https://github.com/PC-Admin/awx-ansible
-* 
+*

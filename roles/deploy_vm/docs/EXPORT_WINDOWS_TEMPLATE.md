@@ -23,7 +23,7 @@ or you can put customized Autounattend file into this path and configure it in f
 
 ## Steps to Launch the Windows Template Creation
 1. Copy the Windows ISO image to the datastore of ESXi host, on which you want to deploy a new virtual machine.
-2. Set the infomation of vCenter server or ESXi host, the VM guest ID, VM configurations, Windows ISO image path, unattend xml file path, template destination path in file 'vars/export_windows_template_vars.yml'. 
+2. Set the infomation of vCenter server or ESXi host, the VM guest ID, VM configurations, Windows ISO image path, unattend xml file path, template destination path in file 'vars/export_windows_template_vars.yml'.
 3. Go to the path of 'main.yml' file, execute it with below command:
 ```
 ansible-playbook main.yml -e "testing_vars_file=/absolute_path/vars/create_windows_template_vars.yml testing_testcase_file=/absolute_path/windows/create_template_playbook_list.yml"

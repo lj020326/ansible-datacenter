@@ -43,6 +43,11 @@ __docker_stack__standalone_restricted_keys:
   - secrets
   - stop_grace_period
 
+__docker_stack__systemd_service__name_default: "docker-compose-{{
+  docker_stack__dir | replace('/','-') }}"
+__docker_stack__systemd_service__name: "{{ docker_stack__systemd_service__name
+  | d(__docker_stack__systemd_service__name_default) }}"
+
 ## Topology Toggling
 # Determines if this node handles cluster-wide operations like Swarm overlay networks
 docker_stack__swarm_leader: false
@@ -133,6 +138,17 @@ docker_stack__traefik__ssh: 2022
 
 docker_stack__acme_http_challenge_proxy_port: 8980
 
+######
+# basic auth users
+# docker_stack__basic_auth_users:
+#   - username: testuser
+#     password: testpassword
+#   - username: testuser2
+#     password: testpassword2
+
+# Derives a deterministic 22-char salt from an Ansible vault password or secret string
+docker_stack__basic_auth_users: []
+
 #docker_stack__enable_cacerts: false
 #docker_stack__enable_selfsigned_certs: true
 docker_stack__enable_cacerts: true
@@ -140,8 +156,8 @@ docker_stack__enable_selfsigned_certs: false
 
 docker_stack__setup_registry: false
 docker_stack__setup_admin_scripts: true
-#docker_stack__setup_systemd_service: true
-docker_stack__setup_systemd_service: false
+docker_stack__setup_systemd_service: true
+#docker_stack__setup_systemd_service: false
 
 docker_stack__compose_stack_name: docker_stack
 docker_stack__compose_stack_compose_file: "{{ docker_stack__dir }}/docker-compose.yml"
@@ -439,19 +455,25 @@ docker_stack__api_port: "2375"
 
 docker_stack__app_config_dirs: {}
 docker_stack__config_dirs: []
-docker_stack__app_config_tpls: {}
+docker_stack__app_config_templates: {}
 docker_stack__app_config_files: {}
 docker_stack__config_files: []
 docker_stack__script_dirs:
   - path: "{{ docker_stack__script_dir }}"
     recurse: true
 
+docker_stack__stack_command: "/usr/local/bin/deploy-stack.sh"
+
 #docker_stack__scripts: []
 docker_stack__scripts:
+#  - src: files/scripts/deploy-stack.sh
+#    dest: "{{ docker_stack__dir }}/deploy-stack.sh"
+#  - src: files/scripts/recreate-stack.sh
+#    dest: "{{ docker_stack__dir }}/recreate-stack.sh"
   - src: files/scripts/deploy-stack.sh
-    dest: "{{ docker_stack__dir }}/deploy-stack.sh"
+    dest: "/usr/local/bin/deploy-stack.sh"
   - src: files/scripts/recreate-stack.sh
-    dest: "{{ docker_stack__dir }}/recreate-stack.sh"
+    dest: "/usr/local/bin/recreate-stack.sh"
   - src: files/scripts/redact-key-values.sh
     dest: "{{ docker_stack__dir }}/redact-key-values.sh"
   - src: files/scripts/wait-for-it.sh
@@ -460,6 +482,10 @@ docker_stack__scripts:
     dest: "{{ docker_stack__dir }}/docker-image-sync.sh"
   - src: files/scripts/docker-image-pull-curl.sh
     dest: "{{ docker_stack__dir }}/docker-image-pull-curl.sh"
+  - src: files/scripts/validate-ssl-endpoint.sh
+    dest: "{{ docker_stack__dir }}/validate-ssl-endpoint.sh"
+  - src: files/scripts/validate-registry-endpoint.sh
+    dest: "{{ docker_stack__dir }}/validate-registry-endpoint.sh"
 #  - src: 'files/mono_image/entrypoint.sh'
 #    dest: "{{ docker_stack__script_dir }}/mono-entrypoint.sh"
 
@@ -475,7 +501,7 @@ docker_stack__proxy_service_templates:
   - src: traefik/rules/proxy-services.yml.j2
     dest: "{{ __docker_stack__traefik__dir }}/rules/proxy-services.yml"
 
-docker_stack__script_config_tpls: []
+docker_stack__script_config_templates: []
 #  - { src: 'scripts/backups.cfg.j2', dest: "/root/.backups.cfg", mode: "0600" }
 #  - { src: 'scripts/fwbackup.conf.j2', dest: "/root/.fwbackup.cfg", mode: "0600" }
 
@@ -508,7 +534,7 @@ docker_stack__registry__username: user
 docker_stack__registry__password: password
 
 docker_stack__service_group_configs_tpl: {}
-docker_stack__config_tpls: []
+docker_stack__config_templates: []
 docker_stack__container_configs: {}
 ######
 ## base docker stack configs

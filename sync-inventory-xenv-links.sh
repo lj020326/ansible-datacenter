@@ -1,1 +1,0 @@
-./inventory/sync-inventory-xenv-links.sh

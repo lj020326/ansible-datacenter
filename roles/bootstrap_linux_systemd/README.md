@@ -991,7 +991,7 @@ systemd_networkd:
 # Specifies how many times the DHCPv4 client configuration should be attempted.
 # Takes a number or 'infinity' (the default). Note that the time between
 # retries is increased exponentially, so the network will not be overloaded
-# even if this number is high.  
+# even if this number is high.
         max_attempts: 'infinity'
 # If 'vendor', then the DUID value will be generated using "43793" as the
 # vendor identifier (systemd) and hashed contents of machine-id(5). This is the

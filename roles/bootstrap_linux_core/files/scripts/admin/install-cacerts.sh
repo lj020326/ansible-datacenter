@@ -101,7 +101,7 @@ function get_site_config() {
     if [ $# -gt 0 ]; then
         for s in "$@"; do echo "$s|1|1|0|1"; done
     elif [ -f "$CONFIG_FILE" ]; then
-        grep -v '^#' "$CONFIG_FILE" | grep '[^\s]' | sed 's/\s//g'
+        grep -v '^#' "$CONFIG_FILE" | grep '[[:space:]]' -v | sed 's/[[:space:]]//g'
     else
         for s in "${SITE_LIST_DEFAULT[@]}"; do echo "$s"; done
     fi
@@ -191,12 +191,24 @@ function commit_certs() {
         # 1. SYSTEM STORE
         if [[ "$sys" -eq 1 && "$INSTALL_SYSTEM_CACERTS" -eq 1 ]]; then
             if [[ "$OSTYPE" == "darwin"* ]]; then
-                # Use -d to add to Admin trust settings (requires sudo)
-                # Adding specific policies (-p) to resolve "parameter not valid" errors
-                sudo security add-trusted-cert -d -r trustAsRoot -p ssl -p basic -k /Library/Keychains/System.keychain "$cert_file"
-#                sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain "$cert_file"
-                #sudo security add-trusted-cert -d -r trustAsRoot -k /Library/Keychains/System.keychain "$cert_file"
-                #sudo security add-trusted-cert -d -r trustRoot -k "${HOME}/Library/Keychains/login.keychain" ${cert_file}
+
+                # 1. Convert PEM to DER format (optional but prevents API parser errors)
+                local der_file="${STAGING_DIR}/${fp_ext}.der"
+                openssl x509 -in "$cert_file" -outform DER -out "$der_file" 2>/dev/null || der_file="$cert_file"
+
+                # 2. Add certificate directly to System Keychain
+                sudo security add-certificates -k /Library/Keychains/System.keychain "$der_file"
+
+                # 3. Apply Trust Settings (Use trustAsRoot OR trustRoot without multiple policy flags)
+                sudo security add-trusted-cert -d -r trustAsRoot -k /Library/Keychains/System.keychain "$der_file" 2>/dev/null \
+                || sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$der_file"
+
+#                # Use -d to add to Admin trust settings (requires sudo)
+#                # Adding specific policies (-p) to resolve "parameter not valid" errors
+#                sudo security add-trusted-cert -d -r trustAsRoot -p ssl -p basic -k /Library/Keychains/System.keychain "$cert_file"
+##                sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain "$cert_file"
+#                #sudo security add-trusted-cert -d -r trustAsRoot -k /Library/Keychains/System.keychain "$cert_file"
+#                #sudo security add-trusted-cert -d -r trustRoot -k "${HOME}/Library/Keychains/login.keychain" ${cert_file}
             elif [[ "$OSTYPE" == "linux"* ]]; then
                 if [ -d "$CACERT_TRUST_DIR" ]; then
                     local target_path="${CACERT_TRUST_DIR}/${fp_ext}.${TRUST_CERT_EXT}"

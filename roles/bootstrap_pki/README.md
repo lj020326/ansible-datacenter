@@ -229,7 +229,7 @@ After running the playbook:
     openssl x509 -noout -serial | \
     cut -d= -f2 | \
     tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//'  # Uppercase hex-colon
-  
+
   # Output: 46:25:E6:83:7C:1E:37:73:57:24:C4:15:50:02:48:43:64:9D:0F:D8
   ```
 - For Chain/Root: Use `jq -r '.data.ca_chain[0]'` (leaf) or [1] (parent/root).
@@ -258,12 +258,12 @@ After running the playbook:
   $ openssl rsa -in /etc/pki/cacerts/ca-root-key.pem -pubout > key_pub_rsa.key
   writing RSA key
   $ diff cert_pub_rsa.key key_pub_rsa.key
-  $ 
+  $
   # For example-vault-ca (ECDSA private key)
   $ openssl x509 -in /etc/pki/cacerts/example-vault-ca.pem -pubkey -noout > cert_pub_ec.key
   $ openssl ec -in /etc/pki/cacerts/example-vault-ca-key.pem -pubout > key_pub_ec.key
   $ diff cert_pub_ec.key key_pub_ec.key  # Should be empty (match)
-  $ 
+  $
   ```
 - Validation test script
   The role deploys the `validate_certs.sh` script which performs the same test as above for the root and vault certs.

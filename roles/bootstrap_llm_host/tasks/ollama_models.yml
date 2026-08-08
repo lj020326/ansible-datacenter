@@ -1,0 +1,175 @@
+---
+# =============================================================================
+# Ollama Models Management - Using dettonville.llm.ollama_api module
+# =============================================================================
+
+- name: Ollama | Models | Assert bootstrap_llm_host__ollama_runtime is valid
+  ansible.builtin.assert:
+    that: bootstrap_llm_host__ollama_runtime in __bootstrap_llm_host__runtime_choices
+
+- name: Ollama | Models | Display Ollama endpoint URL
+  ansible.builtin.debug:
+    var: __bootstrap_llm_host__ollama_api_url
+
+- name: Ollama | Models | Initialize __bootstrap_llm_host__ollama_models
+  ansible.builtin.set_fact:
+    __bootstrap_llm_host__ollama_models: "{{ bootstrap_llm_host__ollama_models }}"
+
+- name: Ollama | Models | Combine __bootstrap_llm_host__ollama_models
+  when:
+    - bootstrap_llm_host__install_nemoclaw | bool
+    - __bootstrap_llm_host__is_dgx
+  ansible.builtin.set_fact:
+    __bootstrap_llm_host__ollama_models: "{{ __bootstrap_llm_host__ollama_models
+      + (__bootstrap_llm_host__nemoclaw_Ollama | Models | d([])) }}"
+
+- name: Ollama | Models | Set __models_normalized
+  ansible.builtin.set_fact:
+    __models_normalized: "{{ __bootstrap_llm_host__ollama_models
+      | map('combine', {'type': item.type | d('pull')})
+      | selectattr('type', 'defined')
+      | list }}"
+
+- name: Ollama | Models | Display normalized models list
+  ansible.builtin.debug:
+    var: __models_normalized
+
+# =============================================================================
+# Model Validation + API Ready Check
+# =============================================================================
+
+- name: Ollama | Models | Validate model tags against Ollama registry
+  ansible.builtin.uri:
+    url: >-
+      {% if '/' in item.name %}
+      https://registry.ollama.ai/v2/{{ (item.name.split(':') | first) }}/manifests/{{ (item.name.split(':') | last) if ':' in item.name else 'latest' }}
+      {% else %}
+      https://registry.ollama.ai/v2/library/{{ (item.name.split(':') | first) }}/manifests/{{ (item.name.split(':') | last) if ':' in item.name else 'latest' }}
+      {% endif %}
+    method: GET
+    return_content: false
+    status_code: 200
+  loop: "{{ __models_normalized | selectattr('type', 'equalto', 'pull') | list }}"
+  register: __model_validation
+  delegate_to: localhost
+  run_once: true
+  ignore_errors: true
+
+- name: Ollama | Models | Assert all models exist in registry
+  when: item.status is defined
+  no_log: true
+  ansible.builtin.assert:
+    that: item.status == 200
+    fail_msg: "Model '{{ item.item.name }}' not found in Ollama registry."
+  loop: "{{ __model_validation.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Ollama | Models | Ensure models are ready
+  delegate_to: localhost
+  become: false
+  vars:
+    ansible_become: false
+  block:
+    # =============================================================================
+    # Wait for Ollama API Ready
+    # =============================================================================
+    - name: Ollama | Models | Wait for Ollama API to be ready
+      dettonville.llm.ollama_api:
+        url: "{{ __bootstrap_llm_host__ollama_api_url }}"
+        api_key: "{{ bootstrap_llm_host__ollama_api_key | default(omit) }}"
+        api_auth_type: "{{ bootstrap_llm_host__ollama_api_auth_type | default(omit) }}"
+        action: health
+      register: __health_result
+      until: __health_result is succeeded
+      retries: 3
+      delay: 5
+
+    - name: Ollama | Models | Display __health_result
+      ansible.builtin.debug:
+        var: __health_result
+
+    # =============================================================================
+    # Sync Models (passing model_list directly)
+    # =============================================================================
+
+    - name: Ollama | Models | Pull standard Ollama models in batch/list
+      when: __models_normalized | selectattr('type', 'equalto', 'pull') | list | length > 0
+      #      delegate_to: localhost
+      #      become: false
+      dettonville.llm.ollama_api:
+        url: "{{ __bootstrap_llm_host__ollama_api_url }}"
+        api_key: "{{ bootstrap_llm_host__ollama_api_key | default(omit) }}"
+        api_auth_type: "{{ bootstrap_llm_host__ollama_api_auth_type }}"
+        action: sync
+        model_list: "{{ __models_normalized | selectattr('type', 'equalto', 'pull') | map(attribute='name') | list }}"
+      async: "{{ bootstrap_llm_host__ollama_model_download_timeout }}"
+      poll: 0
+      register: __model_pulls
+    #  changed_when: true
+
+    - name: Ollama | Models | Display __model_pulls
+      ansible.builtin.debug:
+        var: __model_pulls
+
+    - name: Ollama | Models | Wait for async model batch pull to complete
+      when: __model_pulls.ansible_job_id is defined
+      #      vars:
+      #        ansible_become: false
+      #      delegate_to: localhost
+      #      become: false
+      ansible.builtin.async_status:
+        jid: "{{ __model_pulls.ansible_job_id }}"
+      register: __pull_results
+      until: __pull_results.finished
+      retries: 200
+      delay: 20
+
+# =============================================================================
+# Custom Models
+# =============================================================================
+
+- name: Ollama | Models | Create custom models from Modelfile
+  when: __models_normalized | selectattr('type', 'equalto', 'custom') | list | length > 0
+  delegate_to: localhost
+  #  become: false
+  #  vars:
+  #    ansible_become: false
+  block:
+    - name: Ollama | Models | Create Modelfile for custom models
+      ansible.builtin.template:
+        src: custom.modelfile.j2
+        dest: "/tmp/{{ item.id | default(item.name) }}.Modelfile"
+        mode: "0644"
+        backup: true
+      loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
+      loop_control:
+        loop_var: __bootstrap_llm_host__custom_model
+
+    - name: Ollama | Models | Create custom Ollama models
+      dettonville.llm.ollama_api:
+        url: "{{ __bootstrap_llm_host__ollama_api_url }}"
+        api_key: "{{ bootstrap_llm_host__ollama_api_key | default(omit) }}"
+        api_auth_type: "{{ bootstrap_llm_host__ollama_api_auth_type }}"
+        action: create
+        model_name: "{{ item.name }}"
+        model_file_path: "/tmp/{{ item.name }}.Modelfile"
+      loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
+      changed_when: true
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+- name: Ollama | Models | Clean up temporary Modelfiles
+  ansible.builtin.file:
+    path: "/tmp/{{ item.name }}.Modelfile"
+    state: absent
+  loop: "{{ __models_normalized | selectattr('type', 'equalto', 'custom') | list }}"
+
+- name: Ollama | Models | Install llm-utils script
+  ansible.builtin.copy:
+    src: llm-utils.sh
+    dest: /usr/local/bin/llm-utils.sh
+    mode: "0755"
+    backup: true

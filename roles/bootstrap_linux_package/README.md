@@ -29,7 +29,7 @@ manager!
 
 #### `bootstrap_linux_package__package_list` details
 
-`bootstrap_linux_package__package_list__*` vars are merged when running the role. 
+`bootstrap_linux_package__package_list__*` vars are merged when running the role.
 
 The package list allows you to define which packages must be managed. Each item in the list can have the following attributes:
 
@@ -110,7 +110,7 @@ None.
   roles:
   - role: bootstrap_linux_package
     become: true
-    bootstrap_linux_package__package_list: 
+    bootstrap_linux_package__package_list:
       - name: htop
         brew: htop-osx
       - name: tree
@@ -119,4 +119,4 @@ None.
 ## Reference
 
 - https://github.com/GROG/ansible-role-package
-- 
+-

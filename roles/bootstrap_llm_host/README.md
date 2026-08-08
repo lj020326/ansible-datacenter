@@ -59,13 +59,13 @@ The `bootstrap_llm_host` role is designed to automate the setup of a Large Langu
 | `bootstrap_llm_host__webui_secret_key`            | `"{{ lookup('community.general.random_string', length=32) }}"`                                                                                                         | Secret key for Open WebUI.                                                                   |
 | `bootstrap_llm_host__model_download_timeout`      | `3600`                                                                                                                                                                 | Timeout for model downloads (in seconds).                                                    |
 | `bootstrap_llm_host__service_timeout`             | `300`                                                                                                                                                                  | Timeout for services to start (in seconds).                                                  |
-| `bootstrap_llm_host__models`                      | `[]`                                                                                                                                                                   | List of models to download and configure.                                                    |
+| `bootstrap_llm_host__ollama_models`                      | `[]`                                                                                                                                                                   | List of models to download and configure.                                                    |
 | `bootstrap_llm_host__system_packages`             | `['curl', 'wget', 'git', 'python3', 'python3-pip', 'python3-venv', 'nodejs', 'npm', 'nginx']`                                                                          | System packages to install.                                                                  |
 | `bootstrap_llm_host__nvidia_package_dist`         | `"{{ ansible_facts['distribution'] \| lower }}{{ ansible_facts['distribution_version'] \| replace('.', '') }}"`                                                        | Distribution string for NVIDIA package URL.                                                  |
 | `bootstrap_llm_host__nvidia_package_version`      | `1.1-1`                                                                                                                                                                | Version of NVIDIA package to install.                                                        |
 | `bootstrap_llm_host__nvidia_package`              | `"cuda-keyring_{{ bootstrap_llm_host__nvidia_package_version }}_all.deb"`                                                                                              | Name of the NVIDIA package to download.                                                      |
 | `bootstrap_llm_host__nvidia_package_url`          | `"https://developer.download.nvidia.com/compute/cuda/repos/{{ bootstrap_llm_host__nvidia_package_dist }}/x86_64/{{ bootstrap_llm_host__nvidia_package }}"`             | URL for downloading NVIDIA package.                                                          |
-| `bootstrap_llm_host__install_llama_cpp`           | `false`                                                                                                                                                                | Whether to install LLaMA.cpp server.                                                         |
+| `bootstrap_llm_host__install_llama`           | `false`                                                                                                                                                                | Whether to install LLaMA.cpp server.                                                         |
 | `bootstrap_llm_host__llama_runtime`           | `"{{ bootstrap_llm_host__ollama_runtime }}"`                                                                                                                           | Runtime for LLaMA.cpp (`native`, `docker`, `swarm`). Defaults to the same as Ollama runtime. |
 | `bootstrap_llm_host__llama_container_name`    | `"llama-cpp"`                                                                                                                                                          | Container name for LLaMA.cpp server.                                                         |
 | `bootstrap_llm_host__llama_service_name`      | `"llama-cpp"`                                                                                                                                                          | Service name for LLaMA.cpp in Docker Swarm mode.                                             |
@@ -81,7 +81,7 @@ The `bootstrap_llm_host` role is designed to automate the setup of a Large Langu
 ### Key role variables
 
 ```yaml
-bootstrap_llm_host__models: []               # List of dicts - see examples below
+bootstrap_llm_host__ollama_models: []               # List of dicts - see examples below
 bootstrap_llm_host__model_storage_dir: "/home/ollama/.ollama/models"
 bootstrap_llm_host__install_open_webui: true
 bootstrap_llm_host__configure_proxy: true    # Recommended with WebUI
@@ -96,7 +96,7 @@ To use the `bootstrap_llm_host` role, include it in your playbook and configure 
   roles:
     - role: bootstrap_llm_host
       vars:
-        bootstrap_llm_host__models:
+        bootstrap_llm_host__ollama_models:
           - type: pull
             name: qwen3.5:27b
 ```
@@ -116,14 +116,14 @@ With more options:
         bootstrap_llm_host__install_open_webui: true
         bootstrap_llm_host__configure_proxy: true
         bootstrap_llm_host__proxy_type: traefik
-        bootstrap_llm_host__models:
+        bootstrap_llm_host__ollama_models:
           - name: "gemma-4-E2B-it-GGUF"
             type: pull
 ```
 
 Example model config (in inventory group_vars/llm_host.yml):
 ```yaml
-bootstrap_llm_host__models:
+bootstrap_llm_host__ollama_models:
   - type: pull
     name: qwen3.5:27b           # Official Ollama tag, ~17GB VRAM Q4
   - type: pull

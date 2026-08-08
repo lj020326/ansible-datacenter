@@ -526,6 +526,6 @@ To regenerate the templates, from within the `meta/` directory run:
 
 See README-ostree.md
 
-## Reference 
+## Reference
 
 * https://github.com/willshersystems/ansible-sshd
