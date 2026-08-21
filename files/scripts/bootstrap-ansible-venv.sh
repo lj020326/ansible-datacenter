@@ -75,7 +75,7 @@ if [ -f ./collections/requirements.yml ]; then
   echo "Installing galaxy collections/requirements.yml..."
   INSTALL_GALAXY_REQ=1
   REQ_FILE=./collections/requirements.yml
-  ansible-galaxy collection install ${FORCE_ARG} -r ${REQ_FILE}
+  ansible-galaxy collection install "${FORCE_ARG}" -r ${REQ_FILE}
 
 fi
 
@@ -96,10 +96,10 @@ fi
 if [ ${INSTALL_GALAXY_REQ} -gt 0 ]; then
   ## 	How to install both roles and collections at same time:
   ##		ref: https://docs.ansible.com/ansible/latest/user_guide/collections_using.html
-  ansible-galaxy install ${FORCE_ARG} -r ${REQ_FILE}
+  ansible-galaxy install "${FORCE_ARG}" -r "${REQ_FILE}"
 
   #  ansible-galaxy role install ${FORCE_ARG} -r ${REQ_FILE}
-  ansible-galaxy collection install ${FORCE_ARG} -r ${REQ_FILE}
+  ansible-galaxy collection install "${FORCE_ARG}" -r "${REQ_FILE}"
 #  galaxy_install_result=$(venv/bin/ansible-galaxy install ${FORCE_ARG} -r ${REQ_FILE})
 #  echo "galaxy install results=${galaxy_install_result}"
 fi

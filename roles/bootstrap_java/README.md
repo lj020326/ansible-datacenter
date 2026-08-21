@@ -48,7 +48,7 @@ For Ubuntu < 16.04:
       tasks:
         - name: installing repo for Java 8 in Ubuntu
   	      apt_repository: repo='ppa:openjdk-r/ppa'
-    
+
     - hosts: server
       roles:
         - role: bootstrap_java

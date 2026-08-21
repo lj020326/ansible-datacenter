@@ -1,0 +1,119 @@
+---
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+ci:
+  autoupdate_schedule: quarterly
+  skip:
+    - local-ansible-lint
+    - verify-inventory-fix
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        files: ^(roles|playbooks|inventory|vars)/
+        exclude: \.(ldif|schema)(\.j2)?$
+      - id: end-of-file-fixer
+        files: ^(roles|playbooks|inventory|vars)/
+        exclude: \.(ldif|schema)(\.j2)?$
+      - id: check-json
+        files: ^(roles|playbooks|inventory|vars)/
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+        files: ^(roles|playbooks|inventory|vars)/
+        exclude: |
+          (?x)^(
+              inventory/README\.md|
+              vars/README\.md|
+              roles/bootstrap_docker_stack/files/openvpn/nordvpn\.udp\.ovpn
+          )$
+      - id: mixed-line-ending
+        files: ^(roles|playbooks|inventory|vars)/
+        exclude: \.(ldif|schema)(\.j2)?$
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        entry: |
+          python3 -c "import locale;
+          locale.setlocale = lambda *args: 'C.UTF-8';
+          import yamllint.cli;
+          yamllint.cli.run()"
+        name: lint yaml files (yamllint)
+        args: [-c=.yamllint]
+        files: ^(roles|playbooks|inventory|vars)/
+        language: python
+        language_version: python3
+        additional_dependencies: []
+
+  - repo: local
+    hooks:
+      - id: shellcheck-autofix
+        name: auto-fix shellcheck issues
+        entry: bash -c 'for f in "$@"; do diff=$(shellcheck -f diff "$f" 2>/dev/null); if [ -n "$diff" ]; then echo "$diff" | patch -p1 -s; fi; done' --
+        language: system
+        types: [shell]
+        stages: [pre-commit]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        name: check shell scripts (shellcheck)
+        files: ^(roles|playbooks|inventory|vars)/
+        types: [shell]
+        stages: [pre-commit, pre-push]
+      - id: shellcheck
+        name: shellcheck-all
+        files: ^(roles|playbooks|inventory|vars)/
+        types: [shell]
+        stages: [manual]
+
+  - repo: local
+    hooks:
+      - id: verify-inventory-fix
+        name: verify ansible inventory
+        entry: python3 verify_inventory.py
+        language: python
+        language_version: python3
+        additional_dependencies:
+          - ansible-core
+          - ruamel.yaml
+          - PyYAML
+          - pytest
+          - pytest-shell-utilities
+        pass_filenames: false
+        stages: [pre-commit, manual]
+      - id: verify-inventory-test
+        name: verify test ansible inventory
+        entry: python3 verify_inventory.py test -p
+#        entry: python3 verify_inventory.py
+        language: python
+        language_version: python3
+        additional_dependencies:
+          - ansible-core
+          - ruamel.yaml
+          - PyYAML
+          - pytest
+          - pytest-shell-utilities
+        pass_filenames: false
+        stages: [pre-push]
+
+  - repo: local
+    hooks:
+      - id: local-ansible-lint
+        name: ansible-lint
+        entry: ansible-lint
+        language: python
+        files: ^(roles|playbooks|inventory|vars)/
+        #        pass_filenames: true
+        language_version: python3
+        additional_dependencies:
+          - ansible-lint==26.4.0
+          - ansible-core>=2.16.0
+          # required for collection MANIFEST handling
+          - distlib
+        stages: [pre-push]

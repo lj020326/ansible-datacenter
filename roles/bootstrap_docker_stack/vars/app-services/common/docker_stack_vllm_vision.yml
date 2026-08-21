@@ -1,0 +1,215 @@
+---
+
+__docker_stack__vllm_vision__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__vllm_vision__base_dir: "{{ __docker_stack__vllm_vision__stack_dir }}/vllm_vision"
+
+__docker_stack__vllm_vision__image_default: vllm/vllm-openai:latest
+#__docker_stack__vllm_vision__image_default: vllm/vllm-openai:v0.24.0
+__docker_stack__vllm_vision__image: "{{ docker_stack__vllm_vision__image
+  | d(__docker_stack__vllm_vision__image_default) }}"
+
+__docker_stack__vllm_vision__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__vllm_vision__host_addr_default: "vllm-vision.{{ __docker_stack__vllm_vision__domain }}"
+__docker_stack__vllm_vision__host_addr: "{{ docker_stack__vllm_vision__host_addr
+  | d(__docker_stack__vllm_vision__host_addr_default) }}"
+
+__docker_stack__vllm_vision__internal_http_port: 8000
+
+__docker_stack__vllm_vision__http_port: "{{ docker_stack__vllm_vision__http_port | d('8001') }}"
+
+__docker_stack__vllm_vision__api_key: "{{ docker_stack__vllm_vision__api_key | d('') }}"
+
+__docker_stack__vllm_vision__model_default: "Qwen/Qwen2.5-VL-72B-Instruct-AWQ"
+__docker_stack__vllm_vision__model: "{{ docker_stack__vllm_vision__model
+  | d(__docker_stack__vllm_vision__model_default) }}"
+
+__docker_stack__vllm_vision__served_model_names_default:
+  - "{{ __docker_stack__vllm_vision__model }}"
+  - "nemoclaw"
+__docker_stack__vllm_vision__served_model_names: "{{
+  docker_stack__vllm_vision__served_model_names
+  | d(__docker_stack__vllm_vision__served_model_names_default) }}"
+
+__docker_stack__vllm_vision__max_model_len_default: 8192
+__docker_stack__vllm_vision__max_model_len: "{{ docker_stack__vllm_vision__max_model_len
+  | d(__docker_stack__vllm_vision__max_model_len_default) }}"
+
+__docker_stack__vllm_vision__vikunja_agent_api_token: "{{
+  docker_stack__vllm_vision__vikunja_agent_api_token | d('') }}"
+__docker_stack__vllm_vision__vikunja_agent_secret_key: "{{
+  docker_stack__vllm_vision__vikunja_agent_secret_key | d('') }}"
+
+#__docker_stack__vllm_vision__container_cache_dir_default: "/app/.cache/huggingface"
+__docker_stack__vllm_vision__container_cache_dir_default: "/app/.cache"
+__docker_stack__vllm_vision__container_cache_dir: "{{
+  docker_stack__vllm_vision__container_cache_dir
+  | d(__docker_stack__vllm_vision__container_cache_dir_default) }}"
+
+__docker_stack__vllm_vision__container_config_dir_default: "/app/.config"
+__docker_stack__vllm_vision__container_config_dir: "{{
+  docker_stack__vllm_vision__container_config_dir
+  | d(__docker_stack__vllm_vision__container_config_dir_default) }}"
+
+__docker_stack__vllm_vision__gpu_memory_utilization: "{{
+  docker_stack__vllm_vision__gpu_memory_utilization | d('0.60') }}"
+__docker_stack__vllm_vision__attention_backend: "{{
+  docker_stack__vllm_vision__attention_backend | d('FLASH_ATTN') }}"
+
+## Since vllm-coder is utilizing a Qwen2.5-Coder variant, qwen is ideal.
+__docker_stack__vllm_vision__tool_call_parser_default: "qwen3_coder"
+#__docker_stack__vllm_vision__tool_call_parser_default: "herring"
+#__docker_stack__vllm_vision__tool_call_parser_default: "mistral"
+#__docker_stack__vllm_vision__tool_call_parser_default: "llama"
+#__docker_stack__vllm_vision__tool_call_parser_default: "hermes"
+__docker_stack__vllm_vision__tool_call_parser: "{{
+  docker_stack__vllm_vision__tool_call_parser
+  | d(__docker_stack__vllm_vision__tool_call_parser_default) }}"
+
+__docker_stack__vllm_vision__quantization_default: "awq"
+__docker_stack__vllm_vision__quantization: "{{ docker_stack__vllm_vision__quantization
+  | d(__docker_stack__vllm_vision__quantization_default) }}"
+
+__docker_stack__vllm_vision__cuda_visible_devices: "{{
+  docker_stack__vllm_vision__cuda_visible_devices | d(0) }}"
+
+__docker_stack__vllm_vision__limit_mm_per_prompt: "{{
+  docker_stack__vllm_vision__limit_mm_per_prompt | d(5) }}"
+
+## Remove the operational flags from vllm.env that were triggering the
+## 'Unknown vLLM environment variable' detected warnings
+## Keep only runtime system/cache variables in 'vllm.env'
+__docker_stack__vllm_vision__environment_default:
+  # --- Secure the API Server ---
+  # Replace with a vault variable or secure string
+  VLLM_API_KEY: "{{ __docker_stack__vllm_vision__api_key }}"
+  VLLM_USE_DEEP_GEMM: 0
+  VLLM_DISABLED_KERNELS: "DeepGemmFp8BlockScaledMMKernel"
+
+  CUDA_VISIBLE_DEVICES: "{{ __docker_stack__vllm_vision__cuda_visible_devices }}"
+
+  HF_HOME: "{{ __docker_stack__vllm_vision__container_cache_dir }}"
+
+  # --- Prevents FlashInfer from trying to write to root-level /.cache ---
+  FLASHINFER_WORKSPACE_DIR: "{{ __docker_stack__vllm_vision__container_cache_dir }}/flashinfer"
+
+  # --- Redirect Triton away from /app/.triton ---
+  TRITON_CACHE_DIR: "{{ __docker_stack__vllm_vision__container_cache_dir }}/triton"
+
+  # --- Bypasses the PyTorch getpwuid() KeyError ---
+  USER: "{{ docker_stack__user_username }}"
+  LOGNAME: "{{ docker_stack__user_username }}"
+
+__docker_stack__vllm_vision__environment: "{{ docker_stack__vllm_vision__environment
+  | d(__docker_stack__vllm_vision__environment_default) }}"
+
+__docker_stack__vllm_vision__deploy_resources_standalone:
+  reservations:
+    devices:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+#      - driver: nvidia
+#        # or device_ids: ["0"] if you want specific GPU
+#        count: all
+#        capabilities: [gpu]
+
+__docker_stack__vllm_vision__deploy_resources_swarm:
+  reservations:
+    generic_resources:
+      - discrete_resource_spec:
+          kind: NVIDIA-GPU
+          value: 1
+
+__docker_stack__vllm_vision__deploy_resources: "{{
+  __docker_stack__vllm_vision__deploy_resources_swarm
+  if docker_stack__swarm_mode
+  else __docker_stack__vllm_vision__deploy_resources_standalone }}"
+
+__docker_stack__vllm_vision__config_dirs:
+  - path: "{{ __docker_stack__vllm_vision__base_dir }}"
+  - path: "{{ __docker_stack__vllm_vision__base_dir }}/cache"
+  - path: "{{ __docker_stack__vllm_vision__base_dir }}/config"
+
+__docker_stack__vllm_vision__config_templates:
+  - src: "vllm_vision/vllm.env.j2"
+    dest: "{{ __docker_stack__vllm_vision__base_dir }}/vllm.env"
+  - src: "vllm_vision/config-group.conf.j2"
+    dest: "{{ __docker_stack__vllm_vision__base_dir }}/group"
+  - src: "vllm_vision/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__vllm_vision__base_dir }}/passwd"
+
+__docker_stack__vllm_vision__firewalld_ports:
+  - "{{ __docker_stack__vllm_vision__http_port }}/tcp"
+
+__docker_stack__vllm_vision__traefik_labels: "{{ docker_stack__vllm_vision__traefik_labels
+  | d(__docker_stack__vllm_vision__traefik_labels_default) }}"
+
+__docker_stack__vllm_vision__services:
+  vllm-vision:
+    image: "{{ __docker_stack__vllm_vision__image }}"
+    container_name: vllm-vision
+    restart: unless-stopped
+    working_dir: /app
+    user: "{{ docker_stack__user_uid | d('1000') }}:{{ docker_stack__user_gid | d('1000') }}"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    ports:
+      - "{{ __docker_stack__vllm_vision__http_port }}:{{ __docker_stack__vllm_vision__internal_http_port }}"
+    env_file:
+      - vllm_vision/vllm.env
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__vllm_vision__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__vllm_vision__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__vllm_vision__base_dir }}/cache:{{ __docker_stack__vllm_vision__container_cache_dir }}"
+      - "{{ __docker_stack__vllm_vision__base_dir }}/config:{{ __docker_stack__vllm_vision__container_config_dir }}"
+    command: |
+      {{ __docker_stack__vllm_vision__model }}
+      --served-model-name {{ __docker_stack__vllm_vision__served_model_names | join(' ') }}
+      --gpu-memory-utilization {{ __docker_stack__vllm_vision__gpu_memory_utilization }}
+      --max-model-len {{ __docker_stack__vllm_vision__max_model_len }}
+      --quantization {{ __docker_stack__vllm_vision__quantization }}
+      --limit-mm-per-prompt image={{ __docker_stack__vllm_vision__limit_mm_per_prompt }}
+      --enable-auto-tool-choice
+      --enforce-eager
+    healthcheck:
+      test: >-
+        curl -f -H 'Authorization: Bearer "$${VLLM_API_KEY}"' http://localhost:8000/health || exit 1
+#      test: [
+#        "CMD-SHELL",
+#        "curl -f -H 'Authorization: Bearer $${VLLM_API_KEY}' http://localhost:8000/health || exit 1"
+#      ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Generous window for 32B model disk-to-VRAM transfers
+      start_period: 10m
+    labels: "{{ __docker_stack__vllm_vision__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      # Explicitly designed to interface with the nvidia-container-toolkit CLI layer on single-node environments.
+      resources: "{{ __docker_stack__vllm_vision__deploy_resources }}"
+
+docker_stack__appspec__vllm:
+  dirs: "{{ __docker_stack__vllm_vision__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__vllm_vision__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__vllm_vision__config_templates | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__vllm_vision__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__vllm_vision__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__vllm_vision__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__vllm_vision__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__vllm_vision__services | d({}, true) }}"

@@ -137,7 +137,7 @@ An example playbook for initializing the Root CA:
         organization: "Dettonville Internal"
         organizational_unit: "Research & Technology"
         email: "admin@dettonville.int"
-    
+
       - common_name: "ca.johnson.int"
         domain_name: "johnson.int"
         issuer_name: "{{ bootstrap_ca_certs__common_name }}" # Signed by the root CA

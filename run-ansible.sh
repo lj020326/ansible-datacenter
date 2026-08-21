@@ -257,7 +257,7 @@ function usage() {
   echo "     ${0} kolla-ansible -i inventory/hosts-openstack.ini stop --yes-i-really-really-mean-it"
   echo "     ${0} openstack server create --image cirros --flavor m1.tiny --key-name mykey --network demo-net demo1"
   echo "     ${0} scripts/kolla-ansible/init-runonce.sh"
-  exit ${retcode}
+  exit "${retcode}"
 }
 
 function main() {

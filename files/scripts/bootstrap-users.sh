@@ -17,7 +17,7 @@ usage() {
     echo "     ${SCRIPT_NAME} node01" 1>&2
     echo "     ${SCRIPT_NAME} all" 1>&2
     echo "" 1>&2
-    exit ${1}
+    exit "${1}"
 }
 
 if [[ ! $(type -P ${ANSIBLE_PLAYBOOK}) ]] ; then

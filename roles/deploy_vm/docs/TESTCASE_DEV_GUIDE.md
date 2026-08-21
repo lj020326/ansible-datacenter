@@ -41,9 +41,9 @@ Below is an example of test case playbook:
           when: not vmtools_is_installed
 
         # e.g., run test case when VMware tools is installed
-        - block: 
+        - block:
             - ansible.builtin.include_tasks: test_case_1_task.yml
-            
+
             - name: Verify task result
               assert:
                 that:
@@ -71,7 +71,7 @@ Below is an example of test case playbook:
 2. In the "block" part, write the tasks of test case execution and verification.
 
 3. In the "block" part, use this task "common/print_test_result.yml" to set test case result as below:
-* "No Run": test case requirements or dependency not meet, 
+* "No Run": test case requirements or dependency not meet,
 * "Failed": test case verification failed,
 * "Passed": test case passed.
 

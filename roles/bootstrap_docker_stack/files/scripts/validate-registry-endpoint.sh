@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+#TARGET_HOST=${1:-registry.example.int}
+TARGET_HOST=${1:-media.johnson.int}
+TARGET_PORT=${2:-5000}
+#CONTEXT_PATH=${3:-"v2/"}
+CONTEXT_PATH=${3:-"v2/_catalog"}
+
+DOCKER_REGISTRY_USERNAME=${DOCKER_REGISTRY_USERNAME:-"testuser"}
+DOCKER_REGISTRY_PASSWORD=${DOCKER_REGISTRY_PASSWORD:-"testpassword"}
+
+CREDENTIALS="${DOCKER_REGISTRY_USERNAME}:${DOCKER_REGISTRY_PASSWORD}"
+CREDENTIALS_MASKED="${DOCKER_REGISTRY_USERNAME}:***"
+
+SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+
+#${SCRIPT_DIR}/validate-ssl-endpoint.sh -c ${CREDS} -p ${CONTEXT_PATH} ${TARGET_HOST} ${TARGET_PORT}
+VALIDATE_CMD="${SCRIPT_DIR}/validate-ssl-endpoint.sh"
+VALIDATE_CMD_MASKED="${SCRIPT_DIR}/validate-ssl-endpoint.sh"
+
+if [[ "${CREDENTIALS}" != "" ]]; then
+  VALIDATE_CMD+=" -c ${CREDENTIALS}"
+  VALIDATE_CMD_MASKED+=" -c ${CREDENTIALS_MASKED}"
+fi
+VALIDATE_CMD+=" -p ${CONTEXT_PATH} ${TARGET_HOST} ${TARGET_PORT}"
+echo "Running: ${VALIDATE_CMD_MASKED}"
+${VALIDATE_CMD}

@@ -89,7 +89,7 @@ keytool -list -v -keystore /tmp/testCA/keystore.p12 -storepass unsecure \
 && (echo 'assert testservice2 SAN DNS is added: pass' && exit 0) \
 || (echo 'assert testservice2 SAN DNS is added: fail' && exit 1)
 
-# Verification of truststore after re-write  
+# Verification of truststore after re-write
 
 keytool -list -v -keystore /tmp/testCA/truststore.p12 -storepass unsecure \
 | grep -q 'rootca' \
@@ -109,7 +109,7 @@ keytool -list -v -keystore /tmp/myCA/keystore.p12 -storepass unsecure \
 && (echo 'assert 3 entries was added: pass' && exit 0) \
 || (echo 'assert 3 entries was added: fail' && exit 1)
 
-# Verification of truststore after re-write  
+# Verification of truststore after re-write
 
 keytool -list -v -keystore /tmp/myCA/truststore.p12 -storepass unsecure \
 | grep -q 'rootca' \
@@ -120,4 +120,3 @@ keytool -list -v -keystore /tmp/myCA/truststore.p12 -storepass unsecure \
 | grep -q 'baltimore' \
 && (echo 'assert baltimore CA is trusted: pass' && exit 0) \
 || (echo 'assert baltimore CA is trusted: fail' && exit 1)
-

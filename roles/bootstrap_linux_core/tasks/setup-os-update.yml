@@ -1,0 +1,81 @@
+---
+- name: Ensure run-os-update directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/run-os-update/pre-update.d
+    - /etc/run-os-update/update.d
+    - /etc/run-os-update/post-update.d
+
+- name: Find files in hook directories
+  when: bootstrap_linux_core__reset_daily_scripts | d(false) | bool
+  ansible.builtin.find:
+    paths: "/etc/run-os-update/{{ item }}"
+    patterns: "*"
+    file_type: file
+  loop:
+    - pre-update.d
+    - update.d
+    - post-update.d
+  register: __found_hook_files
+
+- name: Remove existing hook files
+  when: bootstrap_linux_core__reset_daily_scripts | d(false) | bool
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ __found_hook_files.results | map(attribute='files') | flatten }}"
+
+- name: Deploy run-os-update scripts
+  ansible.builtin.copy:
+    src: "scripts/admin/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: '0755'
+  loop:
+    - run-os-update.sh
+    - perform-os-updates.sh
+
+- name: Ensure daily maintenance hook directories exist
+  ansible.builtin.file:
+    path: "/etc/run-os-update/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - pre-update.d
+    - update.d
+    - post-update.d
+
+- name: Init __bootstrap_linux_core__os_update_hooks
+  ansible.builtin.set_fact:
+    __bootstrap_linux_core__os_update_hooks: "{{
+      bootstrap_linux_core__os_update_hooks | d([], true) }}"
+
+- name: Combine bootstrap_linux_core__os_update_hooks__* vars into merged list
+  ansible.builtin.set_fact:
+    __bootstrap_linux_core__os_update_hooks: "{{
+      __bootstrap_linux_core__os_update_hooks | d([], true)
+      + lookup('vars', item) | d([], true) }}"
+  loop: "{{
+    lookup('varnames','^bootstrap_linux_core__os_update_hooks__',
+    wantlist=True) }}"
+
+- name: Display __bootstrap_linux_core__os_update_hooks
+  ansible.builtin.debug:
+    var: __bootstrap_linux_core__os_update_hooks
+
+- name: Deploy batch hook scripts
+  when: item.state | d('present') == "present"
+  ansible.builtin.copy:
+    dest: "/etc/run-os-update/{{ item.hook_type }}/{{ item.filename }}"
+    mode: '0755'
+    content: "{{ item.content }}"
+  loop: "{{ __bootstrap_linux_core__os_update_hooks }}"
+
+- name: Remove absent batch hook scripts
+  when: item.state | d('present') == "absent"
+  ansible.builtin.file:
+    path: "/etc/run-os-update/{{ item.hook_type }}/{{ item.filename }}"
+    state: absent
+  loop: "{{ __bootstrap_linux_core__os_update_hooks }}"

@@ -28,7 +28,7 @@ The role runs on your localhost and loops through the inventory list given by aw
 ```
 groups:
   test_group: "'test' in tags['Name']"
-``` 
+```
 
 You can edit `aws_ec2.yml` to create different groups in the Ansible inventory by whatever tag you like.
 
@@ -51,7 +51,7 @@ $> ansible-inventory -i aws_ec2.yml --graph
 Run:
 `ansible-playbook playbook.yml -i aws_ec2.yml --ask-vault-pass -v`
 
-You'll be prompted for the password you set for the Ansible Vault. The task will run InSpec against the EC2s that are part of `test_group`. 
+You'll be prompted for the password you set for the Ansible Vault. The task will run InSpec against the EC2s that are part of `test_group`.
 
 The task will execute all the scans simultaneously using Ansible's [asynchronous feature](https://docs.ansible.com/ansible/latest/user_guide/playbooks_async.html). This means Ansible will execute each scan in the loop and not wait for a result before moving on.
 

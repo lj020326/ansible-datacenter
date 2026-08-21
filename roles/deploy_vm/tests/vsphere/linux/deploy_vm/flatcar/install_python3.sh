@@ -23,20 +23,20 @@ fi
 ap_python3_download_dir=$(/usr/bin/mktemp -d -t ap-XXXXXX)
 echo "Temporary directory $ap_python3_download_dir is created for downloading ActivePython3"
 
-ap_python3_package_file_name=$(echo $ap_python3_download_url | xargs basename)
+ap_python3_package_file_name=$(echo "$ap_python3_download_url" | xargs basename)
 ap_python3_download_dest="$ap_python3_download_dir/$ap_python3_package_file_name"
 ap_python3_extract_path="$ap_python3_download_dir"
 ap_python3_install_path="/opt/active_python"
 
 echo "Downloading $ap_python3_download_url ..."
-wget -q --no-check-certificate $ap_python3_download_url -O $ap_python3_download_dest
+wget -q --no-check-certificate "$ap_python3_download_url" -O "$ap_python3_download_dest"
 if [ $? -ne 0 ]; then
     echo "Failed to download $ap_python3_download_url"
     exit 1
 fi
 
 echo "Extracting $ap_python3_download_dest to $ap_python3_extract_path ..."
-tar -xf $ap_python3_download_dest -C $ap_python3_extract_path
+tar -xf "$ap_python3_download_dest" -C "$ap_python3_extract_path"
 if [ $? -ne 0 ]; then
     echo "Failed to extract $ap_python3_download_dest"
     exit 1
@@ -53,8 +53,8 @@ if [ ! -e $ap_python3_install_path ]; then
 fi
 
 echo "Installing ActivePython3 ..."
-ap_python3_install_script=$(find $ap_python3_extract_path -name 'install.sh')
-chmod +x $ap_python3_install_script
+ap_python3_install_script=$(find "$ap_python3_extract_path" -name 'install.sh')
+chmod +x "$ap_python3_install_script"
 $ap_python3_install_script -I $ap_python3_install_path
 rc=$?
 if [ $rc -ne 0 ]; then
@@ -76,7 +76,7 @@ else
     ln -sf "$ap_python3_install_path/bin/virtualenv" "$ap_python3_bin_dir/virtualenv"
 
     echo "Remove directory $ap_python3_download_dir"
-    rm -rf $ap_python3_download_dir
+    rm -rf "$ap_python3_download_dir"
 
     # Add /opt/bin to PATH for python auto discovery
     echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:$ap_python3_bin_dir" >>/etc/environment

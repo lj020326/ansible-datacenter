@@ -1,18 +1,30 @@
 ---
 
-#__docker_stack__vllm__endpoint: "vault.{{ __docker_stack__vllm__domain }}"
-
-__docker_stack__vllm__traefik_labels_base_default:
+__docker_stack__vllm__traefik_labels_base_coder_default:
   - "traefik.enable=true"
-  - "traefik.http.routers.vllm.entrypoints=https"
-  - "traefik.http.routers.vllm.rule=Host(`{{ __docker_stack__vllm__host_addr }}`)"
-  - "traefik.http.routers.vllm.service=vllm-svc"
+  - "traefik.http.routers.vllm-coder.entrypoints=https"
+  - "traefik.http.routers.vllm-coder.rule=Host(`{{ __docker_stack__vllm__host_addr_coder }}`)"
+  - "traefik.http.routers.vllm-coder.service=vllm-coder-svc"
   # Add middleware to ensure X-Forwarded-Proto is set to https
-  - "traefik.http.services.vllm-svc.loadbalancer.server.port={{ __docker_stack__vllm__internal_http_port }}"
-  - "traefik.http.services.vllm-svc.loadbalancer.server.scheme=http"
+  - "traefik.http.services.vllm-coder-svc.loadbalancer.server.port={{ __docker_stack__vllm__internal_http_port }}"
+  - "traefik.http.services.vllm-coder-svc.loadbalancer.server.scheme=http"
 
-__docker_stack__vllm__traefik_labels_default: >-
+__docker_stack__vllm__traefik_labels_coder_default: >-
   {{
-    __docker_stack__vllm__traefik_labels_base_default
+    __docker_stack__vllm__traefik_labels_base_coder_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}
+
+__docker_stack__vllm__traefik_labels_base_execution_default:
+  - "traefik.enable=true"
+  - "traefik.http.routers.vllm-exec.entrypoints=https"
+  - "traefik.http.routers.vllm-exec.rule=Host(`{{ __docker_stack__vllm__host_addr_execution }}`)"
+  - "traefik.http.routers.vllm-exec.service=vllm-exec-svc"
+  - "traefik.http.services.vllm-exec-svc.loadbalancer.server.port=8000"
+  - "traefik.http.services.vllm-exec-svc.loadbalancer.server.scheme=http"
+
+__docker_stack__vllm__traefik_labels_execution_default: >-
+  {{
+    __docker_stack__vllm__traefik_labels_base_execution_default
     + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
   }}

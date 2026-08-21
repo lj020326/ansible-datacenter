@@ -63,4 +63,3 @@ $SNIPPET('cobbler_register')
 # Begin final steps
 $SNIPPET('kickstart_done')
 # End final steps
-

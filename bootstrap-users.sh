@@ -13,7 +13,7 @@ usage() {
     echo "     ${0} node01" 1>&2
     echo "     ${0} all" 1>&2
     echo "" 1>&2
-    exit ${1}
+    exit "${1}"
 }
 
 #if [[ ! $(type -P ${ANSIBLE_PLAYBOOK}) ]] ; then
@@ -68,6 +68,6 @@ case "${node_name}" in
         ${ANSIBLE_COMMAND}
         ;;
     *)
-        ${ANSIBLE_COMMAND} --limit ${node_name}
+        ${ANSIBLE_COMMAND} --limit "${node_name}"
         ;;
 esac

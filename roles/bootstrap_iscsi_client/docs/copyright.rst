@@ -26,4 +26,3 @@ Credits
   * creator of the DebOps Project
 
   * current project maintainer
-

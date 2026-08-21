@@ -51,10 +51,10 @@ $ ansible-galaxy install -r requirements.yml
 * plugin: Folder for plugin scripts
 * tools: Folder for 3rd-party tools used in test cases
 * vars: Folder for variable files used in testing
-* changelogs: Folder for changelog of each release 
+* changelogs: Folder for changelog of each release
 
 ### Supported Testing Scenarios
-This project supports below scenarios for end-to-end guest operating system validation testing 
+This project supports below scenarios for end-to-end guest operating system validation testing
 * Deploy VM and install guest operating system from ISO image
 * Deploy VM from an OVA template
 * Existing VM with installed guest operating system, which should satisfy below requirments.

@@ -50,27 +50,27 @@ reverse_array LOGLEVEL_TO_STR LOGLEVELSTR_TO_LEVEL
 LOG_LEVEL=${LOG_INFO}
 
 function logError() {
-  if [ $LOG_LEVEL -ge $LOG_ERROR ]; then
+  if [ "$LOG_LEVEL" -ge $LOG_ERROR ]; then
   	logMessage "${LOG_ERROR}" "${1}"
   fi
 }
 function logWarn() {
-  if [ $LOG_LEVEL -ge $LOG_WARN ]; then
+  if [ "$LOG_LEVEL" -ge $LOG_WARN ]; then
   	logMessage "${LOG_WARN}" "${1}"
   fi
 }
 function logInfo() {
-  if [ $LOG_LEVEL -ge $LOG_INFO ]; then
+  if [ "$LOG_LEVEL" -ge $LOG_INFO ]; then
   	logMessage "${LOG_INFO}" "${1}"
   fi
 }
 function logTrace() {
-  if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
+  if [ "$LOG_LEVEL" -ge "$LOG_TRACE" ]; then
   	logMessage "${LOG_TRACE}" "${1}"
   fi
 }
 function logDebug() {
-  if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
+  if [ "$LOG_LEVEL" -ge $LOG_DEBUG ]; then
   	logMessage "${LOG_DEBUG}" "${1}"
   fi
 }
@@ -184,12 +184,12 @@ function main() {
   fi
 
   if [ -n "${CONFIG_FILEPATH}" ]; then
-    if [ ! -e $CONFIG_FILEPATH ]; then
+    if [ ! -e "$CONFIG_FILEPATH" ]; then
 #      logWarn "Config file ${CONFIG_FILEPATH} not found, skipping!"
       abort "Config file ${CONFIG_FILEPATH} not found, quitting now!"
     else
       logInfo "Reading configs from ${CONFIG_FILEPATH} ...."
-      source ${CONFIG_FILEPATH}
+      source "${CONFIG_FILEPATH}"
     fi
   fi
 

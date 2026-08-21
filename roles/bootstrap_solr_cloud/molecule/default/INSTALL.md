@@ -29,4 +29,3 @@ $ curl -L https://raw.githubusercontent.com/goss-org/goss/master/extras/dgoss/dg
 - https://github.com/goss-org/goss
 - https://github.com/goss-org/goss/tree/master/extras/dgoss
 - https://linora-solutions.nl/post/testing_ansible_roles_with_molecule_goss_and_docker/
-

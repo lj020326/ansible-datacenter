@@ -16,7 +16,7 @@ The `apply_common_groups` Ansible role is designed to dynamically assign hosts t
 The following variables are configurable by users:
 
 - `apply_common_groups__base_groupname`: The base name used to construct group names for OS, machine type, and network configurations. Defaults to `"common_groups"`.
-  
+
 - `apply_common_groups__dns_servers`: A list of DNS servers used to resolve the host's IP address via DNS lookup. Defaults to a predefined set of IPs.
 
 ## Usage

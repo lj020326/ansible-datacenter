@@ -16,11 +16,11 @@
     * [Get groups for a host](#get-groups-for-a-host)
   * [Get info for all hosts in a specified inventory](#get-info-for-all-hosts-in-a-specified-inventory)
 
-## Confidence Checks 
+## Confidence Checks
 
 Perform the following CLI based confidence checks whenever making updates/additions to the inventory to confirm the inventory changes are correctly set.
 
-### 1 - Check that the correct hosts appear for the group 
+### 1 - Check that the correct hosts appear for the group
 
 Using a group with name 'testgroup'
 ```shell
@@ -38,7 +38,7 @@ ansible-inventory -i ./inventory/DEV/ --graph testgroup_linux
   |  |--testhost3s4.dev.example.int
 ```
 
-#### Check correct hosts appear in the test hosts/groups 
+#### Check correct hosts appear in the test hosts/groups
 
 ```shell
 ansible-inventory -i inventory/DEV/ --host testhost1s1.dev.example.int
@@ -48,7 +48,7 @@ ansible-inventory -i inventory/DEV/ --graph testgroup_ntp
 ansible-inventory -i inventory/DEV/ --graph dmz
 ```
 
-#### Check the host variable values are correctly set  
+#### Check the host variable values are correctly set
 
 Variable value/state query based on group:
 
@@ -144,7 +144,7 @@ $ ansible -e @./vars/vault.yml --vault-password-file ~/.vault_pass -i inventory/
 $ ansibledebugvar control01 group_names
 ```
 
-Query with vault and vars files variables (e.g., `./test-vars.yml`) 
+Query with vault and vars files variables (e.g., `./test-vars.yml`)
 
 ```shell
 $ REPO_DIR="$( git rev-parse --show-toplevel )"
@@ -165,7 +165,7 @@ $ ansible -e @test-vars.yml -e @vars/vault.yml --vault-password-file ${REPO_DIR}
 ```
 
 
-### 2 - Check the groups are correctly setup for the hosts getting added 
+### 2 - Check the groups are correctly setup for the hosts getting added
 
 Group based query:
 ```shell
@@ -231,9 +231,9 @@ testhost1s1.example.int | SUCCESS => {
 }
 ```
 
-Seeing the situation above should inspire/invoke the following questions/concerns: 
+Seeing the situation above should inspire/invoke the following questions/concerns:
 
-* shouldn't these machines also be in the respective core/essential DC groups used to derive core/essential settings/configs? 
+* shouldn't these machines also be in the respective core/essential DC groups used to derive core/essential settings/configs?
 * currently, they only appear to be in only the `examplegroup` group, so they would not derive any values for the DC group settings. (see next subsection for more info).
 
 #### CORE/Essential "DC" groups
@@ -244,28 +244,28 @@ We would always expect there to be "core" DC groups that all machines should app
 
 The "core" DC groups we expect to see:
 
-* sdlc_environment 
+* sdlc_environment
   * DEV
   * QA
   * PROD
 
-* infra_provider 
+* infra_provider
   * internal-vmware
   * AWS
   * Azure
   * GCP
 
 * availability zone/site/location
-  * site1 (SITE1), 
+  * site1 (SITE1),
   * site4 (SITE2)
-  * AWS 
-    * AZ01, 
-    * AZ02, 
-    * ..., 
-    * AZNN, 
+  * AWS
+    * AZ01,
+    * AZ02,
+    * ...,
+    * AZNN,
   * etc
 
-* network 
+* network
   * site1
   * site2
   * DMZ
@@ -279,7 +279,7 @@ and perhaps some others
 
 If deploying host updates such that key variable values are expected, check to verify that the variable values are set correctly.
 
-E.g., 
+E.g.,
 
 In the following example, we are updating the ntp client configuration for hosts and want to see that those machines have the expected value for variable 'ntp_servers'.
 
@@ -790,6 +790,6 @@ win2012-01 | SUCCESS => {
     "user_flags": []
 }
 ==> Stopping SSH agent (PID: 53038)
-ljohnson@lees-mbp:[ansible-datacenter](main)$ 
+ljohnson@lees-mbp:[ansible-datacenter](main)$
 
 ```

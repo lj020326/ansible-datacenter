@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SCRIPT_NAME=$(basename $0)
+SCRIPT_NAME=$(basename "$0")
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 echo "SCRIPT_DIR=${SCRIPT_DIR}"
 
@@ -25,7 +25,7 @@ usage() {
   echo "     ${SCRIPT_NAME} -c username:password leader.example.int" 1>&2
   echo "     ${SCRIPT_NAME} -c foo:bar -p v2/catalog registry.example.int" 1>&2
   echo "" 1>&2
-  exit ${retcode}
+  exit "${retcode}"
 }
 
 while getopts "c:p:h" opt; do
@@ -68,11 +68,11 @@ echo "ENDPOINT=${ENDPOINT}"
 
 
 echo "Setting env related CACERT variables"
-source ${SCRIPT_DIR}/get_curl_ca_opts.sh
+source "${SCRIPT_DIR}"/get_curl_ca_opts.sh
 
 echo "*******************"
 echo "getting cert info from endpoint ${ENDPOINT}"
-openssl s_client -servername ${TARGET_HOST} -connect ${ENDPOINT} < /dev/null 2>/dev/null | openssl x509 -text -noout
+openssl s_client -servername "${TARGET_HOST}" -connect "${ENDPOINT}" < /dev/null 2>/dev/null | openssl x509 -text -noout
 
 ## ref: https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server
 #openssl s_client -connect ${ENDPOINT} -key our_private_key.pem -showcerts -cert our_server-signed_cert.pem

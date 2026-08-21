@@ -1,0 +1,178 @@
+---
+
+__docker_stack__llmfit__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__llmfit__base_dir_default: "{{ __docker_stack__llmfit__stack_dir }}/llmfit"
+__docker_stack__llmfit__base_dir: "{{ docker_stack__llmfit__dir | d(__docker_stack__llmfit__base_dir_default) }}"
+__docker_stack__llmfit__app_dir: "{{ __docker_stack__llmfit__base_dir }}/app"
+__docker_stack__llmfit__cache_dir: "{{ __docker_stack__llmfit__base_dir }}/cache"
+
+# official, always up-to-date
+#__docker_stack__llmfit__image_default: "ghcr.io/alexsjones/llmfit-web:latest"
+#__docker_stack__llmfit__image_default: "media.johnson.int:5000/llmfit-web:latest"
+#__docker_stack__llmfit__image_default: "media.johnson.int:5000/llmfit:latest"
+__docker_stack__llmfit__image_default: "lj020326/llmfit:latest"
+__docker_stack__llmfit__image: "{{ docker_stack__llmfit__image
+  | d(__docker_stack__llmfit__image_default) }}"
+
+__docker_stack__llmfit__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__llmfit__host_addr_default: "llmfit.{{ __docker_stack__llmfit__domain }}"
+__docker_stack__llmfit__host_addr: "{{ docker_stack__llmfit__host_addr
+  | d(__docker_stack__llmfit__host_addr_default) }}"
+
+# Listener bind ports
+__docker_stack__llmfit__http_port: "{{ docker_stack__llmfit__http_port | d('8787') }}"
+__docker_stack__llmfit__internal_http_port: "8787"
+
+## this assumes that the ollama service is running on port 11434 and is named 'ollama'
+__docker_stack__llmfit__ollama_api_base_url: "{{
+  docker_stack__llmfit__ollama_api_base_url
+  | d('http://ollama:11434') }}"
+__docker_stack__llmfit__ollama_api_key: "{{
+  docker_stack__llmfit__ollama_api_key | d('') }}"
+
+__docker_stack__llmfit__environment_default:
+  NODE_ENV: production
+  HOME: "/tmp"
+  ALLOWED_HOSTS: "{{ __docker_stack__llmfit__host_addr }}"
+  HOST: 0.0.0.0
+  PORT: "{{ __docker_stack__llmfit__internal_http_port }}"
+  VITE_API_BACKEND: "http://llmfit-backend:8787"
+  OLLAMA_HOST: "{{ __docker_stack__llmfit__ollama_api_base_url }}"
+
+__docker_stack__llmfit__environment: "{{ docker_stack__llmfit__environment
+  | d(__docker_stack__llmfit__environment_default) }}"
+
+__docker_stack__llmfit__deploy_resources_standalone:
+  reservations:
+    devices:
+      - driver: nvidia
+        count: all
+        capabilities: [ gpu ]
+#      - driver: nvidia
+#        # or device_ids: ["0"] if you want specific GPU
+#        count: all
+#        capabilities: [gpu]
+#    # Optional: For Intel/AMD GPU hardware detection
+#    devices:
+#      - /dev/dri:/dev/dri
+
+__docker_stack__llmfit__deploy_resources_swarm:
+  reservations:
+    generic_resources:
+      - discrete_resource_spec:
+          kind: NVIDIA-GPU
+          value: 1
+
+__docker_stack__llmfit__deploy_resources: "{{
+  __docker_stack__llmfit__deploy_resources_swarm
+  if docker_stack__swarm_mode
+  else __docker_stack__llmfit__deploy_resources_standalone }}"
+
+__docker_stack__llmfit__config_dirs:
+  - path: "{{ __docker_stack__llmfit__base_dir }}"
+  - path: "{{ __docker_stack__llmfit__app_dir }}"
+  - path: "{{ __docker_stack__llmfit__cache_dir }}"
+
+__docker_stack__llmfit__config_templates:
+  - src: "llmfit/llmfit.env.j2"
+    dest: "{{ __docker_stack__llmfit__base_dir }}/llmfit.env"
+  - src: "llmfit/config-group.conf.j2"
+    dest: "{{ __docker_stack__llmfit__base_dir }}/group"
+  - src: "llmfit/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__llmfit__base_dir }}/passwd"
+
+__docker_stack__llmfit__firewalld_ports: []
+#__docker_stack__llmfit__firewalld_ports:
+#  - "{{ __docker_stack__llmfit__http_port }}/tcp"
+
+docker_stack__appspec__llmfit:
+  dirs: "{{ __docker_stack__llmfit__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__llmfit__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__llmfit__config_templates | d([], true) }}"
+  secrets: "{{ __docker_stack__llmfit__secrets | d({}, true) }}"
+  firewalld_services: "{{ __docker_stack__llmfit__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__llmfit__firewalld_ports | d([], true) }}"
+  docker_services: "{{ __docker_stack__llmfit__services | d({}, true) }}"
+
+__docker_stack__llmfit__traefik_labels: "{{ docker_stack__llmfit__traefik_labels
+  | d(__docker_stack__llmfit__traefik_labels_default) }}"
+
+__docker_stack__llmfit__services:
+  ########################
+  ## LLMFIT BACKEND API SERVICE
+  llmfit-backend:
+    image: "{{ __docker_stack__llmfit__image }}"
+    container_name: llmfit-backend
+    restart: unless-stopped
+#    entrypoint: [ "llmfit" ]
+#    command: [ "serve", "--host", "0.0.0.0", "--port", "8787" ]
+    command: ["serve", "--host", "0.0.0.0", "--port", "8787"]
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    env_file:
+      - llmfit/llmfit.env
+    healthcheck:
+      test: [
+        "CMD",
+        "curl",
+        "-f",
+        "http://localhost:{{ __docker_stack__llmfit__internal_http_port }}/api/v1/system"
+      ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+#      resources: "{{ __docker_stack__llmfit__deploy_resources }}"
+
+  ########################
+  ## LLMFIT FRONTEND UI SERVICE
+  llmfit-frontend:
+    image: "{{ __docker_stack__llmfit__image }}"
+    container_name: llmfit-frontend
+    restart: unless-stopped
+    command: ["web"]
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+#    ports:
+#      - "{{ __docker_stack__llmfit__http_port }}:{{ __docker_stack__llmfit__internal_http_port }}"
+    env_file:
+      - llmfit/llmfit.env
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__llmfit__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__llmfit__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__llmfit__cache_dir }}:/tmp/.npm"
+#      - "{{ __docker_stack__llmfit__app_dir }}:/app/llmfit-web"
+    healthcheck:
+      test: [
+        "CMD",
+        "curl",
+        "-f",
+        "http://localhost:{{ __docker_stack__llmfit__internal_http_port }}/health"
+      ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels: "{{ __docker_stack__llmfit__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first

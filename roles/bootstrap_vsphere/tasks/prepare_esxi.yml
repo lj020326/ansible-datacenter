@@ -1,11 +1,17 @@
 ---
 
-- name: Display __esx_hosts_by_name.values()
-  ansible.builtin.debug:
-    var: __esx_hosts_by_name.values()
-    verbosity: 1
+- name: "PRE-CHECK | Audit and gather live ESXi host state across cluster"
+  ansible.builtin.include_tasks: pre_check_esxi_host_portgroups.yml
+  loop: "{{ __esx_hosts_by_name | dict2items }}"
+  loop_control:
+    loop_var: _esx_host_entry
+    label: "{{ item.key }}"
 
-- name: Configure VMware vSwitch
+# ==============================================================================
+# EXECUTION | Provision vSwitches, Portgroups, and VMkernel Adapters
+# ==============================================================================
+
+- name: "EXECUTE | Configure VMware vSwitches"
   community.vmware.vmware_vswitch:
     hostname: "{{ item.0.hostname }}"
     username: "{{ bootstrap_vsphere__esxi_username }}"
@@ -16,13 +22,16 @@
     nics: "{{ item.1.nics }}"
     teaming: "{{ item.1.teaming | d(omit) }}"
     mtu: "{{ item.1.mtu }}"
-  loop: "{{ __esx_hosts_by_name.values() | list | subelements('switches', { 'skip_missing': true }) }}"
-#  loop: "{{ __esx_hosts_by_name | community.general.json_query('*.switches[]') | unique }}"
+    security: "{{ item.1.security
+      | d(item.1.security_policy)
+      | d(item.1.network_policy)
+      | d(bootstrap_vsphere_default_security_policy) }}"
+  loop: "{{ __esx_hosts_by_name.values()
+    | list | subelements('switches', { 'skip_missing': true }) }}"
   loop_control:
     label: "{{ item.0.hostname }} - {{ item.1.switch_name }}"
 
-- name: prepare_esxi | Create physical ESX port groups
-  #  when: bootstrap_vsphere__vcenter_ip  ==  vc_mng.ip
+- name: "EXECUTE | Configure ESXi Portgroups per host mapping"
   community.vmware.vmware_portgroup:
     hostname: "{{ item.0.hostname }}"
     username: "{{ bootstrap_vsphere__esxi_username }}"
@@ -30,14 +39,74 @@
     validate_certs: false
     esxi_hostname: "{{ item.0.hostname }}"
     switch_name: "{{ item.1.switch_name }}"
-    portgroup_name: "{{ item.1.portgroup_name }}"
+    portgroup: "{{ item.1.portgroup_name }}"
     vlan_id: "{{ item.1.vlan_id }}"
-    network_policy: "{{ item.1.network_policy }}"
-  loop: "{{ __esx_hosts_by_name.values() | list | subelements('portgroups', { 'skip_missing': true }) }}"
-#  loop: "{{ __esx_hosts_by_name | community.general.json_query('*.portgroups[]') | unique }}"
+    security: "{{ item.1.security
+      | d(item.1.security_policy)
+      | d(item.1.network_policy)
+      | d(bootstrap_vsphere_default_security_policy) }}"
+  loop: "{{ __esx_hosts_by_name.values()
+    | list | subelements('portgroups', { 'skip_missing': true }) }}"
   loop_control:
-    label: "{{ item.0.hostname }} - {{ item.1.portgroup_name }}"
-  no_log: true
+    label: "Ensure portgroup '{{ item.1.portgroup_name }}' exists on host '{{ item.0.hostname }}'"
+
+- name: "EXECUTE | Build a unified list of host/vmkernel targets with fallbacks"
+  ansible.builtin.set_fact:
+    __target_vmkernels: "{{ __raw_vmkernel_list | from_yaml }}"
+  vars:
+    __raw_vmkernel_list: |
+      {% for host_key, host_val in __esx_hosts_by_name.items() %}
+      {% set vmks = host_val.vmkernels | default([]) %}
+      {% if vmks | length > 0 %}
+      {% for vmk in vmks %}
+      - hostname: "{{ host_val.hostname }}"
+        vmk: {{ vmk | to_json }}
+      {% endfor %}
+      {% else %}
+      - hostname: "{{ host_val.hostname }}"
+        vmk: {{ bootstrap_vsphere_default_vmkernel | to_json }}
+      {% endif %}
+      {% endfor %}
+
+- name: "EXECUTE | Display __target_vmkernels"
+  ansible.builtin.debug:
+    var: __target_vmkernels
+    verbosity: 1
+
+- name: "EXECUTE | Ensure VMkernel adapter binding"
+  community.vmware.vmware_vmkernel:
+    hostname: "{{ item.hostname }}"
+    username: "{{ bootstrap_vsphere__esxi_username }}"
+    password: "{{ bootstrap_vsphere__esxi_password }}"
+    validate_certs: false
+    esxi_hostname: "{{ item.hostname }}"
+    device: "{{ item.vmk.device
+      | default(bootstrap_vsphere__vcenter_mgt_device) }}"
+    vswitch_name: "{{ item.vmk.vswitch_name
+      | default(bootstrap_vsphere__vcenter_mgt_vswitch) }}"
+    portgroup_name: "{{ item.vmk.portgroup_name
+      | default(bootstrap_vsphere__vcenter_mgt_network) }}"
+    enable_mgmt: "{{ item.vmk.enable_mgmt | default(true) }}"
+    enable_provisioning: "{{ item.vmk.enable_provisioning | default(false) }}"
+    enable_replication: "{{ item.vmk.enable_replication | default(false) }}"
+    enable_vmotion: "{{ item.vmk.enable_vmotion | default(true) }}"
+    enable_vsan: "{{ item.vmk.enable_vsan | default(false) }}"
+    network:
+      type: "{{ item.vmk.network_type | default(item.vmk.type
+        | default(bootstrap_vsphere__network_type)) }}"
+      ip_address: "{{ item.vmk.ip_address | default(omit) }}"
+      subnet_mask: "{{ item.vmk.subnet_mask | default(omit) }}"
+    state: present
+  loop: "{{ __target_vmkernels }}"
+  loop_control:
+    label: "Ensure {{ item.vmk.device | default('vmk0') }} present on '{{ item.hostname }}'"
+
+- name: "POST-CHECK | Validate runtime consistency across all ESXi nodes"
+  ansible.builtin.include_tasks: post_check_esxi_host_portgroups.yml
+  loop: "{{ __esx_hosts_by_name | dict2items }}"
+  loop_control:
+    loop_var: _esx_host_entry
+    label: "{{ item.key }}"
 
 ## ref: https://docs.ansible.com/ansible/latest/collections/community/vmware/vmware_host_dns_module.html#ansible-collections-community-vmware-vmware-host-dns-module
 - name: prepare_esxi | Configure DNS for an ESXi host
@@ -69,7 +138,7 @@
     nfs_path: "{{ item.1.path }}"
     nfs_ro: false
     state: present
-  loop: "{{ __esx_hosts_by_name.values() | list | subelements('datastores', { 'skip_missing': true }) }}"
-#  loop: "{{ __esx_hosts_by_name | community.general.json_query('*.datastores[]') | unique }}"
+  loop: "{{ __esx_hosts_by_name.values()
+    | list | subelements('datastores', { 'skip_missing': true }) }}"
   loop_control:
     label: "{{ item.0.hostname }} - {{ item.1.name }}"

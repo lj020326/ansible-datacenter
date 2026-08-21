@@ -222,7 +222,7 @@ function fetch_blob() {
 
 	local curlHeaders
 	curlHeaders="$(
-		curl ${CURL_DEBUG_FLAG} -S "${curlArgs[@]}" \
+		curl "${CURL_DEBUG_FLAG}" -S "${curlArgs[@]}" \
 			-H "Authorization: Bearer $token" \
 			"$DOCKER_HUB_HOST/v2/$image/blobs/$digest" \
 			-o "$targetFile" \
@@ -240,7 +240,7 @@ function fetch_blob() {
 			return 1
 		fi
 
-		curl ${CURL_DEBUG_FLAG} -fSL "${curlArgs[@]}" \
+		curl "${CURL_DEBUG_FLAG}" -fSL "${curlArgs[@]}" \
 			"$blobRedirect" \
 			-o "$targetFile"
 	fi
@@ -330,7 +330,7 @@ function handle_single_manifest_v2() {
 					continue
 				fi
 				local token
-				token="$(curl ${CURL_DEBUG_FLAG} -fsSL "$DOCKER_AUTH_HOST/token?service=$DOCKER_AUTH_SERVICE&scope=repository:$image:pull" | jq --raw-output '.token')"
+				token="$(curl "${CURL_DEBUG_FLAG}" -fsSL "$DOCKER_AUTH_HOST/token?service=$DOCKER_AUTH_SERVICE&scope=repository:$image:pull" | jq --raw-output '.token')"
 				fetch_blob "$token" "$image" "$layerDigest" "${TMP_DIR}/$layerTar" "${CURL_PROGRESS_BAR}"
 				;;
 
@@ -441,12 +441,12 @@ function queryManifest() {
 
 	imageFile="${image//\//_}" # "/" can't be in filenames :)
 
-	token="$(curl ${CURL_DEBUG_FLAG} -fsSL "$DOCKER_AUTH_HOST/token?service=$DOCKER_AUTH_SERVICE&scope=repository:$image:pull" | jq --raw-output '.token')"
+	token="$(curl "${CURL_DEBUG_FLAG}" -fsSL "$DOCKER_AUTH_HOST/token?service=$DOCKER_AUTH_SERVICE&scope=repository:$image:pull" | jq --raw-output '.token')"
 
 	manifestJson="$(
-		curl ${CURL_DEBUG_FLAG} -fsSL \
+		curl "${CURL_DEBUG_FLAG}" -fsSL \
 			-H "Authorization: Bearer $token" \
-			${DOCKER_HTTP_CURL_HEADERS} \
+			"${DOCKER_HTTP_CURL_HEADERS}" \
 			"$DOCKER_HUB_HOST/v2/$image/manifests/$digest"
 	)"
 	if [ "${manifestJson:0:1}" != '{' ]; then
@@ -486,9 +486,9 @@ function queryManifest() {
 							digest="$(echo "$layerMeta" | jq --raw-output '.digest')"
 							# get second level single manifest
 							submanifestJson="$(
-								curl ${CURL_DEBUG_FLAG} -fsSL \
+								curl "${CURL_DEBUG_FLAG}" -fsSL \
 									-H "Authorization: Bearer $token" \
-									${DOCKER_HTTP_CURL_HEADERS} \
+									"${DOCKER_HTTP_CURL_HEADERS}" \
 									"$DOCKER_HUB_HOST/v2/$image/manifests/$digest"
 							)"
 							handle_single_manifest_v2 "$submanifestJson"
@@ -543,7 +543,7 @@ function queryManifest() {
 					echo "skipping existing ${layerId:0:12}"
 					continue
 				fi
-				token="$(curl ${CURL_DEBUG_FLAG} -fsSL "$DOCKER_AUTH_HOST/token?service=$DOCKER_AUTH_SERVICE&scope=repository:$image:pull" | jq --raw-output '.token')"
+				token="$(curl "${CURL_DEBUG_FLAG}" -fsSL "$DOCKER_AUTH_HOST/token?service=$DOCKER_AUTH_SERVICE&scope=repository:$image:pull" | jq --raw-output '.token')"
 				fetch_blob "$token" "$image" "$imageLayer" "${TMP_DIR}/$layerId/layer.tar" "${CURL_PROGRESS_BAR}"
 			done
 			;;

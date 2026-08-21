@@ -22,7 +22,7 @@ source /usr/local/lib/ansible/venv/bin/activate
 ```
 
 ### Environment Variable Bootstrapping
-The testing suite relies on a hybrid fallback strategy configuration. The suite uses an internal `load_env_file()` function that automatically checks for the presence of a local configuration file named `test_agent_pipeline.env` inside its directory structure. 
+The testing suite relies on a hybrid fallback strategy configuration. The suite uses an internal `load_env_file()` function that automatically checks for the presence of a local configuration file named `test_agent_pipeline.env` inside its directory structure.
 
 * If the `.env` file is present, its internal parameters are automatically injected into the execution space.
 * If a given variable is already defined within your ambient shell context, the system-level shell value will take precedence.
@@ -62,7 +62,7 @@ pytest -v agent_stack/test_agent_pipeline.py::test_read_only_analysis_flow
 pytest -v agent_stack/test_agent_pipeline.py::test_pull_request_generation_flow
 
 # Suppress standard capture output and view real-time logging streams
-pytest -s -v agent_stack/test_agent_pipeline.py
+pytest -s -v agent_stack/test_agent_pipeline.py --log-cli-level=INFO
 ```
 
 ---
@@ -122,7 +122,7 @@ The code team setup is an actionable Engineering Team that writes code directly 
 Here is the architectural sequence for this workflow phase:
 
 ```text
-[Vikunja Task Claimed] 
+[Vikunja Task Claimed]
          │
          ▼
 [Clone Gitea Repo & Clean Sanitized Branch]

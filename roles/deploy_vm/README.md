@@ -89,7 +89,7 @@ deploy_vm__containers:
 
 ## Role details
 
-The role uses the list of hosts defined in "deploy_vm__vmware_vm_list" to iterate over and dereference (via hostvars) the dictionary variable "deploy_vm__vmware_vm_config" to define the vm configuration. 
+The role uses the list of hosts defined in "deploy_vm__vmware_vm_list" to iterate over and dereference (via hostvars) the dictionary variable "deploy_vm__vmware_vm_config" to define the vm configuration.
 
 ### Set up the vm list in inventory
 

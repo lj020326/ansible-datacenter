@@ -6,17 +6,17 @@ Enhance the "bootstrap_gpu_drivers" role to support installing nvidia, amd and i
      - `bootstrap_gpu_drivers__enable_nvidia`, `bootstrap_gpu_drivers__enable_amd`,  `bootstrap_gpu_drivers__enable_intel`
      - inventory maintainer places the host into the respective inventory groups to set the vendor enable booleans
    - `set_facts` runtime derived boolean variables to determine the gpu vendor(s)
-   - handle use cases for machines with multiple gpu vendors 
+   - handle use cases for machines with multiple gpu vendors
      - e.g., `control02` has both amd (Radeon) and nvidia (RTX 4060) gpus
 
    Derived would be more preferable as long as the logic is reasonable
 
-2. appropriate vendor gpu packages are installed based on the boolean vendor type options 
+2. appropriate vendor gpu packages are installed based on the boolean vendor type options
 
     We want to be able to install the correct gpu packages based on gpu vendor and platform OS
     ```shell
     root@control02:[docker]$ nvidia-smi
-    Wed May 13 10:24:49 2026       
+    Wed May 13 10:24:49 2026
     +-----------------------------------------------------------------------------------------+
     | NVIDIA-SMI 580.142                Driver Version: 580.142        CUDA Version: 13.0     |
     +-----------------------------------------+------------------------+----------------------+
@@ -28,7 +28,7 @@ Enhance the "bootstrap_gpu_drivers" role to support installing nvidia, amd and i
     | 30%   43C    P8            N/A  /  115W |       2MiB /   8188MiB |      0%      Default |
     |                                         |                        |                  N/A |
     +-----------------------------------------+------------------------+----------------------+
-    
+
     +-----------------------------------------------------------------------------------------+
     | Processes:                                                                              |
     |  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
@@ -48,4 +48,3 @@ Enhance the "bootstrap_gpu_drivers" role to support installing nvidia, amd and i
     Command 'glxinfo' not found, but can be installed with:
     apt install mesa-utils
     ```
-    

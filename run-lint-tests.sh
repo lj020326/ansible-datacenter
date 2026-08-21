@@ -412,7 +412,7 @@ function print_test_cases() {
     # ref: https://stackoverflow.com/questions/12317483/array-of-arrays-in-bash
     # split server name from sub-list
 #      TEST_CASE_ARRAY=(${TEST_CASE_INFO//:/})
-    IFS="," read -a TEST_CASE_ARRAY <<< $TEST_CASE_INFO
+    IFS="," read -a TEST_CASE_ARRAY <<< "$TEST_CASE_INFO"
 
     TEST_CASE=${TEST_CASE_ARRAY[0]}
 
@@ -446,7 +446,7 @@ function run_tests() {
 
     # ref: https://stackoverflow.com/questions/12317483/array-of-arrays-in-bash
     # split server name from sub-list
-    IFS="," read -a TEST_CASE_ARRAY <<< $TEST_CASE_INFO
+    IFS="," read -a TEST_CASE_ARRAY <<< "$TEST_CASE_INFO"
 
     TEST_CASE=${TEST_CASE_ARRAY[0]}
 

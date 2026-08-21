@@ -27,7 +27,7 @@ shift $((OPTIND - 1))
 [ -f tests/test.yml ] && cd tests
 
 cases=$(ls cases)
-if [ ! -z $1 ];then
+if [ ! -z "$1" ];then
     cases=$1
 fi
 
@@ -36,22 +36,22 @@ passes=0
 
 for case in $cases
 do
-    rm -rf ${outputs}/${case}
+    rm -rf ${outputs}/"${case}"
 done
 
 mkdir -p cases ${outputs}
 for case in $cases
 do
     echo "* Test: $case"
-    ansible-playbook ./test.yml -i 127.0.0.1, -t $case-setup -e ansible_unit_test_prefix_dir="${outputs}/${case}" -e prefix_dir="${outputs}/${case}" ${ansible_opts} >/dev/null
-    ansible-playbook ./test.yml -i 127.0.0.1, -t $case -e ansible_unit_test_prefix_dir="${outputs}/${case}" -e prefix_dir="${outputs}/${case}" ${ansible_opts} || exit 255
+    ansible-playbook ./test.yml -i 127.0.0.1, -t "$case"-setup -e ansible_unit_test_prefix_dir="${outputs}/${case}" -e prefix_dir="${outputs}/${case}" "${ansible_opts}" >/dev/null
+    ansible-playbook ./test.yml -i 127.0.0.1, -t "$case" -e ansible_unit_test_prefix_dir="${outputs}/${case}" -e prefix_dir="${outputs}/${case}" "${ansible_opts}" || exit 255
 
 
-    if diff -uNr cases/${case} ${outputs}/${case} >/dev/null 2>&1 ;then
+    if diff -uNr cases/"${case}" ${outputs}/"${case}" >/dev/null 2>&1 ;then
         passes=$(( passes+1 ))
         echo "TestCase: $case OK"
     else
-        diff -uNr cases/${case} ${outputs}/${case}
+        diff -uNr cases/"${case}" ${outputs}/"${case}"
         errors=$(( errors+1 ))
         echo "TestCase: $case ERROR"
     fi

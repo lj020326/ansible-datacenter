@@ -14,6 +14,10 @@
   ansible.builtin.set_fact:
     vcenter_exists: "{{ vcenter_response.status == 200 }}"
 
+- name: deploy_vcenter | Initialize __deploy_version
+  ansible.builtin.set_fact:
+    __deploy_version: ''
+
 - name: deploy_vcenter | Perform VCenter deployment
   when: not vcenter_exists
   block:
@@ -50,36 +54,36 @@
         state: mounted
       notify: Unmount the VCSA installer ISO
 
-    - name: deploy_vcenter | Set deploy_minor_version
+    - name: deploy_vcenter | Set __deploy_minor_version
       ansible.builtin.set_fact:
         #    deploy_version: "{{ bootstrap_vsphere__vcsa_iso | regex_replace('^.+(MASK-.+?)\\.+','\\\1') }}"
-        deploy_minor_version: "{{ bootstrap_vsphere__vcsa_iso | regex_search('VMware-VCSA-all-(.+)-.*.iso', '\\1') | first }}"
+        __deploy_minor_version: "{{ bootstrap_vsphere__vcsa_iso | regex_search('VMware-VCSA-all-(.+)-.*.iso', '\\1') | first }}"
         install_no_ssl_arg: --no-ssl-certificate-verification
 
-    - name: Display deploy_minor_version
+    - name: Display __deploy_minor_version
       ansible.builtin.debug:
-        var: deploy_minor_version
+        var: __deploy_minor_version
 
-    - name: deploy_vcenter | Set deploy_version
+    - name: deploy_vcenter | Set __deploy_version
       ansible.builtin.set_fact:
-        deploy_version: "{{ deploy_minor_version.split('.')[0:2] | join('.') }}"
+        __deploy_version: "{{ __deploy_minor_version.split('.')[0:2] | join('.') }}"
 
-    - name: Display deploy_version
+    - name: Display __deploy_version
       ansible.builtin.debug:
-        var: deploy_version
+        var: __deploy_version
 
     ## ref: https://www.mattallford.com/2017/vsphere-6-5-cli-vcsa-external-deployment-walkthrough/
     - name: deploy_vcenter | Set v6.5 install_no_ssl_arg
-      when: deploy_version == "6.5"
+      when: __deploy_version | d('') == "6.5"
       ansible.builtin.set_fact:
         install_no_ssl_arg: --no-esx-ssl-verify
 
     #    - name: "deploy_vcenter | Set appliance dependent variables"
     #      ansible.builtin.include_vars: '{{ bootstrap_vsphere__vcenter_appliance_type }}.yml'
 
-    - name: deploy_vcenter | Create JSON template file for VCSA {{ deploy_version }} with embeded PSC
+    - name: deploy_vcenter | Create JSON template file for VCSA {{ __deploy_version }} with embeded PSC
       ansible.builtin.template:
-        src: embedded_vCSA_on_ESXi_{{ deploy_version }}.json.j2
+        src: embedded_vCSA_on_ESXi_{{ __deploy_version }}.json.j2
         dest: "{{ bootstrap_vsphere__vcenter_install_tmp_dir }}/vCSA_on_ESXi.json"
         backup: true
         mode: "0644"

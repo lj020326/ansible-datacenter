@@ -13,8 +13,8 @@ vars:
   esxi_login: &esxi_login
     hostname: '{{ esxi_address }}'
     username: '{{ esxi_username }}'
-    password: '{{ esxi_password }}'  
-    validate_certs: no 
+    password: '{{ esxi_password }}'
+    validate_certs: no
 ```
 
 Enabling SSH (starting the TSM-SSH and TSM services):
@@ -106,7 +106,7 @@ One last thing before I can power it on. The default boot sequence won’t work.
 ```yml
 - name: Change virtual machine's boot order and related parameters
   vmware_guest_boot_manager:
-    <<: *esxi_login 
+    <<: *esxi_login
     name: '{{ vm_name }}'
     boot_delay: 1000
     enter_bios_setup: False

@@ -99,11 +99,11 @@ function sanitize_output() {
 
 # ==================== LOGGING FUNCTIONS (unchanged) ====================
 
-function logError() { [ $LOG_LEVEL -ge $LOG_ERROR ] && logMessage "${LOG_ERROR}" "${1}"; }
-function logWarn()  { [ $LOG_LEVEL -ge $LOG_WARN ]  && logMessage "${LOG_WARN}"  "${1}"; }
-function logInfo()  { [ $LOG_LEVEL -ge $LOG_INFO ]  && logMessage "${LOG_INFO}"  "${1}"; }
-function logTrace() { [ $LOG_LEVEL -ge $LOG_TRACE ] && logMessage "${LOG_TRACE}" "${1}"; }
-function logDebug() { [ $LOG_LEVEL -ge $LOG_DEBUG ] && logMessage "${LOG_DEBUG}" "${1}"; }
+function logError() { [ "$LOG_LEVEL" -ge $LOG_ERROR ] && logMessage "${LOG_ERROR}" "${1}"; }
+function logWarn()  { [ "$LOG_LEVEL" -ge $LOG_WARN ]  && logMessage "${LOG_WARN}"  "${1}"; }
+function logInfo()  { [ "$LOG_LEVEL" -ge $LOG_INFO ]  && logMessage "${LOG_INFO}"  "${1}"; }
+function logTrace() { [ "$LOG_LEVEL" -ge $LOG_TRACE ] && logMessage "${LOG_TRACE}" "${1}"; }
+function logDebug() { [ "$LOG_LEVEL" -ge $LOG_DEBUG ] && logMessage "${LOG_DEBUG}" "${1}"; }
 function abort() { logError "$@"; exit 1; }
 function fail()  { logError "$@"; exit 1; }
 

@@ -1,0 +1,69 @@
+---
+# ==============================================================================
+# CONTROLLER-DRIVEN ESXI HOST PREPARATION & DRIFT AUDIT
+# Iterates over all hosts defined in '__esx_hosts_by_name'
+# ==============================================================================
+
+- name: "AUDIT | Initialize host vars"
+  ansible.builtin.set_fact:
+    __esx_host_item: "{{ _esx_host_entry.value }}"
+    __esx_host_name: "{{ _esx_host_entry.key }}"
+    __pre_portgroup_info_raw: {}
+    __pre_vmkernel_facts_raw: {}
+
+- name: "AUDIT | Gather existing portgroup info for host '{{ __esx_host_name }}'"
+  community.vmware.vmware_portgroup_info:
+    hostname: "{{ __esx_host_item.hostname }}"
+    username: "{{ bootstrap_vsphere__esxi_username }}"
+    password: "{{ bootstrap_vsphere__esxi_password }}"
+    esxi_hostname: "{{ __esx_host_item.hostname }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: __pre_portgroup_info_raw
+
+- name: "AUDIT | Gather VMkernel facts for host '{{ __esx_host_name }}'"
+  community.vmware.vmware_vmkernel_info:
+    hostname: "{{ __esx_host_item.hostname }}"
+    username: "{{ bootstrap_vsphere__esxi_username }}"
+    password: "{{ bootstrap_vsphere__esxi_password }}"
+    esxi_hostname: "{{ __esx_host_item.hostname }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: __pre_vmkernel_facts_raw
+
+- name: "AUDIT | Display raw audit info for '{{ __esx_host_name }}'"
+  ansible.builtin.debug:
+    msg:
+      - "Portgroups: {{ __pre_portgroup_info_raw }}"
+      - "VMkernel: {{ __pre_vmkernel_facts_raw }}"
+    verbosity: 1
+
+- name: "AUDIT | Extract present portgroups and compare expected state for '{{ __esx_host_name }}'"
+  vars:
+    __present_pgs: "{{
+      __pre_portgroup_info_raw.hosts_portgroup_info[__esx_host_item.hostname]
+      | default([]) | map(attribute='portgroup') | list | sort }}"
+    __expected_pgs: "{{ __esx_host_item.portgroups
+      | default([]) | map(attribute='portgroup_name') | list | sort }}"
+    __missing_pgs: "{{ __expected_pgs | difference(__present_pgs) }}"
+  ansible.builtin.debug:
+    msg:
+      - "========================================================"
+      - "HOST: {{ __esx_host_name }}"
+      - "Live Portgroups Present: {{ __present_pgs }}"
+      - "Expected Portgroups:    {{ __expected_pgs }}"
+      - "Missing Portgroups:     {{ __missing_pgs }}"
+      - "========================================================"
+
+- name: "AUDIT | Warn on detected portgroup drift for host '{{ __esx_host_name }}'"
+  vars:
+    __present_pgs: "{{
+      __pre_portgroup_info_raw.hosts_portgroup_info[__esx_host_item.hostname]
+      | default([]) | map(attribute='portgroup') | list | sort }}"
+    __expected_pgs: "{{
+      __esx_host_item.portgroups
+      | default([]) | map(attribute='portgroup_name') | list | sort }}"
+    __missing_pgs: "{{ __expected_pgs | difference(__present_pgs) }}"
+  ansible.builtin.debug:
+    msg: "⚠️ DRIFT WARNING: Host '{{ __esx_host_name }}' is missing expected portgroup(s): {{ __missing_pgs }}"
+  when: __missing_pgs | length > 0

@@ -42,4 +42,3 @@ None.
     - hosts: servers
       roles:
         - { role: bootstrap_git }
-

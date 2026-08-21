@@ -83,8 +83,7 @@ time_server: "{{ gateway_ipv4 }}"
 
 docker_stack__script_dir: "/opt/scripts"
 
-docker_stack__http_username: "{{ vault__docker_stack__http_username | d('') }}"
-docker_stack__http_password: "{{ vault__docker_stack__http_password | d('') }}"
+docker_stack__basic_auth_users: "{{ vault__http_auth_user_list }}"
 
 docker_stack__enable_selfsigned_certs: false
 docker_stack__enable_cacerts: true
@@ -206,7 +205,6 @@ docker_stack__email_default_suffix: "@dettonville.com"
 
 docker_stack__email_jenkins_admin_address: "admin+jenkins@dettonville.com"
 
-
 docker_stack__healthchecks_site_name: "Dettonville HealthChecks"
 docker_stack__healthchecks_default_from_email: "{{ docker_stack__email_from }}"
 docker_stack__healthchecks_email_host: "{{ docker_stack__smtp_host }}"
@@ -229,7 +227,7 @@ docker_stack__pgadmin_config_ldap_search_filter: "(objectClass=user)"
 # docker_stack__compose_http_timeout: 120
 docker_stack__compose_http_timeout: 240
 
-docker_source_images: []
+docker_source_images: [ ]
 
 # docker_stack__stepca__image: "media.johnson.int:5000/docker-stepca:latest"
 
@@ -269,7 +267,7 @@ docker_stack__registry__data_path: "/data/docker_registry_local"
 docker_stack__restart_stack_command: "{{ docker_container_base_dir }}/recreate-stack.sh"
 
 ## run 2:10 AM every day
-docker_stack__restart_stack_schedule: ["10", "2", "*", "*", "*"]
+docker_stack__restart_stack_schedule: [ "10", "2", "*", "*", "*" ]
 
 ##########
 ## crons
@@ -278,19 +276,19 @@ docker_stack__restart_stack_schedule: ["10", "2", "*", "*", "*"]
 bootstrap_linux_cron__list__docker_stack:
   - name: "Docker disk clean up"
     job: "docker system prune -af 2>&1"
-#    job: "docker system prune -af > /dev/null 2>&1"
+    #    job: "docker system prune -af > /dev/null 2>&1"
     ## run 12:00AM every sunday
-    schedule: ["0", "0", "*", "*", "0"]
+    schedule: [ "0", "0", "*", "*", "0" ]
     cron_file: "docker-disk-clean-up"
-#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+  #    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
   - name: "Docker large log file clean up"
     job: "/opt/scripts/docker-cleanup-large-logfiles.sh -y 2>&1"
     ## run 12:00AM every sunday
-    schedule: ["0", "0", "*", "*", "0"]
+    schedule: [ "0", "0", "*", "*", "0" ]
     cron_file: "docker-large-logfile-clean-up"
 #    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
 
-#  ## moved to bootstrap_linux_cron__os_update_hooks__docker_stack
+#  ## moved to bootstrap_linux_core__os_update_hooks__docker_stack
 #  - name: "Restart the docker stack"
 #    job: "{{ docker_stack__restart_stack_command }}"
 #    schedule: "{{ docker_stack__restart_stack_schedule }}"
@@ -301,7 +299,11 @@ bootstrap_linux_cron__list__docker_stack:
 ## daily batch hooks
 ##   list of hooks to be setup for docker_stack machines.
 ##########
-bootstrap_linux_cron__os_update_hooks__docker_stack:
+
+docker_stack__systemd_service__name: "docker-compose-container-user"
+
+# let systemd completely own the lifecycle of the Docker stack, rather than duplicating it
+bootstrap_linux_core__os_update_hooks__docker_stack:
   # 1. Pre-Update Hook: Stop Docker
   - name: "Stop Docker Stack Pre-Update"
     state: present
@@ -310,7 +312,8 @@ bootstrap_linux_cron__os_update_hooks__docker_stack:
     content: |
       #!/usr/bin/env bash
       echo "Stopping Docker Stack..."
-      {{ docker_stack__restart_stack_command }} -sr
+      systemctl stop {{ docker_stack__systemd_service__name }}.service
+#      {{ docker_stack__restart_stack_command }} -sr
 
   # 3. Post-Update Hook: Start Docker
   - name: "Start Docker Stack Post-Update"
@@ -320,4 +323,5 @@ bootstrap_linux_cron__os_update_hooks__docker_stack:
     content: |
       #!/usr/bin/env bash
       echo "Starting Docker Stack..."
-      {{ docker_stack__restart_stack_command }}
+      systemctl start {{ docker_stack__systemd_service__name }}.service
+#      {{ docker_stack__restart_stack_command }}

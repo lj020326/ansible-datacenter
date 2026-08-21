@@ -21,11 +21,11 @@ function exec_cmd()
     ret=0
 
     echo -e "Execute command: $cmd"
-    output=`eval $cmd`
+    output=`eval "$cmd"`
     ret=$?
     echo "Return Code: $ret"
 
-    if [ "X$output" != "X" ]; then
+    if [ "$output" != "" ]; then
         echo -e "Command output: \n$output"
     fi
 
@@ -46,7 +46,7 @@ function run_iozone()
     local test_size=
 
     if [ -e "$testdir_path" ]; then
-        rm -rf $testdir_path
+        rm -rf "$testdir_path"
     fi
     printf "Create folder $testdir_path:  "
     exec_cmd "mkdir $testdir_path"
@@ -59,24 +59,24 @@ function run_iozone()
 
     iozone_file="$testdir_path/iozone.csv"
     # Get partition size
-    part_size=`lsblk -o NAME,SIZE,TYPE | grep -i part | grep -i ${part_name} | awk '{print $2}'`
+    part_size=`lsblk -o NAME,SIZE,TYPE | grep -i part | grep -i "${part_name}" | awk '{print $2}'`
     echo "Partition $part_path size is $part_size"
 
     if [[ "$part_size" =~ .G ]]; then
-        part_size=`echo $part_size | tr -d 'G'`
+        part_size=`echo "$part_size" | tr -d 'G'`
         size_unit="G"
         test_size=128
     else
-        part_size=`echo $part_size | tr -d 'M'`
+        part_size=`echo "$part_size" | tr -d 'M'`
         size_unit="M"
-        if [ $part_size -gt 128 ]; then
+        if [ "$part_size" -gt 128 ]; then
             test_size=128
         else
             test_size=$(($part_size/2))
         fi
     fi
 
-    if [ "X$test_size" == "X" ] || [ "X$test_size" == "X0" ]; then
+    if [ "$test_size" == "" ] || [ "$test_size" == "0" ]; then
         echo "Error: Incorrect size value for iozone"
         exit 1
     fi
@@ -85,7 +85,7 @@ function run_iozone()
     cd "$testdir_path"
     echo "Run iozone on $part_path" || continue
     # Run iozone testing
-    if [ $part_size -gt 128 ]; then
+    if [ "$part_size" -gt 128 ]; then
         ${IOZONE_PATH} -Ra -g 128M -i 0 -i 1 -b "$iozone_file"
     else
         ${IOZONE_PATH} -Ra -g ${test_size}M -i 0 -i 1 -b "$iozone_file"

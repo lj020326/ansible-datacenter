@@ -4,10 +4,49 @@
 This repository employs a multi-layered testing strategy, ranging from static analysis (linting) to dynamic infrastructure testing via Molecule.
 
 ## Table of Contents
+
+- [Inventory Verification](#inventory-verification-verify_inventorypy)
 - [Lint Testing](#lint-testing)
+- [Pre-commit hooks](#pre-commit-hooks)
 - [Automation Scripts](#automation-scripts)
 - [Environment Setup](#prepare-collection-test-environment)
 - [Molecule Functional Testing](#run-molecule-tests)
+
+---
+
+## Inventory Verification (`verify_inventory.py`)
+
+To ensure cross-environment inventory consistency, group hierarchy alignment, and structural sanity across the multi-environment data center configuration, the repository provides a standalone management tool: [`verify_inventory.py`](verify_inventory.py).
+
+This script is designed for both local developer troubleshooting and automated execution within CI pipelines or pre-commit hooks.
+
+### Key Capabilities
+
+- **Cross-Environment Linking:** Automatically manages and recreates relative symlinks for host files (`*.yml`), group variables (`group_vars`), and host variables (`host_vars`) across environments (e.g., `PROD`, `QA`, `DEV`).
+- **Comment-Preserving Key Sorting:** Leverages `Ruamel.YAML` to sort keys within multi-environment mapping configurations while strictly preserving comments and structural formatting. This is essential in environments where comments/annotations in the inventory are considered first-class citizens.
+- **Hierarchy Validation:** Validates that group definitions mapped across environment hosts match the global group hierarchy definition (`xenv_groups.yml`).
+- **Mutual Exclusivity Checking:** Enforces business and architectural rules preventing hosts from incorrectly spanning multiple mutually exclusive group labels.
+- **Pytest & JUnit Integration:** Wraps validation checks inside standard pytest routines, allowing report generation for CI/CD test reporting dashboards via `--pytest` (`-p`) or custom report XML paths (`-r` / `--junitxml`).
+
+### Manual Execution & Usage Examples
+
+You can run individual verification modules, trigger automatic maintenance fixes, or execute tests via pytest directly from the command line:
+
+```shell
+# Run autofix to sync symlinks and sort keys
+python3 verify_inventory.py autofix
+
+# Execute the entire inventory validation test suite directly
+python3 verify_inventory.py test
+
+# Run a specific verification check case
+python3 verify_inventory.py test verify_file_extensions
+python3 verify_inventory.py test verify_yml_sortorder
+
+# Run checks via pytest framework wrapper with JUnit XML reporting
+python3 verify_inventory.py test -p
+python3 verify_inventory.py test -r .test-results/junit-inventory-report.xml
+```
 
 ---
 
@@ -25,6 +64,52 @@ We use several static analysis tools to ensure code quality, security, and inclu
 ansible-lint -p
 yamllint .
 kics scan --ci --config .kics-config.yml
+```
+
+---
+
+## Pre-commit hooks
+
+Git requires the hook scripts to be explicitly written into the repository's `.git/hooks/` directory.
+
+### How to Set Up
+
+1. **Navigate to the repository root**:
+```bash
+cd path/to/ansible-datacenter
+```
+
+2. **Install the git hook scripts**:
+Run the following command to register pre-commit into your local `.git/hooks/` directory:
+```bash
+pre-commit install
+## or specify hook types
+pre-commit install --hook-type pre-commit
+pre-commit install --hook-type pre-push
+```
+
+
+3. **Verify it works**:
+You can manually test that the hooks fire across all files without needing to make a commit:
+```bash
+pre-commit run --all-files
+```
+
+### Additional Things to Check If It Fails:
+
+* **Global hooks path:** If you use a custom global hooks template path via `git config --global core.hooksPath`, ensure it isn't intercepting or overriding local repository hooks.
+* **Commit flags:** Ensure you aren't accidentally passing `--no-verify` (or `-n`), which explicitly tells git to skip the pre-commit hook execution.
+
+Run the following commands to clear the cache and verify the environment:
+```shell
+pre-commit clean
+pre-commit run --all-files
+## or just a specified test
+pre-commit run yamllint --all-files
+## or a specified manual test
+pre-commit run shellcheck --hook-stage manual --all-files
+## to autofix shellcheck issues
+pre-commit run shellcheck-autofix --all-files
 ```
 
 ---
@@ -47,7 +132,7 @@ This script serves as a unified entry point for all static analysis. It handles:
 ./run-lint-tests.sh -L DEBUG
 ```
 
-### 2. `runme.sh`
+### 2. `run-playbook.sh`
 This is the primary execution wrapper for running playbooks against real or test environments from the command line.
 - **Environment Orchestration:** Sets up the `ANSIBLE_COLLECTIONS_PATH` and manages temporary variables.
 - **Security:** Automatically initializes an SSH agent and securely extracts your `ansible_ssh_private_key` from the encrypted Vault.
@@ -55,7 +140,7 @@ This is the primary execution wrapper for running playbooks against real or test
 
 ```shell
 # Execute a specific playbook
-./runme.sh site.yml -t bootstrap-ntp -l testgroup_lnx
+./run-playbook.sh site.yml -t bootstrap-ntp -l testgroup_lnx
 ```
 
 ---
