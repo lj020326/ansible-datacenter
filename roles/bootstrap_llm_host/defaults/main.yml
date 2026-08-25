@@ -3,53 +3,62 @@
 # Feature Flags
 bootstrap_llm_host__configure_firewall: true
 bootstrap_llm_host__configure_proxy: false
-bootstrap_llm_host__download_models: true
+bootstrap_llm_host__ensure_ollama_models: true
+bootstrap_llm_host__ensure_llama_models: false
+bootstrap_llm_host__ensure_vllm_models: false
+bootstrap_llm_host__install_force: false
 bootstrap_llm_host__install_gpu_drivers: true
 bootstrap_llm_host__install_nemoclaw: false
 bootstrap_llm_host__install_ollama: true
 bootstrap_llm_host__install_ollama_webui: false
 bootstrap_llm_host__install_open_webui: false
 
+bootstrap_llm_host__hugging_face_token: ""
+
+# should be one of ['native','docker','swarm']
+bootstrap_llm_host__container_user: "container-user"
+bootstrap_llm_host__model_runtime: "native"
+bootstrap_llm_host__model_user: "{{
+  bootstrap_llm_host__container_user
+  if bootstrap_llm_host__model_runtime in ['docker', 'swarm']
+  else 'model-user' }}"
+
+__bootstrap_llm_host__model_runtime_choices:
+  - native
+  - docker
+  - swarm
+
 # DGX / GB10 specific handling
 __bootstrap_llm_host__is_dgx: >-
-  {{ (ansible_facts.product_name | default('', true) | regex_search('(?i)DGX|Ascent|Grace|Blackwell|gx10')) is not none
+  {{ (ansible_facts.product_name | default('', true)
+    | regex_search('(?i)DGX|Ascent|Grace|Blackwell|gx10')) is not none
      or ('dgx' in (ansible_facts.os_family | default('', true) | lower))
-     or (ansible_facts.machine == 'aarch64' and 'nvidia' in (ansible_facts.product_version | default('', true) | lower)) }}
+     or (ansible_facts.machine == 'aarch64' and 'nvidia'
+      in (ansible_facts.product_version | default('', true) | lower)) }}
 
-# Ollama runtime mode: "native", "docker", or "swarm"
-#   "native" (default, systemd), "docker" (container), or "swarm" (docker swarm service)
-bootstrap_llm_host__ollama_runtime: "native"
+# Timeout Configuration
+bootstrap_llm_host__service_timeout: 300
 
-# Docker-specific
-# When using docker runtime
-bootstrap_llm_host__ollama_container_name: "ollama"
-bootstrap_llm_host__ollama_container_home_dir: "/ollama"
-
-bootstrap_llm_host__ollama_host_volume_path: "/home/docker/ollama/data"
-
-# from docker-compose ps output, the prefix
-bootstrap_llm_host__docker_compose_project_name: "docker"
-
-# Swarm (stack service)
-# usually the service name in the stack
-bootstrap_llm_host__ollama_service_name: "ollama"
-# prefix from your compose/stack
-bootstrap_llm_host__docker_stack_name: "docker_stack"
-
+# =============================================================================
 # Proxy Configuration
+# =============================================================================
 bootstrap_llm_host__proxy_port: "80"
 bootstrap_llm_host__proxy_type: traefik
 #bootstrap_llm_host__server_name: localhost
 bootstrap_llm_host__server_name: "{{ ansible_facts['fqdn'] | d(ansible_facts['hostname']) | d(ansible_host) }}"
 
-# Traefik specific (defaults)
+# =============================================================================
+# Traefik configs
+# =============================================================================
 bootstrap_llm_host__traefik_entrypoint: web
 bootstrap_llm_host__traefik_config_path: "/etc/traefik/conf.d"
 #bootstrap_llm_host__traefik_archive_url: "https://github.com/traefik/traefik/releases/download/v3.3.4/traefik_v3.3.4_linux_amd64.tar.gz"
 bootstrap_llm_host__traefik_archive_url: "https://github.com/traefik/traefik/releases/download/v3.3.4/traefik_v3.3.4_linux_{{
   'amd64' if ansible_facts['architecture'] == 'x86_64' else 'arm64' }}.tar.gz"
 
-# Nginx specific
+# =============================================================================
+# Nginx configs
+# =============================================================================
 __bootstrap_llm_host__nginx_conf_path_default: "/etc/nginx/sites-available"
 __bootstrap_llm_host__nginx_conf_path: "{{ bootstrap_llm_host__nginx_conf_path
   | d(__bootstrap_llm_host__nginx_conf_path_default) }}"
@@ -58,39 +67,129 @@ __bootstrap_llm_host__nginx_enabled_path_default: "/etc/nginx/sites-enabled"
 __bootstrap_llm_host__nginx_enabled_path: "{{ bootstrap_llm_host__nginx_enabled_path
   | d(__bootstrap_llm_host__nginx_enabled_path_default) }}"
 
+# =============================================================================
+# docker configs for container based services
+# =============================================================================
+bootstrap_llm_host__docker_compose_project_name: "docker"
+# prefix from your compose/stack
+bootstrap_llm_host__docker_stack_name: "docker_stack"
+
+# =============================================================================
+# webui configs
+# =============================================================================
 # User Configuration
-bootstrap_llm_host__ollama_user: ollama
 bootstrap_llm_host__webui_user: webui
 
 # Paths - defaults assume native case
-bootstrap_llm_host__ollama_home_dir: "/home/{{ bootstrap_llm_host__ollama_user }}"
 bootstrap_llm_host__webui_home_dir: "/home/{{ bootstrap_llm_host__webui_user }}"
 
 # Service Configuration
-bootstrap_llm_host__ollama_port: "11434"
 bootstrap_llm_host__webui_port: "8080"
-
-# only used for native case
-bootstrap_llm_host__model_storage_dir: "{{ bootstrap_llm_host__ollama_home_dir }}/.ollama/models"
-#bootstrap_llm_host__model_storage_dir: "/data/ollama/models"
-
 #bootstrap_llm_host__webui_venv_dir: "/opt/open-webui-venv"
 bootstrap_llm_host__webui_venv_dir: "/home/{{ bootstrap_llm_host__webui_user }}/open-webui-venv"
 bootstrap_llm_host__webui_tmpdir: "/home/{{ bootstrap_llm_host__webui_user }}/tmp"
-
 bootstrap_llm_host__webui_secret_key: "{{ lookup('community.general.random_string', length=32) }}"
 
-# Timeout Configuration
-bootstrap_llm_host__model_download_timeout: 3600
-bootstrap_llm_host__service_timeout: 300
+# =============================================================================
+# VLLM Server
+# =============================================================================
 
-# Model Configurations
-bootstrap_llm_host__models: []
+# Port on host
+bootstrap_llm_host__vllm_api_key: ""
+bootstrap_llm_host__vllm_port: "8081"
+#__bootstrap_llm_host__vllm_api_url_default: "http://localhost:{{ bootstrap_llm_host__vllm_port }}/v1/models"
+__bootstrap_llm_host__vllm_api_url_default: "http://localhost:{{ bootstrap_llm_host__vllm_port }}"
+__bootstrap_llm_host__vllm_api_url: "{{ bootstrap_llm_host__vllm_api_url
+  | d(__bootstrap_llm_host__vllm_api_url_default) }}"
+
+# Container / Service names
+bootstrap_llm_host__vllm_container_name: "vllm-coder"
+bootstrap_llm_host__vllm_service_name: "vllm-coder"
+bootstrap_llm_host__vllm_host_volume_path: "/home/container-user/docker/vllm/models"
+#bootstrap_llm_host__vllm_container_models_dir: "/app/.cache"
+bootstrap_llm_host__vllm_container_models_dir: "/models"
+
+# GGUF models to download automatically (add/remove as needed)
+bootstrap_llm_host__vllm_models:
+  - repo: nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+    # Target standard safetensors or leave file_name blank for auto-resolution
+  - repo: unsloth/Qwen3.8-27B-NVFP4
+    # Optional preference for GGUF quants
+    quant_preference: "UD-Q4_K_M"
+
+# =============================================================================
+# llama.cpp Server (speculative decoding + OpenAI /v1 endpoint for Continue.dev)
+# =============================================================================
+
+# Port on host
+bootstrap_llm_host__llama_api_key: ""
+bootstrap_llm_host__llama_port: "8081"
+#__bootstrap_llm_host__llama_api_url_default: "http://localhost:{{ bootstrap_llm_host__llama_port }}/v1/models"
+__bootstrap_llm_host__llama_api_url_default: "http://localhost:{{ bootstrap_llm_host__llama_port }}"
+__bootstrap_llm_host__llama_api_url: "{{ bootstrap_llm_host__llama_api_url
+  | d(__bootstrap_llm_host__llama_api_url_default) }}"
+
+# Container / Service names
+bootstrap_llm_host__llama_container_name: "llama"
+bootstrap_llm_host__llama_service_name: "llama"
+bootstrap_llm_host__llama_host_volume_path: "/home/container-user/docker/llama/models"
+bootstrap_llm_host__llama_container_cache_dir: "/models"
+
+# GGUF models to download automatically (add/remove as needed)
+bootstrap_llm_host__llama_models:
+  ## AUTOCOMPLETE MODEL
+  # or Q4_K_M if you want lighter
+  - repo: unsloth/gemma-4-E2B-it-GGUF
+    filename: gemma-4-E2B-it-Q5_K_M.gguf
+  ## Additional Large Model - Gemma 31B
+  - repo: unsloth/gemma-4-31B-it-GGUF
+    filename: gemma-4-31B-it-Q5_K_M.gguf
+
+# =============================================================================
+# ollama configuration
+# =============================================================================
+# Ollama runtime mode: "native", "docker", or "swarm"
+#   "native" (default, systemd), "docker" (container), or "swarm" (docker swarm service)
+bootstrap_llm_host__ollama_home_dir: "/home/{{ bootstrap_llm_host__model_user }}"
+
+# Docker-specific
+# When using docker runtime
+bootstrap_llm_host__ollama_container_name: "ollama"
+bootstrap_llm_host__ollama_container_home_dir: "/ollama"
+
+bootstrap_llm_host__ollama_host_volume_path: "/home/docker/ollama/data"
+
+# Swarm (stack service)
+# usually the service name in the stack
+bootstrap_llm_host__ollama_service_name: "ollama"
+
+bootstrap_llm_host__ollama_api_key: ""
+bootstrap_llm_host__ollama_api_auth_type: ""
+bootstrap_llm_host__ollama_port: "11434"
+
+__bootstrap_llm_host__ollama_api_url_default: "http://localhost:{{ bootstrap_llm_host__ollama_port }}"
+__bootstrap_llm_host__ollama_api_url: "{{ bootstrap_llm_host__ollama_api_url
+  | d(__bootstrap_llm_host__ollama_api_url_default) }}"
+
+# only used for native case
+bootstrap_llm_host__ollama_model_storage_dir: "{{ bootstrap_llm_host__ollama_home_dir }}/.ollama/models"
+#bootstrap_llm_host__ollama_model_storage_dir: "/data/ollama/models"
+bootstrap_llm_host__ollama_model_download_timeout: 3600
+
+# Default Model Configurations
+bootstrap_llm_host__ollama_models:
+  # ~4.7 GB AUTOCOMPLETE / QUICK CODING MODEL
+  - name: "qwen2.5-coder:7b"
+  # ~4.7 GB CHAT & EDIT MODEL (general purpose, fits alongside small context)
+  - name: "llama3.1:8b"
+  - name: "nomic-embed-text:latest"
+  - name: "bona/bge-reranker-v2-m3:latest"
 
 # Example usage in vars (override in playbook/inventory):
-#bootstrap_llm_host__models:
+#bootstrap_llm_host__ollama_models:
 #  - name: "deepseek-coder:6.7b"
 #  - name: "deepseek-coder:1.3b"
+#  - name: deepseek-r1:14b
 #  - name: "deepseek-llm:7b"
 #  # ~17 GB VRAM at Q4_K_M, excellent coding/reasoning
 #  - name: "qwen3.5:27b"
@@ -118,18 +217,6 @@ bootstrap_llm_host__models: []
 #  - name: "deepseek-coder:6.7b"
 #  - name: "deepseek-coder:1.3b"
 
-# System packages required
-bootstrap_llm_host__system_packages:
-  - curl
-  - wget
-  - git
-  - python3
-  - python3-pip
-  - python3-venv
-  - nodejs
-  - npm
-  - nginx
-
 # NVIDIA packages
 #bootstrap_llm_host__nvidia_packages:
 #  - nvidia-driver-535
@@ -151,38 +238,6 @@ bootstrap_llm_host__nvidia_package_url: "https://developer.download.nvidia.com/c
     bootstrap_llm_host__nvidia_package_dist }}/x86_64/{{ bootstrap_llm_host__nvidia_package }}"
 
 # =============================================================================
-# llama.cpp Server (speculative decoding + OpenAI /v1 endpoint for Continue.dev)
-# =============================================================================
-bootstrap_llm_host__install_llama_cpp: false
-
-# Runtime (same options as Ollama)
-bootstrap_llm_host__llama_runtime: "{{ bootstrap_llm_host__ollama_runtime }}"   # defaults to same as Ollama
-
-# Container / Service names
-bootstrap_llm_host__llama_container_name: "llama-cpp"
-bootstrap_llm_host__llama_service_name: "llama-cpp"
-bootstrap_llm_host__llama_host_volume_path: "/home/container-user/docker/llama-cpp/models"
-
-# Port on host
-bootstrap_llm_host__llama_port: "8081"
-
-# GGUF models to download automatically (add/remove as needed)
-bootstrap_llm_host__llama_models:
-  ## AUTOCOMPLETE MODEL
-  # or Q4_K_M if you want lighter
-  - repo: unsloth/gemma-4-E2B-it-GGUF
-    filename: gemma-4-E2B-it-Q5_K_M.gguf
-  ## Additional Large Model - Gemma 31B
-  - repo: unsloth/gemma-4-31B-it-GGUF
-    filename: gemma-4-31B-it-Q5_K_M.gguf
-
-# Runtime parameters passed to llama-server
-bootstrap_llm_host__llama_ctx_size: 32768
-bootstrap_llm_host__llama_n_gpu_layers: 99
-bootstrap_llm_host__llama_temp: 0.7
-bootstrap_llm_host__llama_flash_attn: 1
-
-# =============================================================================
 # NemoClaw Deployment Configuration
 # =============================================================================
 bootstrap_llm_host__nemoclaw_version: "latest"
@@ -198,8 +253,8 @@ bootstrap_llm_host__nemoclaw_sandbox_root: "/var/lib/nemoclaw/sandboxes"
 bootstrap_llm_host__nemoclaw_orchestration_model: "deepseek-r1:14b" # Optimized for tool execution loops
 
 __bootstrap_llm_host__nemoclaw_models:
-  - type: pull
-    name: "qwen3.5:27b"
+  #  - type: pull
+  #    name: "qwen3.5:27b"
   - type: pull
     # Explicit addition for NemoClaw framework tool execution logic
     name: "deepseek-r1:14b"

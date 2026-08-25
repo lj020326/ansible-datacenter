@@ -58,6 +58,47 @@
     dest: "{{ bootstrap_gpu_drivers__nvidia_module_file }}"
     mode: "0644"
 
+# === Post-install verification ===
+- name: Verify NVIDIA driver
+  when: __bootstrap_gpu_drivers__enable_nvidia | bool
+  ansible.builtin.command: nvidia-smi
+  register: __verify_nvidia_result
+  failed_when: false
+  changed_when: false
+
+- name: Check active driver version
+  when:
+    - __bootstrap_gpu_drivers__enable_nvidia | bool
+    - __verify_nvidia_result.rc != 0
+  ansible.builtin.command: grep -i "NVRM version" /proc/driver/nvidia/version
+  register: __nvidia_proc_version
+  failed_when: false
+  changed_when: false
+
+- name: Check kernel module version
+  when:
+    - __bootstrap_gpu_drivers__enable_nvidia | bool
+    - __verify_nvidia_result.rc != 0
+  ansible.builtin.shell: modinfo nvidia | grep -E "^version:"
+  register: __nvidia_modinfo_version
+  failed_when: false
+  changed_when: false
+
+- name: Fail gracefully with concise diagnostics on NVIDIA version mismatch
+  when:
+    - __bootstrap_gpu_drivers__enable_nvidia | bool
+    - __verify_nvidia_result.rc != 0
+  ansible.builtin.fail:
+    msg: |
+      [ERROR]: 'nvidia-smi' failed on {{ inventory_hostname }} with return code {{ __verify_nvidia_result.rc }}.
+      Driver/library version mismatch detected (pending reboot required).
+
+      Diagnostics comparison:
+      - Active Version (/proc): {{ __nvidia_proc_version.stdout | default('N/A') }}
+      - Module Version (modinfo): {{ __nvidia_modinfo_version.stdout | default('N/A') }}
+
+      Reboot the host to synchronize.
+
 - name: Reboot after driver install
   when:
     - __install_driver.changed

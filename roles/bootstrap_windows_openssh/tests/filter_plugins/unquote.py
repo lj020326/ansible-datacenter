@@ -16,4 +16,3 @@ class FilterModule(object):
         return {
             'unquote': unquote
         }
-

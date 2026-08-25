@@ -7,31 +7,28 @@
     - "{{ ansible_facts['distribution'] | lower() }}.yml"
     - "{{ ansible_facts['os_family'] | lower() }}.yml"
 
-- name: "NemoClaw handling"
-  when:
-    - bootstrap_llm_host__install_nemoclaw | bool
-    - __bootstrap_llm_host__is_dgx
-  ansible.builtin.include_vars: nemoclaw.yml
-
-- name: Include dependency installation tasks
-  ansible.builtin.include_tasks: dependencies.yml
-
 - name: Include Ollama installation tasks
   when:
     - bootstrap_llm_host__install_ollama
-    - bootstrap_llm_host__ollama_runtime == 'native'
+    - bootstrap_llm_host__model_runtime == 'native'
   ansible.builtin.include_tasks: ollama.yml
 
-- name: Include llama.cpp server tasks
-  when: bootstrap_llm_host__install_llama_cpp
-  ansible.builtin.include_tasks: llama_cpp.yml
+- name: Ensure vllm models
+  when: bootstrap_llm_host__ensure_vllm_models
+  ansible.builtin.include_tasks: models_vllm.yml
 
-- name: Include model download tasks
-  when: bootstrap_llm_host__download_models
-  ansible.builtin.include_tasks: models.yml
+- name: Ensure llama.cpp models
+  when: bootstrap_llm_host__ensure_llama_models
+  ansible.builtin.include_tasks: models_llama.yml
+
+- name: Ensure ollama models
+  when: bootstrap_llm_host__ensure_ollama_models
+  ansible.builtin.include_tasks: models_ollama.yml
 
 - name: Include NemoClaw agent stack tasks
-  when: bootstrap_llm_host__install_nemoclaw
+  when:
+    - __bootstrap_llm_host__is_dgx
+    - bootstrap_llm_host__install_nemoclaw
   ansible.builtin.include_tasks: nemoclaw.yml
 
 - name: Include WebUI installation tasks
@@ -48,18 +45,22 @@
 
 - name: Display server information
   ansible.builtin.debug:
-    msg: |
+    msg: >-
       ===============================================
       LLM Server Setup Complete!
       ===============================================
 
       Services:
       - Ollama API: http://{{ bootstrap_llm_host__server_name }}:{{ bootstrap_llm_host__ollama_port }}
+      {% if bootstrap_llm_host__install_open_webui or bootstrap_llm_host__install_ollama_webui %}
       - Web UI: http://{{ bootstrap_llm_host__server_name }}:{{ bootstrap_llm_host__webui_port }}
+      {% endif %}
+      {% if bootstrap_llm_host__configure_proxy %}
       - Nginx Proxy: http://{{ bootstrap_llm_host__server_name }}:{{ bootstrap_llm_host__proxy_port }}
+      {% endif %}
 
       Models configured:
-      {% for model in bootstrap_llm_host__models %}
+      {% for model in bootstrap_llm_host__ollama_models %}
       - {{ model.name }}
       {% endfor %}
 

@@ -207,7 +207,7 @@ firewalld_zones:
 
 ### Enable arbitrary firewalld rules
 
-Enable a new rule 
+Enable a new rule
 
 ```yaml
 firewalld_rules:
@@ -235,7 +235,7 @@ firewalld_configs:
 
 Or with more options:
 ```yaml
-firewalld_configs: 
+firewalld_configs:
   DefaultZone: "{{ firewalld_default_zone }}"
   CleanupOnExit: "yes"
   Lockdown: "no"
@@ -260,7 +260,7 @@ firewalld_services|firewalld_services__(role/group/purpose name)
 firewalld_ports|firewalld_ports__(role/group/purpose name)
 firewalld_rules|firewalld_rules__(role/group/purpose name)
 
-Where the variable name will include the name of the respective role/group/purpose name. 
+Where the variable name will include the name of the respective role/group/purpose name.
 For examples, see the group_var files in this repo for the following groups/examples:
 
 group var file|var names used
@@ -279,7 +279,7 @@ If there is the need to invoke the firewall role from another role, see the exam
 - name: Setup and run nfs
   ansible.builtin.include_role:
     name: geerlingguy.nfs
- 
+
 - name: Allow nfs traffic through the firewall
   when: firewalld_enabled | bool
   tags: [ firewall-config-nfs ]

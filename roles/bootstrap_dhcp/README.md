@@ -297,8 +297,8 @@ To run the tests for this playbook, you need to have Molecule, VirtualBox and Va
 $ sudo nmap --script broadcast-dhcp-discover -e vboxnet7
 Starting Nmap 7.91 ( https://nmap.org ) at 2021-11-30 11:32 CET
 Pre-scan script results:
-| broadcast-dhcp-discover: 
-|   Response 1 of 2: 
+| broadcast-dhcp-discover:
+|   Response 1 of 2:
 |     Interface: vboxnet7
 |     IP Offered: 192.168.222.50
 |     DHCP Message Type: DHCPOFFER
@@ -308,7 +308,7 @@ Pre-scan script results:
 |     Domain Name Server: 10.0.2.3, 10.0.2.4
 |     Domain Name: example.com
 |     Broadcast Address: 192.168.222.255
-|   Response 2 of 2: 
+|   Response 2 of 2:
 |     Interface: vboxnet7
 |     IP Offered: 192.168.222.50
 |     DHCP Message Type: DHCPOFFER

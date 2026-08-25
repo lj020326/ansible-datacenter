@@ -1,0 +1,271 @@
+---
+# =============================================================================
+# Setup Execution Context & Exec Wrappers
+# =============================================================================
+- name: VLLM Benchmark Tests | Display target runtime
+  ansible.builtin.debug:
+    var: run_vllm_benchmark_tests__runtime
+
+- name: VLLM Benchmark Tests | Set __python_binary
+  ansible.builtin.set_fact:
+    __python_binary: >-
+      {%- if run_vllm_benchmark_tests__runtime in ['docker', 'swarm'] -%}
+        python3
+      {%- else -%}
+        /usr/local/bin/python3
+      {%- endif -%}
+
+- name: VLLM Benchmark Tests | Resolve Docker target container ID (Swarm mode)
+  when: run_vllm_benchmark_tests__runtime == 'swarm'
+  ansible.builtin.shell: >-
+    docker ps -q
+    --filter "name=^{{ run_vllm_benchmark_tests__docker_stack_name }}_{{ run_vllm_benchmark_tests__service_name }}."
+    --filter "status=running" | head -n 1
+  register: _swarm_container_lookup
+  changed_when: false
+  failed_when: _swarm_container_lookup.stdout == ""
+
+- name: VLLM Benchmark Tests | Set target container ID
+  ansible.builtin.set_fact:
+    __vllm_target_container: >-
+      {%- if run_vllm_benchmark_tests__runtime == 'docker' -%}
+        {{ run_vllm_benchmark_tests__container_name }}
+      {%- elif run_vllm_benchmark_tests__runtime == 'swarm' -%}
+        {{ _swarm_container_lookup.stdout | trim }}
+      {%- else -%}
+        none
+      {%- endif -%}
+
+- name: VLLM Benchmark Tests | Set __docker_exec Prefix
+  ansible.builtin.set_fact:
+    __docker_exec: >-
+      {%- if run_vllm_benchmark_tests__runtime in ['docker', 'swarm'] -%}
+        docker exec -u root {{ __vllm_target_container }}
+      {%- else -%}
+
+      {%- endif -%}
+
+- name: VLLM Benchmark Tests | Display __docker_exec
+  ansible.builtin.debug:
+    var: __docker_exec
+
+- name: VLLM Benchmark Tests | Set __vllm_cmd_prefix
+  ansible.builtin.set_fact:
+    __vllm_cmd_prefix: >-
+      {{ __docker_exec }}
+      {% if run_vllm_benchmark_tests__api_key | length > 0 %}
+      env OPENAI_API_KEY="{{ run_vllm_benchmark_tests__api_key }}"
+      {%- endif %}
+      ulimit -n 65536; vllm bench serve
+
+- name: VLLM Benchmark Tests | Display __vllm_cmd_prefix
+  ansible.builtin.debug:
+    var: __vllm_cmd_prefix
+
+- name: VLLM Benchmark Tests | Set __results_dir Prefix
+  ansible.builtin.set_fact:
+    __results_dir: >-
+      {%- if run_vllm_benchmark_tests__runtime in ['docker', 'swarm'] -%}
+        {{ run_vllm_benchmark_tests__container_data_dir }}
+      {%- else -%}
+        {{ run_vllm_benchmark_tests__remote_results_dir }}
+      {%- endif -%}
+
+- name: VLLM Benchmark Tests | Display Exec Command Configuration
+  ansible.builtin.debug:
+    msg:
+      - "Model: {{ run_vllm_benchmark_tests__model_name }}"
+      - "Target Container: {{ __vllm_target_container }}"
+      - "Docker Exec Command: {{ __docker_exec }}"
+      - "Python Binary: {{ __python_binary }}"
+      - "Results Dir: {{ __results_dir }}"
+
+# =============================================================================
+# Health Check & Engine Readiness Verification
+# =============================================================================
+- name: VLLM Benchmark Tests | Prepare local host result directory
+  ansible.builtin.file:
+    path: "{{ run_vllm_benchmark_tests__remote_results_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: VLLM Benchmark Tests | Prepare container result directory
+  when: run_vllm_benchmark_tests__runtime in ['docker', 'swarm']
+  ansible.builtin.shell: >
+    {{ __docker_exec }} mkdir -p "{{ run_vllm_benchmark_tests__remote_results_dir }}"
+  changed_when: false
+
+- name: VLLM Benchmark Tests | Construct API healthcheck inline script
+  ansible.builtin.set_fact:
+    __healthcheck_python_cmd: |
+      {{ __python_binary }} -c '
+      import urllib.request
+      import sys
+
+      url = "{{ run_vllm_benchmark_tests__base_url }}/health"
+      req = urllib.request.Request(url)
+
+      {% if run_vllm_benchmark_tests__api_key | length > 0 %}
+      req.add_header("Authorization", "Bearer {{ run_vllm_benchmark_tests__api_key }}")
+      {% endif %}
+
+      try:
+          res = urllib.request.urlopen(req)
+          sys.exit(0 if res.getcode() == 200 else 1)
+      except Exception as e:
+          sys.exit(1)
+      '
+
+- name: VLLM Benchmark Tests | Wait for vLLM API to be healthy
+  ansible.builtin.shell: >
+    {{ __docker_exec }} {{ __healthcheck_python_cmd }}
+  register: _vllm_health_check
+  changed_when: false
+  until: _vllm_health_check.rc == 0
+  retries: 30
+  delay: 5
+
+# =============================================================================
+# Execute Benchmark Suite Across Configured Profiles
+# =============================================================================
+- name: VLLM Benchmark Tests | Run vLLM Serving Benchmarks (native)
+  when: run_vllm_benchmark_tests__runtime in ['native']
+  ansible.builtin.command: >-
+    ulimit -n 65536;
+    {% if run_vllm_benchmark_tests__api_key | length > 0 %}
+    export OPENAI_API_KEY="{{ run_vllm_benchmark_tests__api_key }}";
+    {% endif %}
+    vllm bench serve
+      --backend openai
+      --model "{{ run_vllm_benchmark_tests__model_name }}"
+      --tokenizer "{{ run_vllm_benchmark_tests__tokenizer
+        | default(run_vllm_benchmark_tests__model_name) }}"
+      --base-url "{{ run_vllm_benchmark_tests__base_url }}"
+      --endpoint "{{ run_vllm_benchmark_tests__endpoint }}"
+      --dataset-name "{{ item.value.dataset_name }}"
+      --num-prompts {{ item.value.num_prompts }}
+      --random-input-len {{ item.value.random_input_len }}
+      --random-output-len {{ item.value.random_output_len }}
+      --request-rate "{{ item.value.request_rate }}"
+      {% if item.value.max_concurrency is defined %}
+      --max-concurrency {{ item.value.max_concurrency }}
+      {% endif %}
+      --save-result
+      --result-filename "{{ __results_dir }}/{{ item.key }}_results.json"
+  loop: "{{ run_vllm_benchmark_tests__profiles | dict2items }}"
+  loop_control:
+    label: "Profile: {{ item.key }} (Input: {{ item.value.random_input_len
+     }}, Output: {{ item.value.random_output_len }}, QPS: {{
+      item.value.request_rate }})"
+  register: _benchmark_execution_results
+  changed_when: false
+  ## fail when more than ~5–10 % of requests fail
+  failed_when: >
+    _benchmark_execution_results.rc != 0 and
+    (
+      (_benchmark_execution_results.stdout | default('')
+        | regex_search('Successful requests:\s+(\d+)', '\\1')
+        | default('0') | int) == 0
+      or
+      (
+        (_benchmark_execution_results.stdout | default('')
+          | regex_search('Successful requests:\s+(\d+)', '\\1')
+          | default('0') | int)
+        <
+        (_benchmark_execution_results.stdout | default('')
+          | regex_search('Failed requests:\s+(\d+)', '\\1')
+          | default('0') | int * 10)
+      )
+    )
+
+- name: VLLM Benchmark Tests | Run vLLM Serving Benchmarks (container)
+  when: run_vllm_benchmark_tests__runtime in ['docker', 'swarm']
+  vars:
+    # Build the full shell command for THIS profile
+    __bench_cmd: >-
+      ulimit -n 65536;
+      {% if run_vllm_benchmark_tests__api_key | length > 0 %}
+      export OPENAI_API_KEY="{{ run_vllm_benchmark_tests__api_key }}";
+      {% endif %}
+      vllm bench serve
+      --backend openai
+      --model "{{ run_vllm_benchmark_tests__model_name }}"
+      --tokenizer "{{ run_vllm_benchmark_tests__tokenizer | default(run_vllm_benchmark_tests__model_name) }}"
+      --base-url "{{ run_vllm_benchmark_tests__base_url }}"
+      --endpoint "{{ run_vllm_benchmark_tests__endpoint | default('/v1/chat/completions') }}"
+      --dataset-name "{{ item.value.dataset_name }}"
+      --num-prompts {{ item.value.num_prompts }}
+      --random-input-len {{ item.value.random_input_len }}
+      --random-output-len {{ item.value.random_output_len }}
+      --request-rate "{{ item.value.request_rate }}"
+      {% if item.value.max_concurrency is defined %}
+      --max-concurrency {{ item.value.max_concurrency }}
+      {% endif %}
+      --save-result
+      --result-filename "{{ __results_dir }}/{{ item.key }}_results.json"
+  community.docker.docker_container_exec:
+    container: "{{ __vllm_target_container }}"
+    user: root
+    env:
+      OPENAI_API_KEY: "{{ run_vllm_benchmark_tests__api_key | d(omit, true) }}"
+#    command: bash -c '{{ run_vllm_benchmark_tests__command }}'
+    # Use a list so quoting is handled cleanly by the module
+    argv:
+      - bash
+      - -c
+      - "{{ __bench_cmd }}"
+  loop: "{{ run_vllm_benchmark_tests__profiles | dict2items }}"
+  loop_control:
+    label: >-
+      Profile: {{ item.key }}
+      (Input: {{ item.value.random_input_len }},
+       Output: {{ item.value.random_output_len }},
+       QPS: {{ item.value.request_rate }})
+  register: _benchmark_execution_results
+  changed_when: false
+  ## fail when more than ~5–10 % of requests fail
+  failed_when: >
+    _benchmark_execution_results.rc != 0 and
+    (
+      (_benchmark_execution_results.stdout | default('')
+        | regex_search('Successful requests:\s+(\d+)', '\\1')
+        | default('0') | int) == 0
+      or
+      (
+        (_benchmark_execution_results.stdout | default('')
+          | regex_search('Successful requests:\s+(\d+)', '\\1')
+          | default('0') | int)
+        <
+        (_benchmark_execution_results.stdout | default('')
+          | regex_search('Failed requests:\s+(\d+)', '\\1')
+          | default('0') | int * 10)
+      )
+    )
+
+# =============================================================================
+# Retrieve Results to Control Node
+# =============================================================================
+- name: VLLM Benchmark Tests | Copy JSON results from Container to Host
+  when:
+    - run_vllm_benchmark_tests__fetch_results | bool
+    - run_vllm_benchmark_tests__runtime in ['docker', 'swarm']
+    - run_vllm_benchmark_tests__container_data_dir | length == 0
+  ansible.builtin.shell: >
+    docker cp {{ __vllm_target_container }}:{{
+    run_vllm_benchmark_tests__remote_results_dir }}/{{
+    item.key }}_results.json {{
+    run_vllm_benchmark_tests__remote_results_dir }}/{{ item.key }}_results.json
+  loop: "{{ run_vllm_benchmark_tests__profiles | dict2items }}"
+  loop_control:
+    label: "Extracting {{ item.key }}_results.json from container"
+  changed_when: false
+
+- name: VLLM Benchmark Tests | Fetch JSON output results to Ansible Control Node
+  when: run_vllm_benchmark_tests__fetch_results | bool
+  ansible.builtin.fetch:
+    src: "{{ __results_dir }}/{{ item.key }}_results.json"
+    dest: "{{ run_vllm_benchmark_tests__local_results_dir }}/{{ item.key }}_results.json"
+    flat: true
+  loop: "{{ run_vllm_benchmark_tests__profiles | dict2items }}"
+  loop_control:
+    label: "Fetching {{ item.key }}_results.json"

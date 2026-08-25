@@ -47,9 +47,9 @@ The `bootstrap_llm_host` role is designed to automate the setup of a Large Langu
 | `bootstrap_llm_host__traefik_entrypoint`          | `web`                                                                                                                                                                  | Traefik entry point.                                                                         |
 | `bootstrap_llm_host__traefik_config_path`         | `"/etc/traefik/conf.d"`                                                                                                                                                | Path for Traefik configuration files.                                                        |
 | `bootstrap_llm_host__traefik_archive_url`         | `"https://github.com/traefik/traefik/releases/download/v3.3.4/traefik_v3.3.4_linux_{{ 'amd64' if ansible_facts['architecture'] == 'x86_64' else 'arm64' }}.tar.gz"`    | URL for downloading Traefik binary.                                                          |
-| `bootstrap_llm_host__ollama_user`                 | `ollama`                                                                                                                                                               | User for Ollama API.                                                                         |
+| `bootstrap_llm_host__model_user`                 | `ollama`                                                                                                                                                               | User for Ollama API.                                                                         |
 | `bootstrap_llm_host__webui_user`                  | `webui`                                                                                                                                                                | User for WebUIs.                                                                             |
-| `bootstrap_llm_host__ollama_home_dir`             | `"/home/{{ bootstrap_llm_host__ollama_user }}"`                                                                                                                        | Home directory for Ollama user.                                                              |
+| `bootstrap_llm_host__ollama_home_dir`             | `"/home/{{ bootstrap_llm_host__model_user }}"`                                                                                                                        | Home directory for Ollama user.                                                              |
 | `bootstrap_llm_host__webui_home_dir`              | `"/home/{{ bootstrap_llm_host__webui_user }}"`                                                                                                                         | Home directory for WebUI user.                                                               |
 | `bootstrap_llm_host__ollama_port`                 | `"11434"`                                                                                                                                                              | Port for Ollama API.                                                                         |
 | `bootstrap_llm_host__webui_port`                  | `"8080"`                                                                                                                                                               | Port for WebUIs.                                                                             |
@@ -59,29 +59,25 @@ The `bootstrap_llm_host` role is designed to automate the setup of a Large Langu
 | `bootstrap_llm_host__webui_secret_key`            | `"{{ lookup('community.general.random_string', length=32) }}"`                                                                                                         | Secret key for Open WebUI.                                                                   |
 | `bootstrap_llm_host__model_download_timeout`      | `3600`                                                                                                                                                                 | Timeout for model downloads (in seconds).                                                    |
 | `bootstrap_llm_host__service_timeout`             | `300`                                                                                                                                                                  | Timeout for services to start (in seconds).                                                  |
-| `bootstrap_llm_host__models`                      | `[]`                                                                                                                                                                   | List of models to download and configure.                                                    |
+| `bootstrap_llm_host__ollama_models`                      | `[]`                                                                                                                                                                   | List of models to download and configure.                                                    |
 | `bootstrap_llm_host__system_packages`             | `['curl', 'wget', 'git', 'python3', 'python3-pip', 'python3-venv', 'nodejs', 'npm', 'nginx']`                                                                          | System packages to install.                                                                  |
 | `bootstrap_llm_host__nvidia_package_dist`         | `"{{ ansible_facts['distribution'] \| lower }}{{ ansible_facts['distribution_version'] \| replace('.', '') }}"`                                                        | Distribution string for NVIDIA package URL.                                                  |
 | `bootstrap_llm_host__nvidia_package_version`      | `1.1-1`                                                                                                                                                                | Version of NVIDIA package to install.                                                        |
 | `bootstrap_llm_host__nvidia_package`              | `"cuda-keyring_{{ bootstrap_llm_host__nvidia_package_version }}_all.deb"`                                                                                              | Name of the NVIDIA package to download.                                                      |
 | `bootstrap_llm_host__nvidia_package_url`          | `"https://developer.download.nvidia.com/compute/cuda/repos/{{ bootstrap_llm_host__nvidia_package_dist }}/x86_64/{{ bootstrap_llm_host__nvidia_package }}"`             | URL for downloading NVIDIA package.                                                          |
-| `bootstrap_llm_host__install_llama_cpp`           | `false`                                                                                                                                                                | Whether to install LLaMA.cpp server.                                                         |
+| `bootstrap_llm_host__ensure_llama_models`           | `false`                                                                                                                                                                | Whether to install LLaMA.cpp server.                                                         |
 | `bootstrap_llm_host__llama_runtime`           | `"{{ bootstrap_llm_host__ollama_runtime }}"`                                                                                                                           | Runtime for LLaMA.cpp (`native`, `docker`, `swarm`). Defaults to the same as Ollama runtime. |
 | `bootstrap_llm_host__llama_container_name`    | `"llama-cpp"`                                                                                                                                                          | Container name for LLaMA.cpp server.                                                         |
 | `bootstrap_llm_host__llama_service_name`      | `"llama-cpp"`                                                                                                                                                          | Service name for LLaMA.cpp in Docker Swarm mode.                                             |
 | `bootstrap_llm_host__llama_host_volume_path`  | `"/home/container-user/docker/llama-cpp/models"`                                                                                                                       | Host volume path for LLaMA.cpp models.                                                       |
 | `bootstrap_llm_host__llama_port`              | `"8081"`                                                                                                                                                               | Port for LLaMA.cpp OpenAI-compatible API.                                                    |
 | `bootstrap_llm_host__llama_models`            | `[ { repo: 'unsloth/gemma-4-E2B-it-GGUF', filename: 'gemma-4-E2B-it-Q5_K_M.gguf' }, { repo: 'unsloth/gemma-4-31B-it-GGUF', filename: 'gemma-4-31B-it-Q5_K_M.gguf' } ]` | List of LLaMA.cpp models to download.                                                        |
-| `bootstrap_llm_host__llama_ctx_size`          | `32768`                                                                                                                                                                | Context size for LLaMA.cpp.                                                                  |
-| `bootstrap_llm_host__llama_n_gpu_layers`      | `99`                                                                                                                                                                   | Number of GPU layers for LLaMA.cpp.                                                          |
-| `bootstrap_llm_host__llama_temp`              | `0.7`                                                                                                                                                                  | Temperature setting for LLaMA.cpp.                                                           |
-| `bootstrap_llm_host__llama_flash_attn`        | `1`                                                                                                                                                                    | Flash attention flag for LLaMA.cpp.                                                          |
 
 
 ### Key role variables
 
 ```yaml
-bootstrap_llm_host__models: []               # List of dicts - see examples below
+bootstrap_llm_host__ollama_models: []               # List of dicts - see examples below
 bootstrap_llm_host__model_storage_dir: "/home/ollama/.ollama/models"
 bootstrap_llm_host__install_open_webui: true
 bootstrap_llm_host__configure_proxy: true    # Recommended with WebUI
@@ -96,7 +92,7 @@ To use the `bootstrap_llm_host` role, include it in your playbook and configure 
   roles:
     - role: bootstrap_llm_host
       vars:
-        bootstrap_llm_host__models:
+        bootstrap_llm_host__ollama_models:
           - type: pull
             name: qwen3.5:27b
 ```
@@ -116,14 +112,14 @@ With more options:
         bootstrap_llm_host__install_open_webui: true
         bootstrap_llm_host__configure_proxy: true
         bootstrap_llm_host__proxy_type: traefik
-        bootstrap_llm_host__models:
+        bootstrap_llm_host__ollama_models:
           - name: "gemma-4-E2B-it-GGUF"
             type: pull
 ```
 
 Example model config (in inventory group_vars/llm_host.yml):
 ```yaml
-bootstrap_llm_host__models:
+bootstrap_llm_host__ollama_models:
   - type: pull
     name: qwen3.5:27b           # Official Ollama tag, ~17GB VRAM Q4
   - type: pull

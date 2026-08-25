@@ -142,7 +142,7 @@ function get-certs() {
 }
 
 ## ref: https://stackoverflow.com/questions/42635253/display-received-cert-with-curl
-## example usage: 
+## example usage:
 ##
 ##   certinfo admin2.johnson.int 5000
 ##

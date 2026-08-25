@@ -5,7 +5,7 @@ Use the site https://ansible.sivel.net/test/ to test.
 
 ## Set up test variables
 
-Convert the ansible logged variable values and convert from json to yaml at: 
+Convert the ansible logged variable values and convert from json to yaml at:
 https://jsonformatter.org/json-to-yaml
 
 Set up the variables section:
@@ -872,10 +872,10 @@ __docker_stack__service_group_configs_tpl:
     redis:
       container_name: redis
       entrypoint: |-
-        redis-server 
-          --appendonly yes 
-          --requirepass ev9v0emv0rjf 
-          --maxmemory 512mb 
+        redis-server
+          --appendonly yes
+          --requirepass ev9v0emv0rjf
+          --maxmemory 512mb
           --maxmemory-policy
           noeviction
       environment:

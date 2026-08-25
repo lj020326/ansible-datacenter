@@ -40,7 +40,7 @@ for t in $TARGETS; do
     DISKSPEC="$DISKSPEC --diskspec $t,snapshot=external"
 done
 virsh snapshot-create-as --domain "$DOMAIN" --name backup --no-metadata \
-	--atomic --disk-only $DISKSPEC >/dev/null
+	--atomic --disk-only "$DISKSPEC" >/dev/null
 if [ $? -ne 0 ]; then
     echo "Failed to create snapshot for $DOMAIN"
     exit 1
@@ -85,7 +85,7 @@ LIST=`ls -r1 "$BACKUPDOMAIN" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]+$'`
 i=1
 for b in $LIST; do
     if [ $i -gt "$MAXBACKUPS" ]; then
-        echo "Removing old backup "`basename $b`
+        echo "Removing old backup "`basename "$b"`
         rm -rf "$b"
     fi
 

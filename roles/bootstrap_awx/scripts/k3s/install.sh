@@ -276,15 +276,15 @@ can_skip_download_binary() {
     fi
 }
 
-can_skip_download_selinux() {                                                        
-    if [ "${INSTALL_K3S_SKIP_DOWNLOAD}" != true ] && [ "${INSTALL_K3S_SKIP_DOWNLOAD}" != selinux ]; then 
-        return 1                                                                     
-    fi                                                                               
-}  
+can_skip_download_selinux() {
+    if [ "${INSTALL_K3S_SKIP_DOWNLOAD}" != true ] && [ "${INSTALL_K3S_SKIP_DOWNLOAD}" != selinux ]; then
+        return 1
+    fi
+}
 
 # --- verify an executable k3s binary is installed ---
 verify_k3s_is_executable() {
-    if [ ! -x ${BIN_DIR}/k3s ]; then
+    if [ ! -x "${BIN_DIR}"/k3s ]; then
         fatal "Executable k3s binary not found at ${BIN_DIR}/k3s"
     fi
 }
@@ -327,7 +327,7 @@ setup_verify_arch() {
 # --- verify existence of network downloader executable ---
 verify_downloader() {
     # Return failure if it doesn't exist or is no executable
-    [ -x "$(command -v $1)" ] || return 1
+    [ -x "$(command -v "$1")" ] || return 1
 
     # Set verified executable as our downloader program and return success
     DOWNLOADER=$1
@@ -343,7 +343,7 @@ setup_tmp() {
         code=$?
         set +e
         trap - EXIT
-        rm -rf ${TMP_DIR}
+        rm -rf "${TMP_DIR}"
         exit $code
     }
     trap cleanup INT EXIT
@@ -360,10 +360,10 @@ get_release_version() {
         version_url="${INSTALL_K3S_CHANNEL_URL}/${INSTALL_K3S_CHANNEL}"
         case $DOWNLOADER in
             curl)
-                VERSION_K3S=$(curl -w '%{url_effective}' -L -s -S ${version_url} -o /dev/null | sed -e 's|.*/||')
+                VERSION_K3S=$(curl -w '%{url_effective}' -L -s -S "${version_url}" -o /dev/null | sed -e 's|.*/||')
                 ;;
             wget)
-                VERSION_K3S=$(wget -SqO /dev/null ${version_url} 2>&1 | grep -i Location | sed -e 's|.*/||')
+                VERSION_K3S=$(wget -SqO /dev/null "${version_url}" 2>&1 | grep -i Location | sed -e 's|.*/||')
                 ;;
             *)
                 fatal "Incorrect downloader executable '$DOWNLOADER'"
@@ -379,10 +379,10 @@ download() {
 
     case $DOWNLOADER in
         curl)
-            curl -o $1 -sfL $2
+            curl -o "$1" -sfL "$2"
             ;;
         wget)
-            wget -qO $1 $2
+            wget -qO "$1" "$2"
             ;;
         *)
             fatal "Incorrect executable '$DOWNLOADER'"
@@ -401,15 +401,15 @@ download_hash() {
         HASH_URL=${GITHUB_URL}/download/${VERSION_K3S}/sha256sum-${ARCH}.txt
     fi
     info "Downloading hash ${HASH_URL}"
-    download ${TMP_HASH} ${HASH_URL}
-    HASH_EXPECTED=$(grep " k3s${SUFFIX}$" ${TMP_HASH})
+    download "${TMP_HASH}" "${HASH_URL}"
+    HASH_EXPECTED=$(grep " k3s${SUFFIX}$" "${TMP_HASH}")
     HASH_EXPECTED=${HASH_EXPECTED%%[[:blank:]]*}
 }
 
 # --- check hash against installed version ---
 installed_hash_matches() {
-    if [ -x ${BIN_DIR}/k3s ]; then
-        HASH_INSTALLED=$(sha256sum ${BIN_DIR}/k3s)
+    if [ -x "${BIN_DIR}"/k3s ]; then
+        HASH_INSTALLED=$(sha256sum "${BIN_DIR}"/k3s)
         HASH_INSTALLED=${HASH_INSTALLED%%[[:blank:]]*}
         if [ "${HASH_EXPECTED}" = "${HASH_INSTALLED}" ]; then
             return
@@ -426,13 +426,13 @@ download_binary() {
         BIN_URL=${GITHUB_URL}/download/${VERSION_K3S}/k3s${SUFFIX}
     fi
     info "Downloading binary ${BIN_URL}"
-    download ${TMP_BIN} ${BIN_URL}
+    download "${TMP_BIN}" "${BIN_URL}"
 }
 
 # --- verify downloaded binary hash ---
 verify_binary() {
     info "Verifying binary download"
-    HASH_BIN=$(sha256sum ${TMP_BIN})
+    HASH_BIN=$(sha256sum "${TMP_BIN}")
     HASH_BIN=${HASH_BIN%%[[:blank:]]*}
     if [ "${HASH_EXPECTED}" != "${HASH_BIN}" ]; then
         fatal "Download sha256 does not match ${HASH_EXPECTED}, got ${HASH_BIN}"
@@ -441,15 +441,15 @@ verify_binary() {
 
 # --- setup permissions and move binary to system directory ---
 setup_binary() {
-    chmod 755 ${TMP_BIN}
+    chmod 755 "${TMP_BIN}"
     info "Installing k3s to ${BIN_DIR}/k3s"
-    $SUDO chown root:root ${TMP_BIN}
-    $SUDO mv -f ${TMP_BIN} ${BIN_DIR}/k3s
+    $SUDO chown root:root "${TMP_BIN}"
+    $SUDO mv -f "${TMP_BIN}" "${BIN_DIR}"/k3s
 }
 
 # --- setup selinux policy ---
 setup_selinux() {
-    case ${INSTALL_K3S_CHANNEL} in 
+    case ${INSTALL_K3S_CHANNEL} in
         *testing)
             rpm_channel=testing
             ;;
@@ -501,7 +501,7 @@ setup_selinux() {
         policy_error=warn
     fi
 
-    if ! $SUDO chcon -u system_u -r object_r -t container_runtime_exec_t ${BIN_DIR}/k3s >/dev/null 2>&1; then
+    if ! $SUDO chcon -u system_u -r object_r -t container_runtime_exec_t "${BIN_DIR}"/k3s >/dev/null 2>&1; then
         if $SUDO grep '^\s*SELINUX=enforcing' /etc/selinux/config >/dev/null 2>&1; then
             $policy_error "Failed to apply container_runtime_exec_t to ${BIN_DIR}/k3s, ${policy_hint}"
         fi
@@ -587,11 +587,11 @@ create_symlinks() {
     [ "${INSTALL_K3S_SYMLINK}" = skip ] && return
 
     for cmd in kubectl crictl ctr; do
-        if [ ! -e ${BIN_DIR}/${cmd} ] || [ "${INSTALL_K3S_SYMLINK}" = force ]; then
+        if [ ! -e "${BIN_DIR}"/${cmd} ] || [ "${INSTALL_K3S_SYMLINK}" = force ]; then
             which_cmd=$(command -v ${cmd} 2>/dev/null || true)
             if [ -z "${which_cmd}" ] || [ "${INSTALL_K3S_SYMLINK}" = force ]; then
                 info "Creating ${BIN_DIR}/${cmd} symlink to k3s"
-                $SUDO ln -sf k3s ${BIN_DIR}/${cmd}
+                $SUDO ln -sf k3s "${BIN_DIR}"/${cmd}
             else
                 info "Skipping ${BIN_DIR}/${cmd} symlink to k3s, command exists in PATH at ${which_cmd}"
             fi
@@ -605,7 +605,7 @@ create_symlinks() {
 create_killall() {
     [ "${INSTALL_K3S_BIN_DIR_READ_ONLY}" = true ] && return
     info "Creating killall script ${KILLALL_K3S_SH}"
-    $SUDO tee ${KILLALL_K3S_SH} >/dev/null << \EOF
+    $SUDO tee "${KILLALL_K3S_SH}" >/dev/null << \EOF
 #!/bin/sh
 [ $(id -u) -eq 0 ] || exec sudo $0 $@
 
@@ -685,15 +685,15 @@ rm -rf /var/lib/cni/
 iptables-save | grep -v KUBE- | grep -v CNI- | grep -iv flannel | iptables-restore
 ip6tables-save | grep -v KUBE- | grep -v CNI- | grep -iv flannel | ip6tables-restore
 EOF
-    $SUDO chmod 755 ${KILLALL_K3S_SH}
-    $SUDO chown root:root ${KILLALL_K3S_SH}
+    $SUDO chmod 755 "${KILLALL_K3S_SH}"
+    $SUDO chown root:root "${KILLALL_K3S_SH}"
 }
 
 # --- create uninstall script ---
 create_uninstall() {
     [ "${INSTALL_K3S_BIN_DIR_READ_ONLY}" = true ] && return
     info "Creating uninstall script ${UNINSTALL_K3S_SH}"
-    $SUDO tee ${UNINSTALL_K3S_SH} >/dev/null << EOF
+    $SUDO tee "${UNINSTALL_K3S_SH}" >/dev/null << EOF
 #!/bin/sh
 set -x
 [ \$(id -u) -eq 0 ] || exec sudo \$0 \$@
@@ -748,30 +748,30 @@ elif type zypper >/dev/null 2>&1; then
     rm -f /etc/zypp/repos.d/rancher-k3s-common*.repo
 fi
 EOF
-    $SUDO chmod 755 ${UNINSTALL_K3S_SH}
-    $SUDO chown root:root ${UNINSTALL_K3S_SH}
+    $SUDO chmod 755 "${UNINSTALL_K3S_SH}"
+    $SUDO chown root:root "${UNINSTALL_K3S_SH}"
 }
 
 # --- disable current service if loaded --
 systemd_disable() {
-    $SUDO systemctl disable ${SYSTEM_NAME} >/dev/null 2>&1 || true
-    $SUDO rm -f /etc/systemd/system/${SERVICE_K3S} || true
-    $SUDO rm -f /etc/systemd/system/${SERVICE_K3S}.env || true
+    $SUDO systemctl disable "${SYSTEM_NAME}" >/dev/null 2>&1 || true
+    $SUDO rm -f /etc/systemd/system/"${SERVICE_K3S}" || true
+    $SUDO rm -f /etc/systemd/system/"${SERVICE_K3S}".env || true
 }
 
 # --- capture current env and create file containing k3s_ variables ---
 create_env_file() {
     info "env: Creating environment file ${FILE_K3S_ENV}"
-    $SUDO touch ${FILE_K3S_ENV}
-    $SUDO chmod 0600 ${FILE_K3S_ENV}
-    sh -c export | while read x v; do echo $v; done | grep -E '^(K3S|CONTAINERD)_' | $SUDO tee ${FILE_K3S_ENV} >/dev/null
-    sh -c export | while read x v; do echo $v; done | grep -Ei '^(NO|HTTP|HTTPS)_PROXY' | $SUDO tee -a ${FILE_K3S_ENV} >/dev/null
+    $SUDO touch "${FILE_K3S_ENV}"
+    $SUDO chmod 0600 "${FILE_K3S_ENV}"
+    sh -c export | while read x v; do echo "$v"; done | grep -E '^(K3S|CONTAINERD)_' | $SUDO tee "${FILE_K3S_ENV}" >/dev/null
+    sh -c export | while read x v; do echo "$v"; done | grep -Ei '^(NO|HTTP|HTTPS)_PROXY' | $SUDO tee -a "${FILE_K3S_ENV}" >/dev/null
 }
 
 # --- write systemd service file ---
 create_systemd_service_file() {
     info "systemd: Creating service file ${FILE_K3S_SERVICE}"
-    $SUDO tee ${FILE_K3S_SERVICE} >/dev/null << EOF
+    $SUDO tee "${FILE_K3S_SERVICE}" >/dev/null << EOF
 [Unit]
 Description=Lightweight Kubernetes
 Documentation=https://k3s.io
@@ -811,7 +811,7 @@ create_openrc_service_file() {
     LOG_FILE=/var/log/${SYSTEM_NAME}.log
 
     info "openrc: Creating service file ${FILE_K3S_SERVICE}"
-    $SUDO tee ${FILE_K3S_SERVICE} >/dev/null << EOF
+    $SUDO tee "${FILE_K3S_SERVICE}" >/dev/null << EOF
 #!/sbin/openrc-run
 
 depend() {
@@ -841,9 +841,9 @@ if [ -f /etc/environment ]; then source /etc/environment; fi
 if [ -f ${FILE_K3S_ENV} ]; then source ${FILE_K3S_ENV}; fi
 set +o allexport
 EOF
-    $SUDO chmod 0755 ${FILE_K3S_SERVICE}
+    $SUDO chmod 0755 "${FILE_K3S_SERVICE}"
 
-    $SUDO tee /etc/logrotate.d/${SYSTEM_NAME} >/dev/null << EOF
+    $SUDO tee /etc/logrotate.d/"${SYSTEM_NAME}" >/dev/null << EOF
 ${LOG_FILE} {
 	missingok
 	notifempty
@@ -861,35 +861,35 @@ create_service_file() {
 
 # --- get hashes of the current k3s bin and service files
 get_installed_hashes() {
-    $SUDO sha256sum ${BIN_DIR}/k3s ${FILE_K3S_SERVICE} ${FILE_K3S_ENV} 2>&1 || true
+    $SUDO sha256sum "${BIN_DIR}"/k3s "${FILE_K3S_SERVICE}" "${FILE_K3S_ENV}" 2>&1 || true
 }
 
 # --- enable and start systemd service ---
 systemd_enable() {
     info "systemd: Enabling ${SYSTEM_NAME} unit"
-    $SUDO systemctl enable ${FILE_K3S_SERVICE} >/dev/null
+    $SUDO systemctl enable "${FILE_K3S_SERVICE}" >/dev/null
     $SUDO systemctl daemon-reload >/dev/null
 }
 
 systemd_start() {
     info "systemd: Starting ${SYSTEM_NAME}"
-    $SUDO systemctl restart ${SYSTEM_NAME}
+    $SUDO systemctl restart "${SYSTEM_NAME}"
 }
 
 # --- enable and start openrc service ---
 openrc_enable() {
     info "openrc: Enabling ${SYSTEM_NAME} service for default runlevel"
-    $SUDO rc-update add ${SYSTEM_NAME} default >/dev/null
+    $SUDO rc-update add "${SYSTEM_NAME}" default >/dev/null
 }
 
 openrc_start() {
     info "openrc: Starting ${SYSTEM_NAME}"
-    $SUDO ${FILE_K3S_SERVICE} restart
+    $SUDO "${FILE_K3S_SERVICE}" restart
 }
 
 # --- startup systemd or openrc service ---
 service_enable_and_start() {
-    if [ -f "/proc/cgroups" ] && [ "$(grep memory /proc/cgroups | while read -r n n n enabled; do echo $enabled; done)" -eq 0 ];
+    if [ -f "/proc/cgroups" ] && [ "$(grep memory /proc/cgroups | while read -r n n n enabled; do echo "$enabled"; done)" -eq 0 ];
     then
         info 'Failed to find memory cgroup, you may need to add "cgroup_memory=1 cgroup_enable=memory" to your linux cmdline (/boot/cmdline.txt on a Raspberry Pi)'
     fi

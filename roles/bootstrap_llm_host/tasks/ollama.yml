@@ -1,7 +1,7 @@
 ---
 - name: Ollama | Create ollama user
   ansible.builtin.user:
-    name: "{{ bootstrap_llm_host__ollama_user }}"
+    name: "{{ bootstrap_llm_host__model_user }}"
     home: "{{ bootstrap_llm_host__ollama_home_dir }}"
     shell: /bin/bash
     system: false
@@ -79,10 +79,16 @@
   retries: 30
   delay: 2
 
+## TODO: to be removed after all llm hosts have been cleaned
+- name: Ollama | Ensure old dir /usr/local/bin/llm-server removed
+  ansible.builtin.file:
+    path: /usr/local/bin/llm-server
+    state: absent
+
 - name: Ollama | Install management script
   ansible.builtin.template:
-    src: llm-server-mgmt.sh.j2
-    dest: /usr/local/bin/llm-server/llm-server-mgmt.sh
+    src: ollama-server-mgmt.sh.j2
+    dest: /usr/local/bin/ollama-server-mgmt.sh
     mode: "0755"
     backup: true
 
@@ -98,7 +104,7 @@
   # We add the user to these groups regardless of GPU presence to ensure
   # consistent environment state if hardware is added later.
   ansible.builtin.user:
-    name: "{{ bootstrap_llm_host__ollama_user }}"
+    name: "{{ bootstrap_llm_host__model_user }}"
     groups:
       - "{{ 'render' if 'render' in ansible_facts.get('getent_group', {}) else [] }}"
       - "{{ 'video' if 'video' in ansible_facts.get('getent_group', {}) else [] }}"

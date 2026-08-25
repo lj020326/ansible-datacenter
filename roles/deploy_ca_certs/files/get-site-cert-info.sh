@@ -16,6 +16,6 @@ port=${array[1]}
 #    | openssl x509 -inform pem -noout -text
 
 openssl s_client -showcerts \
-    -servername ${host} \
-    -connect ${site} 2>/dev/null \
+    -servername "${host}" \
+    -connect "${site}" 2>/dev/null \
     | openssl x509 -noout -text

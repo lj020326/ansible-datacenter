@@ -16,20 +16,20 @@ Use this role to create and/or remove ansible-tower resources including:
 
 Define each tower resource under the configuration root node 'bootstrap_awx_resources__config':
 
-* Create a list of one or more organization(s) under the node 'bootstrap_awx_resources__config.organizations'. 
+* Create a list of one or more organization(s) under the node 'bootstrap_awx_resources__config.organizations'.
 * Each organization can define the following lists:
-  * credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module). 
-  * inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module). 
-  * projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module). 
-    * job_templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module). 
-  * teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module). 
+  * credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module).
+  * inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module).
+  * projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module).
+    * job_templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module).
+  * teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module).
     * roles - list of role maps containing the [role definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/role_module.html#ansible-collections-awx-awx-role-module).
 
 The following conditional actions are observed upon execution of the role:
 
-* If any object with same 'name' already exists in the tower runtime environment with the same details defined in the 'bootstrap_awx_resources__config' map, no changes will be made to the object. 
-* If any object with same 'name' already exists in the tower runtime environment and the details in the 'bootstrap_awx_resources__config' map are different, the respective object(s) will be updated/changed accordingly. 
-* If any object exists in the tower runtime environment and is not defined by 'name' in the 'bootstrap_awx_resources__config' map, the object will not be changed or removed. 
+* If any object with same 'name' already exists in the tower runtime environment with the same details defined in the 'bootstrap_awx_resources__config' map, no changes will be made to the object.
+* If any object with same 'name' already exists in the tower runtime environment and the details in the 'bootstrap_awx_resources__config' map are different, the respective object(s) will be updated/changed accordingly.
+* If any object exists in the tower runtime environment and is not defined by 'name' in the 'bootstrap_awx_resources__config' map, the object will not be changed or removed.
 * Upon setting the bootstrap_awx_resources__state to 'absent', any object with same 'name' that already exists in the tower runtime environment will be removed.  <b>Be judicious/careful when utilizing tower object removal.</b>
 
 ** NOTE: if the 'state' variable is defined for any object, it will be overridden and ignored with precedence given to the 'tower_config_state' variable which defaults to 'present'.
@@ -46,16 +46,16 @@ bootstrap_awx_resources__config:
       - name: "New Org1"
         description: "test org"
         state: present
-    
+
       - name: "New Org2"
         description: "test org"
         state: present
-    
+
         inventories:
           - name: "New Inventory"
             description: "test inv"
             state: present
-    
+
         projects:
           - name: "New Project"
             scm_type: git
@@ -65,7 +65,7 @@ bootstrap_awx_resources__config:
                 project: "New Project"
                 inventory: "New Inventory"
                 playbook: debug.yml
-    
+
 
 ```
 
@@ -78,10 +78,10 @@ bootstrap_awx_resources__config:
     organizations:
       - name: "TEST - New Org111"
         description: "test org"
-    
+
       - name: "TEST - New Org222"
         description: "test org"
-    
+
         credentials:
           - name: 'TEST - Example password'
             credential_type: Vault
@@ -92,12 +92,12 @@ bootstrap_awx_resources__config:
             inputs:
               username: joe
               password: secret
-    
+
         inventories:
           - name: "TEST - New Inventory"
             description: "test inv"
             state: present
-    
+
         projects:
           - name: "TEST - New Project"
             scm_type: git
@@ -106,7 +106,7 @@ bootstrap_awx_resources__config:
               - name: "TEST - Job Template to Launch"
                 inventory: "TEST - New Inventory"
                 playbook: debug.yml
-    
+
         teams:
           - name: "TEST - Test Team 1"
             description: "test team"
@@ -124,7 +124,7 @@ bootstrap_awx_resources__config:
               - role: execute
                 job_templates:
                 - "TEST - Job Template to Launch"
-    
+
 #              ## if using older ansible.tower collection versions, it may not support lists - in that case, change to singletons as follows
 #              - role: use
 #                inventory: "TEST - New Inventory"
@@ -151,18 +151,18 @@ bootstrap_awx_resources__config: (map of maps)
 **Default:** {} - empty map \
 
 * execution_environments - list of execution_environment maps containing the [execution environment definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/execution_environment_module.html#ansible-collections-awx-awx-execution-environment-module).
-* credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module). 
-* inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module). 
-* projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module). 
-  * job_templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module). 
-* teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module). 
+* credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module).
+* inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module).
+* projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module).
+  * job_templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module).
+* teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module).
   * roles - list of role maps containing the [role definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/role_module.html#ansible-collections-awx-awx-role-module).
 * organizations:
-    * credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module). 
-    * inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module). 
-    * projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module). 
-      * job_templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module). 
-    * teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module). 
+    * credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module).
+    * inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module).
+    * projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module).
+      * job_templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module).
+    * teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module).
       * roles - list of role maps containing the [role definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/role_module.html#ansible-collections-awx-awx-role-module).
 
 
@@ -192,16 +192,16 @@ The following playbook creates 2 organizations and all defined resources.
               - name: "TEST - New Org111"
                 description: "test org"
                 state: present
-        
+
               - name: "TEST - New Org222"
                 description: "test org"
                 state: present
-        
+
                 inventories:
                   - name: "TEST - New Inventory"
                     description: "test inv"
                     state: present
-        
+
                 projects:
                   - name: "TEST - New Project"
                     scm_type: git
@@ -210,7 +210,7 @@ The following playbook creates 2 organizations and all defined resources.
                       - name: "TEST - Job Template to Launch"
                         inventory: "TEST - New Inventory"
                         playbook: debug.yml
-        
+
                 credentials:
                   - name: 'TEST - Example password'
                     credential_type: Vault
@@ -222,7 +222,7 @@ The following playbook creates 2 organizations and all defined resources.
                     inputs:
                       username: joe
                       password: secret
-        
+
                 teams:
                   - name: "TEST - Test Team 1"
                     description: "test team"
@@ -243,7 +243,7 @@ The following playbook creates 2 organizations and all defined resources.
 
 
 The following playbook removes the same resources defined in the prior bootstrap example playbook.
-Also note that while the resource definition below specifies 'state: present' for several objects, that they will be overridden since the role variable 'bootstrap_awx_resources__state' is used to determine the state for all defined objects.  In brief, do not use 'state'. 
+Also note that while the resource definition below specifies 'state: present' for several objects, that they will be overridden since the role variable 'bootstrap_awx_resources__state' is used to determine the state for all defined objects.  In brief, do not use 'state'.
 
 ```yaml
 ---
@@ -262,7 +262,7 @@ Also note that while the resource definition below specifies 'state: present' fo
     - role: bootstrap_awx_resources
       vars:
         bootstrap_awx_resources__state: absent
-    
+
         bootstrap_awx_resources__config:
 #          execution_environments:
 #            - name: "My EE"
@@ -272,16 +272,16 @@ Also note that while the resource definition below specifies 'state: present' fo
               - name: "TEST - New Org111"
                 description: "test org"
                 state: present
-        
+
               - name: "TEST - New Org222"
                 description: "test org"
                 state: present
-        
+
                 inventories:
                   - name: "TEST - New Inventory"
                     description: "test inv"
                     state: present
-        
+
                 projects:
                   - name: "TEST - New Project"
                     scm_type: git
@@ -290,7 +290,7 @@ Also note that while the resource definition below specifies 'state: present' fo
                       - name: "TEST - Job Template to Launch"
                         inventory: "TEST - New Inventory"
                         playbook: debug.yml
-        
+
                 credentials:
                   - name: 'TEST - Example password'
                     credential_type: Vault
@@ -302,7 +302,7 @@ Also note that while the resource definition below specifies 'state: present' fo
                     inputs:
                       username: joe
                       password: secret
-        
+
                 teams:
                   - name: "TEST - Test Team 1"
                     description: "test team"

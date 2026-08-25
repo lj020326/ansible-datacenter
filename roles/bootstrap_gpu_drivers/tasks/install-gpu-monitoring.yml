@@ -1,0 +1,30 @@
+---
+- name: GPU Monitor | Install continuous gpu telemetry script
+  ansible.builtin.copy:
+    src: gpu-vram-monitor.sh
+    dest: /usr/local/bin/gpu-vram-monitor.sh
+    mode: '0755'
+
+- name: GPU Monitor | Create systemd unit for GPU Telemetry
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/gpu-vram-monitor.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Continuous GPU VRAM Logger
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/gpu-vram-monitor.sh
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: GPU Monitor | Enable and start GPU Telemetry service
+  ansible.builtin.systemd:
+    name: gpu-vram-monitor
+    enabled: true
+    state: started
+    daemon_reload: true

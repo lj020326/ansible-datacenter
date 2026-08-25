@@ -4,7 +4,7 @@ Ansible playbook to automate downloading and installing ovftool.
 
 ## Requirements
 
-Ovftool can be downloaded from [here](https://www.vmware.com/support/developer/ovf/). To use this role you must 
+Ovftool can be downloaded from [here](https://www.vmware.com/support/developer/ovf/). To use this role you must
 download the ovftool zip, host it in a local repository, and set `ovf_zip_url` to the location you store it.
 
 This role currently supports only Debian/Ubuntu distros.

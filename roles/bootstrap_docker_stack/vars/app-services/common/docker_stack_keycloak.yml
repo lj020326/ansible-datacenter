@@ -1,27 +1,7 @@
 ---
 
-#__docker_stack__keycloak__image: "jboss/keycloak"
-#__docker_stack__keycloak__image: "jboss/keycloak:11.0.3"
-__docker_stack__keycloak__image: quay.io/keycloak/keycloak:11.0.3
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:12.0.4"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:13.0.1"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:13.0.1"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:15.0.2"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:15.1.2"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:16.1.1"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:17.0.1-legacy"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:17.0.1"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:18.0.2-legacy"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:18.0.2"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:19.0.3"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:19.0.3-legacy"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:20.0.5"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:21.0.2"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:21.0.2"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:21.1.2"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:22.0.5"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:23.0.7"
-#__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:24.0.3"
+__docker_stack__keycloak__image: quay.io/keycloak/keycloak:26.7.1
+#__docker_stack__keycloak__image: quay.io/keycloak/keycloak:11.0.3
 #__docker_stack__keycloak__image: "quay.io/keycloak/keycloak:latest"
 
 __docker_stack__keycloak__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
@@ -37,17 +17,40 @@ __docker_stack__keycloak__password: "{{ docker_stack__keycloak__password | d('pa
 __docker_stack__keycloak__internal_domain: "{{ docker_stack__internal_domain | d('example.int') }}"
 __docker_stack__keycloak__external_domain: "{{ docker_stack__external_domain | d('example.com') }}"
 
+__docker_stack__keycloak__external_hostname: "{{
+  docker_stack__keycloak__external_hostname
+  | d(__docker_stack__keycloak__external_hostname_default) }}"
+
+__docker_stack__keycloak__internal_hostname: "{{
+  docker_stack__keycloak__internal_hostname
+  | d(__docker_stack__keycloak__internal_hostname_default) }}"
+
+#__docker_stack__keycloak__environment_default:
+#  DB_VENDOR: POSTGRES
+#  DB_ADDR: postgres
+#  DB_DATABASE: "{{ __docker_stack__keycloak__postgres_user }}"
+#  DB_USER: "{{ __docker_stack__keycloak__postgres_user }}"
+#  DB_PASSWORD: "{{ __docker_stack__keycloak__postgres_password }}"
+#  KEYCLOAK_USER: "{{ __docker_stack__keycloak__user }}"
+#  KEYCLOAK_PASSWORD: "{{ __docker_stack__keycloak__password }}"
+#  KEYCLOAK_LOGLEVEL: DEBUG
+#  PROXY_ADDRESS_FORWARDING: "true"
+#  #JDBC_PARAMS: "ssl=true"
+
 __docker_stack__keycloak__environment_default:
-  DB_VENDOR: POSTGRES
-  DB_ADDR: postgres
-  DB_DATABASE: "{{ __docker_stack__keycloak__postgres_user }}"
-  DB_USER: "{{ __docker_stack__keycloak__postgres_user }}"
-  DB_PASSWORD: "{{ __docker_stack__keycloak__postgres_password }}"
-  KEYCLOAK_USER: "{{ __docker_stack__keycloak__user }}"
-  KEYCLOAK_PASSWORD: "{{ __docker_stack__keycloak__password }}"
-  KEYCLOAK_LOGLEVEL: DEBUG
-  PROXY_ADDRESS_FORWARDING: "true"
+  KC_BOOTSTRAP_ADMIN_USERNAME: "{{ __docker_stack__keycloak__user }}"
+  KC_BOOTSTRAP_ADMIN_PASSWORD: "{{ __docker_stack__keycloak__password }}"
+  KC_DB: postgres
+  KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+  KC_DB_USERNAME: "{{ __docker_stack__keycloak__postgres_user }}"
+  KC_DB_PASSWORD: "{{ __docker_stack__keycloak__postgres_password }}"
+  KC_HOSTNAME: "{{ __docker_stack__keycloak__internal_hostname }}"
+  KC_PROXY_HEADERS: "xforwarded"
+  KC_HTTP_ENABLED: "true"
   #JDBC_PARAMS: "ssl=true"
+  # Optional but useful
+  KC_HEALTH_ENABLED: "true"
+  KC_METRICS_ENABLED: "true"
 
 __docker_stack__keycloak__environment: "{{ docker_stack__keycloak__environment
   | d(__docker_stack__keycloak__environment_default) }}"
@@ -56,8 +59,13 @@ __docker_stack__keycloak__config_dirs:
   - path: "{{ __docker_stack__keycloak__base_dir }}"
   - path: "{{ __docker_stack__keycloak__base_dir }}/data"
   - path: "{{ __docker_stack__keycloak__base_dir }}/themes"
+  - path: "{{ __docker_stack__keycloak__base_dir }}/providers"
 
-__docker_stack__keycloak__config_tpls:
+__docker_stack__keycloak__config_templates:
+  - src: keycloak/config-group.conf.j2
+    dest: "{{ __docker_stack__keycloak__base_dir }}/group"
+  - src: keycloak/config-passwd.conf.j2
+    dest: "{{ __docker_stack__keycloak__base_dir }}/passwd"
   - src: keycloak/keycloak.env.j2
     dest: "{{ __docker_stack__keycloak__base_dir }}/keycloak.env"
 
@@ -73,7 +81,8 @@ __docker_stack__keycloak__volumes:
 docker_stack__appspec__keycloak:
   dirs: "{{ __docker_stack__keycloak__config_dirs | d([], true) }}"
   files: "{{ __docker_stack__keycloak__config_files | d([], true) }}"
-  templates: "{{ __docker_stack__keycloak__config_tpls | d([], true) }}"
+  templates: "{{ __docker_stack__keycloak__config_templates | d([], true) }}"
+  secrets: "{{ __docker_stack__keycloak__secrets | d({}, true) }}"
   firewalld_services: "{{ __docker_stack__keycloak__firewalld_services | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__keycloak__firewalld_ports | d([], true) }}"
   networks: "{{ __docker_stack__keycloak__networks | d({}, true) }}"
@@ -107,6 +116,13 @@ __docker_stack__keycloak__services:
   keycloak:
     container_name: keycloak
     image: "{{ __docker_stack__keycloak__image }}"
+    command: start
+#    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    user: "{{ docker_stack__user_uid }}:0"
+    env_file:
+      - "keycloak/keycloak.env"
+    secrets: "{{ __docker_stack__keycloak__secrets
+      | d({}, true) | map(attribute='name') | list }}"
     ## in swarm mode - docker deploy does not support depends_on condition
     ## ref: https://docs.docker.com/reference/compose-file/legacy-versions/#depends_on
     ## ref: https://github.com/docker/compose/issues/9957#issuecomment-1329726003
@@ -116,24 +132,29 @@ __docker_stack__keycloak__services:
     depends_on:
       - postgres
 #      - check-keycloak-db-started
-#    entrypoint: ["/wait-for-it.sh", "postgres:5432", "&&", "/init/entrypoint.sh"]
     links:
       - postgres
     restart: unless-stopped
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
       - "{{ docker_stack__network_name__default }}"
-    env_file:
-      - "keycloak/keycloak.env"
     ports:
       - 8081:8080
     volumes:
-#      - "{{ docker_stack__dir }}/wait-for-it.sh:/wait-for-it.sh"
-      - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/themes:/opt/jboss/keycloak/themes/custome/:rw"
-      #        - {{ __docker_stack__keycloak__stack_dir }}/keycloak/data:/data
-      - keycloak_data:/data
+      - "{{ __docker_stack__ca_cert_bundle }}:/etc/ssl/certs/ca-certificates.crt:ro"
+#      - "{{ __docker_stack__ca_java_keystore }}:/etc/ssl/certs/java/cacerts"
+      - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/themes:/opt/keycloak/themes/custom:rw"
+      # Custom providers
+      - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/providers:/opt/keycloak/themes/providers:rw"
+#      - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/themes:/opt/jboss/keycloak/themes/custom/:rw"
+      # Optional: persist data (not required when using external Postgres)
+      - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/data:/opt/keycloak/data"
+#      - "{{ __docker_stack__keycloak__stack_dir }}/keycloak/data:/data"
+#      - keycloak_data:/data
     healthcheck:
-      test: [CMD, curl, -f, http://localhost:8080/auth/]
+      test:
+        - CMD-SHELL
+        - 'exec 3<>/dev/tcp/localhost/9000; echo -e "GET /health/ready HTTP/1.0\r\n\r\n" >&3; cat <&3 | grep -q "200 OK"'
       interval: 5s
       timeout: 2s
       retries: 15

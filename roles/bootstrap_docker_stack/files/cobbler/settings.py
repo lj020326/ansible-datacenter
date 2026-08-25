@@ -84,5 +84,3 @@ SESSION_FILE_PATH = '/var/lib/cobbler/webui_sessions'
 ## ref: https://github.com/ansible/awx/pull/6487/files
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
-
-

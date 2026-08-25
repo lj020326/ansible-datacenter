@@ -697,4 +697,3 @@ same inventory to do whatever you wanted with those machines...
   delay: 10
   until: result_package_install is succeeded
 ```
-

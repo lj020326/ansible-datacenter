@@ -537,7 +537,7 @@ pve_acls:
       - test_users
 ```
 
-Refer to `library/proxmox_role.py` [link][user-module] and 
+Refer to `library/proxmox_role.py` [link][user-module] and
 `library/proxmox_acl.py` [link][acl-module] for module documentation.
 
 ## Storage Management

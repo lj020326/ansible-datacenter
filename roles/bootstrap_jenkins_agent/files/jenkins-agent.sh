@@ -105,19 +105,19 @@ start() {
   daemon --user "${USER}" --check "jenkins-agent" --pidfile "${PIDFILE}" "${cmd}"
 
   local pid=$(sudo -u "${USER}" jps -l | grep "${JENKINS_AGENT_JAR}" | awk '{print $1}')
-  [ -n ${pid} ] && echo ${pid} > "${PIDFILE}"
+  [ -n "${pid}" ] && echo "${pid}" > "${PIDFILE}"
   RETVAL=$?
-  [ $RETVAL -eq 0 ] && touch $LOCKFILE
+  [ $RETVAL -eq 0 ] && touch "$LOCKFILE"
 
   echo
 }
 
 stop() {
   echo -n $"Stopping Jenkins Agent... "
-  killproc -p $PIDFILE "jenkins-agent"
+  killproc -p "$PIDFILE" "jenkins-agent"
   RETVAL=$?
   echo
-  [ $RETVAL -eq 0 ] && rm -f $LOCKFILE
+  [ $RETVAL -eq 0 ] && rm -f "$LOCKFILE"
 }
 
 restart() {

@@ -1,0 +1,253 @@
+---
+
+__docker_stack__vllm_execution__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__vllm_execution__base_dir: "{{ __docker_stack__vllm_execution__stack_dir }}/vllm"
+__docker_stack__vllm_execution__cache_dir: "{{ __docker_stack__vllm_execution__base_dir }}/cache-execution"
+__docker_stack__vllm_execution__models_dir: "{{ __docker_stack__vllm_execution__base_dir }}/models"
+__docker_stack__vllm_execution__config_dir: "{{ __docker_stack__vllm_execution__base_dir }}/config"
+__docker_stack__vllm_execution__data_dir: "{{ __docker_stack__vllm_execution__base_dir }}/data"
+
+#__docker_stack__vllm_execution__image_default: vllm/vllm-openai:latest
+__docker_stack__vllm_execution__image_default: "vllm/vllm-openai:nightly-{{
+  __docker_stack__architecture }}"
+__docker_stack__vllm_execution__image: "{{ docker_stack__vllm_execution__image
+  | d(__docker_stack__vllm_execution__image_default) }}"
+
+__docker_stack__vllm_execution__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+
+__docker_stack__vllm_execution__host_addr_default: "vllm-exec.{{ __docker_stack__vllm_execution__domain }}"
+__docker_stack__vllm_execution__host_addr: "{{ docker_stack__vllm_execution__host_addr
+  | d(__docker_stack__vllm_execution__host_addr_default) }}"
+
+__docker_stack__vllm_execution__internal_http_port: 8000
+
+__docker_stack__vllm_execution__http_port: "{{ docker_stack__vllm_execution__http_port | d('8003') }}"
+
+#__docker_stack__vllm_execution__container_cache_dir_default: "/app/.cache/huggingface"
+__docker_stack__vllm_execution__container_cache_dir_default: "/app/.cache"
+__docker_stack__vllm_execution__container_cache_dir: "{{
+  docker_stack__vllm_execution__container_cache_dir
+  | d(__docker_stack__vllm_execution__container_cache_dir_default) }}"
+
+__docker_stack__vllm_execution__container_models_dir_default: "/models"
+__docker_stack__vllm_execution__container_models_dir: "{{
+  docker_stack__vllm_execution__container_models_dir
+  | d(__docker_stack__vllm_execution__container_models_dir_default) }}"
+
+__docker_stack__vllm_execution__container_config_dir_default: "/app/.config"
+__docker_stack__vllm_execution__container_config_dir: "{{
+  docker_stack__vllm_execution__container_config_dir
+  | d(__docker_stack__vllm_execution__container_config_dir_default) }}"
+
+__docker_stack__vllm_execution__container_data_dir_default: "/data"
+__docker_stack__vllm_execution__container_data_dir: "{{
+  docker_stack__vllm_execution__container_data_dir
+  | d(__docker_stack__vllm_execution__container_data_dir_default) }}"
+
+#__docker_stack__vllm_execution__attention_backend_default: "FLASH_ATTN"
+__docker_stack__vllm_execution__attention_backend_default: "FLASHINFER"
+__docker_stack__vllm_execution__attention_backend: "{{
+  docker_stack__vllm_execution__attention_backend
+  | d(__docker_stack__vllm_execution__attention_backend_default) }}"
+
+__docker_stack__vllm_execution__api_key: "{{
+  docker_stack__vllm_execution__api_key | d('') }}"
+
+## -------------
+## EXECUTION MODEL PARAMETERS
+## -------------
+#__docker_stack__vllm_execution__model_default: "nvidia/Nemotron-3.5-Lightning-30B-A3B-NVFP4"
+#__docker_stack__vllm_execution__model_default: "nvidia/Nemotron-3.5-Lightning-NVFP4"
+__docker_stack__vllm_execution__model_default: "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4"
+__docker_stack__vllm_execution__model: "{{ docker_stack__vllm_execution__model
+  | d(__docker_stack__vllm_execution__model_default) }}"
+
+__docker_stack__vllm_execution__speculative_model_default: "nvidia/Nemotron-3.5-Lightning-30B-A3B-NVFP4"
+__docker_stack__vllm_execution__speculative_model: "{{
+  docker_stack__vllm_execution__speculative_model
+  | d(__docker_stack__vllm_execution__speculative_model_default) }}"
+
+__docker_stack__vllm_execution__num_speculative_tokens: "{{
+  docker_stack__vllm_execution__num_speculative_tokens | d(3) }}"
+
+#__docker_stack__vllm_execution__gpu_memory_utilization_default: "0.38"
+#__docker_stack__vllm_execution__gpu_memory_utilization_default: "0.35"
+__docker_stack__vllm_execution__gpu_memory_utilization_default: "0.40"
+__docker_stack__vllm_execution__gpu_memory_utilization: "{{
+  docker_stack__vllm_execution__gpu_memory_utilization
+  | d(__docker_stack__vllm_execution__gpu_memory_utilization_default) }}"
+
+#__docker_stack__vllm_execution__max_model_len_default: 32768
+__docker_stack__vllm_execution__max_model_len_default: 16384
+__docker_stack__vllm_execution__max_model_len: "{{ docker_stack__vllm_execution__max_model_len
+  | d(__docker_stack__vllm_execution__max_model_len_default) }}"
+
+__docker_stack__vllm_execution__kv_cache_dtype_default: "fp8"
+__docker_stack__vllm_execution__kv_cache_dtype: "{{ docker_stack__vllm_execution__kv_cache_dtype
+  | d(__docker_stack__vllm_execution__kv_cache_dtype_default) }}"
+
+__docker_stack__vllm_execution__quantization_default: "nvfp4"
+__docker_stack__vllm_execution__quantization: "{{ docker_stack__vllm_execution__quantization
+  | d(__docker_stack__vllm_execution__quantization_default) }}"
+
+## Since vllm-coder is utilizing a Qwen-Coder variant, qwen is ideal.
+#__docker_stack__vllm_execution__tool_call_parser_default: "qwen3_coder"
+__docker_stack__vllm_execution__tool_call_parser_default: "pythonic"
+__docker_stack__vllm_execution__tool_call_parser: "{{
+  docker_stack__vllm_execution__tool_call_parser
+  | d(__docker_stack__vllm_execution__tool_call_parser_default) }}"
+
+#__docker_stack__vllm_execution__reasoning_parser_default: "qwen3"
+#__docker_stack__vllm_execution__reasoning_parser_default: "nim_reasoning"
+__docker_stack__vllm_execution__reasoning_parser_default: "nemotron_v3"
+__docker_stack__vllm_execution__reasoning_parser: "{{
+  docker_stack__vllm_execution__reasoning_parser
+  | d(__docker_stack__vllm_execution__reasoning_parser_default) }}"
+
+__docker_stack__vllm_execution__cuda_visible_devices: "{{
+  docker_stack__vllm_execution__cuda_visible_devices | d(0) }}"
+
+__docker_stack__vllm_execution__cuda_compute_capability: "{{
+  docker_stack__vllm_execution__cuda_compute_capability | d(120) }}"
+
+__docker_stack__vllm_execution__limit_mm_per_prompt: "{{
+  docker_stack__vllm_execution__limit_mm_per_prompt | d(5) }}"
+
+## Remove the operational flags from vllm.env that were triggering the
+## 'Unknown vLLM environment variable' detected warnings
+## Keep only runtime system/cache variables in 'vllm.env'
+__docker_stack__vllm_execution__environment_default:
+  # vLLM Engine Configuration Settings
+#  VLLM_ATTENTION_BACKEND: "{{ __docker_stack__vllm_execution__attention_backend }}"
+#  VLLM_USE_DEEP_GEMM: 0
+#  VLLM_DISABLED_KERNELS: "DeepGemmFp8BlockScaledMMKernel"
+
+  # --- Secure the API Server ---
+  # Replace with a vault variable or secure string
+  VLLM_API_KEY: "{{ __docker_stack__vllm_execution__api_key }}"
+
+  CUDA_VISIBLE_DEVICES: "{{ __docker_stack__vllm_execution__cuda_visible_devices }}"
+  CUDA_COMPUTE_CAPABILITY: "{{ __docker_stack__vllm_execution__cuda_compute_capability }}"
+
+  HF_HOME: "{{ __docker_stack__vllm_execution__container_models_dir }}"
+
+  # --- Prevents FlashInfer from trying to write to root-level /.cache ---
+  FLASHINFER_WORKSPACE_DIR: "{{ __docker_stack__vllm_execution__container_models_dir }}/flashinfer"
+
+  # --- Redirect Triton away from /app/.triton ---
+  TRITON_CACHE_DIR: "{{ __docker_stack__vllm_execution__container_models_dir }}/triton"
+
+  # --- Bypasses the PyTorch getpwuid() KeyError ---
+  USER: "{{ docker_stack__user_username }}"
+  LOGNAME: "{{ docker_stack__user_username }}"
+
+__docker_stack__vllm_execution__environment: "{{
+  docker_stack__vllm_execution__environment
+  | d(__docker_stack__vllm_execution__environment_default) }}"
+
+__docker_stack__vllm_execution__deploy_resources_standalone:
+  reservations:
+    devices:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+#      - driver: nvidia
+#        # or device_ids: ["0"] if you want specific GPU
+#        count: all
+#        capabilities: [gpu]
+
+__docker_stack__vllm_execution__deploy_resources_swarm:
+  reservations:
+    generic_resources:
+      - discrete_resource_spec:
+          kind: NVIDIA-GPU
+          value: 1
+
+__docker_stack__vllm_execution__deploy_resources: "{{
+  __docker_stack__vllm_execution__deploy_resources_swarm
+  if docker_stack__swarm_mode
+  else __docker_stack__vllm_execution__deploy_resources_standalone }}"
+
+__docker_stack__vllm_execution__config_dirs:
+  - path: "{{ __docker_stack__vllm_execution__base_dir }}"
+  - path: "{{ __docker_stack__vllm_execution__cache_dir }}"
+  - path: "{{ __docker_stack__vllm_execution__models_dir }}"
+  - path: "{{ __docker_stack__vllm_execution__config_dir }}"
+  - path: "{{ __docker_stack__vllm_execution__data_dir }}"
+
+__docker_stack__vllm_execution__config_templates:
+  - src: "vllm_execution/vllm.env.j2"
+    dest: "{{ __docker_stack__vllm_execution__base_dir }}/vllm.env"
+  - src: "vllm_execution/config-group.conf.j2"
+    dest: "{{ __docker_stack__vllm_execution__base_dir }}/group"
+  - src: "vllm_execution/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__vllm_execution__base_dir }}/passwd"
+
+__docker_stack__vllm_execution__firewalld_ports:
+  - "{{ __docker_stack__vllm_execution__http_port }}/tcp"
+
+__docker_stack__vllm_execution__traefik_labels: "{{
+  docker_stack__vllm_execution__traefik_labels
+  | d(__docker_stack__vllm_execution__traefik_labels_default) }}"
+
+__docker_stack__vllm_execution__services:
+  # 1. Nemotron 3.5 Lightning (Routing / Agent Execution Layer)
+  vllm-execution:
+    image: "{{ __docker_stack__vllm_execution__image }}"
+    container_name: vllm-execution
+    restart: unless-stopped
+    working_dir: /app
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    ports:
+      - "{{ __docker_stack__vllm_execution__http_port }}:{{ __docker_stack__vllm_execution__internal_http_port }}"
+    env_file:
+      - vllm/vllm.env
+    healthcheck:
+      interval: 15s
+      retries: 3
+      # Generous window for model disk-to-VRAM transfers
+      start_period: 5m
+      test: >-
+        curl -f -H 'Authorization: Bearer "$${VLLM_API_KEY}"' http://localhost:8000/health || exit 1
+      timeout: 5s
+    command: |
+      {{ __docker_stack__vllm_execution__model }}
+      --served-model-name nemotron-lightning
+      --gpu-memory-utilization {{ __docker_stack__vllm_execution__gpu_memory_utilization }}
+      --max-model-len {{ __docker_stack__vllm_execution__max_model_len }}
+      --kv-cache-dtype {{ __docker_stack__vllm_execution__kv_cache_dtype }}
+      --attention-backend {{ __docker_stack__vllm_execution__attention_backend }}
+      --enable-chunked-prefill
+      --reasoning-parser {{ __docker_stack__vllm_execution__reasoning_parser }}
+      --safetensors-load-strategy=prefetch
+      --enforce-eager
+    labels: "{{ __docker_stack__vllm_execution__traefik_labels }}"
+    ulimits:
+      nofile: 65536
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              count: all
+              driver: nvidia
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__vllm_execution__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__vllm_execution__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__vllm_execution__cache_dir }}:{{ __docker_stack__vllm_execution__container_cache_dir }}"
+      - "{{ __docker_stack__vllm_execution__models_dir }}:{{ __docker_stack__vllm_execution__container_models_dir }}"
+      - "{{ __docker_stack__vllm_execution__config_dir }}:{{ __docker_stack__vllm_execution__container_config_dir }}"
+      - "{{ __docker_stack__vllm_execution__data_dir }}:{{ __docker_stack__vllm_execution__container_data_dir }}"
+
+docker_stack__appspec__vllm_execution:
+  dirs: "{{ __docker_stack__vllm_execution__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__vllm_execution__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__vllm_execution__config_templates | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__vllm_execution__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__vllm_execution__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__vllm_execution__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__vllm_execution__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__vllm_execution__services | d({}, true) }}"

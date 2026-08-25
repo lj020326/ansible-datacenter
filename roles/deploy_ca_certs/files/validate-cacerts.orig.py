@@ -66,7 +66,7 @@ if __name__ == "__main__":
         "endpoint_port": ["--port", "-P"],
         "ca_certs_file": ["--ca_certs_file", "-C"]
     }
-    
+
     if "--help" in argv or "-h" in argv:
         usage()
 

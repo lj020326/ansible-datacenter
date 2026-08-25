@@ -2,9 +2,9 @@
 # Calculate total memory size in guest
 totalmem=0;
 for mem in /sys/devices/system/memory/memory*; do
-  online=$(cat ${mem}/online); 
+  online=$(cat "${mem}"/online);
   if [ "$online" == "1" ] ; then
     totalmem=$((totalmem+$((0x$(cat /sys/devices/system/memory/block_size_bytes)))));
   fi
-done; 
+done;
 echo $((totalmem/1024**2))

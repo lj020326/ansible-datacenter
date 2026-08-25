@@ -1,8 +1,8 @@
-An override location of the clustering algorithm's resources 
+An override location of the clustering algorithm's resources
 attribute definitions and lexical resources.
 
 A directory from which to load algorithm-specific stop words,
-stop labels and attribute definition XMLs. 
+stop labels and attribute definition XMLs.
 
 For an overview of Carrot2 lexical resources, see:
 http://download.carrot2.org/head/manual/#chapter.lexical-resources

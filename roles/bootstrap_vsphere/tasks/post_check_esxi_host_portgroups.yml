@@ -1,0 +1,116 @@
+---
+# ==============================================================================
+# CONTROLLER-DRIVEN ESXI HOST POST-CHECK & ASSERTIONS
+# Iterates over all hosts defined in '__esx_hosts_by_name'
+# ==============================================================================
+
+- name: "POST-CHECK | Initialize host vars"
+  ansible.builtin.set_fact:
+    __esx_host_item: "{{ _esx_host_entry.value }}"
+    __esx_host_name: "{{ _esx_host_entry.key }}"
+    __post_portgroup_info_raw: {}
+    __post_vmkernel_facts_raw: {}
+
+- name: "POST-CHECK | Re-gather portgroup state for '{{ __esx_host_name }}'"
+  community.vmware.vmware_portgroup_info:
+    hostname: "{{ __esx_host_item.hostname }}"
+    username: "{{ bootstrap_vsphere__esxi_username }}"
+    password: "{{ bootstrap_vsphere__esxi_password }}"
+    esxi_hostname: "{{ __esx_host_item.hostname }}"
+    validate_certs: false
+    policies: true
+  delegate_to: localhost
+  register: __post_portgroup_info_raw
+
+- name: "POST-CHECK | Re-gather VMkernel facts for '{{ __esx_host_name }}'"
+  community.vmware.vmware_vmkernel_info:
+    hostname: "{{ __esx_host_item.hostname }}"
+    username: "{{ bootstrap_vsphere__esxi_username }}"
+    password: "{{ bootstrap_vsphere__esxi_password }}"
+    esxi_hostname: "{{ __esx_host_item.hostname }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: __post_vmkernel_facts_raw
+
+- name: "AUDIT | Display raw post-check state for '{{ __esx_host_name }}'"
+  ansible.builtin.debug:
+    msg:
+      - "Portgroups: {{ __post_portgroup_info_raw }}"
+      - "VMkernel: {{ __post_vmkernel_facts_raw }}"
+    verbosity: 1
+
+- name: "POST-CHECK | Log active portgroup attributes for '{{ __esx_host_name }}'"
+  ansible.builtin.debug:
+    msg: "Host: {{ __esx_host_name }} | Portgroup: '{{
+      pg_item.portgroup }}' | vSwitch: '{{ pg_item.vswitch }}' | VLAN ID: {{
+      pg_item.vlan_id }}"
+  loop: "{{ __post_portgroup_info_raw.hosts_portgroup_info[__esx_host_item.hostname] | default([]) }}"
+  loop_control:
+    loop_var: pg_item
+    label: "{{ pg_item.portgroup }}"
+
+- name: "POST-CHECK | Assert no missing portgroups remain on '{{ __esx_host_name }}'"
+  vars:
+    __post_present_pgs: "{{
+      __post_portgroup_info_raw.hosts_portgroup_info[__esx_host_item.hostname]
+      | default([]) | map(attribute='portgroup') | list | sort }}"
+    __expected_pgs: "{{ __esx_host_item.portgroups
+      | default([]) | map(attribute='portgroup_name') | list | sort }}"
+    __unresolved_drift: "{{ __expected_pgs | difference(__post_present_pgs) }}"
+  ansible.builtin.assert:
+    that: __unresolved_drift | length == 0
+    fail_msg: "❌ CONFIGURATION DRIFT: Host '{{
+      __esx_host_name }}' is missing portgroup(s): {{
+        __unresolved_drift
+        }}. VM migrations (vMotion) will fail between cluster nodes."
+    success_msg: "✅ Host '{{ __esx_host_name
+      }}' is fully aligned with expected portgroup state."
+
+- name: "POST-CHECK | Assert security policy alignment across portgroups on '{{ __esx_host_name }}'"
+  vars:
+    # 1. Resolve default baseline policy (fallback if omitted everywhere else)
+    __default_sec: "{{ bootstrap_vsphere_default_security_policy
+      | default(
+        {'promiscuous_mode': false, 'mac_changes': false, 'forged_transmits': false}
+        ) }}"
+
+    # 2. Extract specific portgroup entry configuration from host definition
+    __pg_config: "{{ __esx_host_item.portgroups | default([])
+      | selectattr('portgroup_name', 'equalto', pg_item.portgroup)
+      | first | default({}) }}"
+
+    # 3. Derive expected security policy using exact fallback chain
+    __expected_sec: "{{ __pg_config.security
+      | default(__pg_config.security_policy
+      | default(__pg_config.network_policy
+      | default(__default_sec))) }}"
+
+    # 4. Normalize expected values to booleans (handles true/false, "accept"/"reject", etc.)
+    __exp_mac: "{{ __expected_sec.mac_changes | default(false) | bool }}"
+    __exp_forged: "{{ __expected_sec.forged_transmits | default(false) | bool }}"
+    __exp_promisc: "{{ __expected_sec.promiscuous_mode
+      | default(__expected_sec.allow_promiscuous | default(false)) | bool }}"
+
+    # 5. Map actual reported list indices: [promiscuous, mac_changes, forged_transmits]
+    __act_sec_list: "{{ pg_item.security | default([false, false, false]) }}"
+    __act_promisc: "{{ __act_sec_list[0] | default(false) | bool }}"
+    __act_mac: "{{ __act_sec_list[1] | default(false) | bool }}"
+    __act_forged: "{{ __act_sec_list[2] | default(false) | bool }}"
+  ansible.builtin.assert:
+    that:
+      - __act_mac == __exp_mac
+      - __act_forged == __exp_forged
+      - __act_promisc == __exp_promisc
+    fail_msg: >-
+      ❌ SECURITY POLICY DRIFT on host '{{ __esx_host_name }}' [Portgroup: '{{ pg_item.portgroup }}']:
+      Expected (MAC: {{ __exp_mac }}, Forged: {{ __exp_forged }}, Promisc: {{ __exp_promisc }})
+      but Found (MAC: {{ __act_mac }}, Forged: {{ __act_forged }}, Promisc: {{ __act_promisc }}).
+    success_msg: "✅ Host '{{ __esx_host_name }}' portgroup '{{
+      pg_item.portgroup }}' security policies align with configuration."
+  loop: "{{
+    __post_portgroup_info_raw.hosts_portgroup_info[__esx_host_item.hostname]
+    | default([]) }}"
+  loop_control:
+    loop_var: pg_item
+    label: "Verify security policy for portgroup '{{
+      pg_item.portgroup }}' on '{{ __esx_host_name }}'"

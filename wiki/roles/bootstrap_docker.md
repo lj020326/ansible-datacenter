@@ -5,78 +5,78 @@ category: Ansible Roles
 type: Configuration Management
 
 ## Summary
-
-The `bootstrap_docker` role is designed to automate the installation and configuration of Docker on various Linux distributions, including support for Docker Swarm setup. It handles package management, repository configuration, daemon settings, user permissions, and multi-architecture builds. The role supports both Community Edition (CE) and Enterprise Edition (EE) installations.
+The `bootstrap_docker` role is designed to automate the installation and configuration of Docker on various Linux distributions, including support for Docker Enterprise Edition (EE) and Community Edition (CE). It handles tasks such as installing Docker packages, configuring Docker daemon options, setting up Docker Swarm, deploying registry certificates, managing users, and more. The role is highly customizable through a variety of variables to suit different deployment environments.
 
 ## Variables
+The following table lists the configurable variables along with their default values and descriptions:
 
-| Variable Name                             | Default Value                                                                                         | Description                                                                                                                                                                                                 |
-|-------------------------------------------|-------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bootstrap_docker__actions_allowed`       | `['install', 'setup-swarm']`                                                                        | List of allowed actions for the role.                                                                                                                                                                       |
-| `bootstrap_docker__actions`               | `['install', 'setup-swarm']`                                                                        | List of actions to perform during playbook execution.                                                                                                                                                         |
-| `bootstrap_docker__config`                | `{}`                                                                                                  | Custom configuration options for Docker.                                                                                                                                                                    |
-| `bootstrap_docker__options_prefix`        | `"{{ role_name }}__options__"`                                                                      | Prefix used to identify custom Docker options variables.                                                                                                                                                    |
-| `bootstrap_docker__options_regex`         | `"^{{ bootstrap_docker__options_prefix }}"`                                                          | Regular expression for matching custom Docker options variables.                                                                                                                                            |
-| `bootstrap_docker__arch`                  | `"{{ 'arm64' if ansible_facts.machine == 'aarch64' else 'amd64' }}"`                                   | Architecture of the system (automatically detected).                                                                                                                                                        |
-| `bootstrap_docker__edition`               | `ce`                                                                                                  | Docker edition to install (`ce` for Community Edition, `ee` for Enterprise Edition).                                                                                                                        |
-| `bootstrap_docker__repo`                  | `docker`                                                                                                | Repository source for Docker installation (`docker`, `rhsm`, or `other`).                                                                                                                                   |
-| `bootstrap_docker__channel`               | `stable`                                                                                              | Channel to use for Docker installation (e.g., `stable`, `test`, `nightly`).                                                                                                                               |
-| `bootstrap_docker__ee_version`            | `24.09`                                                                                               | Version of Docker EE to install.                                                                                                                                                                          |
-| `bootstrap_docker__k8s_mode`              | `false`                                                                                               | Enable Kubernetes integration mode.                                                                                                                                                                         |
-| `bootstrap_docker__rhsm_channel`          | `Example_Docker_Community_Edition_CE_Docker_CE_Stable_RHEL{{ ansible_facts['distribution_major_version'] }}` | RedHat Subscription Manager channel for Docker EE installation.                                                                                                                                           |
-| `bootstrap_docker__deploy_registry_certs` | `true`                                                                                                | Deploy registry certificates to secure Docker communication.                                                                                                                                              |
-| `bootstrap_docker__service_manage`        | `true`                                                                                                | Manage the Docker service (start, stop, restart).                                                                                                                                                         |
-| `bootstrap_docker__service_state`         | `started`                                                                                             | Desired state of the Docker service (`started`, `stopped`).                                                                                                                                                 |
-| `bootstrap_docker__service_enabled`       | `true`                                                                                                | Enable the Docker service at boot.                                                                                                                                                                        |
-| `bootstrap_docker__multiarch_builder_enabled` | `true`                                                                                              | Enable multi-architecture build support using QEMU emulation.                                                                                                                                             |
-| `bootstrap_docker__daemon_flags`          | `['-H unix:///var/run/docker.sock']`                                                                  | Flags to pass to the Docker daemon.                                                                                                                                                                       |
-| `bootstrap_docker__swarm_leader_host`     | `test123`                                                                                             | Hostname of the swarm leader node.                                                                                                                                                                        |
-| `bootstrap_docker__swarm_manager`         | `false`                                                                                               | Designate this node as a swarm manager.                                                                                                                                                                   |
-| `bootstrap_docker__swarm_worker`          | `false`                                                                                               | Designate this node as a swarm worker.                                                                                                                                                                    |
-| `bootstrap_docker__swarm_node`            | `"{{ (bootstrap_docker__swarm_manager or bootstrap_docker__swarm_leader or bootstrap_docker__swarm_worker) \| bool }}"` | Boolean indicating if the node is part of the swarm.                                                                                                                                                    |
-| `bootstrap_docker__swarm_role`            | `"{{ 'manager' if (bootstrap_docker__swarm_leader or bootstrap_docker__swarm_manager) else 'worker' }}"` | Role of the node in the swarm (`manager`, `worker`).                                                                                                                                                    |
-| `bootstrap_docker__swarm_leave`           | `false`                                                                                               | Remove this node from the swarm.                                                                                                                                                                          |
-| `bootstrap_docker__swarm_adv_addr`        | `"{{ ansible_facts['default_ipv4']['address'] }}"`                                                      | Advertise address for the Docker Swarm manager.                                                                                                                                                           |
-| `bootstrap_docker__swarm_managers`        | `[]`                                                                                                  | List of swarm manager nodes.                                                                                                                                                                              |
+| Variable Name | Default Value | Description |
+|---------------|---------------|-------------|
+| `bootstrap_docker__actions_allowed` | `['install', 'setup-swarm']` | List of allowed actions for this role. |
+| `bootstrap_docker__actions` | `['install', 'setup-swarm']` | List of actions to perform during the playbook run. |
+| `bootstrap_docker__config` | `{}` | Custom Docker configuration options. |
+| `bootstrap_docker__options_prefix` | `"{{ role_name }}__options__"` | Prefix for custom Docker options variables. |
+| `bootstrap_docker__options_regex` | `"^{{ bootstrap_docker__options_prefix }}"` | Regex pattern to match custom Docker options variables. |
+| `bootstrap_docker__arch` | `"{{ 'arm64' if ansible_facts.machine == 'aarch64' else 'amd64' }}"` | Architecture of the system (automatically detected). |
+| `bootstrap_docker__edition` | `ce` | Docker edition to install (`ce` for Community Edition, `ee` for Enterprise Edition). |
+| `bootstrap_docker__repo` | `docker` | Repository source for Docker installation (`docker`, `rhsm`, or `other`). |
+| `bootstrap_docker__channel` | `stable` | Channel for Docker installation (e.g., `stable`, `test`, `nightly`). |
+| `bootstrap_docker__ee_version` | `24.09` | Version of Docker EE to install. |
+| `bootstrap_docker__k8s_mode` | `false` | Enable Kubernetes mode if true. |
+| `bootstrap_docker__rhsm_channel` | `"Example_Docker_Community_Edition_CE_Docker_CE_Stable_RHEL{{ ansible_facts['distribution_major_version'] }}"` | RHSM channel for Docker EE installation. |
+| `bootstrap_docker__deploy_registry_certs` | `true` | Deploy registry certificates if true. |
+| `bootstrap_docker__service_manage` | `true` | Manage the Docker service (start, stop, restart). |
+| `bootstrap_docker__service_state` | `started` | Desired state of the Docker service (`started`, `stopped`). |
+| `bootstrap_docker__service_enabled` | `true` | Enable Docker service on boot. |
+| `bootstrap_docker__service_started` | `true` | Start Docker service immediately after installation. |
+| `bootstrap_docker__service_restarted` | `true` | Restart Docker service if configuration changes are detected. |
+| `bootstrap_docker__multiarch_builder_enabled` | `true` | Enable multi-architecture builder support. |
+| `bootstrap_docker__multiarch_builder_driver` | `"service"` | Driver for multi-architecture builder (`service`, `container`). |
+| `bootstrap_docker__buildkit_version` | `"v0.19.0"` | Version of BuildKit to install. |
+| `bootstrap_docker__buildkit_arch` | `"linux-amd64"` | Architecture for BuildKit binary. |
+| `bootstrap_docker__buildkit_url` | `"https://github.com/moby/buildkit/releases/download/{{ bootstrap_docker__buildkit_version }}/buildkit-{{ bootstrap_docker__buildkit_version }}.{{ bootstrap_docker__buildkit_arch }}.tar.gz"` | URL for BuildKit binary download. |
+| `bootstrap_docker__daemon_flags` | `['-H unix:///var/run/docker.sock']` | Flags to pass to the Docker daemon. |
+| `bootstrap_docker__swarm_leader_host` | `test123` | Hostname of the swarm leader node. |
+| `bootstrap_docker__swarm_manager` | `false` | Designate this node as a swarm manager. |
+| `bootstrap_docker__swarm_leader` | `false` | Designate this node as the swarm leader. |
+| `bootstrap_docker__swarm_worker` | `false` | Designate this node as a swarm worker. |
+| `bootstrap_docker__swarm_leave` | `false` | Remove this node from the swarm if true. |
+| `bootstrap_docker__swarm_adv_addr` | `"{{ ansible_facts['default_ipv4']['address'] }}"` | Advertise address for the Docker Swarm node. |
 
 ## Usage
-
-To use the `bootstrap_docker` role, include it in your playbook and specify any desired variables. Here is an example playbook:
+To use the `bootstrap_docker` role, include it in your playbook and specify any desired variables:
 
 ```yaml
----
-- name: Bootstrap Docker on hosts
-  hosts: all
-  become: yes
+- hosts: all
   roles:
     - role: bootstrap_docker
       vars:
-        bootstrap_docker__actions: ['install', 'setup-swarm']
-        bootstrap_docker__swarm_leader_host: manager1.example.com
-        bootstrap_docker__swarm_managers:
-          - manager1.example.com
-          - manager2.example.com
+        bootstrap_docker__edition: ee
+        bootstrap_docker__ee_version: 24.09
+        bootstrap_docker__swarm_manager: true
 ```
 
 ## Dependencies
+The `bootstrap_docker` role depends on the following Ansible collections and modules:
 
-- `community.docker` collection for Docker management tasks.
-- `community.general` collection for various utility modules.
+- `community.docker`
+- `ansible.builtin`
+- `community.general`
+- `ansible.posix`
 
-Ensure these collections are installed using:
+Ensure these are installed in your environment before running the playbook.
 
 ```bash
-ansible-galaxy collection install community.docker community.general
+ansible-galaxy collection install community.docker community.general ansible.posix
 ```
 
 ## Best Practices
-
-1. **Use Specific Versions**: Specify a specific version of Docker to avoid breaking changes with newer releases.
-2. **Manage Swarm Nodes Carefully**: Ensure that swarm manager nodes are correctly configured and available before adding worker nodes.
-3. **Secure Registry Communication**: Use `bootstrap_docker__deploy_registry_certs` to deploy certificates for secure communication with private registries.
+1. **Use Specific Versions**: Always specify a specific version of Docker to avoid unexpected changes.
+2. **Manage Swarm Nodes Carefully**: Ensure that swarm leader and manager nodes are correctly configured and managed.
+3. **Secure Registry Certificates**: Properly manage and secure registry certificates to prevent unauthorized access.
+4. **Monitor Service State**: Regularly monitor the state of the Docker service to ensure it is running as expected.
 
 ## Backlinks
-
 - [defaults/main.yml](../../roles/bootstrap_docker/defaults/main.yml)
 - [tasks/deploy_registry_cert.yml](../../roles/bootstrap_docker/tasks/deploy_registry_cert.yml)
 - [tasks/docker_compose.yml](../../roles/bootstrap_docker/tasks/docker_compose.yml)

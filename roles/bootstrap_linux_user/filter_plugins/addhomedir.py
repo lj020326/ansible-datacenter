@@ -18,4 +18,3 @@ class FilterModule:
         return {
             'add_home_dir': self.add_home
         }
-

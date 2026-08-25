@@ -144,19 +144,23 @@ bootstrap_vsphere__mail_sender: "{{ bootstrap_vsphere__vcenter_appliance_name }}
 #  - switch_name: "{{ bootstrap_vsphere__vcenter_config.switch_name }}"
 #    portgroup_name: "{{ bootstrap_vsphere__vcenter_config.network }}"
 #    vlan_id: "{{ bootstrap_vsphere__vcenter_config.vlan }}"
-#    network_policy:
+#    security_policy:
 #      promiscuous_mode: true
+#      forged_transmits: true
+#      mac_changes: true
 #
 #  - switch_name: "{{ bootstrap_vsphere__vcenter_config.switch_name }}"
 #    portgroup_name: "{{ bootstrap_vsphere__vcenter_config.mgt_network }}"
 #    vlan_id: "{{ bootstrap_vsphere__vcenter_config.mgt_vlan }}"
-#    network_policy:
+#    security_policy:
 #      promiscuous_mode: true
+#      forged_transmits: true
+#      mac_changes: true
 #
 #  - switch_name: "{{ bootstrap_vsphere__vcenter_config.switch_name }}"
 #    portgroup_name: "{{ bootstrap_vsphere__vcenter_config.nested_vss_portgroup_name }}"
 #    vlan_id: "{{ bootstrap_vsphere__vcenter_config.nested_vss_vlan_id }}"
-#    network_policy:
+#    security_policy:
 #      promiscuous_mode: true
 #      forged_transmits: true
 #      mac_changes: true
@@ -165,19 +169,23 @@ vcenter_physical_portgroup_assignment:
   - switch_name: "{{ bootstrap_vsphere__vcenter_mgt_vswitch }}"
     portgroup_name: "{{ bootstrap_vsphere__vcenter_network }}"
     vlan_id: "{{ vcenter_vlan_id }}"
-    network_policy:
+    security_policy:
       promiscuous_mode: true
+      forged_transmits: true
+      mac_changes: true
 
   - switch_name: "{{ bootstrap_vsphere__vcenter_mgt_vswitch }}"
     portgroup_name: "{{ bootstrap_vsphere__vcenter_mgt_network }}"
     vlan_id: "{{ bootstrap_vsphere__vcenter_mgt_vlan_id }}"
-    network_policy:
+    security_policy:
       promiscuous_mode: true
+      forged_transmits: true
+      mac_changes: true
 
   - switch_name: "{{ bootstrap_vsphere__vcenter_mgt_vswitch }}"
     portgroup_name: "{{ bootstrap_vsphere__vcenter_nested_vss_portgroup_name }}"
     vlan_id: "{{ bootstrap_vsphere__vcenter_nested_vss_vlan_id }}"
-    network_policy:
+    security_policy:
       promiscuous_mode: true
       forged_transmits: true
       mac_changes: true
@@ -208,21 +216,26 @@ bootstrap_vsphere__vcenter_physical_esx_defaults:
 ##        - vmnic0
 
 ## configuration for accessing the existing physical ESXi
-esx_hosts_online: "{{ groups['vmware_physical_esx_host'] | difference(groups['host_offline']) }}"
+esx_hosts_online: "{{ groups['vmware_physical_esx_host']
+  | difference(groups['host_offline']) }}"
 #esx_hosts_online:
 #  - esx10
 #  - esx03
 #  - esx00
 #  - esx01
 
-bootstrap_vsphere__vcenter_physical_esx_hosts: |
-  [
-    {% for host in esx_hosts_online %}
-    {% if hostvars[host].vcenter_esxi_host_info is defined %}
-    {{ (hostvars[host].vcenter_esxi_host_info | d({})) | to_json(ensure_ascii=False) }},
-    {% endif %}
-    {% endfor %}
-  ]
+#bootstrap_vsphere__vcenter_physical_esx_hosts: |
+#  [
+#    {% for host in esx_hosts_online %}
+#    {% if hostvars[host].vcenter_esxi_host_info is defined %}
+#    {{ (hostvars[host].vcenter_esxi_host_info | d({})) | to_json(ensure_ascii=False) }},
+#    {% endif %}
+#    {% endfor %}
+#  ]
+
+bootstrap_vsphere__vcenter_physical_esx_hosts: "{{
+  esx_hosts_online | map('extract', hostvars, 'vcenter_esxi_host_info')
+  | select('defined') | list }}"
 
 #bootstrap_vsphere__vcenter_physical_esx_hosts: |
 #  [
@@ -299,16 +312,19 @@ bootstrap_vsphere__nested_hosts: []
 #    {% endif %}
 #    {% endfor %}
 #  ]
+#
+#bootstrap_vsphere__vcenter_esx_hosts: |
+#  [
+#    {% for host in groups['vmware_esx_host'] %}
+#    {% if hostvars[host].vcenter_esxi_host_info is defined %}
+#    {{ hostvars[host].vcenter_esxi_host_info | to_json(ensure_ascii=False) }},
+#    {% endif %}
+#    {% endfor %}
+#  ]
 
-bootstrap_vsphere__vcenter_esx_hosts: |
-  [
-    {% for host in groups['vmware_esx_host'] %}
-    {% if hostvars[host].vcenter_esxi_host_info is defined %}
-    {{ hostvars[host].vcenter_esxi_host_info | to_json(ensure_ascii=False) }},
-    {% endif %}
-    {% endfor %}
-  ]
-
+bootstrap_vsphere__vcenter_esx_hosts: "{{
+  groups['vmware_esx_host'] | map('extract', hostvars, 'vcenter_esxi_host_info')
+  | select('defined') | list }}"
 
 bootstrap_vsphere__nested_clusters: "{{ bootstrap_vsphere__vcenter_clusters }}"
 

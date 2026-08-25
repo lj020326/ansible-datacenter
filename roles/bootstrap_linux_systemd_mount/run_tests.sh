@@ -11,7 +11,7 @@ set -xeu
 
 ## Vars ----------------------------------------------------------------------
 
-WORKING_DIR="$(readlink -f $(dirname $0))"
+WORKING_DIR="$(readlink -f $(dirname "$0"))"
 OSA_PROJECT_NAME="$(sed -n 's|^project=openstack/\(.*\).git$|\1|p' $(pwd)/.gitreview)"
 
 COMMON_TESTS_PATH="${WORKING_DIR}/tests/common"

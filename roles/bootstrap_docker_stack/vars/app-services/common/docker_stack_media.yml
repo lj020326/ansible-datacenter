@@ -1,7 +1,7 @@
 ---
 
 __docker_stack__media__plex_host: "{{ docker_stack__plex_host | d('media.example.int:32400') }}"
-__docker_stack__media__plex_host_url_default: http://{{ __docker_stack__media__plex_host }}/
+__docker_stack__media__plex_host_url_default: "http://{{ __docker_stack__media__plex_host }}/"
 __docker_stack__media__plex_host_url: "{{ docker_stack__plex_host_url | d(__docker_stack__media__plex_host_url_default) }}"
 __docker_stack__media__plex_host_ip: "{{ docker_stack__plex_host_ip | d('192.168.1.105') }}"
 __docker_stack__media__plex_host_port: "{{ docker_stack__plex_host_port | d('32400') }}"
@@ -275,7 +275,7 @@ __docker_stack__media__config_dirs:
   - path: "{{ __docker_stack__media__downloads }}/wip_media"
   - path: /opt/scripts
 
-__docker_stack__media__config_tpls:
+__docker_stack__media__config_templates:
   - src: media/reading_glasses_db.env.j2
     dest: "{{ __docker_stack__media__config_dir }}/rreading-glasses-db/reading_glasses_db.env"
   - src: media/reading_glasses.env.j2
@@ -304,8 +304,8 @@ __docker_stack__media__config_files:
   - src: files/mono_image/entrypoint.sh
     dest: /opt/scripts/mono-entrypoint.sh
     mode: "0770"
-  #  - src: 'files/scripts/certs/validate_ssl_endpoint.sh'
-  #    dest: "{{ __docker_stack__media__config_dir }}/shared/validate_ssl_endpoint.sh"
+  #  - src: 'files/scripts/validate-ssl-endpoint.sh'
+  #    dest: "{{ __docker_stack__media__config_dir }}/shared/validate-ssl-endpoint.sh"
   - src: files/ombi/docker/OmbiSettings.db
     dest: "{{ __docker_stack__media__config_dir }}/ombi/OmbiSettings.db"
   #  - src: 'files/openvpn/nordvpn.udp.ovpn'
@@ -361,7 +361,7 @@ __docker_stack__media__firewalld_ports:
 docker_stack__appspec__media:
   dirs: "{{ __docker_stack__media__config_dirs | d([], true) }}"
   files: "{{ __docker_stack__media__config_files | d([], true) }}"
-  templates: "{{ __docker_stack__media__config_tpls | d([], true) }}"
+  templates: "{{ __docker_stack__media__config_templates | d([], true) }}"
   firewalld_services: "{{ __docker_stack__media__firewalld_services | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__media__firewalld_ports | d([], true) }}"
   networks: "{{ __docker_stack__media__networks | d({}, true) }}"
@@ -1128,17 +1128,18 @@ __docker_stack__media__services:
       TZ: "{{ docker_stack__timezone }}"
       LOG_LEVEL: info
       LOG_HTML: "false"
-      CAPTCHA_SOLVER: none
-    #    ports:
-    #      - 8191:8191
-    #    networks:
-    #      - "{{ docker_stack__network_name__traefik_proxy }}"
-    #    volumes:
-    #      - "/etc/localtime:/etc/localtime:ro"
-    #      - "{{ __docker_stack__media__config_dir }}/flaresolverr:/config"
+      CAPTCHA_SOLVER: '${CAPTCHA_SOLVER:-none}'
+    #      CAPTCHA_SOLVER: none
     depends_on:
       - openvpn
+    #    networks:
+    #      - "{{ docker_stack__network_name__traefik_proxy }}"
     network_mode: service:openvpn
+#    ports:
+#      - 8191:8191
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "{{ __docker_stack__media__config_dir }}/flaresolverr:/config"
     labels: "{{ __docker_stack__media_flaresolverr__traefik_labels }}"
 
   ## prowlarr – Torrent Proxy

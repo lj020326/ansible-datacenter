@@ -8,7 +8,7 @@ accepteula
 reboot
 
 autopart --firstdisk --overwritevmfs
- 
+
 $SNIPPET('network_config_esxi')
 
 %pre --unsupported --interpreter=busybox

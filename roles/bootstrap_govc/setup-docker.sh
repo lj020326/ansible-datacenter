@@ -14,4 +14,3 @@ sudo add-apt-repository \
 sudo apt-get update
 sudo apt-get install -y docker-ce
 pip install molecule docker
-

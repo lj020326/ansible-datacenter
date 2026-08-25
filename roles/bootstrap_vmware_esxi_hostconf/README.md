@@ -140,7 +140,7 @@ from `ansible.cfg` and run it like
 - only one vSwitch (`vSwitch0`) is currently supported
 - password policy checks (introduced in 6.5) are turned off to allow for truly random
   passwords (those are sometimes miss one of the character classes).
-  
+
 ## Assumptions about environment
 
 - ansible 2.10+

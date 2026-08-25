@@ -86,7 +86,7 @@ if __name__ == "__main__":
         {0} {1} https://example.com/health
         {0} {1} -L DEBUG https://example.int:8443/health
         {0} {1} --ca_certs_file /etc/service/bundle.pem google.com
-    
+
     On Unix-like systems, this script can be ran via the Shebang:
 
         {1} https://10.0.1.10:8443

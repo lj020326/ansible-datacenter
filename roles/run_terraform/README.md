@@ -1,10 +1,10 @@
 # Terraform Vmware VM
- 
+
 This is a repo showing how you can create multiple VM's in vmware using ansible and terraform. While you could accomplish this with just ansible in a similar fashion this is to show the basic concept of interacting with terraform using ansible. It's meant to be expanded upon by adding post VM post creation functionallity with ansible to install your applications and configuration. Read a more thorough write up [Here](https://netsyncr.io/creating-virtual-machines-in-vsphere-with-terraform/)
 
 ## Requirements
-* Ansible 
-* Terraform 
+* Ansible
+* Terraform
 * A VMware enviroment with a vCenter instance running
 * A Datacenter and a cluster created in VMware
 * Using Virtual Distributed Switches
@@ -14,8 +14,8 @@ This is a repo showing how you can create multiple VM's in vmware using ansible 
 1.) Clone the repo
 
     git clone https://github.com/dkraklan/terraform_vmware_vm.git
-    
-2.) Update the vars in the inventory.yml file to match your vmware enviroment. In my lab I used an administrator account, in production you will want to use more strict permissions as needed. 
+
+2.) Update the vars in the inventory.yml file to match your vmware enviroment. In my lab I used an administrator account, in production you will want to use more strict permissions as needed.
 
 ```
 ---
@@ -54,10 +54,10 @@ This is a repo showing how you can create multiple VM's in vmware using ansible 
 ````
 
 ## Running the playbooks
-To create your VM's 
-    
+To create your VM's
+
     ansible-playbook -i inventory.yml 01_apply.yml
 
 To destroy your VM's
-    
+
     ansible-playbook -i inventory.yml 02_destroy.yml

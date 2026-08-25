@@ -263,7 +263,7 @@ bootstrap_kubernetes_ca__apiserver_cert_hosts:
 #   - traefik
 #   - cilium
 #
-# This will generate additional files in the directory specified in 
+# This will generate additional files in the directory specified in
 # "bootstrap_kubernetes_ca__ca_conf_directory" variable e.g. "cert-traefik*" and "cert-cilium*".
 # So instead of running a separate etcd cluster for "Traefik" and/or
 # "Cilium" the already running etcd cluster for Kubernetes can be used in

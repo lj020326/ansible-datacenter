@@ -18,4 +18,4 @@ $ occ status --output=json_pretty
 - https://github.com/linuxserver/docker-nextcloud
 - https://hub.docker.com/r/linuxserver/nextcloud/tags
 - https://docs.linuxserver.io/images/docker-nextcloud/#usage
-- 
+-

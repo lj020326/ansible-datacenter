@@ -2,6 +2,7 @@
 
 __docker_stack__llm_agent__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
 __docker_stack__llm_agent__base_dir: "{{ __docker_stack__llm_agent__stack_dir }}/agent_stack"
+__docker_stack__llm_agent__postgres_base_dir: "{{ __docker_stack__llm_agent__base_dir }}/postgres"
 
 #__docker_stack__llm_agent__langgraph_router_image_default: "lj020326/langgraph-router:latest"
 __docker_stack__llm_agent__langgraph_router_image_default: "{{ docker_stack__registry__endpoint }}/langgraph-router:latest"
@@ -31,12 +32,14 @@ __docker_stack__llm_agent__llm_api_base_url: "{{ docker_stack__llm_agent__llm_ap
 
 __docker_stack__llm_agent__llm_api_key: "{{ docker_stack__llm_agent__llm_api_key | d('') }}"
 
-#__docker_stack__llm_agent__llm_model_default: "nemoclaw"
-__docker_stack__llm_agent__llm_model_default: "Qwen/Qwen2.5-Coder-32B-Instruct-AWQ"
+__docker_stack__llm_agent__llm_model_default: "nemoclaw"
+#__docker_stack__llm_agent__llm_model_default: "Qwen/Qwen2.5-Coder-32B-Instruct-AWQ"
 __docker_stack__llm_agent__llm_model: "{{ docker_stack__llm_agent__llm_model
   | d(__docker_stack__llm_agent__llm_model_default) }}"
 
 __docker_stack__llm_agent__langgraph_app_env: production
+__docker_stack__llm_agent__langgraph_api_key: "{{ docker_stack__llm_agent__langgraph_api_key | d('') }}"
+
 __docker_stack__llm_agent__crewai_logging_level: INFO
 
 __docker_stack__llm_agent__vikunja_endpoint_default: "kanban.{{ docker_stack__internal_domain }}"
@@ -49,17 +52,49 @@ __docker_stack__llm_agent__vikunja_api_url: "{{ docker_stack__llm_agent__vikunja
 
 __docker_stack__llm_agent__vikunja_agent_api_token: "{{ docker_stack__llm_agent__vikunja_agent_api_token | d('') }}"
 
-__docker_stack__llm_agent__vikunja_agent_secret_key: "{{ docker_stack__llm_agent__vikunja_agent_secret_key | d('') }}"
-
 __docker_stack__llm_agent__vikunja_test_project_name: "{{ docker_stack__llm_agent__vikunja_test_project_name
   | d('crewai-test') }}"
 
-__docker_stack__llm_agent__crewai_target_project_names_default:
+__docker_stack__llm_agent__vikunja_project_names_default:
   - crewai
   - automation
   - "{{ __docker_stack__llm_agent__vikunja_test_project_name }}"
-__docker_stack__llm_agent__crewai_target_project_names: "{{ docker_stack__llm_agent__crewai_target_project_names
-  | d(__docker_stack__llm_agent__crewai_target_project_names_default) }}"
+__docker_stack__llm_agent__vikunja_project_names: "{{ docker_stack__llm_agent__vikunja_project_names
+  | d(__docker_stack__llm_agent__vikunja_project_names_default) }}"
+
+__docker_stack__llm_agent__postgres_user: "{{ docker_stack__llm_agent__postgres_user | d('cocoindex') }}"
+__docker_stack__llm_agent__postgres_password: "{{ docker_stack__llm_agent__postgres_password | d('password') }}"
+__docker_stack__llm_agent__postgres_database: "{{ docker_stack__llm_agent__postgres_database | d('cocoindex', true) }}"
+__docker_stack__llm_agent__postgres_port: 5432
+
+  # CocoIndex / Postgres
+__docker_stack__llm_agent__postgres_url: "postgres://{{
+  __docker_stack__llm_agent__postgres_user }}:{{ __docker_stack__llm_agent__postgres_password
+  }}@postgres-cocoindex:{{ __docker_stack__llm_agent__postgres_port }}/{{ __docker_stack__llm_agent__postgres_database }}"
+__docker_stack__llm_agent__cocoindex_db_url: "{{ __docker_stack__llm_agent__postgres_url }}"
+
+# __docker_stack__llm_agent__cocoindex_embed_model_default: "openai/nomic-embed-text"
+#__docker_stack__llm_agent__cocoindex_embed_model_default: "openai/all-MiniLM-L6-v2"
+__docker_stack__llm_agent__cocoindex_embed_model_default: "ollama/all-minilm:l6-v2"
+__docker_stack__llm_agent__cocoindex_embed_model: "{{ docker_stack__llm_agent__cocoindex_embed_model
+  | d(__docker_stack__llm_agent__cocoindex_embed_model_default) }}"
+
+__docker_stack__llm_agent__cocoindex_embedding_api_base_default: "http://localhost:11434"
+__docker_stack__llm_agent__cocoindex_embedding_api_base: "{{ docker_stack__llm_agent__cocoindex_embedding_api_base
+  | d(__docker_stack__llm_agent__cocoindex_embedding_api_base_default) }}"
+
+__docker_stack__llm_agent__cocoindex_embedding_api_key: "{{ docker_stack__llm_agent__cocoindex_embedding_api_key
+  | d('placeholder') }}"
+
+__docker_stack__llm_agent__postgres_env_default:
+  POSTGRES_DB: "{{ __docker_stack__llm_agent__postgres_database }}"
+  POSTGRES_USER: "{{ __docker_stack__llm_agent__postgres_user }}"
+  POSTGRES_PASSWORD: "{{ __docker_stack__llm_agent__postgres_password }}"
+  TZ: "{{ docker_stack__timezone }}"
+  PGTZ: "{{ docker_stack__timezone }}"
+
+__docker_stack__llm_agent__postgres_env: "{{ docker_stack__llm_agent__postgres_env
+  | d(__docker_stack__llm_agent__postgres_env_default) }}"
 
 __docker_stack__llm_agent__environment_default:
   REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
@@ -68,6 +103,8 @@ __docker_stack__llm_agent__environment_default:
 
   # Core Framework State Parameters
   LANGGRAPH_APP_ENV: "{{ __docker_stack__llm_agent__langgraph_app_env }}"
+  LANGGRAPH_API_KEY: "{{ __docker_stack__llm_agent__langgraph_api_key }}"
+
   CREWAI_LOGGING_LEVEL: "{{ __docker_stack__llm_agent__crewai_logging_level }}"
 
   # Gitea
@@ -79,20 +116,24 @@ __docker_stack__llm_agent__environment_default:
   LOCAL_LLM_MODEL: "{{ __docker_stack__llm_agent__llm_model }}"
   LOCAL_LLM_API_KEY: "{{ __docker_stack__llm_agent__llm_api_key }}"
 
+  # coco index
+  COCO_EMBED_MODEL: "{{ __docker_stack__llm_agent__cocoindex_embed_model }}"
+  EMBEDDING_API_BASE: "{{ __docker_stack__llm_agent__cocoindex_embedding_api_base }}"
+  EMBEDDING_API_KEY: "{{ __docker_stack__llm_agent__cocoindex_embedding_api_key }}"
+
   # OPENAI api info
   ROUTER_MODEL_NAME: "{{ __docker_stack__llm_agent__llm_model }}"
   OPENAI_API_BASE: "{{ __docker_stack__llm_agent__llm_api_base_url }}"
   OPENAI_API_KEY: "{{ __docker_stack__llm_agent__llm_api_key }}"
 
+  # CocoIndex / Postgres
+  POSTGRES_URL: "{{ __docker_stack__llm_agent__postgres_url }}"
+  COCOINDEX_DB_URL: "{{ __docker_stack__llm_agent__cocoindex_db_url }}"
+
   # Vikunja Kanban Orchestration Coordinate
   VIKUNJA_API_URL: "{{ __docker_stack__llm_agent__vikunja_api_url }}"
   VIKUNJA_BEARER_TOKEN: "{{ __docker_stack__llm_agent__vikunja_agent_api_token }}"
-
-  # Security Signatures
-  AGENT_SECRET_KEY: "{{ __docker_stack__llm_agent__vikunja_agent_secret_key }}"
-
-  # crewai-workers labels
-  TARGET_PROJECT_NAMES: "{{ __docker_stack__llm_agent__crewai_target_project_names | join(',') }}"
+  VIKUNJA_PROJECT_NAMES: "{{ __docker_stack__llm_agent__vikunja_project_names | join(',') }}"
 
 __docker_stack__llm_agent__environment: "{{ docker_stack__llm_agent__environment
   | d(__docker_stack__llm_agent__environment_default) }}"
@@ -113,10 +154,21 @@ __docker_stack__llm_agent__config_dirs:
   - path: "{{ __docker_stack__llm_agent__base_dir }}/router"
   - path: "{{ __docker_stack__llm_agent__base_dir }}/workers"
   - path: "{{ __docker_stack__llm_agent__base_dir }}/workers_cache"
+  - path: "{{ __docker_stack__llm_agent__postgres_base_dir }}"
+  - path: "{{ __docker_stack__llm_agent__postgres_base_dir }}/config"
+  - path: "{{ __docker_stack__llm_agent__postgres_base_dir }}/data"
 
 __docker_stack__llm_agent__config_files:
   - src: "llm_agent/langgraph-router/main.py"
     dest: "{{ __docker_stack__llm_agent__base_dir }}/router/main.py"
+  - src: "llm_agent/crewai-workers/__init__.py"
+    dest: "{{ __docker_stack__llm_agent__base_dir }}/workers/__init__.py"
+  - src: "llm_agent/crewai-workers/agent_core.py"
+    dest: "{{ __docker_stack__llm_agent__base_dir }}/workers/agent_core.py"
+  - src: "llm_agent/crewai-workers/config.py"
+    dest: "{{ __docker_stack__llm_agent__base_dir }}/workers/config.py"
+  - src: "llm_agent/crewai-workers/vikunja_api.py"
+    dest: "{{ __docker_stack__llm_agent__base_dir }}/workers/vikunja_api.py"
   - src: "llm_agent/crewai-workers/worker_daemon.py"
     dest: "{{ __docker_stack__llm_agent__base_dir }}/workers/worker_daemon.py"
   - src: "llm_agent/test_agent_pipeline.py"
@@ -124,16 +176,25 @@ __docker_stack__llm_agent__config_files:
   - src: "llm_agent/README.md"
     dest: "{{ __docker_stack__llm_agent__base_dir }}/README.md"
 
-__docker_stack__llm_agent__config_tpls:
+__docker_stack__llm_agent__config_templates:
   - src: "llm_agent/llm_agent.env.j2"
     dest: "{{ __docker_stack__llm_agent__base_dir }}/llm_agent.env"
   - src: "llm_agent/test_agent_pipeline.env.j2"
     dest: "{{ __docker_stack__llm_agent__base_dir }}/test_agent_pipeline.env"
+  - src: "llm_agent/postgres.env.j2"
+    dest: "{{ __docker_stack__llm_agent__postgres_base_dir }}/postgres.env"
+  - src: "llm_agent/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__llm_agent__postgres_base_dir }}/passwd"
+  - src: "llm_agent/config-group.conf.j2"
+    dest: "{{ __docker_stack__llm_agent__postgres_base_dir }}/group"
+
+__docker_stack__llm_agent__firewalld_ports:
+  - "{{ __docker_stack__llm_agent__postgres_port }}/tcp"
 
 docker_stack__appspec__llm_agent:
   dirs: "{{ __docker_stack__llm_agent__config_dirs | d([], true) }}"
   files: "{{ __docker_stack__llm_agent__config_files | d([], true) }}"
-  templates: "{{ __docker_stack__llm_agent__config_tpls | d([], true) }}"
+  templates: "{{ __docker_stack__llm_agent__config_templates | d([], true) }}"
   firewalld_services: "{{ __docker_stack__llm_agent__firewalld_services | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__llm_agent__firewalld_ports | d([], true) }}"
   networks: "{{ __docker_stack__llm_agent__networks | d({}, true) }}"
@@ -145,14 +206,45 @@ __docker_stack__llm_agent__traefik_labels: "{{ docker_stack__llm_agent__traefik_
   | d(__docker_stack__llm_agent__traefik_labels_default | d([])) }}"
 
 __docker_stack__llm_agent__services:
+  postgres-cocoindex:
+    image: ankane/pgvector:latest
+    container_name: postgres-cocoindex
+    restart: unless-stopped
+    ports:
+      - "{{ __docker_stack__llm_agent__postgres_port }}:5432"
+    command: >
+      bash -c "
+        # Fix permissions on runtime dirs that postgres init tries to chmod
+        mkdir -p /var/run/postgresql /var/lib/postgresql/data
+        chown -R postgres:postgres /var/run/postgresql /var/lib/postgresql/data
+        chmod 700 /var/run/postgresql /var/lib/postgresql/data
+
+        # Drop back to postgres user and start normally
+        exec gosu postgres docker-entrypoint.sh postgres
+      "
+    env_file:
+      - "agent_stack/postgres/postgres.env"
+#    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    user: "0:0"
+    volumes:
+      - "{{ __docker_stack__llm_agent__postgres_base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__llm_agent__postgres_base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__llm_agent__postgres_base_dir }}/config:/config"
+      - "{{ __docker_stack__llm_agent__postgres_base_dir }}/data:/var/lib/postgresql/data"
+    networks:
+      - "{{ docker_stack__network_name__default }}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cocoindex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   langgraph-router:
     image: "{{ __docker_stack__llm_agent__langgraph_router_image }}"
     container_name: langgraph-router
     restart: unless-stopped
     working_dir: /app
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
-    depends_on:
-      - vllm-coder
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
     volumes:
@@ -167,6 +259,12 @@ __docker_stack__llm_agent__services:
     deploy:
       mode: replicated
       replicas: 1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
 
   crewai-workers:
     image: "{{ __docker_stack__llm_agent__crewai_image }}"
@@ -175,9 +273,13 @@ __docker_stack__llm_agent__services:
     working_dir: /app
     user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
     depends_on:
-      - vllm-coder
+      langgraph-router:
+        condition: service_healthy
+#      vllm-coder:
+#        condition: service_healthy
     networks:
       - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro

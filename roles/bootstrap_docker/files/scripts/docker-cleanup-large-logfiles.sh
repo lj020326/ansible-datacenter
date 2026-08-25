@@ -2,7 +2,7 @@
 
 CONFIRM=0
 LOGFILE_MIN_SIZE=50M
-SCRIPT_NAME=$(basename $0)
+SCRIPT_NAME=$(basename "$0")
 
 usage() {
   retcode=${1:-1}
@@ -17,7 +17,7 @@ usage() {
   echo "     ${SCRIPT_NAME} -y" 1>&2
   echo "     ${SCRIPT_NAME}" 1>&2
   echo "" 1>&2
-  exit ${retcode}
+  exit "${retcode}"
 }
 
 while getopts "yhf" opt; do
@@ -50,7 +50,7 @@ for log_files in ${LARGE_LOG_FILES}; do
   container_dir=$(dirname log_files)
   container_config_file=${container_dir}/config.v2.json
   echo "container_config_file=${container_config_file}"
-  container_name=$(jq '.Name' ${container_config_file})
+  container_name=$(jq '.Name' "${container_config_file}")
   echo "container_name=${container_name} => logfile size=${container_log_size}"
 done
 

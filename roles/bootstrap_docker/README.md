@@ -297,7 +297,7 @@ Create secrets
   roles:
   - role: bootstrap_docker
     bootstrap_docker__actions: ['setup-swarm']
-    bootstrap_docker__swarm_secrets:    
+    bootstrap_docker__swarm_secrets:
       - name: secret-name-0
         value: secret-value-0
         state: present
@@ -318,4 +318,4 @@ Please see [examples/](examples/) folder for more examples.
 - https://github.com/nmarus/docker-swarm-ansible
 - [deploying-docker-swarm-with-ansible](https://medium.com/@cantrobot/deploying-docker-swarm-with-ansible-a991c1028427)
 - https://github.com/nextrevision/ansible-swarm-playbook
-- 
+-

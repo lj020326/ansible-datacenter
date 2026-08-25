@@ -54,16 +54,16 @@ build_image() {
 #    DOCKER_IMAGE_NAME="${DOCKER_REGISTRY_LABEL}/${DOCKER_IMAGE_NAME}"
     CONTAINER_NAME="${DOCKER_IMAGE_NAME}"
 
-    if [ "$(docker ps -qa --no-trunc --filter name=^/${CONTAINER_NAME}$)" ]; then
-        if [ "$(docker ps -q -f name=^/${CONTAINER_NAME}$)" ]; then
-            docker stop ${CONTAINER_NAME}
+    if [ "$(docker ps -qa --no-trunc --filter name=^/"${CONTAINER_NAME}"$)" ]; then
+        if [ "$(docker ps -q -f name=^/"${CONTAINER_NAME}"$)" ]; then
+            docker stop "${CONTAINER_NAME}"
         fi
-        docker rm ${CONTAINER_NAME}
+        docker rm "${CONTAINER_NAME}"
     fi
 
     if [[ ${CLEAN_BUILD} -ne 0 ]]; then
-        if [[ "$(docker images -q ${DOCKER_IMAGE_NAME} 2> /dev/null)" ]]; then
-            docker rmi ${DOCKER_IMAGE_NAME}
+        if [[ "$(docker images -q "${DOCKER_IMAGE_NAME}" 2> /dev/null)" ]]; then
+            docker rmi "${DOCKER_IMAGE_NAME}"
         fi
     fi
 
@@ -72,7 +72,7 @@ build_image() {
 
 #    docker build -t ${DOCKER_IMAGE_NAME} .
 #    docker build -t cobbler:latest . -f Dockerfile.build
-    docker build -t ${DOCKER_IMAGE_NAME} . -f ${DOCKERFILE}
+    docker build -t "${DOCKER_IMAGE_NAME}" . -f "${DOCKERFILE}"
 
 }
 
@@ -83,10 +83,10 @@ deploy_image() {
     #DOCKER_REPO_URL="artifactory.example.int:6555"
     DOCKER_REPO_URL="localhost:5000"
 
-    docker tag ${DOCKER_IMAGE_NAME} ${DOCKER_REPO_URL}/${DOCKER_IMAGE_NAME}
+    docker tag "${DOCKER_IMAGE_NAME}" ${DOCKER_REPO_URL}/"${DOCKER_IMAGE_NAME}"
 
     docker login "https://${DOCKER_REPO_URL}"
-    docker push ${DOCKER_REPO_URL}/${DOCKER_IMAGE_NAME}
+    docker push ${DOCKER_REPO_URL}/"${DOCKER_IMAGE_NAME}"
 
 }
 
@@ -94,21 +94,21 @@ deploy_image() {
 attach_container() {
 
     DOCKER_IMAGE_NAME=$1
-    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< ${DOCKER_IMAGE_NAME} )"
+    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< "${DOCKER_IMAGE_NAME}" )"
 
 #    DOCKER_IMAGE_NAME="${DOCKER_REGISTRY_LABEL}/${DOCKER_APP_NAME}"
     CONTAINER_NAME="${DOCKER_APP_NAME}"
     DATA_CONTAINER_NAME="${DOCKER_APP_NAME}-data"
 
 #    docker exec -it loving_heisenberg /bin/bash
-    docker exec -it ${CONTAINER_NAME} /bin/bash
+    docker exec -it "${CONTAINER_NAME}" /bin/bash
 
 }
 
 restart_container() {
 
     DOCKER_IMAGE_NAME=$1
-    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< ${DOCKER_IMAGE_NAME} )"
+    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< "${DOCKER_IMAGE_NAME}" )"
     DEBUG=${2:-0}
     ADDITIONAL_ARGS=${3:-}
 
@@ -116,42 +116,42 @@ restart_container() {
     CONTAINER_NAME="${DOCKER_APP_NAME}"
     DATA_CONTAINER_NAME="${DOCKER_APP_NAME}-data"
 
-    if [ ! "$(docker ps -qa --no-trunc --filter name=^/${DATA_CONTAINER_NAME}$)" ]; then
-        docker create --name ${DATA_CONTAINER_NAME} --volume "${PWD}/.conf/":/opt/proxy-conf busybox /bin/true
+    if [ ! "$(docker ps -qa --no-trunc --filter name=^/"${DATA_CONTAINER_NAME}"$)" ]; then
+        docker create --name "${DATA_CONTAINER_NAME}" --volume "${PWD}/.conf/":/opt/proxy-conf busybox /bin/true
     fi
 
-    if [ "$(docker ps -qa --no-trunc --filter name=^/${CONTAINER_NAME}$)" ]; then
-        if [ "$(docker ps -q -f name=^/${CONTAINER_NAME}$)" ]; then
-            docker stop ${CONTAINER_NAME}
+    if [ "$(docker ps -qa --no-trunc --filter name=^/"${CONTAINER_NAME}"$)" ]; then
+        if [ "$(docker ps -q -f name=^/"${CONTAINER_NAME}"$)" ]; then
+            docker stop "${CONTAINER_NAME}"
             echo "container stopped"
         fi
-        docker rm ${CONTAINER_NAME}
+        docker rm "${CONTAINER_NAME}"
     fi
 
     if [[ ${DEBUG} -eq 1 ]]; then
         echo "debugging container - starting bash inside container:"
-        docker run --name ${CONTAINER_NAME} \
+        docker run --name "${CONTAINER_NAME}" \
             --volume "${PWD}/.certs":/opt/ssl/ \
-            --volumes-from ${DATA_CONTAINER_NAME} \
+            --volumes-from "${DATA_CONTAINER_NAME}" \
             --net=host \
-            -it --entrypoint /bin/bash ${DOCKER_IMAGE_NAME}
+            -it --entrypoint /bin/bash "${DOCKER_IMAGE_NAME}"
         exit 0
     elif [[ ${DEBUG} -eq 2 ]]; then
 #        docker exec -it loving_heisenberg /bin/bash
-        docker exec -it ${CONTAINER_NAME} /bin/bash
+        docker exec -it "${CONTAINER_NAME}" /bin/bash
         exit 0
     fi
 
-    docker run --name ${CONTAINER_NAME} \
+    docker run --name "${CONTAINER_NAME}" \
         --volume "${PWD}/.certs":/opt/ssl/ \
-        --volumes-from ${DATA_CONTAINER_NAME} \
+        --volumes-from "${DATA_CONTAINER_NAME}" \
         --net=host \
-        -d ${DOCKER_IMAGE_NAME} ${ADDITIONAL_ARGS}
+        -d "${DOCKER_IMAGE_NAME}" "${ADDITIONAL_ARGS}"
 
     echo "started container"
     echo "tailing container stdout..."
 
-    docker logs -f ${CONTAINER_NAME}
+    docker logs -f "${CONTAINER_NAME}"
 
 }
 
@@ -159,14 +159,14 @@ restart_container() {
 stop_container() {
 
     DOCKER_IMAGE_NAME=$1
-    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< ${DOCKER_IMAGE_NAME} )"
+    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< "${DOCKER_IMAGE_NAME}" )"
 
     CONTAINER_NAME="${DOCKER_APP_NAME}"
 
-    if [ "$(docker ps -qa -f name=^/${CONTAINER_NAME}$)" ]; then
+    if [ "$(docker ps -qa -f name=^/"${CONTAINER_NAME}"$)" ]; then
         #if [ "$(docker ps -q -f status=exited -f name=${CONTAINER_NAME})" ]; then
-        if [ "$(docker ps -q -f name=^/${CONTAINER_NAME}$)" ]; then
-            docker stop ${CONTAINER_NAME}
+        if [ "$(docker ps -q -f name=^/"${CONTAINER_NAME}"$)" ]; then
+            docker stop "${CONTAINER_NAME}"
             echo "container stopped"
         else
             echo "container not running"
@@ -178,24 +178,24 @@ stop_container() {
 tail_log() {
 
     DOCKER_IMAGE_NAME=$1
-    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< ${DOCKER_IMAGE_NAME} )"
+    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< "${DOCKER_IMAGE_NAME}" )"
     HTTPD_LOG_FILE=$2
 
     CONTAINER_NAME="${DOCKER_APP_NAME}"
 
-    docker exec -it ${CONTAINER_NAME} tail -50f ${HTTPD_LOG_FILE}
+    docker exec -it "${CONTAINER_NAME}" tail -50f "${HTTPD_LOG_FILE}"
 }
 
 fetch_log() {
 
     DOCKER_IMAGE_NAME=$1
-    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< ${DOCKER_IMAGE_NAME} )"
+    DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< "${DOCKER_IMAGE_NAME}" )"
     HTTPD_LOG_FILE=$2
-    FETCHED_LOG_FILE=$(basename ${HTTPD_LOG_FILE})
+    FETCHED_LOG_FILE=$(basename "${HTTPD_LOG_FILE}")
 
     CONTAINER_NAME="${DOCKER_APP_NAME}"
 
-    docker cp ${CONTAINER_NAME}:${HTTPD_LOG_FILE} ${FETCHED_LOG_FILE}
+    docker cp "${CONTAINER_NAME}":"${HTTPD_LOG_FILE}" "${FETCHED_LOG_FILE}"
 }
 
 
@@ -229,38 +229,38 @@ additional_args=$@
 
 case "${command}" in
     "build")
-        build_image ${docker_image_name} 0
+        build_image "${docker_image_name}" 0
         ;;
     "clean-build")
-        build_image ${docker_image_name} 1
+        build_image "${docker_image_name}" 1
         ;;
     "deploy")
-        deploy_image ${docker_image_name}
+        deploy_image "${docker_image_name}"
         ;;
     "restart"|"run")
-        restart_container ${docker_image_name} $debug_container "${additional_args}"
+        restart_container "${docker_image_name}" $debug_container "${additional_args}"
         ;;
     "debug")
         debug_container=1
-        restart_container ${docker_image_name} $debug_container
+        restart_container "${docker_image_name}" $debug_container
         ;;
     "attach")
-        attach_container ${docker_image_name}
+        attach_container "${docker_image_name}"
         ;;
     "stop")
-        stop_container ${docker_image_name}
+        stop_container "${docker_image_name}"
         ;;
     "tail-accesslog")
-        tail_log ${docker_image_name} "${HTTPD_LOG_DIR}/access.log"
+        tail_log "${docker_image_name}" "${HTTPD_LOG_DIR}/access.log"
         ;;
     "tail-errorlog")
-        tail_log ${docker_image_name} "${HTTPD_LOG_DIR}/error.log"
+        tail_log "${docker_image_name}" "${HTTPD_LOG_DIR}/error.log"
         ;;
     "fetch-accesslog")
-        fetch_log ${docker_image_name} "${HTTPD_LOG_DIR}/access.log"
+        fetch_log "${docker_image_name}" "${HTTPD_LOG_DIR}/access.log"
         ;;
     "fetch-errorlog")
-        fetch_log ${docker_image_name} "${HTTPD_LOG_DIR}/error.log"
+        fetch_log "${docker_image_name}" "${HTTPD_LOG_DIR}/error.log"
         ;;
     *)
         echo "Invalid command: $command" >&2

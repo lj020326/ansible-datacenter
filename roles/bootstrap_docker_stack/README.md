@@ -2,8 +2,8 @@
 
 ## Role Summary
 
-This role will set up and configure a collection/group of docker containers. 
-The group(s)/collection(s) are configured using variables prefixed with `docker_stack__service_groups__`. 
+This role will set up and configure a collection/group of docker containers.
+The group(s)/collection(s) are configured using variables prefixed with `docker_stack__service_groups__`.
 
 ## Requirements
 
@@ -11,7 +11,7 @@ The group(s)/collection(s) are configured using variables prefixed with `docker_
 
 This role utilizes the `community.docker` modules.
 
-The `community.docker` modules require that python libraries to be available (pyyaml, pyopenssl, cryptography, etc) as well as the docker python library on the target host. 
+The `community.docker` modules require that python libraries to be available (pyyaml, pyopenssl, cryptography, etc) as well as the docker python library on the target host.
 
 The python library dependencies are expected to be already prepared in a prior plays by the 'bootstrap_pip' and 'bootstrap_docker' roles which are available in this repo.
 
@@ -29,7 +29,7 @@ The docker runtime environment is expected to be already prepared in a prior pla
 | docker_stack__api_port                       | no       | "2375"                                                                            |                            |
 | docker_stack__app_config_dirs                | no       | {}                                                                                |                            |
 | docker_stack__app_config_files               | no       | {}                                                                                |                            |
-| docker_stack__app_config_tpls                | no       | {}                                                                                |                            |
+| docker_stack__app_config_templates                | no       | {}                                                                                |                            |
 | docker_stack__ca_root_cn                     | no       | "ca-root"                                                                         |                            |
 | docker_stack__compose_file                   | no       | "{{ docker_stack__dir }}/docker-compose.yml"                                      |                            |
 | docker_stack__compose_http_timeout           | no       | 120                                                                               |                            |
@@ -39,7 +39,7 @@ The docker runtime environment is expected to be already prepared in a prior pla
 | docker_stack__compose_stack_resolve_image    | no       | changed                                                                           |                            |
 | docker_stack__config_dirs                    | no       | []                                                                                |                            |
 | docker_stack__config_files                   | no       | []                                                                                |                            |
-| docker_stack__config_tpls                    | no       | []                                                                                |                            |
+| docker_stack__config_templates                    | no       | []                                                                                |                            |
 | docker_stack__config_users_group             | no       |                                                                                   |                            |
 | docker_stack__config_users_passwd            | no       |                                                                                   |                            |
 | docker_stack__configs                        | no       | {}                                                                                |                            |
@@ -80,7 +80,7 @@ The docker runtime environment is expected to be already prepared in a prior pla
 | docker_stack__remove_orphans                 | no       | yes                                                                               |                            |
 | docker_stack__restart_service                | no       | yes                                                                               |                            |
 | docker_stack__run_services                   | no       | yes                                                                               |                            |
-| docker_stack__script_config_tpls             | no       | defaults/main.yml                                                                 |                            |
+| docker_stack__script_config_templates             | no       | defaults/main.yml                                                                 |                            |
 | docker_stack__script_dir                     | no       | "/opt/scripts"                                                                    |                            |
 | docker_stack__script_dirs                    | no       | see defaults/main.yml                                                             |                            |
 | docker_stack__scripts                        | no       | see defaults/main.yml                                                             |                            |
@@ -284,10 +284,10 @@ docker network create \
   --driver overlay \
   --ingress \
   --subnet=10.0.0.0/24 \
-  --gateway=10.0.0.1 \  
+  --gateway=10.0.0.1 \
   --opt com.docker.network.driver.mtu=1200 \
   ingress
-  
+
 docker network rm traefik_public
 docker network create \
   --driver overlay \
@@ -340,4 +340,4 @@ $ ./deploy-stack.sh ## utility script found in the /home/container-user/docker d
 - https://marcesher.com/2016/06/21/jenkins-as-code-registering-jobs-for-automatic-seed-job-creation/
 - https://souravatta.medium.com/automatic-trigger-of-generated-jobs-created-from-jenkins-seedjob-b517ed88b6f8
 - https://docs.cloudbees.com/docs/cloudbees-jenkins-platform/latest/casc-oc/rbac
-- 
+-

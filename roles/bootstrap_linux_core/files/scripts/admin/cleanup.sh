@@ -75,7 +75,7 @@ usage() {
     echo "          $0 -f to-be-removed.txt" 1>&2
     echo "          $0 -r to-be-removed.txt" 1>&2
     echo "          $0 -fr to-be-removed.txt" 1>&2
-    exit ${retcode}
+    exit "${retcode}"
 }
 
 function find_cleanup() {
@@ -86,19 +86,19 @@ function find_cleanup() {
     sort -rn | uniq -d | \
     xargs -I{} -n1 find . -type f -size {}c -print0 | \
     xargs -0 md5sum | \
-    sort | uniq -w32 --all-repeated=separate > $cleanupfile
+    sort | uniq -w32 --all-repeated=separate > "$cleanupfile"
 }
 
 function remove_cleanup() {
   cleanupfile=$1
 
-  cleanupfiles=`cat $cleanupfile | sed '/^$/d' | sort -k1,1 -k2,2r | awk '$1 != x { print } { x = $1 }'`
+  cleanupfiles=`cat "$cleanupfile" | sed '/^$/d' | sort -k1,1 -k2,2r | awk '$1 != x { print } { x = $1 }'`
 
   IFS=$'\n'
   for file_record in $cleanupfiles; do
 #      filename=`echo $file_record | tr -s ' ' | cut -d" " -f2`
 #      filename=`echo $file_record | sed 's/^(.*)\s+(.*)/$2/'`
-      filename=`echo $file_record | cut -c33- | sed 's/^\s*//'`
+      filename=`echo "$file_record" | cut -c33- | sed 's/^\s*//'`
 
       if [[ "${filename}" =~ ^\./big/|^\./medium/|^\./small/ ]]; then
         echo "cleanupfile skipped: $filename begins with excluded directory"
@@ -162,9 +162,9 @@ fi
 #fi
 
 if [ $find_cleanup -eq 1 ]; then
-  find_cleanup $cleanupfile
+  find_cleanup "$cleanupfile"
 fi
 
 if [ $remove_cleanup -eq 1 ]; then
-  remove_cleanup $cleanupfile
+  remove_cleanup "$cleanupfile"
 fi

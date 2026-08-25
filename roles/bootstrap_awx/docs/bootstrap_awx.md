@@ -10,10 +10,10 @@ Provision a Debian or Ubuntu server with >=8GB RAM and setup SSH access to the r
 
 ## Setup DNS entry for it:
 
-Map an: 
+Map an:
 
 A/AAAA record for panel.example.org to the servers IP.
-A/AAAA record for rancher.example.org to the servers IP, 
+A/AAAA record for rancher.example.org to the servers IP,
     or a CNAME record for it pointing to panel.example.org.
 
 
@@ -44,7 +44,7 @@ bootstrap_awx__pg_password: strong-password
 bootstrap_awx__admin_password: strong-password
 # AWX secrets password.
 bootstrap_awx__secret_key: strong-password
-# Time periods for schedules, eg: 
+# Time periods for schedules, eg:
 # 'MINUTELY', 'HOURLY', 'DAILY', 'WEEKLY','MONTHLY'
 bootstrap_awx__update_schedule_frequency: 'WEEKLY'
 # Number of hours/days/weeks to schedule updates too:

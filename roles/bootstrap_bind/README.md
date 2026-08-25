@@ -55,12 +55,12 @@ Variables are not required, unless specified.
 | `bind_servers`               | `[]`                 | BIND clause that defines behavior when interacting with defined remote servers.                                              |
 | ` - ipaddr`                  | -                    | IP address of remote server.                                                                                                 |
 | ` - key`                     | -                    | Name of TSIG key to send to remote server. TSIG key defined with bind_tsig_keys.                                             |
-| ` - edns`                    | `true`               | Enable/disable support for EDNS (RFC 2671) with remote server.                                                               | 
+| ` - edns`                    | `true`               | Enable/disable support for EDNS (RFC 2671) with remote server.                                                               |
 | ` - bogus`                   | `false`              | Ignore requests from remote server.                                                                                          |
 | `bind_statements`            | `[]`                 | Additional BIND statements to customize configuration. Leave off ";" at the end.                                             |
 | ` - queries`                 | `[]`                 | A list of addtional statememnts controlling queries. (e.g., "filter-aaaa-on-v4 yes")                                         |
 | ` - transfers`               | `[]`                 | A list of addtional statememnts controlling transfers. (e.g., "transfer-format many-answers")                                |
-| ` - operations`              | `[]`                 | A list of addtional statememnts controlling operations. (e.g., "masterfile-format text")                                     | 
+| ` - operations`              | `[]`                 | A list of addtional statememnts controlling operations. (e.g., "masterfile-format text")                                     |
 | ` - security`                | `[]`                 | A list of addtional statememnts controlling security. (e.g., "dnssec-lookaside auto")                                        |
 | ` - statistics`              | `[]`                 | A list of addtional statememnts controlling statistics. (e.g., "zone-statistics yes")                                        |
 | `bind_statistics_channels`   | `false`              | if `true`, BIND is configured with a statistics_channels clause (currently only supports a single inet)                      |
@@ -244,10 +244,10 @@ bind_tsig_keys:
   - name: rndc-key
     algorithm: hmac-md5
     secret: "+CsdasdfEsdfasdfsQRZ3Q=="
-  - name: external.example.com 
+  - name: external.example.com
     algorithm: hmac-md5
     secret: "+Cdjlkef9ZTSeixERZ433r=="
-  - name: internal.example.com 
+  - name: internal.example.com
     algorithm: hmac-md5
     secret: "+qwfasdf9ZTSeixwawwERW=="
 ```
@@ -272,7 +272,7 @@ TSIG keys are used to secure queries, DDNS updates, and zone transfers between B
 ```Yaml
 bind_servers:
   - name: 192.168.8.64
-    key: external.example.com 
+    key: external.example.com
   - name: 192.168.28.63
     key: internal.example.com
     edns: false
@@ -354,7 +354,7 @@ bind_views:
       - "!key external.example.com"
       - "key internal.example.com"
     also_notify:
-      - 192.168.12.12 
+      - 192.168.12.12
     match_clients:
       - "!key external.example.com"
       - "key internal.example.com"
@@ -375,9 +375,9 @@ bind_views:
 
 Above are two common views, internal and external.  The external view controls access with TSIG keys defined previously as ACLs.  It also notifies the Akamai cloud DNS servers by its controllers name after any zone changes.  The internal view controls access using TSIG keys and IP addresses and sends notifies by IP.  Each view has its own TSIG key.  [NIST recommends using HMAC-SHA256 as the TSIG algorithm](https://csrc.nist.gov/publications/detail/sp/800-81/2/final)
 
-For more information on configuring views, read: [Understanding views in BIND 9, by example](https://kb.isc.org/docs/aa-00851) 
+For more information on configuring views, read: [Understanding views in BIND 9, by example](https://kb.isc.org/docs/aa-00851)
 
-For more information on configuring DNS securely, read NIST Special Publication 800-81-2: [Secure Domain Name System (DNS) Deployment Guide](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-81-2.pdf) 
+For more information on configuring DNS securely, read NIST Special Publication 800-81-2: [Secure Domain Name System (DNS) Deployment Guide](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-81-2.pdf)
 
 ### Minimal variables for a working zone with views
 
@@ -434,7 +434,7 @@ bind_zone_domains:
 
 This domain is configured for the EXTERNAL view.  It will use the controllers configuration named EXTERNAL_CONTROLLERS instead of the bind_zone_primary_server_ip value.
 
-### Domain definition for slave with view and controllers defined. 
+### Domain definition for slave with view and controllers defined.
 
 ```Yaml
 bind_zone_domains: [

@@ -36,7 +36,7 @@ USE_SOURCE_COLLECTIONS=0
 SOURCE_COLLECTIONS_PATH="${BASE_DIR}/requirements_collections"
 
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
-SCRIPT_FILE=$(basename $0)
+SCRIPT_FILE=$(basename "$0")
 #PLAYBOOK="${SCRIPT_FILE%.*}.yml"
 
 echo "SCRIPT_DIR=[${SCRIPT_DIR}]"

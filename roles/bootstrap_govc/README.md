@@ -66,15 +66,15 @@ to pull a set of OVAs.
 
 ## Testing
 
-Update tests/group_vars to suit your test environment.  Make your own set of 
+Update tests/group_vars to suit your test environment.  Make your own set of
 vault.yml files, or replace them with un-encrypted versions for your own passwords.
 
 Then run the tests:
 
     pip install molecule docker-py
     ./tests/test.sh
-    
+
 ## Reference
 
 - https://github.com/vmware-archive/ansible-role-govc
-- 
+-

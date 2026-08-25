@@ -501,7 +501,7 @@ class CallbackModule(CallbackBase):
         +-----------------------------------------------+--------------------------------------------+
         | Product | Version | Build    | Hostname or IP | Server Model                               |
         +-----------------------------------------------+--------------------------------------------+
-        | vCenter | 7.0.2   | 17694817 | 192.168.10.10  |                                            | 
+        | vCenter | 7.0.2   | 17694817 | 192.168.10.10  |                                            |
         +-----------------------------------------------+--------------------------------------------+
         | ESXi    | 7.0.2   | 17630552 | 192.168.10.11  | Dell Inc. PowerEdge R650                   |
         |         |         |          |                | Intel(R) Xeon(R) Silver 4314 CPU @ 2.40GHz |
@@ -538,7 +538,7 @@ class CallbackModule(CallbackBase):
         hostname_col_width = max([len('Hostname or IP'), len(self.vcenter_info['hostname']), len(self.esxi_info['hostname'])])
         # Get server model column width
         server_model_col_width = max([len('Server Model'), len(self.esxi_info['model']), len(self.esxi_info['cpu_model'])])
-        
+
         # Table width
         table_width = sum([9, version_col_width, build_col_width, hostname_col_width, server_model_col_width]) + 14
 

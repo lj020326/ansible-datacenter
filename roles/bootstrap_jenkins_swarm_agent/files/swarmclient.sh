@@ -116,19 +116,19 @@ start() {
   daemon --user "${USER}" --check "swarm-client" --pidfile "${PIDFILE}" "${cmd}"
 
   local pid=$(sudo -u "${USER}" jps -l | grep "${SWARM_AGENT_JAR}" | awk '{print $1}')
-  [ -n ${pid} ] && echo ${pid} > "${PIDFILE}"
+  [ -n "${pid}" ] && echo "${pid}" > "${PIDFILE}"
   RETVAL=$?
-  [ $RETVAL -eq 0 ] && touch $LOCKFILE
+  [ $RETVAL -eq 0 ] && touch "$LOCKFILE"
 
   echo
 }
 
 stop() {
   echo -n $"Stopping Jenkins Swarm Client... "
-  killproc -p $PIDFILE "swarm-client"
+  killproc -p "$PIDFILE" "swarm-client"
   RETVAL=$?
   echo
-  [ $RETVAL -eq 0 ] && rm -f $LOCKFILE
+  [ $RETVAL -eq 0 ] && rm -f "$LOCKFILE"
 }
 
 restart() {

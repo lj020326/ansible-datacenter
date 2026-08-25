@@ -10,8 +10,8 @@ At a high level, the process of adding/removing inventory groups consists of the
 1) add/remove group with _group-parent-child-ancestry_ into `inventory/xenv_groups.yml`.
 2) add/remove group variable settings in the respective group's `group_vars` file(s).
 3) map hosts into the _child (purpose|environment)-specific group_ in the respective environment `hosts.yml`.
-4) run [script to synchronize environment symlinks](../inventory/sync-inventory-xenv-links.sh).
-5) run [script to perform inventory validations/tests](../inventory/run-inventory-tests.sh).
+4) run [script to synchronize environment symlinks](./../../../verify_inventory.py).
+5) run [script to perform inventory verification tests](./../../../verify_inventory.py).
 6) Commit/Push the inventory groupvars code change(s). 
 
 ## Inventory Group Development Process Details/Examples
@@ -97,23 +97,27 @@ all:
 
 ```
 
-### STEP 4: Run [script to synchronize environment symlinks](../inventory/sync-inventory-xenv-links.sh).
+### STEP 4: Run [script to synchronize environment symlinks](./../../../verify_inventory.py).
 
-Run the [sync-inventory-xenv-links.sh](../inventory/sync-inventory-xenv-links.sh) shell script to synchronize symlinks for each new/removed group(s) into each environment directory.
+Run the [sync-inventory-xenv-links.sh](./../inventory/sync-inventory-xenv-links.sh) shell script to synchronize symlinks for each new/removed group(s) into each environment directory.
 
 Example:
 ```shell
 ljohnson@Lees-MacBook-Pro:[tests](main)$ git switch develop-lj
 Switched to branch 'develop-lj'
 Your branch is up to date with 'origin/develop-lj'.
-ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ sync-inventory-xenv-links.sh 
-[INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
-[INFO ]: ==> INVENTORY_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter/inventory
-[INFO ]: ==> SYNC_FUNCTIONS[@]=all
-[INFO ]: ==> run_sync_function(create_host_links_yml): SUCCESS
-[INFO ]: ==> run_sync_function(create_groupvars_links_yml): SUCCESS
-[INFO ]: ==> run_sync_function(create_hostvars_links_yml): SUCCESS
-[INFO ]: ==> run_sync_function(sort_xenv_files): SUCCESS
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ ./verify_inventory.py test
+[INFO   ] verify_inventory.py: =========== VERIFY START ==========
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_file_extensions: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_yml_sortorder: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_xenv_group_hierarchy: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_child_inventories: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_child_groupvars: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_host_mutual_exclusive_group_labels: SUCCESS
+[INFO   ] verify_inventory.py: ============ VERIFY END ===========
+[INFO   ] verify_inventory.py: OVERALL INVENTORY TEST RESULTS
+[INFO   ] verify_inventory.py: TOTAL FAILED=0
+[INFO   ] verify_inventory.py: TEST SUCCEEDED!
 ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$
 ```
 
@@ -125,11 +129,11 @@ The `group_vars` synchronization script enforces:
 2) maintaining all `group_vars` in a _DRY_/_deduplicated_ method
 3) consolidated env-specific `group_vars` files available across all inventory child directories
 
-### STEP 5: Run [script to perform inventory validations/tests](../inventory/run-inventory-tests.sh).
+### STEP 5: Run [script to perform inventory verification tests](./../../../verify_inventory.py).
 
-Run the [run-inventory-tests.sh](../inventory/run-inventory-tests.sh) shell script to perform inventory validations/tests.
+Run the [verify_inventory.py](./../../../verify_inventory.py) shell script to perform inventory verification tests.
 
-After synchronization, perform all the inventory quality checks by running the [run-inventory-tests.sh](../inventory/run-inventory-tests.sh) script.
+After synchronization, perform all the inventory quality checks by running the [verify_inventory.py](./../../../verify_inventory.py) script.
 This script will run a series of validation checks/tests and report any exceptions found.
 
 This same script is invoked by the jenkins test pipeline for `aap-inventory PR requests` enabling the developer to resolve any issues before submitting the PR.
@@ -138,21 +142,20 @@ Example run of the script with ideal validation results:
 
 ```shell
 ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$
-ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ run-inventory-tests.sh 
-[INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
-[INFO ]: ==> TEST_CASES=ALL
-[INFO ]: ==> run_tests(): TEST_CASES[@]=ALL
-[INFO ]: ==> run_test_case(01): validate_yamllint: SUCCESS
-[INFO ]: ==> run_test_case(02): validate_file_extensions: SUCCESS
-[INFO ]: ==> run_test_case(03): validate_yml_sortorder: SUCCESS
-[INFO ]: ==> run_test_case(04): validate_xenv_group_hierarchy: SUCCESS
-[INFO ]: ==> run_test_case(05): validate_child_inventories: SUCCESS
-[INFO ]: ==> run_test_case(06): validate_child_groupvars: SUCCESS
-[INFO ]: ==> run_tests(): ERROR_COUNT=0
-[INFO ]: ==> *********************** 
-[INFO ]: ==> OVERALL INVENTORY TEST RESULTS
-[INFO ]: ==> TOTAL TOTAL_FAILED=0
-[INFO ]: ==> TEST SUCCEEDED!
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ ./verify_inventory.py
+[INFO   ] verify_inventory.py: No command specified. Running 'autofix' followed by 'test'...
+[INFO   ] verify_inventory.py: Autofix completed successfully!
+[INFO   ] verify_inventory.py: =========== VERIFY START ==========
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_file_extensions: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_yml_sortorder: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_xenv_group_hierarchy: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_child_inventories: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_child_groupvars: SUCCESS
+[INFO   ] verify_inventory.py: [SUCCESS] test_case: verify_host_mutual_exclusive_group_labels: SUCCESS
+[INFO   ] verify_inventory.py: ============ VERIFY END ===========
+[INFO   ] verify_inventory.py: OVERALL INVENTORY TEST RESULTS
+[INFO   ] verify_inventory.py: TOTAL FAILED=0
+[INFO   ] verify_inventory.py: TEST SUCCEEDED!
 ljohnson@ansible01.dev.dettonville.int[aap-inventory](develop-lj)$ 
 ```
 
@@ -212,33 +215,45 @@ Make sure all symlinks are synchronized in feature branch.
 
 The symlinks should copy over with prior checkout but redundantly running the sync script is simple way to validate:
 ```shell
-ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ sync-inventory-xenv-links.sh 
-[INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
-[INFO ]: ==> INVENTORY_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter/inventory
-[INFO ]: ==> SYNC_FUNCTIONS[@]=all
-[INFO ]: ==> run_sync_function(create_host_links_yml): SUCCESS
-[INFO ]: ==> run_sync_function(create_groupvars_links_yml): SUCCESS
-[INFO ]: ==> run_sync_function(create_hostvars_links_yml): SUCCESS
-[INFO ]: ==> run_sync_function(sort_xenv_files): SUCCESS
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ ./verify_inventory.py -v autofix
+[DEBUG  ] verify_inventory.py: Starting with log level: 10
+[DEBUG  ] verify_inventory.py: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
+[DEBUG  ] verify_inventory.py: ==> INVENTORY_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter/inventory
+[DEBUG  ] verify_inventory.py: Creating host (*.yml) symlinks
+[DEBUG  ] verify_inventory.py: Creating group_vars/*.yml symlinks
+[DEBUG  ] verify_inventory.py: Creating host_vars symlinks
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/PROD/hosts.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/QA/hosts.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/DEV/hosts.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/xenv_hosts.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/PROD/xenv_hosts.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/QA/xenv_hosts.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/DEV/xenv_hosts.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/xenv_groups.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/PROD/xenv_groups.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/QA/xenv_groups.yml
+[DEBUG  ] verify_inventory.py: Sorted keys for /Users/ljohnson/repos/ansible/ansible-datacenter/inventory/DEV/xenv_groups.yml
+[INFO   ] verify_inventory.py: Autofix completed successfully!
+ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$
 ```
 
-Test/Validate the feature branch changes:
+You can run individual verification modules, trigger automatic maintenance
+fixes, or execute tests via pytest directly from the command line:
+
 ```shell
-ljohnson@ansible01.dev.dettonville.int[aap-inventory](feature/AIM-1234)$ run-inventory-tests.sh 
-[INFO ]: ==> PROJECT_DIR=/Users/ljohnson/repos/ansible/ansible-datacenter
-[INFO ]: ==> TEST_CASES=ALL
-[INFO ]: ==> run_tests(): TEST_CASES[@]=ALL
-[INFO ]: ==> run_test_case(01): validate_yamllint: SUCCESS
-[INFO ]: ==> run_test_case(02): validate_file_extensions: SUCCESS
-[INFO ]: ==> run_test_case(03): validate_yml_sortorder: SUCCESS
-[INFO ]: ==> run_test_case(04): validate_xenv_group_hierarchy: SUCCESS
-[INFO ]: ==> run_test_case(05): validate_child_inventories: SUCCESS
-[INFO ]: ==> run_test_case(06): validate_child_groupvars: SUCCESS
-[INFO ]: ==> run_tests(): ERROR_COUNT=0
-[INFO ]: ==> *********************** 
-[INFO ]: ==> OVERALL INVENTORY TEST RESULTS
-[INFO ]: ==> TOTAL TOTAL_FAILED=0
-[INFO ]: ==> TEST SUCCEEDED! 
+# Run autofix to sync symlinks and sort keys
+python3 verify_inventory.py autofix
+
+# Execute the entire inventory validation test suite directly
+python3 verify_inventory.py test
+
+# Run a specific verification check case
+python3 verify_inventory.py test verify_file_extensions
+python3 verify_inventory.py test verify_yml_sortorder
+
+# Run checks via pytest framework wrapper with JUnit XML reporting
+python3 verify_inventory.py test -p
+python3 verify_inventory.py test -r .test-results/junit-inventory-report.xml
 ```
 
 Add, commit and push the feature branch changes:

@@ -75,7 +75,7 @@ Example Playbook
 - hosts: all
   connection: local
   gather_facts: false
-  
+
   roles:
     - vcsa-deploy
 ```

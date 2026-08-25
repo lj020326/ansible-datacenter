@@ -1,4 +1,4 @@
-# Apache ZooKeeper Ansible role 
+# Apache ZooKeeper Ansible role
 
 This Ansible role installs an Apache ZooKeeper service in a Debian environment.
 
@@ -27,13 +27,13 @@ Ansible 2.8.1 version installed.
 
 #### For testing purposes:
 
-* \>= Python 2.7 
-* [Pipenv](https://github.com/pypa/pipenv) 
+* \>= Python 2.7
+* [Pipenv](https://github.com/pypa/pipenv)
 * [Docker](https://www.docker.com/) as driver
 
-:warning: As this role is ready to use in production, the image hosted in [Docker Hub]((https://hub.docker.com/r/idealista/zookeeper/)) is only for testing purposes. That image is deployed using *rolling tags* and major changes could break your tests. 
+:warning: As this role is ready to use in production, the image hosted in [Docker Hub]((https://hub.docker.com/r/idealista/zookeeper/)) is only for testing purposes. That image is deployed using *rolling tags* and major changes could break your tests.
 
-**We strongly do not recommend to use containers in production based on that image** (maybe it will be ready in future releases). 
+**We strongly do not recommend to use containers in production based on that image** (maybe it will be ready in future releases).
 
 ### Installing
 

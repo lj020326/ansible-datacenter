@@ -71,9 +71,9 @@ Finally, reload postfix and send a test message:
 ```shell
 $ sudo postfix reload
 $ echo "test message" | mail -s "test subject" lee.james.johnson@gmail.com
-$ postmap -fq "From: root <root@media01>" pcre:/etc/postfix/smtp_header_checks 
+$ postmap -fq "From: root <root@media01>" pcre:/etc/postfix/smtp_header_checks
 REPLACE From: admin@dettonville.com
-$ postmap -fq "From: root+jenkins@media01" pcre:/etc/postfix/smtp_header_checks 
+$ postmap -fq "From: root+jenkins@media01" pcre:/etc/postfix/smtp_header_checks
 REPLACE From: admin+jenkins@dettonville.com
 
 ```
@@ -91,4 +91,4 @@ Voila! If you have issues, check your logs in `/var/log/syslog` and `/var/log/ma
 - https://www.justanswer.com/computer-programming/3ic33-i-m-using-postfix-2-7-want-rewrite-header-fields.html
 - https://regex101.com/r/khjXs0/1
 - https://talk.plesk.com/threads/how-to-add-email-header-check-for-less-spam-with-postfix-and-spamassasin.359842/
-- 
+-

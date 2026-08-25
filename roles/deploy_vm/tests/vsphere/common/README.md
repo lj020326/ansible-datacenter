@@ -36,7 +36,7 @@
 * vm_add_remove_vtpm.yml: Add or remove vTPM device from VM
 * vm_add_vtpm_device.yml: Add key provider on vCenter then add new vTPM device to VM
 * vm_answer_question.yml: Answer question at VM power on
-  
+
 ### Tasks for VM CPU or Memory settings
 * vm_enable_cpu_hotadd.yml: Enable VM CPU hotadd
 * vm_set_cpu_number.yml: Set VM CPU number, cores per socket is 1 by default
@@ -170,4 +170,4 @@
 ## Common tasks for Linux and Windows test cases
 * compose_vm_cdroms.yml: Generate VM CDROM device info list for creating new VM
 * download_iso_and_transfer.yml: Download ISO file and transfer to ESXi datastore
-* get_iso_file_list.yml: Generate and validate OS installation ISO file list 
+* get_iso_file_list.yml: Generate and validate OS installation ISO file list

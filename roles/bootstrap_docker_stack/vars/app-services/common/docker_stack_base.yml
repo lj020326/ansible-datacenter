@@ -108,6 +108,13 @@ __docker_stack__base__dozzle_image: amir20/dozzle:latest
 __docker_stack__base__watchtower_image: containrrr/watchtower:latest
 __docker_stack__base__gc_image: clockworksoul/docker-gc-cron:latest
 
+# Everyday at 12:30 PM
+#__docker_stack__base__watchtower_schedule_default: 0 30 12 * * *
+# Everyday at 3:30 AM
+__docker_stack__base__watchtower_schedule_default: "0 30 3 * * *"
+__docker_stack__base__watchtower_schedule: "{{ docker_stack__base__watchtower_schedule
+  | d(__docker_stack__base__watchtower_schedule_default) }}"
+
 __docker_stack__base__socket_proxy_environment_default:
   LOG_LEVEL: debug # debug,info,notice,warning,err,crit,alert,emerg
   ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
@@ -158,7 +165,7 @@ __docker_stack__base__watchtower_environment_default:
   WATCHTOWER_REMOVE_VOLUMES: "true"
   WATCHTOWER_INCLUDE_STOPPED: "true"
   WATCHTOWER_NO_STARTUP_MESSAGE: "false"
-  WATCHTOWER_SCHEDULE: 0 30 12 * * * # Everyday at 12:30
+  WATCHTOWER_SCHEDULE: "{{ __docker_stack__base__watchtower_schedule }}"
   #      WATCHTOWER_NOTIFICATIONS: shoutrrr
   WATCHTOWER_NOTIFICATIONS_LEVEL: info
   #      WATCHTOWER_NOTIFICATION_URL: "telegram://{{ __docker_stack__base__tgram_bot_token }}@telegram?channels={{ __docker_stack__base__tgram_chat_id }}"
@@ -172,7 +179,7 @@ __docker_stack__traefik__auth_labels:
   ## Middlewares
   traefik.http.routers.traefik-rtr.middlewares: chain-oauth@file
 
-__docker_stack__base__config_tpls:
+__docker_stack__base__config_templates:
   - src: traefik/traefik.env.j2
     dest: "{{ __docker_stack__traefik__dir }}/traefik.env"
   - src: traefik/config-traefik-{{ docker_stack__traefik__version }}.yml.j2
@@ -359,7 +366,7 @@ __docker_stack__base__volumes: {}
 docker_stack__appspec__base:
   dirs: "{{ __docker_stack__base__config_dirs | d([], true) }}"
   files: "{{ __docker_stack__base__config_files | d([], true) }}"
-  templates: "{{ __docker_stack__base__config_tpls | d([], true) }}"
+  templates: "{{ __docker_stack__base__config_templates | d([], true) }}"
   firewalld_services: "{{ __docker_stack__base__firewalld_services | d([], true) }}"
   firewalld_ports: "{{ __docker_stack__base__firewalld_ports | d([], true) }}"
   networks: "{{ __docker_stack__base__networks | d({}, true) }}"

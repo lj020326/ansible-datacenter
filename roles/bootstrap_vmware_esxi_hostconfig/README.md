@@ -41,7 +41,7 @@ vault_esxi_password: 'password'
   hosts: all
   connection: local
   gather_facts: false
-  
+
   roles:
     - role: bootstrap_vmware_esxi_hostconfig
 ```

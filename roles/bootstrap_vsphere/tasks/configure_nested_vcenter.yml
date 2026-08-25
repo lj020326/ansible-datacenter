@@ -95,33 +95,30 @@
   loop: "{{ __nested_hosts_list }}"
 
 ## Build a list of each datastore to add to each host
-- name: configure_nested_vcenter | Build datastores to add
+- name: "configure_nested_vcenter | Build datastores to add"
   ansible.builtin.set_fact:
-    datastores_to_add: >-
-      [{% for host in __nested_hosts_list %}
-      {% for disk in bootstrap_vsphere__nested_clusters[host.cluster].nested_hosts_disks %}
-        {% if "create_datastore_name" in disk %}
-        {% if loop.index0 != 0 %}
-        {
-          "hostname": "{{ host.hostname | d(host.ip) | d(host.name + '.' + bootstrap_vsphere__vcenter_domain) }}",
-          "datastore_name": "{{disk.create_datastore_name}}-{{ host.name }}",
-          {% if "storage_channel_number" in disk %}
-          "storage_channel_number" : "{{ disk.storage_channel_number | d('0') }}",
-          {% endif %}
-          {% if "disk_target_position" in disk %}
-          "disk_target_position" : "{{ disk.disk_target_position | d(loop.index0) }}",
-          {% endif %}
-        },
+    __datastores_to_add: "{{ _datastores_raw | from_yaml }}"
+  vars:
+    _datastores_raw: |
+      {% for host in __nested_hosts_list %}
+      {% set cluster_disks = bootstrap_vsphere__nested_clusters[host.cluster].nested_hosts_disks | default([]) %}
+      {% for disk in cluster_disks %}
+      {% if disk.create_datastore_name is defined and not loop.first %}
+      - hostname: "{{ host.hostname | default(host.ip) | default(host.name + '.' + bootstrap_vsphere__vcenter_domain) }}"
+        datastore_name: "{{ disk.create_datastore_name }}-{{ host.name }}"
+        {% if disk.storage_channel_number is defined %}
+        storage_channel_number: "{{ disk.storage_channel_number | default('0') }}"
         {% endif %}
+        {% if disk.disk_target_position is defined %}
+        disk_target_position: "{{ disk.disk_target_position | default(loop.index0) }}"
         {% endif %}
+      {% endif %}
       {% endfor %}
       {% endfor %}
-      ]
-  loop: "{{ __nested_hosts_list }}"
 
-- name: Display datastores_to_add
+- name: Display __datastores_to_add
   ansible.builtin.debug:
-    var: datastores_to_add
+    var: __datastores_to_add
 
 - name: configure_nested_vcenter | Mount VMFS datastores to ESXi
   community.vmware.vmware_host_datastore:
@@ -136,7 +133,7 @@
     vmfs_version: 6
     esxi_hostname: "{{ item.hostname }}"
     state: present
-  loop: "{{ datastores_to_add }}"
+  loop: "{{ __datastores_to_add }}"
 
 - name: configure_nested_vcenter | Add resource pool to vCenter
   community.vmware.vmware_resource_pool:

@@ -38,36 +38,36 @@ writeToLog "*   PFSense fwbackup           *"
 writeToLog "*                              *"
 writeToLog "********************************"
 
-if [ ! -e $CFGPATH ]; then
+if [ ! -e "$CFGPATH" ]; then
     writeToLog "Config file ${CFGPATH} not found, quitting now!"
     exit 1
 fi
 
 writeToLog "Reading config ${CFGPATH} ...."
-source ${CFGPATH}
+source "${CFGPATH}"
 writeToLog "Config for the user: $USER"
 
 ([ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$PASS" ]) && writeToLog "all 3 arguments must be defined in config: PFSENSE_HOST USERNAME PASSWORD " && exit 1;
 
-if [ ! -d $DESTPATH ]; then
-  mkdir -p $DESTPATH
+if [ ! -d "$DESTPATH" ]; then
+  mkdir -p "$DESTPATH"
 fi
 
 BACKUPFILE=$DESTPATH/config-router-$TIMESTAMP.xml;
 
-writeToLog 'Connecting to '$HOST
+writeToLog 'Connecting to '"$HOST"
 
 #Get the initial CSRF Magic Token
 #csrf=$(curl -s -S --insecure --cookie-jar cookies/${HOST}cookie.txt https://${HOST}/diag_backup.php | grep "name='__csrf_magic'" | sed 's/.*value="\(.*\)".*/\1/')
 
 csrf=$(wget -qO- --keep-session-cookies --save-cookies cookies.txt \
-  --no-check-certificate https://${HOST}/diag_backup.php \
+  --no-check-certificate https://"${HOST}"/diag_backup.php \
   | grep "name='__csrf_magic'" | sed 's/.*value="\(.*\)".*/\1/')
 
 csrf2=$(wget -qO- --keep-session-cookies --load-cookies cookies.txt \
   --save-cookies cookies.txt --no-check-certificate \
   --post-data "login=Login&usernamefld=$USER&passwordfld=$PASS&__csrf_magic=${csrf}" \
-  https://${HOST}/diag_backup.php  | grep "name='__csrf_magic'" \
+  https://"${HOST}"/diag_backup.php  | grep "name='__csrf_magic'" \
   | sed 's/.*value="\(.*\)".*/\1/;q')
 #  | sed 's/.*value="\(.*\)".*/\1/')
 
@@ -76,26 +76,26 @@ csrf2=$(wget -qO- --keep-session-cookies --load-cookies cookies.txt \
 
 wget --keep-session-cookies --load-cookies cookies.txt --no-check-certificate \
   --post-data "download=download&donotbackuprrd=yes&__csrf_magic=${csrf2}" \
-  https://${HOST}/diag_backup.php -O $BACKUPFILE
+  https://"${HOST}"/diag_backup.php -O "$BACKUPFILE"
 
 writeToLog  "\n[$(date -Is)] Checking Results"
 
 # check if credentials are valid
-if grep -qi 'username or password' $BACKUPFILE; then
+if grep -qi 'username or password' "$BACKUPFILE"; then
         writeToLog ; writeToLog "   !!! AUTHENTICATION ERROR (${HOST}): PLEASE CHECK LOGIN AND PASSWORD"; writeToLog
 #        rm -f $BACKUPFILE
         exit 1
 fi
 
-grep --silent '^<?xml ' $BACKUPFILE || writeToLog "Downloaded file is not XML; is probably broken."
+grep --silent '^<?xml ' "$BACKUPFILE" || writeToLog "Downloaded file is not XML; is probably broken."
 # xml file contains doctype when the URL is wrong
-if grep -qi 'doctype html' $BACKUPFILE; then
+if grep -qi 'doctype html' "$BACKUPFILE"; then
 	writeToLog ; writeToLog "   !!! URL ERROR (${HOST}): HTTP OR HTTPS ?"; writeToLog
 #	rm -f $BACKUPFILE
 	exit 1
 fi
 
-if [ -e $BACKUPFILE ]; then
+if [ -e "$BACKUPFILE" ]; then
 	writeToLog "\n[$(date -Is)] FW Backup completed successfully\n"
 
 	# Clear unneeded partials and lock file

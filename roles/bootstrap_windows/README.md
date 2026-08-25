@@ -51,4 +51,3 @@ Windows 64 bit (amd64) (x64)
     - role: ruzickap.ansible-bootstrap-windows
       bootstrap_windows_virtio_win_iso_path: 'E:\\'
 ```
-

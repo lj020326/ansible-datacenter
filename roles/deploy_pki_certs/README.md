@@ -95,7 +95,7 @@ Deploys third-party or partner CA certificates stored in Vault KV to the local s
 
 ## Example Playbooks
 
-To use this role, create a playbook similar to the following. 
+To use this role, create a playbook similar to the following.
 
 Prior to running `deploy_pki_certs`, make sure to properly set-up and configure the PKI vault using the `bootstrap_pki` role in this repository.
 
@@ -185,11 +185,11 @@ The `tasks/main.yml` playbook follows a precise and layered logical flow to ensu
 
 1. **Preparation & Dependencies**
 
-- **Gather Facts & Include OS Vars:** Collects `date_time` facts and loads OS-specific variables (e.g., Debian vs. RedHat trust commands via include_vars). 
-- **Install Python Packages:** Installs essential/required Python libraries (`python-hcl2`, `requests`, `hvac`) on the Ansible control node for Vault API interactions and validation scripts. 
-- **Optional Reset:** If `deploy_pki_certs__ca_reset_local_certs: true`, backs up and wipes local cert/key dirs (with timestamped archives). 
-- **Ensure Directories Exist:** Creates secure local directories on the target host for certificates (`deploy_pki_certs__local_cert_dir`, e.g., `/usr/local/ssl/certs`) and private keys (`deploy_pki_certs__local_key_dir`, e.g., `/usr/local/ssl/private`). 
-- **Vault Connectivity:** Validates Vault token permissions for PKI reads, KV access, and issuance via `validate_vault_pki.yml`. 
+- **Gather Facts & Include OS Vars:** Collects `date_time` facts and loads OS-specific variables (e.g., Debian vs. RedHat trust commands via include_vars).
+- **Install Python Packages:** Installs essential/required Python libraries (`python-hcl2`, `requests`, `hvac`) on the Ansible control node for Vault API interactions and validation scripts.
+- **Optional Reset:** If `deploy_pki_certs__ca_reset_local_certs: true`, backs up and wipes local cert/key dirs (with timestamped archives).
+- **Ensure Directories Exist:** Creates secure local directories on the target host for certificates (`deploy_pki_certs__local_cert_dir`, e.g., `/usr/local/ssl/certs`) and private keys (`deploy_pki_certs__local_key_dir`, e.g., `/usr/local/ssl/private`).
+- **Vault Connectivity:** Validates Vault token permissions for PKI reads, KV access, and issuance via `validate_vault_pki.yml`.
 - **Local Audit:** For each cert type, checks file existence (stat) and cryptographic validity (e.g., expiry, CN match) using [`dettonville.utils.x509_certificate_verify`](https://github.com/dettonville/ansible-utils/blob/main/docs/readme.x509_certificate_verify.md).
 
 2. **Content Gathering Phase (The Source of Truth)**
@@ -199,21 +199,21 @@ Certificates are fetched or issued based on type, with idempotency via SHA256 fi
 **Static Certificates** (`fetch_static_cert.yml`)
 Handles pre-existing certs from Vault PKI CA or KV stores (types: 'pki_ca', 'kv' for root/internal/external CAs).
 
-- **Check Local:** Stat cert file; if exists, extract fingerprint and validate (e.g., not expired, key match if applicable). 
+- **Check Local:** Stat cert file; if exists, extract fingerprint and validate (e.g., not expired, key match if applicable).
 - **Fetch from Source:**
   - 'pki_ca': Direct GET to Vault `/ca/pem` endpoint; compare live fingerprint.
   - 'kv': `vault_kv2_get` from KV path (e.g., `secret/trusted_internal/root-ca.pem`); extract stored fingerprint.
 
-- **Compare & Skip:** If local fingerprint matches fetched, set `__needs_content_fetch: false` (no deploy). 
+- **Compare & Skip:** If local fingerprint matches fetched, set `__needs_content_fetch: false` (no deploy).
 - **Set Content:** If mismatch/missing, store raw PEM in `__cert_content` (no issuance/caching needed).
 
 **Dynamic Certificates** (`fetch_dynamic_cert.yml`)
 Handles on-the-fly issuance for hosts/routes (types: 'pki_service_route', 'pki_host').
 
-- **Check Local:** Stat cert/key files; if exists, extract fingerprint and validate pair (pubkey DER match, expiry). 
-- **Vault Cache Check:** Load from Vault cache (<Vault URL>/pki_cache/<slug>); validate TTL (issued_at + deploy_pki_certs__certificate_ttl > now). 
-  - If cache valid and fingerprints match, skip issuance. 
-- **Issue New (if needed):** `vault_kv2_write` to PKI /issue/<role> (e.g., `common_name: admin.example.int`, TTL: 8760h); unescape PEM (replace \\n → \n). 
+- **Check Local:** Stat cert/key files; if exists, extract fingerprint and validate pair (pubkey DER match, expiry).
+- **Vault Cache Check:** Load from Vault cache (<Vault URL>/pki_cache/<slug>); validate TTL (issued_at + deploy_pki_certs__certificate_ttl > now).
+  - If cache valid and fingerprints match, skip issuance.
+- **Issue New (if needed):** `vault_kv2_write` to PKI /issue/<role> (e.g., `common_name: admin.example.int`, TTL: 8760h); unescape PEM (replace \\n → \n).
   - Cache fresh response (cert, key, chain) as JSON.
   - Extract fingerprints; compare local—if match, skip deploy.
 
@@ -372,12 +372,12 @@ systemctl enable --now ansible-ca-renewal.timer
   $ openssl rsa -in /usr/local/ssl/private/ca-root-key.pem -pubout > key_pub_rsa.key
   writing RSA key
   $ diff cert_pub_rsa.key key_pub_rsa.key
-  $ 
+  $
   # For example-vault-ca (ECDSA private key)
   $ openssl x509 -in /usr/local/ssl/certs/example-vault-ca.pem -pubkey -noout > cert_pub_ec.key
   $ openssl ec -in /usr/local/ssl/private/example-vault-ca-key.pem -pubout > key_pub_ec.key
   $ diff cert_pub_ec.key key_pub_ec.key  # Should be empty (match)
-  $ 
+  $
   ```
 - Validation test script
   The role deploys the `validate_certs.sh` script which performs the same test as above for the root and vault certs.

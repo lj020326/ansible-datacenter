@@ -53,7 +53,7 @@ function logError() {
   fi
 }
 function logWarn() {
-  if [ $LOG_LEVEL -ge $LOG_WARN ]; then
+  if [ "$LOG_LEVEL" -ge "$LOG_WARN" ]; then
   	logMessage "${LOG_WARN}" "${1}"
   fi
 }
@@ -63,12 +63,12 @@ function logInfo() {
   fi
 }
 function logTrace() {
-  if [ $LOG_LEVEL -ge $LOG_TRACE ]; then
+  if [ "$LOG_LEVEL" -ge "$LOG_TRACE" ]; then
   	logMessage "${LOG_TRACE}" "${1}"
   fi
 }
 function logDebug() {
-  if [ $LOG_LEVEL -ge $LOG_DEBUG ]; then
+  if [ "$LOG_LEVEL" -ge "$LOG_DEBUG" ]; then
   	logMessage "${LOG_DEBUG}" "${1}"
   fi
 }
@@ -136,13 +136,13 @@ function setLogLevel() {
 
 function main() {
 
-  if [ ! -e $CONFIG_FILEPATH ]; then
+  if [ ! -e "$CONFIG_FILEPATH" ]; then
       logError "Config file ${CONFIG_FILEPATH} not found, quitting now!"
       exit 1
   fi
 
   logInfo "Reading configs from ${CONFIG_FILEPATH} ...."
-  source ${CONFIG_FILEPATH}
+  source "${CONFIG_FILEPATH}"
 
   logInfo "EMAIL_FROM=${EMAIL_FROM}"
   logInfo "EMAIL_TO=${EMAIL_TO}"
@@ -154,9 +154,9 @@ function main() {
   mount -a
 
   logInfo "truncating log file ${LOG_FILE}"
-  mkdir -p ${LOG_DIR}
-  touch ${LOG_FILE}
-  cat /dev/null > ${LOG_FILE}
+  mkdir -p "${LOG_DIR}"
+  touch "${LOG_FILE}"
+  cat /dev/null > "${LOG_FILE}"
 
   # Run the backup
   BACKUP_SCRIPT_COMMAND="${BACKUP_SCRIPT} ${SOURCE_DIR} ${DEST_DIR} 2>&1 | tee -a ${LOG_FILE}"
@@ -179,7 +179,7 @@ function main() {
     BACKUP_STATUS_MSG=FAILED
   fi
 
-  cat "${LOG_FILE}" | mail -s "[$BACKUP_STATUS_MSG] ${BACKUP_LABEL_MSG} rsync backup : ${SOURCE_DIR}->${DEST_DIR}" -r ${EMAIL_FROM} ${EMAIL_TO}
+  cat "${LOG_FILE}" | mail -s "[$BACKUP_STATUS_MSG] ${BACKUP_LABEL_MSG} rsync backup : ${SOURCE_DIR}->${DEST_DIR}" -r "${EMAIL_FROM}" "${EMAIL_TO}"
 
   exit ${BACKUP_RETURN_CODE}
 

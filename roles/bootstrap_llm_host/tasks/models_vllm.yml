@@ -1,0 +1,104 @@
+---
+
+- name: vllm | Assert bootstrap_llm_host__model_runtime is valid
+  ansible.builtin.assert:
+    that: bootstrap_llm_host__model_runtime in __bootstrap_llm_host__model_runtime_choices
+
+- name: vllm | Install huggingface_hub CLI into ansible venv
+  ansible.builtin.pip:
+    name: "huggingface_hub[cli,hf_transfer]"
+    state: present
+
+- name: vllm | Ensure model directory exists on host
+  ansible.builtin.file:
+    path: "{{ bootstrap_llm_host__vllm_host_volume_path }}"
+    state: directory
+    owner: "{{ bootstrap_llm_host__model_user }}"
+    group: "{{ bootstrap_llm_host__model_user }}"
+    mode: '0755'
+
+- name: vllm | Display ansible_facts['user_dir']
+  ansible.builtin.debug:
+    var: ansible_facts['user_dir']
+
+- name: vllm | Display ansible_facts.env.PATH
+  ansible.builtin.debug:
+    var: ansible_facts.env.PATH
+
+- name: vllm | Display bootstrap_llm_host__model_user
+  ansible.builtin.debug:
+    var: bootstrap_llm_host__model_user
+
+- name: vllm | Download models from Hugging Face
+  dettonville.llm.hf_download:
+    repo_id: "{{ item.repo }}"
+    filename: "{{ item.filename | default(omit) }}"
+    quant_preference: "{{ item.quant_preference | default(omit) }}"
+    local_dir: "{{ bootstrap_llm_host__vllm_host_volume_path }}"
+    force_download: "{{ bootstrap_llm_host__install_force | bool }}"
+    token: "{{ bootstrap_llm_host__hugging_face_token | d(omit) }}"
+    owner: "{{ bootstrap_llm_host__model_user }}"
+    group: "{{ bootstrap_llm_host__model_user }}"
+  loop: "{{ bootstrap_llm_host__vllm_models }}"
+  loop_control:
+    label: "{{ item.repo }}{{ '/' + item.filename if item.filename is defined else '' }}"
+  register: __models_download
+
+- name: vllm | Debug downloaded models status
+  ansible.builtin.debug:
+    msg: >-
+      Model: {{ item.item }} |
+      Changed: {{ item.changed | default(false) }} |
+      Status: {{ 'Failed' if item.failed | default(true) else 'Downloaded/Verified' }}
+  loop: "{{ __models_download.results | default([]) }}"
+  when: __models_download.results is defined
+
+- name: vllm | Verify models are present inside container
+  when: bootstrap_llm_host__model_runtime in ['docker', 'swarm']
+  block:
+    - name: vllm | Wait for container to be running
+      ansible.builtin.command: >
+        docker ps --filter "name={{ (bootstrap_llm_host__vllm_container_name
+          if bootstrap_llm_host__model_runtime == 'docker'
+          else bootstrap_llm_host__vllm_service_name) }}" --format "{{ '{{.Names}}' }}"
+      register: __model_container_ps
+      until: __model_container_ps.stdout | length > 0
+      retries: 30
+      delay: 5
+      changed_when: false
+
+    - name: vllm | Set __model_container_cmd
+      ansible.builtin.set_fact:
+        __model_container_cmd: >-
+          {% if bootstrap_llm_host__model_runtime == 'swarm' %}
+          docker exec -u root $(docker ps -q --filter "name=^{{
+            bootstrap_llm_host__docker_stack_name }}_{{
+            bootstrap_llm_host__vllm_service_name }}." --filter "status=running" | head -n 1)
+          {% else %}
+          docker exec -u root {{ bootstrap_llm_host__vllm_container_name }}
+          {% endif %}
+
+    - name: vllm | Verify models are present inside container
+      ansible.builtin.command: >
+        {{ __model_container_cmd }} ls -1 {{ bootstrap_llm_host__vllm_container_models_dir }}
+      register: __model_check
+      changed_when: false
+      failed_when: false
+
+    - name: vllm | Debug model directory content
+      ansible.builtin.debug:
+        msg: "Models found inside container: {{ __model_check.stdout_lines | default([]) }}"
+
+- name: vllm | Wait for vllm OpenAI-compatible API to be ready
+  dettonville.llm.vllm_api:
+    url: "{{ __bootstrap_llm_host__vllm_api_url }}"
+    api_key: "{{ bootstrap_llm_host__vllm_api_key | d(omit) }}"
+    action: health
+  register: __health_result
+  until: __health_result is succeeded
+  retries: 3
+  delay: 5
+
+- name: vllm | Display __health_result
+  ansible.builtin.debug:
+    var: __health_result

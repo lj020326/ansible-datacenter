@@ -17,14 +17,14 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 bindir=$(dirname $(readlink -f "$BASH_SOURCE") )
-cd $bindir
+cd "$bindir"
 workingdir=$(pwd)
 if [[ ! $EUID -eq 0 ]]; then
     echo "FOG Installation must be run as root user"
     exit 1
 fi
 which useradd >/dev/null 2>&1
-if [[ $? -eq 1 || $(echo $PATH | grep -o "sbin" | wc -l) -lt 2 ]]; then
+if [[ $? -eq 1 || $(echo "$PATH" | grep -o "sbin" | wc -l) -lt 2 ]]; then
     echo "Please switch to a proper root environment to run the installer!"
     echo "Use 'sudo -i' or 'su -' (skip the ' and note the hyphen at the end"
     echo "of the su command as it is important to load root's environment)."
@@ -146,7 +146,7 @@ while getopts "$optspec" o; do
                     sbackupPath=$OPTARG
                     ;;
                 startrange)
-                    if [[ $(validip $OPTARG) != 0 ]]; then
+                    if [[ $(validip "$OPTARG") != 0 ]]; then
                         echo "Invalid ip passed"
                         help
                         exit 5
@@ -156,7 +156,7 @@ while getopts "$optspec" o; do
                     bldhcp=1
                     ;;
                 endrange)
-                    if [[ $(validip $OPTARG) != 0 ]]; then
+                    if [[ $(validip "$OPTARG") != 0 ]]; then
                         echo "Invalid ip passed"
                         help
                         exit 6
@@ -260,7 +260,7 @@ while getopts "$optspec" o; do
             sbackupPath=$OPTARG
             ;;
         s)
-            if [[ $(validip $OPTARG) != 0 ]]; then
+            if [[ $(validip "$OPTARG") != 0 ]]; then
                 echo "Invalid ip passed"
                 help
                 exit 5
@@ -270,7 +270,7 @@ while getopts "$optspec" o; do
             bldhcp=1
             ;;
         e)
-            if [[ $(validip $OPTARG) != 0 ]]; then
+            if [[ $(validip "$OPTARG") != 0 ]]; then
                 echo "Invalid ip passed"
                 help
                 exit 6
@@ -336,27 +336,27 @@ fi
 [[ ! -d ./error_logs/ ]] && mkdir -p ./error_logs >/dev/null 2>&1
 echo "Installing LSB_Release as needed"
 dots "Attempting to get release information"
-command -v lsb_release >$workingdir/error_logs/fog_error_${version}.log 2>&1
+command -v lsb_release >"$workingdir"/error_logs/fog_error_"${version}".log 2>&1
 exitcode=$?
 if [[ ! $exitcode -eq 0 ]]; then
     case $linuxReleaseName in
         *[Bb][Ii][Aa][Nn]*|*[Uu][Bb][Uu][Nn][Tt][Uu]*|*[Mm][Ii][Nn][Tt]*)
-            apt-get -yq install lsb-release >>$workingdir/error_logs/fog_error_${version}.log 2>&1
+            apt-get -yq install lsb-release >>"$workingdir"/error_logs/fog_error_"${version}".log 2>&1
             ;;
         *[Cc][Ee][Nn][Tt][Oo][Ss]*|*[Rr][Ee][Dd]*[Hh][Aa][Tt]*|*[Ff][Ee][Dd][Oo][Rr][Aa]*)
-            command -v dnf >>$workingdir/error_logs/fog_error_${version}.log 2>&1
+            command -v dnf >>"$workingdir"/error_logs/fog_error_"${version}".log 2>&1
             exitcode=$?
             case $exitcode in
                 0)
-                    dnf -y install redhat-lsb-core >>$workingdir/error_logs/fog_error_${version}.log 2>&1
+                    dnf -y install redhat-lsb-core >>"$workingdir"/error_logs/fog_error_"${version}".log 2>&1
                     ;;
                 *)
-                    yum -y install redhat-lsb-core >>$workingdir/error_logs/fog_error_${version}.log 2>&1
+                    yum -y install redhat-lsb-core >>"$workingdir"/error_logs/fog_error_"${version}".log 2>&1
                     ;;
             esac
             ;;
         *[Aa][Rr][Cc][Hh]*)
-            pacman -Sy --noconfirm lsb-release >>$workingdir/error_logs/fog_error_${version}.log 2>&1
+            pacman -Sy --noconfirm lsb-release >>"$workingdir"/error_logs/fog_error_"${version}".log 2>&1
             ;;
     esac
 fi
@@ -425,7 +425,7 @@ esac
 [[ -n $srecreateKeys ]] && recreateKeys=$srecreateKeys
 [[ -n $sarmsupport ]] && armsupport=$sarmsupport
 
-[[ -f $fogpriorconfig ]] && grep -l webroot $fogpriorconfig >>$workingdir/error_logs/fog_error_${version}.log 2>&1
+[[ -f $fogpriorconfig ]] && grep -l webroot "$fogpriorconfig" >>"$workingdir"/error_logs/fog_error_"${version}".log 2>&1
 case $? in
     0)
         if [[ -n $webroot ]]; then
@@ -524,18 +524,18 @@ while [[ -z $blGo ]]; do
                 for z in $packages; do
                     [[ $z != htmldoc ]] && newpackagelist="$newpackagelist $z"
                 done
-                packages="$(echo $newpackagelist)"
+                packages="$(echo "$newpackagelist")"
             fi
             if [[ $bldhcp == 0 ]]; then
                 [[ -z $newpackagelist ]] && newpackagelist=""
                 for z in $packages; do
                     [[ $z != $dhcpname ]] && newpackagelist="$newpackagelist $z"
                 done
-                packages="$(echo $newpackagelist)"
+                packages="$(echo "$newpackagelist")"
             fi
             case $installtype in
                 [Ss])
-                    packages=$(echo $packages | sed -e 's/[-a-zA-Z]*dhcp[-a-zA-Z]*//g')
+                    packages=$(echo "$packages" | sed -e 's/[-a-zA-Z]*dhcp[-a-zA-Z]*//g')
                     ;;
             esac
             installPackages
@@ -645,7 +645,7 @@ while [[ -z $blGo ]]; do
                     echo
                     ;;
             esac
-            [[ -d $webdirdest/maintenance ]] && rm -rf $webdirdest/maintenance
+            [[ -d $webdirdest/maintenance ]] && rm -rf "$webdirdest"/maintenance
             ;;
         [Nn]|[Nn][Oo])
             echo " * FOG installer exited by user request"

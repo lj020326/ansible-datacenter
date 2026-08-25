@@ -47,7 +47,7 @@ if [ -f "${HOME}/.bash_secrets" ]; then
         echo "${log_bash} ansible-vault not installed, skip loading ${HOME}/.bash_secrets"
     else
         echo "${log_bash} sourcing ~/.bash_secrets"
-        eval "$(ansible-vault view ${HOME}/.bash_secrets --vault-password-file ${HOME}/.vault_pass)"
+        eval "$(ansible-vault view "${HOME}"/.bash_secrets --vault-password-file "${HOME}"/.vault_pass)"
     fi
 fi
 
