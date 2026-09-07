@@ -1,5 +1,5 @@
 ---
-name: Documentation Standards
+name: Ansible Documentation Standards (ansible-datacenter)
 globs: ["**/*.md", "README.md", "docs/**/*"]
 alwaysApply: true
 description: Documentation style guide

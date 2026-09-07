@@ -1,5 +1,5 @@
 ---
-name: Development Workflow
+name: Ansible Development Workflow (ansible-datacenter)
 globs: ["**/*"]
 alwaysApply: true
 description: General coding and TDD standards

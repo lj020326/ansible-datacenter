@@ -19,7 +19,7 @@ __docker_stack__ollama__http_port: "{{ docker_stack__ollama__http_port | d('1143
 __docker_stack__ollama__internal_http_port: "{{ docker_stack__ollama__internal_http_port | d('11434') }}"
 __docker_stack__ollama__internal_http_host: "0.0.0.0:{{ __docker_stack__ollama__internal_http_port }}"
 
-#__docker_stack__ollama__host_default: "{{ __docker_stack__ollama__host_addr }}"
+# __docker_stack__ollama__host_default: "{{ __docker_stack__ollama__host_addr }}"
 __docker_stack__ollama__host_default: "host.docker.internal"
 __docker_stack__ollama__host: "{{ docker_stack__ollama__host
   | d(__docker_stack__ollama__host_default) }}"
@@ -38,15 +38,27 @@ __docker_stack__ollama__origins: "{{ docker_stack__ollama__origins
 
 __docker_stack__ollama__debug: "{{ docker_stack__ollama__debug | d(false) }}"
 
-  # Add to Ollama systemd unit / environment setup:
-  # optional: keep models loaded longer
-#__docker_stack__ollama__keep_alive_default: "24h"
-#__docker_stack__ollama__keep_alive_default: "1h"
-__docker_stack__ollama__keep_alive_default: "5m"
-__docker_stack__ollama__keep_alive: "{{ docker_stack__ollama__keep_alive | d('5m') }}"
+# Add to Ollama systemd unit / environment setup:
+# optional: keep models loaded longer
+__docker_stack__ollama__keep_alive_default: "24h"
+# __docker_stack__ollama__keep_alive_default: "1h"
+# __docker_stack__ollama__keep_alive_default: "5m"
+__docker_stack__ollama__keep_alive: "{{ docker_stack__ollama__keep_alive
+  | d(__docker_stack__ollama__keep_alive_default) }}"
 
-# Ensure OLLAMA_MAX_LOADED_MODELS=1 to force Ollama to unload current model before loading another model
+# Force Ollama to strictly utilize GPU layers where possible
+__docker_stack__ollama__num_parallel: "{{ docker_stack__ollama__num_parallel | d(1) }}"
+# Restrict maximum worker CPU threads to avoid CPU thermal/power spikes during loading
+__docker_stack__ollama__num_threads: "{{ docker_stack__ollama__num_threads | d(4) }}"
+# Ensure CUDA runtime options prevent unnecessary driver fallback allocations
+__docker_stack__ollama__cuda_visible_devices: "{{ docker_stack__ollama__cuda_visible_devices | d(0) }}"
+
+# Ensure OLLAMA_MAX_LOADED_MODELS=1 to force Ollama to unload current model
+# before loading another model
 __docker_stack__ollama__max_loaded_models: "{{ docker_stack__ollama__max_loaded_models | d('1') }}"
+
+__docker_stack__ollama__resource_limits_cpus: "8.0"
+__docker_stack__ollama__resource_limits_memory: "32G"
 
 __docker_stack__ollama__environment_default:
   OLLAMA_HOST: "{{ __docker_stack__ollama__internal_http_host }}"
@@ -55,6 +67,9 @@ __docker_stack__ollama__environment_default:
   OLLAMA_KEEP_ALIVE: "{{ __docker_stack__ollama__keep_alive }}"
   OLLAMA_MAX_LOADED_MODELS: "{{ __docker_stack__ollama__max_loaded_models }}"
   OLLAMA_MODELS: "{{ __docker_stack__ollama__container_home_dir }}/.ollama/models"
+  OLLAMA_NUM_PARALLEL: "{{ __docker_stack__ollama__num_parallel }}"
+  OLLAMA_NUM_THREADS: "{{ __docker_stack__ollama__num_threads }}"
+  CUDA_VISIBLE_DEVICES: "{{ __docker_stack__ollama__cuda_visible_devices }}"
 
   # Change this from /root to /ollama
   HOME: "{{ __docker_stack__ollama__container_home_dir }}"
@@ -96,6 +111,9 @@ docker_stack__appspec__ollama:
   docker_services: "{{ __docker_stack__ollama__services | d({}, true) }}"
 
 __docker_stack__ollama__deploy_resources_standalone:
+  limits:
+    cpus: "{{ __docker_stack__ollama__resource_limits_cpus }}"
+    memory: "{{ __docker_stack__ollama__resource_limits_memory }}"
   reservations:
     devices:
       - driver: nvidia
@@ -107,6 +125,9 @@ __docker_stack__ollama__deploy_resources_standalone:
 #        capabilities: [gpu]
 
 __docker_stack__ollama__deploy_resources_swarm:
+  limits:
+    cpus: "{{ __docker_stack__ollama__resource_limits_cpus }}"
+    memory: "{{ __docker_stack__ollama__resource_limits_memory }}"
   reservations:
     generic_resources:
       - discrete_resource_spec:

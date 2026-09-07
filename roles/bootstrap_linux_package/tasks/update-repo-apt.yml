@@ -58,17 +58,46 @@
         backup: true
       notify: APT Update Cache
 
-- name: Package | APT - Install repositories (ubuntu)
+- name: "Package | APT - Install repositories (ubuntu)"
   when:
     - ansible_facts['distribution'] == 'Ubuntu'
     - ansible_facts['distribution_major_version'] | int >= 24
   block:
-
-    - name: Package | APT - Empty sources.list
+    - name: "Package | APT - Empty sources.list"
       when: not (__bootstrap_linux_package__reset_sources | bool)
       ansible.builtin.copy:
         dest: "{{ __bootstrap_linux_package__apt_sources_file }}"
         content: "# Ubuntu sources have moved to {{ __bootstrap_linux_package__package_source_dir }}/ubuntu.sources\n"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+
+    - name: "Package | APT - Deploy APT mirror list file"
+      when: bootstrap_linux_package__apt_ubuntu_mirrors | length > 1
+      block:
+        - name: "Package | APT - Ensure APT mirrors directory exists"
+          ansible.builtin.file:
+            path: "{{ bootstrap_linux_package__apt_ubuntu_mirror_file | dirname }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+
+        - name: "Package | APT - Deploy APT mirror list file"
+          ansible.builtin.template:
+            src: apt-mirrors-ubuntu.list.j2
+            dest: "{{ bootstrap_linux_package__apt_ubuntu_mirror_file }}"
+            owner: root
+            group: root
+            mode: '0644'
+
+    - name: "Package | APT - Empty sources.list"
+      when: not (__bootstrap_linux_package__reset_sources | bool)
+      ansible.builtin.copy:
+        dest: "{{ bootstrap_linux_package__apt_sources_ubuntu_tpl }}"
+        content: |
+          # Ubuntu sources have moved to {{ __bootstrap_linux_package__apt_sources_file }}
         owner: root
         group: root
         mode: "0644"
@@ -91,13 +120,13 @@
       ansible.builtin.deb822_repository:
         name: "{{ item.filename | d(item.name) | lower }}"
         state: "{{ item.state | d(package__state) }}"
-        types: [ deb ]
+        types: [deb]
         uris: "{{ item.repo_url }}"
         suites: "{{ item.suites | d(omit) }}"
-#        suites: [ "{{ ansible_facts['distribution_release'] }}" ]
+#        suites: ["{{ ansible_facts['distribution_release'] }}"]
         components: "{{ item.components | d(omit) }}"
 #        components: "{{ item.components | d(['stable']) }}"
-        architectures: [ "{{ bootstrap_linux_package__apt_arch }}" ]
+        architectures: ["{{ bootstrap_linux_package__apt_arch }}"]
         signed_by: "{{ item.key_url }}"
       loop: "{{ bootstrap_linux_package__custom_repo_list.apt }}"
       loop_control:
@@ -121,11 +150,22 @@
 #      loop_control:
 #        label: "{{ item.name }}"
 
-- name: Package | APT - Update System Package Cache
+- name: "Package | APT - Configure APT connection timeouts for faster failover"
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99timeouts
+    content: |
+      Acquire::http::Timeout "{{ bootstrap_linux_package__apt_timeout | default(5) }}";
+      Acquire::https::Timeout "{{ bootstrap_linux_package__apt_timeout | default(5) }}";
+      Acquire::Retries "{{ bootstrap_linux_package__apt_retries | default(1) }}";
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Package | APT - Update System Package Cache"
   ansible.builtin.apt:
     update_cache: true
     force_apt_get: true
 #    cache_valid_time: 3600
 
-- name: Package | APT - Run Handlers
+- name: "Package | APT - Run Handlers"
   ansible.builtin.meta: flush_handlers

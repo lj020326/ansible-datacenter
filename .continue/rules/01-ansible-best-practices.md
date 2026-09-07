@@ -1,5 +1,5 @@
 ---
-name: Ansible Best Practices
+name: Ansible Best Practices (ansible-datacenter)
 globs: ["**/*.{yml,yaml,j2,py}"]
 alwaysApply: true
 description: Core standards for Ansible roles

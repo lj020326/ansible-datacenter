@@ -10,15 +10,16 @@ declare -a USER_ENDPOINTS=()
 # Define Default Endpoints using Bash Associative Array
 declare -A DEFAULT_ENDPOINTS=(
   ["${OLLAMA_API_URL:-https://ollama.llm-rtx.johnson.int}"]="ollama"
-  ["${LLAMA_API_URL:-https://llama.llm-rtx.johnson.int/v1}"]="llama"
   ["${VLLM_API_URL:-https://vllm.llm-gb10.johnson.int/v1}"]="vllm"
+  ["https://vllm-exec.llm-gb10.johnson.int/v1"]="vllm"
   ["https://ollama.llm-gb10.johnson.int"]="ollama"
-  ["https://llama.llm-gb10.johnson.int"]="llama"
   ["https://ollama.admin.johnson.int"]="ollama"
+#  ["${LLAMA_API_URL:-https://llama.llm-rtx.johnson.int/v1}"]="llama"
+#  ["https://llama.llm-gb10.johnson.int"]="llama"
 )
 
-# Curl default options as an array
-CURL_OPTS=(--connect-timeout 5 --max-time 15)
+# 1. Increased timeout: Raised --max-time from 15s to 120s to allow model cold-loading
+CURL_OPTS=(--connect-timeout 5 --max-time 120)
 
 # Helper execution function using array-based arguments
 function exec_curl() {
@@ -70,8 +71,8 @@ function exec_curl() {
     echo "ERROR (exit status ${RETURN_STATUS}):"
     echo "${http_code}"
   else
-    # Status validation for health responses
-    if [[ "${endpoint_type}" == "raw" || "${endpoint_type}" == "health" ]]; then
+    # Status validation for health and ping responses
+    if [[ "${endpoint_type}" == "raw" || "${endpoint_type}" == "health" || "${endpoint_type}" == "ping" ]]; then
       if [[ "${http_code}" -ge 200 && "${http_code}" -lt 300 ]]; then
         echo "Status: OK (HTTP ${http_code})"
       else
@@ -81,7 +82,7 @@ function exec_curl() {
 
     if [[ -n "${output}" ]]; then
       if echo "${output}" | jq . >/dev/null 2>&1; then
-        if [[ "${SHOW_RAW_JSON}" == "true" ]]; then
+        if [[ "${SHOW_RAW_JSON}" == "true" || "${endpoint_type}" == "ping" ]]; then
           echo "${output}" | jq
         else
           # Extract model names by endpoint type
@@ -136,6 +137,64 @@ function get_ollama_auth_args() {
   fi
 }
 
+# Helper to sort models by estimated parameter count (lightest first)
+function sort_by_lightest() {
+  awk '{
+    model = $0;
+    size = 999999;
+    if (match(model, /:([0-9\.]+)b/)) {
+      size = substr(model, RSTART+1, RLENGTH-2) + 0;
+    } else if (match(model, /-([0-9\.]+)b/)) {
+      size = substr(model, RSTART+1, RLENGTH-2) + 0;
+    }
+    print size, model;
+  }' | sort -n | awk '{print $2}'
+}
+
+# 2 & 3. Enhanced discovery:
+# - Prefers active models loaded in VRAM (/api/ps)
+# - Filters out non-generative models (embed/rerank)
+# - Prefers lighter-weight models sorted by parameter count
+function discover_model() {
+  local type="$1"
+  local url="$2"
+  local discovered_model=""
+
+  if [[ "${type}" == "vllm" || "${type}" == "llama" ]]; then
+    local target_url="${url}"
+    [[ "${target_url}" != *"/v1"* ]] && target_url="${target_url}/v1"
+    readarray -t auth_args < <(get_bearer_auth_args "${type}")
+
+    # Query vLLM /models list, filter non-generative models, and sort by parameter weight
+    discovered_model=$(curl -sS "${CURL_OPTS[@]}" "${auth_args[@]}" "${target_url}/models" 2>/dev/null \
+      | jq -r '.data[]?.id // empty' 2>/dev/null \
+      | grep -vE 'embed|rerank|bge|minilm' \
+      | sort_by_lightest \
+      | head -n1)
+
+  elif [[ "${type}" == "ollama" ]]; then
+    readarray -t auth_args < <(get_ollama_auth_args)
+
+    # First Check: Pre-loaded models currently resident in VRAM via /api/ps
+    discovered_model=$(curl -sS "${CURL_OPTS[@]}" "${auth_args[@]}" "${url}/api/ps" 2>/dev/null \
+      | jq -r '.models[]?.name // empty' 2>/dev/null \
+      | grep -vE 'embed|rerank|bge|minilm' \
+      | sort_by_lightest \
+      | head -n1)
+
+    # Second Check: If no generative model is in VRAM, query /api/tags and pick the lightest available model
+    if [[ -z "${discovered_model}" ]]; then
+      discovered_model=$(curl -sS "${CURL_OPTS[@]}" "${auth_args[@]}" "${url}/api/tags" 2>/dev/null \
+        | jq -r '.models[]?.name // empty' 2>/dev/null \
+        | grep -vE 'embed|rerank|bge|minilm' \
+        | sort_by_lightest \
+        | head -n1)
+    fi
+  fi
+
+  echo "${discovered_model}"
+}
+
 # Function to display usage help and detailed command examples
 function show_usage() {
   cat << EOF
@@ -150,6 +209,7 @@ OPTIONS:
 
 COMMANDS:
   health | check             Check availability and health status across target endpoints.
+  ping [model]               Send a test chat completion payload to verify inference.
   display | ls | list        List all downloaded/available models across all endpoints (Default action).
   ps | running               List currently loaded/running models in VRAM (Ollama endpoints only).
   pull | download <model>    Pull/download a model from registry (Ollama endpoints only).
@@ -168,7 +228,16 @@ COMMANDS:
    # Verify health on a targeted server
    $ $(basename "$0") -e https://vllm.llm-gb10.johnson.int/v1 check
 
-2. LISTING MODELS (display / ls / list)
+2. CHAT INFERENCE PING (ping)
+   Use Case: Send a minimal chat completion request to test end-to-end model response.
+
+   # Ping vLLM endpoint (automatically discovers pre-loaded / lightest model if omitted)
+   $ $(basename "$0") -e https://vllm.llm-gb10.johnson.int/v1 ping
+
+   # Ping with an explicit model target
+   $ $(basename "$0") -e https://vllm.llm-gb10.johnson.int/v1 ping qwen-coder
+
+3. LISTING MODELS (display / ls / list)
    Use Case: Quick inventory audit to check what LLM weights are available.
 
    # List models across all default endpoints in standard formatted list
@@ -180,7 +249,7 @@ COMMANDS:
    # Check models on a specific host only
    $ $(basename "$0") -e https://ollama.llm-gb10.johnson.int list
 
-3. MONITORING RUNNING MODELS (ps / running)
+4. MONITORING RUNNING MODELS (ps / running)
    Use Case: Inspect active models residing in VRAM to debug memory load or OOM issues.
 
    # Query all active Ollama endpoints for currently running models in VRAM
@@ -189,7 +258,7 @@ COMMANDS:
    # Check active models on a custom Ollama host
    $ $(basename "$0") -e https://ollama.llm-rtx.johnson.int running
 
-4. DOWNLOADING MODELS (pull / download)
+5. DOWNLOADING MODELS (pull / download)
    Use Case: Remote deployment of new model weights to local inference backends.
 
    # Download a 7B coder model to Ollama instances
@@ -198,7 +267,7 @@ COMMANDS:
    # Download a model to a specific target host
    $ $(basename "$0") -e https://ollama.llm-gb10.johnson.int download llama3.1:8b
 
-5. DELETING MODELS (remove / rm / delete)
+6. DELETING MODELS (remove / rm / delete)
    Use Case: Reclaim GPU disk or VRAM space by removing large unused model weights.
 
    # Delete a specific model from Ollama backends
@@ -290,6 +359,57 @@ case "${ACTION}" in
         base_url="${url%/v1}"
         readarray -t auth_args < <(get_bearer_auth_args "llama")
         exec_curl "health" "${CURL_OPTS[@]}" "${auth_args[@]}" "${base_url}/health"
+      fi
+      ((counter++))
+    done
+    ;;
+
+  ping)
+    for url in "${!ENDPOINTS[@]}"; do
+      type="${ENDPOINTS[$url]}"
+      target_model="${MODEL_NAME}"
+
+      if [[ -z "${target_model}" ]]; then
+        target_model=$(discover_model "${type}" "${url}")
+      fi
+
+      if [[ -z "${target_model}" ]]; then
+        echo "Error: Could not determine an available model on ${url}. Please specify one explicitly."
+        continue
+      fi
+
+      echo "=========================================="
+      echo " ${counter}. Chat Completion Ping [${type^^}]: ${url}"
+      echo " Target Model: ${target_model}"
+      echo "=========================================="
+
+      if [[ "${type}" == "vllm" || "${type}" == "llama" ]]; then
+        target_url="${url}"
+        [[ "${target_url}" != *"/v1"* ]] && target_url="${target_url}/v1"
+        readarray -t auth_args < <(get_bearer_auth_args "${type}")
+
+        payload=$(cat <<EOF
+{
+  "model": "${target_model}",
+  "messages": [{"role": "user", "content": "ping"}],
+  "max_tokens": 10
+}
+EOF
+)
+        exec_curl "ping" "${CURL_OPTS[@]}" "${auth_args[@]}" -H "Content-Type: application/json" -X POST "${target_url}/chat/completions" -d "${payload}"
+
+      elif [[ "${type}" == "ollama" ]]; then
+        readarray -t auth_args < <(get_ollama_auth_args)
+
+        payload=$(cat <<EOF
+{
+  "model": "${target_model}",
+  "prompt": "ping",
+  "stream": false
+}
+EOF
+)
+        exec_curl "ping" "${CURL_OPTS[@]}" "${auth_args[@]}" -H "Content-Type: application/json" -X POST "${url}/api/generate" -d "${payload}"
       fi
       ((counter++))
     done

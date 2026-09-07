@@ -310,20 +310,22 @@ function validate_kicslint() {
   local TEST_COMMAND="kics scan --ci --config ${KICS_CONFIG_FILE}"
   eval "${TEST_COMMAND} > /dev/null 2>&1"
   local RETURN_STATUS=$?
+  local TEST_RESULT=0
 
   if [[ $RETURN_STATUS -eq 0 ]]; then
     log_info "SUCCESS => No exceptions found from [${TEST_COMMAND}]!!"
   else
-    log_info "There are [${RETURN_STATUS}] exceptions found from [${TEST_COMMAND}]!! :("
+    log_info "There are exceptions found from [${TEST_COMMAND}]!! :("
     log_info "${TEST_COMMAND}"
     eval "${TEST_COMMAND}"
+    TEST_RESULT=1
   fi
 
   log_info "#######################################################"
   log_info "RETURN_STATUS=${RETURN_STATUS}"
   log_info ""
 
-  return "${RETURN_STATUS}"
+  return "${TEST_RESULT}"
 }
 
 function validate_inclusivity() {
