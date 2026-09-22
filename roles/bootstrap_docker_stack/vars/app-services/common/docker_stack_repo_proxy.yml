@@ -1,0 +1,189 @@
+---
+
+__docker_stack__repo_proxy__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__repo_proxy__base_dir: "{{ __docker_stack__repo_proxy__stack_dir }}/repo_proxy"
+__docker_stack__repo_proxy__cache_dir: "{{ __docker_stack__repo_proxy__base_dir }}/cache"
+__docker_stack__repo_proxy__config_dir: "{{ __docker_stack__repo_proxy__base_dir }}/config"
+
+## https://github.com/soulteary/apt-proxy
+# __docker_stack__repo_proxy__image_default: soulteary/apt-proxy
+__docker_stack__repo_proxy__image_default: lj020326/apt-proxy
+__docker_stack__repo_proxy__image: "{{ docker_stack__repo_proxy__image
+  | d(__docker_stack__repo_proxy__image_default) }}"
+
+__docker_stack__repo_proxy__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+
+__docker_stack__repo_proxy__host_addr_default: "repo-proxy.{{ __docker_stack__repo_proxy__domain }}"
+__docker_stack__repo_proxy__host_addr: "{{ docker_stack__repo_proxy__host_addr
+  | d(__docker_stack__repo_proxy__host_addr_default) }}"
+
+__docker_stack__repo_proxy__internal_http_port: 3142
+
+__docker_stack__repo_proxy__http_port: "{{ docker_stack__repo_proxy__http_port | d('3142') }}"
+
+__docker_stack__repo_proxy__container_cache_dir_default: "/var/cache/apt-proxy"
+__docker_stack__repo_proxy__container_cache_dir: "{{
+  docker_stack__repo_proxy__container_cache_dir
+  | d(__docker_stack__repo_proxy__container_cache_dir_default) }}"
+
+__docker_stack__repo_proxy__container_config_dir_default: "/etc/apt-proxy"
+__docker_stack__repo_proxy__container_config_dir: "{{
+  docker_stack__repo_proxy__container_config_dir
+  | d(__docker_stack__repo_proxy__container_config_dir_default) }}"
+
+# Maximum cache size in GB (0 to disable size limit).
+# When exceeded, least-recently-used files are evicted automatically to keep total size within the limit.
+__docker_stack__repo_proxy__max_size_gb: "{{ docker_stack__repo_proxy__max_size_gb | d(20) }}"
+
+# Cache TTL in hours (0 to disable TTL-based eviction)
+# Default: 168 (7 days)
+__docker_stack__repo_proxy__ttl_hours: "{{ docker_stack__repo_proxy__ttl_hours | d(168) }}"
+
+# Cache cleanup interval in minutes (0 to disable automatic cleanup)
+# Default: 60 (1 hour)
+__docker_stack__repo_proxy__cleanup_interval_min: "{{ docker_stack__repo_proxy__cleanup_interval_min | d(60) }}"
+
+__docker_stack__repo_proxy__passthrough_base_list_default:
+  # Ubuntu / Canonical ESM & Subscription services
+  - esm.ubuntu.com
+  - contracts.canonical.com
+
+  # CentOS Stream / RHEL infrastructure mirrors
+  - mirrors.centos.org
+  - mirror.stream.centos.org
+  - cdn.redhat.com
+
+  # Alpine Linux default Fastly CDN mirrors
+  - dl-cdn.alpinelinux.org
+
+  # Debian infrastructure & Security HTTPS endpoints
+  - deb.debian.org
+  - security.debian.org
+
+__docker_stack__repo_proxy__passthrough_base_list: "{{ docker_stack__repo_proxy__passthrough_base_list
+  | d(__docker_stack__repo_proxy__passthrough_base_list_default) }}"
+
+# Third-party software repositories
+__docker_stack__repo_proxy__passthrough_list_custom_default:
+  - snapshot.ppa.launchpadcontent.net
+  - download.docker.com
+  - download.webmin.com
+
+__docker_stack__repo_proxy__passthrough_list_custom: "{{ docker_stack__repo_proxy__passthrough_list_custom
+  | d(__docker_stack__repo_proxy__passthrough_list_custom_default) }}"
+
+__docker_stack__repo_proxy__passthrough_list: "{{
+  (__docker_stack__repo_proxy__passthrough_base_list + __docker_stack__repo_proxy__passthrough_list_custom)
+  | sort | unique }}"
+
+# Optional: pin upstream mirrors. Empty = auto-benchmark on startup.
+__docker_stack__repo_proxy__mirrors_default:
+  ubuntu: ""
+  ubuntu_ports: ""
+  debian: ""
+  debian_security: ""
+  centos: ""
+  alpine: ""
+
+__docker_stack__repo_proxy__mirrors: "{{ __docker_stack__repo_proxy__mirrors
+  | d(__docker_stack__repo_proxy__mirrors_default) }}"
+
+## https://github.com/lj020326/apt-proxy/blob/main/examples/config-template/apt-proxy.yaml
+__docker_stack__repo_proxy__config:
+  distributions_config: "{{ __docker_stack__repo_proxy__container_config_dir }}/distributions.yaml"
+  cache:
+    dir: "{{ __docker_stack__repo_proxy__container_cache_dir }}"
+    max_size_gb: "{{ __docker_stack__repo_proxy__max_size_gb }}"
+    ttl_hours: "{{ __docker_stack__repo_proxy__ttl_hours }}"
+    cleanup_interval_min: "{{ __docker_stack__repo_proxy__cleanup_interval_min }}"
+  mirrors: "{{ __docker_stack__repo_proxy__mirrors }}"
+  mode: all
+  passthrough: "{{ __docker_stack__repo_proxy__passthrough_list }}"
+  server:
+    host: 0.0.0.0
+    port: "{{ __docker_stack__repo_proxy__internal_http_port }}"
+    debug: false
+  storage:
+    backend: disk           # "disk" (default) or "s3"
+  upstream_keep_alive: true
+
+__docker_stack__repo_proxy__environment_default:
+  TZ: "{{ docker_stack__timezone }}"
+  APT_PROXY_CONFIG_FILE: "{{ __docker_stack__repo_proxy__container_config_dir }}/apt-proxy.yaml"
+  APT_PROXY_DISTRIBUTIONS_CONFIG: "{{ __docker_stack__repo_proxy__container_config_dir }}/distributions.yaml"
+
+__docker_stack__repo_proxy__environment: "{{
+  docker_stack__repo_proxy__environment
+  | d(__docker_stack__repo_proxy__environment_default) }}"
+
+__docker_stack__repo_proxy__config_dirs:
+  - path: "{{ __docker_stack__repo_proxy__base_dir }}"
+  - path: "{{ __docker_stack__repo_proxy__cache_dir }}"
+  - path: "{{ __docker_stack__repo_proxy__config_dir }}"
+
+__docker_stack__repo_proxy__config_templates:
+  - src: "repo_proxy/config-group.conf.j2"
+    dest: "{{ __docker_stack__repo_proxy__base_dir }}/group"
+  - src: "repo_proxy/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__repo_proxy__base_dir }}/passwd"
+  - src: "repo_proxy/repo_proxy.env.j2"
+    dest: "{{ __docker_stack__repo_proxy__base_dir }}/repo_proxy.env"
+  - src: "repo_proxy/config.yml.j2"
+    dest: "{{ __docker_stack__repo_proxy__config_dir }}/apt-proxy.yaml"
+  - src: "repo_proxy/distributions.yml.j2"
+    dest: "{{ __docker_stack__repo_proxy__config_dir }}/distributions.yaml"
+
+__docker_stack__repo_proxy__firewalld_ports:
+  - "{{ __docker_stack__repo_proxy__http_port }}/tcp"
+
+__docker_stack__repo_proxy__traefik_labels: "{{
+  docker_stack__repo_proxy__traefik_labels
+  | d(__docker_stack__repo_proxy__traefik_labels_default) }}"
+
+__docker_stack__repo_proxy__services:
+  ## ref: https://github.com/soulteary/apt-proxy
+  repo-proxy:
+    container_name: repo-proxy
+    image: "{{ __docker_stack__repo_proxy__image }}"
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    env_file:
+      - repo_proxy/repo_proxy.env
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__repo_proxy__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__repo_proxy__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__repo_proxy__cache_dir }}:{{ __docker_stack__repo_proxy__container_cache_dir }}"
+      - "{{ __docker_stack__repo_proxy__config_dir }}/apt-proxy.yaml:{{ __docker_stack__repo_proxy__container_config_dir }}/apt-proxy.yaml"
+      - "{{ __docker_stack__repo_proxy__config_dir }}/distributions.yaml:{{ __docker_stack__repo_proxy__container_config_dir }}/distributions.yaml"
+    ports:
+      - "{{ __docker_stack__repo_proxy__http_port }}:{{ __docker_stack__repo_proxy__internal_http_port }}"
+    labels: "{{ __docker_stack__repo_proxy__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+
+docker_stack__appspec__repo_proxy:
+  dirs: "{{ __docker_stack__repo_proxy__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__repo_proxy__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__repo_proxy__config_templates | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__repo_proxy__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__repo_proxy__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__repo_proxy__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__repo_proxy__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__repo_proxy__services | d({}, true) }}"

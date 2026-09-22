@@ -26,8 +26,14 @@ if [[ "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" || "$OS_LIKE" == *"debian"* ]
 
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq -y
-    # Using upgrade rather than full-upgrade for safer daily automated patching
-    apt-get upgrade -qq -y
+
+    UPGRADE_CMD="dist-upgrade"
+    if [[ "${1:-}" == "--upgrade" ]]; then
+      # Using upgrade rather than full-upgrade for safer daily automated patching
+      UPGRADE_CMD="upgrade"
+    fi
+
+    apt-get ${UPGRADE_CMD} -qq -y
     apt-get autoremove -qq -y
     apt-get clean -qq
 
@@ -59,4 +65,25 @@ else
 fi
 
 log_message "OS update sequence completed successfully."
+
+# ---------------------------------------------------------
+# CHECK IF REBOOT IS REQUIRED
+# ---------------------------------------------------------
+REBOOT_REQUIRED=0
+
+if [ -f /var/run/reboot-required ]; then
+    log_message "System reboot is required (found /var/run/reboot-required)."
+    REBOOT_REQUIRED=1
+elif command -v needs-restarting >/dev/null 2>&1; then
+    if ! needs-restarting -r >/dev/null 2>&1; then
+        log_message "System reboot is required (needs-restarting detected kernel/core changes)."
+        REBOOT_REQUIRED=1
+    fi
+fi
+
+if [ "$REBOOT_REQUIRED" -eq 1 ]; then
+    # Touch marker for run-os-update.sh orchestrator
+    touch /var/run/os-update-reboot-required
+fi
+
 exit 0
