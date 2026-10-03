@@ -1,77 +1,73 @@
-```markdown
 ---
-title: bootstrap_proxmox Role Documentation
+title: bootstrap_proxmox
 original_path: roles/bootstrap_proxmox/README.md
 category: Ansible Roles
-tags: [proxmox, ansible, cluster, ceph, ipmi, https]
+tags: [Proxmox, Cluster, Automation, DevOps]
 ---
 
 # bootstrap_proxmox
 
 Installs and configures a Proxmox 5.x/6.x cluster with the following features:
 
-- Ensures all hosts can connect to one another as root.
-- Ability to create/manage groups, users, access control lists, and storage.
-- Ability to create or add nodes to a PVE cluster.
-- Ability to set up Ceph on the nodes.
-- IPMI watchdog support.
-- Bring Your Own HTTPS certificate support.
-- Ability to use either `pve-no-subscription` or `pve-enterprise` repositories.
+- Ensures all hosts can connect to one another as root
+- Ability to create/manage groups, users, access control lists, and storage
+- Ability to create or add nodes to a PVE cluster
+- Ability to setup Ceph on the nodes
+- IPMI watchdog support
+- BYO HTTPS certificate support
+- Ability to use either `pve-no-subscription` or `pve-enterprise` repositories
 
 ## Quickstart
 
-The primary goal for this role is to configure and manage a [Proxmox VE cluster][pve-cluster] (see example playbook). However, this role can also be used to quickly install single-node Proxmox servers.
+The primary goal for this role is to configure and manage a [Proxmox VE cluster][pve-cluster] (see example playbook), however this role can be used to quickly install single node Proxmox servers.
 
-### Prerequisites
+I'm assuming you already have [Ansible installed][install-ansible]. You will need to use an external machine to the one you're installing Proxmox on (primarily because of the reboot in the middle of the installation, though I may handle this somewhat differently for this use case later).
 
-- Ensure you have [Ansible installed][install-ansible].
-- Use an external machine for the installation process due to the reboot required during setup.
-
-### Example Playbook
-
-Create a file named `install_proxmox.yml` with the following content:
+Copy the following playbook to a file like `install_proxmox.yml`:
 
 ```yaml
 - hosts: all
   become: True
   roles:
-    - role: geerlingguy.ntp
-      ntp_manage_config: true
-      ntp_servers:
-        - clock.sjc.he.net
-        - clock.fmt.he.net
-        - clock.nyc.he.net
-    - role: bootstrap_proxmox
-      pve_group: all
-      pve_reboot_on_kernel_update: true
+    - {
+        role: geerlingguy.ntp,
+        ntp_manage_config: true,
+        ntp_servers: [
+          clock.sjc.he.net,
+          clock.fmt.he.net,
+          clock.nyc.he.net
+        ]
+      }
+    - {
+        role: bootstrap_proxmox,
+        pve_group: all,
+        pve_reboot_on_kernel_update: true
+      }
 ```
 
-### Install Roles
-
-Install the required roles using `ansible-galaxy`:
+Install this role and a role for configuring NTP:
 
 ```bash
-ansible-galaxy install geerlingguy.ntp bootstrap_proxmox
+ansible-galaxy install bootstrap_proxmox geerlingguy.ntp
 ```
 
-### Run Playbook
-
-Execute the playbook with the following command, replacing `$SSH_HOST_FQDN` and `$SSH_USER` as needed:
+Now you can perform the installation:
 
 ```bash
 ansible-playbook install_proxmox.yml -i $SSH_HOST_FQDN, -u $SSH_USER
 ```
 
-- Use `-K` if your `SSH_USER` has a sudo password.
-- Use `-k` for password authentication (ensure `sshpass` is installed).
+If your `SSH_USER` has a sudo password, pass the `-K` flag to the above command. If you also authenticate to the host via password instead of pubkey auth, pass the `-k` flag (make sure you have `sshpass` installed as well). You can set those variables prior to running the command or just replace them. Do note the comma is important, as a list is expected (otherwise it'll attempt to look up a file containing a list of hosts).
 
-Once complete, access your Proxmox VE instance at `https://$SSH_HOST_FQDN:8006`.
+Once complete, you should be able to access your Proxmox VE instance at `https://$SSH_HOST_FQDN:8006`.
+
+## Support/Contributing
+
+For support or if you'd like to contribute to this role but want guidance, feel free to join this Discord server: [Discord Server](https://discord.gg/cjqr6Fg)
 
 ## Deploying a Fully-Featured PVE 5.x Cluster
 
-### Directory Structure
-
-Create a new playbook directory. Here's an example structure:
+Create a new playbook directory. We call ours `lab-cluster`. Our playbook will eventually look like this, but yours does not have to follow all of the steps:
 
 ```
 lab-cluster/
@@ -96,17 +92,15 @@ lab-cluster/
 6 directories, 12 files
 ```
 
-### SSL Certificates
-
-Place your private keys and SSL certificates in the `files/pve01/` directory. Use Ansible Vault to encrypt these files:
+First thing you may note is that we have a bunch of `.key` and `.pem` files. These are private keys and SSL certificates that this role will use to configure the web interface for Proxmox across all the nodes. These aren't necessary, however, if you want to keep using the signed certificates by the CA that Proxmox sets up internally. You may typically use Ansible Vault to encrypt the private keys, e.g.:
 
 ```bash
 ansible-vault encrypt files/pve01/*.key
 ```
 
-### Inventory File
+This would then require you to pass the Vault password when running the playbook.
 
-Define your cluster hosts in the `inventory` file:
+Let's first specify our cluster hosts. Our `inventory` file may look like this:
 
 ```
 [pve01]
@@ -115,9 +109,7 @@ lab-node02.local
 lab-node03.local
 ```
 
-### Role Requirements
-
-Specify role requirements in `roles/requirements.yml`:
+You could have multiple clusters, so it's a good idea to have one group for each cluster. Now, let's specify our role requirements in `roles/requirements.yml`:
 
 ```yaml
 ---
@@ -125,11 +117,9 @@ Specify role requirements in `roles/requirements.yml`:
 - src: bootstrap_proxmox
 ```
 
-### Group Variables
+We need an NTP role to configure NTP, so we're using Jeff Geerling's role to do so. You wouldn't need it if you already have NTP configured or have a different method for configuring NTP.
 
-#### NTP Configuration (`group_vars/all`)
-
-Set NTP-related variables:
+Now, let's specify some group variables. First off, let's create `group_vars/all` for setting NTP-related variables:
 
 ```yaml
 ---
@@ -139,9 +129,9 @@ ntp_servers:
   - lab-ntp02.local iburst
 ```
 
-#### Cluster Configuration (`group_vars/pve01`)
+Of course, replace those NTP servers with ones you prefer.
 
-Define cluster-specific variables:
+Now for the flesh of your playbook, `pve01`'s group variables. Create a file `group_vars/pve01`, add the following, and modify accordingly for your environment.
 
 ```yaml
 ---
@@ -180,22 +170,10 @@ pve_ssh_port: 22
 interfaces_template: "interfaces-{{ pve_group }}.j2"
 ```
 
-### Notes
+`pve_group` is set to the group name of our cluster, `pve01` - it will be used for the purposes of ensuring all hosts within that group can connect to each other and are clustered together. Note that the PVE cluster name will be set to this group name as well, unless otherwise specified by `pve_clustername`. Leaving this undefined will default to `proxmox`.
 
-- `pve_group` sets the cluster name and ensures all hosts within this group can connect to each other.
-- `pve_fetch_directory` is used for downloading host public keys and root user's public key.
-
-## Support/Contributing
-
-For support or contributions, join our Discord server: [https://discord.gg/cjqr6Fg](https://discord.gg/cjqr6Fg)
+`pve_fetch_directory` will be used to download the host public key and root user's public key from all hosts in the cluster.
 
 ## Backlinks
 
-- [Proxmox VE Cluster Setup Guide][pve-cluster]
-- [Ansible Installation Guide][install-ansible]
-
-[pve-cluster]: https://pve.proxmox.com/wiki/Cluster_Manager
-[install-ansible]: https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html
-```
-
-This improved Markdown document adheres to clean, professional standards suitable for GitHub rendering while preserving all original information and meaning.
+[Add backlinks to related pages if applicable]

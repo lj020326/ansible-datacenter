@@ -1,9 +1,16 @@
-```markdown
 ---
-title: Ansible Role - bootstrap_java
+harvested_date: '2023-08-07T18:07:09.248098+00:00'
 original_path: roles/bootstrap_java/README.md
-category: Ansible Roles
-tags: [ansible, java, redhat, centos, debian, ubuntu]
+source_type: markdown
+title: Ansible Role: bootstrap_java
+category: Ansible
+tags:
+  - Ansible
+  - Java
+  - RedHat
+  - CentOS
+  - Debian
+  - Ubuntu
 ---
 
 # Ansible Role: bootstrap_java
@@ -24,13 +31,19 @@ bootstrap_java__packages:
   - java-1.8.0-openjdk
 ```
 
-Set the version/development kit of Java to install, along with any other necessary Java packages. Some other options include those in the distribution-specific files in this role's `defaults` folder.
+Set the version/development kit of Java to install, along with any other necessary Java packages. This can be a list of multiple packages. Some other options are included in the distribution-specific files in this role's 'defaults' folder.
 
 ```yaml
 bootstrap_java__home: ""
 ```
 
 If set, the role will set the global environment variable `JAVA_HOME` to this value.
+
+```yaml
+bootstrap_java__state: "present"
+```
+
+The state of the Java packages. Options are "present" or "absent".
 
 ## Dependencies
 
@@ -47,34 +60,32 @@ None.
 
 ## Example Playbook (install OpenJDK 8)
 
-### For RHEL / CentOS:
+### For RHEL / CentOS
 
 ```yaml
-- hosts: server
+- hosts: servers
   roles:
     - role: bootstrap_java
       when: "ansible_os_family == 'RedHat'"
-      vars:
-        bootstrap_java__packages:
-          - java-1.8.0-openjdk
+      bootstrap_java__packages:
+        - java-1.8.0-openjdk
 ```
 
-### For Ubuntu < 16.04:
+### For Ubuntu < 16.04
 
 ```yaml
-- hosts: server
+- hosts: servers
   tasks:
     - name: Installing repo for Java 8 in Ubuntu
       apt_repository:
         repo: 'ppa:openjdk-r/ppa'
 
-- hosts: server
+- hosts: servers
   roles:
     - role: bootstrap_java
-      when: "ansible_os_family == 'Debian'"
-      vars:
-        bootstrap_java__packages:
-          - openjdk-8-jdk
+      when: "ansible_distribution == 'Ubuntu' and ansible_distribution_major_version | int < 16"
+      bootstrap_java__packages:
+        - openjdk-8-jdk
 ```
 
 ## Reference
@@ -87,7 +98,4 @@ None.
 
 ## Backlinks
 
-- [Ansible Roles Documentation](../README.md)
-```
-
-This improved version ensures a clean, professional structure with proper headings and YAML frontmatter. It also includes a "Backlinks" section for better navigation within the documentation.
+(Add any backlinks here if applicable)

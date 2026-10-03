@@ -1,10 +1,13 @@
 ```markdown
 ---
 title: "apply_common_groups Role Documentation"
-original_path: roles/apply_common_groups/README.md
+role: apply_common_groups
 category: Ansible Roles
 type: Configuration Management
 tags: ansible, role, common-groups, os-detection, machine-type, systemd-status
+harvested_date: '2026-08-07T18:07:09.117047+00:00'
+original_path: roles/apply_common_groups/README.md
+source_type: legacy_markdown
 ---
 
 # apply_common_groups Role Documentation
@@ -18,7 +21,7 @@ The `apply_common_groups` Ansible role is designed to dynamically assign hosts t
 The following variables are configurable by users:
 
 - `apply_common_groups__base_groupname`: The base name used to construct group names for OS, machine type, and network configurations. Defaults to `"common_groups"`.
-  
+
 - `apply_common_groups__dns_servers`: A list of DNS servers used to resolve the host's IP address via DNS lookup. Defaults to a predefined set of IPs.
 
 ## Usage

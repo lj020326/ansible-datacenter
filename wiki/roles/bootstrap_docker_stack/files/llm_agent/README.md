@@ -1,20 +1,26 @@
-```markdown
 ---
-title: Agent Execution Pipeline & Inference Testing Guide
+harvested_date: '2026-08-07T18:07:09.189538+00:00'
 original_path: roles/bootstrap_docker_stack/files/llm_agent/README.md
+source_type: legacy_markdown
+title: Agent Execution Pipeline & Inference Testing Guide
 category: Documentation
-tags: [agent-execution, inference-testing, vllm-coder]
+tags: [agent, pipeline, testing, vLLM, inference, pytest]
 ---
 
 # Agent Execution Pipeline & Inference Testing Guide
 
-This directory (`agent_stack/`) contains configuration and orchestration components for driving localized multi-agent task execution workloads against local high-throughput inference stacks (`vllm-coder`).
+This directory (`llm_agent/`) contains configuration and orchestration components for driving localized multi-agent task execution workloads against local high-throughput inference stacks (`vllm-coder`).
 
 Follow this document to clear out stale agent states, verify runtime configurations, query backend models, and monitor real-time execution pipelines.
 
----
+## Table of Contents
+1. [Prerequisites & Environment Setup](#1-prerequisites--environment-setup)
+2. [Automated Test Framework (pytest)](#2-automated-test-framework-pytest)
+3. [Health Check: Validating Local vLLM Inference Models](#3-health-check-validating-local-vllm-inference-models)
+4. [Agent Engineering Team Workflow](#4-agent-engineering-team-workflow)
+5. [Backlinks](#backlinks)
 
-## Prerequisites & Environment Setup
+## 1. Prerequisites & Environment Setup
 
 All execution scripts depend on Python modules isolated inside the global Ansible system-level virtual environment, as well as an environment file mapping configuration values such as backend endpoints and API tokens.
 
@@ -24,7 +30,7 @@ First, navigate to your base configuration context and activate the virtual envi
 # Navigate to deployment working directory
 cd /home/container-user/docker
 
-# Activate the shared python virtual environment
+# Activate the shared Python virtual environment
 source /usr/local/lib/ansible/venv/bin/activate
 ```
 
@@ -40,12 +46,10 @@ To source your profile manually beforehand if desired:
 
 ```shell
 # Load the API token and stack routing specifications
-source agent_stack/test_agent_pipeline.env
+source llm_agent/test_agent_pipeline.env
 ```
 
----
-
-## Automated Test Framework (`pytest`)
+## 2. Automated Test Framework (`pytest`)
 
 The testing layer has been converted to a scalable, production-grade **`pytest`** suite. This enables multi-scenario lifecycle automation, automatic isolation cleanups, and seamless integration for AI testing assistants or specialized QA agents to drop in new functional edges.
 
@@ -67,19 +71,17 @@ Both execution pipelines validate strict technical criteria upon completion:
 
 ```shell
 # Execute the entire suite against the agent container infrastructure
-pytest -v agent_stack/test_agent_pipeline.py
+pytest -v llm_agent/test_agent_pipeline.py
 
 # Target an individual test path directly
-pytest -v agent_stack/test_agent_pipeline.py::test_read_only_analysis_flow
-pytest -v agent_stack/test_agent_pipeline.py::test_pull_request_generation_flow
+pytest -v llm_agent/test_agent_pipeline.py::test_read_only_analysis_flow
+pytest -v llm_agent/test_agent_pipeline.py::test_pull_request_generation_flow
 
 # Suppress standard capture output and view real-time logging streams
-pytest -s -v agent_stack/test_agent_pipeline.py --log-cli-level=INFO
+pytest -s -v llm_agent/test_agent_pipeline.py --log-cli-level=INFO
 ```
 
----
-
-## Health Check: Validating Local vLLM Inference Models
+## 3. Health Check: Validating Local vLLM Inference Models
 
 Before launching task execution workloads, verify that your localized inference node (`vllm-coder`) is responding successfully and exposing the expected aliases (e.g., `nemoclaw`).
 
@@ -87,7 +89,7 @@ Run a validation query directly via standard cURL requests:
 
 ```shell
 curl http://localhost:8000/v1/models
-## OR if secured with api key
+## OR if secured with API key
 curl -s -H "Authorization: Bearer ${OPENAI_API_KEY}" http://localhost:8000/v1/models | jq
 ```
 
@@ -122,23 +124,21 @@ To tail real-time runtime processing logs or diagnostic health counters across a
 docker-compose logs -f crewai-workers langgraph-router vllm-coder
 ```
 
-### Telemetry Performance Metrics to Watch
+### Telemetry Performance Metrics to Watch:
 
 - **`Triton kernel JIT compilation`**: May cause a momentary early execution pause while kernel compilation completes shapes during initial warmup.
 - **`Prefix cache hit rate`**: Shows cache retention efficiency across multiple turns. High percentages (~48%+) denote successful prompt reuse without processing penalties.
 - **`Avg generation throughput`**: Displays hardware generation speed over active text processing loops.
 - **`Agent Final Answer`**: Confirms context compilation completeness and structured completion returns.
 
----
-
-## Agent Engineering Team Workflow
+## 4. Agent Engineering Team Workflow
 
 The code team setup is an actionable Engineering Team that writes code directly to the ephemeral workspace, commits the changes via `GitPython`, pushes the feature branch back to `origin`, and returns a Gitea Pull Request URL.
 
 Here is the architectural sequence for this workflow phase:
 
 ```text
-[Vikunja Task Claimed] 
+[Vikunja Task Claimed]
          │
          ▼
 [Clone Gitea Repo & Clean Sanitized Branch]
@@ -156,12 +156,7 @@ Here is the architectural sequence for this workflow phase:
 [Vikunja Card: Moved to Review + Commented with Pull Request URL Link]
 ```
 
----
-
 ## Backlinks
 
-- [Main Documentation](../README.md)
-- [Agent Configuration](agent_config.md)
-```
-
-This improved version maintains the original content and meaning while adhering to clean, professional Markdown formatting suitable for GitHub rendering.
+- [Agent Execution Pipeline & Inference Testing Guide](#)
+- [README.md](../README.md)

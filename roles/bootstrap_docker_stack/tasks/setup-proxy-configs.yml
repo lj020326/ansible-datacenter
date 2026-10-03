@@ -1,0 +1,20 @@
+---
+- name: "{{ __docker_stack__log_prefix__proxy_config }} Display __docker_stack__proxy_service_configs"
+  ansible.builtin.debug:
+    var: __docker_stack__proxy_service_configs
+
+- name: "{{ __docker_stack__log_prefix__proxy_config }} Setup PRE-SETUP configs in tasks/proxies/[__proxy_service_name]/pre-setup.yml"
+  when: (role_path + '/tasks/proxies/' + (__proxy_service_name | replace('-','_')) + '/pre-setup.yml') is file
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/proxies/{{ __container_service_name }}/pre-setup.yml"
+  loop: "{{ __docker_stack__proxy_services | d([], true) }}"
+  loop_control:
+    loop_var: __proxy_service_name
+
+- name: "{{ __docker_stack__log_prefix__proxy_config }} Install docker stack proxy service templates"
+  ansible.builtin.template:
+    backup: true
+    src: traefik/rules/proxy-services.yml.j2
+    dest: "{{ __docker_stack__traefik__dir }}/rules/proxy-services.yml"
+    mode: "0664"
+    owner: "{{ docker_stack__user_username }}"
+    group: "{{ docker_stack__user_group }}"

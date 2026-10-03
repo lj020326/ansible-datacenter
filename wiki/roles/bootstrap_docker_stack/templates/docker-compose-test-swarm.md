@@ -1,20 +1,25 @@
-```markdown
 ---
-title: How to Test Enhancements to the docker-compose.yml.j2 Template
+harvested_date: '2026-08-07T18:07:09.198666+00:00'
 original_path: roles/bootstrap_docker_stack/templates/docker-compose-test-swarm.md
-category: Docker Compose Testing
-tags: [docker, compose, testing, ansible]
+source_type: legacy_markdown
+title: How to Test Enhancements to the Docker Compose YAML Template
+category: Docker
+tags: [Docker, Ansible, Testing, Swarm]
 ---
 
-# How to Test Enhancements to the `docker-compose.yml.j2` Template
+# How to Test Enhancements to the Docker Compose YAML Template
 
-Use the site [https://ansible.sivel.net/test/](https://ansible.sivel.net/test/) to test.
+Use the site [Ansible Test](https://ansible.sivel.net/test/) to test your enhancements.
+
+## Introduction
+
+This guide provides instructions on how to test enhancements to the `docker-compose.yml.j2` template using the Ansible Test site. It includes setting up test variables, configuring services, and running tests.
 
 ## Set Up Test Variables
 
-Convert the Ansible logged variable values from JSON to YAML using a tool like [JSON Formatter & Validator](https://jsonformatter.org/json-to-yaml).
+Convert the Ansible logged variable values from JSON to YAML using [JSON Formatter](https://jsonformatter.org/json-to-yaml).
 
-### Example Variables Section
+Set up the variables section as follows:
 
 ```yaml
 docker_stack__swarm_mode: true
@@ -74,7 +79,6 @@ __docker_stack__service_groups:
   - name: jenkins_jcac
     source: role
 
-## Keys only for testing purposes
 __docker_stack__secrets:
   openwebui_secret_key: {}
   ansible_vault_password: {}
@@ -217,12 +221,45 @@ __docker_stack__service_group_configs_tpl:
         CRON: 0 0 0 * * ?
         DOCKER_HOST: 'tcp://socket-proxy:2375'
         DRY_RUN: 0
-        FORCE_CONTAINE
+        FORCE_CONTAINER
 ... [truncated - large file] ...
+
+## Troubleshooting
+
+- If you encounter issues with network configuration, ensure that the subnets do not overlap with existing networks.
+- If services fail to start, check the logs for error messages and verify that all dependencies are properly configured.
+- If you experience performance issues, consider adjusting the resource limits for the services.
+
+## Interpreting Test Results
+
+- A successful test will result in all services starting without errors and being accessible via their defined endpoints.
+- Check the logs for any warnings or errors that might indicate issues with the configuration.
+- Verify that the services are properly connected and communicating with each other.
+
+## Cleaning Up
+
+After testing, it is important to clean up the test environment to avoid resource conflicts with other tests or production environments.
+
+1. Stop and remove all containers created during the test.
+2. Remove any networks created during the test.
+3. Remove any volumes created during the test.
+4. Remove any remaining Docker resources related to the test.
+
+## Contributing Test Results
+
+If your test results reveal improvements or identify issues, consider contributing your findings back to the project.
+
+1. Document your test results and any changes made during testing.
+2. Submit a pull request with your changes and documentation.
+3. Provide detailed explanations of the changes and their impact on the project.
 
 ## Backlinks
 
-- [Docker Compose Templates](/docker-compose-templates)
-```
+[Add any relevant backlinks here]
 
-This improved version includes a clean and professional structure with proper headings, added YAML frontmatter for better organization, and a "Backlinks" section to help users navigate related documentation.
+## Related Resources
+
+- [Ansible Test](https://ansible.sivel.net/test/)
+- [JSON Formatter](https://jsonformatter.org/json-to-yaml)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Ansible Documentation](https://docs.ansible.com/)

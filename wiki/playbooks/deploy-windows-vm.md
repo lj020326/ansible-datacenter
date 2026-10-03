@@ -1,37 +1,50 @@
-```markdown
+```yaml
 ---
-title: Deploying a Windows VM on VMware ESXi using Ansible
+title: Deploy Windows VM with Ansible and VMware
 original_path: playbooks/deploy-windows-vm.md
-category: Ansible Playbook
-tags: [Ansible, VMware, Windows Deployment]
+category: Automation
+tags:
+  - Ansible
+  - VMware
+  - Windows
+  - Automation
+harvested_date: '2026-08-07T18:07:09.113849+00:00'
+source_type: legacy_markdown
 ---
 
-# Deploying a Windows VM on VMware ESXi using Ansible
+# Deploy Windows VM with Ansible and VMware
 
-This should be a simple task. I have already created the answer file for an unattended installation, copied it to a virtual floppy image, and obtained a Windows installation ISO. [VMware’s Ansible modules](https://docs.ansible.com/ansible/latest/modules/list_of_cloud_modules.html#vmware) look promising, so you would think you could use `vsphere_copy` to transfer the `.iso` and `.flp` to a datastore, use `vsphere_guest` to create the VM, and sit back and wait for WinRM to start responding.
+This guide provides a detailed walkthrough of deploying a Windows VM using Ansible and VMware, addressing the limitations of VMware's Ansible modules and offering a workaround solution.
 
-Unfortunately, VMware’s modules have some coverage gaps that prevent this from working. The `vsphere_copy` module does not work with standalone hosts. In my greenfield deployment scenario, I am building the domain controller before I deploy vCenter, so vCenter is not available yet. But even if it was, the `vmware_guest` module can’t create a virtual floppy drive. That feature was in the deprecated `vsphere_guest` module it replaced, but was somehow lost along the way.
+## Introduction
 
-To overcome these limitations, I had to take a different approach. I realized that I could use the `vsphere_host` module to enable SSH in ESXi, and then treat it like a Linux host and use some of the available shell commands to copy bits and edit files. It is not the most elegant solution, but until the VMware modules mature, it will have to do.
+Deploying a Windows VM using Ansible and VMware should be straightforward. With an answer file for unattended installation, a virtual floppy image, and a Windows installation ISO, one would expect to use VMware’s Ansible modules like `vsphere_copy` to transfer the ISO and FLP files to a datastore, and `vsphere_guest` to create the VM. However, there are coverage gaps in VMware's modules that prevent this from working seamlessly.
 
-You can find the complete playbook on the [lj020326 GitHub](https://github.com/lj020326/ansible-datacenter/playbooks), but here are some of the highlights:
+## Challenges
 
-## ESXi Login Variables
+1. **vsphere_copy Module**: This module does not work with standalone hosts. In a greenfield deployment scenario where the domain controller is built before vCenter, vCenter is not available yet.
+2. **vmware_guest Module**: This module cannot create a virtual floppy drive, a feature that was present in the deprecated module it replaced.
 
-Putting the ESX login variables in an anchor:
+## Solution
+
+To overcome these limitations, a different approach is required. By using the `vsphere_host` module to enable SSH in ESXi, the host can be treated like a Linux host, utilizing shell commands to copy files and edit configurations.
+
+## Playbook Highlights
+
+The complete playbook can be found on [lj020326 GitHub](https://github.com/lj020326/ansible-datacenter/playbooks), but here are some key sections:
+
+### ESXi Login Variables
 
 ```yaml
 vars:
   esxi_login: &esxi_login
     hostname: '{{ esxi_address }}'
     username: '{{ esxi_username }}'
-    password: '{{ esxi_password }}'  
-    validate_certs: no 
+    password: '{{ esxi_password }}'
+    validate_certs: no
 ```
 
-## Enabling SSH
-
-Enabling SSH (starting the TSM-SSH and TSM services):
+### Enabling SSH and ESXi Shell
 
 ```yaml
 - name: Enable ESX SSH (TSM-SSH)
@@ -51,9 +64,7 @@ Enabling SSH (starting the TSM-SSH and TSM services):
   delegate_to: localhost
 ```
 
-## Downloading the Windows Server ISO and Floppy Image
-
-And telling ESXi to go download the bits. I could have used the Ansible copy module to copy over the floppy image, but the ISO is too large to transfer this way. The copy module copies files to the target system’s temp volume first. Filling the temp space on an ESXi host doesn’t end well, and the ISO never makes it to the destination.
+### Downloading ISO and Floppy Image
 
 ```yaml
 - name: Download the Windows Server ISO
@@ -69,9 +80,7 @@ And telling ESXi to go download the bits. I could have used the Ansible copy mod
   delegate_to: '{{ esxi_address }}'
 ```
 
-## Creating the VM
-
-Now I can create the VM:
+### Creating the VM
 
 ```yaml
 - name: Create a new Server 2016 VM
@@ -100,7 +109,7 @@ Now I can create the VM:
   register: deploy_vm
 ```
 
-Notice how there is no floppy drive. Since I can’t create it with the `vmware_guest` module, I’ll have to edit the VMX file. It’s a little gruesome, but it works. I should be able to clean this up with customvalues in the `vsphere_guest` module, but it doesn’t currently work on a standalone host.
+### Editing VMX File for Floppy Drive
 
 ```yaml
 - name: Adding VMX Entry - floppy0.fileType
@@ -123,14 +132,12 @@ Notice how there is no floppy drive. Since I can’t create it with the `vmware_
   delegate_to: '{{ esxi_address }}'
 ```
 
-## Configuring Boot Order
-
-One last thing before I can power it on. The default boot sequence won’t work. This one will:
+### Setting Boot Order
 
 ```yaml
 - name: Change virtual machine's boot order and related parameters
   vmware_guest_boot_manager:
-    <<: *esxi_login 
+    <<: *esxi_login
     name: '{{ vm_name }}'
     boot_delay: 1000
     enter_bios_setup: False
@@ -147,9 +154,7 @@ One last thing before I can power it on. The default boot sequence won’t work.
   register: vm_boot_order
 ```
 
-## Customizing the Guest OS
-
-Now I can power it on, and wait. Once the VMware tools are responding, I can use the `vmware_vm_shell` module to run commands inside the guest OS to assign a new hostname, set the IP address, etc. In the playbook this is part of a second play called “Customize Guest”.
+### Customizing the Guest OS
 
 ```yaml
 - name: Set password via vmware_vm_shell
@@ -198,13 +203,11 @@ Now I can power it on, and wait. Once the VMware tools are responding, I can use
     wait_for_process: true
 ```
 
-One more reboot and the VM is ready for advanced configuration by another playbook.
+## Conclusion
 
-In the [complete playbook](https://github.com/lj020326/ansible-datacenter/playbooks/blob/main/deploy-windows-vm.yml) and the corresponding [example vars file](https://github.com/lj020326/ansible-datacenter/playbooks/vars/blob/main/deploy-windows-vm.yml), there are a few extra steps I take to capture and later restore the state of the TSM & TSM-SSH services since most people don’t leave those enabled.
+After one more reboot, the VM is ready for advanced configuration by another playbook. The complete playbook and example variables file can be found on [lj020326 GitHub](https://github.com/lj020326/ansible-datacenter/playbooks/blob/main/deploy-windows-vm.yml) and [example vars file](https://github.com/lj020326/ansible-datacenter/playbooks/vars/blob/main/deploy-windows-vm.yml).
 
 ## Backlinks
 
-- [Ansible Playbook Repository](https://github.com/lj020326/ansible-datacenter/playbooks)
+<!-- Backlinks will be added here automatically -->
 ```
-
-This improved Markdown document is now clean, professional, and well-structured for GitHub rendering.

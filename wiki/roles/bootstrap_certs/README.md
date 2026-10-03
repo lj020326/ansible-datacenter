@@ -1,18 +1,28 @@
-```markdown
 ---
-title: Ansible Role - bootstrap_certs
+harvested_date: '2023-10-07T18:07:09.164949+00:00'
 original_path: roles/bootstrap_certs/README.md
-category: Ansible Roles
-tags: [ansible, pki, certificates, cfssl]
+source_type: legacy_markdown
+title: Ansible Role: bootstrap_certs
+category: [Ansible, PKI, Certificates]
+tags: [Ansible, PKI, CFSSL, Certificates, Automation]
 ---
 
-# Ansible Role: `bootstrap_certs`
+# Table of Contents
+1. [Overview & Purpose](#overview--purpose)
+2. [Objectives](#objectives)
+3. [How It Works](#how-it-works-reusable-certificate-creation-and-validation)
+4. [Certificate Storage Structure](#certificate-storage-structure)
+5. [Example Playbooks](#example-playbooks)
+6. [Variables](#variables)
+7. [Backlinks](#backlinks)
+
+# Ansible Role: bootstrap_certs
 
 ## Overview & Purpose
 
-The `bootstrap_certs` Ansible role automates the comprehensive management of Public Key Infrastructure (PKI) certificates, facilitating a robust and secure certificate lifecycle within your infrastructure. It leverages `cfssl` for certificate generation. This role streamlines the setup and maintenance of various certificate types, making it ideal for environments requiring a self-managed Certificate Authority (CA).
+The `bootstrap_certs` Ansible role is designed to automate the comprehensive management of Public Key Infrastructure (PKI) certificates. It facilitates a robust and secure certificate lifecycle within your infrastructure by leveraging `cfssl` for certificate generation.
 
-This role manages the following CA certificate types:
+This role is ideal for environments requiring a self-managed Certificate Authority (CA) and manages the following CA certificate types:
 
 1. **Root CA**: The foundational trust anchor for your PKI.
 2. **Intermediate Domain Signing Certificates**: CAs used to sign certificates for specific domains, allowing for hierarchical trust and limiting the exposure of the root CA.
@@ -34,12 +44,13 @@ This setup ensures that the role `bootstrap_certs` is the producer of certificat
 
 At its core, this role employs a modular approach for certificate generation:
 
-- **`tasks/validate_cert.yml`**: Before attempting to create any certificate, this task inspects the local filesystem for the existence of the certificate (`.pem`) and its corresponding private key (`-key.pem`). It sets a fact, `__missing_or_invalid_cert`, to `true` if either file is missing or if the `force_create` flag is set (e.g., `bootstrap_certs__ca_force_create`, `bootstrap_certs__ca_force_certify_nodes`).
+- **`tasks/validate_cert.yml`**: Before attempting to create any certificate, this task is executed. It inspects the local filesystem for the existence of the certificate (`.pem`) and its corresponding private key (`-key.pem`). It sets a fact, `__missing_or_invalid_cert`, to `true` if either file is missing or if the `force_create` flag is set (e.g., `bootstrap_certs__ca_force_create`, `bootstrap_certs__ca_force_certify_nodes`).
 
-- **`tasks/create_cert.yml`**: This central, reusable task handles all certificate types. It takes a dictionary variable (`__bootstrap_certs__cert_configs`) containing necessary details for a single certificate (e.g., common name, type, signer, paths, CFSSL profile). This task is **only executed if `__missing_or_invalid_cert` is `true`**, ensuring idempotency and preventing unnecessary re-generation. Within this task, it handles:
-  - Directory creation for certificate storage.
-  - CFSSL CSR and key generation.
-  - CFSSL signing using the appropriate CA (root or intermediate) and signing profile.
+- **`tasks/create_cert.yml`**: This is the central, reusable task for all certificate types. It takes a dictionary variable (`__bootstrap_certs__cert_configs`) containing all necessary details for a single certificate (e.g., common name, type, signer, paths, CFSSL profile). This task is **only executed if `__missing_or_invalid_cert` is `true`**, ensuring idempotency and preventing unnecessary re-generation. Within this task, it handles:
+
+  * Directory creation for certificate storage.
+  * CFSSL CSR and key generation.
+  * CFSSL signing using the appropriate CA (root or intermediate) and signing profile.
 
 This modular design ensures that the role is efficient, easy to debug, and maintains a clear separation of concerns.
 
@@ -49,10 +60,10 @@ The role creates a structured subdirectory system within `{{ bootstrap_certs__ba
 
 ```yaml
 # {{ bootstrap_certs__base_dir }}/example.com
-# {{ bootstrap_certs__base_dir }}/example.com/cacsr.json - CFSSL CA config for intermediate CA
-# {{ bootstrap_certs__base_dir }}/example.com/ca_key.pem  - Private key for intermediate CA
-# {{ bootstrap_certs__base_dir }}/example.com/ca.csr      - CSR for intermediate CA
-# {{ bootstrap_certs__base_dir }}/example.com/ca.pem      - Certificate for intermediate CA
+# {{ bootstrap_certs__base_dir }}/example.com/cacsr.json             - CFSSL CA config for intermediate CA
+# {{ bootstrap_certs__base_dir }}/example.com/ca_key.pem              - Private key for intermediate CA
+# {{ bootstrap_certs__base_dir }}/example.com/ca.csr                  - CSR for intermediate CA
+# {{ bootstrap_certs__base_dir }}/example.com/ca.pem                  - Certificate for intermediate CA
 # {{ bootstrap_certs__base_dir }}/example.com/www-1.example.com.csr   - CSR for a service/host
 # {{ bootstrap_certs__base_dir }}/example.com/www-1.example.com-key.pem - Private key for a service/host
 # {{ bootstrap_certs__base_dir }}/example.com/www-1.example.com.pem   - Certificate for a service/host
@@ -63,7 +74,7 @@ The Root CA certificate and key will be stored under `{{ bootstrap_certs__base_d
 
 ## Example Playbooks
 
-The role's behavior is controlled by various flags and lists defined in `defaults/main.yml`. The tasks/main.yml conditionally executes different parts of the role based on these flags.
+The role's behavior is controlled by various flags and lists defined in `defaults/main.yml`. The `tasks/main.yml` conditionally executes different parts of the role based on these flags.
 
 ```yaml
 # Global flags for the role (can be overridden in playbook or inventory)
@@ -73,94 +84,95 @@ bootstrap_certs__ca_force_create: yes      # Force creating even if files exist 
 bootstrap_certs__ca_force_certify_nodes: yes # Force creating of node certificates
 ```
 
-1. **Setting Up the CA Server (Root CA)**
+### 1. Setting Up the CA Server (Root CA)
 
-   An example playbook for initializing the Root CA:
+An example playbook for initializing the Root CA:
 
-   ```yaml
-   - name: Initialize Root CA
-     hosts: localhost # or your designated CA server
-     become: true
-     vars:
-       bootstrap_certs__ca_init: yes
-       bootstrap_certs__common_name: myrootca.example.com
-       bootstrap_certs__country: US
-       bootstrap_certs__state: New York
-       bootstrap_certs__locality: NYC
-       bootstrap_certs__organization: MyCompany
-       bootstrap_certs__organizational_unit: Security
-     roles:
-       - role: bootstrap_certs
-   ```
+```yaml
+- name: Initialize Root CA
+  hosts: localhost # or your designated CA server
+  become: true
+  vars:
+    bootstrap_certs__ca_init: yes
+    bootstrap_certs__common_name: myrootca.example.com
+    bootstrap_certs__country: US
+    bootstrap_certs__state: New York
+    bootstrap_certs__locality: NYC
+    bootstrap_certs__organization: MyCompany
+    bootstrap_certs__organizational_unit: Security
+  roles:
+    - role: bootstrap_certs
+```
 
-2. **Setting Up Intermediate Certificates**
+### 2. Setting Up Intermediate Certificates
 
-   ```yaml
-   - name: Set up Intermediate Certificates
-     hosts: ca_pki # or your designated CA server group
-     become: true
-     vars:
-       bootstrap_certs__ca_intermediate_certs_list:
-         - common_name: "ca.dettonville.int"
-           domain_name: "dettonville.int"
-           issuer_name: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
-           country: US
-           state: "New York"
-           locality: "NYC"
-           organization: "Dettonville Internal"
-           organizational_unit: "Research & Technology"
-           email: "admin@dettonville.int"
-         - common_name: "ca.johnson.int"
-           domain_name: "johnson.int"
-           issuer_name: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
-           country: US
-           state: "North Carolina"
-           locality: "Raleigh"
-           organization: "Johnsonville Internal"
-           organizational_unit: "Mostly Impractical"
-           email: "admin@johnson.int"
-     roles:
-       - role: bootstrap_certs
-   ```
+```yaml
+- name: Set up Intermediate Certificates
+  hosts: ca_pki # or your designated CA server group
+  become: true
+  vars:
+    bootstrap_certs__ca_intermediate_certs_list:
+      - common_name: "ca.dettonville.int"
+        domain_name: "dettonville.int"
+        issuer_name: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
+        country: US
+        state: "New York"
+        locality: "NYC"
+        organization: "Dettonville Internal"
+        organizational_unit: "Research & Technology"
+        email: "admin@dettonville.int"
 
-3. **Setting Up Service Route Certificates**
+      - common_name: "ca.johnson.int"
+        domain_name: "johnson.int"
+        issuer_name: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
+        country: US
+        state: "North Carolina"
+        locality: "Raleigh"
+        organization: "Johnsonville Internal"
+        organizational_unit: "Mostly Impractical"
+        email: "admin@johnson.int"
+  roles:
+    - role: bootstrap_certs
+```
 
-   ```yaml
-   - name: Set up Service Route Certificates
-     hosts: ca_pki # or your designated CA server group
-     become: true
-     vars:
-       bootstrap_certs__ca_service_routes_list:
-         - route: "admin.dettonville.int"
-           issuer_name: "ca.dettonville.int" # Signed by the intermediate CA
-           alt_names:
-             - "DNS.1 = admin.dettonville.int"
-             - "IP.1 = 10.0.0.10"
-         - route: "app.dettonville.int"
-           issuer_name: "ca.dettonville.int"
-           alt_names:
-             - "DNS.1 = app.dettonville.int"
-             - "DNS.2 = app-alias.dettonville.int"
-     roles:
-       - role: bootstrap_certs
-   ```
+### 3. Setting Up Service Route Certificates
 
-4. **Setting Up Host Node Leaf Certificates**
+```yaml
+- name: Set up Service Route Certificates
+  hosts: ca_pki # or your designated CA server group
+  become: true
+  vars:
+    bootstrap_certs__ca_service_routes_list:
+      - route: "admin.dettonville.int"
+        issuer_name: "ca.dettonville.int" # Signed by the intermediate CA
+        alt_names:
+          - "DNS.1 = admin.dettonville.int"
+          - "IP.1 = 10.0.0.10"
+      - route: "app.dettonville.int"
+        issuer_name: "ca.dettonville.int"
+        alt_names:
+          - "DNS.1 = app.dettonville.int"
+          - "DNS.2 = app-alias.dettonville.int"
+  roles:
+    - role: bootstrap_certs
+```
 
-   This role takes a list of inventory host names for which to generate leaf certificates. The role uses the `hostvars` of each specified host to derive certificate details such as `common_name`, `domain`, and `fqdn`.
+### 4. Setting Up Host Node Leaf Certificates
 
-   ```yaml
-   - hosts: ca_pki # Or target a specific host group where you want to generate certs
-     vars:
-       bootstrap_certs__ca_certify_node_list:
-         - host01
-         - host02
-         - host03
-     roles:
-       - role: bootstrap_certs
-   ```
+This role takes a list of inventory host names for which to generate leaf certificates. The role uses the `hostvars` of each specified host to derive certificate details such as `common_name`, `domain`, and `fqdn`.
 
-   For the host certificate generation to work correctly, ensure that the `hostvars` for each host listed in `bootstrap_certs__ca_certify_node_list` include the necessary `bootstrap_certs__common_name` (optional, defaults to host name), and `bootstrap_certs__domain`. The role will automatically select the appropriate signer (root or intermediate) based on the `bootstrap_certs__domain` configured for the host.
+```yaml
+- hosts: ca_pki # Or target a specific host group where you want to generate certs
+  vars:
+    bootstrap_certs__ca_certify_node_list:
+      - host01
+      - host02
+      - host03
+  roles:
+    - role: bootstrap_certs
+```
+
+For the host certificate generation to work correctly, ensure that the `hostvars` for each host listed in `bootstrap_certs__ca_certify_node_list` include the necessary `bootstrap_certs__common_name` (optional, defaults to host name), and `bootstrap_certs__domain`. The role will automatically select the appropriate signer (root or intermediate) based on the `bootstrap_certs__domain` configured for the host.
 
 ## Example: `inventory/host_vars/host01.yml` for Host Certificates
 
@@ -187,8 +199,5 @@ For a full list of configurable variables and their default values, please refer
 
 ## Backlinks
 
-- [Ansible Roles](/ansible-roles)
-- [PKI Management](/pki-management)
-```
-
-This improved version maintains the original content while adhering to clean, professional Markdown formatting suitable for GitHub rendering.
+- [Deploy CA Certificates Role](deploy_ca_certs/README.md)
+- [PKI Management Overview](pki_management_overview.md)

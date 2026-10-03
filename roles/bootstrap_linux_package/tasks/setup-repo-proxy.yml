@@ -1,0 +1,58 @@
+---
+- name: "Package | Proxy | Display __bootstrap_linux_package__pkg_proxy_conf_file"
+  ansible.builtin.debug:
+    var: __bootstrap_linux_package__pkg_proxy_conf_file
+
+- name: "Package | Proxy | Assert __bootstrap_linux_package__pkg_proxy_conf_file is set"
+  when: ansible_facts['pkg_mgr'] in ['apt', 'yum', 'dnf']
+  ansible.builtin.assert:
+    that: __bootstrap_linux_package__pkg_proxy_conf_file | d('') | length > 0
+
+- name: "Package | Proxy | Configure APT proxy settings"
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+  ansible.builtin.copy:
+    dest: "{{ __bootstrap_linux_package__pkg_proxy_conf_file }}"
+    content: |
+      ## Managed by Ansible
+      Acquire::http::Proxy "{{ bootstrap_linux_package__repo_proxy_url }}";
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Package | Proxy | Configure YUM/DNF proxy settings"
+  when:
+    - ansible_facts['pkg_mgr'] in ['yum', 'dnf']
+  block:
+    - name: "Package | Proxy | Set proxy directive"
+      community.general.ini_file:
+        path: "{{ __bootstrap_linux_package__pkg_proxy_conf_file }}"
+        section: main
+        option: proxy
+        value: "{{ bootstrap_linux_package__repo_proxy_url }}"
+        mode: '0644'
+
+    - name: "Package | Proxy | Configure no_proxy if specified"
+      when: bootstrap_linux_package__repo_proxy_no_proxy | default([]) | length > 0
+      community.general.ini_file:
+        path: "{{ __bootstrap_linux_package__pkg_proxy_conf_file }}"
+        section: main
+        option: no_proxy
+        value: "{{ bootstrap_linux_package__repo_proxy_no_proxy | join(',') }}"
+        mode: '0644'
+
+- name: "Package | Proxy | Configure APK environment proxy settings"
+  when:
+    - ansible_facts['pkg_mgr'] == 'apk' or ansible_facts['os_family'] == 'Alpine'
+  ansible.builtin.copy:
+    dest: "{{ __bootstrap_linux_package__pkg_proxy_profile_script }}"
+    content: |
+      # Managed by Ansible
+      export http_proxy="{{ bootstrap_linux_package__repo_proxy_url }}"
+      export https_proxy="{{ bootstrap_linux_package__repo_proxy_url }}"
+      {% if bootstrap_linux_package__repo_proxy_no_proxy | default([]) | length > 0 %}
+      export no_proxy="{{ bootstrap_linux_package__repo_proxy_no_proxy | join(',') }}"
+      {% endif %}
+    owner: root
+    group: root
+    mode: '0755'

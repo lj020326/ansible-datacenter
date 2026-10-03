@@ -1,102 +1,125 @@
 ---
-title: "AWX Docker Bootstrap Role"
-role: bootstrap_awx_docker
-category: Ansible Roles
-type: Infrastructure as Code
-tags: [ansible, awx, docker, automation]
+title: "Bootstrap AWX Docker Role"
+role: roles/bootstrap_awx_docker
+category: Infrastructure
+type: ansible-role
+tags: [ansible, role, bootstrap_awx_docker]
 ---
 
-## Summary
+# Bootstrap AWX Docker Role
 
-The `bootstrap_awx_docker` role is designed to automate the deployment of AWX (Ansible Web UI) using Docker containers. This role handles the setup of necessary Docker images, configuration files, and services required for a fully functional AWX environment. It includes tasks for building, pushing, and managing container images, as well as starting and configuring Docker Compose services.
+The `bootstrap_awx_docker` role automates the deployment of AWX using Docker containers. It provides a streamlined process for setting up AWX with customizable configurations, ensuring that all necessary services (PostgreSQL, Redis, Memcached, etc.) are properly configured and started.
 
 ## Variables
 
-| Variable Name                                      | Default Value                                                                                     | Description                                                                                                                                                                                                 |
-|----------------------------------------------------|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bootstrap_awx_docker__docker_registry`            | `registry.example.int:5000`                                                                       | The URL of the Docker registry to pull images from.                                                                                                                                                           |
-| `bootstrap_awx_docker__docker_registry_username`   | `registryuser`                                                                                    | Username for authenticating with the Docker registry.                                                                                                                                                         |
-| `bootstrap_awx_docker__docker_registry_password`   | `password`                                                                                        | Password for authenticating with the Docker registry.                                                                                                                                                         |
-| `bootstrap_awx_docker__version`                    | `20.1.0`                                                                                          | The version of AWX to deploy.                                                                                                                                                                                 |
-| `bootstrap_awx_docker__web_image`                  | `awx`                                                                                             | The name of the web image for AWX.                                                                                                                                                                            |
-| `bootstrap_awx_docker__task_image`                 | `awx`                                                                                             | The name of the task image for AWX.                                                                                                                                                                           |
-| `bootstrap_awx_docker__web_docker_actual_image`    | `{{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__web_image }}:{{ bootstrap_awx_docker__version }}` | The full path of the web image including registry and version.                                                                                                                                                |
-| `bootstrap_awx_docker__task_docker_actual_image`   | `{{ bootstrap_awx_docker__docker_registry }}/{{ bootstrap_awx_docker__docker_registry_repository }}/{{ bootstrap_awx_docker__task_image }}:{{ bootstrap_awx_docker__version }}` | The full path of the task image including registry and version.                                                                                                                                               |
-| `bootstrap_awx_docker__inventory_dir`              | `~/.awx`                                                                                          | Directory where inventory files are stored.                                                                                                                                                                   |
-| `bootstrap_awx_docker__redis_image`                | `redis`                                                                                           | The Redis image to use for caching.                                                                                                                                                                           |
-| `bootstrap_awx_docker__postgresql_version`         | `"14.2"`                                                                                          | Version of PostgreSQL to use as the database backend.                                                                                                                                                       |
-| `bootstrap_awx_docker__postgresql_image`           | `postgres:{{ bootstrap_awx_docker__postgresql_version }}`                                          | The full path of the PostgreSQL image including version.                                                                                                                                                    |
-| `bootstrap_awx_docker__memcached_image`            | `memcached`                                                                                       | The Memcached image to use for caching.                                                                                                                                                                       |
-| `bootstrap_awx_docker__memcached_version`          | `alpine`                                                                                          | Version of Memcached to use.                                                                                                                                                                                  |
-| `bootstrap_awx_docker__memcached_hostname`         | `memcached`                                                                                       | Hostname for the Memcached service.                                                                                                                                                                           |
-| `bootstrap_awx_docker__memcached_port`             | `"11211"`                                                                                         | Port number for the Memcached service.                                                                                                                                                                        |
-| `bootstrap_awx_docker__compose_start_containers`   | `true`                                                                                            | Whether to start containers using Docker Compose.                                                                                                                                                             |
-| `bootstrap_awx_docker__task_hostname`              | `awx`                                                                                             | Hostname for the AWX task container.                                                                                                                                                                          |
-| `bootstrap_awx_docker__web_hostname`               | `awxweb`                                                                                          | Hostname for the AWX web container.                                                                                                                                                                           |
-| `bootstrap_awx_docker__postgres_data_dir`          | `~/.awx/pgdocker`                                                                                 | Directory where PostgreSQL data will be stored.                                                                                                                                                               |
-| `bootstrap_awx_docker__host_port`                  | `80`                                                                                              | Host port to expose the AWX web interface on HTTP.                                                                                                                                                          |
-| `bootstrap_awx_docker__host_port_ssl`              | `443`                                                                                             | Host port to expose the AWX web interface on HTTPS.                                                                                                                                                         |
-| `bootstrap_awx_docker__docker_compose_dir`         | `~/.awx/awxcompose`                                                                               | Directory where Docker Compose configuration files are stored.                                                                                                                                                |
-| `bootstrap_awx_docker__container_prefix`           | `awx`                                                                                             | Prefix for container names.                                                                                                                                                                                   |
-| `bootstrap_awx_docker__docker_registry_repository` | `awx`                                                                                             | Repository name in the Docker registry.                                                                                                                                                                       |
-| `bootstrap_awx_docker__pg_username`                | `awx`                                                                                             | Username for PostgreSQL database access.                                                                                                                                                                      |
-| `bootstrap_awx_docker__pg_password`                | `pgpass`                                                                                          | Password for PostgreSQL database access.                                                                                                                                                                      |
-| `bootstrap_awx_docker__pg_database`                | `awx`                                                                                             | Name of the PostgreSQL database to use.                                                                                                                                                                       |
-| `bootstrap_awx_docker__pg_port`                    | `5432`                                                                                            | Port number for the PostgreSQL service.                                                                                                                                                                       |
-| `bootstrap_awx_docker__admin_user`                 | `admin`                                                                                           | Admin username for AWX.                                                                                                                                                                                     |
-| `bootstrap_awx_docker__admin_password`             | `password`                                                                                        | Admin password for AWX.                                                                                                                                                                                     |
-| `bootstrap_awx_docker__create_preload_data`        | `true`                                                                                            | Whether to create preload data during the setup process.                                                                                                                                                    |
-| `bootstrap_awx_docker__secret_key`                 | `awxsecret`                                                                                       | Secret key used by AWX for cryptographic signing.                                                                                                                                                           |
-| `bootstrap_awx_docker__container_config_templates` | List of configuration files and modes (e.g., `environment.sh`, `credentials.py`)                  | Configuration templates to be rendered and placed in the Docker Compose directory.                                                                                                                            |
-| `bootstrap_awx_docker__web_volumes`                | List of volumes for the web container                                                             | Volumes to mount inside the AWX web container.                                                                                                                                                              |
-| `bootstrap_awx_docker__task_volumes`               | List of volumes for the task container                                                            | Volumes to mount inside the AWX task container.                                                                                                                                                             |
+| Variable Name                                      | Default Value                          | Description                                                                                         |
+|----------------------------------------------------|----------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `bootstrap_awx_docker__docker_registry`            | `registry.example.int:5000`            | Docker registry URL                                                                                 |
+| `bootstrap_awx_docker__docker_registry_username`   | `registryuser`                         | Docker registry username                                                                           |
+| `bootstrap_awx_docker__docker_registry_password`   | `password`                             | Docker registry password                                                                           |
+| `bootstrap_awx_docker__version`                    | `20.1.0`                               | AWX version to deploy                                                                              |
+| `bootstrap_awx_docker__web_image`                  | `awx`                                  | Docker image for the AWX web service                                                               |
+| `bootstrap_awx_docker__task_image`                 | `awx`                                  | Docker image for the AWX task service                                                               |
+| `bootstrap_awx_docker__inventory_dir`              | `~/.awx`                               | Directory for AWX inventory files                                                                  |
+| `bootstrap_awx_docker__redis_image`                | `redis`                                | Docker image for Redis                                                                             |
+| `bootstrap_awx_docker__postgresql_version`         | `14.2`                                 | PostgreSQL version                                                                                 |
+| `bootstrap_awx_docker__postgresql_image`           | `postgres:14.2`                        | Docker image for PostgreSQL                                                                         |
+| `bootstrap_awx_docker__memcached_image`            | `memcached`                             | Docker image for Memcached                                                                         |
+| `bootstrap_awx_docker__memcached_version`          | `alpine`                               | Memcached version                                                                                  |
+| `bootstrap_awx_docker__memcached_hostname`         | `memcached`                             | Memcached hostname                                                                                 |
+| `bootstrap_awx_docker__memcached_port`             | `11211`                                | Memcached port                                                                                     |
+| `bootstrap_awx_docker__compose_start_containers`   | `true`                                 | Whether to start containers using Docker Compose                                                   |
+| `bootstrap_awx_docker__task_hostname`              | `awx`                                  | Hostname for the AWX task service                                                                  |
+| `bootstrap_awx_docker__web_hostname`               | `awxweb`                               | Hostname for the AWX web service                                                                    |
+| `bootstrap_awx_docker__postgres_data_dir`          | `~/.awx/pgdocker`                      | Directory for PostgreSQL data                                                                       |
+| `bootstrap_awx_docker__host_port`                  | `80`                                   | Host port for AWX web service                                                                     |
+| `bootstrap_awx_docker__host_port_ssl`              | `443`                                  | Host port for SSL connections                                                                       |
+| `bootstrap_awx_docker__docker_compose_dir`         | `~/.awx/awxcompose`                    | Directory for Docker Compose files                                                                  |
+| `bootstrap_awx_docker__container_prefix`           | `awx`                                  | Prefix for container names                                                                         |
+| `bootstrap_awx_docker__docker_registry_repository` | `awx`                                  | Repository name in the Docker registry                                                             |
+| `bootstrap_awx_docker__pg_username`                | `awx`                                  | PostgreSQL username                                                                               |
+| `bootstrap_awx_docker__pg_password`                | `pgpass`                               | PostgreSQL password                                                                               |
+| `bootstrap_awx_docker__pg_database`                | `awx`                                  | PostgreSQL database name                                                                           |
+| `bootstrap_awx_docker__pg_port`                    | `5432`                                 | PostgreSQL port                                                                                   |
+| `bootstrap_awx_docker__admin_user`                 | `admin`                                | AWX admin username                                                                               |
+| `bootstrap_awx_docker__admin_password`             | `password`                             | AWX admin password                                                                               |
+| `bootstrap_awx_docker__create_preload_data`        | `true`                                 | Whether to create preload data                                                                     |
+| `bootstrap_awx_docker__secret_key`                 | `awxsecret`                            | Secret key for AWX                                                                               |
+| `bootstrap_awx_docker__container_config_templates` | See [defaults/main.yml](../../roles/bootstrap_awx_docker/defaults/main.yml) | List of container configuration templates                                                          |
+| `bootstrap_awx_docker__web_volumes`                | See [defaults/main.yml](../../roles/bootstrap_awx_docker/defaults/main.yml) | Volumes for the AWX web service                                                                   |
+| `bootstrap_awx_docker__task_volumes`               | See [defaults/main.yml](../../roles/bootstrap_awx_docker/defaults/main.yml) | Volumes for the AWX task service                                                                   |
 
 ## Usage
 
-To use this role, include it in your Ansible playbook and provide any necessary variables as needed. Here is an example playbook:
+To use the `bootstrap_awx_docker` role, include it in your playbook and define the necessary variables. Here is an example playbook:
 
 ```yaml
 ---
 - name: Deploy AWX using Docker
-  hosts: all
+  hosts: awx_hosts
   become: yes
   roles:
     - role: bootstrap_awx_docker
       vars:
-        bootstrap_awx_docker__version: "20.1.0"
-        bootstrap_awx_docker__docker_registry: "registry.example.int:5000"
-        bootstrap_awx_docker__docker_registry_username: "registryuser"
-        bootstrap_awx_docker__docker_registry_password: "password"
+        bootstrap_awx_docker__docker_registry: "your-docker-registry.example.com:5000"
+        bootstrap_awx_docker__docker_registry_username: "your-registry-username"
+        bootstrap_awx_docker__docker_registry_password: "your-registry-password"
+        bootstrap_awx_docker__version: "21.0.0"
+        bootstrap_awx_docker__admin_password: "your-admin-password"
 ```
 
 ## Dependencies
 
-This role depends on the following Ansible collections:
+This role requires the following dependencies:
 
-- `community.docker`
-- `awx.awx`
+- `community.docker.docker_image`
+- `community.docker.docker_container`
+- `community.docker.docker_compose_v2`
+- `awx.awx.job_launch`
 
-Ensure these collections are installed before running this role. You can install them using:
-
-```bash
-ansible-galaxy collection install community.docker awx.awx
-```
+Ensure these collections are installed in your Ansible environment.
 
 ## Best Practices
 
-1. **Secure Credentials**: Ensure that sensitive information such as passwords and secrets is managed securely, for example by using Ansible Vault.
-2. **Version Control**: Keep track of changes to your inventory files and configuration templates in a version control system.
-3. **Backup Data**: Regularly back up PostgreSQL data stored in `bootstrap_awx_docker__postgres_data_dir` to prevent data loss.
+1. **Security**: Always use secure methods for handling sensitive information such as passwords and secret keys. Consider using Ansible Vault for encrypting sensitive variables.
+2. **Backup**: Regularly back up your PostgreSQL data directory (`bootstrap_awx_docker__postgres_data_dir`) to prevent data loss.
+3. **Monitoring**: Implement monitoring for your AWX deployment to ensure high availability and quick issue resolution.
+4. **Updates**: Keep your AWX version up to date to benefit from the latest features and security patches.
 
-## Molecule Tests
+## Example Inventory
 
-This role includes Molecule tests to verify its functionality. To run the tests, navigate to the role directory and execute:
+Here is an example inventory file for using this role:
 
-```bash
-molecule test
+```ini
+[awx_hosts]
+awx.example.com
 ```
 
-Ensure that Docker is installed and running on your system before executing the tests.
+## Overriding Specific Tasks
+
+To override specific tasks in this role, you can create a new playbook that includes the role and then use the `tasks` directive to specify your custom tasks:
+
+```yaml
+---
+- name: Deploy AWX using Docker with custom tasks
+  hosts: awx_hosts
+  become: yes
+  roles:
+    - role: bootstrap_awx_docker
+  tasks:
+    - name: Custom task to run after bootstrap_awx_docker
+      debug:
+        msg: "This is a custom task"
+```
+
+## Troubleshooting
+
+If you encounter issues with the role, consider the following troubleshooting steps:
+
+1. **Check Docker Service**: Ensure the Docker service is running on the target host.
+2. **Review Logs**: Check the logs for the AWX containers for any error messages.
+3. **Network Issues**: Verify that there are no network issues preventing communication between containers.
+4. **Permissions**: Ensure that the user running the Ansible playbook has the necessary permissions to manage Docker resources.
 
 ## Backlinks
 

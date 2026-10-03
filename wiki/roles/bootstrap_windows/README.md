@@ -1,28 +1,27 @@
-```markdown
 ---
-title: Ansible Role - bootstrap_windows
+title: Ansible Role: bootstrap_windows
 original_path: roles/bootstrap_windows/README.md
-category: Ansible Roles
-tags: [ansible, windows, kvm, virtio, spice]
+category: Ansible
+tags: [Ansible, Windows, KVM, VirtIO, SPICE]
+harvested_date: '2026-08-07T18:07:09.489477+00:00'
+source_type: legacy_markdown
 ---
 
 # Ansible Role: bootstrap_windows
 
-This role installs essential Windows drivers and SPICE Guest Tools:
+This role installs Windows drivers and spice-guest-tools to optimize performance when running Windows on a KVM hypervisor. The following drivers and tools are installed:
 
-- **Virtio Network Driver** ([netkvm](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/NetKVM))
-- **Virtio Block Driver** ([viostor](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/viostor))
-- **QXL Graphics Driver** (qxldod)
-- **VirtIO SCSI Pass-through Controller Driver** ([vioscsi](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/vioscsi))
-- **Balloon Driver** ([Balloon](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/Balloon))
-- **Virtio RNG Driver** ([viorng](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/viorng))
-- **Virtio Serial Driver** ([vioserial](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/vioserial))
-- **Virtio Input Driver** ([vioinput](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/vioinput))
-- **pvpanic Device Driver** ([pvpanic](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/pvpanic))
-- **QEMU Guest Agent** ([qemu-ga-x86_64](https://wiki.libvirt.org/page/Qemu_guest_agent))
-- **SPICE Guest Tools** ([vdagent-win](https://www.spice-space.org))
-
-These drivers and tools are essential for optimal performance when running Windows on the KVM hypervisor using VirtIO.
+- [Virtio Network Driver (netkvm)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/NetKVM)
+- [Virtio Block Driver (viostor)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/viostor)
+- QXL Graphics Driver (qxldod)
+- [VirtIO SCSI pass-through controller Driver (vioscsi)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/vioscsi)
+- [Balloon Driver (Balloon)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/Balloon)
+- [Virtio RNG driver (viorng)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/viorng)
+- [Virtio serial driver (vioserial)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/vioserial)
+- [Virtio Input driver (vioinput)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/vioinput)
+- [pvpanic device driver (pvpanic)](https://github.com/ansible-bootstrap-windows/kvm-guest-drivers-windows/tree/master/pvpanic)
+- [Qemu Guest Agent (qemu-ga-x86_64)](https://wiki.libvirt.org/page/Qemu_guest_agent)
+- [SPICE Guest Tools (vdagent-win)](https://www.spice-space.org)
 
 ## Requirements
 
@@ -33,37 +32,32 @@ These drivers and tools are essential for optimal performance when running Windo
 Available variables are listed below, along with their default values (see `defaults/main.yml`):
 
 ```yaml
-# Find available versions here: https://www.spice-space.org/download/windows/vdagent/
+# Find the available versions here https://www.spice-space.org/download/windows/vdagent/
 bootstrap_windows_vdagent_win_version: 0.9.0
 
 # URL of the ansible-bootstrap-windows.iso
 bootstrap_windows_virtio_win_iso_url: https://fedorapeople.org/groups/virt/ansible-bootstrap-windows/direct-downloads/latest-virtio/ansible-bootstrap-windows.iso
 
-# Path where files/directories from ansible-bootstrap-windows.iso are located (usually CD-ROM).
-# If set, the ansible-bootstrap-windows.iso will be downloaded.
+# Path where the files/directories from ansible-bootstrap-windows.iso are located (usually CD-ROM).
+# If this is set, then the ansible-bootstrap-windows.iso is going to be downloaded.
 bootstrap_windows_virtio_win_iso_path: E:\\
 ```
 
 ## Dependencies
 
-- Windows 64-bit (amd64) (x64)
+- Windows 64 bit (amd64) (x64)
 
 ## Example Playbook
 
 ```yaml
 - hosts: all
   roles:
+    - { role: ruzickap.ansible-bootstrap-windows }
+    # or
     - role: ruzickap.ansible-bootstrap-windows
-      # or specify a custom ISO path
       bootstrap_windows_virtio_win_iso_path: 'E:\\'
 ```
 
 ## Backlinks
 
-- [Ansible Roles](/categories/ansible-roles)
-- [KVM Hypervisor](/tags/kvm)
-- [VirtIO Drivers](/tags/virtio)
-- [SPICE Guest Tools](/tags/spice)
-```
-
-This Markdown document is now clean, professional, and optimized for GitHub rendering while maintaining all original information and meaning.
+(This section is intentionally left blank for backlinks to be added as needed)

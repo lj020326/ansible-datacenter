@@ -1,78 +1,98 @@
 ---
-title: Bootstrap Linux Systemd Role Documentation
+title: "Bootstrap Linux Systemd Role"
 role: bootstrap_linux_systemd
-category: System Configuration
-type: Ansible Role
-tags: systemd, journald, timesyncd, resolved, networkd, udev, vconsole, tmpfiles
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_linux_systemd]
 ---
 
-## Summary
+# Bootstrap Linux Systemd Role
 
-The `bootstrap_linux_systemd` role is designed to configure various aspects of the systemd system and service manager on Linux systems. It handles configurations for services such as `journald`, `timesyncd`, `resolved`, `networkd`, `udev`, `vconsole`, and `tmpfiles`. This role ensures that these systemd components are properly set up according to user-defined variables, enhancing system management and automation.
+The `bootstrap_linux_systemd` role is designed to configure and manage various systemd components on a Linux system. This role provides a comprehensive set of tasks to deploy and manage configurations for systemd-journald, systemd-networkd, systemd-resolved, systemd-timesyncd, systemd-tmpfiles, and systemd-udev.
 
 ## Variables
 
-| Variable Name                         | Default Value  | Description                                                                 |
-|---------------------------------------|----------------|-----------------------------------------------------------------------------|
-| bootstrap_linux_systemd__tmpfiles     | []             | List of tmpfiles configurations.                                          |
-| bootstrap_linux_systemd__timesyncd    | []             | List of timesyncd configurations.                                         |
-| bootstrap_linux_systemd__journald_settings | []        | List of journald settings configurations.                                 |
-| bootstrap_linux_systemd__udev         | []             | List of udev rules configurations.                                        |
-| bootstrap_linux_systemd__vconsole     | []             | Configuration for vconsole settings.                                      |
-| bootstrap_linux_systemd__resolved     | []             | List of resolved configurations.                                          |
-| bootstrap_linux_systemd__networkd     | []             | List of networkd configurations, including interfaces and network settings. |
+| Variable Name                          | Default Value | Description                                                                 |
+|----------------------------------------|---------------|-----------------------------------------------------------------------------|
+| `bootstrap_linux_systemd__tmpfiles`    | `[]`          | List of tmpfiles configurations to deploy.                                  |
+| `bootstrap_linux_systemd__timesyncd`   | `[]`          | List of timesyncd configurations to deploy.                                 |
+| `bootstrap_linux_systemd__journald_settings` | `[]`  | List of journald settings to deploy.                                       |
+| `bootstrap_linux_systemd__udev`        | `[]`          | List of udev rules to deploy.                                              |
+| `bootstrap_linux_systemd__vconsole`    | `[]`          | List of vconsole configurations to deploy.                                 |
+| `bootstrap_linux_systemd__resolved`    | `[]`          | List of resolved configurations to deploy.                                 |
+| `bootstrap_linux_systemd__networkd`    | `[]`          | List of networkd configurations to deploy.                                 |
 
 ## Usage
 
-To use the `bootstrap_linux_systemd` role, include it in your playbook and define the necessary variables as per your requirements. Below is an example playbook that demonstrates how to configure some of the systemd components:
+To use this role, include it in your playbook and define the necessary variables:
 
 ```yaml
----
-- name: Bootstrap Linux Systemd Configuration
-  hosts: all
-  become: yes
+- hosts: all
   roles:
     - role: bootstrap_linux_systemd
       vars:
-        bootstrap_linux_systemd__journald_settings:
-          - Storage: persistent
-            Compress: yes
+        bootstrap_linux_systemd__tmpfiles:
+          - file_name: example-tmpfiles
+            content: |
+              d /path/to/directory 0755 root root 10d
         bootstrap_linux_systemd__timesyncd:
-          - NTP: ntp.example.com
-            FallbackNTP: pool.ntp.org
+          - enable: true
+            servers:
+              - time.example.com
+        bootstrap_linux_systemd__journald_settings:
+          - setting: Storage
+            value: persistent
+        bootstrap_linux_systemd__udev:
+          - file_name: example-udev
+            content: |
+              ACTION=="add", SUBSYSTEM=="net", NAME="eth0"
+        bootstrap_linux_systemd__vconsole:
+          - content: |
+              KEYMAP=us
+              FONT=latarcyrheb-sun16
         bootstrap_linux_systemd__resolved:
-          - DNS: 8.8.8.8 8.8.4.4
-            Domains: example.com
+          - enable: true
+            DNS:
+              - 8.8.8.8
+              - 8.8.4.4
         bootstrap_linux_systemd__networkd:
-          - interfaces:
+          - enable: true
+            interfaces:
               - interface: eth0
                 type: ether
-                physaddr: 00:1A:2B:3C:4D:5E
+                physaddr: 00:11:22:33:44:55
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies. However, it requires that the target system uses `systemd` as its init system.
+This role requires the `community.general` collection for JSON query operations.
 
-## Tags
-
-- `journald`: Configures journald settings.
-- `timesyncd`: Configures timesyncd settings.
-- `resolved`: Configures resolved settings.
-- `networkd`: Configures networkd settings, including interfaces and network configurations.
-- `udev`: Configures udev rules.
-- `vconsole`: Configures vconsole settings.
-- `tmpfiles`: Configures tmpfiles settings.
+```yaml
+collections:
+  - community.general
+```
 
 ## Best Practices
 
-1. **Use Tags**: Utilize tags to target specific systemd components for configuration, which can speed up playbook execution when only certain services need adjustment.
-2. **Define Variables Clearly**: Ensure that all variables are clearly defined in your inventory or playbook to avoid misconfigurations.
-3. **Test Configurations**: Use Molecule tests (if available) to verify the role's functionality and configurations before deploying it to production environments.
+- Ensure that the system is using `systemd` as the service manager.
+- Define all necessary configurations in the role's variables to avoid missing configurations.
+- Review the default configurations and adjust them as needed for your environment.
+- Test the role in a development environment before deploying it to production.
+- Regularly review and update the role to accommodate changes in systemd or your infrastructure.
+- Consider the security implications of each configuration change.
+- Document any custom configurations for future reference and knowledge sharing.
 
-## Molecule Tests
+## Idempotency
 
-This role does not include Molecule tests at this time. However, it is recommended to create test scenarios using Molecule to ensure that the role behaves as expected across different Linux distributions and versions.
+This role is designed to be idempotent, meaning it can be run multiple times without causing unintended side effects. The role checks the current state of the system before making any changes.
+
+## Testing
+
+The role includes tests to verify its functionality. You can run these tests using the provided test framework. It's recommended to run the tests in a development environment before deploying the role to production.
+
+## Limitations
+
+This role focuses on configuring systemd components and may not cover all possible use cases or advanced configurations. Some systemd components or features might not be supported or might require additional customization.
 
 ## Backlinks
 

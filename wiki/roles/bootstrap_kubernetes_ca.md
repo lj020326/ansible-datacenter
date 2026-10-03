@@ -1,124 +1,109 @@
 ---
-title: "Bootstrap Kubernetes CA Role Documentation"
+title: "Bootstrap Kubernetes CA Role"
 role: bootstrap_kubernetes_ca
-category: Ansible Roles
-type: Infrastructure as Code
-tags: tls, certificate, security, kubernetes
+category: Kubernetes
+type: Role
+tags: [ansible, role, bootstrap_kubernetes_ca]
 ---
 
-## Summary
+# Bootstrap Kubernetes CA Role
 
-The `bootstrap_kubernetes_ca` role is designed to generate a Certificate Authority (CA) for Kubernetes and issue certificates for etcd and the Kubernetes API server. This role supports both generating a new CA or using an existing one, and it integrates with HashiCorp Vault for secure storage of certificates.
+The `bootstrap_kubernetes_ca` role is designed to generate the necessary CA certificates for a Kubernetes cluster, including certificates for etcd and the Kubernetes API server. This role automates the process of creating and managing TLS certificates, ensuring secure communication within the cluster.
 
 ## Variables
 
+The following table lists the variables that can be configured for this role:
+
 | Variable Name | Default Value | Description |
 |---------------|---------------|-------------|
-| `bootstrap_kubernetes_ca__use_existing_root_ca` | `false` | Specifies whether to use an existing root CA. |
-| `bootstrap_kubernetes_ca__root_ca_cert_path` | `/path/to/your/root-ca.pem` | Path to the existing root CA certificate file if using an existing CA. |
-| `bootstrap_kubernetes_ca__root_ca_key_path` | `/path/to/your/root-ca-key.pem` | Path to the existing root CA key file if using an existing CA. |
-| `bootstrap_kubernetes_ca__vault_url` | `http://127.0.0.1:8200` | URL of the HashiCorp Vault server for storing certificates securely. |
-| `bootstrap_kubernetes_ca__vault_token` | `""` | Token to authenticate with HashiCorp Vault. |
-| `bootstrap_kubernetes_ca__vault_kv_path` | `secret/kubernetes/ca` | Path in Vault where Kubernetes CA and certificates will be stored. |
-| `bootstrap_kubernetes_ca__ca_conf_directory` | `"{{ '~/k8s/certs' \| expanduser }}"` | Directory to store the generated CA configuration files. |
-| `bootstrap_kubernetes_ca__ca_conf_directory_perm` | `"0770"` | Permissions for the CA configuration directory. |
-| `bootstrap_kubernetes_ca__ca_file_perm` | `"0660"` | Permissions for the generated certificate and key files. |
-| `bootstrap_kubernetes_ca__ca_certificate_owner` | `"root"` | Owner of the generated certificate and key files. |
-| `bootstrap_kubernetes_ca__ca_certificate_group` | `"root"` | Group owner of the generated certificate and key files. |
-| `bootstrap_kubernetes_ca__ca_controller_nodes_group` | `"kubernetes_controller"` | Ansible group name for Kubernetes controller nodes. |
-| `bootstrap_kubernetes_ca__ca_etcd_nodes_group` | `"kubernetes_etcd"` | Ansible group name for etcd nodes. |
-| `bootstrap_kubernetes_ca__ca_worker_nodes_group` | `"kubernetes_worker"` | Ansible group name for worker nodes. |
-| `bootstrap_kubernetes_ca__offline_nodes_group` | `"host_offline"` | Ansible group name for offline nodes to be excluded from the process. |
-| `bootstrap_kubernetes_ca__interface` | `"eth0"` | Network interface used to gather IP addresses of nodes. |
-| `bootstrap_kubernetes_ca__etcd_expiry` | `"87600h"` | Expiry time for etcd certificates in hours. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_cn` | `"etcd"` | Common Name (CN) for the etcd CSR. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_key_algo` | `"rsa"` | Key algorithm for the etcd CSR. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_key_size` | `"2048"` | Key size for the etcd CSR. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_names_c` | `"DE"` | Country (C) field in the etcd CSR names. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_names_l` | `"The_Internet"` | Locality (L) field in the etcd CSR names. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_names_o` | `"Kubernetes"` | Organization (O) field in the etcd CSR names. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_names_ou` | `"BY"` | Organizational Unit (OU) field in the etcd CSR names. |
-| `bootstrap_kubernetes_ca__ca_etcd_csr_names_st` | `"Bayern"` | State/Province (ST) field in the etcd CSR names. |
-| `bootstrap_kubernetes_ca__ca_apiserver_expiry` | `"87600h"` | Expiry time for Kubernetes API server certificates in hours. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_cn` | `"Kubernetes"` | Common Name (CN) for the Kubernetes API server CSR. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_key_algo` | `"rsa"` | Key algorithm for the Kubernetes API server CSR. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_key_size` | `"2048"` | Key size for the Kubernetes API server CSR. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_c` | `"DE"` | Country (C) field in the Kubernetes API server CSR names. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_l` | `"The_Internet"` | Locality (L) field in the Kubernetes API server CSR names. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_o` | `"Kubernetes"` | Organization (O) field in the Kubernetes API server CSR names. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_ou` | `"BY"` | Organizational Unit (OU) field in the Kubernetes API server CSR names. |
-| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_st` | `"Bayern"` | State/Province (ST) field in the Kubernetes API server CSR names. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_cn` | `"etcd-server"` | Common Name (CN) for the etcd server CSR. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_key_algo` | `"rsa"` | Key algorithm for the etcd server CSR. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_key_size` | `"2048"` | Key size for the etcd server CSR. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_names_c` | `"DE"` | Country (C) field in the etcd server CSR names. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_names_l` | `"The_Internet"` | Locality (L) field in the etcd server CSR names. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_names_o` | `"Kubernetes"` | Organization (O) field in the etcd server CSR names. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_names_ou` | `"BY"` | Organizational Unit (OU) field in the etcd server CSR names. |
-| `bootstrap_kubernetes_ca__etcd_server_csr_names_st` | `"Bayern"` | State/Province (ST) field in the etcd server CSR names. |
+| `bootstrap_kubernetes_ca__use_existing_root_ca` | `false` | Whether to use an existing root CA certificate and key. |
+| `bootstrap_kubernetes_ca__root_ca_cert_path` | `/path/to/your/root-ca.pem` | Path to the existing root CA certificate. |
+| `bootstrap_kubernetes_ca__root_ca_key_path` | `/path/to/your/root-ca-key.pem` | Path to the existing root CA key. |
+| `bootstrap_kubernetes_ca__vault_url` | `http://127.0.0.1:8200` | URL of the HashiCorp Vault server. |
+| `bootstrap_kubernetes_ca__vault_token` | `""` | Token for authenticating with HashiCorp Vault. |
+| `bootstrap_kubernetes_ca__vault_kv_path` | `secret/kubernetes/ca` | Path in Vault where the CA certificates are stored. |
+| `bootstrap_kubernetes_ca__ca_conf_directory` | `~/k8s/certs` | Directory where CA configuration files will be stored. |
+| `bootstrap_kubernetes_ca__ca_conf_directory_perm` | `0770` | Permissions for the CA configuration directory. |
+| `bootstrap_kubernetes_ca__ca_file_perm` | `0660` | Permissions for CA files. |
+| `bootstrap_kubernetes_ca__ca_certificate_owner` | `root` | Owner of the CA certificate files. |
+| `bootstrap_kubernetes_ca__ca_certificate_group` | `root` | Group of the CA certificate files. |
+| `bootstrap_kubernetes_ca__ca_controller_nodes_group` | `kubernetes_controller` | Ansible group for Kubernetes controller nodes. |
+| `bootstrap_kubernetes_ca__ca_etcd_nodes_group` | `kubernetes_etcd` | Ansible group for etcd nodes. |
+| `bootstrap_kubernetes_ca__ca_worker_nodes_group` | `kubernetes_worker` | Ansible group for worker nodes. |
+| `bootstrap_kubernetes_ca__offline_nodes_group` | `host_offline` | Ansible group for offline nodes. |
+| `bootstrap_kubernetes_ca__interface` | `eth0` | Network interface to use for gathering IP addresses. |
+| `bootstrap_kubernetes_ca__etcd_expiry` | `87600h` | Expiry time for etcd certificates. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_cn` | `etcd` | Common Name for etcd CSR. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_key_algo` | `rsa` | Key algorithm for etcd CSR. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_key_size` | `2048` | Key size for etcd CSR. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_names_c` | `DE` | Country for etcd CSR names. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_names_l` | `The_Internet` | Locality for etcd CSR names. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_names_o` | `Kubernetes` | Organization for etcd CSR names. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_names_ou` | `BY` | Organizational Unit for etcd CSR names. |
+| `bootstrap_kubernetes_ca__ca_etcd_csr_names_st` | `Bayern` | State for etcd CSR names. |
+| `bootstrap_kubernetes_ca__ca_apiserver_expiry` | `87600h` | Expiry time for API server certificates. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_cn` | `Kubernetes` | Common Name for API server CSR. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_key_algo` | `rsa` | Key algorithm for API server CSR. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_key_size` | `2048` | Key size for API server CSR. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_c` | `DE` | Country for API server CSR names. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_l` | `The_Internet` | Locality for API server CSR names. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_o` | `Kubernetes` | Organization for API server CSR names. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_ou` | `BY` | Organizational Unit for API server CSR names. |
+| `bootstrap_kubernetes_ca__ca_apiserver_csr_names_st` | `Bayern` | State for API server CSR names. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_cn` | `etcd-server` | Common Name for etcd server CSR. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_key_algo` | `rsa` | Key algorithm for etcd server CSR. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_key_size` | `2048` | Key size for etcd server CSR. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_names_c` | `DE` | Country for etcd server CSR names. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_names_l` | `The_Internet` | Locality for etcd server CSR names. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_names_o` | `Kubernetes` | Organization for etcd server CSR names. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_names_ou` | `BY` | Organizational Unit for etcd server CSR names. |
+| `bootstrap_kubernetes_ca__etcd_server_csr_names_st` | `Bayern` | State for etcd server CSR names. |
 
 ## Usage
-To use this role, include it in your playbook and define the necessary variables as per your environment configuration.
 
-Example Playbook:
+To use this role, include it in your playbook and configure the necessary variables:
+
 ```yaml
-- name: Bootstrap Kubernetes CA
-  hosts: localhost
-  gather_facts: false
+- hosts: kubernetes
   roles:
     - role: bootstrap_kubernetes_ca
       vars:
         bootstrap_kubernetes_ca__use_existing_root_ca: true
         bootstrap_kubernetes_ca__root_ca_cert_path: "/path/to/your/root-ca.pem"
         bootstrap_kubernetes_ca__root_ca_key_path: "/path/to/your/root-ca-key.pem"
-        bootstrap_kubernetes_ca__vault_url: "http://127.0.0.1:8200"
-        bootstrap_kubernetes_ca__vault_token: "your-vault-token"
 ```
 
 ## Dependencies
+
+This role requires the following Ansible collections:
+
 - `community.dns`
 - `community.hashi_vault`
 
-Ensure these collections are installed in your Ansible environment:
-```bash
-ansible-galaxy collection install community.dns community.hashi_vault
-```
-
-## Tags
-This role uses the following tags to allow selective execution of tasks:
-
-| Tag | Description |
-|-----|-------------|
-| `ca` | Tasks related to CA generation and management. |
-| `certificates` | Tasks related to certificate issuance for etcd and Kubernetes API server. |
-
-Example usage with tags:
-```bash
-ansible-playbook -i inventory playbook.yml --tags "ca,certificates"
-```
-
 ## Best Practices
-- Always ensure that the root CA key is securely stored and backed up.
-- Use strong, unique passwords and tokens for HashiCorp Vault.
-- Regularly rotate certificates before they expire to maintain security.
 
-## Molecule Tests
-This role includes Molecule tests to verify its functionality. To run the tests:
-```bash
-molecule test
-```
-
-Ensure you have Molecule installed in your environment:
-```bash
-pip install molecule
-```
+- Ensure that the network interface specified in `bootstrap_kubernetes_ca__interface` is correct for your environment.
+- Use a secure method for storing and managing your root CA certificate and key.
+- Regularly rotate your certificates to maintain security.
+- Keep your Ansible collections up to date to benefit from the latest features and security fixes.
+- Test the role in a development environment before applying it to production.
+- Document any customizations made to the role for future reference.
 
 ## Backlinks
+
 - [defaults/main.yml](../../roles/bootstrap_kubernetes_ca/defaults/main.yml)
-- [tasks/main.new.yml](../../roles/bootstrap_kubernetes_ca/tasks/main.new.yml)
 - [tasks/main.yml](../../roles/bootstrap_kubernetes_ca/tasks/main.yml)
 - [meta/main.yml](../../roles/bootstrap_kubernetes_ca/meta/main.yml)
 
----
+## License
 
-This documentation provides a comprehensive overview of the `bootstrap_kubernetes_ca` role, including its purpose, configuration options, usage instructions, dependencies, and best practices.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Contributors
+
+- Your Name (https://github.com/yourusername)
+
+## Changelog
+
+- 2023-01-01: Initial release
+- 2023-02-01: Added support for Vault integration

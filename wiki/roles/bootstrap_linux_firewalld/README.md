@@ -1,16 +1,15 @@
-```markdown
 ---
-title: bootstrap_linux_firewalld Ansible Role Documentation
+harvested_date: '2023-10-07T18:07:09.291669+00:00'
 original_path: roles/bootstrap_linux_firewalld/README.md
-category: Ansible Roles
-tags: [firewalld, ansible, configuration]
+source_type: legacy_markdown
+title: bootstrap_linux_firewalld Ansible Role
+category: ansible
+tags: [firewalld, linux, ansible, networking]
 ---
 
 # bootstrap_linux_firewalld Ansible Role
 
-## Overview
-
-This role installs and configures `firewalld` (<http://www.firewalld.org/>) on the following operating systems:
+This Ansible role installs and configures `firewalld` ([http://www.firewalld.org/](http://www.firewalld.org/)) on various Linux distributions:
 
 - Archlinux
 - Debian (Experimental)
@@ -18,7 +17,7 @@ This role installs and configures `firewalld` (<http://www.firewalld.org/>) on t
 - Fedora
 - RHEL
 
-Refer to the [Examples](#examples) section for usage instructions.
+Refer to the examples section to learn how to use this role.
 
 ## Requirements
 
@@ -26,9 +25,9 @@ Refer to the [Examples](#examples) section for usage instructions.
 
 ## Configuration
 
-### Global `firewalld.conf`
+### Global firewalld.conf
 
-Modify settings in `firewalld.conf` using the following variable:
+Modify settings in `firewalld.conf`:
 
 ```yaml
 firewalld_configs: {}
@@ -36,7 +35,7 @@ firewalld_configs: {}
 
 ### Easy Method
 
-This method utilizes the Ansible `firewalld` module (<http://docs.ansible.com/ansible/latest/collections/community/general/firewalld_module.html>).
+This method uses the Ansible `firewalld` module ([http://docs.ansible.com/ansible/latest/firewalld_module.html](http://docs.ansible.com/ansible/latest/firewalld_module.html)):
 
 ```yaml
 firewalld:
@@ -56,7 +55,7 @@ firewalld:
 
 Define custom ipsets, services, and zones in `/etc/firewalld`.
 
-#### IPSet Definitions
+#### ipset Definitions
 
 ```yaml
 firewalld_ipsets:
@@ -68,16 +67,16 @@ firewalld_ipsets:
     entry: []
 ```
 
-Use `firewall-cmd --get-ipset-types` to list supported types.
+Use `firewall-cmd --get-ipset-types` to get a list of supported types.
 
-**Supported Options:**
+Supported Options:
 
-| Name       | Value                  |
-|------------|------------------------|
-| family     | "int", "inet6"         |
-| timeout    | integer                |
-| hashsize   | integer                |
-| maxelem    | integer                |
+| Name       | Value                           |
+|------------|---------------------------------|
+| family     | "int", "inet6"                  |
+| timeout    | integer                         |
+| hashsize   | integer                         |
+| maxelem    | integer                         |
 
 #### Service Definitions
 
@@ -95,12 +94,10 @@ firewalld_services:
 
 #### Zone Definitions
 
-**Variables and Examples:**
-
-| Variable              | Examples                       |
-|-----------------------|--------------------------------|
-| protocol              | "tcp", "udp", "sctp", "dccp"   |
-| target                | "ACCEPT", "%%REJECT%%", "DROP" |
+| Variable      | Examples          |
+|---------------|-------------------|
+| protocol      | "tcp", "udp", "sctp", "dccp" |
+| target        | "ACCEPT", "%%REJECT%%", "DROP" |
 
 ```yaml
 firewalld_zones:
@@ -189,7 +186,7 @@ firewalld_services:
 
 ### Change a Common Zone
 
-Redefine the public zone to allow `myservice` and HTTP(S):
+Redefine the public zone and allow `myservice` and `http(s)`:
 
 ```yaml
 firewalld_zones:
@@ -204,7 +201,7 @@ firewalld_zones:
 
 ### Add a New Zone
 
-Add a new zone named `mgt` and trust specific sources:
+Add a new zone "mgt" and trust some sources:
 
 ```yaml
 firewalld_zones:
@@ -217,7 +214,7 @@ firewalld_zones:
       - address: 5.6.7.8/32
 ```
 
-### Enable Arbitrary Firewall Rules
+### Enable Arbitrary Firewalld Rules
 
 Enable a new rule:
 
@@ -239,17 +236,15 @@ firewalld_rules:
 
 ### Change Default Zone
 
-Set the default zone:
-
 ```yaml
 firewalld_configs:
   DefaultZone: "myzone"
 ```
 
-Or with additional options:
+Or with more options:
 
 ```yaml
-firewalld_configs: 
+firewalld_configs:
   DefaultZone: "{{ firewalld_default_zone }}"
   CleanupOnExit: "yes"
   Lockdown: "no"
@@ -264,32 +259,29 @@ firewalld_configs:
 
 ## Idempotent Role Execution Using Variable Lookup Method
 
-This role supports the [variable lookup method discussed here](./../../docs/ansible-firewall/ansible-firewall-idempotent-execution.md).
+This firewall role also supports the [variable lookup method discussed here](./../../docs/ansible-firewall/ansible-firewall-idempotent-execution.md).
 
-If using this approach, rename variables as follows:
+If you decide to use this approach, rename the following variables as follows:
 
-| From                         | To                                      |
-|------------------------------|-----------------------------------------|
-| `firewalld_services`         | `firewalld_services__(role/group/purpose name)` |
-| `firewalld_ports`            | `firewalld_ports__(role/group/purpose name)`    |
-| `firewalld_rules`            | `firewalld_rules__(role/group/purpose name)`    |
+| From                  | To                                      |
+|-----------------------|-----------------------------------------|
+| firewalld_services    | firewalld_services__(role/group/purpose name) |
+| firewalld_ports       | firewalld_ports__(role/group/purpose name) |
+| firewalld_rules       | firewalld_rules__(role/group/purpose name) |
 
-For example:
+Where the variable name will include the name of the respective role/group/purpose name.
+For examples, see the group_var files in this repo for the following groups/examples:
 
-- **Group Var File:** [os_linux.yml](./../../inventory/group_vars/os_linux.yml)
-  - **Var Names Used:** `firewalld_services__linux`
-- **Group Var File:** [postfix_server.yml](./../../inventory/group_vars/postfix_server.yml)
-  - **Var Names Used:** `firewalld_ports__postfix`
-- **Group Var File:** [nameserver.yml](./../../inventory/group_vars/nameserver.yml)
-  - **Var Names Used:** `firewalld_ports__bind`
-- **Group Var File:** [veeam_agent.yml](./../../inventory/group_vars/veeam_agent.yml)
-  - **Var Names Used:** `firewalld_ports__veeam`
+| Group Var File                           | Var Names Used                   |
+|------------------------------------------|----------------------------------|
+| [os_linux.yml](./../../inventory/group_vars/os_linux.yml) | firewalld_services__linux        |
+| [postfix_server.yml](./../../inventory/group_vars/postfix_server.yml) | firewalld_ports__postfix         |
+| [nameserver.yml](./../../inventory/group_vars/nameserver.yml) | firewalld_ports__bind            |
+| [veeam_agent.yml](./../../inventory/group_vars/veeam_agent.yml) | firewalld_ports__veeam           |
 
 ## Firewall Role Execution from Another Role
 
-To invoke the firewall role from another role, see the example below:
-
-**Example: nfs-service role invoking the firewall role**
+If there is a need to invoke the firewall role from another role, see the example nfs-service role invoking the firewall role below.
 
 [roles/nfs-service/tasks/main.yml](./../../roles/nfs-service/tasks/main.yml):
 
@@ -297,7 +289,7 @@ To invoke the firewall role from another role, see the example below:
 - name: Setup and run nfs
   ansible.builtin.include_role:
     name: geerlingguy.nfs
- 
+
 - name: Allow nfs traffic through the firewall
   when: firewalld_enabled | bool
   tags: [ firewall-config-nfs ]
@@ -311,16 +303,13 @@ To invoke the firewall role from another role, see the example below:
 
 ## TODO
 
-- Implement `firewalld_helpers`
-- Add support for `lockdown-whitelist.xml`
+- Implement firewalld_helpers
+- Add support for lockdown-whitelist.xml
 
 ## Reference
 
-- [ptrunk/ansible-firewalld](https://github.com/ptrunk/ansible-firewalld)
+- [GitHub Repository](https://github.com/ptrunk/ansible-firewalld)
 
 ## Backlinks
 
-- [Ansible Roles Documentation](./../../docs/ansible-roles.md)
-```
-
-This improved version maintains all original information while adhering to clean, professional Markdown formatting suitable for GitHub rendering.
+<!-- Add backlinks here if applicable -->

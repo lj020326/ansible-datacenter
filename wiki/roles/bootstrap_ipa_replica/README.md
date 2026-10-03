@@ -1,18 +1,19 @@
-```markdown
 ---
-title: IPA Replica Role Documentation
+title: ipareplica Role
 original_path: roles/bootstrap_ipa_replica/README.md
-category: Ansible Roles
-tags: [ipa, replica, ansible, freeipa]
+category: Ansible
+tags: [IPA, Replica, FreeIPA, Ansible]
 ---
 
-# IPA Replica Role
+# ipareplica Role
 
 ## Description
 
-This role configures a new IPA server that acts as a replica of an existing IPA server. Once deployed, the replica is an exact copy of the original IPA server and functions as an equal controller. Changes made to any controller are automatically replicated to other controllers.
+This role allows configuring a new IPA server as a replica of an existing server. Once created, the replica is an exact copy of the original IPA server and functions as an equal controller. Changes made to any controller are automatically replicated to other controllers.
 
-**Note**: The Ansible playbooks and role require a configured Ansible environment where nodes are reachable, have an IP address, and a working package manager.
+This can be done in different ways using auto-discovery of the servers, domain, and other settings, or by specifying them explicitly.
+
+**Note:** The Ansible playbooks and role require a configured Ansible environment where the Ansible nodes are reachable and properly set up with an IP address and a working package manager.
 
 ## Features
 
@@ -20,7 +21,7 @@ This role configures a new IPA server that acts as a replica of an existing IPA 
 
 ## Supported FreeIPA Versions
 
-FreeIPA versions 4.6 and above are supported by the replica role.
+FreeIPA versions 4.6 and up are supported by the replica role.
 
 ## Supported Distributions
 
@@ -42,7 +43,7 @@ FreeIPA versions 4.6 and above are supported by the replica role.
 
 ## Usage
 
-### Example Inventory File with Auto-discovery
+### Example Inventory File with Auto-Discovery Using DNS Records
 
 ```ini
 [ipareplicas]
@@ -53,7 +54,7 @@ ipareplica2.example.com
 ipaadmin_principal=admin
 ```
 
-### Example Playbook to Setup IPA Replicas
+### Example Playbook to Configure IPA Replicas
 
 ```yaml
 ---
@@ -61,11 +62,11 @@ ipaadmin_principal=admin
   hosts: ipareplicas
   become: true
   vars_files:
-    - playbook_sensitive_data.yml
+  - playbook_sensitive_data.yml
 
   roles:
-    - role: ipareplica
-      state: present
+  - role: ipareplica
+    state: present
 ```
 
 ### Example Playbook to Unconfigure IPA Replicas
@@ -77,8 +78,8 @@ ipaadmin_principal=admin
   become: true
 
   roles:
-    - role: ipareplica
-      state: absent
+  - role: ipareplica
+    state: absent
 ```
 
 ### Example Inventory File with Fixed Server, Principal, Password, and Domain
@@ -98,7 +99,7 @@ ipaadmin_password=MySecretPassword123
 ipadm_password=MySecretPassword456
 ```
 
-### Example Playbook to Setup IPA Replicas with Username/Password
+### Example Playbook to Configure IPA Replicas with Username/Password
 
 ```yaml
 ---
@@ -107,8 +108,8 @@ ipadm_password=MySecretPassword456
   become: true
 
   roles:
-    - role: ipareplica
-      state: present
+  - role: ipareplica
+    state: present
 ```
 
 ### Example Inventory File to Remove a Replica from the Domain
@@ -131,35 +132,37 @@ ipareplica_remove_from_domain=true
   become: true
 
   roles:
-    - role: ipareplica
-      state: absent
+  - role: ipareplica
+    state: absent
 ```
 
-**Note**: Additional options are needed if the removal of the replica results in a topology disconnect or if the replica is the last with a specific role.
+### Handling Topology Disconnects or Last Role Replicas
 
-- To continue with the removal with a topology disconnect:
+To continue with the removal with a topology disconnect, set these parameters:
 
 ```ini
 ipareplica_ignore_topology_disconnect=true
 ipareplica_remove_on_server=ipareplica2.example.com
 ```
 
-- To continue with the removal for a replica that is the last with a role:
+To continue with the removal for a replica that is the last that has a role:
 
 ```ini
 ipareplica_ignore_last_of_role=true
 ```
 
-**Caution**: Enabling `ipareplica_ignore_topology_disconnect` and especially `ipareplica_ignore_last_of_role` can result in irreversible changes.
+**Caution:** Enabling `ipareplica_ignore_topology_disconnect` and especially `ipareplica_ignore_last_of_role` can have significant consequences and cannot be easily reverted. The parameters `ipaserver_ignore_topology_disconnect`, `ipaserver_ignore_last_of_role`, `ipaserver_remove_on_server`, and `ipaserver_remove_from_domain` can be used instead.
 
 ## Playbooks
 
-The playbooks needed to deploy or undeploy a replica are part of the repository in the `playbooks` folder. There are also playbooks to deploy and undeploy clusters:
+The playbooks needed to deploy or undeploy a replica are part of the repository in the playbooks folder. There are also playbooks to deploy and undeploy clusters.
 
-- `install-replica.yml`
-- `uninstall-replica.yml`
+```
+install-replica.yml
+uninstall-replica.yml
+```
 
-Please remember to link or copy the playbooks to the base directory of `ansible-freeipa` if you want to use the roles within the source archive.
+Please remember to link or copy the playbooks to the base directory of ansible-freeipa if you want to use the roles within the source archive.
 
 ## How to Setup Replicas
 
@@ -167,39 +170,33 @@ Please remember to link or copy the playbooks to the base directory of `ansible-
 ansible-playbook -v -i inventory/hosts install-replica.yml
 ```
 
-This command deploys the replicas defined in the inventory file.
+This will deploy the replicas defined in the inventory file.
 
 ## Variables
 
 ### Base Variables
 
-| Variable                      | Description                                                                                         | Required |
-|-------------------------------|-----------------------------------------------------------------------------------------------------|----------|
-| `ipaservers`                  | List of IPA controller fully qualified hostnames.                                                   | Mostly   |
-| `ipareplicas`                 | Group of IPA replica hostnames.                                                                     | Yes      |
-| `ipaadmin_password`           | Password for the IPA admin user.                                                                    | Mostly   |
-| `ipareplica_ip_addresses`     | List of controller server IP addresses.                                                             | No       |
-| `ipareplica_domain`           | Primary DNS domain of an existing IPA deployment.                                                   | No       |
-| `ipaserver_realm`             | Kerberos realm of an existing IPA deployment.                                                       | No       |
-| `ipaserver_hostname`          | Fully qualified name of the server.                                                                 | No       |
-| `ipaadmin_principal`          | Authorized Kerberos principal used to join the IPA realm.                                           | No       |
-| `ipareplica_no_host_dns`      | Do not use DNS for hostname lookup during installation.                                             | No       |
-| `ipareplica_skip_conncheck`   | Skip connection check to remote controller.                                                         | No       |
-| `ipareplica_pki_config_override` | Path to ini file with config overrides (usable with recent FreeIPA versions).                  | No       |
-| `ipareplica_mem_check`        | Check for minimum required memory for deployment (ignored in FreeIPA versions before 4.8.10).       | No       |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `ipaservers` | This group with the IPA controller fully qualified hostnames. (list of strings) | mostly |
+| `ipareplicas` | Group of IPA replica hostnames. (list of strings) | yes |
+| `ipaadmin_password` | The password for the IPA admin user (string) | mostly |
+| `ipareplica_ip_addresses` | The list of controller server IP addresses. (list of strings) | no |
+| `ipareplica_domain` | The primary DNS domain of an existing IPA deployment. (string) | no |
+| `ipaserver_realm` | The Kerberos realm of an existing IPA deployment. (string) | no |
+| `ipaserver_hostname` | Fully qualified name of the server. (string) | no |
+| `ipaadmin_principal` | The authorized Kerberos principal used to join the IPA realm. (string) | no |
+| `ipareplica_no_host_dns` | Do not use DNS for hostname lookup during installation. (bool, default: false) | no |
+| `ipareplica_skip_conncheck` | Skip connection check to remote controller. (bool, default: false) | no |
+| `ipareplica_pki_config_override` | Path to ini file with config overrides. This is only usable with recent FreeIPA versions. (string) | no |
+| `ipareplica_mem_check` | Checking for minimum required memory for the deployment. This is only usable with recent FreeIPA versions (4.8.10+) else ignored. (bool, default: yes) | no |
 
 ### Server Variables
 
-| Variable                      | Description                                                                                         | Required |
-|-------------------------------|-----------------------------------------------------------------------------------------------------|----------|
-| `ipadm_password`              | Password for the Directory Manager.                                                                 | Mostly   |
-| `ipareplica_hidden_replica`   | Install as a hidden replica (not visible in DNS).                                                   | No       |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `ipadm_password` | The password for the Directory Manager. (string) | mostly |
 
 ## Backlinks
 
-- [Ansible Roles Documentation](/ansible-roles)
-- [FreeIPA Documentation](https://www.freeipa.org/page/Main_Page)
-
-```
-
-This improved Markdown document adheres to clean, professional standards suitable for GitHub rendering while maintaining all original information and meaning.
+[Link to related documentation or pages if applicable]

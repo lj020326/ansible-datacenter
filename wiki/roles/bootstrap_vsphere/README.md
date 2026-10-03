@@ -1,16 +1,20 @@
-```markdown
 ---
-title: vcsa-deploy Role Documentation
+title: Deploy vCenter Server Appliance or Platform Services Controller
 original_path: roles/bootstrap_vsphere/README.md
-category: Ansible Roles
-tags: [vcsa-deploy, ansible, vmware, vcenter]
+source_type: legacy_markdown
+category: Ansible Role
+tags:
+  - vCenter
+  - VCSA
+  - ESXi
+  - VMware
+  - Ansible
+harvested_date: '2026-08-07T18:07:09.461439+00:00'
 ---
 
-# vcsa-deploy
+# Deploy vCenter Server Appliance or Platform Services Controller
 
-Deploy a vCenter Server Appliance or Platform Services Controller from OVA to a target ESXi node.
-
-**Fork of**: [vmware/ansible-role-vcsa](https://github.com/vmware/ansible-role-vcsa)
+This Ansible role deploys a vCenter Server Appliance (VCSA) or Platform Services Controller (PSC) from an OVA file to a target ESXi node. It is a fork of the [vmware/ansible-role-vcsa](https://github.com/vmware/ansible-role-vcsa) repository.
 
 ## Requirements
 
@@ -77,15 +81,27 @@ The vCenter Server Appliance ISO must be accessible to the role/playbook.
 - hosts: all
   connection: local
   gather_facts: false
-  
+
   roles:
     - vcsa-deploy
 ```
 
-## Backlinks
+## Expected Outcomes
 
-- [Ansible Roles](/categories/ansible-roles)
-- [VMware Automation](/tags/vmware)
-```
+After running this playbook, a vCenter Server Appliance or Platform Services Controller should be deployed on the target ESXi node with the specified configuration.
 
-This improved version maintains the original content while adhering to clean, professional Markdown formatting and structure.
+## Troubleshooting
+
+If you encounter issues during deployment, check the following:
+
+- Ensure that the vCenter Server Appliance ISO is accessible and properly mounted.
+- Verify that the target ESXi node is reachable and that the provided credentials are correct.
+- Check the Ansible logs for any error messages or warnings.
+
+## Contributing
+
+If you would like to contribute to this role, please follow these steps:
+
+1. Fork the repository and create a new branch.
+2. Make your changes and commit them with descriptive messages.
+3. Submit a pull request with a clear description of your changes.

@@ -1,41 +1,72 @@
-```markdown
 ---
-title: bootstrap_linux_mount Role Documentation
+title: "bootstrap_linux_mount Role"
 original_path: roles/bootstrap_linux_mount/README.md
 category: Ansible Roles
-tags: [ansible, role, linux, mount]
+tags:
+  - Ansible
+  - Mounting
+  - Linux
+  - Devices
+harvested_date: '2026-08-07T18:07:09.297058+00:00'
+source_type: legacy_markdown
 ---
 
 # bootstrap_linux_mount Role
 
-An Ansible role for mounting devices.
+An Ansible role for mounting devices on Linux systems. This role manages the mounting of filesystems by creating or updating entries in the `/etc/fstab` file and ensuring the specified mount state.
 
 ## Role Variables
 
-```yaml
-# List of dictionaries holding all devices that need to be mounted.
-bootstrap_linux_mount__list:
-  - name: /                         # NO default
-    src: /dev/mapper/root           # NO default
-    fstype: ext4                    # NO default
-    opts: noatime,errors=remount-ro # Default: omit (written to fstab as "defaults")
-    state: present                  # Default: "mounted"
-    dump: 0                         # Default: omit (written to fstab as "0")
-    passno: 1                       # Default: omit (written to fstab as "0")
-    fstab: /etc/fstab               # Default: "/etc/fstab"
-```
+The following is a list of variables used by this role:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `bootstrap_linux_mount__list` | List of dictionaries holding all devices that need to be mounted. | `[]` |
+| `name` | Mount point (e.g., `/`) | No default |
+| `src` | Device or remote filesystem to be mounted (e.g., `/dev/mapper/root`) | No default |
+| `fstype` | Filesystem type (e.g., `ext4`) | No default |
+| `opts` | Mount options (e.g., `noatime,errors=remount-ro`) | `omit` (written to fstab as "defaults") |
+| `state` | Desired state of the mount (`mounted` or `unmounted`) | `mounted` |
+| `dump` | Used by the dump command to determine which filesystems need to be dumped | `omit` (written to fstab as "0") |
+| `passno` | Used by fsck to determine the order in which filesystems are checked | `omit` (written to fstab as "0") |
+| `fstab` | Path to the fstab file | `/etc/fstab` |
 
 ## Example Playbook
 
+Here is an example playbook that uses the `bootstrap_linux_mount` role:
+
 ```yaml
 - hosts: servers
+  become: true
+  vars:
+    bootstrap_linux_mount__list:
+      - name: /
+        src: /dev/mapper/root
+        fstype: ext4
+        opts: noatime,errors=remount-ro
+        state: mounted
   roles:
-    - { role: bootstrap_linux_mount, become: true }
+    - bootstrap_linux_mount
 ```
+
+## Requirements
+
+- Ansible 2.9 or higher
+- Linux system with appropriate permissions to mount filesystems
+
+## Author
+
+OpenHands
+
+## License
+
+This project is licensed under the MIT License.
+
+## Related Documentation
+
+- [Ansible Mount Module Documentation](https://docs.ansible.com/ansible/latest/modules/mount_module.html)
+- [Understanding the fstab File](https://www.linux.com/tutorials/how-resolve-issues-fstab-file/)
 
 ## Backlinks
 
-- [Ansible Roles Documentation](../README.md)
-```
-
-This Markdown document is now standardized for GitHub rendering with clear structure, proper headings, and an added "Backlinks" section. The YAML frontmatter includes a title, original path, category, and tags for better organization and searchability.
+(If applicable, list any backlinks to this documentation page)

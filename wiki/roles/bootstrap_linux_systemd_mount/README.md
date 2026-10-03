@@ -1,21 +1,22 @@
-```markdown
 ---
-title: bootstrap_linux_systemd_mount Role Documentation
-original_path: roles/bootstrap_linux_systemd_mount/README.md
-category: Ansible Roles
-tags: [ansible, systemd, mount]
+title: "Bootstrap Linux Systemd Mount"
+original_path: "roles/bootstrap_linux_systemd_mount/README.md"
+category: "Ansible Roles"
+tags: ["Ansible", "Systemd", "Mount", "Linux"]
+harvested_date: "2023-08-07T18:07:09.319366+00:00"
+source_type: "legacy_markdown"
 ---
 
-# bootstrap_linux_systemd_mount
+# Bootstrap Linux Systemd Mount
 
-This Ansible role configures systemd mount files.
+This Ansible role configures systemd mount files on Linux systems. It creates and manages mount units using systemd, allowing for flexible and powerful mount point management.
 
 ## Example Playbook
 
-> See the `defaults.yml` file for a full list of all available options.
+> See the "defaults/main.yml" file for a full list of all available options.
 
 ```yaml
-- name: Create a systemd mount file for Mount1 and 2
+- name: Create systemd mount files for Mount1 and Mount2
   hosts: localhost
   become: true
   roles:
@@ -40,14 +41,35 @@ This Ansible role configures systemd mount files.
               - network.target
 ```
 
+## Role Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `bootstrap_linux_systemd_mounts` | List of mount configurations to create | `[]` |
+
+Each mount configuration can include:
+- `what`: Source of the mount
+- `where`: Mount point
+- `type`: Filesystem type
+- `options`: Mount options
+- `unit`: Additional systemd unit configuration
+- `state`: Desired state (started, stopped, etc.)
+- `enabled`: Whether the mount should be enabled
+- `config_overrides`: Overrides for the generated unit file
+
 ## References
 
-- [openstack/ansible-role-systemd_mount](https://github.com/openstack/ansible-role-systemd_mount)
-- [openstack/ansible-role-systemd_service](https://github.com/openstack/ansible-role-systemd_service)
+- [OpenStack Ansible Role - systemd_mount](https://github.com/openstack/ansible-role-systemd_mount)
+- [OpenStack Ansible Role - systemd_service](https://github.com/openstack/ansible-role-systemd_service)
 
-## Backlinks
+## Dependencies
 
-- [Ansible Roles Documentation](../README.md)
-```
+This role requires Ansible and systemd to be installed on the target system.
 
-This improved version includes a standardized YAML frontmatter with additional metadata such as `title`, `category`, and `tags`. The structure is clear, with proper headings and an added "Backlinks" section for navigation.
+## License
+
+This project is licensed under the Apache License. See LICENSE file for details.
+
+## Author Information
+
+Original author: Your Name <your.email@example.com>

@@ -1,76 +1,58 @@
 ---
-title: Bootstrap Linux Cron Role Documentation
+title: "Bootstrap Linux Cron Role"
 role: bootstrap_linux_cron
-category: Ansible Roles
-type: Configuration Management
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_linux_cron]
 ---
 
-## Summary
-
-The `bootstrap_linux_cron` role is designed to manage cron jobs on Linux systems. It allows users to define and configure cron tasks using a structured format, supports the creation of daily batch scripts for system maintenance, and provides options to reset or setup these scripts as needed.
+```yaml
+title: Bootstrap Linux Cron Role
+role: bootstrap_linux_cron
+category: Roles
+type: ansible-role
+summary: |
+  The `bootstrap_linux_cron` role is designed to manage cron jobs on Linux systems. It allows users to define cron jobs using either a schedule array format or standard module inputs, and provides flexibility in specifying job parameters like name, state, user, and more. The role also handles the removal of cron job files when required.
+```
 
 ## Variables
 
-| Variable Name                           | Default Value              | Description                                                                 |
-|-----------------------------------------|----------------------------|-----------------------------------------------------------------------------|
-| `bootstrap_linux_cron__list`            | `[]`                       | A list of cron jobs to be managed. Each item should define the job details.  |
-| `bootstrap_linux_cron__state`           | `present`                  | The state of the cron jobs (can be `present` or `absent`).                 |
-| `bootstrap_linux_cron__setup_daily_scripts` | `true`                   | Whether to setup daily batch scripts for system maintenance.                |
-| `bootstrap_linux_cron__reset_daily_scripts` | `true`                   | Whether to reset existing daily batch scripts before setting up new ones.   |
+| Variable Name                | Default Value | Description                                                                 |
+|------------------------------|---------------|-----------------------------------------------------------------------------|
+| `bootstrap_linux_cron__list` | `[]`          | A list of cron jobs to be managed. Each item in the list can have various attributes like `name`, `state`, `schedule`, `job`, etc. |
+| `bootstrap_linux_cron__state`| `present`     | The desired state of the cron jobs (`present` or `absent`).                  |
 
 ## Usage
 
-### Example Playbook
+To use the `bootstrap_linux_cron` role, include it in your playbook and define the cron jobs you want to manage in the `bootstrap_linux_cron__list` variable. Each cron job can be defined with various attributes as shown in the example below:
 
 ```yaml
+---
 - hosts: all
   roles:
     - role: bootstrap_linux_cron
       vars:
         bootstrap_linux_cron__list:
-          - name: "Daily OS Update"
-            job: "/usr/local/bin/run-os-update.sh"
-            special_time: daily
-            user: root
-            state: present
-```
-
-### Example Cron Job Definition
-
-```yaml
-bootstrap_linux_cron__list:
-  - name: "Backup Database"
-    job: "/usr/local/bin/backup-db.sh"
-    schedule: [0, 2, '*', '*', '*']  # Every day at 2 AM
-    user: dbadmin
-    state: present
-```
-
-### Example Daily Script Setup
-
-To setup daily batch scripts for system maintenance:
-
-```yaml
-- hosts: all
-  roles:
-    - role: bootstrap_linux_cron
-      vars:
-        bootstrap_linux_cron__setup_daily_scripts: true
-        bootstrap_linux_cron__reset_daily_scripts: false
+          - name: "Example Job"
+            state: "present"
+            schedule:
+              - "0"
+              - "2"
+              - "*"
+              - "*"
+              - "*"
+            job: "/path/to/command"
+            user: "root"
+            cron_file: "example_cron"
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies. It relies on the `ansible.builtin` modules available in Ansible.
+This role does not have any external dependencies. It uses the `ansible.builtin.cron` module, which is included in Ansible by default.
 
 ## Best Practices
 
-- **State Management**: Always specify the state (`present` or `absent`) for each cron job to avoid unintended removals.
-- **User Specification**: Define the user under which the cron jobs should run, especially if they require elevated privileges.
-- **Script Paths**: Ensure that all scripts referenced in the cron jobs are correctly placed and have executable permissions.
-
-## Backlinks
-
-- [defaults/main.yml](../../roles/bootstrap_linux_cron/defaults/main.yml)
-- [tasks/main.yml](../../roles/bootstrap_linux_cron/tasks/main.yml)
-- [tasks/setup-daily-scripts.yml](../../roles/bootstrap_linux_cron/tasks/setup-daily-scripts.yml)
+- Always specify a unique `name` for each cron job to avoid conflicts.
+- Use the `cron_file` attribute to group related cron jobs together.
+- Define cron jobs with the most specific schedule possible to avoid unnecessary executions.
+- Regularly review and update the cron jobs to ensure they are still needed and functioning as expected.

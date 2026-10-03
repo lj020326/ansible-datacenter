@@ -1,9 +1,9 @@
 ```markdown
 ---
-title: Bootstrap AWX Resources Role Documentation
+title: Bootstrap AWX Resources Role
 original_path: roles/bootstrap_awx_resources/README.md
-category: Ansible Roles
-tags: [ansible, awx, automation]
+category: Ansible
+tags: [Ansible, AWX, Tower, Automation]
 ---
 
 # Overview & Purpose
@@ -24,12 +24,12 @@ Define each Tower resource under the configuration root node `bootstrap_awx_reso
 
 - Create a list of one or more organizations under the node `bootstrap_awx_resources__config.organizations`.
 - Each organization can define the following lists:
-  - **credentials**: List of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module).
-  - **inventories**: List of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module).
-  - **projects**: List of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module).
-    - **job_templates**: List of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module).
-  - **teams**: List of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module).
-    - **roles**: List of role maps containing the [role definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/role_module.html#ansible-collections-awx-awx-role-module).
+  - Credentials - list of credential maps containing the [credential definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/credential_module.html#ansible-collections-awx-awx-credential-module).
+  - Inventories - list of inventory maps containing the [inventory definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/inventory_module.html#ansible-collections-awx-awx-inventory-module).
+  - Projects - list of project maps containing the [project definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/project_module.html#ansible-collections-awx-awx-project-module).
+    - Job Templates - list of job_template maps containing the [job_template definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/job_template_module.html#ansible-collections-awx-awx-job-template-module).
+  - Teams - list of team maps containing the [team definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/team_module.html#ansible-collections-awx-awx-team-module).
+    - Roles - list of role maps containing the [role definition](https://docs.ansible.com/ansible/latest/collections/awx/awx/role_module.html#ansible-collections-awx-awx-role-module).
 
 The following conditional actions are observed upon execution of the role:
 
@@ -38,13 +38,13 @@ The following conditional actions are observed upon execution of the role:
 - If any object exists in the Tower runtime environment and is not defined by `name` in the `bootstrap_awx_resources__config` map, the object will not be changed or removed.
 - Upon setting the `bootstrap_awx_resources__state` to `absent`, any object with the same `name` that already exists in the Tower runtime environment will be removed. **Be judicious/careful when utilizing Tower object removal.**
 
-**NOTE**: If the `state` variable is defined for any object, it will be overridden and ignored with precedence given to the `tower_config_state` variable which defaults to `present`.
+**Note:** If the `state` variable is defined for any object, it will be overridden and ignored with precedence given to the `tower_config_state` variable, which defaults to `present`.
 
 ## Example 1: 2 Organizations
 
 In the following example, the YAML definition will create 2 organizations.
 
-For the second organization 'New Org2', an inventory 'New Inventory', a project 'New Project' and job template 'Job Template to Launch' will be created with details as defined below.
+For the second organization `New Org2`, an inventory `New Inventory`, a project `New Project`, and job template `Job Template to Launch` will be created with details as defined below.
 
 ```yaml
 bootstrap_awx_resources__config:
@@ -75,7 +75,7 @@ bootstrap_awx_resources__config:
 
 ## Example 2: 2 Organizations, with Elaboration for Team Roles
 
-In the next example, the definition for the second organization 'New Org2' is elaborated to include team roles as defined.
+In the next example, the definition for the second organization `New Org2` is elaborated to include team roles as defined.
 
 ```yaml
 bootstrap_awx_resources__config:
@@ -136,10 +136,11 @@ bootstrap_awx_resources__config:
 #                project: "TEST - New Project"
 #              - role: use
 #                credential: "TEST - Example password"
+#              - role: use
+#                c
 ```
 
 # Backlinks
 
-- [Ansible Roles](../ansible_roles.md)
-- [AWX Documentation](https://docs.ansible.com/ansible-tower/latest/html/index.html)
+[Add links to related pages or documents here]
 ```

@@ -33,25 +33,45 @@
   when: bootstrap_docker__compose_version | d('', true) | length == 0
   run_once: true
   block:
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Fetch latest release metadata text"
+
+    - name: "{{ __bootstrap_docker__log_prefix_compose }} Get latest Docker Compose release URL redirect"
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/docker/compose/releases/latest"
-        return_content: true
-      register: __compose_latest_version_result
+        url: "https://github.com/docker/compose/releases/latest"
+        follow_redirects: none
+        status_code: [ 302 ]
+      register: __compose_latest_redirect
       run_once: true
 
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Display __compose_latest_version_result.json.tag_name"
-      ansible.builtin.debug:
-        var: __compose_latest_version_result.json.tag_name | d('')
-
-    - name: "{{ __bootstrap_docker__log_prefix_compose }} Set fallback version context from content block"
+    - name: "{{ __bootstrap_docker__log_prefix_compose }} Extract version from redirect header"
       ansible.builtin.set_fact:
-        __bootstrap_docker__compose_version: >-
-          {{
-            (__compose_latest_version_result.content | from_json).tag_name
-            if __compose_latest_version_result.content is defined
-            else (__compose_latest_version_result.json.tag_name | default('v2.29.2'))
-          }}
+        __bootstrap_docker__compose_version: "{{ __compose_latest_redirect.location | basename }}"
+      run_once: true
+
+#    - name: "{{ __bootstrap_docker__log_prefix_compose }} Fetch latest release metadata text"
+#      ansible.builtin.uri:
+#        url: "https://api.github.com/repos/docker/compose/releases/latest"
+#        return_content: true
+#        headers: >-
+#          {{
+#            { 'Authorization': 'Bearer ' ~ lookup('ansible.builtin.env', 'GITHUB_TOKEN') }
+#            if lookup('ansible.builtin.env', 'GITHUB_TOKEN') | default('', true) != ''
+#            else {}
+#          }}
+#      register: __compose_latest_version_result
+#      run_once: true
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_compose }} Display __compose_latest_version_result.json.tag_name"
+#      ansible.builtin.debug:
+#        var: __compose_latest_version_result.json.tag_name | d('')
+#
+#    - name: "{{ __bootstrap_docker__log_prefix_compose }} Set fallback version context from content block"
+#      ansible.builtin.set_fact:
+#        __bootstrap_docker__compose_version: >-
+#          {{
+#            (__compose_latest_version_result.content | from_json).tag_name
+#            if __compose_latest_version_result.content is defined
+#            else (__compose_latest_version_result.json.tag_name | default('v2.29.2'))
+#          }}
 
 # ==============================================================================
 # ENHANCED ENGINE DEPLOYMENT & PLATFORM-SPECIFIC SYMLINK FRAMEWORK

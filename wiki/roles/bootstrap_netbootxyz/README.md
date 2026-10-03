@@ -1,9 +1,9 @@
-```markdown
----
 title: netboot.xyz Documentation
+harvested_date: '2026-08-07T18:07:09.345134+00:00'
 original_path: roles/bootstrap_netbootxyz/README.md
+source_type: legacy_markdown
 category: Documentation
-tags: [netboot.xyz, iPXE, bootloaders, operating systems, utilities]
+tags: [netboot.xyz, iPXE, bootloader, documentation]
 ---
 
 # netboot.xyz
@@ -14,28 +14,41 @@ tags: [netboot.xyz, iPXE, bootloaders, operating systems, utilities]
 
 ![netboot.xyz menu](https://netboot.xyz/images/netboot.xyz.gif)
 
+## Table of Contents
+- [Bootloader Downloads](#bootloader-downloads)
+  - [Legacy (PCBIOS) iPXE Bootloaders](#legacy-pcbios-ipxe-bootloaders)
+  - [UEFI iPXE Bootloaders](#uefi-ipxe-bootloaders)
+- [What is netboot.xyz?](#what-is-netbootxyz)
+- [Documentation](#documentation)
+- [Self Hosting netboot.xyz](#self-hosting-netbootxyz)
+  - [Deploying using Ansible](#deploying-using-ansible)
+  - [Deploying with Docker](#deploying-with-docker)
+  - [Local Overrides](#local-overrides)
+  - [Self Hosted Custom Options](#self-hosted-custom-options)
+- [What Operating Systems are currently available on netboot.xyz?](#what-operating-systems-are-currently-available-on-netbootxyz)
+
 ## Bootloader Downloads
 
 ### Legacy (PCBIOS) iPXE Bootloaders
 
-| Type       | Bootloader                                            | Description                                                                 |
-|------------|-------------------------------------------------------|-----------------------------------------------------------------------------|
-| ISO        | [netboot.xyz.iso](https://boot.netboot.xyz/ipxe/netboot.xyz.iso) | Used for CD/DVD, Virtual CDs, DRAC/iLO, VMware, Virtual Box               |
-| USB        | [netboot.xyz.usb](https://boot.netboot.xyz/ipxe/netboot.xyz.usb) | Used for creation of USB Keys                                               |
-| Kernel     | [netboot.xyz.lkrn](https://boot.netboot.xyz/ipxe/netboot.xyz.lkrn) | Used for booting from GRUB/EXTLINUX                                         |
-| Floppy     | [netboot.xyz.dsk](https://boot.netboot.xyz/ipxe/netboot.xyz.dsk) | Virtual floppy disk for DRAC/iLO, VMware, Virtual Box, etc                |
-| DHCP       | [netboot.xyz.kpxe](https://boot.netboot.xyz/ipxe/netboot.xyz.kpxe) | DHCP boot image file, uses built-in iPXE NIC drivers                        |
-| DHCP-undionly | [netboot.xyz-undionly.kpxe](https://boot.netboot.xyz/ipxe/netboot.xyz-undionly.kpxe) | DHCP boot image file, use if you have NIC issues                            |
+| Type | Bootloader | Description |
+|------|------------|-------------|
+| ISO | [netboot.xyz.iso](https://boot.netboot.xyz/ipxe/netboot.xyz.iso) | Used for CD/DVD, Virtual CDs, DRAC/iLO, VMware, Virtual Box |
+| USB | [netboot.xyz.usb](https://boot.netboot.xyz/ipxe/netboot.xyz.usb) | Used for creation of USB Keys |
+| Kernel | [netboot.xyz.lkrn](https://boot.netboot.xyz/ipxe/netboot.xyz.lkrn) | Used for booting from GRUB/EXTLINUX |
+| Floppy | [netboot.xyz.dsk](https://boot.netboot.xyz/ipxe/netboot.xyz.dsk) | Virtual floppy disk for DRAC/iLO, VMware, Virtual Box, etc |
+| DHCP | [netboot.xyz.kpxe](https://boot.netboot.xyz/ipxe/netboot.xyz.kpxe) | DHCP boot image file, uses built-in iPXE NIC drivers |
+| DHCP-undionly | [netboot.xyz-undionly.kpxe](https://boot.netboot.xyz/ipxe/netboot.xyz-undionly.kpxe) | DHCP boot image file, use if you have NIC issues |
 
 ### UEFI iPXE Bootloaders
 
-| Type       | Bootloader                                            | Description                                                                 |
-|------------|-------------------------------------------------------|-----------------------------------------------------------------------------|
-| ISO        | [netboot.xyz-efi.iso](https://boot.netboot.xyz/ipxe/netboot.xyz-efi.iso) | Used for CD/DVD, Virtual CDs, DRAC/iLO, VMware, Virtual Box               |
-| USB        | [netboot.xyz-efi.usb](https://boot.netboot.xyz/ipxe/netboot.xyz-efi.usb) | Used for creation of USB Keys                                               |
-| DHCP       | [netboot.xyz.efi](https://boot.netboot.xyz/ipxe/netboot.xyz.efi) | DHCP boot image file, uses built-in iPXE NIC drivers                        |
-| DHCP-snp   | [netboot.xyz-snp.efi](https://boot.netboot.xyz/ipxe/netboot.xyz-snp.efi) | EFI w/ Simple Network Protocol, attempts to boot all net devices            |
-| DHCP-snponly | [netboot.xyz-snponly.efi](https://boot.netboot.xyz/ipxe/netboot.xyz-snponly.efi) | EFI w/ Simple Network Protocol, only boots from device chained from         |
+| Type | Bootloader | Description |
+|------|------------|-------------|
+| ISO | [netboot.xyz-efi.iso](https://boot.netboot.xyz/ipxe/netboot.xyz-efi.iso) | Used for CD/DVD, Virtual CDs, DRAC/iLO, VMware, Virtual Box |
+| USB | [netboot.xyz-efi.usb](https://boot.netboot.xyz/ipxe/netboot.xyz-efi.usb) | Used for creation of USB Keys |
+| DHCP | [netboot.xyz.efi](https://boot.netboot.xyz/ipxe/netboot.xyz.efi) | DHCP boot image file, uses built-in iPXE NIC drivers |
+| DHCP-snp | [netboot.xyz-snp.efi](https://boot.netboot.xyz/ipxe/netboot.xyz-snp.efi) | EFI w/ Simple Network Protocol, attempts to boot all net devices |
+| DHCP-snponly | [netboot.xyz-snponly.efi](https://boot.netboot.xyz/ipxe/netboot.xyz-snponly.efi) | EFI w/ Simple Network Protocol, only boots from device chained from |
 
 SHA256 checksums are generated during each build of iPXE and are located [here](https://boot.netboot.xyz/ipxe/netboot.xyz-sha256-checksums.txt). You can also view the scripts that are embedded into the images [here](https://github.com/netbootxyz/netboot.xyz/tree/master/ipxe/disks).
 
@@ -108,93 +121,22 @@ In addition to being able to host netboot.xyz locally, you can also create your 
 
 ### Operating Systems
 
-| Name                | URL                            | Installer Kernel | Live OS |
-|---------------------|--------------------------------|------------------|---------|
-| Alpine Linux        | https://alpinelinux.org        | Yes              | No      |
-| Anarchy Linux       | https://www.anarchylinux.org   | Yes              | No      |
-| Arch Linux          | https://www.archlinux.org      | Yes              | No      |
-| Backbox             | https://www.backbox.org        | No               | Yes     |
-| BlackArch Linux     | https://blackarch.org          | Yes              | Yes     |
-| Bluestar Linux      | https://sourceforge.net/projects/bluestarlinux | No       | Yes     |
-| Bodhi Linux         | https://www.bodhilinux.com     | No               | Yes     |
-| CentOS              | https://centos.org             | Yes              | No      |
-| CoreOS              | http://coreos.com/             | Yes              | No      |
-| Debian              | https://debian.org             | Yes              | Yes     |
-| Deepin              | https://www.deepin.org         | No               | Yes     |
-| Devuan              | https://devuan.org             | Yes              | No      |
-| Elementary OS       | https://elementary.io          | No               | Yes     |
-| Fatdog64            | https://distro.ibiblio.org/fatdog/web/ | No  | Yes     |
-| Fedora              | https://fedoraproject.org      | Yes              | Yes     |
-| Feren OS            | https://ferenos.weebly.com/    | Yes              | No      |
-| Flatcar Linux       | https://www.flatcar-linux.org  | Yes              | No      |
-| FreeBSD             | https://freebsd.org            | Yes, disk image  | No      |
-| FreeDOS             | http://www.freedos.org         | ISO - Memdisk    | No      |
-| Gentoo              | https://gentoo.org             | Yes              | Yes     |
-| IPFire              | https://www.ipfire.org         | Yes              | No      |
-| Kali Linux          | https://www.kali.org           | Yes              | Yes     |
-| KDE Neon            | https://neon.kde.org           | No               | Yes     |
-| Kodachi             | https://www.digi77.com/linux-kodachi/ | No  | Yes     |
-| Linux Lite          | https://www.linuxliteos.com    | No               | Yes     |
-| LXLE                | https://lxle.net/              | No               | Yes     |
-| Mageia              | https://www.mageia.org         | Yes              | No      |
-| Manjaro             | https://manjaro.org            | No               | Yes     |
-| Mint                | https://linuxmint.com          | No               | Yes     |
-| Microsoft Windows   | https://www.microsoft.com    | User supplied media | No     |
-| MirOS               | https://www.mirbsd.org         | Yes              | No      |
-| Nitrux              | https://nxos.org/              | No               | Yes     |
-| NixOS               | https://nixos.org              | Yes              | No      |
-| OpenBSD             | https://openbsd.org            | Yes              | No      |
-| OpenSUSE            | https://opensuse.org           | Yes              | No      |
-| Oracle Linux        | https://www.oracle.com/linux/  | Yes              | Installer |
-| Parrot Security     | https://www.parrotsec.org      | Yes              | Yes     |
-| Peppermint          | https://peppermintos.com       | No               | Yes     |
-| Pop OS              | https://system76.com/pop       | No               | Yes     |
-| Q4OS                | https://q4os.org               | No               | Yes     |
-| Raizo               | https://sourceforge.net/projects/live-raizo/ | No  | Yes     |
-| RancherOS           | https://rancher.com/rancher-os   | Yes              | No      |
-| Red Hat Enterprise Linux | https://www.redhat.com    | User supplied media | No     |
-| Regolith            | https://regolith-linux.org     | No               | Yes     |
-| Scientific Linux    | https://scientificlinux.org    | Yes              | No      |
-| Septor              | https://septor.sourceforge.io  | No               | Yes     |
-| Slackware           | https://www.slackware.com      | Yes              | No      |
-| SmartOS             | https://www.joyent.com/smartos   | Yes              | No      |
-| SparkyLinux         | https://sparkylinux.org/       | No               | Yes     |
-| Tiny Core Linux     | https://tinycorelinux.net      | Yes              | Yes     |
-| Ubuntu              | https://www.ubuntu.com         | Yes              | Yes     |
-| Velt                | https://velt.io/               | No               | Yes     |
-| Voyager             | https://voyagerlive.org        | No               | Yes     |
-| Zen Installer       | https://sourceforge.net/projects/revenge-installer | Yes  | No     |
-| Zorin OS            | https://zorinos.com            | No               | Yes     |
+| Name | URL | Installer Kernel | Live OS |
+|------|-----|------------------|---------|
+| Alpine Linux | [https://alpinelinux.org](https://alpinelinux.org) | Yes | No |
+| Anarchy Linux | [https://anarchy-linux.org](https://anarchy-linux.org) | Yes | Yes |
+| Arch Linux | [https://archlinux.org](https://archlinux.org) | Yes | Yes |
+| CentOS | [https://centos.org](https://centos.org) | Yes | No |
+| Debian | [https://debian.org](https://debian.org) | Yes | Yes |
+| Fedora | [https://fedora.org](https://fedora.org) | Yes | Yes |
+| FreeBSD | [https://freebsd.org](https://freebsd.org) | Yes | Yes |
+| Gentoo | [https://gentoo.org](https://gentoo.org) | Yes | Yes |
+| Kali Linux | [https://kali.org](https://kali.org) | Yes | Yes |
+| Linux Mint | [https://linuxmint.com](https://linuxmint.com) | Yes | Yes |
+| Manjaro | [https://manjaro.org](https://manjaro.org) | Yes | Yes |
+| OpenSUSE | [https://opensuse.org](https://opensuse.org) | Yes | Yes |
+| Pop!_OS | [https://popos.io](https://popos.io) | Yes | Yes |
+| Ubuntu | [https://ubuntu.com](https://ubuntu.com) | Yes | Yes |
+| Zorin OS | [https://zorinos.com](https://zorinos.com) | Yes | Yes |
 
-## Utilities
-
-| Name                | URL                            | Type          |
-|---------------------|--------------------------------|---------------|
-| 4MLinux             | https://4mlinux.com/           | Kernel/Initrd |
-| ALT Linux Rescue    | https://en.altlinux.org/Rescue | ISO - Memdisk |
-| BakAndImgCD         | https://bakandimgcd.4mlinux.com/ | Kernel/Initrd |
-| Boot Repair CD      | https://sourceforge.net/projects/boot-repair-cd/ | LiveCD |
-| Breakin             | http://www.advancedclustering.com/products/software/breakin/ | Kernel/Initrd |
-| CAINE               | https://www.caine-live.net/    | LiveCD        |
-| Clonezilla          | http://www.clonezilla.org/     | LiveCD        |
-| DBAN                | http://www.dban.org/           | Kernel        |
-| GParted             | http://gparted.org             | LiveCD        |
-| Grml                | http://grml.org                | LiveCD        |
-| Kaspersky Rescue Disk | https://support.kaspersky.com/viruses/krd18 | LiveCD |
-| Memtest             | http://www.memtest.org/        | Kernel        |
-| Rescatux            | https://www.supergrubdisk.org/rescatux/ | LiveCD |
-| Super Grub2 Disk    | http://www.supergrubdisk.org   | ISO - Memdisk |
-| System Rescue CD    | http://www.system-rescue-cd.org/ | LiveCD        |
-| The Smallest Server Suite | https://thesss.4mlinux.com/ | Kernel/Initrd |
-| Ultimate Boot CD    | http://www.ultimatebootcd.com  | ISO - Memdisk |
-
-## Feedback
-
-Feel free to open up an [issue](https://github.com/netbootxyz/netboot.xyz/issues) on GitHub or ping us on [Discord](https://discord.gg/An6PA2a). Follow us on [Twitter](https://twitter.com/netbootxyz) and like us on [Facebook](https://www.facebook.com/netboot.xyz)!
-
-## Backlinks
-
-- [GitHub Repository](https://github.com/netbootxyz/netboot.xyz)
-```
-
-This Markdown document is now clean, professional, and properly structured for GitHub rendering. All original information and meaning have been preserved.
+This list is not exhaustive and is subject to change. For the most up-to-date list, please visit the [netboot.xyz website](https://netboot.xyz).

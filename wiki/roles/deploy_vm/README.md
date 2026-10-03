@@ -1,9 +1,13 @@
-```markdown
 ---
-title: Deploy VM Role Documentation
+title: Deploy VM Role
 original_path: roles/deploy_vm/README.md
+source_type: legacy_markdown
 category: Ansible Roles
-tags: [vmware, proxmox, automation, ansible]
+tags:
+  - VMware
+  - Proxmox
+  - Virtual Machines
+  - Automation
 ---
 
 # Deploy VM Role Documentation
@@ -21,7 +25,7 @@ The `deploy_vm` role is designed to automate the deployment of virtual machines 
 | `deploy_vm__vcenter_username`           | `administrator`                                                                                        | Username for authenticating with the vCenter server.                                                                                                                                                        |
 | `deploy_vm__vcenter_password`           | `password`                                                                                             | Password for authenticating with the vCenter server. **(Sensitive)**                                                                                                                                        |
 | `deploy_vm__vcenter_validate_certs`     | `false`                                                                                                | Whether to validate SSL certificates when connecting to the vCenter server.                                                                                                                                   |
-| `deploy_vm__tags_init_all`              | List of tags (e.g., `vm_pre_bootstrap`, `vm_new`)                                                      | Initial list of tags to be created in vSphere for categorizing VMs.                                                                                                                                         |
+| `deploy_vm__tags_init_all`              | List of tags (e.g., `vm_pre_bootstrap`, `vm_new`)                                                      | Initial list of tags to be created in vSphere for categorizing VMs. Format: list of strings.                                                                                                                 |
 | `deploy_vm__vmware_appliance_list`      | `[]`                                                                                                   | List of VMware appliances to deploy using OVF templates.                                                                                                                                                  |
 | `deploy_vm__vmware_vm_list`             | `[]`                                                                                                   | List of VMs to be deployed on vSphere.                                                                                                                                                                      |
 | `deploy_vm__govc_version`               | `0.23.0`                                                                                               | Version of the govc tool to be used for VMware operations.                                                                                                                                                |
@@ -31,10 +35,26 @@ The `deploy_vm` role is designed to automate the deployment of virtual machines 
 | `deploy_vm__govc_username`              | `"{{ deploy_vm__vcenter_username }}"`                                                                    | Username for authenticating with the vCenter server using govc.                                                                                                                                             |
 | `deploy_vm__govc_password`              | `"{{ deploy_vm__vcenter_password }}"`                                                                    | Password for authenticating with the vCenter server using govc. **(Sensitive)**                                                                                                                             |
 
+## Usage
+
+[Describe how to use the role in a playbook, including examples]
+
+## Proxmox Specific Variables and Configuration
+
+[Add information about Proxmox-specific variables and functionality]
+
+## Dependencies
+
+[List any dependencies or requirements for the role]
+
+## Known Issues and Limitations
+
+[List any known issues or limitations with the role]
+
+## License and Author Information
+
+[Provide license information and author details if applicable]
+
 ## Backlinks
 
-- [Ansible Roles Documentation](/docs/ansible-roles)
-- [VMware Automation Guide](/guides/vmware-automation)
-```
-
-This improved Markdown document includes a standardized YAML frontmatter, clear structure with proper headings, and a "Backlinks" section for additional context.
+[List any related documentation or pages that link to this page]

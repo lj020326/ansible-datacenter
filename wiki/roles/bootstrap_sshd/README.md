@@ -1,49 +1,65 @@
-```markdown
 ---
-title: OpenSSH Server Configuration Role Documentation
+title: OpenSSH Server Role
 original_path: roles/bootstrap_sshd/README.md
 category: Ansible Roles
-tags: [OpenSSH, SSHD, Ansible, Configuration]
+tags: [SSH, OpenSSH, Server, Configuration, Security]
+harvested_date: '2026-08-07T18:07:09.418225+00:00'
+source_type: legacy_markdown
 ---
 
-# OpenSSH Server Configuration Role
+# OpenSSH Server Role
 
 This role configures the OpenSSH daemon. It:
 
-- By default, configures the SSH daemon with the normal OS defaults.
+- By default configures the SSH daemon with the normal OS defaults.
 - Works across a variety of `UN*X` distributions.
-- Can be configured using dictionaries or simple variables.
+- Can be configured by dict or simple variables.
 - Supports Match sets.
-- Supports all `sshd_config` options. Templates are programmatically generated (see [`meta/make_option_lists`](meta/make_option_lists)).
+- Supports all `sshd_config` options. Templates are programmatically generated.
+  (see [`meta/make_option_lists`](meta/make_option_lists)).
 - Tests the `sshd_config` before reloading sshd.
 
-**WARNING:** Misconfiguration of this role can lock you out of your server! Please test your configuration and its interaction with your users' configurations before using in production!
+**WARNING:** Misconfiguration of this role can lock you out of your server!
+Please test your configuration and its interaction with your users configuration
+before using in production!
 
-**WARNING:** Digital Ocean allows root access via SSH passwords on Debian and Ubuntu. This module sets `PermitRootLogin without-password` by default, allowing access via SSH keys but not simple passwords. If you need this functionality, set `bootstrap_sshd__PermitRootLogin yes` for those hosts.
+**WARNING:** Digital Ocean allows root with passwords via SSH on Debian and
+Ubuntu. This is not the default assigned by this module - it will set
+`PermitRootLogin without-password` which will allow access via SSH key but not
+via simple password. If you need this functionality, be sure to set
+`bootstrap_sshd__PermitRootLogin yes` for those hosts.
 
 ## Requirements
 
-- **Ubuntu:** precise, trusty, xenial, bionic, focal, jammy, noble
-- **Debian:** wheezy, jessie, stretch, buster, bullseye, bookworm
-- **EL (Enterprise Linux):** 6, 7, 8, 9, 10 derived distributions
-- **Fedora:** All versions
-- **Alpine:** Latest version
-- **FreeBSD:** 10.1
-- **OpenBSD:** 6.0
-- **AIX:** 7.1, 7.2
-- **OpenWrt:** 21.03
+- Ubuntu precise, trusty, xenial, bionic, focal, jammy, noble
+- Debian wheezy, jessie, stretch, buster, bullseye, bookworm
+- EL 6, 7, 8, 9, 10 derived distributions
+- All Fedora
+- Latest Alpine
+- FreeBSD 10.1
+- OpenBSD 6.0
+- AIX 7.1, 7.2
+- OpenWrt 21.03
 
-It will likely work on other flavors and more direct support via suitable [vars/](vars/) files is welcome.
+It will likely work on other flavors and more direct support via suitable
+[vars/](vars/) files is welcome.
 
 ### Optional Requirements
 
-If you want to use advanced functionality of this role that can configure firewall and SELinux for you, which is mostly useful when a custom port is used, the role requires additional collections specified in `meta/collection-requirements.yml`. These are not automatically installed. If you want to manage `rpm-ostree` systems, additional collections are required. Install them like this:
+If you want to use advanced functionality of this role that can configure
+firewall and SELinux for you, which is mostly useful when custom port is used,
+the role requires additional collections which are specified in
+`meta/collection-requirements.yml`. These are not automatically installed.
+If you want to manage `rpm-ostree` systems, additional collections are required.
+You must install them like this:
 
 ```bash
 ansible-galaxy install -vv -r meta/collection-requirements.yml
 ```
 
-For more information, see the `bootstrap_sshd__manage_firewall` and `bootstrap_sshd__manage_selinux` options below, and the `rpm-ostree` section. This additional functionality is supported only on Red Hat-based Linux.
+For more information, see `bootstrap_sshd__manage_firewall` and `bootstrap_sshd__manage_selinux`
+options below, and the `rpm-ostree` section.  This additional functionality is
+supported only on Red Hat based Linux.
 
 ## Variables
 
@@ -65,15 +81,57 @@ For more information, see the `bootstrap_sshd__manage_firewall` and `bootstrap_s
 | `bootstrap_sshd__config_file`                          | `"{{ __bootstrap_sshd__config_file }}"`                          | Path to the main SSHD configuration file.                                  |
 | `bootstrap_sshd__trusted_user_ca_keys_list`            | `[]`                                                             | List of trusted user CA keys.                                              |
 | `bootstrap_sshd__principals`                           | `{}`                                                             | Dictionary of authorized principals for users.                             |
-| `bootstrap_sshd__packages`                             | `"{{ __bootstrap_sshd__packages }}"`                               | List of packages to install.                                               |
+| `bootstrap_sshd__packages`                             | `"{{ __bootstrap_sshd__packages }}"`                             | List of packages to install.                                               |
 
-... [truncated - large file] ...
+## Examples
+
+### Basic Usage
+
+```yaml
+- hosts: all
+  roles:
+    - bootstrap_sshd
+```
+
+### Custom Configuration
+
+```yaml
+- hosts: all
+  roles:
+    - role: bootstrap_sshd
+      vars:
+        bootstrap_sshd__config:
+          PermitRootLogin: "without-password"
+          PasswordAuthentication: "no"
+```
+
+## Testing Configuration
+
+The role tests the `sshd_config` before reloading sshd to ensure that the configuration is valid. This is done by using the `sshd -T` command to parse the configuration file and check for syntax errors.
+
+## Idempotency
+
+This role is designed to be idempotent, meaning that applying the role multiple times should not result in different outcomes. The role will only make changes if the configuration has changed.
+
+## Using Match Sets
+
+Match sets allow you to apply configuration options to specific users, groups, or hosts. For example:
+
+```yaml
+bootstrap_sshd__config:
+  Match User ansible:
+    ForceCommand: /usr/bin/ansible-playbook
+```
+
+## Error Handling and Troubleshooting
+
+If you encounter issues with this role, please check the following:
+
+1. Ensure that the required packages are installed.
+2. Verify that the configuration file is valid by running `sshd -T` manually.
+3. Check the logs for any error messages.
+4. If you are using a custom port, make sure that the firewall and SELinux settings are correctly configured.
 
 ## Backlinks
 
-- [Ansible Roles Documentation](/ansible-roles)
-- [OpenSSH Configuration Best Practices](/openssh-best-practices)
-
-```
-
-This improved version includes a standardized YAML frontmatter, clear headings, and a "Backlinks" section for better navigation and context.
+- [Link to related documentation or pages](URL)

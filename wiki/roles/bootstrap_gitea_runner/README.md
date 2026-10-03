@@ -1,9 +1,14 @@
-```markdown
 ---
-title: Bootstrap Gitea Runner Role Documentation
+harvested_date: '2026-08-07T18:07:09.217606+00:00'
 original_path: roles/bootstrap_gitea_runner/README.md
+source_type: legacy_markdown
+title: Bootstrap Gitea Runner Role Documentation
 category: Ansible Roles
-tags: [gitea, runner, automation, ansible]
+tags:
+  - Gitea
+  - CI/CD
+  - Docker
+  - Automation
 ---
 
 # Bootstrap Gitea Runner Role Documentation
@@ -47,13 +52,16 @@ Ensure that the necessary variables are set according to your environment. If Do
 ## Dependencies
 
 - **Docker**: Required if `bootstrap_gitea_runner__docker_install` is set to `true`. The role will install Docker and related packages.
-- **Gitea API Token**: Ensure that a Gitea admin token or username/password credentials are provided for generating the runner registration token.
+- **Gitea API Token**: Ensure that a Gitea admin token or username/password credentials are provided for generating the runner registration token. You can obtain a Gitea API token by logging into your Gitea instance as an admin, navigating to your profile settings, and generating a new token with the necessary permissions.
 
 ## Best Practices
 
-1. **Security**: Always use secure methods to handle sensitive information such as tokens and passwords. Consider using Ansible Vault to encrypt sensitive data.
+1. **Security**: Always use secure methods to handle sensitive information such as tokens and passwords. Consider using Ansible Vault to encrypt sensitive data. For example:
+   ```yaml
+   bootstrap_gitea_runner__gitea_token: "{{ vault_gitea_token }}"
+   ```
 2. **Version Control**: Specify the version of `act_runner` to avoid unexpected changes due to updates.
-3. **Testing**: Use Molecule for testing your role in different environments to ensure it behaves as expected.
+3. **Testing**: Use Molecule for testing your role in different environments to ensure it behaves as expected. Molecule is a testing framework for Ansible roles that allows you to test your role in isolated environments.
 
 ## Molecule Tests
 
@@ -63,7 +71,7 @@ This role includes Molecule tests to verify its functionality across various sce
 molecule test
 ```
 
-Ensure that all dependencies are installed before running the tests.
+Ensure that all dependencies are installed before running the tests. Molecule is a tool that helps you test and validate your Ansible roles in isolated environments.
 
 ## Backlinks
 
@@ -74,4 +82,3 @@ Ensure that all dependencies are installed before running the tests.
 ---
 
 This documentation provides a comprehensive overview of the `bootstrap_gitea_runner` role, including its purpose, configuration options, usage instructions, and best practices.
-```

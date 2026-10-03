@@ -1,18 +1,17 @@
-```markdown
 ---
-title: bootstrap_govc Role Documentation
+harvested_date: '2023-10-07T18:07:09.222969+00:00'
 original_path: roles/bootstrap_govc/README.md
+source_type: markdown
+title: bootstrap_govc
 category: Ansible Roles
-tags: [vmware, govc, ansible]
+tags: [govc, VMware, vCenter]
 ---
 
 # bootstrap_govc
 
-## Overview
+Install and manage `govc`, a statically linked CLI tool for operations on VMware vCenter server. `govc` is a command-line tool that simplifies many VMware vSphere operations.
 
-The `bootstrap_govc` role is designed to install and manage `govc`, a statically linked CLI tool for operations on VMware vCenter servers.
-
-**Source:** [https://github.com/vmware-archive/bootstrap-govc](https://github.com/vmware-archive/bootstrap-govc)
+Source: [https://github.com/vmware-archive/bootstrap-govc](https://github.com/vmware-archive/bootstrap-govc)
 
 ## Requirements
 
@@ -20,36 +19,38 @@ The `bootstrap_govc` role is designed to install and manage `govc`, a statically
 
 ## Role Variables
 
-### Setting the Specific Version of the Binary to Install
-- **`govc_version`**: Specifies the version of the binary to install.  
-  *Example:* `govc_version: "0.12.1"`
-
-### Path to Install the Binary
-- **`govc_path`**: Defines where the binary should be installed, either in a user-local path or system-wide path.
-  *Example:* `govc_path: /usr/bin`
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `govc_version` | Specifies the version of the binary to install | `"0.12.1"` |
+| `govc_path` | Path to install the binary. Can be used to install to user local path or system-wide path | `/usr/bin` |
+| `govc_url` | URL for govc binary download (optional, alternative to version) | `""` |
 
 ## Dependencies
 
-While not a true dependency, you might want to install [ansible-role-assets](../ansible-role-assets) to pull a set of OVAs.
+While not a strict dependency, it is recommended to install [ansible-role-assets](../ansible-role-assets) to pull a set of OVAs.
 
 ## Example Playbook
 
 ### Basic Installation
+
 ```yaml
+---
 - hosts: adminServers
   roles:
     - role: bootstrap_govc
 ```
 
-### Custom Installation and OVA Import
+### Custom Installation with OVA Imports
+
 ```yaml
+---
 - hosts: adminServers
   roles:
     - role: bootstrap_govc
       vars:
         govc_path: /tmp
         govc_version: "0.12.1"
-        
+
         # ESX or vCenter host and credentials
         govc_host: esx-a.home.local
         govc_username: administrator@home.local
@@ -70,10 +71,10 @@ While not a true dependency, you might want to install [ansible-role-assets](../
 
 ## Testing
 
-1. Update `tests/group_vars` to suit your test environment.
-2. Create your own set of `vault.yml` files, or replace them with un-encrypted versions for your passwords.
+1. Update the `tests/group_vars` to suit your test environment.
+2. Create your own set of `vault.yml` files or replace them with un-encrypted versions for your passwords.
+3. Run the tests:
 
-Run the tests using:
 ```bash
 pip install molecule docker-py
 ./tests/test.sh
@@ -81,11 +82,10 @@ pip install molecule docker-py
 
 ## Reference
 
+- [https://github.com/vmware-archive/bootstrap-govc](https://github.com/vmware-archive/bootstrap-govc)
 - [https://github.com/vmware-archive/ansible-role-govc](https://github.com/vmware-archive/ansible-role-govc)
 
-## Backlinks
+## Additional Resources
 
-- [Ansible Roles Documentation](../ansible-roles-documentation)
-```
-
-This improved Markdown document adheres to clean, professional standards suitable for GitHub rendering while preserving all original information and meaning.
+- [govc documentation](https://github.com/vmware/govmomi/tree/main/govc)
+- [VMware vSphere API documentation](https://code.vmware.com/apis/1021/vsphere-automation-sdk)

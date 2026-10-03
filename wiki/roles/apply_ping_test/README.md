@@ -1,19 +1,20 @@
 ```markdown
 ---
 title: "apply_ping_test Role Documentation"
-original_path: roles/apply_ping_test/README.md
+role: apply_ping_test
 category: Ansible Roles
 type: Technical Documentation
 tags: ansible, role, ping, testing, automation
+original_path: roles/apply_ping_test/README.md
+harvested_date: '2026-08-07T18:07:09.125234+00:00'
+source_type: legacy_markdown
 ---
-
-# apply_ping_test Role Documentation
 
 ## Summary
 
 The `apply_ping_test` role is designed to perform a ping test on target hosts using different modules based on the specified connection type. It supports standard SSH (`ping`), Windows (`win_ping`), and network devices (`net_ping`). The role provides flexibility in handling failures and can be configured to fall back to CLI commands if necessary.
 
-The role will place each target host into `host_offline` and `discovered_host_offline` groups if the ping test fails. The `host_offline` group is expected to be an inventory-maintained group for hosts that have been taken offline for known reasons (maintenance, upgrade, etc.). The `discovered_host_offline` group supports issue escalation for hosts that are expected to be online but fail the ping test.
+The role will place each target host into `host_offline` and `discovered_host_offline` groups if the ping test fails. The `host_offline` group is expected to be an inventory-maintained group explicitly defining hosts that have been taken offline for known reasons (maintenance, upgrade, etc.). The `discovered_host_offline` group is meant to support issue escalation for hosts that are expected to be online but fail the ping test and are found to be offline.
 
 ## Variables
 

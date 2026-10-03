@@ -1,20 +1,27 @@
-```markdown
 ---
-title: How to Test Enhancements to the docker-compose.yml.j2 Template
-original_path: roles/bootstrap_docker_stack/templates/docker-compose-test-standalone.md
-category: Docker Compose Testing
-tags: [docker, compose, ansible, testing]
+title: "Testing Docker Compose Template Enhancements"
+harvested_date: "2023-10-07T18:07:09.196185+00:00"
+original_path: "roles/bootstrap_docker_stack/templates/docker-compose-test-standalone.md"
+source_type: "legacy_markdown"
+category: "Docker"
+tags: ["docker-compose", "Ansible", "testing", "template"]
 ---
 
 # How to Test Enhancements to the `docker-compose.yml.j2` Template
 
-Use the site [https://ansible.sivel.net/test/](https://ansible.sivel.net/test/) to test your enhancements.
+This guide explains how to test your enhancements to the Docker Compose template using a standalone test environment.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+- Access to the [Ansible test site](https://ansible.sivel.net/test/)
+- A tool to convert JSON to YAML, such as [JSON Formatter](https://jsonformatter.org/json-to-yaml)
 
 ## Set Up Test Variables
 
-Convert the Ansible logged variable values from JSON to YAML using a tool like [JSON Formatter & Validator](https://jsonformatter.org/json-to-yaml).
+Convert the Ansible logged variable values from JSON to YAML using the tool available at [https://jsonformatter.org/json-to-yaml](https://jsonformatter.org/json-to-yaml).
 
-### Example Variables Section
+Set up the variables section as follows:
 
 ```yaml
 docker_stack__swarm_mode: false
@@ -56,7 +63,6 @@ __docker_stack__service_groups:
   - name: samba
     source: role
 
-## Keys only for testing purposes
 __docker_stack__secrets: []
 
 __docker_stack__service_group_configs_tpl:
@@ -169,8 +175,7 @@ __docker_stack__service_group_configs_tpl:
       labels:
         - traefik.enable=true
         - traefik.http.routers.portainer-rtr.entrypoints=https
-        - >-
-          traefik.http.routers.portainer-rtr.rule=Host(`portainer.media.johnson.int`)
+        - traefik.http.routers.portainer-rtr.rule=Host(`portainer.media.johnson.int`)
         - traefik.http.routers.portainer-rtr.priority=1000
         - traefik.http.routers.portainer-rtr.service=portainer-svc
         - traefik.http.routers.portainer-rtr.tls=true
@@ -208,10 +213,14 @@ __docker_stack__service_group_configs_tpl:
         - '/var/run/docker.sock:/var/run/docker.sock'
 ```
 
-## Backlinks
+## Testing the Template
 
-- [Main Documentation](../README.md)
-- [Docker Stack Overview](docker-stack-overview.md)
-```
+1. Go to the [Ansible test site](https://ansible.sivel.net/test/).
+2. Create a new test playbook.
+3. Copy and paste the YAML variables you've set up into the playbook.
+4. Add your enhanced `docker-compose.yml.j2` template to the playbook.
+5. Run the playbook and review the output.
 
-This improved version includes a clean and professional structure with proper headings, standardized YAML frontmatter, and added backlinks for navigation.
+## Conclusion
+
+By following this guide, you should be able to test your enhancements to the Docker Compose template effectively. This process helps ensure that your changes work as expected before integrating them into your main environment.

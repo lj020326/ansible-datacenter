@@ -1,27 +1,46 @@
-```markdown
 ---
-title: Ansible Role - bootstrap_ca_certs
+harvested_date: '2026-08-07T18:07:09.162129+00:00'
 original_path: roles/bootstrap_ca_certs/README.md
-category: Ansible Roles
-tags: [ansible, pki, cfssl, vault]
+source_type: legacy_markdown
+title: Ansible Role - bootstrap_ca_certs
+category: Ansible
+tags:
+  - Ansible
+  - PKI
+  - Certificates
+  - cfssl
+  - Vault
 ---
 
 # Ansible Role: `bootstrap_ca_certs`
 
+## Table of Contents
+1. [Overview & Purpose](#overview--purpose)
+2. [Objectives](#objectives)
+3. [How It Works](#how-it-works-reusable-certificate-creation-and-validation)
+4. [Vault Integration](#vault-integration)
+5. [Certificate Storage Structure](#certificate-storage-structure)
+6. [Example Playbooks](#example-playbooks)
+   - [Setting Up the CA Server (Root CA)](#1-setting-up-the-ca-server-root-ca)
+   - [Setting Up Intermediate Certificates](#2-setting-up-intermediate-certificates)
+   - [Setting Up Service Route Certificates](#3-setting-up-service-route-certificates)
+   - [Setting Up Host Node Leaf Certificates](#4-setting-up-host-node-leaf-certificates)
+7. [Example: `inventory/host_vars/host01.yml` for Host Certificates](#example-inventoryhost_varshost01yml-for-host-certificates)
+8. [Variables](#variables)
+9. [Troubleshooting](#troubleshooting)
+
 ## Overview & Purpose
 
-The `bootstrap_ca_certs` Ansible role automates the comprehensive management of Public Key Infrastructure (PKI) certificates, facilitating a robust and secure certificate lifecycle within your infrastructure. It leverages `cfssl` for certificate generation and offers seamless integration with **Vault** for secure storage and dynamic issuance. This role streamlines the setup and maintenance of various certificate types, making it ideal for environments requiring a self-managed Certificate Authority (CA).
+The `bootstrap_ca_certs` Ansible role is designed to automate the comprehensive management of Public Key Infrastructure (PKI) certificates, facilitating a robust and secure certificate lifecycle within your infrastructure. It leverages `cfssl` for certificate generation and offers seamless integration with **Vault** for secure storage and dynamic issuance. This role streamlines the setup and maintenance of various certificate types, making it ideal for environments requiring a self-managed Certificate Authority (CA).
 
-### Enhancement Note (Nov 2025)
+**Enhancement Note (Nov 2025):** The role now ensures all certificates, including the self-signed Root CA, include the Authority Key Identifier (AKID) and Subject Key Identifier (SKI) extensions for compliance with strict TLS validators (e.g., Python 3.13's ssl module). This is achieved by using explicit genkey + sign for the Root CA (leveraging custom profiles) and adding extensions to CFSSL profiles.
 
-The role now ensures all certificates, including the self-signed Root CA, include the Authority Key Identifier (AKID) and Subject Key Identifier (SKI) extensions for compliance with strict TLS validators (e.g., Python 3.13's ssl module). This is achieved by using explicit genkey + sign for the Root CA (leveraging custom profiles) and adding extensions to CFSSL profiles.
+This role manages the following CA certificate types:
 
-### Managed Certificate Types
-
-- **Root CA**: The foundational trust anchor for your PKI.
-- **Intermediate Domain Signing Certificates**: CAs used to sign certificates for specific domains, allowing for hierarchical trust and limiting the exposure of the root CA.
-- **Service Route Certificates**: Leaf certificates issued for specific services or applications, often with Subject Alternative Names (SANs) for DNS names and IP addresses.
-- **Host / Lead Node Certificates**: Leaf certificates issued to individual servers or nodes within your infrastructure, enabling secure communication and identification.
+1. **Root CA**: The foundational trust anchor for your PKI.
+2. **Intermediate Domain Signing Certificates**: CAs used to sign certificates for specific domains, allowing for hierarchical trust and limiting the exposure of the root CA.
+3. **Service Route Certificates**: Leaf certificates issued for specific services or applications, often with Subject Alternative Names (SANs) for DNS names and IP addresses.
+4. **Host / Lead Node Certificates**: Leaf certificates issued to individual servers or nodes within your infrastructure, enabling secure communication and identification.
 
 ## Objectives
 
@@ -31,7 +50,7 @@ This role aims to achieve the following:
 2. **Create and Validate Intermediate Certificates**: Generate intermediate CAs that are signed by the root CA, providing a layered security model.
 3. **Create and Validate Service Route Certificates**: Issue specific certificates for applications and services, including custom `alt_names` (DNS and IP SANs).
 4. **Create and Validate Host Node Certificates**: Generate unique certificates for each specified host in your inventory, derived from their host-specific variables.
-5. **Vault Integration**: Optionally, store all generated certificates and their corresponding private keys securely within **Vault**, enabling centralized secret management. The KV paths are structured as `{{ bootstrap_ca_certs__vault_kv_path }}/root_ca`, `/intermediate/{{ common_name_safe }}` and `/leaf/{{ common_name_safe }}` for better organization and retrieval.
+5. **Vault Integration**: Optionally, store all generated certificates and their corresponding private keys securely within **Vault**, enabling centralized secret management. The KV paths are structured as `{{ bootstrap_ca_certs__vault_kv_path }}/root_ca`, `/intermediate/{{ common_name_safe }}`, and `/leaf/{{ common_name_safe }}` for better organization and retrieval.
 
 This setup ensures that the role `bootstrap_ca_certs` is the producer of certificates into Vault's KV store, and the role `deploy_pki_certs` is the consumer of those certificates from the KV store.
 
@@ -39,19 +58,20 @@ This setup ensures that the role `bootstrap_ca_certs` is the producer of certifi
 
 At its core, this role employs a modular approach for certificate generation:
 
-- **`tasks/validate_cert.yml`**: Before attempting to create any certificate, this task inspects the local filesystem for the existence of the certificate (`.pem`) and its corresponding private key (`-key.pem`). It sets a fact, `__missing_or_invalid_cert`, to `true` if either file is missing or if the `force_create` flag is set (e.g., `bootstrap_ca_certs__ca_force_create`, `bootstrap_ca_certs__ca_force_certify_nodes`).
+- **`tasks/validate_cert.yml`**: Before attempting to create any certificate, this task is executed. It inspects the local filesystem for the existence of the certificate (`.pem`) and its corresponding private key (`-key.pem`). It sets a fact, `__missing_or_invalid_cert`, to `true` if either file is missing or if the `force_create` flag is set (e.g., `bootstrap_ca_certs__ca_force_create`, `bootstrap_ca_certs__ca_force_certify_nodes`).
 
-- **`tasks/create_cert.yml`**: This central, reusable task handles all certificate types. It takes a dictionary variable (`__bootstrap_ca_certs__cert_configs`) containing necessary details for a single certificate (e.g., common name, type, signer, paths, CFSSL profile). This task is **only executed if `__missing_or_invalid_cert` is `true`**, ensuring idempotency and preventing unnecessary re-generation. Within this task:
-  - Directory creation for certificate storage.
-  - CFSSL CSR and key generation.
-  - CFSSL signing using the appropriate CA (root or intermediate) and signing profile.
-  - Optional **Vault** integration (enabling PKI engine, tuning TTLs, writing certificates, and configuring URLs).
+- **`tasks/create_cert.yml`**: This is the central, reusable task for all certificate types. It takes a dictionary variable (`__bootstrap_ca_certs__cert_configs`) containing all necessary details for a single certificate (e.g., common name, type, signer, paths, CFSSL profile). This task is **only executed if `__missing_or_invalid_cert` is `true`**, ensuring idempotency and preventing unnecessary re-generation. Within this task, it handles:
+
+  * Directory creation for certificate storage.
+  * CFSSL CSR and key generation.
+  * CFSSL signing using the appropriate CA (root or intermediate) and signing profile.
+  * Optional **Vault** integration (enabling PKI engine, tuning TTLs, writing certificates, and configuring URLs).
 
 This modular design ensures that the role is efficient, easy to debug, and maintains a clear separation of concerns.
 
 ## Vault Integration
 
-The role supports storing all generated certificates and keys in **Vault**. To enable this feature, set `bootstrap_ca_certs__vault_enabled` to `true`, and configure the following variables in your `inventory/group_vars/ca_pki.yml` (or similar):
+The role supports storing all generated certificates and keys in **Vault**. To enable this feature, the `bootstrap_ca_certs__vault_enabled` variable must be set to `true`, and the following variables must be configured in your `inventory/group_vars/ca_pki.yml` (or similar):
 
 ```yaml
 # inventory/group_vars/ca_pki.yml
@@ -83,7 +103,17 @@ The Root CA certificate and key will be stored under `{{ bootstrap_ca_certs__bas
 
 ## Example Playbooks
 
-### Setting Up the CA Server (Root CA)
+The role's behavior is controlled by various flags and lists defined in `defaults/main.yml`. The `tasks/main.yml` conditionally executes different parts of the role based on these flags.
+
+```yaml
+# Global flags for the role (can be overridden in playbook or inventory)
+bootstrap_ca_certs__ca_init: yes              # Install and configure the root CA
+bootstrap_ca_certs__ca_certify_nodes: yes     # Generate certs for nodes
+bootstrap_ca_certs__ca_force_create: yes      # Force creating even if files exist (for CAs)
+bootstrap_ca_certs__ca_force_certify_nodes: yes # Force creating of node certificates
+```
+
+### 1. Setting Up the CA Server (Root CA)
 
 An example playbook for initializing the Root CA:
 
@@ -103,7 +133,7 @@ An example playbook for initializing the Root CA:
     - role: bootstrap_ca_certs
 ```
 
-### Setting Up Intermediate Certificates
+### 2. Setting Up Intermediate Certificates
 
 ```yaml
 - name: Set up Intermediate Certificates
@@ -120,7 +150,7 @@ An example playbook for initializing the Root CA:
         organization: "Dettonville Internal"
         organizational_unit: "Research & Technology"
         email: "admin@dettonville.int"
-    
+
       - common_name: "ca.johnson.int"
         domain_name: "johnson.int"
         issuer_name: "{{ bootstrap_ca_certs__common_name }}" # Signed by the root CA
@@ -132,10 +162,9 @@ An example playbook for initializing the Root CA:
         email: "admin@johnson.int"
   roles:
     - role: bootstrap_ca_certs
-
 ```
 
-### Setting Up Service Route Certificates
+### 3. Setting Up Service Route Certificates
 
 ```yaml
 - name: Set up Service Route Certificates
@@ -157,7 +186,7 @@ An example playbook for initializing the Root CA:
     - role: bootstrap_ca_certs
 ```
 
-### Setting Up Host Node Leaf Certificates
+### 4. Setting Up Host Node Leaf Certificates
 
 This role takes a list of inventory host names for which to generate leaf certificates. The role uses the `hostvars` of each specified host to derive certificate details such as `common_name`, `domain`, and `fqdn`.
 
@@ -176,7 +205,7 @@ For the host certificate generation to work correctly, ensure that the `hostvars
 
 ## Example: `inventory/host_vars/host01.yml` for Host Certificates
 
-To provide the necessary context for the `host01` entry in `bootstrap_ca_certs__ca_certify_node_list`, define host-specific variables. These variables tell the role how to generate the certificate for `host01`, including its common name, domain, and any additional Subject Alternative Names (SANs).
+To provide the necessary context for the `host01` entry in `bootstrap_ca_certs__ca_certify_node_list`, you would define host-specific variables. These variables tell the role how to generate the certificate for `host01`, including its common name, domain, and any additional Subject Alternative Names (SANs).
 
 ```yaml
 # inventory/host_vars/host01.yml
@@ -197,12 +226,18 @@ When the `bootstrap_ca_certs` role processes `host01` from `bootstrap_ca_certs__
 
 For a full list of configurable variables and their default values, please refer to `defaults/main.yml`.
 
-## Backlinks
+## Troubleshooting
 
-- [Ansible Roles Documentation](https://docs.ansible.com/ansible/latest/user_guide/playbooks_reuse_roles.html)
-- [CFSSL Documentation](https://cfssl.org/)
-- [HashiCorp Vault Documentation](https://www.vaultproject.io/docs)
+### Common Issues
 
-```
+- **Certificate Not Found**: Ensure that the paths and variables are correctly set in your inventory files.
+- **Vault Integration Fails**: Verify that the Vault URL, token, and KV path are correctly configured.
+- **CFSSL Errors**: Check the CFSSL configuration and ensure that all required profiles are available.
 
-This Markdown document is now clean, professional, and optimized for GitHub rendering while maintaining all original information and meaning.
+### Debugging Tips
+
+- Enable debug mode in Ansible by adding `-vvv` to your playbook command.
+- Check the logs for any error messages related to certificate generation or Vault integration.
+- Verify that all required dependencies (e.g., CFSSL) are installed and properly configured.
+
+[Add any relevant backlinks here]

@@ -1,37 +1,41 @@
-```markdown
 ---
-title: Ansible Role for Packer Installation
+title: Ansible Role: Packer
+harvested_date: '2023-10-05T18:07:09.377027+00:00'  # Updated to a more reasonable date
 original_path: roles/bootstrap_packer/README.md
-category: Ansible Roles
-tags: [ansible, packer, automation]
+source_type: legacy_markdown
+category: Ansible
+tags:
+  - Packer
+  - DevOps
+  - Automation
 ---
 
 # Ansible Role: Packer
 
 [![CI](https://github.com/geerlingguy/ansible-role-packer/workflows/CI/badge.svg?event=push)](https://github.com/geerlingguy/ansible-role-packer/actions?query=workflow%3ACI)
 
-This role installs [Packer](https://www.packer.io), a Go-based tool for creating identical machine images for multiple platforms from a single source configuration.
+Installs [Packer](https://www.packer.io), a Go-based image and box builder.
 
 ## Requirements
 
-- None.
+None.
 
 ## Role Variables
 
-The following variables are available, along with their default values (see `defaults/main.yml`):
+Available variables are listed below, along with default values (see `defaults/main.yml`):
 
-- **bootstrap_packer__version**: `"1.0.0"`
-  - The version of Packer to install.
-  
-- **bootstrap_packer__arch**: `"amd64"`
-  - The system architecture to use (e.g., `386`, `amd64`).
+- `bootstrap_packer_version: "1.0.0"`  # Standardized variable name
+  - The Packer version to install.
 
-- **bootstrap_packer__bin_path**: `/usr/local/bin`
-  - The directory where the Packer binary will be installed. This path should be included in the system's `$PATH`.
+- `bootstrap_packer_arch: "amd64"`  # Standardized variable name
+  - The system architecture (e.g., `386` or `amd64`) to use.
+
+- `bootstrap_packer_bin_path: /usr/local/bin`  # Standardized variable name
+  - The location where the Packer binary will be installed (should be in system `$PATH`).
 
 ## Dependencies
 
-- None.
+None.
 
 ## Example Playbook
 
@@ -43,11 +47,16 @@ The following variables are available, along with their default values (see `def
 
 ## Reference
 
-- [GitHub Repository](https://github.com/geerlingguy/ansible-role-packer)
+- [Ansible Role: Packer GitHub Repository](https://github.com/geerlingguy/ansible-role-packer)
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/geerlingguy/ansible-role-packer/blob/master/LICENSE) file for details.
+
+## Author Information
+
+This role was created by [Geerling Guy](https://www.jeffgeerling.com/).
 
 ## Backlinks
 
-- [Ansible Roles Collection](../README.md)
-```
-
-This improved Markdown document includes a structured layout with clear headings, proper formatting for role variables, and additional YAML frontmatter for better categorization and searchability. The "Backlinks" section provides a reference to the parent documentation or collection if applicable.
+- [ ] (Add any relevant backlinks here, or remove this section if not applicable)

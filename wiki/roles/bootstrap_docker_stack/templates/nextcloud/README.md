@@ -1,46 +1,74 @@
-```markdown
----
-title: Nextcloud Command Line Installation Guide
+title: Nextcloud Installation
 original_path: roles/bootstrap_docker_stack/templates/nextcloud/README.md
-category: Documentation
-tags: [Nextcloud, Docker, Installation, OCC]
+category: Nextcloud
+tags:
+  - Nextcloud
+  - Installation
+  - Command Line
+  - Docker
+harvested_date: '2023-10-07T18:07:09.203799+00:00'
+source_type: legacy_markdown
 ---
 
-# Nextcloud Command Line Installation
+## Nextcloud Command-Line Installation
 
-## Installation Commands
+This guide provides instructions for installing Nextcloud using the command line in a Docker environment. It includes the necessary commands, prerequisites, and references for further reading.
 
-To install Nextcloud using the command line with SQLite as the database, use the following commands:
+### Introduction
 
-```shell
-$ occ maintenance:install --database "sqlite" --admin-user "admin" --admin-pass "password"
-$ occ status --output=json_pretty
-```
+Nextcloud is a popular self-hosted productivity platform that provides a range of online office applications, such as document editing, calendar, contacts, and more. This guide will walk you through the process of installing Nextcloud using the command line in a Docker environment.
 
-## Reference Documentation
+### Prerequisites
 
-For more detailed information and advanced configurations, refer to the official Nextcloud documentation:
+Before you begin, ensure you have the following:
 
-- [Command Line Installation](https://docs.nextcloud.com/server/latest/admin_manual/installation/command_line_installation.html)
-- [OCC Command - Maintenance Install](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/occ_command.html#command-line-installation-label)
-- [Automatic Configuration](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/automatic_configuration.html)
-- [MailserverGuru Nextcloud Installation Guide](https://mailserverguru.com/install-nextcloud-from-command-line/)
-- [OCC Command Documentation](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/occ_command.html)
-- [Nextcloud Maintenance and Updates](https://docs.nextcloud.com/server/latest/admin_manual/maintenance/update.html)
-- [Upgrading Nextcloud via Command Line or GUI](https://www.linuxbabe.com/cloud-storage/upgrade-nextcloud-command-line-gui)
-- [Manual Upgrade Process](https://docs.nextcloud.com/server/latest/admin_manual/maintenance/manual_upgrade.html)
+- Docker installed on your system
+- Basic knowledge of Docker and command-line usage
 
-## Docker Resources
+### Installation Commands
 
-If you are using Docker to deploy Nextcloud, refer to the following resources:
+1. **Install Nextcloud:**
 
-- [LinuxServer.io Docker Image for Nextcloud](https://github.com/linuxserver/docker-nextcloud)
-- [Docker Hub Tags for LinuxServer Nextcloud](https://hub.docker.com/r/linuxserver/nextcloud/tags)
-- [Usage Guide for LinuxServer Docker Nextcloud](https://docs.linuxserver.io/images/docker-nextcloud/#usage)
+   ```shell
+   $ occ maintenance:install --database "sqlite" --admin-user "admin" --admin-pass "password"
+   ```
 
-## Backlinks
+   This command installs Nextcloud with SQLite as the database, and sets up an admin user with the specified username and password.
 
-- [Bootstrap Docker Stack Documentation](../README.md)
-```
+2. **Check Nextcloud Status:**
 
-This improved Markdown document includes a structured format with clear headings, an updated YAML frontmatter, and a "Backlinks" section to provide context for where this documentation might fit within a larger project.
+   ```shell
+   $ occ status --output=json_pretty
+   ```
+
+   This command displays the current status of your Nextcloud installation in a pretty-printed JSON format.
+
+### Reference
+
+#### Official Documentation
+- [Nextcloud OCC Command: Command-Line Installation](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/occ_command.html#command-line-installation-label)
+- [Nextcloud Command-Line Installation](https://docs.nextcloud.com/server/latest/admin_manual/installation/command_line_installation.html)
+- [Nextcloud Automatic Configuration](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/automatic_configuration.html)
+
+#### Community Resources
+- [Install Nextcloud from Command Line](https://mailserverguru.com/install-nextcloud-from-command-line/)
+- [Upgrade Nextcloud Command Line GUI](https://www.linuxbabe.com/cloud-storage/upgrade-nextcloud-command-line-gui)
+
+#### Docker Resources
+- [LinuxServer Docker Nextcloud](https://github.com/linuxserver/docker-nextcloud)
+- [LinuxServer Nextcloud Docker Tags](https://hub.docker.com/r/linuxserver/nextcloud/tags)
+- [LinuxServer Docker Nextcloud Usage](https://docs.linuxserver.io/images/docker-nextcloud/#usage)
+
+### Troubleshooting
+
+If you encounter any issues during the installation process, consider the following:
+
+- Ensure Docker is running and properly configured on your system.
+- Check the Nextcloud logs for any error messages.
+- Consult the official Nextcloud documentation for additional troubleshooting steps.
+
+### Additional Resources
+
+- [Nextcloud OCC Command](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/occ_command.html)
+- [Nextcloud Maintenance: Update](https://docs.nextcloud.com/server/latest/admin_manual/maintenance/update.html)
+- [Nextcloud Manual Upgrade](https://docs.nextcloud.com/server/latest/admin_manual/maintenance/manual_upgrade.html)

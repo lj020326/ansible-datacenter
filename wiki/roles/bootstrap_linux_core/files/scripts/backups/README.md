@@ -1,153 +1,173 @@
-```markdown
----
-title: rsync-incremental-backup Documentation
+harvested_date: '2023-10-05T18:07:09.284014+00:00'
 original_path: roles/bootstrap_linux_core/files/scripts/backups/README.md
-category: Backup Scripts
-tags: [rsync, backup, incremental, linux]
+source_type: legacy_markdown
+title: rsync-incremental-backup
+category: Backup Solutions
+tags:
+  - rsync
+  - backup
+  - incremental backup
+  - bash script
+  - Linux
 ---
 
-# rsync-incremental-Backup
+# rsync-incremental-backup
 
-Configurable bash scripts to send incremental backups of your data to a local or remote target using [rsync](https://download.samba.org/pub/rsync/rsync.html).
+Configurable bash scripts to send incremental backups of your data to a local or remote target, using [rsync](https://download.samba.org/pub/rsync/rsync.html).
 
 ## References
 
-- [GitHub Repository](https://github.com/pedroetb/rsync-incremental-backup)
-- [Using rsync Snapshots](http://www.mikerubel.org/computers/rsync_snapshots/)
+- [rsync-incremental-backup GitHub Repository](https://github.com/pedroetb/rsync-incremental-backup)
+- [Mike Rubel's Rsync Snapshots](http://www.mikerubel.org/computers/rsync_snapshots/)
 - [Admin Magazine: Using rsync for Backups](http://www.admin-magazine.com/Articles/Using-rsync-for-Backups)
-- [How To Use Rsync to Backup Your Data on Linux](https://www.howtogeek.com/135533/how-to-use-rsync-to-backup-your-data-on-linux/)
+- [How-To Geek: How to Use rsync to Backup Your Data on Linux](https://www.howtogeek.com/135533/how-to-use-rsync-to-backup-your-data-on-linux/)
 
 ## Description
 
-These scripts perform incremental backups of a specified directory to another local or remote directory. The source directory acts as the master (unchanged), while the target directory stores copies of the source.
+These scripts perform (as many as you want) incremental backups of a desired directory to another local or remote directory. The source directory acts as the master (doesn't get modified), making copies of itself in the target directory (slave). You can then browse the slave directory to retrieve any file included in any previous backup.
 
-Key features:
-- Incremental backups store only new or modified data, keeping backup sizes manageable.
-- Interrupted backups can be resumed without data loss.
-- A specialized local backup script is included for GNU/Linux filesystems, excluding temporary and removable paths by default.
+Only new or modified data is stored (because it's incremental), so the size of backups doesn't grow excessively.
+
+If a backup process gets interrupted, don't worry. You can continue it in the next run of the script without data loss and without resending previously transferred data.
+
+Additionally, there is a local backup script with special configuration, oriented to perform backups for a GNU/Linux filesystem. For example, it already omits temporary, removable, and other problematic paths, and is meant to backup to an external mount point (at `/mnt`).
 
 ## Configuration
 
-You can customize the scripts using configuration variables:
+You can set some configuration variables to customize the script:
 
-- `freq`: Frequency label for backups (overwritable by parameters).
-- `src`: Source directory path (relative or absolute; overwritable by parameters).
-- `dst`: Target directory path (absolute; overwritable by parameters).
-- `remote`: SSH config host name for remote connections (only for remote version; overwritable by parameters).
-- `backupDepth`: Number of backups to retain. Oldest backups are deleted when the limit is reached.
-- `timeout`: Timeout duration to cancel unresponsive backup processes.
-- `pathBak0`: Directory in `dst` for the most recent backup.
-- `partialFolderName`: Directory in `dst` for partial files.
-- `rotationLockFileName`: Name of the rotation lock file used to detect previous backup failures.
-- `pathBakN`: Directory in `dst` for older backups.
-- `nameBakN`: Naming convention for incremental backup directories, with an index indicating age.
-- `logName`: Name of the log file generated during backups.
-- `exclusionFileName`: Name of the text file containing exclusion patterns (must be created inside `ownFolderName`).
-- `ownFolderName`: Name of the folder in the user's home directory for configuration files and logs during backup.
-- `logFolderName`: Directory in `dst` for storing log files.
-- `dateCmd`: Command to run GNU `date`.
-- `interactiveMode`: Flag to allow password login (only for remote version).
+- `freq`: Frequency label for the backups. Overwritable by parameters.
+- `src`: Path to source directory. Backups will include its content. May be a relative or absolute path. Overwritable by parameters.
+- `dst`: Path to target directory. Backups will be placed here. **Must** be an absolute path. Overwritable by parameters.
+- `remote`: *ssh_config* host name to connect to remote host (only for remote version). Overwritable by parameters.
+- `backupDepth`: Number of backups to keep. When the limit is reached, the oldest get deleted.
+- `timeout`: Timeout to cancel the backup process if it's not responding.
+- `pathBak0`: Directory inside `dst` where the most recent backup is stored.
+- `partialFolderName`: Directory inside `dst` where partial files are stored.
+- `rotationLockFileName`: Name given to the rotation lock file, used for detecting previous backup failures.
+- `pathBakN`: Directory inside `dst` where the rest of the backups are stored.
+- `nameBakN`: Name of incremental backup directories. An index will be added at the end to show how old they are.
+- `logName`: Name given to the log file generated at backup.
+- `exclusionFileName`: Name given to the text file that contains exclusion patterns. You must create it inside the directory defined by `ownFolderName`.
+- `ownFolderName`: Name given to the folder inside the user's home to hold configuration files and logs while the backup is in progress.
+- `logFolderName`: Directory inside `dst` where the log files are stored.
+- `dateCmd`: Command to run for GNU `date`
+- `interactiveMode`: Flag to allow password login, when set to `yes` (only for remote version).
 
-All files and directories in backups receive read permissions for all users. To preserve original permissions, remove the `--chmod=+r` flag from the script.
+All files and folders in the backup (local and remote only) get read permissions for all users, since a non-readable backup is useless. If you are worried about permissions, you can add a security layer on backup access level (FTP accounts protected with passwords, for example). You can also preserve original files and folders permissions by removing the `--chmod=+r` flag from the script. In system backup, the original permissions are preserved by default.
 
 ## Usage
 
-### Setting up SSH Config (for Remote Version)
+### Setting up *ssh_config* (for remote version)
 
-To run the script without user intervention, configure SSH keys and set an SSH host:
+This script is meant to run without user intervention, so you need to authorize your source machine to access the remote machine. To accomplish this, you should use *ssh keys* to identify you and set a *ssh host* to use them properly.
 
-1. **Generate SSH Keys**: Follow tutorials like [How To Set Up SSH Keys](https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys--2).
-2. **Configure SSH Host**: Refer to [OpenSSH Config File Examples](https://www.cyberciti.biz/faq/create-ssh-config-file-on-linux-unix/).
+There are lots of tutorials dedicated to these topics, you can follow one of them. I won't go into more detailed explanation on this, but here are some good references:
 
-Use the `Host` value from your SSH config file as the `remote` value in the script.
+- [How To Set Up SSH Keys](https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys--2)
+- [OpenSSH Config File Examples](https://www.cyberciti.biz/faq/create-ssh-config-file-on-linux-unix/)
 
-For manual backups requiring authentication, set `interactiveMode` to `yes`.
+After that, you should use the `Host` value from your *ssh config file* as the `remote` value in the script.
 
-### Customizing Configuration Values
+If you really need to use this script without SSH keys authentication, don't worry. You can set the `interactiveMode` configuration variable to `yes`, and you will be prompted for a password (only once) if needed. This is useful for manual backup when the remote server requires authentication via passphrase.
 
-Set at least `src`, `dst`, and `remote` (for remote version) values directly in the scripts or via positional parameters:
+### Customizing configuration values
 
-- **Local Backup**: `$ ./rsync-incremental-backup-local /new/path/to/source /new/path/to/target`
-- **Remote Backup**: `$ ./rsync-incremental-backup-remote /new/path/to/source /new/path/to/target new_ssh_remote`
-- **System Backup**: `$ ./rsync-incremental-backup-system /mnt/new/path/to/target` (source is always `/`)
+You have to set, at least, `src` and `dst` (and `remote` in the remote version) values, directly in the scripts or by positional parameters when running them:
 
-Exclude files or directories by adding their paths to the file referenced by `exclusionFileName`.
+- `./rsync-incremental-backup-local /new/path/to/source /new/path/to/target` (`src` and `dst`).
+- `./rsync-incremental-backup-remote /new/path/to/source /new/path/to/target new_ssh_remote` (`src`, `dst`, and `remote`).
+- `./rsync-incremental-backup-system /mnt/new/path/to/target` (only `dst`, `src` is always *root* in this case).
 
-Override configuration variables without editing the script:
+If you want to exclude some files or directories from the backup, add their paths (relative to backup root) to the text file referenced by `exclusionFileName`.
 
-```bash
-$ ownFolderName=".backup" rsync-incremental-backup-remote /path/to/src /path/to/dst user@remote
+Once configured with your own variable values, you can simply run the script to begin the backup process.
 
-# Or using an environment variable
-$ export ownFolderName=".backup"
-$ rsync-incremental-backup-remote /path/to/src /path/to/dst user@remote
+In addition, all configuration variables, except those that are overwritable by parameters (`src`, `dst`, and `remote`), can be changed from outside by setting the variable before script execution (or exporting it as an environment variable). For example, changing `ownFolderName` variable without editing the script:
+
+```
+ownFolderName=".backup" rsync-incremental-backup-remote /path/to/src /path/to/dst user@remote
+
+# Or using an environment variable (maybe set at user session startup)
+export ownFolderName=".backup"
+rsync-incremental-backup-remote /path/to/src /path/to/dst user@remote
 ```
 
-### Automating Backups
+### Automating backups
 
-Schedule backups using [anacron](https://en.wikipedia.org/wiki/Anacron) in user mode:
+Personally, I schedule it to run every week with [anacron](https://en.wikipedia.org/wiki/Anacron) in user mode. This way, I don't need to remember running it.
 
-1. **Create Anacron Directories**:
-   ```bash
-   $ mkdir -p ~/.anacron/etc ~/.anacron/spool
-   ```
+To use anacron in user mode, you have to follow these steps:
 
-2. **Configure Anacrontab** (`~/.anacron/etc/anacrontab`):
-   ```
-   SHELL=/bin/bash
-   PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-   START_HOURS_RANGE=8-22
+1. Create an `.anacron` folder in your home directory with subfolders `etc` and `spool`.
 
-   # period delay job-identifier command
-   7 5 weekly_backup ~/bin/rsync-incremental-backup-remote
-   ```
+    ```bash
+    mkdir -p ~/.anacron/etc ~/.anacron/spool
+    ```
 
-3. **Start Anacron at Login** (`~/.profile`):
-   ```
-   # User anacron
-   /usr/sbin/anacron -s -t ${HOME}/.anacron/etc/anacrontab -S ${HOME}/.anacron/spool
-   ```
+2. Create an `anacrontab` file at `~/.anacron/etc` with this content (or equivalent, be sure to specify the right path to the script):
 
-### Checking Backup Content
+    ```bash
+    # /etc/anacrontab: configuration file for anacron
 
-Default folder names store:
-- Newest data in `<dst>/data`.
-- Older backups in `<dst>/backup/backup.1`, `<dst>/backup/backup.2`, etc.
-- Log files at `<dst>/log`.
+    # See anacron(8) and anacrontab(5) for details.
 
-## Used `rsync` Flags Explanation
+    SHELL=/bin/bash
+    PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+    START_HOURS_RANGE=8-22
 
-- `-a`: Archive mode; equals `-rlptgoD` (no `-H,-A,-X`). Mandatory for backups.
-- `-c`: Skip based on checksum, not mod-time & size. More trustworthy but slower.
-- `-h`: Output numbers in a human-readable format.
-- `-v`: Increase verbosity for logging.
-- `-z`: Compress file data during transfer. Less data transmitted but slower.
-- `--progress`: Show progress per file (interactive usage).
-- `--timeout`: Set I/O timeout in seconds; aborts backup if no data is transferred.
-- `--delete`: Delete extraneous files from destination directories.
-- `--link-dest`: Hardlink to unchanged files in specified directory, reducing storage usage.
-- `--log-file`: Log actions to the specified file.
-- `--chmod`: Affect file and/or directory permissions.
-- `--exclude`: Exclude files matching pattern.
-- `--exclude-from`: Same as `--exclude`, patterns from specified file.
+    # period delay job-identifier command
+    7 5 weekly_backup ~/bin/rsync-incremental-backup-remote
+    ```
 
-**Remote Backup Flags:**
-- `--no-W`: Use rsync's delta-transfer algorithm; omit for high bandwidth.
-- `--partial-dir`: Store partially transferred files in specified directory.
+3. Make your anacron start at login. Add this content at the end of your `~/.profile` file:
 
-**Local Backup Flags:**
-- `-W`: Ignore rsync's delta-transfer algorithm; always transfer whole files.
+    ```bash
+    # User anacron
+    /usr/sbin/anacron -s -t ${HOME}/.anacron/etc/anacrontab -S ${HOME}/.anacron/spool
+    ```
 
-**System Backup Flags:**
-- `-A`: Preserve ACLs (implies `-p`).
+### Checking backup content
 
-**Log Sending Flags:**
-- `-r`: Recurse into directories.
-- `--remove-source-files`: Sender removes synchronized files (non-dir).
+If you are using the default folder names, the newest data backup will be inside `<dst>/data`. The second newest backup will be inside `<dst>/backup/backup.1`, the next will be inside `<dst>/backup/backup.2`, and so on. Log files per backup operation will be stored at `<dst>/log`.
+
+## Used *rsync* Flags Explanation
+
+- `-a`: archive mode; equals `-rlptgoD` (no `-H,-A,-X`). Mandatory for backup usage.
+- `-c`: skip based on checksum, not mod-time & size. More trustworthy, but slower. Omit this flag if you want faster backups, but files without changes in modified time or size won't be detected for inclusion in the backup.
+- `-h`: output numbers in a human-readable format.
+- `-v`: increase verbosity for logging.
+- `-z`: compress file data during the transfer. Less data transmitted, but slower. Omit this flag when the backup target is a local device or a machine in the local network (or when you have a high bandwidth to a remote machine).
+- `--progress`: show progress per file during transfer. Only for interactive usage.
+- `--timeout`: set I/O timeout in seconds. If no data is transferred for the specified time, the backup will be aborted.
+- `--delete`: delete extraneous files from dest dirs. Mandatory for master-slave backup usage.
+- `--link-dest`: hardlink to files in the specified directory when unchanged, to reduce storage usage by duplicated files between backups.
+- `--log-file`: log what we're doing to the specified file.
+- `--chmod`: affect file and/or directory permissions.
+- `--exclude`: exclude files matching pattern.
+- `--exclude-from`: same as `--exclude`, but getting patterns from the specified file.
+
+Used only for remote backup:
+- `--no-W`: ensures that rsync's delta-transfer algorithm is used, so it never transfers whole files if they are present at the target. Omit only when you have a high bandwidth to the target, backup may be faster.
+- `--partial-dir`: put a partially transferred file into the specified directory, instead of using a hidden file in the original path of the transferred file. Mandatory for allowing partial transfers and avoiding misleads with incomplete/corrupt files.
+
+Used only for local backups:
+- `-W`: ignores rsync's delta-transfer algorithm, so it always transfers whole files. When you have a high bandwidth to the target (local filesystem or LAN), the backup may be faster.
+
+Used only for system backup:
+- `-A`: preserve ACLs (implies `-p`).
+
+Used only for log sending:
+- `-r`: recurse into directories.
+- `--remove-source-files`: sender removes synchronized files (non-dir).
+
+## References
+
+This was inspired by:
+
+- [Incremental Backups on Linux](http://www.admin-magazine.com/Articles/Using-rsync-for-Backups).
+- [Rsync full system backup](https://wiki.archlinux.org/index.php/Rsync#Full_system_backup).
 
 ## Backlinks
 
-- [GitHub Repository](https://github.com/pedroetb/rsync-incremental-backup)
-```
-
-This improved Markdown document maintains the original content and meaning while adhering to clean, professional formatting standards suitable for GitHub rendering.
+<!-- Add backlinks here if applicable -->

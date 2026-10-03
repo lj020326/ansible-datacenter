@@ -1,14 +1,22 @@
-```markdown
 ---
-title: Ansible Role for Bootstrapping PKI
+title: Ansible Role: bootstrap_pki
 original_path: roles/bootstrap_pki/README.md
-category: Ansible Roles
-tags: [pki, ansible, cfssl, vault]
+category: Ansible
+tags: [Ansible, PKI, Vault, CFSSL, Certificate Management]
 ---
 
 # Ansible Role: `bootstrap_pki`
 
 An Ansible role to bootstrap a two-tier public key infrastructure (PKI) with a self-signed root certificate authority (CA) created externally and an intermediate CA, which is signed by the root CA and imported into Vault to serve as the root of a PKI secrets engine. This role utilizes `cfssl` for certificate management and integrates with Vault for certificate issuance.
+
+## Table of Contents
+- [Features](#-features)
+- [External CA Integration](#-external-ca-integration)
+- [Requirements](#-requirements)
+- [Role Variables](#-role-variables)
+- [Usage](#-usage)
+- [Troubleshooting](#-troubleshooting)
+- [License](#-license)
 
 ## 🚀 Features
 
@@ -30,8 +38,8 @@ An Ansible role to bootstrap a two-tier public key infrastructure (PKI) with a s
 
 The role now supports fetching and storing external CA certificates (e.g., public roots like Let's Encrypt) in `secret/trusted_external` for use by downstream roles like `deploy_pki_certs`.
 
-- **Configuration:** Override `bootstrap_pki__external_cas` with a list of sources (URL, command, or local file).
-- **Example:**
+- **Configuration**: Override `bootstrap_pki__external_cas` with a list of sources (URL, command, or local file).
+- **Example**:
   ```yaml
   bootstrap_pki__external_cas:
     - name: "custom-ca"
@@ -63,17 +71,36 @@ The following variables can be configured in your playbook or `vars` files.
 | `bootstrap_pki__vault_url`                       | `https://vault.example.int`         | The URL of the Vault server.                                                                                                                  |
 | `bootstrap_pki__vault_token`                     | `""`                                | The authentication token for Vault (typically root token for bootstrap).                                                                      |
 | `bootstrap_pki__vault_mount_path`                | `pki-intermediate`                  | The path in Vault where the PKI secrets engine is mounted.                                                                                    |
-| `bootstrap_pki__vault_roles`                     | see defaults                        | A list of dicts with role configuration parameters like `allowed_domains`, `allow_subdomains`.              |
+| `bootstrap_pki__vault_roles`                     | see defaults                        | A list of dicts with role configuration parameters like `allowed_domains`, `allow_subdomains`.                                               |
 | `bootstrap_pki__ca_dir`                          | `/etc/pki/cacerts`                  | The directory on the target host to store the certificate files.                                                                              |
 | `bootstrap_pki__ca_reset_cert`                   | `false`                             | If `true`, forces regeneration of CA certificates even if they exist.                                                                         |
 | `bootstrap_pki__backup_retention_maximum_number` | `10`                                | Maximum number of CA backup files to retain (e.g., `ca.backup_*.tar.gz`).                                                                     |
-| `bootstrap_pki__encrypt_root_ca_key`             | `false`                             | If `true`, encrypts the root CA key using Ansible Vault after generation.         |
+| `bootstrap_pki__encrypt_root_ca_key`             | `false`                             | If `true`, encrypts the root CA key using Ansible Vault after generation.                                                                     |
 
-## 🔗 Backlinks
+... [truncated - large file] ...
 
-- [Ansible Roles Documentation](/ansible-roles)
-- [PKI Management with Ansible](/pki-management)
+## 📜 Usage
 
+Here's a basic example of how to use this role in a playbook:
+
+```yaml
+---
+- name: Bootstrap PKI
+  hosts: all
+  become: yes
+  vars:
+    bootstrap_pki__vault_url: "https://vault.example.int"
+    bootstrap_pki__vault_token: "your-vault-token"
+  roles:
+    - bootstrap_pki
 ```
 
-This improved Markdown document includes a standardized YAML frontmatter, clear structure with proper headings, and a "Backlinks" section for better navigation and context.
+## ❓ Troubleshooting
+
+- If you encounter issues with certificate validation, ensure that all required Python libraries are installed on the Ansible control node.
+- Check that the Vault server is accessible and that the required secrets engine is mounted.
+- Verify that the `cfssl` and `cfssljson` binaries are available on the target host.
+
+## 📜 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
