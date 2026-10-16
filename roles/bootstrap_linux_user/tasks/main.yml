@@ -48,7 +48,7 @@
 - name: Ensure group exist with correct gid
   when:
     - item.gid is defined
-    - item.gid!=__getent_group[item.name][1] | d('')
+    - item.gid!=__getent_group[item.name][1] | d('', true)
   ansible.builtin.group:
     name: "{{ item.name }}"
     gid: "{{ item.gid }}"
@@ -58,23 +58,23 @@
     label: "{{ item.name }}"
 
 - name: Add users with groups
-  when: item.bootstrap_user | d(true) | bool
+  when: item.bootstrap_user | d(true, false) | bool
   no_log: true
   ansible.builtin.user:
     name: "{{ item.name }}"
-    state: "{{ item.state | d('present') }}"
-    system: "{{ item.system | d(false) }}"
-    shell: "{{ item.shell | d(omit) }}"
+    state: "{{ item.state | d('present', true) }}"
+    system: "{{ item.system | d(false, false) }}"
+    shell: "{{ item.shell | d(omit, true) }}"
     append: "{{ true if item.groups is defined else false }}"
-    uid: "{{ item.uid | d(omit) }}"
-    group: "{{ item.gid | d(omit) }}"
-    groups: "{{ item.groups | d(omit) }}"
-    password: "{{ final_password | d(omit) }}"
-    generate_ssh_key: "{{ item.generate_ssh_key | d(omit) }}"
-    ssh_key_bits: "{{ item.ssh_key_bits | d(omit) }}" ## 2048
-    ssh_key_file: "{{ item.ssh_key_file | d(omit) }}"
-    create_home: "{{ item.create_home | d(omit) }}"
-    home: "{{ item.home | d(omit) }}"
+    uid: "{{ item.uid | d(omit, true) }}"
+    group: "{{ item.gid | d(omit, true) }}"
+    groups: "{{ item.groups | d(omit, true) }}"
+    password: "{{ final_password | d(omit, true) }}"
+    generate_ssh_key: "{{ item.generate_ssh_key | d(omit, true) }}"
+    ssh_key_bits: "{{ item.ssh_key_bits | d(omit, true) }}" ## 2048
+    ssh_key_file: "{{ item.ssh_key_file | d(omit, true) }}"
+    create_home: "{{ item.create_home | d(omit, true) }}"
+    home: "{{ item.home | d(omit, true) }}"
   loop: "{{ __bootstrap_linux_user__list }}"
   loop_control:
     label: "{{ item.name }}"
@@ -83,7 +83,7 @@
     input_password: >-
       {{ item.password | d(
           bootstrap_linux_user__credentials[item.name].hashed_password | d(
-            bootstrap_linux_user__credentials[item.name].password | d(omit)
+            bootstrap_linux_user__credentials[item.name].password | d(omit, true)
           )
         )
       }}
@@ -136,7 +136,7 @@
     mode: "0755"
 
 - name: "Add to sudoers"
-  when: item.system | d(false) | bool
+  when: item.system | d(false, false) | bool
   no_log: true
   ansible.builtin.copy:
     dest: /etc/sudoers.d/{{ item.name }}
@@ -193,7 +193,7 @@
   when: bootstrap_linux_user__credentials[item.name].ssh_keypair.private is defined
   ansible.builtin.copy:
     content: "{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.private }}"
-    dest: "{{ item.home_dir }}/.ssh/id_{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.key_type | d('unknown') }}"
+    dest: "{{ item.home_dir }}/.ssh/id_{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.key_type | d('unknown', true) }}"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: "0600"
@@ -206,7 +206,7 @@
   when: bootstrap_linux_user__credentials[item.name].ssh_keypair.public is defined
   ansible.builtin.copy:
     content: "{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.public }}"
-    dest: "{{ item.home_dir }}/.ssh/id_{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.key_type | d('unknown') }}.pub"
+    dest: "{{ item.home_dir }}/.ssh/id_{{ bootstrap_linux_user__credentials[item.name].ssh_keypair.key_type | d('unknown', true) }}.pub"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: "0600"
@@ -215,7 +215,7 @@
     label: "{{ item.name }}"
 
 - name: "Copy bash env files to home directory"
-  when: item.0.setup_bashenv | d(true) | bool
+  when: item.0.setup_bashenv | d(true, false) | bool
   no_log: true
   ansible.builtin.copy:
     backup: true
@@ -229,7 +229,7 @@
     label: Copy {{ item.1 | basename }} to {{ item.0.home_dir }}
 
 - name: "Template bash env files to home directory"
-  when: item.0.setup_bashenv | d(true) | bool
+  when: item.0.setup_bashenv | d(true, false) | bool
   no_log: true
   ansible.builtin.template:
     backup: true

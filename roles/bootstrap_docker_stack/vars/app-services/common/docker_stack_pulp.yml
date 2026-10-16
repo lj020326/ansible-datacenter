@@ -1,0 +1,149 @@
+---
+
+__docker_stack__pulp__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__pulp__base_dir_default: "{{ __docker_stack__pulp__stack_dir }}/pulp"
+__docker_stack__pulp__base_dir: "{{ docker_stack__pulp__dir | d(__docker_stack__pulp__base_dir_default, true) }}"
+__docker_stack__pulp__config_dir: "{{ __docker_stack__pulp__base_dir }}/config"
+
+__docker_stack__pulp__container_config_dir_default: "/etc/pulp"
+__docker_stack__pulp__container_config_dir: "{{
+  docker_stack__pulp__container_config_dir
+  | d(__docker_stack__pulp__container_config_dir_default, true) }}"
+
+#__docker_stack__pulp__image_default: "pulp/pulp-oci-image:latest"
+__docker_stack__pulp__image_default: "pulp/pulp:latest"
+__docker_stack__pulp__image: "{{ docker_stack__pulp__image | d(__docker_stack__pulp__image_default, true) }}"
+
+__docker_stack__pulp__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+
+__docker_stack__pulp__admin_username: "{{ docker_stack__pulp_admin_username | d('admin', true) }}"
+__docker_stack__pulp__admin_email: "{{ docker_stack__pulp_admin_email | d('admin@johnson.int') }}"
+__docker_stack__pulp__admin_password: "{{ docker_stack__pulp_admin_password | d('', true) }}"
+__docker_stack__pulp__force_password_reset: "{{ docker_stack__pulp__force_password_reset | d(false, false) }}"
+
+__docker_stack__pulp__host_addr_default: "pulp.{{ __docker_stack__pulp__domain }}"
+__docker_stack__pulp__host_addr: "{{ docker_stack__pulp__host_addr
+  | d(__docker_stack__pulp__host_addr_default, true) }}"
+
+__docker_stack__pulp__api_url: "https://{{ __docker_stack__pulp__host_addr }}"
+__docker_stack__pulp__content_origin: "{{ docker_stack__pulp__content_origin
+  | d(__docker_stack__pulp__api_url, true) }}"
+
+__docker_stack__pulp__http_port: "{{ docker_stack__pulp__http_port | d('8088', true) }}"
+
+__docker_stack__pulp__db_engine: "{{ docker_stack__pulp__db_engine | d('django.db.backends.postgresql') }}"
+__docker_stack__pulp__db_name: "{{ docker_stack__pulp__db_name | d('pulp', true) }}"
+__docker_stack__pulp__db_user: "{{ docker_stack__pulp__db_user | d('pulp', true) }}"
+__docker_stack__pulp__db_password: "{{ docker_stack__pulp__db_password | d('pulp', true) }}"
+#__docker_stack__pulp__db_host_default: "postgres"
+__docker_stack__pulp__db_host_default: "localhost"
+__docker_stack__pulp__db_host: "{{ docker_stack__pulp__db_host
+  | d(__docker_stack__pulp__db_host_default, true) }}"
+__docker_stack__pulp__db_port: "{{ docker_stack__pulp__db_port | d('5432', true) }}"
+
+#__docker_stack__pulp__redis_host_default: "redis"
+__docker_stack__pulp__redis_host_default: "localhost"
+__docker_stack__pulp__redis_host: "{{ docker_stack__pulp__redis_host
+  | d(__docker_stack__pulp__redis_host_default, true) }}"
+__docker_stack__pulp__redis_port: "{{ docker_stack__pulp__redis_port | d(6379, true) }}"
+__docker_stack__pulp__redis_password: "{{ docker_stack__pulp__redis_password | d('', true) }}"
+
+__docker_stack__pulp__cache_enabled: "{{ docker_stack__pulp__cache_enabled | d(True, false) }}"
+
+__docker_stack__pulp__media_root: "{{ docker_stack__pulp__media_root | d('/var/lib/pulp/media') }}"
+__docker_stack__pulp__static_root: "{{ docker_stack__pulp__static_root | d('/var/lib/pulp/static') }}"
+
+__docker_stack__pulp__ansible_repo_name_default: "internal-collections"
+__docker_stack__pulp__ansible_repo_name: "{{ docker_stack__pulp__ansible_repo_name
+  | d(__docker_stack__pulp__ansible_repo_name_default, true) }}"
+
+__docker_stack__pulp__ansible_distro_name_default: "internal-collections"
+__docker_stack__pulp__ansible_distro_name: "{{ docker_stack__pulp__ansible_distro_name
+  | d(__docker_stack__pulp__ansible_distro_name_default, true) }}"
+
+__docker_stack__pulp__ansible_base_path_default: "internal"   # ← this becomes the URL path
+__docker_stack__pulp__ansible_base_path: "{{ docker_stack__pulp__ansible_base_path
+  | d(__docker_stack__pulp__ansible_base_path_default, true) }}"
+
+__docker_stack__pulp__traefik_labels: "{{ docker_stack__pulp__traefik_labels
+  | d(__docker_stack__pulp__traefik_labels_default, true) }}"
+
+__docker_stack__pulp__secret_key: "{{ docker_stack__pulp__secret_key
+  | d('django-insecure-change-me-please-in-production') }}"
+
+__docker_stack__pulp__environment_default:
+  TZ: "{{ docker_stack__timezone }}"
+  DJANGO_SETTINGS_MODULE: "pulpcore.app.settings"
+  DJANGO_SECRET_KEY: "{{
+    __docker_stack__pulp__secret_key if not docker_stack__swarm_mode else 'dksec://pulp_secret_key' }}"
+  # PULP_SETTINGS: "{{ __docker_stack__pulp__container_config_dir }}/settings.py"
+
+__docker_stack__pulp__environment: "{{
+  docker_stack__pulp__environment
+  | d(__docker_stack__pulp__environment_default, true) }}"
+
+__docker_stack__pulp__secrets:
+  - name: pulp_secret_key
+    value: "{{ __docker_stack__pulp__secret_key }}"
+
+__docker_stack__pulp__config_dirs:
+  - path: "{{ __docker_stack__pulp__base_dir }}"
+  - path: "{{ __docker_stack__pulp__base_dir }}/data"
+  - path: "{{ __docker_stack__pulp__base_dir }}/config"
+
+__docker_stack__pulp__config_files: []
+__docker_stack__pulp__config_templates:
+  - src: "pulp/pulp.env.j2"
+    dest: "{{ __docker_stack__pulp__base_dir }}/pulp.env"
+  - src: "pulp/settings.py.j2"
+    dest: "{{ __docker_stack__pulp__config_dir }}/settings.py"
+
+__docker_stack__pulp__firewalld_ports:
+  - "{{ __docker_stack__pulp__http_port }}/tcp"
+
+__docker_stack__pulp__services:
+  pulp:
+    container_name: pulp
+    image: "{{ __docker_stack__pulp__image }}"
+    restart: unless-stopped
+    ## let the "all-in-one" image manage/own its redis/postgres internally
+    # depends_on:
+    #   - redis
+    env_file: pulp/pulp.env
+    secrets: "{{ __docker_stack__pulp__secrets | d({}, true) | map(attribute='name') | list }}"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
+    ports:
+      - mode: host
+        protocol: tcp
+        published: "{{ __docker_stack__pulp__http_port | int }}"
+        target: 80
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__pulp__base_dir }}/data:/var/lib/pulp"
+      - "{{ __docker_stack__pulp__config_dir }}/settings.py:{{ __docker_stack__pulp__container_config_dir }}/settings.py"
+    labels: "{{ __docker_stack__pulp__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+
+docker_stack__appspec__pulp:
+  dirs: "{{ __docker_stack__pulp__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__pulp__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__pulp__config_templates | d([], true) }}"
+  secrets: "{{ __docker_stack__pulp__secrets | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__pulp__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__pulp__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__pulp__networks | d([], true) }}"
+  volumes: "{{ __docker_stack__pulp__volumes | d([], true) }}"
+  docker_services: "{{ __docker_stack__pulp__services | d([], true) }}"

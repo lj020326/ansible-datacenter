@@ -6,6 +6,7 @@ ci:
   skip:
     - local-ansible-lint
     - verify-inventory-fix
+    - clean-test-build-files
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -34,7 +35,7 @@ repos:
         exclude: \.(ldif|schema)(\.j2)?$
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.35.1
+    rev: v1.38.0
     hooks:
       - id: yamllint
         entry: |
@@ -59,7 +60,7 @@ repos:
         stages: [pre-commit]
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
         name: check shell scripts (shellcheck)
@@ -71,6 +72,22 @@ repos:
         files: ^(roles|playbooks|inventory|vars)/
         types: [shell]
         stages: [manual]
+
+  - repo: local
+    hooks:
+      - id: clean-test-build-files
+        name: clean up test and build files
+        entry: >-
+          bash -c '
+          find . -type f \( -name ".package_dir.*.yml" -o -name "*.pyc" -o -name "*.pyo" \) -delete;
+          find . -type d \( -name "__pycache__" \
+            -o -name ".pytest_cache" -o -name ".tox" \
+            -o -name "build" -o -name "dist" -o -name "*.egg-info" \) \
+            -exec rm -rf {} + 2>/dev/null || true
+          '
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
 
   - repo: local
     hooks:
@@ -109,7 +126,7 @@ repos:
         entry: ansible-lint
         language: python
         files: ^(roles|playbooks|inventory|vars)/
-        #        pass_filenames: true
+        # pass_filenames: true
         language_version: python3
         additional_dependencies:
           - ansible-lint==26.4.0

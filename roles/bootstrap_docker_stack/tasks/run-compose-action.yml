@@ -19,7 +19,7 @@
     __docker_stack__compose_stopped: true
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Show docker-registry vars"
-  when: docker_stack__registry__login | d(false)
+  when: docker_stack__registry__login | d(false, false)
   ansible.builtin.debug:
     msg:
       - docker_stack__registry__login={{ docker_stack__registry__login }}
@@ -45,9 +45,9 @@
   ansible.builtin.debug:
     msg:
       - "__docker_stack__compose_state: {{ __docker_stack__compose_state }}"
-      - "__docker_stack__compose_restarted: {{ __docker_stack__compose_restarted | d('') }}"
-      - "__docker_stack__compose_stopped: {{ __docker_stack__compose_stopped | d('') }}"
-      - "__docker_stack__service_groups: {{ __docker_stack__service_groups | d('') }}"
+      - "__docker_stack__compose_restarted: {{ __docker_stack__compose_restarted | d('', true) }}"
+      - "__docker_stack__compose_stopped: {{ __docker_stack__compose_stopped | d('', true) }}"
+      - "__docker_stack__service_groups: {{ __docker_stack__service_groups | d('', true) }}"
       - "__docker_stack__app_services: {{ __docker_stack__app_services }}"
 
 - name: "{{ __docker_stack__log_prefix__run_compose }} Start the docker stack"
@@ -56,22 +56,24 @@
     ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
     ## ref: https://askubuntu.com/questions/1508129/docker-compose-giving-containerconfig-errors-after-update-today
     - name: "{{ __docker_stack__log_prefix__run_compose }} Run docker-compose in {{ docker_stack__dir }}"
-      when: not docker_stack__swarm_mode | d(false) | bool
+      when: not docker_stack__swarm_mode | d(false, false) | bool
       no_log: true
       community.docker.docker_compose_v2:
         project_src: "{{ docker_stack__dir }}"
         remove_orphans: "{{ docker_stack__remove_orphans }}"
-        state: "{{ __docker_stack__compose_state }}"
-        restarted: "{{ __docker_stack__compose_restarted | d(omit) }}"
-        stopped: "{{ __docker_stack__compose_stopped | d(omit) }}"
-      #    services: "{{ __docker_stack__app_services | d(omit) }}"
+        state: >-
+          {{
+            'restarted' if (__docker_stack__compose_restarted | d(false, false) | bool)
+            else ('stopped' if (__docker_stack__compose_stopped | d(false, false) | bool)
+            else (__docker_stack__compose_state | d('present', true)))
+          }}
       register: __compose_result
       retries: 3
       delay: 30
       until: __compose_result is not failed
 
     - name: "{{ __docker_stack__log_prefix__run_compose }} Deploy docker stack in {{ docker_stack__dir }}"
-      when: docker_stack__swarm_mode | d(false) | bool
+      when: docker_stack__swarm_mode | d(false, false) | bool
       no_log: true
 #      # Explicitly set DOCKER_HOST to the local Unix socket.
 #      # This prevents any conflicting DOCKER_HOST variable inherited from Jenkins
@@ -135,22 +137,25 @@
         ## run docker compose
         ## ref: https://stackoverflow.com/questions/44962282/how-to-write-an-ansible-playbook-with-docker-compose
         - name: "{{ __docker_stack__log_prefix__run_compose }} Retry to Run docker-compose in {{ docker_stack__dir }}"
-          when: not docker_stack__swarm_mode | d(false) | bool
+          when: not docker_stack__swarm_mode | d(false, false) | bool
           no_log: true
           community.docker.docker_compose_v2:
             project_src: "{{ docker_stack__dir }}"
             remove_orphans: "{{ docker_stack__remove_orphans }}"
-            state: "{{ __docker_stack__compose_state }}"
-            restarted: "{{ __docker_stack__compose_restarted | d(omit) }}"
-            stopped: "{{ __docker_stack__compose_stopped | d(omit) }}"
-          #    services: "{{ __docker_stack__app_services | d(omit) }}"
+            state: >-
+              {{
+                'restarted' if (__docker_stack__compose_restarted | d(false, false) | bool)
+                else ('stopped' if (__docker_stack__compose_stopped | d(false, false) | bool)
+                else (__docker_stack__compose_state | d('present', true)))
+              }}
           register: __compose_result
           retries: 3
           delay: 30
           until: __compose_result is not failed
 
+
         - name: "{{ __docker_stack__log_prefix__run_compose }} Retry to Deploy docker stack in {{ docker_stack__dir }}"
-          when: docker_stack__swarm_mode | d(false) | bool
+          when: docker_stack__swarm_mode | d(false, false) | bool
           no_log: true
           community.docker.docker_stack:
             name: "{{ docker_stack__compose_stack_name }}"

@@ -57,7 +57,7 @@
   roles:
     - role: apply_ping_test
       when:
-        - not ping_exclude | d(False) | bool
+        - not ping_exclude | d(False, false) | bool
         - inventory_hostname in ansible_play_hosts
 
 ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_best_practices.html
@@ -74,7 +74,7 @@
   roles:
     - role: apply_common_groups
       when:
-        - not apply_common_groups_exclude | d(False) | bool
+        - not apply_common_groups_exclude | d(False, false) | bool
         - inventory_hostname in ansible_play_hosts
 
 - name: Display important common group vars
@@ -88,24 +88,26 @@
 #    ansible_user: "{{ os_build_user }}"
 #    ansible_password: "{{ os_build_user_password }}"
   tasks:
-    - name: Validate that the apply_common_group group derived variables are set correctly in the apply_common_groups_(machine|os|network)_* groups
+    - name: >-
+        Validate 'apply_common_group' group derived variables are set correctly 
+        in apply_common_groups_(machine|os|network)_* groups
       ansible.builtin.debug:
         msg:
-          - dc_machine_type={{ dc_machine_type | d('') }}
-          - dc_os_family={{ dc_os_family | d('') }}
-          - dc_os_family_shortname={{ dc_os_family_shortname | d('') }}
-          - dc_os_distribution={{ dc_os_distribution | d('') }}
-          - dc_os_dist_version={{ dc_os_dist_version | d('') }}
-#          - "dc_network_site={{ dc_network_site | d('') }}"
-#          - "dc_network_location={{ dc_network_location | d('') }}"
-#          - "dc_network_segment={{ dc_network_segment | d('') }}"
+          - dc_machine_type={{ dc_machine_type | d('', true) }}
+          - dc_os_family={{ dc_os_family | d('', true) }}
+          - dc_os_family_shortname={{ dc_os_family_shortname | d('', true) }}
+          - dc_os_distribution={{ dc_os_distribution | d('', true) }}
+          - dc_os_dist_version={{ dc_os_dist_version | d('', true) }}
+#          - "dc_network_site={{ dc_network_site | d('', true) }}"
+#          - "dc_network_location={{ dc_network_location | d('', true) }}"
+#          - "dc_network_segment={{ dc_network_segment | d('', true) }}"
 
     - name: Display important ldap / domain variables
       ansible.builtin.debug:
         msg:
           - netbase_hostname={{ netbase_hostname }}
           - internal_domain={{ internal_domain }}
-          - internal_subdomain={{ internal_subdomain | d('') }}
+          - internal_subdomain={{ internal_subdomain | d('', true) }}
           - ldap_internal_domain={{ ldap_internal_domain }}
           - ldap_internal_domain_parts={{ ldap_internal_domain_parts }}
           - ldap_internal_base_dn={{ ldap_internal_base_dn }}
@@ -152,26 +154,26 @@
     - name: "Display remote ansible environment info"
       ansible.builtin.debug:
         msg:
-          - ansible_user={{ ansible_user | d('') }}
-          - ansible_python_interpreter={{ ansible_python_interpreter | d('') }}
-          - ansible_virtualenv_python_interpreter={{ ansible_virtualenv_python_interpreter | d('') }}
-          - ansible_facts.env.PATH={{ ansible_facts.env.PATH | d('') }}
-          - ansible_connection={{ ansible_connection | d('') }}
-          - ansible_facts['hostname']={{ ansible_facts['hostname'] | d('') }}
-          - ansible_facts['port']={{ ansible_facts['port'] | d('') }}
-          - ansible_facts['fqdn']={{ ansible_facts['fqdn'] | d('') }}
+          - ansible_user={{ ansible_user | d('', true) }}
+          - ansible_python_interpreter={{ ansible_python_interpreter | d('', true) }}
+          - ansible_virtualenv_python_interpreter={{ ansible_virtualenv_python_interpreter | d('', true) }}
+          - ansible_facts.env.PATH={{ ansible_facts.env.PATH | d('', true) }}
+          - ansible_connection={{ ansible_connection | d('', true) }}
+          - ansible_facts['hostname']={{ ansible_facts['hostname'] | d('', true) }}
+          - ansible_facts['port']={{ ansible_facts['port'] | d('', true) }}
+          - ansible_facts['fqdn']={{ ansible_facts['fqdn'] | d('', true) }}
           - ansible_facts['default_ipv4']['address']={{ ansible_facts['default_ipv4']['address']
-              | d(ansible_facts['all_ipv4_addresses'][0]) | d('') }}
-          - ansible_facts['architecture']={{ ansible_facts['architecture'] | d('') }}
-          - ansible_facts['virtualization_type']={{ ansible_facts['virtualization_type'] | d('') }}
-          - ansible_facts['virtualization_role']={{ ansible_facts['virtualization_role'] | d('') }}
-          - ansible_facts['os_family']={{ ansible_facts['os_family'] | d('') }}
-          - ansible_facts['distribution']={{ ansible_facts['distribution'] | d('') }}
-          - ansible_facts['distribution_release']={{ ansible_facts['distribution_release'] | d('') }}
-          - ansible_facts['distribution_major_version']={{ ansible_facts['distribution_major_version'] | d('') }}
-          - ansible_facts['distribution_version']={{ ansible_facts['distribution_version'] | d('') }}
-          - inventory_hostname={{ inventory_hostname | d('') }}
-          - inventory_hostname_short={{ inventory_hostname_short | d('') }}
+              | d(ansible_facts['all_ipv4_addresses'][0]) | d('', true) }}
+          - ansible_facts['architecture']={{ ansible_facts['architecture'] | d('', true) }}
+          - ansible_facts['virtualization_type']={{ ansible_facts['virtualization_type'] | d('', true) }}
+          - ansible_facts['virtualization_role']={{ ansible_facts['virtualization_role'] | d('', true) }}
+          - ansible_facts['os_family']={{ ansible_facts['os_family'] | d('', true) }}
+          - ansible_facts['distribution']={{ ansible_facts['distribution'] | d('', true) }}
+          - ansible_facts['distribution_release']={{ ansible_facts['distribution_release'] | d('', true) }}
+          - ansible_facts['distribution_major_version']={{ ansible_facts['distribution_major_version'] | d('', true) }}
+          - ansible_facts['distribution_version']={{ ansible_facts['distribution_version'] | d('', true) }}
+          - inventory_hostname={{ inventory_hostname | d('', true) }}
+          - inventory_hostname_short={{ inventory_hostname_short | d('', true) }}
 
 - name: "Display tower vars"
 #  hosts: ansible_localhost
@@ -211,16 +213,16 @@
         msg:
           ## BEGIN ansible special/magic variables
           ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_vars_facts.html#discovering-variables-facts-and-magic-variables
-          - "ansible_run_tags={{ ansible_run_tags | d([]) }}"
-          - "ansible_limit={{ ansible_limit | d('') }}"
-          - "ansible_inventory_sources={{ ansible_inventory_sources | d('') }}"
-          - "ansible_version={{ ansible_version | d('') }}"
-          - "ansible_config_file={{ ansible_config_file | d('') }}"
-          - "discovered_interpreter_python={{ discovered_interpreter_python | d('') }}"
-          - "ansible_python_interpreter={{ ansible_python_interpreter | d('') }}"
-          - "ansible_playbook_python={{ ansible_playbook_python | d('') }}"
-          - "ansible_facts['python_version']={{ ansible_facts['python_version'] | d('') }}"
-          - "ansible_facts['pip_interpreter']={{ ansible_facts['pip_interpreter'] | d('') }}"
+          - "ansible_run_tags={{ ansible_run_tags | d([], true) }}"
+          - "ansible_limit={{ ansible_limit | d('', true) }}"
+          - "ansible_inventory_sources={{ ansible_inventory_sources | d('', true) }}"
+          - "ansible_version={{ ansible_version | d('', true) }}"
+          - "ansible_config_file={{ ansible_config_file | d('', true) }}"
+          - "discovered_interpreter_python={{ discovered_interpreter_python | d('', true) }}"
+          - "ansible_python_interpreter={{ ansible_python_interpreter | d('', true) }}"
+          - "ansible_playbook_python={{ ansible_playbook_python | d('', true) }}"
+          - "ansible_facts['python_version']={{ ansible_facts['python_version'] | d('', true) }}"
+          - "ansible_facts['pip_interpreter']={{ ansible_facts['pip_interpreter'] | d('', true) }}"
 
     - name: "Get installed python module/package list"
       #    ignore_errors: true
@@ -250,7 +252,7 @@
 
     - name: "Display __pip3_package_info"
       ansible.builtin.debug:
-        var: __pip3_package_info | d('')
+        var: __pip3_package_info | d('', true)
 
 - name: Display controller environment variables
 #  hosts: ansible_localhost
@@ -974,7 +976,7 @@
     - name: Validate that docker_stack__internal_domain is defined and not empty
       ansible.builtin.assert:
         that:
-          - docker_stack__internal_domain | d('') | length > 0
+          - docker_stack__internal_domain | d('', true) | length > 0
         fail_msg: "The variable 'docker_stack__internal_domain' must be set before bootstrapping Docker hosts."
         quiet: true
   roles:
@@ -1349,7 +1351,7 @@
         - openstack-osclient
       role: bootstrap_osclient
       vars:
-        openstack_cloud_name: "{{ openstack_admin_cloud_name | default(omit) }}"
+        openstack_cloud_name: "{{ openstack_admin_cloud_name | d(omit, true) }}"
 
     - name: Configure openstack environment
       tags:
@@ -1528,15 +1530,15 @@
     - report-offline-hosts
   tasks:
     - name: Display summary of newly discovered offline hosts
-      when: groups['discovered_host_offline'] | d([]) | length > 0
+      when: groups['discovered_host_offline'] | d([], true) | length > 0
       ansible.builtin.debug:
         msg:
           - "##########################################################"
           - "THE FOLLOWING HOSTS WERE DISCOVERED OFFLINE DURING THIS RUN:"
-          - "{{ groups['discovered_host_offline'] | d(['None']) }}"
+          - "{{ groups['discovered_host_offline'] | d(['None'], true) }}"
           - "##########################################################"
 
     - name: Notify that all hosts were reachable
-      when: groups['discovered_host_offline'] | d([]) | length == 0
+      when: groups['discovered_host_offline'] | d([], true) | length == 0
       ansible.builtin.debug:
         msg: "All targeted hosts passed the connectivity pre-check."

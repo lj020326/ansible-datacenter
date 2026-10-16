@@ -10,4 +10,4 @@ config.ansibleLintArgs = "-v"
 //     '.'
 // ]
 
-runAnsibleLint(config)
+runAnsibleLintPipeline(config)

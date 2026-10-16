@@ -17,7 +17,7 @@
        'changetype': 'add',
        'objectClass': _user_config.object_class_list | d(['organizationalRole', 'simpleSecurityObject']),
        'cn': _uid,
-       'description': _user_config.description | d(_uid)
+       'description': _user_config.description | d(_uid, true)
      } -%}
 
     {# Handle regular vs base64 user passwords dynamically #}
@@ -33,9 +33,9 @@
 ##################################
 ## LDAP Org Units (OUs)
 ##################################
-{% if __docker_stack__openldap__domain_ou_map | d({}) | dict2items | length > 0 -%}
+{% if __docker_stack__openldap__domain_ou_map | d({}, true) | dict2items | length > 0 -%}
     {% for ou, ou_config in __docker_stack__openldap__domain_ou_map.items() -%}
-        {% set _ou = ou_config.ou | d(ou) -%}
+        {% set _ou = ou_config.ou | d(ou, true) -%}
         {% set _parent = ou_config.parent_ou + ',' if ou_config.parent_ou is defined else '' -%}
         {% set ou_entry = {
            'dn': 'ou=' + _ou + ',' + _parent + __docker_stack__openldap__base_dn,
@@ -79,27 +79,27 @@
 # LDAP Domain Users
 ##################################
 {% for _user_key, _user_config in __docker_stack__openldap__domain_user_map_combined.items() -%}
-    {% set _uid = _user_config.uid | d(_user_key) -%}
-    {% set _samba = _user_config.samba | d(none) -%}
+    {% set _uid = _user_config.uid | d(_user_key, true) -%}
+    {% set _samba = _user_config.samba | d(none, true) -%}
     {# Define the core structure and stitch it together with any conditional samba attributes #}
     {% set _core_entry = {
        'dn': _user_config.dn,
        'changetype': 'add',
        'objectClass': _user_config.object_class_list | d(['top', 'person']),
-       'cn': _user_config.cn | d(_uid),
-       'sn': _user_config.sn | d(_uid),
+       'cn': _user_config.cn | d(_uid, true),
+       'sn': _user_config.sn | d(_uid, true),
        'uid': _uid,
        'homeDirectory': _user_config.home_dir | d('/home/' + _uid),
        'loginShell': _user_config.login_shell | d('/bin/bash'),
-       'gidNumber': _user_config.gid_number | d(none),
-       'uidNumber': _user_config.uid_number | d(none),
-       'userPassword': _user_config.ssha_password | d(_user_config.user_password | d(none)),
-       'gecos': _user_config.gecos | d(none),
-       'displayName': _user_config.display_name | d(none),
-       'givenName': _user_config.given_name | d(none),
-       'initials': _user_config.initials | d(none),
-       'mail': _user_config.mail | d(none),
-       'sshPublicKey': _user_config.ssh_public_key | d(none)
+       'gidNumber': _user_config.gid_number | d(none, true),
+       'uidNumber': _user_config.uid_number | d(none, true),
+       'userPassword': _user_config.ssha_password | d(_user_config.user_password | d(none, true)),
+       'gecos': _user_config.gecos | d(none, true),
+       'displayName': _user_config.display_name | d(none, true),
+       'givenName': _user_config.given_name | d(none, true),
+       'initials': _user_config.initials | d(none, true),
+       'mail': _user_config.mail | d(none, true),
+       'sshPublicKey': _user_config.ssh_public_key | d(none, true)
      } -%}
 
     {# Build samba properties block inline if samba is active #}
@@ -109,14 +109,14 @@
             'sambaHomeDrive': 'H:',
             'sambaHomePath': __docker_stack__openldap__user_smb_profile_base + '\\' + _uid,
             'sambaProfilePath': '\\\\%L\\profiles\\' + _uid
-        } if _user_config.home_dir | d('') != '/nonexistent' else {} -%}
+        } if _user_config.home_dir | d('', true) != '/nonexistent' else {} -%}
 
         {% set _samba_workstation_attrs = {'sambaUserWorkstations': _samba.workstations} if _samba.workstations is defined else {} -%}
 
         {% set _samba_base_attrs = {
             'sambaSID': _samba.sid,
-            'sambaPrimaryGroupSID': _samba.primary_group_sid | d(_samba_group_sid_default | d(none)),
-            'sambaNTPassword': _samba.nt_password | d(none),
+            'sambaPrimaryGroupSID': _samba.primary_group_sid | d(_samba_group_sid_default | d(none, true)),
+            'sambaNTPassword': _samba.nt_password | d(none, true),
             'sambaAcctFlags': _samba.account_flags | d('[XU         ]'),
             'sambaDomainName': __docker_stack__openldap__domain
         } -%}
@@ -136,20 +136,20 @@
 # LDAP Domain Groups
 ##################################
 {% for _group_key, _group_config in __docker_stack__openldap__domain_group_map_combined.items() -%}
-    {% set _group_cn = _group_config.cn | d(_group_key) -%}
+    {% set _group_cn = _group_config.cn | d(_group_key, true) -%}
 
     {# Safe tracking arrays #}
     {% set _member_dns = [] -%}
-    {% for _uid in _group_config.memberDnList | d([]) -%}
+    {% for _uid in _group_config.memberDnList | d([], true) -%}
         {% set _rc = _member_dns.append("uid=" + _uid + "," + __docker_stack__openldap__user_base_dn) -%}
     {% endfor -%}
 
     {% set _samba_sid_list = [] -%}
     {% if _group_config.samba is defined -%}
-        {% for _uid in _group_config.samba.users | d([]) -%}
+        {% for _uid in _group_config.samba.users | d([], true) -%}
             {% set _rc = _samba_sid_list.append(__docker_stack__openldap__domain_user_map_combined[_uid].samba.sid) -%}
         {% endfor -%}
-        {% for _gid in _group_config.samba.groups | d([]) -%}
+        {% for _gid in _group_config.samba.groups | d([], true) -%}
             {% set _rc = _samba_sid_list.append(__docker_stack__openldap__domain_group_map_combined[_gid].samba.sid) -%}
         {% endfor -%}
     {% endif -%}
@@ -159,14 +159,14 @@
        'changetype': 'add',
        'objectClass': _group_config.object_class_list | d(['top', 'posixGroup']),
        'cn': _group_cn,
-       'gidNumber': _group_config.gid_number | d(none),
-       'description': _group_config.description | d(none),
-       'displayName': _group_config.display_name | d(none),
-       'memberURL': _group_config.memberURL | d(none),
+       'gidNumber': _group_config.gid_number | d(none, true),
+       'description': _group_config.description | d(none, true),
+       'displayName': _group_config.display_name | d(none, true),
+       'memberURL': _group_config.memberURL | d(none, true),
        'member': _member_dns,
-       'memberUid': _group_config.memberUidList | d(none),
+       'memberUid': _group_config.memberUidList | d(none, true),
        'sambaSID': _group_config.samba.sid if _group_config.samba is defined else none,
-       'sambaGroupType': _group_config.samba.group_type | d(2) if _group_config.samba is defined else none,
+       'sambaGroupType': _group_config.samba.group_type | d(2, true) if _group_config.samba is defined else none,
        'sambaSIDList': _samba_sid_list
      } -%}
 
@@ -195,20 +195,20 @@
 ##################################
 # LDAP domain hosts
 ##################################
-{% if __docker_stack__openldap__domain_host_map | d({}) | dict2items | length > 0 -%}
+{% if __docker_stack__openldap__domain_host_map | d({}, true) | dict2items | length > 0 -%}
     {% for _host_cn, _host_config in __docker_stack__openldap__domain_host_map.items() -%}
-        {% set _samba = _host_config.samba | d(none) -%}
+        {% set _samba = _host_config.samba | d(none, true) -%}
         {% set host_entry = {
            'dn': _host_config.dn,
            'changetype': 'add',
            'objectClass': _host_config.object_class_list | d(['top', 'account', 'posixAccount']),
            'cn': _host_cn,
-           'gidNumber': _host_config.gid_number | d(none),
+           'gidNumber': _host_config.gid_number | d(none, true),
            'homeDirectory': '/dev/null',
            'uid': _host_cn + '$',
-           'uidNumber': _host_config.uid_number | d(none),
-           'description': _host_config.description | d(_host_cn),
-           'displayName': _host_config.display_name | d(_host_cn),
+           'uidNumber': _host_config.uid_number | d(none, true),
+           'description': _host_config.description | d(_host_cn, true),
+           'displayName': _host_config.display_name | d(_host_cn, true),
            'loginShell': '/bin/false',
            'sambaSID': _samba.sid if (_samba and _samba.sid is defined) else none,
            'sambaAcctFlags': '[W          ]' if _samba else none,

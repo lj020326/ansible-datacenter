@@ -1,67 +1,59 @@
 ---
-title: "apply_ping_test Role Documentation"
-role: apply_ping_test
-category: Ansible Roles
-type: Technical Documentation
-tags: ansible, role, ping, testing, automation
+title: "Apply Ping Test Role"
+role: roles/apply_ping_test
+category: Roles
+type: ansible-role
+tags: [ansible, role, apply_ping_test]
 ---
-
-## Summary
-
-The `apply_ping_test` role is designed to perform a ping test on target hosts using specified modules (`ping`, `win_ping`, or `net_ping`). It provides flexibility in handling different types of hosts and includes options for fallback mechanisms and failure conditions.
-
-## Variables
-
-| Variable Name                           | Default Value                  | Description                                                                 |
-|-----------------------------------------|------------------------------|-----------------------------------------------------------------------------|
-| `apply_ping_test__module`               | `ping`                       | Specifies the module to use for the ping test. Valid values are `ping`, `win_ping`, and `net_ping`. |
-| `apply_ping_test__fallback_to_cli`      | `false`                      | If set to true, the role will attempt a fallback mechanism using CLI commands if the initial ping fails. (Not implemented in current version) |
-| `apply_ping_test__fail_when_discovered_offline` | `true`                  | Determines whether the playbook should fail when a host is unreachable during the ping test. |
-
-## Usage
-
-To use this role, include it in your Ansible playbook and specify the desired module for the ping test via the `apply_ping_test__module` variable.
-
-**Example Playbook:**
 
 ```yaml
 ---
-- name: Perform ping tests on target hosts
-  hosts: all
+title: Apply Ping Test Role
+role: apply_ping_test
+category: Network
+type: Role
+---
+
+# Apply Ping Test Role
+
+The `apply_ping_test` role is designed to perform ping tests on hosts using various Ansible modules. This role supports testing connectivity using the `ping`, `win_ping`, and `net_ping` modules, providing flexibility for different types of hosts and network environments.
+
+## Variables
+
+| Variable Name                  | Default Value          | Description                                                                 |
+|--------------------------------|------------------------|-----------------------------------------------------------------------------|
+| `apply_ping_test__module`      | `ping`                 | Specifies the module to use for ping testing (`ping`, `win_ping`, `net_ping`). |
+| `apply_ping_test__fallback_to_cli` | `false`          | Indicates whether to fallback to CLI for ping testing if the module fails. |
+| `apply_ping_test__fail_when_discovered_offline` | `true` | Determines if the role should fail when a host is discovered to be offline. |
+
+## Usage
+
+To use this role, include it in your playbook and configure the variables as needed:
+
+```yaml
+- hosts: all
   roles:
     - role: apply_ping_test
       vars:
-        apply_ping_test__module: win_ping
+        apply_ping_test__module: "ping"
+        apply_ping_test__fallback_to_cli: false
+        apply_ping_test__fail_when_discovered_offline: true
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies beyond the Ansible core modules and collections it uses (`ansible.builtin`, `ansible.windows`, `ansible.netcommon`).
-
-## Tags
-
-- `ping-test`: This tag can be used to run only the tasks related to the ping test.
-
-**Example Command:**
-
-```bash
-ansible-playbook -i inventory playbook.yml --tags "ping-test"
-```
+This role does not have any external dependencies. It relies solely on the Ansible modules `ping`, `win_ping`, and `net_ping`, which are included in the standard Ansible distribution.
 
 ## Best Practices
 
-1. **Module Selection**: Choose the appropriate module (`ping`, `win_ping`, or `net_ping`) based on the type of target hosts.
-2. **Error Handling**: Set `apply_ping_test__fail_when_discovered_offline` to `true` if you want the playbook to fail when a host is unreachable, ensuring that issues are caught early in the automation process.
-
-## Molecule Tests
-
-This role does not currently include Molecule tests. Consider adding them for automated testing and validation of the role's functionality.
+- Ensure that the appropriate Ansible modules are available on the control node.
+- Configure the `apply_ping_test__module` variable based on the type of hosts you are testing (Linux, Windows, network devices).
+- Use the `apply_ping_test__fallback_to_cli` variable to enable CLI fallback if module-based ping tests are not sufficient.
+- Monitor the debug output for detailed information about the ping test results and connection variables.
 
 ## Backlinks
 
 - [defaults/main.yml](../../roles/apply_ping_test/defaults/main.yml)
 - [tasks/main.yml](../../roles/apply_ping_test/tasks/main.yml)
 
----
-
-**Note:** Ensure that the relative paths in the backlinks section match your project structure. Adjust them as necessary to point to the correct files.
+```

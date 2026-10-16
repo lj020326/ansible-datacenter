@@ -31,7 +31,7 @@
 
 - name: "Docker Stack | plane-api | pre-start | Show migration result"
   ansible.builtin.debug:
-    var: __plane_migration_result.container.State | d('')
+    var: __plane_migration_result.container.State | d('', true)
 
 - name: "Docker Stack | plane-api | pre-start | Show __plane_migration_result if failed"
   when: __plane_migration_result is failed
@@ -41,3 +41,13 @@
 - name: "Docker Stack | plane-api | pre-start | Wait a few seconds for migration to settle"
   ansible.builtin.pause:
     seconds: 10
+
+# Stop running Plane services before migration
+- name: "Docker Stack | plane-api | pre-start | Restart plane-api and plane-web after migration"
+  when: docker_stack__action == 'setup'
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_stack__dir }}"
+    services:
+      - plane-api
+      - plane-web
+    state: restarted

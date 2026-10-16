@@ -1,0 +1,22 @@
+---
+- name: NVIDIA | Configure GPU Power Capping Service Script
+  ansible.builtin.template:
+    src: nvidia-power-limit.sh.j2
+    dest: /usr/local/bin/nvidia-power-limit.sh
+    mode: '0755'
+
+- name: NVIDIA | Deploy GPU Power Limit Systemd Unit
+  ansible.builtin.template:
+    src: nvidia-power-limit.service.j2
+    dest: /etc/systemd/system/nvidia-power-limit.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart nvidia-power-limit
+
+- name: NVIDIA | Manage GPU Power Limit Service State
+  ansible.builtin.systemd:
+    name: nvidia-power-limit.service
+    enabled: "{{ bootstrap_gpu_drivers__power_limit_enabled | bool }}"
+    state: "{{ 'started' if (bootstrap_gpu_drivers__power_limit_enabled | bool) else 'stopped' }}"
+    daemon_reload: true

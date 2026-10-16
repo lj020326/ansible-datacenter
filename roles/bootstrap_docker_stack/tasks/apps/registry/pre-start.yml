@@ -15,7 +15,7 @@
 - name: "Docker Stack | registry | pre-start | Setup {{ __registry_auth_file }}"
   when:
     - __docker_stack__registry__enable_auth | bool
-    - __docker_stack__registry__users | d([]) | length > 0
+    - __docker_stack__registry__users | d([], true) | length > 0
   block:
     - name: "Docker Stack | registry | pre-start | Install htpasswd deps with pip"
       ansible.builtin.pip:
@@ -31,12 +31,12 @@
           # - "__docker_stack__registry__users: {{ __docker_stack__registry__users | to_nice_json }}"
           - "__docker_stack__registry__env: {{ __docker_stack__registry__env | to_nice_json }}"
 
-    - name: "Docker Stack | registry | pre-start | Stop registry service"
-      community.docker.docker_compose_v2:
-        project_src: "{{ docker_stack__dir }}"
-        services:
-          - registry
-        state: stopped
+    # - name: "Docker Stack | registry | pre-start | Stop registry service"
+    #   community.docker.docker_compose_v2:
+    #     project_src: "{{ docker_stack__dir }}"
+    #     services:
+    #       - registry
+    #     state: stopped
 
     #- name: "Docker Stack | registry | pre-start | Remove registry, if it exists"
     #  no_log: true
@@ -67,3 +67,12 @@
         crypt_scheme: bcrypt
         overwrite: true
         backup: true
+      register: __htpasswd_result
+
+    - name: "Docker Stack | registry | pre-start | Restart registry service"  # noqa: no-handler
+      when: __htpasswd_result is changed
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_stack__dir }}"
+        services:
+          - registry
+        state: restarted

@@ -20,12 +20,12 @@
     esxi_hostname: "{{ item.0.hostname }}"
     switch: "{{ item.1.switch_name }}"
     nics: "{{ item.1.nics }}"
-    teaming: "{{ item.1.teaming | d(omit) }}"
+    teaming: "{{ item.1.teaming | d(omit, true) }}"
     mtu: "{{ item.1.mtu }}"
     security: "{{ item.1.security
       | d(item.1.security_policy)
       | d(item.1.network_policy)
-      | d(bootstrap_vsphere_default_security_policy) }}"
+      | d(bootstrap_vsphere_default_security_policy, true) }}"
   loop: "{{ __esx_hosts_by_name.values()
     | list | subelements('switches', { 'skip_missing': true }) }}"
   loop_control:
@@ -44,7 +44,7 @@
     security: "{{ item.1.security
       | d(item.1.security_policy)
       | d(item.1.network_policy)
-      | d(bootstrap_vsphere_default_security_policy) }}"
+      | d(bootstrap_vsphere_default_security_policy, true) }}"
   loop: "{{ __esx_hosts_by_name.values()
     | list | subelements('portgroups', { 'skip_missing': true }) }}"
   loop_control:
@@ -56,7 +56,7 @@
   vars:
     __raw_vmkernel_list: |
       {% for host_key, host_val in __esx_hosts_by_name.items() %}
-      {% set vmks = host_val.vmkernels | default([]) %}
+      {% set vmks = host_val.vmkernels | d([], true) %}
       {% if vmks | length > 0 %}
       {% for vmk in vmks %}
       - hostname: "{{ host_val.hostname }}"
@@ -81,25 +81,25 @@
     validate_certs: false
     esxi_hostname: "{{ item.hostname }}"
     device: "{{ item.vmk.device
-      | default(bootstrap_vsphere__vcenter_mgt_device) }}"
+      | d(bootstrap_vsphere__vcenter_mgt_device, true) }}"
     vswitch_name: "{{ item.vmk.vswitch_name
-      | default(bootstrap_vsphere__vcenter_mgt_vswitch) }}"
+      | d(bootstrap_vsphere__vcenter_mgt_vswitch, true) }}"
     portgroup_name: "{{ item.vmk.portgroup_name
-      | default(bootstrap_vsphere__vcenter_mgt_network) }}"
-    enable_mgmt: "{{ item.vmk.enable_mgmt | default(true) }}"
-    enable_provisioning: "{{ item.vmk.enable_provisioning | default(false) }}"
-    enable_replication: "{{ item.vmk.enable_replication | default(false) }}"
-    enable_vmotion: "{{ item.vmk.enable_vmotion | default(true) }}"
-    enable_vsan: "{{ item.vmk.enable_vsan | default(false) }}"
+      | d(bootstrap_vsphere__vcenter_mgt_network, true) }}"
+    enable_mgmt: "{{ item.vmk.enable_mgmt | d(true, false) }}"
+    enable_provisioning: "{{ item.vmk.enable_provisioning | d(false, false) }}"
+    enable_replication: "{{ item.vmk.enable_replication | d(false, false) }}"
+    enable_vmotion: "{{ item.vmk.enable_vmotion | d(true, false) }}"
+    enable_vsan: "{{ item.vmk.enable_vsan | d(false, false) }}"
     network:
       type: "{{ item.vmk.network_type | default(item.vmk.type
-        | default(bootstrap_vsphere__network_type)) }}"
-      ip_address: "{{ item.vmk.ip_address | default(omit) }}"
-      subnet_mask: "{{ item.vmk.subnet_mask | default(omit) }}"
+        | d(bootstrap_vsphere__network_type, true)) }}"
+      ip_address: "{{ item.vmk.ip_address | d(omit, true) }}"
+      subnet_mask: "{{ item.vmk.subnet_mask | d(omit, true) }}"
     state: present
   loop: "{{ __target_vmkernels }}"
   loop_control:
-    label: "Ensure {{ item.vmk.device | default('vmk0') }} present on '{{ item.hostname }}'"
+    label: "Ensure {{ item.vmk.device | d('vmk0', true) }} present on '{{ item.hostname }}'"
 
 - name: "POST-CHECK | Validate runtime consistency across all ESXi nodes"
   ansible.builtin.include_tasks: post_check_esxi_host_portgroups.yml
@@ -115,8 +115,8 @@
     username: "{{ bootstrap_vsphere__esxi_username }}"
     password: "{{ bootstrap_vsphere__esxi_password }}"
     validate_certs: false
-    type: "{{ item.network_type | d('dhcp') }}"
-    device: "{{ item.network_device | d('vmk0') }}"
+    type: "{{ item.network_type | d('dhcp', true) }}"
+    device: "{{ item.network_device | d('vmk0', true) }}"
     host_name: "{{ item.hostname }}"
     domain: "{{ item.dns_domain }}"
     dns_servers: "{{ item.dns_servers }}"

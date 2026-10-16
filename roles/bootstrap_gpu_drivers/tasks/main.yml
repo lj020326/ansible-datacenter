@@ -3,7 +3,7 @@
   ansible.builtin.package:
     name:
       - pciutils
-      - "{{ 'mesa-utils' if ansible_facts.os_family == 'Debian' else 'mesa-demos' | default(omit) }}"
+      - "{{ 'mesa-utils' if ansible_facts.os_family == 'Debian' else 'mesa-demos' | d(omit, true) }}"
       - "{{ 'dkms' if ansible_facts.os_family == 'RedHat' else omit }}"
     state: present
     update_cache: "{{ ansible_facts.os_family == 'Debian' }}"
@@ -25,9 +25,9 @@
 
 - name: Merge detection with overrides
   ansible.builtin.set_fact:
-    __bootstrap_gpu_drivers__enable_nvidia: "{{ bootstrap_gpu_drivers__enable_nvidia | default(__detected_nvidia) }}"
-    __bootstrap_gpu_drivers__enable_amd: "{{ bootstrap_gpu_drivers__enable_amd | default(__detected_amd) }}"
-    __bootstrap_gpu_drivers__enable_intel: "{{ bootstrap_gpu_drivers__enable_intel | default(__detected_intel) }}"
+    __bootstrap_gpu_drivers__enable_nvidia: "{{ bootstrap_gpu_drivers__enable_nvidia | d(__detected_nvidia, true) }}"
+    __bootstrap_gpu_drivers__enable_amd: "{{ bootstrap_gpu_drivers__enable_amd | d(__detected_amd, true) }}"
+    __bootstrap_gpu_drivers__enable_intel: "{{ bootstrap_gpu_drivers__enable_intel | d(__detected_intel, true) }}"
 
 - name: Show detected GPUs
   ansible.builtin.debug:
@@ -50,18 +50,19 @@
   when: __bootstrap_gpu_drivers__enable_nvidia | bool
   block:
     - name: "GPU Drivers | NVIDIA | Skip driver install on DGX OS (pre-installed)"
-      when:
-        - __bootstrap_gpu_drivers__is_dgx | bool
-        - bootstrap_gpu_drivers__skip_driver_install_on_dgx | bool
+      when: __bootstrap_gpu_drivers__is_dgx | bool
       ansible.builtin.debug:
         msg: "🚀 DGX OS detected with GB10 - skipping NVIDIA driver installation (already provided by DGX)"
 
     - name: "GPU Drivers | NVIDIA | Install drivers (standard x86 Ubuntu)"
-#      when: >
-#        not (__bootstrap_gpu_drivers__is_dgx | bool)
-#        or not (bootstrap_gpu_drivers__skip_driver_install_on_dgx | bool)
       when: not (__bootstrap_gpu_drivers__is_dgx | bool)
-      ansible.builtin.include_tasks: install-nvidia.yml
+      block:
+        - name: "GPU Drivers | NVIDIA | Install drivers (standard x86 Ubuntu)"
+          ansible.builtin.include_tasks: install-nvidia.yml
+
+        - name: NVIDIA | Manage GPU Power Limit Configuration
+          when: bootstrap_gpu_drivers__power_limit_enabled | bool
+          ansible.builtin.include_tasks: nvidia/power-limit.yml
 
 - name: Install AMD drivers
   when: __bootstrap_gpu_drivers__enable_amd | bool
@@ -78,6 +79,6 @@
 - name: Reboot if needed
   when:
     - not bootstrap_gpu_drivers__skip_reboot
-    - (nvidia_verify.changed | default(false)) or ansible_facts['changed'] | default(false)
+    - (nvidia_verify.changed | d(false, false)) or ansible_facts['changed'] | d(false, false)
   ansible.builtin.reboot:
     reboot_timeout: 600
