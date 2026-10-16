@@ -22,13 +22,13 @@
     cmd: >-
       {{ deploy_pki_certs__local_cert_dir }}/validate_certs.sh
       {{ deploy_pki_certs__validation_args | default('', true) | trim | split(' ') | join(' ') }}
-      {{ _quiet_flag | d('') }}
+      {{ _quiet_flag | d('', true) }}
     executable: /bin/bash  # Ensure bash for script
   register: __cert_validation_output
   changed_when: false  # Validation is read-only
   failed_when: __cert_validation_output.rc != 0
   # Optional: Don't halt playbook
-  ignore_errors: "{{ deploy_pki_certs__validation_fail_fast | default(false) | bool }}"
+  ignore_errors: "{{ deploy_pki_certs__validation_fail_fast | d(false, true) | bool }}"
 
 - name: "validate-pki-certs : Display validation output"
   ansible.builtin.debug:
@@ -37,12 +37,12 @@
 
 - name: "validate-pki-certs : Display validation output"
   when: >-
-    __cert_validation_output.stdout | d('') | length > 0
-    or __cert_validation_output.stderr | d('') | length > 0
+    __cert_validation_output.stdout | d('', true) | length > 0
+    or __cert_validation_output.stderr | d('', true) | length > 0
   ansible.builtin.debug:
     msg: |
       STDOUT: {{ __cert_validation_output.stdout }}
-      STDERR: {{ __cert_validation_output.stderr | default('None') }}
+      STDERR: {{ __cert_validation_output.stderr | d('None', true) }}
       RC: {{ __cert_validation_output.rc }}
 
 - name: "validate-pki-certs : Deploy Python SSL validation script"

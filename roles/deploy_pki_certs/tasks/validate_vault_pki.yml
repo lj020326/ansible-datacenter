@@ -10,7 +10,7 @@
 
 - name: "validate-vault-pki : Display deploy_pki_certs__vault_url"
   ansible.builtin.debug:
-    var: deploy_pki_certs__vault_url | d('')
+    var: deploy_pki_certs__vault_url | d('', true)
 
 - name: "validate-vault-pki : Display deploy_pki_certs__vault_token length"
   ansible.builtin.debug:
@@ -19,7 +19,7 @@
 - name: "validate-vault-pki : Display deploy_pki_certs__vault_token"
   when: deploy_pki_certs__enable_debug_mode
   ansible.builtin.debug:
-    var: deploy_pki_certs__vault_token | d('')
+    var: deploy_pki_certs__vault_token | d('', true)
     verbosity: 1
 
 - name: "validate-vault-pki : Verify Vault API health"
@@ -120,7 +120,7 @@
   run_once: true
 
 - name: "validate-vault-pki : Fail if mounts list inaccessible"
-  when: __mounts_result.failed | d(true)
+  when: __mounts_result.failed | d(true, true)
   ansible.builtin.fail:
     msg: "Cannot list Vault mounts. Check token policy for 'read' on sys/mounts."
   delegate_to: localhost
@@ -145,8 +145,8 @@
 - name: "validate-vault-pki : Set __real_mount_regex_pattern"
   ansible.builtin.set_fact:
     __real_mount_regex_pattern: "^({{ deploy_pki_certs__vault_mount_path
-      | regex_escape() | d('') }}|{{ deploy_pki_certs__vault_kv_mount_path
-      | regex_escape() | d('') }})/?$"
+      | regex_escape() | d('', true) }}|{{ deploy_pki_certs__vault_kv_mount_path
+      | regex_escape() | d('', true) }})/?$"
   delegate_to: localhost
   run_once: true
 
@@ -220,7 +220,7 @@
   ignore_errors: true
 
 - name: "validate-vault-pki : Debug __pki_ca_test (on failure)"
-  when: __pki_ca_test.failed | d(false)
+  when: __pki_ca_test.failed | d(false, true)
   ansible.builtin.debug:
     var: __pki_ca_test
     verbosity: 1
@@ -237,8 +237,8 @@
     fail_msg: |
       Vault PKI /ca/pem fetch failed or empty.
       Status: {{ __pki_ca_test.status | d('N/A') }}
-      Failed: {{ __pki_ca_test.failed | d(false) }}
-      Content Preview: {{ __pki_ca_test.content | d('EMPTY') | truncate(100) }}
+      Failed: {{ __pki_ca_test.failed | d(false, true) }}
+      Content Preview: {{ __pki_ca_test.content | d('EMPTY', true) | truncate(100) }}
       Run with -vvv for full response.
   delegate_to: localhost
   run_once: true
@@ -274,7 +274,7 @@
   delegate_to: localhost
 
 - name: "validate-vault-pki : Display __pki_read_tests"
-  when: __pki_read_tests.failed | d(false)
+  when: __pki_read_tests.failed | d(false, true)
   ansible.builtin.debug:
     var: __pki_read_tests
     verbosity: 1
@@ -295,7 +295,7 @@
   changed_when: false
 
 - name: "validate-vault-pki : Display __kv_list_test"
-  when: __kv_list_test.failed | d(false)
+  when: __kv_list_test.failed | d(false, true)
   ansible.builtin.debug:
     var: __kv_list_test
     verbosity: 1
@@ -306,12 +306,12 @@
   ansible.builtin.assert:
     that:
       - ( __pki_read_tests.results | d([], true) | selectattr('failed', 'equalto', true) | list | length ) == 0
-      - not ( __kv_list_test.failed | d(true) )
+      - not ( __kv_list_test.failed | d(true, true) )
     success_msg: "All required PKI/KV read paths accessible."
     fail_msg: >-
       Read access failed for PKI: {{
-        (__pki_read_tests.results | d([], true) | selectattr('failed', 'equalto', true) | map(attribute='item') | list) | default('none') }}.
-      KV folder list failed: {{ 'yes' if __kv_list_test.failed | d(false) else 'no' }} (path: {{
+        (__pki_read_tests.results | d([], true) | selectattr('failed', 'equalto', true) | map(attribute='item') | list) | d('none', true) }}.
+      KV folder list failed: {{ 'yes' if __kv_list_test.failed | d(false, true) else 'no' }} (path: {{
         deploy_pki_certs__vault_kv_mount_path }}/metadata/trusted_external).
       Policy 'deploy-ca' needs:
         path "{{ deploy_pki_certs__vault_mount_path }}/*" { capabilities = ["read", "list"] }

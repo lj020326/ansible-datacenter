@@ -15,15 +15,15 @@
 - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Assert required __cert_info content"
   ansible.builtin.assert:
     that:
-      - __cert_info.type | d('') | length > 0
-      - __cert_info.cert_name | d('') | length > 0
-      - __cert_info.kv_prefix | d('') | length > 0
+      - __cert_info.type | d('', true) | length > 0
+      - __cert_info.cert_name | d('', true) | length > 0
+      - __cert_info.kv_prefix | d('', true) | length > 0
 
 - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Assert __cert_info.common_name for pki"
   when: __cert_info.type == 'pki_ca'
   ansible.builtin.assert:
     that:
-      - __cert_info.common_name | d('') | length > 0
+      - __cert_info.common_name | d('', true) | length > 0
 
 - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Assert type is static"
   ansible.builtin.assert:
@@ -81,17 +81,17 @@
       dettonville.utils.x509_certificate_verify:
         path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_filename }}"
         # Only verify private key if __key_path is defined and the file exists
-        private_key_path: "{{ __key_path | d(omit) }}"
-        ca_path: "{{ __ca_path | d(omit) }}"
-        common_name: "{{ __cert_info.common_name | d(omit) }}"
-        organization: "{{ __cert_info.organization | d(omit) }}"
-        organizational_unit: "{{ __cert_info.organizational_unit | d(omit) }}"
-        country: "{{ __cert_info.country | d(omit) }}"
-        state_or_province: "{{ __cert_info.state_or_province | d(omit) }}"
-        locality: "{{ __cert_info.locality | d(omit) }}"
-#        email_address: "{{ __cert_info.email_address | d(omit) }}"
-        key_type: "{{ __openssl_key_type | d(omit) }}"
-        key_size: "{{ __openssl_key_size | d(omit) }}"
+        private_key_path: "{{ __key_path | d(omit, true) }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
+        organization: "{{ __cert_info.organization | d(omit, true) }}"
+        organizational_unit: "{{ __cert_info.organizational_unit | d(omit, true) }}"
+        country: "{{ __cert_info.country | d(omit, true) }}"
+        state_or_province: "{{ __cert_info.state_or_province | d(omit, true) }}"
+        locality: "{{ __cert_info.locality | d(omit, true) }}"
+#        email_address: "{{ __cert_info.email_address | d(omit, true) }}"
+        key_type: "{{ __openssl_key_type | d(omit, true) }}"
+        key_size: "{{ __openssl_key_size | d(omit, true) }}"
         validate_expired: true
         validate_checkend: true
         checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
@@ -165,7 +165,7 @@
 
 - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Assert __fetched_cert_content defined"
   ansible.builtin.assert:
-    that: __fetched_cert_content | d('') | length > 0
+    that: __fetched_cert_content | d('', true) | length > 0
 
 - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Get fetched certificate info"
   no_log: true
@@ -206,8 +206,8 @@
       no_log: true
       dettonville.utils.x509_certificate_verify:
         content: "{{ __fetched_cert_content }}"
-        ca_path: "{{ __ca_path | d(omit) }}"
-        common_name: "{{ __cert_info.common_name | d(omit) }}"
+        ca_path: "{{ __ca_path | d(omit, true) }}"
+        common_name: "{{ __cert_info.common_name | d(omit, true) }}"
         validate_expired: true
         validate_checkend: true
         checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
@@ -232,7 +232,7 @@
       # Change: Trigger an alert message if the verification returned a failure
       when:
         - __pre_deploy_verify.failed is defined
-        - __pre_deploy_verify.failed or __pre_deploy_verify.verify_failed | d(false)
+        - __pre_deploy_verify.failed or __pre_deploy_verify.verify_failed | d(false, true)
       ansible.builtin.debug:
         msg: |
           [WARNING]: Certificate verification failed for {{ __cert_info.cert_name }}!
@@ -258,7 +258,7 @@
 
     - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Global Change Trigger"
       ansible.builtin.set_fact:
-        __ca_cert_has_changed: "{{ __cert_deploy_res.changed | d(false) }}"
+        __ca_cert_has_changed: "{{ __cert_deploy_res.changed | d(false, true) }}"
 
     - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : determine if is CA"
       no_log: true
@@ -269,7 +269,7 @@
 
     - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Display __verify_is_ca.verify_results.is_ca"
       ansible.builtin.debug:
-        var: __verify_is_ca.verify_results.is_ca | d(false)
+        var: __verify_is_ca.verify_results.is_ca | d(false, true)
 
     - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Display __verify_is_ca"
       ansible.builtin.debug:
@@ -292,8 +292,8 @@
           dettonville.utils.x509_certificate_verify:
 #            path: "{{ deploy_pki_certs__local_cert_dir }}/{{ __cert_chain_filename }}"
             content: "{{ __cert_chain_content }}"
-            ca_path: "{{ __ca_path | d(omit) }}"
-            common_name: "{{ __cert_info.common_name | d(omit) }}"
+            ca_path: "{{ __ca_path | d(omit, true) }}"
+            common_name: "{{ __cert_info.common_name | d(omit, true) }}"
             validate_expired: true
             validate_checkend: true
             checkend_value: "{{ __deploy_pki_certs__tolerance_seconds | int }}"
@@ -301,15 +301,15 @@
 
         - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Display __pre_deploy_chain_verify.verify_failed"
           ansible.builtin.debug:
-            var: __pre_deploy_chain_verify.verify_failed | d(false)
+            var: __pre_deploy_chain_verify.verify_failed | d(false, true)
 
         - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Display __pre_deploy_chain_verify when failed"
-          when: __pre_deploy_chain_verify.verify_failed | d(false)
+          when: __pre_deploy_chain_verify.verify_failed | d(false, true)
           ansible.builtin.debug:
             var: __pre_deploy_chain_verify
 
         - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Display __pre_deploy_chain_verify"
-          when: not (__pre_deploy_chain_verify.verify_failed | d(false))
+          when: not (__pre_deploy_chain_verify.verify_failed | d(false, true))
           ansible.builtin.debug:
             var: __pre_deploy_chain_verify
             verbosity: 1
@@ -318,7 +318,7 @@
           # Change: Trigger an alert message if the verification returned a failure
           when:
             - __pre_deploy_chain_verify.failed is defined
-            - __pre_deploy_chain_verify.failed or __pre_deploy_chain_verify.verify_failed | d(false)
+            - __pre_deploy_chain_verify.failed or __pre_deploy_chain_verify.verify_failed | d(false, true)
           ansible.builtin.debug:
             msg: |
               [WARNING]: Certificate verification failed for {{ __cert_info.cert_name }}!
@@ -343,8 +343,8 @@
     # Only CAs
     - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Deploy certificate to OS Trust Store (Only CAs)"
       when:
-        - __verify_is_ca.verify_results.is_ca | d(false)
-        - __cert_deploy_res.changed | d(false)
+        - __verify_is_ca.verify_results.is_ca | d(false, true)
+        - __cert_deploy_res.changed | d(false, true)
           or deploy_pki_certs__ca_force_deploy
           or deploy_pki_certs__ca_reset_trust_certs
       block:
@@ -363,12 +363,12 @@
           when: >-
             deploy_pki_certs__ca_force_deploy
             or deploy_pki_certs__ca_reset_trust_certs
-            or __cert_copy_trust_res.changed | d(false)
+            or __cert_copy_trust_res.changed | d(false, true)
           block:
             - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Update system's CA trust store"
               when:
                 - __cert_info.type == "pki_ca"
-                - __verify_is_ca.verify_results.is_ca | d(false)
+                - __verify_is_ca.verify_results.is_ca | d(false, true)
               block:
                 - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Update system's CA trust store"
                   no_log: true
@@ -383,8 +383,8 @@
 
     - name: "fetch-static-cert[{{ __cert_info.kv_prefix }}:{{ __cert_info.cert_name }}] : Ensure CA cert is present in the Java keystore"
       when:
-        - __verify_is_ca.verify_results.is_ca | d(false)
-        - __cert_deploy_res.changed | d(false)
+        - __verify_is_ca.verify_results.is_ca | d(false, true)
+        - __cert_deploy_res.changed | d(false, true)
           or deploy_pki_certs__ca_force_deploy
           or deploy_pki_certs__ca_reset_trust_certs
       block:

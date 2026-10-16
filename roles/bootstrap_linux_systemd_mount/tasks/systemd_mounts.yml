@@ -15,13 +15,13 @@
   ansible.builtin.file:
     path: "{{ item.where }}"
     state: directory
-    owner: "{{ item.owner | d(omit) }}"
-    group: "{{ item.group | d(omit) }}"
+    owner: "{{ item.owner | d(omit, true) }}"
+    group: "{{ item.group | d(omit, true) }}"
     mode: "0755"
   failed_when: false
   when:
     - item.where is defined
-    - item.state | d('unknown') != 'absent'
+    - item.state | d('unknown', true) != 'absent'
     - item.type != 'swap'
   tags:
     - systemd-mount
@@ -47,7 +47,7 @@
     config_overrides: "{{ item.config_overrides | d({}, true) }}"
     config_type: "ini"
   when:
-    - item.state | d('unknown') != 'absent'
+    - item.state | d('unknown', true) != 'absent'
   tags:
     - systemd-mount
 
@@ -55,9 +55,9 @@
   ansible.builtin.systemd:
     daemon_reload: true
     name: "{{ mount_service_name.stdout }}"
-    enabled: "{{ item.enabled | d(true) }}"
+    enabled: "{{ item.enabled | d(true, true) }}"
   when:
-    - item.state | d('unknown') != 'absent'
+    - item.state | d('unknown', true) != 'absent'
 
 # NOTE(cloudnull): The systemd module is not used to start the
 #                  mount because we don't want to inadvertently
@@ -97,5 +97,5 @@
     enabled: false
     no_block: true
   when:
-    - item.state | d('unknown') == 'absent'
+    - item.state | d('unknown', true) == 'absent'
   notify: Remove mount

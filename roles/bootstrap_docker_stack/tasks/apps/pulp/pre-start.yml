@@ -1,0 +1,256 @@
+---
+- name: "Docker Stack | Pulp | pre-start | Display Pulp service info"
+  ansible.builtin.debug:
+    msg:
+      - "Running pre-start tasks for Pulp"
+      - "Base directory: {{ __docker_stack__pulp__base_dir }}"
+
+- name: "Docker Stack | Pulp | pre-start | Set __pulp_service_name"
+  ansible.builtin.set_fact:
+    __pulp_service_name: >-
+      {{
+        docker_stack__compose_stack_name + '_pulp' if (docker_stack__swarm_mode | d(false, true) | bool)
+        else 'pulp'
+      }}
+
+- name: "Docker Stack | Pulp | pre-start | Display __pulp_service_name"
+  ansible.builtin.debug:
+    var: __pulp_service_name
+
+- name: "Docker Stack | Pulp | pre-start | Set __restart_pulp_service"
+  ansible.builtin.set_fact:
+    __restart_pulp_service: >-
+      {{ (docker_stack__swarm_mode | d(false, true) | bool)
+          and (__configure_docker_secrets is defined)
+          and (__configure_docker_secrets.results is defined)
+          and (
+            __configure_docker_secrets.results
+            | selectattr('item.name', 'in', ['pulp_admin_password', 'pulp_admin_username'])
+            | selectattr('changed', 'equalto', True)
+            | list
+            | length > 0
+          )
+      }}
+
+- name: "Docker Stack | Pulp | pre-start | Display __restart_pulp_service"
+  ansible.builtin.debug:
+    var: __restart_pulp_service
+
+- name: "Docker Stack | Pulp | pre-start | Remove Pulp service"
+  when: __restart_pulp_service
+  community.docker.docker_stack:
+    name: "{{ docker_stack__compose_stack_name }}"
+    compose: "{{ docker_stack__compose_stack_compose_file }}"
+    state: absent
+
+- name: "Docker Stack | Pulp | pre-start | Ensure Pulp service deployed before configuring container"
+  when: docker_stack__swarm_mode | d(false, true) | bool
+  community.docker.docker_stack:
+    name: "{{ docker_stack__compose_stack_name }}"
+    compose: "{{ docker_stack__compose_stack_compose_file }}"
+    state: present
+    with_registry_auth: true
+
+- name: "Docker Stack | Pulp | pre-start | Wait for Pulp API to be ready"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ __docker_stack__pulp__http_port }}/pulp/api/v3/"
+    method: GET
+    status_code: 200
+  register: __pulp_api_check
+  retries: 15
+  delay: 5
+  until: __pulp_api_check is success
+
+- name: "Docker Stack | Pulp | pre-start | Get Pulp Status"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ __docker_stack__pulp__http_port }}/pulp/api/v3/status/"
+    user: "{{ __docker_stack__pulp__admin_username }}"
+    password: "{{ __docker_stack__pulp__admin_password }}"
+    force_basic_auth: true
+    status_code: [200, 201]
+  register: __pulp_status_response
+
+- name: Docker Stack | Pulp | pre-start | Filter and Display Ansible Component Info
+  when: __pulp_status_response.json is defined
+  ansible.builtin.debug:
+    msg: "{{ __pulp_status_response.json.versions | selectattr('component', 'in', ['ansible', 'core']) | list }}"
+
+# ------------------------------------------------------------------
+# Resolve the actual running container name (works for both modes)
+# ------------------------------------------------------------------
+- name: "Docker Stack | Pulp | pre-start | Resolve running container name"
+  block:
+    - name: "Docker Stack | Pulp | pre-start | Get container name (standalone)"
+      when: not (docker_stack__swarm_mode | d(false, true) | bool)
+      ansible.builtin.set_fact:
+        __pulp_container_name: "pulp"
+
+    - name: "Docker Stack | Pulp | pre-start | Get container name (swarm)"
+      when: docker_stack__swarm_mode | d(false, true) | bool
+      ansible.builtin.shell: |
+        set -o pipefail
+        # Find the first running task and extract its container ID → name
+        TASK_ID=$(docker service ps "{{ __pulp_service_name }}" \
+          --filter "desired-state=running" \
+          --format "{{ '{{.ID}}' }}" | head -n1)
+
+        if [ -z "$TASK_ID" ]; then
+          echo "No running task found for service {{ __pulp_service_name }}" >&2
+          exit 1
+        fi
+
+        # Get the full container name from the task
+        docker inspect --format '{{ "{{.Status.ContainerStatus.ContainerID}}" }}' "$TASK_ID" | xargs -I{} docker inspect --format '{{ "{{.Name}}" }}' {} | sed 's|^/||'
+      args:
+        executable: /bin/bash
+      register: __pulp_cname
+      changed_when: false
+
+    - name: "Docker Stack | Pulp | pre-start | Set swarm container name"
+      when: docker_stack__swarm_mode | d(false, true) | bool
+      ansible.builtin.set_fact:
+        __pulp_container_name: "{{ __pulp_cname.stdout | trim }}"
+
+- name: "Docker Stack | Pulp | pre-start | Display resolved container name"
+  ansible.builtin.debug:
+    var: __pulp_container_name
+
+# ------------------------------------------------------------------
+# Admin user + password
+# ------------------------------------------------------------------
+- name: "Docker Stack | Pulp | pre-start | Check if admin user exists or create superuser"
+  community.docker.docker_container_exec:
+    container: "{{ __pulp_container_name }}"
+    command: >-
+      pulpcore-manager createsuperuser
+      --noinput
+      --username {{ __docker_stack__pulp__admin_username }}
+      --email {{ __docker_stack__pulp__admin_email }}
+  register: __pulp_superuser_result
+  failed_when:
+    - __pulp_superuser_result.rc is not defined or __pulp_superuser_result.rc != 0
+    - "'Error: That username is already taken.' not in __pulp_superuser_result.stderr | d('', true)"
+  changed_when: __pulp_superuser_result.rc is defined and __pulp_superuser_result.rc == 0
+
+- name: "Docker Stack | Pulp | pre-start | Set admin password if user was created or needs reset"
+  when: __pulp_superuser_result is changed or __docker_stack__pulp__force_password_reset | d(false, true) | bool
+  block:
+    - name: "Docker Stack | Pulp | pre-start | Initialize __ensure_user_shell_command"
+      no_log: true
+      ansible.builtin.set_fact:
+        __ensure_user_shell_command: >-
+          from django.contrib.auth import get_user_model;
+          User = get_user_model();
+          user = User.objects.get(username='{{ __docker_stack__pulp__admin_username }}');
+          user.set_password('{{ __docker_stack__pulp__admin_password }}');
+          user.save()
+
+    - name: "Docker Stack | Pulp | pre-start | Set admin password"
+      no_log: true
+      community.docker.docker_container_exec:
+        container: "{{ __pulp_container_name }}"
+        command: >-
+          pulpcore-manager shell -c "{{ __ensure_user_shell_command }}"
+      changed_when: true
+
+    - name: "Docker Stack | Pulp | pre-start | Restart Pulp service after password change"
+      when: docker_stack__swarm_mode | d(false, true) | bool
+      community.docker.docker_stack:
+        name: "{{ docker_stack__compose_stack_name }}"
+        compose: "{{ docker_stack__compose_stack_compose_file }}"
+        state: present
+        with_registry_auth: true
+
+    - name: "Docker Stack | Pulp | pre-start | Restart Pulp service (Standalone fallback)"
+      when: not (docker_stack__swarm_mode | d(false, true) | bool)
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_stack__dir }}"
+        services:
+          - pulp
+        state: restarted
+
+    - name: "Docker Stack | Pulp | pre-start | Wait for Pulp API after restart"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ __docker_stack__pulp__http_port }}/pulp/api/v3/"
+        method: GET
+        status_code: 200
+      register: __pulp_api_check
+      retries: 15
+      delay: 5
+      until: __pulp_api_check is success
+
+# ------------------------------------------------------------------
+# Ensure internal Ansible repository + distribution exist
+# ------------------------------------------------------------------
+- name: "Docker Stack | Pulp | pre-start | Ensure internal Ansible repository exists"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ __docker_stack__pulp__http_port }}/pulp/api/v3/repositories/ansible/ansible/"
+    method: POST
+    user: "{{ __docker_stack__pulp__admin_username }}"
+    password: "{{ __docker_stack__pulp__admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ __docker_stack__pulp__ansible_repo_name | d('internal-collections') }}"
+      description: "Repository for internally developed Ansible collections"
+    status_code: [201, 400]          # 400 = already exists
+  register: __pulp_repo_create
+  failed_when:
+    - __pulp_repo_create.status not in [201, 400]
+    - "'already exists' not in (__pulp_repo_create.json | default({}) | to_json)"
+
+- name: "Docker Stack | Pulp | pre-start | Get internal Ansible repository href"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ __docker_stack__pulp__http_port }}/pulp/api/v3/repositories/ansible/ansible/?name={{ __docker_stack__pulp__ansible_repo_name | d('internal-collections') }}"
+    method: GET
+    user: "{{ __docker_stack__pulp__admin_username }}"
+    password: "{{ __docker_stack__pulp__admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: __pulp_repo_list
+
+- name: "Docker Stack | Pulp | pre-start | Set repository href fact"
+  ansible.builtin.set_fact:
+    __pulp_ansible_repo_href: "{{ __pulp_repo_list.json.results[0].pulp_href }}"
+
+- name: "Docker Stack | Pulp | pre-start | Ensure internal Ansible distribution exists"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ __docker_stack__pulp__http_port }}/pulp/api/v3/distributions/ansible/ansible/"
+    method: POST
+    user: "{{ __docker_stack__pulp__admin_username }}"
+    password: "{{ __docker_stack__pulp__admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ __docker_stack__pulp__ansible_distro_name | d('internal-collections') }}"
+      base_path: "{{ __docker_stack__pulp__ansible_base_path | d('internal', true) }}"
+      repository: "{{ __pulp_ansible_repo_href }}"
+    status_code: [201, 202, 400]          # ← add 202
+  register: __pulp_distro_create
+  failed_when:
+    - __pulp_distro_create.status not in [201, 202, 400]
+    - "'already exists' not in (__pulp_distro_create.json | default({}) | to_json | lower)"
+
+- name: "Docker Stack | Pulp | pre-start | Wait for distribution create task (when async)"
+  when:
+    - __pulp_distro_create.status == 202
+    - __pulp_distro_create.json.task is defined
+  ansible.builtin.uri:
+    url: "http://localhost:{{ __docker_stack__pulp__http_port }}{{ __pulp_distro_create.json.task }}"
+    method: GET
+    user: "{{ __docker_stack__pulp__admin_username }}"
+    password: "{{ __docker_stack__pulp__admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: __pulp_task
+  retries: 30
+  delay: 2
+  until: __pulp_task.json.state in ['completed', 'failed', 'canceled']
+  failed_when: __pulp_task.json.state != 'completed'
+
+- name: "Docker Stack | Pulp | pre-start | Display final Galaxy endpoint"
+  ansible.builtin.debug:
+    msg:
+      - "Internal collections repository + distribution are ready"
+      - "Galaxy publish / install URL:"
+      - "  https://pulp.media.johnson.int/pulp_ansible/galaxy/{{ __docker_stack__pulp__ansible_base_path | d('internal', true) }}/"

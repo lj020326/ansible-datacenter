@@ -44,7 +44,7 @@
       ansible.builtin.assert:
         that:
           - item['credential_type'] in (controller_credential_types | map(attribute='name') + __controller_default_credential_types)
-          - item['organization'] | d('dettonville') in controller_organizations | map(attribute='name')
+          - item['organization'] | d('dettonville', true) in controller_organizations | map(attribute='name')
         quiet: True
       loop: "{{ controller_credentials }}"
       loop_control:
@@ -232,7 +232,7 @@
 
         - name: Validate that credential exists in same environments as calling job templates
           ansible.builtin.assert:
-            that: item['job_template']['environments'] | d(bootstrap_ansible_controller__allowed_environments) is
+            that: item['job_template']['environments'] | d(bootstrap_ansible_controller__allowed_environments, true) is
               subset(item['credential']['environments'])
             fail_msg: >-
               "Job template '{{ item['job_template']['name'] }}' defined for environments {{ item['job_template']['environments'] |
@@ -326,7 +326,7 @@
         label: "{{ item['schedule_name'] }}"
 
     - name: Validate referenced workflows
-      when: item['workflow_job_name'] | d('')| length>0
+      when: item['workflow_job_name'] | d('', true)| length>0
       ansible.builtin.assert:
         that: item['workflow_job_name'] in (__controller_workflow_templates | map(attribute='name'))
         fail_msg: "{{ item }} does not exist in __controller_workflow_templates"
@@ -347,12 +347,12 @@
 
     - name: Validate that schedule environments match job template environments
       ansible.builtin.assert:
-        that: item['environments'] | d(bootstrap_ansible_controller__allowed_environments) is
+        that: item['environments'] | d(bootstrap_ansible_controller__allowed_environments, true) is
               subset(controller_job_templates | selectattr('name', 'eq', item['job_template_name']) |
               map(attribute='environments', default=bootstrap_ansible_controller__allowed_environments) | flatten)
         fail_msg: >-
           "{{ item['schedule_name'] }} defined for environments
-          {{ item['environments'] | d(bootstrap_ansible_controller__allowed_environments) }} but job template
+          {{ item['environments'] | d(bootstrap_ansible_controller__allowed_environments, true) }} but job template
           {{ item['job_template_name'] }} defined for environments
           {{ controller_job_templates | selectattr('name', 'eq', item['job_template_name']) |
           map(attribute='environments', default=bootstrap_ansible_controller__allowed_environments) | flatten }}"

@@ -9,7 +9,7 @@
   ansible.builtin.package:
     name: "{{ bootstrap_sshd__packages }}"
     state: present
-    use: "{{ (__bootstrap_sshd__is_ostree | d(false)) | ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
+    use: "{{ (__bootstrap_sshd__is_ostree | d(false, true)) | ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
 
 - name: Sysconfig configuration
   when:
@@ -130,14 +130,14 @@
         - bootstrap_sshd__manage_firewall | bool
         - ansible_facts['os_family'] == 'RedHat'
         - ansible_facts['distribution_version'] is version('7', '>=')
-        - ansible_facts['virtualization_type'] | d(None) not in __bootstrap_sshd__skip_virt_env
+        - ansible_facts['virtualization_type'] | d(None, true) not in __bootstrap_sshd__skip_virt_env
       ansible.builtin.include_tasks: firewall.yml
 
     - name: Configure selinux
       when:
         - bootstrap_sshd__manage_selinux | bool
         - ansible_facts['os_family'] == 'RedHat'
-        - ansible_facts['virtualization_type'] | d(None) not in __bootstrap_sshd__skip_virt_env
+        - ansible_facts['virtualization_type'] | d(None, true) not in __bootstrap_sshd__skip_virt_env
       ansible.builtin.include_tasks: selinux.yml
 
     - name: Create the complete configuration file

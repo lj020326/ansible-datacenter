@@ -31,10 +31,10 @@
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    owner: "{{ item.owner | d('root') }}"
-    group: "{{ item.owner | d('root') }}"
-    mode: "{{ item.mode | d(omit) }}"
-    recurse: "{{ item.recurse | d(omit) }}"
+    owner: "{{ item.owner | d('root', true) }}"
+    group: "{{ item.owner | d('root', true) }}"
+    mode: "{{ item.mode | d(omit, true) }}"
+    recurse: "{{ item.recurse | d(omit, true) }}"
   loop: "{{ __deploy_ca_certs__script_dirs }}"
 
 ## ref: http://www.mydailytutorials.com/ansible-template-module-examples/
@@ -42,12 +42,12 @@
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    force: "{{ item.force | d(true) }}"
+    force: "{{ item.force | d(true, true) }}"
     ## ref: https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html
-    mode: "{{ item.mode | d('0755') }}"
-    owner: "{{ item.owner | d('root') }}"
-    group: "{{ item.owner | d('root') }}"
-    backup: "{{ item.backup | d(omit) }}"
+    mode: "{{ item.mode | d('0755', true) }}"
+    owner: "{{ item.owner | d('root', true) }}"
+    group: "{{ item.owner | d('root', true) }}"
+    backup: "{{ item.backup | d(omit, true) }}"
   loop: "{{ __deploy_ca_certs__scripts }}"
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Fetch root cert from keystore"
@@ -74,7 +74,7 @@
   ansible.builtin.command: "{{ __deploy_ca_certs__trust_ca_update_trust_cmd }}"
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Fetch host cert/key from keystore"
-  when: not deploy_ca_certs__using_stepca | d(false) | bool
+  when: not deploy_ca_certs__using_stepca | d(false, true) | bool
   block:
     - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Fetch host cert/key from keystore"
       ansible.builtin.include_tasks: slurp_from_to.yml
@@ -109,7 +109,7 @@
           mode: "0600"
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch }} fetch host cert/key using step-ca"
-  when: deploy_ca_certs__using_stepca | d(false) | bool
+  when: deploy_ca_certs__using_stepca | d(false, true) | bool
   ansible.builtin.include_tasks: fetch_certs_stepca.yml
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Remove/Reset key from known_hosts"
@@ -120,7 +120,7 @@
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch }} Fetch intermediate certs"
   when:
-    - deploy_ca_certs__deploy_intermediate_certs | d(true) | bool
+    - deploy_ca_certs__deploy_intermediate_certs | d(true, true) | bool
     - __deploy_ca_certs__ca_intermediate_cert_list | d([], true) | length > 0
   #  become: false
   block:

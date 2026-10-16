@@ -5,7 +5,7 @@
   block:
     # 1. Fetch via local path
     - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from local path"
-      when: __external_cert_info.local_path | d('') | length > 0
+      when: __external_cert_info.local_path | d('', true) | length > 0
       block:
         - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from local path"
           no_log: true
@@ -21,18 +21,18 @@
 
     # 2. Fetch via host cert retrieval (direct host connection)
     - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch directly from host ssl connection"
-      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "host"
+      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method, true) == "host"
       block:
         - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate 'host' defined when fetch_method is 'host'"
           ansible.builtin.assert:
-            that: __external_cert_info.host | d('') | length > 0
+            that: __external_cert_info.host | d('', true) | length > 0
             fail_msg: "Required __external_cert_info.host field missing when __external_cert_info.fetch_method=='host'"
 
         - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from host via community.crypto.get_certificate"
           no_log: true
           community.crypto.get_certificate:
             host: "{{ __external_cert_info.host.split(':')[0] }}"
-            port: "{{ __external_cert_info.host.split(':')[1] | d(443) }}"
+            port: "{{ __external_cert_info.host.split(':')[1] | d(443, true) }}"
             get_certificate_chain: true
           register: __crypto_module_fetch
           delegate_to: localhost
@@ -44,11 +44,11 @@
 
     # 3. Existing: Fetch via custom command
     - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch via command" # noqa: command-instead-of-shell
-      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "command"
+      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method, true) == "command"
       block:
         - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate 'command' defined when fetch_method is 'command'"
           ansible.builtin.assert:
-            that: __external_cert_info.command | d('') | length > 0
+            that: __external_cert_info.command | d('', true) | length > 0
             fail_msg: "Required __external_cert_info.command field missing when __external_cert_info.fetch_method=='command'"
 
         - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch via command" # noqa: command-instead-of-shell
@@ -66,11 +66,11 @@
 
     # 4. Existing: Fetch via direct URL
     - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from URL"
-      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "url"
+      when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method, true) == "url"
       block:
         - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Validate 'url' defined when fetch_method is 'url'"
           ansible.builtin.assert:
-            that: __external_cert_info.url | d('') | length > 0
+            that: __external_cert_info.url | d('', true) | length > 0
             fail_msg: "Required __external_cert_info.url field missing when __external_cert_info.fetch_method=='url'"
 
         - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Fetch from URL"
@@ -95,7 +95,7 @@
             verbosity: 1
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set PEM content fact"
-  when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) != "host"
+  when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method, true) != "host"
   block:
     - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set PEM content fact"
       no_log: true
@@ -105,7 +105,7 @@
             (__local_cert_slurp.content | b64decode)
             | d(__cmd_cert_fetch.stdout)
             | d(__url_cert_fetch.content)
-            | d('')
+            | d('', true)
           }}
 
     - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __cert_pem_content"
@@ -125,7 +125,7 @@
       delegate_to: localhost
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Set PEM blocks for host method"
-  when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method) == "host"
+  when: __external_cert_info.fetch_method | d(bootstrap_pki__external_cas_default_fetch_method, true) == "host"
   no_log: true
   ansible.builtin.set_fact:
     __cert_pem_blocks: "{{ __crypto_module_fetch.verified_chain | default([]) }}"
@@ -183,9 +183,9 @@
     __cert_description: "{{ __external_cert_info.description
       | d(__root_cert_info.subject.commonName) | d('External CA Certificate') }}"
     __cert_identifier: "{{ __root_cert_info.subject.commonName
-      | d('unknown') | lower | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
+      | d('unknown', true) | lower | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
     __ski_slug: "{{ __root_cert_info.subject_key_identifier
-      | d('default') | regex_replace('[:]', '') | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
+      | d('default', true) | regex_replace('[:]', '') | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display hybrid identifier"
   ansible.builtin.debug:
@@ -215,15 +215,15 @@
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __external_root_cert_verify.verify_failed"
   ansible.builtin.debug:
-    var: __external_root_cert_verify.verify_failed | d(true)
+    var: __external_root_cert_verify.verify_failed | d(true, true)
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __external_root_cert_verify when failed"
-  when: __external_root_cert_verify.verify_failed | d(true)
+  when: __external_root_cert_verify.verify_failed | d(true, true)
   ansible.builtin.debug:
     var: __external_root_cert_verify
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Display __external_root_cert_verify"
-  when: not (__external_root_cert_verify.verify_failed | d(true))
+  when: not (__external_root_cert_verify.verify_failed | d(true, true))
   ansible.builtin.debug:
     var: __external_root_cert_verify
     verbosity: 1
@@ -261,7 +261,7 @@
 # ===============================================================
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Get Vault KV Cert Fingerprint"
-  when: not __existing_kv.failed | d(true)
+  when: not __existing_kv.failed | d(true, true)
   no_log: true
   community.crypto.x509_certificate_info:
     content: "{{ __existing_kv.data.data.certificate }}"
@@ -289,9 +289,9 @@
   ansible.builtin.set_fact:
     __external_ca_needs_update: >-
       {{
-        __existing_kv.failed | d(true) or
-        __kv_cert_info.failed | d(true) or
-        __fingerprint_match_failed | d(true)
+        __existing_kv.failed | d(true, true) or
+        __kv_cert_info.failed | d(true, true) or
+        __fingerprint_match_failed | d(true, true)
       }}
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Skip if unchanged"
@@ -303,7 +303,7 @@
   when: not __is_self_signed | bool
   ansible.builtin.debug:
     msg: >-
-      [WARNING]: Storing {{ __cert_identifier }}: No valid self-signed root extracted (chain: {{ __chain_length | d(0) }} certs).
+      [WARNING]: Storing {{ __cert_identifier }}: No valid self-signed root extracted (chain: {{ __chain_length | d(0, true) }} certs).
       Fallback to last cert in chain; verify manually.
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Store cert in Vault KV"
@@ -319,13 +319,13 @@
       description: "{{ __cert_description }}"
       identifier: "{{ __cert_identifier }}"  # Full hybrid
       ski_slug: "{{ __ski_slug }}"
-      source_config_item: "{{ __external_cert_info.name | default('unknown') }}"
-      common_name: "{{ __root_cert_info.subject.commonName | d(omit) }}"
-      serial_number: "{{ __root_cert_info.serial_number | d(omit) }}"
-      subject_key_identifier: "{{ __root_cert_info.subject_key_identifier | d(omit) }}"
-      fingerprint_sha256: "{{ __root_cert_info.fingerprints.sha256 | d(omit) }}"
-      chain_length: "{{ __chain_length | d(0) }}"
-      is_self_signed: "{{ __is_self_signed | d(false) }}"
+      source_config_item: "{{ __external_cert_info.name | d('unknown', true) }}"
+      common_name: "{{ __root_cert_info.subject.commonName | d(omit, true) }}"
+      serial_number: "{{ __root_cert_info.serial_number | d(omit, true) }}"
+      subject_key_identifier: "{{ __root_cert_info.subject_key_identifier | d(omit, true) }}"
+      fingerprint_sha256: "{{ __root_cert_info.fingerprints.sha256 | d(omit, true) }}"
+      chain_length: "{{ __chain_length | d(0, true) }}"
+      is_self_signed: "{{ __is_self_signed | d(false, true) }}"
       not_after: "{{ __root_cert_info.not_after }}"
       fetched_at: "{{ ansible_facts['date_time']['iso8601'] }}"
     validate_certs: false
@@ -338,10 +338,10 @@
     msg: >-
       Stored root cert for {{ __cert_identifier }} in Vault KV {{
       bootstrap_pki__vault_kv_mount_point }}/trusted_external.
-      Chain length was {{ __chain_length | d(0) }}; root is self-signed: {{ __is_self_signed | d(false) }}.
-      Stored: {{ __kv_put_result.changed | ternary('Yes (new/updated)', 'No (unchanged)') | d('Skipped') }}
+      Chain length was {{ __chain_length | d(0, true) }}; root is self-signed: {{ __is_self_signed | d(false, true) }}.
+      Stored: {{ __kv_put_result.changed | ternary('Yes (new/updated)', 'No (unchanged)') | d('Skipped', true) }}
 
 - name: "ensure-external-ca-cert[{{ __external_cert_info.name }}] : Increment stored counter if changed"
-  when: __kv_put_result.changed | d(false) # noqa: no-handler
+  when: __kv_put_result.changed | d(false, true) # noqa: no-handler
   ansible.builtin.set_fact:
-    __external_ca_stored_count: "{{ (__external_ca_stored_count | default(0)) | int + 1 }}"
+    __external_ca_stored_count: "{{ (__external_ca_stored_count | d(0, true)) | int + 1 }}"

@@ -26,7 +26,7 @@
 - name: Ollama | Models | Set __models_normalized
   ansible.builtin.set_fact:
     __models_normalized: "{{ __bootstrap_llm_host__ollama_models
-      | map('combine', {'type': item.type | d('pull')})
+      | map('combine', {'type': item.type | d('pull', true)})
       | selectattr('type', 'defined')
       | list }}"
 
@@ -78,8 +78,8 @@
     - name: Ollama | Models | Wait for Ollama API to be ready
       dettonville.llm.ollama_api:
         url: "{{ __bootstrap_llm_host__ollama_api_url }}"
-        api_key: "{{ bootstrap_llm_host__ollama_api_key | default(omit) }}"
-        api_auth_type: "{{ bootstrap_llm_host__ollama_api_auth_type | default(omit) }}"
+        api_key: "{{ bootstrap_llm_host__ollama_api_key | d(omit, true) }}"
+        api_auth_type: "{{ bootstrap_llm_host__ollama_api_auth_type | d(omit, true) }}"
         action: health
       register: __health_result
       until: __health_result is succeeded
@@ -100,7 +100,7 @@
       #      become: false
       dettonville.llm.ollama_api:
         url: "{{ __bootstrap_llm_host__ollama_api_url }}"
-        api_key: "{{ bootstrap_llm_host__ollama_api_key | default(omit) }}"
+        api_key: "{{ bootstrap_llm_host__ollama_api_key | d(omit, true) }}"
         api_auth_type: "{{ bootstrap_llm_host__ollama_api_auth_type }}"
         action: sync
         model_list: "{{ __models_normalized | selectattr('type', 'equalto', 'pull') | map(attribute='name') | list }}"
@@ -150,7 +150,7 @@
     - name: Ollama | Models | Create custom Ollama models
       dettonville.llm.ollama_api:
         url: "{{ __bootstrap_llm_host__ollama_api_url }}"
-        api_key: "{{ bootstrap_llm_host__ollama_api_key | default(omit) }}"
+        api_key: "{{ bootstrap_llm_host__ollama_api_key | d(omit, true) }}"
         api_auth_type: "{{ bootstrap_llm_host__ollama_api_auth_type }}"
         action: create
         model_name: "{{ item.name }}"

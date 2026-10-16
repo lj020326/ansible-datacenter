@@ -10,7 +10,7 @@
     - /etc/run-os-update/post-update.d
 
 - name: Find files in hook directories
-  when: bootstrap_linux_core__reset_daily_scripts | d(false) | bool
+  when: bootstrap_linux_core__reset_daily_scripts | d(false, true) | bool
   ansible.builtin.find:
     paths: "/etc/run-os-update/{{ item }}"
     patterns: "*"
@@ -22,7 +22,7 @@
   register: __found_hook_files
 
 - name: Remove existing hook files
-  when: bootstrap_linux_core__reset_daily_scripts | d(false) | bool
+  when: bootstrap_linux_core__reset_daily_scripts | d(false, true) | bool
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
@@ -50,7 +50,7 @@
 - name: Init __bootstrap_linux_core__os_update_hooks
   ansible.builtin.set_fact:
     __bootstrap_linux_core__os_update_hooks: "{{
-      bootstrap_linux_core__os_update_hooks | d([], true) }}"
+      bootstrap_linux_core__os_update_hook | d([], true) }}"
 
 - name: Combine bootstrap_linux_core__os_update_hooks__* vars into merged list
   ansible.builtin.set_fact:
@@ -66,7 +66,7 @@
     var: __bootstrap_linux_core__os_update_hooks
 
 - name: Deploy batch hook scripts
-  when: item.state | d('present') == "present"
+  when: item.state | d('present', true) == "present"
   ansible.builtin.copy:
     dest: "/etc/run-os-update/{{ item.hook_type }}/{{ item.filename }}"
     mode: '0755'
@@ -74,8 +74,20 @@
   loop: "{{ __bootstrap_linux_core__os_update_hooks }}"
 
 - name: Remove absent batch hook scripts
-  when: item.state | d('present') == "absent"
+  when: item.state | d('present', true) == "absent"
   ansible.builtin.file:
     path: "/etc/run-os-update/{{ item.hook_type }}/{{ item.filename }}"
     state: absent
   loop: "{{ __bootstrap_linux_core__os_update_hooks }}"
+
+- name: Install os-update resume systemd service
+  ansible.builtin.template:
+    src: os-update-resume.service.j2
+    dest: /etc/systemd/system/os-update-resume.service
+    mode: '0644'
+
+- name: Enable os-update resume service
+  ansible.builtin.systemd:
+    name: os-update-resume.service
+    enabled: true
+    daemon_reload: true

@@ -2,7 +2,7 @@
 - name: "Validate CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__cert_node }}] | Set __log_prefix_local"
   ansible.builtin.set_fact:
     __log_prefix_local: Validate CAcert [{{ bootstrap_certs__ca_cert_type }}][{{ __bootstrap_certs__ca_cert_cn
-      | d(__bootstrap_certs__cert_node) | d(__bootstrap_certs__ca_cert) }}] |
+      | d(__bootstrap_certs__cert_node, true) | d(__bootstrap_certs__ca_cert, true) }}] |
 
 - name: "{{ __log_prefix_local }} Initialize __cert_validation_results"
   ansible.builtin.set_fact:
@@ -55,7 +55,7 @@
             + __bootstrap_certs__ca_cert + ' does not exist']}) }}"
 
 - name: "{{ __log_prefix_local }} Check certificate expiration date"
-  when: __cert_file.stat.exists | d(false)
+  when: __cert_file.stat.exists | d(false, true)
   block:
     - name: "{{ __log_prefix_local }} Check certificate expiration date"
       changed_when: false
@@ -70,7 +70,7 @@
         var: __cert_validity_exp_date_check_result.failed
 
     - name: "{{ __log_prefix_local }} Set __cert_validation_results.failed to true"
-      when: __cert_validity_exp_date_check_result.failed | d(true)
+      when: __cert_validity_exp_date_check_result.failed | d(true, true)
       ansible.builtin.set_fact:
         __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
@@ -80,7 +80,7 @@
 - name: "{{ __log_prefix_local }} Check if CA cert info and expiration is valid"
   when:
     - bootstrap_certs__ca_cert_type != "root-ca"
-    - __cert_file.stat.exists | d(false)
+    - __cert_file.stat.exists | d(false, true)
   block:
     ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
     - name: "{{ __log_prefix_local }} Get ca certificate info"
@@ -109,7 +109,7 @@
         var: __assert_cert_info_valid
 
     - name: "{{ __log_prefix_local }} Set __cert_validation_results.failed to true"
-      when: __assert_cert_info_valid.failed | d(false) | bool
+      when: __assert_cert_info_valid.failed | d(false, true) | bool
       ansible.builtin.set_fact:
         __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
@@ -128,7 +128,7 @@
         var: __assert_cert_expiration
 
     - name: "{{ __log_prefix_local }} Set __cert_validation_results.failed to true"
-      when: __assert_cert_expiration.failed | d(false) | bool
+      when: __assert_cert_expiration.failed | d(false, true) | bool
       ansible.builtin.set_fact:
         __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,
@@ -138,12 +138,12 @@
 - name: "{{ __log_prefix_local }} Check if CA cert signature is valid"
   when:
     - bootstrap_certs__ca_cert_type != "root-ca"
-    - __cert_file.stat.exists | d(false)
+    - __cert_file.stat.exists | d(false, true)
   block:
     - name: "{{ __log_prefix_local }} Validate signed by ca signer certs"
       changed_when: false
       ignore_errors: true
-      #      when: __cert_file.stat.exists | d(false)
+      #      when: __cert_file.stat.exists | d(false, true)
       #      ansible.builtin.command: >-
       #        openssl verify -CAfile \
       #          {{ __bootstrap_certs__ca_signer_cacerts_dir }}/{{ __bootstrap_certs__ca_signer_cert }} \
@@ -159,7 +159,7 @@
         var: __cert_validity_signer
 
     - name: "{{ __log_prefix_local }} Set __cert_validation_results.failed to true"
-      when: __cert_validity_signer.failed | d(false) | bool
+      when: __cert_validity_signer.failed | d(false, true) | bool
       ansible.builtin.set_fact:
         __cert_validation_results: "{{ __cert_validation_results | d({}, true)
           | combine({'failed': true,

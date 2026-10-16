@@ -79,9 +79,9 @@
         - name: "ensure-trusted-internal : Log reset"
           ansible.builtin.debug:
             msg: >-
-              Hard-reset trusted_internal: soft-deleted data for {{ __internal_ca_keys_list | length | default(0) }} entries,
+              Hard-reset trusted_internal: soft-deleted data for {{ __internal_ca_keys_list | length | d(0, true) }} entries,
               hard-deleted metadata for {{ __metadata_delete_results.results
-                | selectattr('status', 'in', [200, 204]) | list | length | default(0) }}.
+                | selectattr('status', 'in', [200, 204]) | list | length | d(0, true) }}.
           run_once: true
 
         - name: "ensure-trusted-internal : Verify trusted_internal is empty post-reset"
@@ -121,7 +121,7 @@
 - name: "ensure-trusted-internal : Log initialization result"
   ansible.builtin.debug:
     msg: >-
-      trusted_internal path {% if __placeholder_result.changed | d(false) %}initialized (placeholder created){% else %}already exists{% endif %}.
+      trusted_internal path {% if __placeholder_result.changed | d(false, true) %}initialized (placeholder created){% else %}already exists{% endif %}.
       Ready for internal cert storage/listing in deploy_pki_certs.
 
 - name: "ensure-trusted-internal : Read Root CA certificate"
@@ -167,7 +167,7 @@
 
 - name: "ensure-trusted-internal : Extract existing KV fingerprint"
   ansible.builtin.set_fact:
-    __existing_fingerprint: "{{ __existing_kv_root_cert.data.data.fingerprint_sha256 | d('') }}"
+    __existing_fingerprint: "{{ __existing_kv_root_cert.data.data.fingerprint_sha256 | d('', true) }}"
   run_once: true
   changed_when: false
 
@@ -193,10 +193,10 @@
     path: "trusted_internal/{{ __bootstrap_pki__root_cert_basename }}"
     data:
       certificate: "{{ __root_cert_content }}"
-      common_name: "{{ __root_cert_info.subject.commonName | d(omit) }}"
-      serial_number: "{{ __root_cert_info.serial_number | d(omit) }}"
-      subject_key_identifier: "{{ __root_cert_info.subject_key_identifier | d(omit) }}"
-      fingerprint_sha256: "{{ __root_cert_info.fingerprints.sha256 | d(omit) }}"
+      common_name: "{{ __root_cert_info.subject.commonName | d(omit, true) }}"
+      serial_number: "{{ __root_cert_info.serial_number | d(omit, true) }}"
+      subject_key_identifier: "{{ __root_cert_info.subject_key_identifier | d(omit, true) }}"
+      fingerprint_sha256: "{{ __root_cert_info.fingerprints.sha256 | d(omit, true) }}"
       initialized_at: "{{ ansible_facts['date_time']['iso8601'] }}"
     validate_certs: false
   register: __pki_write_trusted_root_cert
@@ -206,7 +206,7 @@
 - name: "ensure-trusted-internal : Log KV update result"
   ansible.builtin.debug:
     msg: >-
-      Root CA KV {% if __pki_write_trusted_root_cert.changed | d(false) %}updated (version {{
+      Root CA KV {% if __pki_write_trusted_root_cert.changed | d(false, true) %}updated (version {{
         __pki_write_trusted_root_cert.raw.data.version }}){% else %}unchanged (skipped){% endif %}.
       Fingerprint match: {{ __existing_fingerprint == __root_cert_info.fingerprints.sha256 }}.
   run_once: true

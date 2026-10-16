@@ -22,7 +22,7 @@
 
 - name: "ensure-deploy-token-policy : Validate existing deploy token (if provided)"
   when:
-    - bootstrap_pki__deploy_token_validate | default(true) | bool
+    - bootstrap_pki__deploy_token_validate | d(true, true) | bool
     - bootstrap_pki__deploy_token_value is defined
     - bootstrap_pki__deploy_token_value | length > 0
     - bootstrap_pki__deploy_token_accessor is defined
@@ -60,7 +60,7 @@
             fail_msg: >-
               Existing deploy token invalid or expired.
               Policies: {{ __existing_token_lookup.data.data.policies | default([]) }} (expected: {{ bootstrap_pki__deploy_policy_name }}).
-              TTL left: {{ __existing_token_lookup.data.data.ttl | default(0) }}s (< {{ bootstrap_pki__deploy_token_renew_threshold_days }} days).
+              TTL left: {{ __existing_token_lookup.data.data.ttl | d(0, true) }}s (< {{ bootstrap_pki__deploy_token_renew_threshold_days }} days).
               Will recreate. Revoke old if needed: vault token revoke {{ bootstrap_pki__deploy_token_value }}.
           run_once: true
 
@@ -76,7 +76,7 @@
         - name: "ensure-deploy-token-policy : Renew existing token if TTL low"
           when:
             - __token_needs_renewal
-            - __existing_token_lookup.data.data.renewable | default(false) | bool
+            - __existing_token_lookup.data.data.renewable | d(false, true) | bool
           block:
             - name: "ensure-deploy-token-policy : Renew existing token if TTL low"
               no_log: true
@@ -101,7 +101,7 @@
 
 - name: "ensure-deploy-token-policy : Create new deploy token (if none/ invalid)"
   when:
-    - bootstrap_pki__deploy_token_validate | default(true) | bool
+    - bootstrap_pki__deploy_token_validate | d(true, true) | bool
     - bootstrap_pki__deploy_token_value is not defined or bootstrap_pki__deploy_token_value | length == 0 or __existing_token_lookup is failed
   block:
     - name: "ensure-deploy-token-policy : Create new deploy token (if none/ invalid)"
@@ -172,10 +172,10 @@
           ansible.builtin.debug:
             msg: |
               Deploy token status:
-              - Policy updated: {{ __policy_result.changed | default(false) }}.
-              - Token created: {{ __deploy_token_result.changed | default(false) }}.
-              - Existing validated: {{ bootstrap_pki__deploy_token_value is defined and __existing_token_lookup is success | default(false) }}.
-              {% if __renew_result is defined %}- Renewed: {{ __renew_result.changed | default(false) }}.{% endif %}
+              - Policy updated: {{ __policy_result.changed | d(false, true) }}.
+              - Token created: {{ __deploy_token_result.changed | d(false, true) }}.
+              - Existing validated: {{ bootstrap_pki__deploy_token_value is defined and __existing_token_lookup is success | d(false, true) }}.
+              {% if __renew_result is defined %}- Renewed: {{ __renew_result.changed | d(false, true) }}.{% endif %}
               {% if bootstrap_pki__deploy_token_value is defined %}
               Action: Update vars/vault.yml with new token for '{{ bootstrap_pki__deploy_token_name }}' if changed.
               {% endif %}

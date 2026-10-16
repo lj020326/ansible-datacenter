@@ -24,6 +24,11 @@ jobs:
       - name: Create results directory
         run: mkdir -p .test-results
 
+      # Add this step so the action finds 'results.json' immediately
+      # and does not throw ENOENT error during execution
+      - name: Link results.json for KICS action wrapper
+        run: ln -sfn kics-results.json .test-results/results.json || true
+
       - name: Run KICS scan
         # Pin to a tagged release instead of @master
         uses: checkmarx/kics-action@v2.1.20
@@ -31,7 +36,7 @@ jobs:
 #        uses: checkmarx/kics-action@master
         with:
           path: "."
-          output_path: ".test-results"
+          output_path: ".test-results/"
           # KICS will generate: junit.xml, json.json, and html.html in the output_path
           output_formats: "junit,json,html"
           config_path: ".kics-config.yml"
@@ -42,7 +47,8 @@ jobs:
       # Debug step to verify file names if it fails again
       - name: List results
         if: always()
-        run: ls -R .test-results
+        run: |
+          ls -R .test-results/
 
       - name: Publish KICS-Lint Results
         if: always()

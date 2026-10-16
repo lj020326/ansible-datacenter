@@ -59,7 +59,7 @@
   notify: Docker | Restart Docker
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Configure custom systemd unit file override"
-  when: bootstrap_docker__systemd_override | d('') | length > 0
+  when: bootstrap_docker__systemd_override | d('', true) | length > 0
   ansible.builtin.template:
     src: etc/systemd/system/docker.service.d/custom.conf.j2
     dest: /etc/systemd/system/docker.service.d/custom.conf
@@ -88,15 +88,15 @@
 #
 #- name: {{ __bootstrap_docker__log_prefix_deploy_config }} Manage Docker registry login credentials
 #  community.docker.docker_login:
-#    registry_url: "{{ item.registry_url | d(omit) }}"
+#    registry_url: "{{ item.registry_url | d(omit, true) }}"
 #    username: "{{ item.username }}"
 #    password: "{{ item.password }}"
-#    email: "{{ item.email | d(omit) }}"
-#    reauthorize: "{{ item.reauthorize | d(omit) }}"
+#    email: "{{ item.email | d(omit, true) }}"
+#    reauthorize: "{{ item.reauthorize | d(omit, true) }}"
 #    config_path: "{{ item.config_path | d((ansible_facts.env.PWD | d('/root')) + '/.docker/config.json') }}"
-#    state: "{{ item.state | d('present') }}"
+#    state: "{{ item.state | d('present', true) }}"
 #  loop: "{{ bootstrap_docker__registries }}"
-#  when: item.username | d('') | length > 0 and item.password | d('') | length > 0
+#  when: item.username | d('', true) | length > 0 and item.password | d('', true) | length > 0
 #  vars:
 #    ansible_python_interpreter: "{{ '/usr/bin/env python-docker' if bootstrap_docker__pip_virtualenv | d() else ansible_python.executable }}"
 
@@ -104,21 +104,21 @@
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    owner: "{{ item.owner | d('root') }}"
-    group: "{{ item.owner | d('root') }}"
-    mode: "{{ item.mode | d(omit) }}"
-    recurse: "{{ item.recurse | d(omit) }}"
+    owner: "{{ item.owner | d('root', true) }}"
+    group: "{{ item.owner | d('root', true) }}"
+    mode: "{{ item.mode | d(omit, true) }}"
+    recurse: "{{ item.recurse | d(omit, true) }}"
   loop: "{{ bootstrap_docker__script_dirs }}"
 
 - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Install docker admin/utility scripts"
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest |  d(bootstrap_docker__script_dir) }}"
-    force: "{{ item.force | d('true') }}"
+    force: "{{ item.force | d('true', true) }}"
     backup: true
-    mode: "{{ item.mode | d('0770') }}"
-    owner: "{{ item.owner | d('root') }}"
-    group: "{{ item.owner | d('root') }}"
+    mode: "{{ item.mode | d('0770', true) }}"
+    owner: "{{ item.owner | d('root', true) }}"
+    group: "{{ item.owner | d('root', true) }}"
   loop: "{{ bootstrap_docker__scripts }}"
 
 ###########
@@ -133,9 +133,9 @@
 #
 #    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Remove Docker related cron jobs"
 #      when:
-#        - item.state | d("present") == "absent"
-#        - item.name | d('') | length > 0 and item.job | d('') | length > 0
-#        - item.schedule | d('') | length > 0 and item.cron_file | d('') | length > 0
+#        - item.state | d("present", true) == "absent"
+#        - item.name | d('', true) | length > 0 and item.job | d('', true) | length > 0
+#        - item.schedule | d('', true) | length > 0 and item.cron_file | d('', true) | length > 0
 #      ansible.builtin.file:
 #        path: "/etc/cron.d/{{ item.cron_file }}"
 #        state: absent
@@ -143,9 +143,9 @@
 #
 #    - name: "{{ __bootstrap_docker__log_prefix_deploy_config }} Create Docker related cron jobs"
 #      when:
-#        - item.state | d("present") != "absent"
-#        - item.name | d('') | length > 0 and item.job | d('') | length > 0
-#        - item.schedule | d('') | length > 0 and item.cron_file | d('') | length > 0
+#        - item.state | d("present", true) != "absent"
+#        - item.name | d('', true) | length > 0 and item.job | d('', true) | length > 0
+#        - item.schedule | d('', true) | length > 0 and item.cron_file | d('', true) | length > 0
 #      ansible.builtin.cron:
 #        name: "{{ item.name }}"
 #        job: "{{ item.job }}"
@@ -155,5 +155,5 @@
 #        month: "{{ item.schedule[3] }}"
 #        weekday: "{{ item.schedule[4] }}"
 #        cron_file: "{{ item.cron_file }}"
-#        user: "{{ item.user | d('root') }}"
+#        user: "{{ item.user | d('root', true) }}"
 #      loop: "{{ bootstrap_docker__cron_jobs }}"

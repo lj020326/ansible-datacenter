@@ -73,7 +73,7 @@
   register: __ca_root_result
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} check host cert info"
-  when: deploy_ca_certs__validate_certs | d(true) | bool
+  when: deploy_ca_certs__validate_certs | d(true, true) | bool
   block:
     - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Check if {{ deploy_ca_certs__local_cert_dir }}/{{ deploy_ca_certs__hostname_full }}.pem exists"
       no_log: true
@@ -131,7 +131,7 @@
 #      ansible.builtin.command: "{{ __deploy_ca_certs__trust_ca_update_trust_cmd }}"
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Validate root cert"
-  when: deploy_ca_certs__validate_certs | d(true) | bool
+  when: deploy_ca_certs__validate_certs | d(true, true) | bool
   block:
     - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Display ansible_python_interpreter"
       ansible.builtin.debug:
@@ -152,7 +152,7 @@
       register: __step_get_result
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Fetch host cert and key"
-  when: deploy_ca_certs__deploy_host_certs | d(true) | bool
+  when: deploy_ca_certs__deploy_host_certs | d(true, true) | bool
   block:
     - name: Get firewalld service status
       ansible.builtin.systemd:
@@ -161,7 +161,7 @@
 
     - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Temporarily permit traffic on port {{
         __deploy_ca_certs__stepca_acme_http_challenge_proxy_port }}/tcp in order to perform stepca host verification"
-      when: __firewalld_service_state.status.ActiveState | d('') == 'active'
+      when: __firewalld_service_state.status.ActiveState | d('', true) == 'active'
       ansible.posix.firewalld:
         port: "{{ __deploy_ca_certs__stepca_acme_http_challenge_proxy_port }}/tcp"
         state: enabled
@@ -177,7 +177,7 @@
           --http-listen :{{ __deploy_ca_certs__stepca_acme_http_challenge_proxy_port }}
 
 - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Create bundle"
-  when: deploy_ca_certs__create_cert_bundle | d(true) | bool
+  when: deploy_ca_certs__create_cert_bundle | d(true, true) | bool
   block:
     - name: "{{ __deploy_ca_certs__log_prefix_fetch_stepca }} Create cert bundle from stepca to {{ deploy_ca_certs__local_cert_dir }}"
       when: not (ca_certbundle_result.stat.exists and ca_key_result.stat.exists)

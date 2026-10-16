@@ -1,31 +1,30 @@
 ---
-title: Bootstrap Packer Role Documentation
+title: "Bootstrap Packer Role"
 role: bootstrap_packer
-category: Ansible Roles
-type: Installation
-tags: packer, automation, installation
+category: Provisioning
+type: Role
+tags: [ansible, role, bootstrap_packer]
 ---
 
-## Summary
+# Bootstrap Packer Role
 
-The `bootstrap_packer` role is designed to automate the installation of HashiCorp Packer on a target system. It ensures that the specified version of Packer is installed and handles the removal of any conflicting binaries (such as `/usr/sbin/packer`). The role also manages required packages necessary for Packer's operation.
+This Ansible role installs and configures Packer, a popular tool for creating identical machine images for multiple platforms from a single source configuration.
 
 ## Variables
 
-| Variable Name                             | Default Value                    | Description                                                                 |
-|-------------------------------------------|----------------------------------|-----------------------------------------------------------------------------|
-| `bootstrap_packer__version`               | `1.9.5`                          | The version of Packer to be installed.                                      |
-| `bootstrap_packer__arch`                  | `amd64`                          | The architecture for which the Packer binary should be downloaded.        |
-| `bootstrap_packer__bin_path`              | `/usr/local/bin`                 | The directory where the Packer binary will be installed.                    |
-| `bootstrap_packer__install_from_source_force_update` | `false`         | Forces the installation of Packer from source even if it is already installed.|
-| `bootstrap_packer__reinstall_from_source`   | `false`                          | Indicates whether to reinstall Packer from source based on version checks.  |
-| `bootstrap_packer__required_packages`     | `- unzip<br>- xorriso`           | List of required packages that need to be installed for Packer to function properly.|
+| Variable Name                           | Default Value        | Description                                                                 |
+|-----------------------------------------|---------------------|-----------------------------------------------------------------------------|
+| `bootstrap_packer__version`             | `1.9.5`             | The version of Packer to install.                                           |
+| `bootstrap_packer__arch`                | `amd64`             | The architecture for which to download the Packer binary.                   |
+| `bootstrap_packer__bin_path`            | `/usr/local/bin`    | The directory where the Packer binary will be installed.                     |
+| `bootstrap_packer__install_from_source_force_update` | `false` | Force update of Packer even if the desired version is already installed.    |
+| `bootstrap_packer__reinstall_from_source` | `false` | Force reinstallation of Packer from source.                                |
+| `bootstrap_packer__required_packages`   | `['unzip', 'xorriso']` | List of required packages to be installed before Packer installation.       |
 
 ## Usage
 
-To use the `bootstrap_packer` role, include it in your playbook and optionally override any default variables as needed.
+To use this role, include it in your playbook and set the desired variables. Here's an example:
 
-Example playbook:
 ```yaml
 - hosts: all
   roles:
@@ -33,21 +32,22 @@ Example playbook:
       vars:
         bootstrap_packer__version: "1.9.5"
         bootstrap_packer__arch: "amd64"
+        bootstrap_packer__bin_path: "/usr/local/bin"
+        bootstrap_packer__install_from_source_force_update: false
+        bootstrap_packer__reinstall_from_source: false
+        bootstrap_packer__required_packages:
+          - unzip
+          - xorriso
 ```
 
 ## Dependencies
 
-The `bootstrap_packer` role does not have any external dependencies on other Ansible roles.
+This role does not have any external dependencies. However, it requires that the target system has internet access to download the Packer binary and that the required packages (`unzip` and `xorriso`) are installed.
 
 ## Best Practices
 
-- Always specify the version of Packer you want to install using the `bootstrap_packer__version` variable.
-- Ensure that the architecture specified in `bootstrap_packer__arch` matches your target system's architecture.
-- Use the `bootstrap_packer__install_from_source_force_update` variable with caution, as it will reinstall Packer even if the correct version is already installed.
-
-## Molecule Tests
-
-This role does not include any Molecule tests at this time. Future updates may introduce test scenarios to validate the installation process.
+- Use the `bootstrap_packer__install_from_source_force_update` variable to force an update of Packer if needed.
+- Use the `bootstrap_packer__reinstall_from_source` variable to force reinstallation of Packer from source if necessary.
 
 ## Backlinks
 
