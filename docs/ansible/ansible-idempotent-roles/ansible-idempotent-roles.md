@@ -391,12 +391,12 @@ firewall_win_rules__mssql:
     program: "{{ item.program }}"
     enable: yes
     state: present
-    localport: "{{ item.localport | d(omit) }}"
-    remoteport: "{{ item.remoteport | d(omit) }}"
-    action: "{{ item.action | d(omit) }}"
-    direction: "{{ item.direction | d(omit) }}"
-    protocol: "{{ item.protocol | d(omit) }}"
-    profile: "{{ item.profile | d(omit) }}"
+    localport: "{{ item.localport | d(omit, true) }}"
+    remoteport: "{{ item.remoteport | d(omit, true) }}"
+    action: "{{ item.action | d(omit, true) }}"
+    direction: "{{ item.direction | d(omit, true) }}"
+    protocol: "{{ item.protocol | d(omit, true) }}"
+    profile: "{{ item.profile | d(omit, true) }}"
   with_items: "{{ firewall_win_rules }}"
   notify:
     - reload firewall_win

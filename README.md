@@ -174,6 +174,8 @@ bash -c "$(curl -fsSL ${INSTALL_REMOTE_SCRIPT})"
 4. **Run playbook:** Run playbook for specified tag(s) and/or group(s)
    ```shell
    run-playbook.sh -t bootstrap-linux -l admin01 site.yml
+   run-playbook.sh -t bootstrap-docker-admin -l docker_stack_admin site.yml
+   run-playbook.sh -t bootstrap-docker-control -l control02 site.yml
    ## install collections
    INSTALL_GALAXY_COLLECTIONS=1 run-playbook.sh --tags bootstrap-docker -l control01  site.yml
    ## install and upgrade collections

@@ -9,10 +9,10 @@
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Install docker stack service templates"
   ansible.builtin.template:
-    backup: "{{ item.backup | d(true) }}"
+    backup: "{{ item.backup | d(true, false) }}"
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    mode: "{{ item.mode | d('0664') }}"
+    mode: "{{ item.mode | d('0664', true) }}"
     owner: "{{ docker_stack__user_username }}"
     group: "{{ docker_stack__user_group }}"
     #    force: "{{ docker_stack__overwrite_configs }}"
@@ -21,10 +21,10 @@
 - name: "{{ __docker_stack__log_prefix__service_config }} Install docker stack proxy service templates"
   when: __docker_stack__proxy_services | length > 0
   ansible.builtin.template:
-    backup: "{{ item.backup | d(true) }}"
+    backup: "{{ item.backup | d(true, false) }}"
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    mode: "{{ item.mode | d('0664') }}"
+    mode: "{{ item.mode | d('0664', true) }}"
     owner: "{{ docker_stack__user_username }}"
     group: "{{ docker_stack__user_group }}"
     #    force: "{{ docker_stack__overwrite_configs }}"
@@ -36,103 +36,136 @@
     var: __docker_stack__secrets.keys() | list | sort
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Create docker secrets for stack if necessary"
-  when:
-    - docker_stack__swarm_mode | d(false) | bool
-    - docker_stack__swarm_manager | d(false) | bool
-    - __docker_stack__secrets | d({}, true) | length > 0
-  community.docker.docker_secret:
-    name: "{{ item.name }}"
-    data: "{{ item.value }}"
-    labels: "{{ item.labels | d(omit) }}"
-    state: present
-  #    force: true
-  loop: "{{ __docker_stack__secrets.values() | list | dettonville.utils.sort_dict_list('name') }}"
-  loop_control:
-    label: "{{ item.name }}"
-  register: __configure_docker_secrets
+  when: __docker_stack__secrets | d({}, true) | length > 0
+  block:
+    - name: "{{ __docker_stack__log_prefix__service_config }} Attempt to create/update docker secrets"
+      no_log: true
+      community.docker.docker_secret:
+        name: "{{ item.name }}"
+        data: "{{ item.value }}"
+        labels: "{{ item.labels | d(omit, true) }}"
+        state: present
+        force: false
+      loop: "{{ __docker_stack__secrets.values() | list | dettonville.utils.sort_dict_list('name') }}"
+      loop_control:
+        label: "{{ item.item.name | d(item.name, true) }}"
+      register: __configure_docker_secrets
+      ignore_errors: true
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Display msg for failed or warning __configure_docker_secrets.results"
+      when:
+        - item.failed | d(false, false) or item.warnings | d('') | length > 0
+      ansible.builtin.debug:
+        msg:
+          - "item.msg={{ item.msg | d('') }}"
+          - "item.warnings={{ item.warnings | d('') }}"
+      loop: "{{ __configure_docker_secrets.results }}"
+      loop_control:
+        label: "{{ item.item.name | d(item.name, true) }}"
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Display item for failed or warning __configure_docker_secrets.results"
+      when:
+        - item.failed | d(false, false) or item.warnings | d('') | length > 0
+      ansible.builtin.debug:
+        var: item
+        verbosity: 1
+      loop: "{{ __configure_docker_secrets.results }}"
+      loop_control:
+        label: "{{ item.item.name | d(item.name, true) }}"
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Force update the secret missing 'ansible_key' label"
+      when: item.warnings | d('', true) | regex_search("'ansible_key'.* not found") is not none
+      no_log: true
+      community.docker.docker_secret:
+        name: "{{ item.secret_name }}"
+        data: "{{ item.item.value }}"
+        labels: "{{ item.item.labels | d(omit, true) }}"
+        force: true
+      loop: "{{ __configure_docker_secrets.results }}"
+      loop_control:
+        label: "{{ item.secret_name }}"
+      register: __configure_secrets_with_force
+      ignore_errors: true
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Display __configure_secrets_with_force.results"
+      when:
+        - item.failed | d(false, false)
+      # no_log: true
+      ansible.builtin.debug:
+        var: item
+      loop: "{{ __configure_secrets_with_force.results | d([], true) }}"
+      loop_control:
+        label: "{{ item.item.item.name | d(item.item.name, true) | d(item.name, true) }}"
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Determine which services failed due to secret usage"
+      when:
+        - item.failed | d(false, false)
+        - item.msg | d('', true) | regex_search('secret .* is in use by the following service') is not none
+      ansible.builtin.set_fact:
+        __services_to_stop: "{{ (__services_to_stop | d([])) + (item.msg
+                          | regex_replace('.*is in use by the following service[s]?: (.*)', '\\1')
+                          | split(',')
+                          | map('regex_replace', '.*?([a-zA-Z0-9_\\-]+).*', '\\1')
+                          | map('trim')) }}"
+        __secrets_to_retry: "{{ (__secrets_to_retry | d([])) + [item.item.item | d(item.item, true) | d(item, true) ] }}"
+      loop: "{{ __configure_docker_secrets.results | d([], true) + __configure_secrets_with_force.results | d([], true) }}"
+      loop_control:
+        label: "{{ item.item.item.name | d(item.item.name, true) | d(item.name, true) }}"
+
+- name: "{{ __docker_stack__log_prefix__service_config }} Stop dependent services blocking secret update and retry"
+  when: __services_to_stop | default([], true) | length > 0
+  block:
+    - name: "{{ __docker_stack__log_prefix__service_config }} Display services holding the secrets"
+      ansible.builtin.debug:
+        var: __services_to_stop
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Display __secrets_to_retry"
+      ansible.builtin.debug:
+        var: __secrets_to_retry
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Stop dependent services blocking secret update"
+      community.docker.docker_swarm_service:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ __services_to_stop | unique }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: "{{ __docker_stack__log_prefix__service_config }} Retry create/update docker secrets after stopping services"
+      # no_log: true
+      community.docker.docker_secret:
+        name: "{{ item.name }}"
+        data: "{{ item.value }}"
+        labels: "{{ item.labels | d(omit, true) }}"
+        state: present
+        force: true
+      loop: "{{ __secrets_to_retry }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: __configure_docker_secrets_retry
 
 - name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__networks"
   ansible.builtin.debug:
     var: __docker_stack__networks
     verbosity: 1
 
-#- name: "Shut down docker stack"
-#  when: __docker_stack__networks | d({}, true) | length > 0
-#  ansible.builtin.include_tasks: shutdown-docker-stack.yml
+- name: "{{ __docker_stack__log_prefix__service_config }} Check if network exists"
+  community.docker.docker_network_info:
+    name: "{{ item.key }}"
+  register: __net_info
+  loop: "{{ __docker_stack__networks | dict2items }}"
 
-- name: "{{ __docker_stack__log_prefix__service_config }} Check if external Docker network exists"
-  when:
-    - not (docker_stack__swarm_mode | d(false) | bool) or docker_stack__swarm_leader | bool
-  block:
-    - name: "{{ __docker_stack__log_prefix__service_config }} Check if external Docker network exists"
-      when: item.value.external | d(false) | bool
-      community.docker.docker_network:
-        name: "{{ item.key }}"
-        state: present
-      with_dict: "{{ __docker_stack__networks }}"
-      register: __network_check
-      failed_when:
-        - __network_check is failed
-        - (__network_check.results | d([], true) | selectattr('failed', 'equalto', True) |
-           rejectattr('msg', 'search', 'network .* is in use by service') | list | length) > 0
-
-    - name: "{{ __docker_stack__log_prefix__service_config }} Display __network_check"
-      ansible.builtin.debug:
-        var: __network_check
-        verbosity: 1
-
-    - name: "{{ __docker_stack__log_prefix__service_config }} Set __docker_stack__network_exists"
-      ansible.builtin.set_fact:
-        __docker_stack__network_exists: "{{ __docker_stack__network_exists | d({}, true)
-          | combine({item.item.key: (not item.changed)}) }}"
-      loop: "{{ __network_check.results | d([], true) }}"
-      loop_control:
-        label: "{{ item.item.key }}"
-
-    - name: "{{ __docker_stack__log_prefix__service_config }} Display __docker_stack__network_exists"
-      ansible.builtin.debug:
-        var: __docker_stack__network_exists
-
-    #- name: "{{ __docker_stack__log_prefix__service_config }} Create external docker networks for swarm if necessary"
-    #  when:
-    #    - docker_stack__swarm_mode | d(false) | bool
-    #    - docker_stack__swarm_manager | d(false) | bool
-    #    - item.value.external | d(false) | bool
-    #    # Only run if the check task failed (network didn't exist)
-    #    - not __docker_stack__network_exists[item.key]
-    #  community.docker.docker_network:
-    #    name: "{{ item.key }}"
-    #    attachable: "{{ item.value.attachable | d(omit) }}"
-    #    driver: "{{ item.value.driver | d(omit) }}"
-    #    ipam_config: "{{ item.value.ipam_config | d(omit) }}"
-    #    scope: "{{ item.value.scope | d('swarm' if (docker_stack__swarm_mode | d(false)) else 'local') }}"
-    #  with_dict: "{{ __docker_stack__networks }}"
-    #  register: __configure_docker_networks
-    #
-    #- name: "{{ __docker_stack__log_prefix__service_config }} Create external docker networks for stack if necessary"
-    #  when:
-    #    - not docker_stack__swarm_mode | d(false) | bool
-    #    - item.value.external | d(false) | bool
-    #  community.docker.docker_network:
-    #    name: "{{ item.key }}"
-    #    attachable: "{{ item.value.attachable | d(omit) }}"
-    #    scope: "{{ item.value.scope | d(omit) }}"
-    ##        internal: "{{ (not item.value.external) | d(omit) }}"
-    #    ipam_config: "{{ item.value.ipam_config | d(omit) }}"
-    ##    ipam_config: "{{ item.value.ipam.config | d(omit) }}"
-    #  with_dict: "{{ __docker_stack__networks }}"
-    #  register: __configure_docker_networks
-
-    - name: "{{ __docker_stack__log_prefix__service_config }} Create external docker networks if necessary"
-      when:
-        - item.value.external | d(false) | bool
-        # Only run if the check task failed (network didn't exist)
-        - not __docker_stack__network_exists[item.key]
-      community.docker.docker_network:
-        name: "{{ item.key }}"
-        attachable: "{{ item.value.attachable | d(omit) }}"
-        driver: "{{ item.value.driver | d(omit) }}"
-        ipam_config: "{{ item.value.ipam_config | d(omit) }}"
-        scope: "{{ item.value.scope | d('swarm' if (docker_stack__swarm_mode | d(false)) else omit) }}"
-      with_dict: "{{ __docker_stack__networks }}"
-      register: __configure_docker_networks
+# Run if it's NOT an external network, OR if it's external and doesn't exist yet
+- name: "{{ __docker_stack__log_prefix__service_config }} Create missing external docker networks if necessary"
+  when: not item.item.value.external | d(false, false) | bool or not item.exists
+  community.docker.docker_network:
+    name: "{{ item.item.key }}"
+    driver: "{{ item.item.value.driver | d(omit, true) }}"
+    attachable: "{{ item.item.value.attachable | d(omit, true) }}"
+    ipam_config: "{{ item.item.value.ipam_config | d(omit, true) }}"
+    scope: "{{ item.item.value.scope | d('swarm' if (docker_stack__swarm_mode | d(false, false)) else omit) }}"
+    state: present
+  loop: "{{ __net_info.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  register: __configure_docker_networks

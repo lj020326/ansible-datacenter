@@ -8,7 +8,7 @@ __docker_stack__supported_actions:
   - up
   - down
 
-docker_stack__environment: DEV
+docker_stack__host_environment: DEV
 
 docker_stack__host_network: "10.1.0.0/16"
 
@@ -49,7 +49,7 @@ __docker_stack__architecture: "{{ ansible_facts.architecture }}"
 __docker_stack__systemd_service__name_default: "docker-compose-{{
   docker_stack__dir | replace('/','-') }}"
 __docker_stack__systemd_service__name: "{{ docker_stack__systemd_service__name
-  | d(__docker_stack__systemd_service__name_default) }}"
+  | d(__docker_stack__systemd_service__name_default, true) }}"
 
 ## Topology Toggling
 # Determines if this node handles cluster-wide operations like Swarm overlay networks
@@ -69,49 +69,50 @@ docker_stack__enable_cert_resolver: false
 
 __docker_stack__cacerts__fetch_method_default: "vault"
 __docker_stack__cacerts__fetch_method: "{{ docker_stack__cacerts__fetch_method
-  | d(__docker_stack__cacerts__fetch_method_default) }}"
+  | d(__docker_stack__cacerts__fetch_method_default, true) }}"
 
 # --- OpenBao/Vault Configuration (for "vault" mode) ---
 __docker_stack__cacerts__vault_url_default: "http://127.0.0.1:8200"
-__docker_stack__cacerts__vault_url: "{{ docker_stack__cacerts__vault_url | d(__docker_stack__cacerts__vault_url_default) }}"
-__docker_stack__cacerts__vault_token: "{{ docker_stack__cacerts__vault_token | d('') }}"
+__docker_stack__cacerts__vault_url: "{{ docker_stack__cacerts__vault_url | d(__docker_stack__cacerts__vault_url_default, true) }}"
+__docker_stack__cacerts__vault_token: "{{ docker_stack__cacerts__vault_token | d('', true) }}"
 
 __docker_stack__ca_root_cn_default: "your-root-ca.example.com" # Common Name of the Root CA to fetch
-__docker_stack__ca_root_cn: "{{ docker_stack__ca_root_cn | d(__docker_stack__ca_root_cn_default) }}"
+__docker_stack__ca_root_cn: "{{ docker_stack__ca_root_cn | d(__docker_stack__ca_root_cn_default, true) }}"
 
 __docker_stack__cacerts__vault_kv_mount_point_default: "secret"
 __docker_stack__cacerts__vault_kv_mount_point: "{{ docker_stack__cacerts__vault_kv_mount_point
-  | d(__docker_stack__cacerts__vault_kv_mount_point_default) }}"
+  | d(__docker_stack__cacerts__vault_kv_mount_point_default, true) }}"
 
 __docker_stack__cacerts__vault_kv_path_default: "{{ __docker_stack__cacerts__vault_kv_mount_point }}/{{
   __docker_stack__ca_root_cn }}/certs"
 __docker_stack__cacerts__vault_kv_path: "{{ docker_stack__cacerts__vault_kv_path
-  | d(__docker_stack__cacerts__vault_kv_path_default) }}"
+  | d(__docker_stack__cacerts__vault_kv_path_default, true) }}"
 
 ##################
 ## NOTE: the following 2 ca vars get overridden by vars/os_distribution/*.yml
 __docker_stack__ca_cert_bundle_default: /etc/pki/tls/certs/ca-bundle.crt
 #__docker_stack__ca_cert_bundle_default: "/etc/ssl/certs/ca-certificates.crt"
-__docker_stack__ca_cert_bundle: "{{ docker_stack__ca_cert_bundle | d(__docker_stack__ca_cert_bundle_default) }}"
+__docker_stack__ca_cert_bundle: "{{ docker_stack__ca_cert_bundle | d(__docker_stack__ca_cert_bundle_default, true) }}"
 
 __docker_stack__ca_java_keystore_default: /etc/pki/ca-trust/extracted/java/cacerts
-__docker_stack__ca_java_keystore: "{{ docker_stack__ca_java_keystore | d(__docker_stack__ca_java_keystore_default) }}"
+__docker_stack__ca_java_keystore: "{{ docker_stack__ca_java_keystore | d(__docker_stack__ca_java_keystore_default, true) }}"
 
 #################
 ## log prefixes
-__docker_stack__log_prefix__init_vars: Docker Stack | Init Vars |
-__docker_stack__log_prefix__app_config: Docker Stack | Setup App Configs |
-__docker_stack__log_prefix__service_config: Docker Stack | Setup Service Configs |
-__docker_stack__log_prefix__run_compose: Docker Stack | Run Compose |
-__docker_stack__log_prefix__setup_cacert: Docker Stack | Setup CA Certs |
-__docker_stack__log_prefix__self_signed_cert: Docker Stack | Setup Self-Signed Certs |
-__docker_stack__log_prefix__container_config: Docker Stack | Setup Container Configs |
-__docker_stack__log_prefix__restart_daemon: Docker Stack | Restart Docker Daemon |
-__docker_stack__log_prefix__handle_service_exc: Docker Stack | Handle Service Config Exception |
-__docker_stack__log_prefix__setup_firewalld: Docker Stack | Setup Firewall |
-__docker_stack__log_prefix__stop_services: Docker Stack | Stop Docker Services |
-__docker_stack__log_prefix__setup_systemd_service: Docker Stack | Setup Systemd Service |
-__docker_stack__log_prefix__setup_admin_scripts: Docker Stack | Setup Admin Scripts |
+__docker_stack__log_prefix__init_vars: Init Vars |
+__docker_stack__log_prefix__app_config: Setup App Configs |
+__docker_stack__log_prefix__proxy_config: Setup Proxy Configs |
+__docker_stack__log_prefix__service_config: Setup Service Configs |
+__docker_stack__log_prefix__run_compose: Run Compose |
+__docker_stack__log_prefix__setup_cacert: Setup CA Certs |
+__docker_stack__log_prefix__self_signed_cert: Setup Self-Signed Certs |
+__docker_stack__log_prefix__container_config: Setup Container Configs |
+__docker_stack__log_prefix__restart_daemon: Restart Docker Daemon |
+__docker_stack__log_prefix__handle_service_exc: Handle Service Config Exception |
+__docker_stack__log_prefix__setup_firewalld: Setup Firewall |
+__docker_stack__log_prefix__stop_services: Stop Docker Services |
+__docker_stack__log_prefix__setup_systemd_service: Setup Systemd Service |
+__docker_stack__log_prefix__setup_admin_scripts: Setup Admin Scripts |
 
 #############
 ### This is the key role input dictionary used
@@ -169,11 +170,11 @@ docker_stack__compose_stack_resolve_image: changed
 
 docker_stack__compose_http_timeout: 120
 
-#__docker_stack__port_mode_default: "{{ 'swarm' if docker_stack__swarm_mode | d(false) | bool else 'host' }}"
-#__docker_stack__port_mode_default: "{{ 'global' if docker_stack__swarm_mode | d(false) | bool else 'host' }}"
-#__docker_stack__port_mode_default: "{{ 'ingress' if docker_stack__swarm_mode | d(false) | bool else 'host' }}"
+#__docker_stack__port_mode_default: "{{ 'swarm' if docker_stack__swarm_mode | d(false, false) | bool else 'host' }}"
+#__docker_stack__port_mode_default: "{{ 'global' if docker_stack__swarm_mode | d(false, false) | bool else 'host' }}"
+#__docker_stack__port_mode_default: "{{ 'ingress' if docker_stack__swarm_mode | d(false, false) | bool else 'host' }}"
 __docker_stack__port_mode_default: host
-__docker_stack__port_mode: "{{ docker_stack__port_mode | d(__docker_stack__port_mode_default) }}"
+__docker_stack__port_mode: "{{ docker_stack__port_mode | d(__docker_stack__port_mode_default, true) }}"
 
 #############
 ## LDAP domain config - ldap vars used in multiple stacks
@@ -408,10 +409,16 @@ awx_orig_web_volumes:
   - "{{ awx_docker_compose_dir }}/nginx.conf:/etc/nginx/nginx.conf:ro"
   - "{{ awx_docker_compose_dir }}/redis_socket:/var/run/redis/:rw"
 
-docker_stack__dgx_backend: http://{{ docker_stack__internal_domain }}:{{ awx_host_port }}
-docker_stack__awx_backend: http://{{ docker_stack__internal_domain }}:{{ awx_host_port }}
-docker_stack__awx_orig_backend: http://{{ docker_stack__internal_domain }}:{{ awx_orig_host_port }}
-docker_stack__nginx_backend: https://nginx.example.int
+docker_stack__awx_backend_port: 11080
+docker_stack__awx_orig_backend_port: 10080
+docker_stack__dgx_dashboard_backend_port: 11000
+docker_stack__wordpress_backend_port: 80
+
+docker_stack__awx_backend: "http://{{ docker_stack__internal_domain }}:{{ docker_stack__awx_backend_port }}"
+docker_stack__awx_orig_backend: "http://{{ docker_stack__internal_domain }}:{{ docker_stack__awx_orig_backend_port }}"
+docker_stack__dgx_dashboard_backend: "http://host.docker.internal:11001"
+docker_stack__nginx_backend: "https://nginx.example.int"
+docker_stack__wordpress_backend: "http://{{ docker_stack__internal_domain }}:{{ docker_stack__wordpress_backend_port }}"
 
 docker_stack__stepca__use_host_cacerts: false
 docker_stack__stepca__enable_signed: false

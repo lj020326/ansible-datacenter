@@ -12,6 +12,15 @@ PRE_DIR="${BASE_DIR}/pre-update.d"
 UPDATE_DIR="${BASE_DIR}/update.d"
 POST_DIR="${BASE_DIR}/post-update.d"
 
+## ensure the state survives a reboot by storing the marker files in a persistent/non-volatile directory
+#STATE_DIR="/var/run"
+STATE_DIR="/var/lib/run-os-update"
+STATE_POST_PENDING="${STATE_DIR}/os-update-pending-post"
+REBOOT_MARKER="${STATE_DIR}/os-update-reboot-required"
+
+# Ensure state directory exists
+mkdir -p "$STATE_DIR"
+
 # Helper function for consistent logging
 log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $1"
@@ -21,6 +30,29 @@ log_error() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $1" >&2
 }
 
+# ---------------------------------------------------------
+# RESUME STATE CHECK
+# ---------------------------------------------------------
+if [ -f "$STATE_POST_PENDING" ]; then
+    log_message "Resuming OS update sequence post-reboot..."
+
+    # Run Post-Update Hooks
+    if [ -d "$POST_DIR" ] && [ "$(ls -A $POST_DIR)" ]; then
+        log_message "Executing post-update hooks..."
+        run-parts --report "$POST_DIR" || { log_error "Post-update hooks failed!"; exit 1; }
+    else
+        log_message "No post-update hooks found. Skipping."
+    fi
+
+    rm -f "$STATE_POST_PENDING"
+    rm -f "$REBOOT_MARKER"
+    log_message "OS update sequence fully completed after reboot."
+    exit 0
+fi
+
+# ---------------------------------------------------------
+# NORMAL UPDATE FLOW
+# ---------------------------------------------------------
 log_message "Starting OS update."
 
 # 1. Run Pre-Update Hooks (e.g., stopping Docker, unmounting specific drives)
@@ -39,7 +71,18 @@ else
     log_message "No update tasks found. Skipping."
 fi
 
-# 3. Run Post-Update Hooks (e.g., starting Docker, service health checks)
+# 3. Check if Reboot Was Triggered
+if [ -f "$REBOOT_MARKER" ]; then
+    log_message "Reboot required detected. Staging post-update state and rebooting in 1 minute..."
+    touch "$STATE_POST_PENDING"
+
+    # Schedule reboot in 1 minute to allow log flushing and clean exit
+    /sbin/shutdown -r +1 "Automated OS update completed. Rebooting system."
+    exit 0
+fi
+
+# 4. Run Post-Update Hooks (No Reboot Needed Case)
+# (e.g., starting Docker, mounting specific drives, service health checks)
 if [ -d "$POST_DIR" ] && [ "$(ls -A $POST_DIR)" ]; then
     log_message "Executing post-update hooks..."
     run-parts --report "$POST_DIR" || { log_error "Post-update hooks failed!"; exit 1; }

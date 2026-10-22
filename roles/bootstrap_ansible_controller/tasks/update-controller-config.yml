@@ -8,7 +8,7 @@
     - name: Create organizations
       ansible.controller.organization:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item.description | d('') }}"
+        description: "{{ item.description | d('', true) }}"
         # galaxy_credentials: "{{ galaxy_credentials | d([], true) }}" # Have to create creds first, then associate w/ org
       loop: "{{ controller_organizations }}"
       loop_control:
@@ -21,7 +21,7 @@
         - controller_credential_types | d([], true) | length>0
       ansible.controller.credential_type:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         kind: cloud
         inputs: "{{ item['inputs'] | d({}, true) }}"
         injectors: "{{ item['injectors'] | d({}, true) }}"
@@ -40,9 +40,9 @@
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.controller.credential:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         credential_type: "{{ item['credential_type'] | mandatory }}"
-        organization: "{{ item['organization'] | d('') }}"
+        organization: "{{ item['organization'] | d('', true) }}"
         inputs: "{{ item['inputs'] | d({}, true) }}"
       ignore_errors: "{{ ansible_check_mode }}"
       no_log: true
@@ -92,8 +92,8 @@
     - name: Create users
       ansible.controller.user:
         username: "{{ item['username'] | mandatory }}"
-        password: "{{ item['password'] | d(omit) }}"
-        organization: "{{ item['organization'] | d(omit) }}"
+        password: "{{ item['password'] | d(omit, true) }}"
+        organization: "{{ item['organization'] | d(omit, true) }}"
       no_log: true
       loop: "{{ bootstrap_ansible_controller__local_users }}"
 
@@ -127,8 +127,8 @@
       ansible.controller.execution_environment:
         name: "{{ item['name'] | mandatory }}"
         image: "{{ item['image'] | mandatory }}"
-        credential: "{{ item['credential'] | d('') }}"
-        pull: "{{ item['pull'] | d('missing') }}"
+        credential: "{{ item['credential'] | d('', true) }}"
+        pull: "{{ item['pull'] | d('missing', true) }}"
       loop: "{{ controller_execution_environments }}"
 
 ##
@@ -143,17 +143,17 @@
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.controller.project:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
-        organization: "{{ item['organization'] | d('') }}"
-        scm_type: "{{ item['scm_type'] | d('manual') }}"
-        scm_branch: "{{ item['scm_branch'] | d('') }}"
-        scm_url: "{{ item['scm_url'] | d('') }}"
-        credential: "{{ item['credential'] | d(omit) }}"
-        default_environment: "{{ item['default_environment'] | d(omit) }}"
-        scm_update_on_launch: "{{ item['scm_update_on_launch'] | d(false) }}"
+        description: "{{ item['description'] | d('', true) }}"
+        organization: "{{ item['organization'] | d('', true) }}"
+        scm_type: "{{ item['scm_type'] | d('manual', true) }}"
+        scm_branch: "{{ item['scm_branch'] | d('', true) }}"
+        scm_url: "{{ item['scm_url'] | d('', true) }}"
+        credential: "{{ item['credential'] | d(omit, true) }}"
+        default_environment: "{{ item['default_environment'] | d(omit, true) }}"
+        scm_update_on_launch: "{{ item['scm_update_on_launch'] | d(false, false) }}"
         scm_update_cache_timeout: "{{ item['scm_update_cache_timeout'] | d(0, true) }}"
-        scm_clean: "{{ item['scm_clean'] | d(false) }}"
-        allow_override: "{{ item['allow_override'] | d(false) }}"
+        scm_clean: "{{ item['scm_clean'] | d(false, false) }}"
+        allow_override: "{{ item['allow_override'] | d(false, false) }}"
       ignore_errors: "{{ ansible_check_mode }}"
       loop: "{{ __controller_projects }}"
 
@@ -186,11 +186,11 @@
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.controller.notification_template:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         organization: "{{ item['organization'] | mandatory }}"
         notification_type: email
         messages: "{{ item['messages'] | d({}, true) }}"
-        notification_configuration: "{{ (item['email_settings'] | d(bootstrap_ansible_controller__default_email_notification_settings) |
+        notification_configuration: "{{ (item['email_settings'] | d(bootstrap_ansible_controller__default_email_notification_settings, true) |
           combine({'recipients': item['recipients']})) | d({}, true) }}"
       loop: "{{ bootstrap_ansible_controller__notification_templates | selectattr('notification_type', 'eq', 'email') }}"
       loop_control:
@@ -202,7 +202,7 @@
         - item['environments'] is not defined or controller_env.lower() in item['environments']
       ansible.controller.notification_template:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         organization: "{{ item['organization'] | mandatory }}"
         notification_type: webhook
         notification_configuration: "{{ item['notification_configuration'] | d({}, true) }}"

@@ -56,7 +56,7 @@
   ansible.builtin.set_fact:
     __admin_token: "{{ __token_lookups.results | selectattr('json.data', 'defined')
       | selectattr('json.data.display_name', 'equalto', bootstrap_pki__admin_token_display_name)
-      | map(attribute='json.data.client_token') | first | d('') }}"
+      | map(attribute='json.data.client_token') | first | d('', true) }}"
   delegate_to: localhost
   run_once: true
 
@@ -67,7 +67,7 @@
   run_once: true
 
 - name: "ensure-admin-token : Create admin token if not found"
-  when: __admin_token | d('') | length == 0
+  when: __admin_token | d('', true) | length == 0
   community.hashi_vault.vault_write:
     url: "{{ bootstrap_pki__vault_url }}"
     token: "{{ bootstrap_pki__vault_token }}"
@@ -75,7 +75,7 @@
     data:
       display_name: "{{ bootstrap_pki__admin_token_display_name }}"
       policies: "{{ bootstrap_pki__admin_token_policies }}"
-      ttl: "{{ bootstrap_pki__admin_token_ttl | d(omit) }}"
+      ttl: "{{ bootstrap_pki__admin_token_ttl | d(omit, true) }}"
     validate_certs: false
   register: __admin_token_create
   delegate_to: localhost

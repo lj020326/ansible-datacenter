@@ -1,23 +1,23 @@
 ---
-- name: Docker Stack | StepCA | pre-start | Initialize __cert_validation_results_failed
+- name: StepCA | pre-start | Initialize __cert_validation_results_failed
   ansible.builtin.set_fact:
     __cert_validation_results_failed: false
 
-- name: Docker Stack | StepCA | pre-start | Check if CA cert signature is valid (so we don't generate a new on on every run)
+- name: StepCA | pre-start | Check if CA cert signature is valid (so we don't generate a new on on every run)
   when: docker_stack__stepca__enable_signed
   block:
 #        ## ref: https://docs.ansible.com/ansible/latest/modules/openssl_certificate_info_module.html#openssl-certificate-info-module
-#        - name: "Docker Stack | StepCA | pre-start | validate_cert | Get ca certificate info"
+#        - name: "Pre-start | StepCA | validate_cert | Get ca certificate info"
 #          community.crypto.x509_certificate_info:
 #            path: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt"
 #          register: ca_result
 #
-#        - name: "Docker Stack | StepCA | pre-start | validate_cert | Display ca_result"
+#        - name: "Pre-start | StepCA | validate_cert | Display ca_result"
 #          when: ca_display_ca_result
 #          ansible.builtin.debug:
 #            var: ca_result
 #
-#        - name: "Docker Stack | StepCA | pre-start | validate_cert | Assert cert info is valid"
+#        - name: "Pre-start | StepCA | validate_cert | Assert cert info is valid"
 #          ansible.builtin.assert:
 #            that:
 #              # issuer and issuer_strict
@@ -28,7 +28,7 @@
 #              # has_expired
 #              - not ca_result.expired
 
-#    - name: Docker Stack | StepCA | pre-start | validate_cert | Validate signed by ca signer certs
+#    - name: StepCA | pre-start | validate_cert | Validate signed by ca signer certs
 #      ansible.builtin.command: >
 #        openssl verify -CAfile
 #          {{ docker_stack__internal_ssl_cert_dir }}/ca.{{ docker_stack__internal_domain }}.chain.pem
@@ -37,16 +37,16 @@
 #      ignore_errors: true
 #      register: __cert_validity_signer
 #
-#    - name: Docker Stack | StepCA | pre-start | validate_cert | Display __cert_validity_signer
+#    - name: StepCA | pre-start | validate_cert | Display __cert_validity_signer
 #      ansible.builtin.debug:
 #        var: __cert_validity_signer
 #
 #    - name: Set __cert_validation_results_failed
-#      when: __cert_validity_signer.failed | d(false) | bool
+#      when: __cert_validity_signer.failed | d(false, false) | bool
 #      ansible.builtin.set_fact:
 #        __cert_validation_results_failed: true
 
-    - name: Docker Stack | StepCA | pre-start | validate_cert | Validate signed by ca signer certs
+    - name: StepCA | pre-start | validate_cert | Validate signed by ca signer certs
       ansible.builtin.command: >
         openssl verify -CAfile
           {{ docker_stack__stepca__root_cacert }}
@@ -55,11 +55,11 @@
       ignore_errors: true
       register: __cert_openssl_verify_signer
 
-    - name: Docker Stack | StepCA | pre-start | validate_cert | Display __cert_openssl_verify_signer
+    - name: StepCA | pre-start | validate_cert | Display __cert_openssl_verify_signer
       ansible.builtin.debug:
         var: __cert_openssl_verify_signer
 
-    - name: Docker Stack | StepCA | pre-start | validate_cert | Validate signed by ca signer certs
+    - name: StepCA | pre-start | validate_cert | Validate signed by ca signer certs
       no_log: true
       dettonville.utils.x509_certificate_verify:
         path: "{{ __docker_stack__stepca__home_dir }}/certs/intermediate_ca.crt"
@@ -68,41 +68,41 @@
 #        validate_is_ca: true
       register: __cert_validity_signer
 
-    - name: Docker Stack | StepCA | pre-start | validate_cert | Display __cert_validity_signer.verify_failed
+    - name: StepCA | pre-start | validate_cert | Display __cert_validity_signer.verify_failed
       ansible.builtin.debug:
         var: __cert_validity_signer.verify_failed
 
-    - name: Docker Stack | StepCA | pre-start | validate_cert | Display __cert_validity_signer when failed
+    - name: StepCA | pre-start | validate_cert | Display __cert_validity_signer when failed
       when: __cert_validity_signer.verify_failed
       ansible.builtin.debug:
         var: __cert_validity_signer
 
-    - name: Docker Stack | StepCA | pre-start | validate_cert | Display __cert_validity_signer
+    - name: StepCA | pre-start | validate_cert | Display __cert_validity_signer
       when: not (__cert_validity_signer.verify_failed)
       ansible.builtin.debug:
         var: __cert_validity_signer
         verbosity: 1
 
     - name: Set __cert_validation_results_failed
-      when: __cert_validity_signer.verify_failed | d(false) | bool
+      when: __cert_validity_signer.verify_failed | d(false, false) | bool
       ansible.builtin.set_fact:
         __cert_validation_results_failed: true
 
-- name: Docker Stack | StepCA | pre-start | Display __cert_validation_results_failed
+- name: StepCA | pre-start | Display __cert_validation_results_failed
   ansible.builtin.debug:
     var: __cert_validation_results_failed
 
-- name: Docker Stack | StepCA | pre-start | Display docker_stack__stepca__ca_force_create
+- name: StepCA | pre-start | Display docker_stack__stepca__ca_force_create
   ansible.builtin.debug:
     var: docker_stack__stepca__ca_force_create
 
-- name: Docker Stack | StepCA | pre-start | Setup signed stepca cert
+- name: StepCA | pre-start | Setup signed stepca cert
   when: __cert_validation_results_failed | bool or docker_stack__stepca__ca_force_create | bool
   block:
-    - name: Docker Stack | StepCA | pre-start | Deploy step-ca's root, intermediate CA cert and key
+    - name: StepCA | pre-start | Deploy step-ca's root, intermediate CA cert and key
       when: not docker_stack__stepca__enable_signed
       ansible.builtin.include_tasks: init-stepca-certs.yml
 
-    - name: Docker Stack | StepCA | pre-start | Create signed intermediate cert
+    - name: StepCA | pre-start | Create signed intermediate cert
       when: docker_stack__stepca__enable_signed
       ansible.builtin.include_tasks: init-stepca-certs-signed.yml

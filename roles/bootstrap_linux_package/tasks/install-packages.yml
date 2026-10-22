@@ -69,7 +69,7 @@
   when:
     - ansible_facts['pkg_mgr'] == 'apt'
     - ansible_facts['os_family'] == 'Debian'
-    - not (__bootstrap_linux_package__is_dgx | default(false) | bool)
+    - not (__bootstrap_linux_package__is_dgx | d(false, false) | bool)
   ansible.builtin.include_tasks: update-repo-apt.yml
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Display __bootstrap_linux_package__is_dgx"
@@ -77,14 +77,14 @@
     var: __bootstrap_linux_package__is_dgx
 
 - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Skip repo reconfiguration on DGX systems"
-  when: __bootstrap_linux_package__is_dgx | default(false) | bool
+  when: __bootstrap_linux_package__is_dgx | d(false, false) | bool
   block:
     - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Skip repo reconfiguration on DGX systems"
       ansible.builtin.debug:
         msg: "DGX OS detected - preserving NVIDIA/DGX repositories"
 
     - name: "{{ __bootstrap_linux_package__log_prefix_packages }} Install DGX repo source files"
-#      when: not __bootstrap_linux_package__preserve_nvidia_repos | default(true)
+#      when: not __bootstrap_linux_package__preserve_nvidia_repos | d(true, false)
       ansible.builtin.template:
         src: "dgx/{{ item }}"
         dest: "{{ __bootstrap_linux_package__package_source_dir }}/{{ item | regex_replace('\\.j2$', '') }}"
@@ -101,8 +101,8 @@
     state: present
     update_cache: "{{ bootstrap_linux_package__update_cache }}"
 #    cache_valid_time: "{{ bootstrap_linux_package__cache_valid_time }}"
-    nobest: "{{ bootstrap_linux_package__dnf_nobest | d(omit) }}"
-    allowerasing: "{{ bootstrap_linux_package__dnf_allowerasing | d(omit) }}"
+    nobest: "{{ bootstrap_linux_package__dnf_nobest | d(omit, true) }}"
+    allowerasing: "{{ bootstrap_linux_package__dnf_allowerasing | d(omit, true) }}"
   loop: "{{ __bootstrap_linux_package__package_list_by_priority.keys() | sort }}"
   loop_control:
     label: package state=present priority={{ item }}
