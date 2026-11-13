@@ -1,12 +1,15 @@
-```markdown
 ---
-title: TODO Items & Roadmap (2026)
-original_path: docs/todo.md
-category: roadmap
-tags: [infrastructure, kubernetes, vmware, ai, automation]
+title: "TODO Items & Roadmap (2026)"
+harvested_date: "2026-10-01T17:50:45.103176+00:00"
+original_path: "TODO.md"
+source_type: "legacy_markdown"
+category: "roadmap"
+tags: ["kubernetes", "infrastructure", "roadmap", "2026"]
 ---
 
 # TODO Items & Roadmap (2026)
+
+This document outlines the roadmap for transitioning from standalone Docker to a multi-node Kubernetes cluster, with a focus on infrastructure consolidation, high-performance inference, agentic stack implementation, automation pipelines, and ML platform automation.
 
 ## Phase 1: Infrastructure Consolidation (VMware & Kubernetes)
 
@@ -53,7 +56,7 @@ Leverage your **wiki-pipeline** logic to automate personal branding and document
 ## Immediate To-Do List
 
 | Priority     | Task                                                                | Target Host                | Tooling                  |
-|:-------------|:--------------------------------------------------------------------|:---------------------------|:-------------------------|
+|--------------|----------------------------------------------------------------------|----------------------------|--------------------------|
 | **Critical** | K8s Control Plane: Deploy HA Ubuntu 24.04 VMs                       | `esx00, esx01, esx02`      | VMware / Ansible         |
 | **Critical** | High-Compute Inference: Deploy Qwen3.6-35B + Dflash + DDTree        | `gpu01`                    | vLLM / Aibrix            |
 | **High**     | Agent Routing Stack: Deploy CCR / DSPv-GEPA Router                  | `ai-services` VM (`esx03`) | Python / K8s             |
@@ -96,13 +99,13 @@ graph TD;
 
 ## Recommended VM Allocation
 
-| VM Name | Host | Specs (vCPU/RAM) | Primary Role |
-| :--- | :--- | :--- | :--- |
-| `k8s-cp-01` | `esx00` | 4 / 16G | K8s Control Plane Node 1 |
-| `k8s-cp-02` | `esx01` | 4 / 16G | K8s Control Plane Node 2 |
-| `k8s-cp-03` | `esx02` | 4 / 16G | K8s Control Plane Node 3 |
-| `ai-services` | `esx03` | 8 / 32G | Jenkins, Aibrix Controller, CCR Router |
-| `agent-proxy` | `esx03` | 4 / 16G | Playwright / Camoufox Containers |
+| VM Name       | Host   | Specs (vCPU/RAM) | Primary Role                      |
+|---------------|--------|------------------|-----------------------------------|
+| `k8s-cp-01`   | `esx00`| 4 / 16G         | K8s Control Plane Node 1          |
+| `k8s-cp-02`   | `esx01`| 4 / 16G         | K8s Control Plane Node 2          |
+| `k8s-cp-03`   | `esx02`| 4 / 16G         | K8s Control Plane Node 3          |
+| `ai-services` | `esx03`| 8 / 32G         | Jenkins, Aibrix Controller, CCR Router |
+| `agent-proxy` | `esx03`| 4 / 16G         | Playwright / Camoufox Containers  |
 
 ## References & Supporting Info
 
@@ -114,4 +117,3 @@ graph TD;
 
 - [Project Overview](/docs/project-overview.md)
 - [Architecture Diagrams](/docs/architecture-diagrams.md)
-```

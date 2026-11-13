@@ -1,74 +1,55 @@
 ---
-title: Bootstrap Windows OpenSSH Role Documentation
-role: bootstrap_windows_openssh
-category: Ansible Roles
-type: Configuration Management
-tags: windows, openssh, ansible
-
+title: "Bootstrap Windows OpenSSH Role"
+role: roles/bootstrap_windows_openssh
+category: Windows
+type: Role
+tags: [ansible, role, bootstrap_windows_openssh]
 ---
 
-## Summary
+# Bootstrap Windows OpenSSH Role
 
-The `bootstrap_windows_openssh` role is designed to automate the installation and configuration of OpenSSH on Windows systems. This includes downloading the latest version of OpenSSH, extracting it to a specified directory, setting up environment variables, configuring firewall rules, and managing SSH services.
+This Ansible role installs and configures the Win32-OpenSSH server on Windows systems. It handles downloading, extracting, installing, and configuring OpenSSH, including setting up the necessary services and firewall rules.
 
 ## Variables
 
-| Variable Name                           | Default Value                          | Description                                                                 |
-|-----------------------------------------|----------------------------------------|-----------------------------------------------------------------------------|
-| `role_bootstrap_windows_openssh__architecture` | `64`                                 | Specifies the architecture of OpenSSH to install (32 or 64).                |
-| `role_bootstrap_windows_openssh__firewall_profiles` | `domain,private`                   | Firewall profiles to allow SSH connections.                                   |
-| `role_bootstrap_windows_openssh__install_path`    | `C:\Program Files\OpenSSH`         | Installation path for OpenSSH.                                              |
-| `role_bootstrap_windows_openssh__port`            | `22`                                 | Port number for SSH service.                                                |
-| `role_bootstrap_windows_openssh__pubkey_auth`     | `true`                               | Enable public key authentication.                                             |
-| `role_bootstrap_windows_openssh__password_auth`   | `true`                               | Enable password authentication.                                               |
-| `role_bootstrap_windows_openssh__setup_service`   | `true`                               | Setup and configure SSH services (sshd, ssh-agent).                           |
-| `role_bootstrap_windows_openssh__shared_admin_key`| `false`                              | Use a shared admin key for administrators.                                    |
-| `role_bootstrap_windows_openssh__skip_start`      | `false`                              | Skip starting the SSH services after installation.                            |
-| `role_bootstrap_windows_openssh__temp_path`       | `C:\Windows\TEMP`                  | Temporary path used during installation.                                      |
-| `role_bootstrap_windows_openssh__version`         | `latest`                             | Version of OpenSSH to install (can be a specific version or 'latest').      |
-| `role_bootstrap_windows_openssh__zip_remote_src`  | `false`                              | Specifies whether the zip file is sourced from a remote location.             |
+| Variable Name                     | Default Value                       | Description                                                                 |
+|-----------------------------------|-------------------------------------|-----------------------------------------------------------------------------|
+| `opt_openssh_architecture`        | `64`                                | Architecture of the OpenSSH installation (32 or 64).                        |
+| `opt_openssh_firewall_profiles`   | `domain,private`                    | Firewall profiles to apply the inbound rule to.                             |
+| `opt_openssh_install_path`        | `C:\Program Files\OpenSSH`          | Path where OpenSSH will be installed.                                       |
+| `opt_openssh_port`                | `22`                                | Port number for SSH connections.                                             |
+| `opt_openssh_pubkey_auth`         | `true`                              | Enable or disable public key authentication.                                |
+| `opt_openssh_password_auth`       | `true`                              | Enable or disable password authentication.                                  |
+| `opt_openssh_setup_service`       | `true`                              | Whether to set up the OpenSSH service.                                      |
+| `opt_openssh_shared_admin_key`    | `false`                             | Whether to use a shared admin key.                                          |
+| `opt_openssh_skip_start`          | `false`                             | Whether to skip starting the OpenSSH service after installation.            |
+| `opt_openssh_temp_path`           | `C:\Windows\TEMP`                   | Temporary path for downloading and extracting OpenSSH.                      |
+| `opt_openssh_version`             | `latest`                            | Version of OpenSSH to install.                                              |
+| `opt_openssh_zip_remote_src`      | `false`                             | Whether the OpenSSH zip file is located on the Ansible controller.          |
 
 ## Usage
 
-To use this role, include it in your playbook and specify any desired variables as needed:
+To use this role, include it in your playbook and set the desired variables:
 
 ```yaml
-- hosts: windows_servers
+- hosts: windows
   roles:
     - role: bootstrap_windows_openssh
       vars:
-        role_bootstrap_windows_openssh__architecture: 64
-        role_bootstrap_windows_openssh__port: 2222
+        opt_openssh_port: 2222
+        opt_openssh_pubkey_auth: true
+        opt_openssh_password_auth: false
 ```
 
 ## Dependencies
 
-This role depends on the following Ansible collections:
-
-- `ansible.windows`
-- `community.windows`
-
-Ensure these collections are installed in your environment before running this role.
-
-```bash
-ansible-galaxy collection install ansible.windows community.windows
-```
+This role does not have any external dependencies. It uses standard Ansible modules for Windows.
 
 ## Best Practices
 
-1. **Security**: Always ensure that public key authentication is enabled and properly configured to enhance security.
-2. **Firewall Configuration**: Adjust the `role_bootstrap_windows_openssh__firewall_profiles` variable as needed based on your network environment.
-3. **Version Control**: Specify a specific version of OpenSSH in `role_bootstrap_windows_openssh__version` for consistent deployments.
-
-## Molecule Tests
-
-This role includes Molecule tests to verify its functionality. To run the tests, navigate to the role directory and execute:
-
-```bash
-molecule test
-```
-
-Ensure that you have Docker installed on your system as it is required by Molecule for testing.
+- Ensure that the target Windows systems have internet access if downloading the latest OpenSSH version.
+- Verify that the specified installation path has the necessary permissions.
+- Test the role in a development environment before applying it to production systems.
 
 ## Backlinks
 
@@ -79,7 +60,3 @@ Ensure that you have Docker installed on your system as it is required by Molecu
 - [tasks/service.yml](../../roles/bootstrap_windows_openssh/tasks/service.yml)
 - [tasks/sshd_config.yml](../../roles/bootstrap_windows_openssh/tasks/sshd_config.yml)
 - [handlers/main.yml](../../roles/bootstrap_windows_openssh/handlers/main.yml)
-
----
-
-This documentation provides a comprehensive overview of the `bootstrap_windows_openssh` role, including its purpose, configuration options, usage instructions, and best practices.

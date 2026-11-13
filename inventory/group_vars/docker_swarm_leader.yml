@@ -25,13 +25,13 @@ bootstrap_linux_cron__list__docker_stack:
     ## run 12:00AM every sunday
     schedule: [ "0", "0", "*", "*", "0" ]
     cron_file: "docker-disk-clean-up"
-  #    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+  #    user: "{{ (bootstrap_docker__users | first) | d('root', true) }}"
   - name: "Docker large log file clean up"
     job: "/opt/scripts/docker-cleanup-large-logfiles.sh -y 2>&1"
     ## run 12:00AM every sunday
     schedule: [ "0", "0", "*", "*", "0" ]
     cron_file: "docker-large-logfile-clean-up"
-#    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+#    user: "{{ (bootstrap_docker__users | first) | d('root', true) }}"
 
 #  ## moved to bootstrap_linux_core__os_update_hooks__docker_stack
 #  - name: "Restart the docker stack"
@@ -39,7 +39,7 @@ bootstrap_linux_cron__list__docker_stack:
 #    ## run 1:10AM every day
 #    schedule: ["10", "1", "*", "*", "*"]
 #    cron_file: "docker-stack-restart"
-##    user: "{{ (bootstrap_docker__users | first) | d('root') }}"
+##    user: "{{ (bootstrap_docker__users | first) | d('root', true) }}"
 
 ##########
 ## daily batch hooks
@@ -54,7 +54,7 @@ bootstrap_linux_core__os_update_hooks__docker_stack:
     content: |
       #!/usr/bin/env bash
       echo "Stopping Docker Stack..."
-      {{ docker_stack__restart_stack_command }} -sr
+      systemctl stop {{ docker_stack__systemd_service__name }}.service
 
   # 3. Post-Update Hook: Start Docker
   - name: "Start Docker Stack Post-Update"
@@ -64,4 +64,4 @@ bootstrap_linux_core__os_update_hooks__docker_stack:
     content: |
       #!/usr/bin/env bash
       echo "Starting Docker Stack..."
-      {{ docker_stack__restart_stack_command }}
+      systemctl start {{ docker_stack__systemd_service__name }}.service

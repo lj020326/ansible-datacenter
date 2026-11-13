@@ -1,62 +1,57 @@
 ---
-title: Bootstrap Windows Firewall Role Documentation
-role: bootstrap_windows_firewall
-category: Security
-type: Ansible Role
-tags: windows, firewall, security, ansible
+title: "Bootstrap Windows Firewall Role"
+role: roles/bootstrap_windows_firewall
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_windows_firewall]
 ---
 
-## Summary
+# Bootstrap Windows Firewall Role
 
-The `bootstrap_windows_firewall` role is designed to configure and manage the Windows Firewall settings on target Windows hosts. It can either import a predefined firewall policy or create specific rules based on provided configurations. The role ensures that critical system services are allowed while blocking potentially harmful applications and ports.
+## Purpose
+
+The `bootstrap_windows_firewall` role is designed to configure and manage Windows Firewall settings on Windows systems. It provides a comprehensive set of tasks to create, modify, and import firewall rules, ensuring that the system's security posture is maintained according to specified policies.
 
 ## Variables
 
-| Variable Name                              | Default Value                                                                                           | Description                                                                                                                                                                                                 |
-|--------------------------------------------|---------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `role_bootstrap_windows_firewall__win_temp_dir`  | `c:\Program Files\ansible`                                                                              | Temporary directory for storing files used by the role.                                                                                                                                                       |
-| `role_bootstrap_windows_firewall__win_log_dir`   | `c:\ProgramData\ansible\log`                                                                            | Directory for logging firewall configuration activities.                                                                                                                                                    |
-| `role_bootstrap_windows_firewall__win_firewall`  | `true`                                                                                                | Enable or disable Windows Firewall on the target host.                                                                                                                                                    |
-| `role_bootstrap_windows_firewall__win_config`    | `import`                                                                                              | Configuration method: either `rule` to create individual rules or `import` to import a predefined policy file.                                                                                            |
-| `role_bootstrap_windows_firewall__win_firewall_policy` | `policy.wfw`                                                                                          | Name of the firewall policy file to be imported if `win_config` is set to `import`.                                                                                                                        |
-| `role_bootstrap_windows_firewall__win_fw_default_action` | `block`                                                                                             | Default action for firewall rules (either `allow` or `block`).                                                                                                                                              |
-| `role_bootstrap_windows_firewall__win_msoffice_version_short` | `"16"`                                                                                            | Short version number of Microsoft Office installed on the system.                                                                                                                                         |
-| `role_bootstrap_windows_firewall__win_fw_program_allowed_out_public` | List of programs allowed to send outgoing traffic in Public profile.                                                                  | List of executable paths for programs that are allowed to send outgoing traffic in the Public network profile.                                                                                            |
-| `role_bootstrap_windows_firewall__win_fw_program_blocked_out_public` | List of programs blocked from sending outgoing traffic in Public profile.                                                               | List of executable paths for programs that are blocked from sending outgoing traffic in the Public network profile.                                                                                         |
+| Variable Name | Default Value | Description |
+|---------------|---------------|-------------|
+| `win_temp_dir` | `c:\Program Files\ansible` | Temporary directory for Ansible operations |
+| `win_log_dir` | `c:\ProgramData\ansible\log` | Directory for Ansible logs |
+| `win_firewall` | `true` | Enable or disable firewall configuration |
+| `win_config` | `import` | Configuration mode: `rule` or `import` |
+| `win_firewall_policy` | `policy.wfw` | Path to the firewall policy file |
+| `win_fw_default_action` | `block` | Default action for firewall rules |
+| `win_msoffice_version_short` | `"16"` | Short version of Microsoft Office |
+| `win_fw_program_allowed_out_public` | List of allowed programs | Programs allowed to communicate outbound on the public network |
+| `win_fw_program_blocked_out_public` | List of blocked programs | Programs blocked from communicating outbound on the public network |
 
 ## Usage
 
-To use this role, include it in your playbook and configure the variables as needed. Here is an example playbook:
+To use this role, include it in your playbook and set the necessary variables:
 
 ```yaml
----
-- name: Configure Windows Firewall
-  hosts: windows_servers
+- hosts: windows
   roles:
     - role: bootstrap_windows_firewall
       vars:
-        role_bootstrap_windows_firewall__win_temp_dir: "c:\\Program Files\\ansible"
-        role_bootstrap_windows_firewall__win_log_dir: "c:\\ProgramData\\ansible\\log"
-        role_bootstrap_windows_firewall__win_config: "rule"
+        win_firewall: true
+        win_config: import
+        win_firewall_policy: policy.wfw
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies. However, it requires the `community.windows` collection to be installed:
+This role requires the following Ansible collections:
 
-```bash
-ansible-galaxy collection install community.windows
-```
+- `ansible.windows`
+- `community.windows`
 
 ## Best Practices
 
-- Ensure that the firewall policy file (`policy.wfw`) is securely stored and accessible by Ansible.
-- Regularly review and update the list of allowed and blocked programs and ports to align with security best practices.
-- Use the `win_config` variable to switch between importing a policy or defining rules manually based on your specific requirements.
-
-## Molecule Tests
-
-This role does not include Molecule tests. To ensure the role functions correctly, consider writing and running Molecule tests in the future.
+- Ensure that the `win_firewall_policy` file is accessible and correctly configured.
+- Review and customize the `win_fw_program_allowed_out_public` and `win_fw_program_blocked_out_public` variables to match your organization's security requirements.
+- Regularly update the firewall rules to address new security threats and compliance requirements.
 
 ## Backlinks
 
@@ -65,3 +60,4 @@ This role does not include Molecule tests. To ensure the role functions correctl
 - [tasks/windows-firewall-import.yml](../../roles/bootstrap_windows_firewall/tasks/windows-firewall-import.yml)
 - [tasks/windows-firewall-unit.yml](../../roles/bootstrap_windows_firewall/tasks/windows-firewall-unit.yml)
 - [tasks/windows-firewall.yml](../../roles/bootstrap_windows_firewall/tasks/windows-firewall.yml)
+- [handlers/main.yml](../../roles/bootstrap_windows_firewall/handlers/main.yml)

@@ -1,79 +1,79 @@
 ---
 title: "Bootstrap IPA Replica Role"
 role: bootstrap_ipa_replica
-category: Identity Management
-type: Ansible Role
-tags: identity, ipa, freeipa
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_ipa_replica]
 ---
 
-## Summary
+# Bootstrap IPA Replica Role
 
-The `bootstrap_ipa_replica` role is designed to set up an IPA (Identity, Policy, Audit) domain replica. This role handles the installation of necessary packages, firewall configuration, and replica setup based on provided variables.
+The `bootstrap_ipa_replica` role is designed to set up an IPA (Identity, Policy, Audit) domain replica on a server. This role handles the installation, configuration, and management of IPA replica services, including DNS, AD trust, and firewall settings.
+
+## Prerequisites
+
+- Ensure that the target server meets the minimum requirements for memory and CPU.
+- Verify that the IPA server is properly configured and reachable from the replica server.
+- Ensure that necessary packages are available in the system's repositories.
 
 ## Variables
 
-| Variable Name                         | Default Value           | Description                                                                 |
-|---------------------------------------|-------------------------|-----------------------------------------------------------------------------|
-| `ipareplica_no_host_dns`              | `false`                 | Do not use DNS for hostname resolution.                                     |
-| `ipareplica_skip_conncheck`           | `false`                 | Skip connection check to IPA server.                                        |
-| `ipareplica_hidden_replica`           | `false`                 | Install a hidden replica.                                                   |
-| `ipareplica_mem_check`                | `true`                  | Perform memory check before installation.                                   |
-| `ipareplica_setup_adtrust`            | `false`                 | Setup AD trust during installation.                                         |
-| `ipareplica_setup_ca`                 | `false`                 | Setup CA during installation.                                               |
-| `ipareplica_setup_kra`                | `false`                 | Setup KRA (Key Recovery Agent) during installation.                         |
-| `ipareplica_setup_dns`                | `false`                 | Setup DNS during installation.                                              |
-| `ipareplica_no_pkinit`                | `false`                 | Disable PKINIT authentication.                                              |
-| `ipareplica_no_ui_redirect`           | `false`                 | Do not redirect to the web UI after installation.                           |
-| `ipaclient_mkhomedir`                 | `false`                 | Create home directories for users on the replica.                           |
-| `ipaclient_force_join`                | `false`                 | Force client join even if already joined.                                   |
-| `ipaclient_no_ntp`                    | `false`                 | Do not configure NTP during installation.                                     |
-| `ipaclient_ssh_trust_dns`             | `false`                 | Trust DNS for SSH host key verification.                                    |
-| `ipareplica_skip_schema_check`        | `false`                 | Skip schema check before installation.                                      |
-| `ipareplica_allow_zone_overlap`       | `false`                 | Allow zone overlap during DNS setup.                                        |
-| `ipareplica_no_reverse`               | `false`                 | Do not create reverse DNS records.                                          |
-| `ipareplica_auto_reverse`             | `false`                 | Automatically create reverse DNS records.                                   |
-| `ipareplica_no_forwarders`            | `false`                 | Do not configure DNS forwarders.                                            |
-| `ipareplica_auto_forwarders`          | `false`                 | Automatically configure DNS forwarders.                                     |
-| `ipareplica_no_dnssec_validation`     | `false`                 | Disable DNSSEC validation.                                                  |
-| `ipareplica_enable_compat`            | `false`                 | Enable compatibility mode for older clients.                                |
-| `ipareplica_ignore_topology_disconnect` | `false`               | Ignore topology disconnect during installation.                             |
-| `ipareplica_ignore_last_of_role`      | `false`                 | Ignore being the last of a role during uninstallation.                      |
-| `ipareplica_install_packages`         | `true`                  | Install necessary packages for IPA replica setup.                           |
-| `ipareplica_setup_firewalld`          | `true`                  | Setup firewalld rules for IPA replica.                                      |
+| Variable Name | Default Value | Description |
+|---------------|---------------|-------------|
+| `ipareplica_no_host_dns` | `false` | Whether to skip DNS hostname check |
+| `ipareplica_skip_conncheck` | `false` | Skip connectivity check |
+| `ipareplica_hidden_replica` | `false` | Configure as a hidden replica |
+| `ipareplica_mem_check` | `true` | Perform memory check |
+| `ipareplica_setup_adtrust` | `false` | Set up Active Directory trust |
+| `ipareplica_setup_ca` | `false` | Set up Certificate Authority |
+| `ipareplica_setup_kra` | `false` | Set up Key Recovery Authority |
+| `ipareplica_setup_dns` | `false` | Set up DNS |
+| `ipareplica_no_pkinit` | `false` | Skip PKINIT setup |
+| `ipareplica_no_ui_redirect` | `false` | Skip UI redirection |
+| `ipaclient_mkhomedir` | `false` | Create home directories |
+| `ipaclient_force_join` | `false` | Force join to domain |
+| `ipaclient_no_ntp` | `false` | Skip NTP configuration |
+| `ipaclient_ssh_trust_dns` | `false` | Trust DNS for SSH |
+| `ipareplica_skip_schema_check` | `false` | Skip schema check |
+| `ipareplica_allow_zone_overlap` | `false` | Allow zone overlap |
+| `ipareplica_no_reverse` | `false` | Skip reverse DNS setup |
+| `ipareplica_auto_reverse` | `false` | Automatically configure reverse DNS |
+| `ipareplica_no_forwarders` | `false` | Skip forwarders setup |
+| `ipareplica_auto_forwarders` | `false` | Automatically configure forwarders |
+| `ipareplica_no_dnssec_validation` | `false` | Skip DNSSEC validation |
+| `ipareplica_enable_compat` | `false` | Enable compatibility mode |
+| `ipareplica_ignore_topology_disconnect` | `false` | Ignore topology disconnect |
+| `ipareplica_ignore_last_of_role` | `false` | Ignore last of role check |
+| `ipareplica_install_packages` | `true` | Install IPA replica packages |
+| `ipareplica_setup_firewalld` | `true` | Set up firewalld |
 
 ## Usage
 
-To use the `bootstrap_ipa_replica` role, include it in your playbook and provide any necessary variables as needed:
+To use this role, include it in your playbook and set the necessary variables. At a minimum, you need to specify the IPA server details:
 
 ```yaml
-- name: Setup IPA Replica
-  hosts: ipareplicas
+- hosts: ipareplicas
   roles:
     - role: bootstrap_ipa_replica
       vars:
+        ipa_server: "ipa.example.com"
+        ipa_domain: "example.com"
+        ipa_admin_password: "your_password"
         ipareplica_setup_dns: true
         ipareplica_setup_adtrust: true
 ```
 
 ## Dependencies
 
-This role has no external dependencies.
-
-## Tags
-
-- `identity`
-- `ipa`
-- `freeipa`
+This role does not have any dependencies.
 
 ## Best Practices
 
-- Ensure that the IPA server is reachable from the replica.
-- Verify network connectivity and DNS resolution before running the playbook.
-- Use appropriate firewall rules to allow necessary traffic between the IPA server and replicas.
-
-## Molecule Tests
-
-This role does not include Molecule tests. Please ensure thorough testing in a staging environment before deploying in production.
+- Test the role in a development environment before deploying it to production.
+- Regularly update the role to benefit from the latest features and security fixes.
+- Monitor the replica server's resources to ensure it meets the IPA service requirements.
+- Keep the IPA server and replica servers synchronized in terms of time using NTP.
+- Regularly back up the IPA server and replica servers.
 
 ## Backlinks
 
@@ -82,7 +82,3 @@ This role does not include Molecule tests. Please ensure thorough testing in a s
 - [tasks/main.yml](../../roles/bootstrap_ipa_replica/tasks/main.yml)
 - [tasks/uninstall.yml](../../roles/bootstrap_ipa_replica/tasks/uninstall.yml)
 - [meta/main.yml](../../roles/bootstrap_ipa_replica/meta/main.yml)
-
----
-
-This documentation provides a comprehensive overview of the `bootstrap_ipa_replica` role, including its purpose, configuration options, usage guidelines, and best practices.

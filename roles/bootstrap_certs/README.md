@@ -108,15 +108,15 @@ An example playbook for initializing the Root CA:
   become: true
   vars:
     bootstrap_certs__ca_intermediate_certs_list:
-      - common_name: "ca.dettonville.int"
-        domain_name: "dettonville.int"
+      - common_name: "ca.example.int"
+        domain_name: "example.int"
         issuer_name: "{{ bootstrap_certs__common_name }}" # Signed by the root CA
         country: US
         state: "New York"
         locality: "NYC"
         organization: "Dettonville Internal"
         organizational_unit: "Research & Technology"
-        email: "admin@dettonville.int"
+        email: "admin@example.int"
 
       - common_name: "ca.johnson.int"
         domain_name: "johnson.int"
@@ -140,16 +140,16 @@ An example playbook for initializing the Root CA:
   become: true
   vars:
     bootstrap_certs__ca_service_routes_list:
-      - route: "admin.dettonville.int"
-        issuer_name: "ca.dettonville.int" # Signed by the intermediate CA
+      - route: "admin.example.int"
+        issuer_name: "ca.example.int" # Signed by the intermediate CA
         alt_names:
-          - "DNS.1 = admin.dettonville.int"
+          - "DNS.1 = admin.example.int"
           - "IP.1 = 10.0.0.10"
-      - route: "app.dettonville.int"
-        issuer_name: "ca.dettonville.int"
+      - route: "app.example.int"
+        issuer_name: "ca.example.int"
         alt_names:
-          - "DNS.1 = app.dettonville.int"
-          - "DNS.2 = app-alias.dettonville.int"
+          - "DNS.1 = app.example.int"
+          - "DNS.2 = app-alias.example.int"
   roles:
     - role: bootstrap_certs
 ```

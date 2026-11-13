@@ -17,7 +17,7 @@
 
     - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__csr_profile"
       ansible.builtin.set_fact:
-        __bootstrap_certs__csr_profile: "{{ __bootstrap_certs__ca_cert_info.ca_csr_profile | d(bootstrap_certs__ca_intermediate_default_profile) }}"
+        __bootstrap_certs__csr_profile: "{{ __bootstrap_certs__ca_cert_info.ca_csr_profile | d(bootstrap_certs__ca_intermediate_default_profile, true) }}"
 
 - name: "{{ __log_prefix_subtask }} Get service route cert info"
   when: bootstrap_certs__ca_cert_type == "service-route"
@@ -28,7 +28,7 @@
 
     - name: "{{ __log_prefix_subtask }} Get service route csr profile info"
       ansible.builtin.set_fact:
-        __bootstrap_certs__csr_profile: "{{ __bootstrap_certs__route_info['ca_csr_profile'] | d(bootstrap_certs__ca_ca_default_profile) }}"
+        __bootstrap_certs__csr_profile: "{{ __bootstrap_certs__route_info['ca_csr_profile'] | d(bootstrap_certs__ca_ca_default_profile, true) }}"
 
     - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__local_info for service-route"
       ansible.builtin.set_fact:
@@ -44,17 +44,17 @@
     - name: "{{ __log_prefix_subtask }} Set cert profile"
       ansible.builtin.set_fact:
         __bootstrap_certs__csr_profile: "{{ hostvars[__bootstrap_certs__cert_node]['ca_csr_profile']
-          | d(bootstrap_certs__ca_ca_default_profile) }}"
+          | d(bootstrap_certs__ca_ca_default_profile, true) }}"
         __bootstrap_certs__fqdn_default: "{{ __bootstrap_certs__cert_node }}.{{ hostvars[__bootstrap_certs__cert_node]['ca_domain'] }}"
 
     - name: "{{ __log_prefix_subtask }} Set __bootstrap_certs__local_info"
       ansible.builtin.set_fact:
         __bootstrap_certs__local_info:
-          common_name: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__cert_node) }}"
+          common_name: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__cert_node, true) }}"
           domain_name: "{{ hostvars[__bootstrap_certs__cert_node]['ca_domain'] }}"
           issuer_name: "{{ __bootstrap_certs__ca_intermediate_certs_by_domain[hostvars[__bootstrap_certs__cert_node]['ca_domain']].common_name
-            | d(bootstrap_certs__ca_root_cn) }}"
-          fqdn: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__fqdn_default) }}"
+            | d(bootstrap_certs__ca_root_cn, true) }}"
+          fqdn: "{{ hostvars[__bootstrap_certs__cert_node]['ca_common_name'] | d(__bootstrap_certs__fqdn_default, true) }}"
 
 - name: "{{ __log_prefix_subtask }} Display __bootstrap_certs__local_info"
   ansible.builtin.debug:
@@ -64,7 +64,7 @@
 
 - name: "{{ __log_prefix_subtask }} Get __bootstrap_certs__ca_signer_cert_cn"
   ansible.builtin.set_fact:
-    __bootstrap_certs__ca_signer_cert_cn: "{{ __bootstrap_certs__local_info.issuer_name | d(bootstrap_certs__ca_root_cn) }}"
+    __bootstrap_certs__ca_signer_cert_cn: "{{ __bootstrap_certs__local_info.issuer_name | d(bootstrap_certs__ca_root_cn, true) }}"
 
 - name: "{{ __log_prefix_subtask }} Get cert facts"
   ansible.builtin.set_fact:
@@ -82,8 +82,8 @@
   ansible.builtin.set_fact:
     __bootstrap_certs__ca_signer_parent_cert_info: "{{
       __bootstrap_certs__ca_signer_certs[__bootstrap_certs__ca_signer_cert_info.issuer_name
-      | d(bootstrap_certs__ca_root_cn)]
-      | d(bootstrap_certs__ca_root) }}"
+      | d(bootstrap_certs__ca_root_cn, true)]
+      | d(bootstrap_certs__ca_root, true) }}"
 
 - name: "{{ __log_prefix_subtask }} Get signer cert info combined with parent signer info"
   ansible.builtin.set_fact:
@@ -130,7 +130,7 @@
       CN: "{{ __bootstrap_certs__ca_cert_info.common_name }}"
       hosts: "{{ (
           __bootstrap_certs__ca_cert_info.sans
-          | d(bootstrap_certs__subj_alt_names_default)
+          | d(bootstrap_certs__subj_alt_names_default, true)
           + __bootstrap_certs__ca_cert_info.altips | d([], true)
         ) }}"
       key: "{{ bootstrap_certs__ca_key_spec }}"

@@ -3,6 +3,8 @@ name: Ansible Lint
 permissions:
   contents: read
   checks: write
+  pull-requests: write
+  issues: write
 
 on:
   workflow_call:  # allow this workflow to be called from other workflows
@@ -15,8 +17,6 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # needed for progressive mode to work
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -36,7 +36,7 @@ jobs:
       - name: Run ansible-lint
         run: |
           set -o pipefail
-          ansible-lint -v -c .ansible-lint --format=pep8 | ansible-lint-to-junit-xml > ansible-lint-junit.xml
+          ansible-lint -v -c .ansible-lint --format=pep8 | tee ansible-lint-output.txt | ansible-lint-to-junit-xml > ansible-lint-junit.xml
         env:
           ANSIBLE_LINT_OFFLINE: "false"
           ANSIBLE_COLLECTIONS_PATH: "~/.ansible/collections:./.ansible/collections:./collections:/usr/share/ansible/collections"
@@ -45,6 +45,17 @@ jobs:
 #          args: "inventory/ roles/ playbooks/ ."
 #          args: "-c .ansible-lint ."
 #          args: -v -c .ansible-lint
+
+      - name: Show ansible-lint output on failure
+        if: failure()
+        run: cat ansible-lint-output.txt
+
+      - name: Upload ansible-lint output artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ansible-lint-output
+          path: ansible-lint-output.txt
 
       - name: Publish Ansible-Lint Results
         if: always()

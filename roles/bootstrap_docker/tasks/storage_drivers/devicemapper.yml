@@ -1,5 +1,5 @@
 ---
-- name: Docker | Storage Driver | devicemapper | Install LVM2
+- name: Storage Driver | devicemapper | Install LVM2
   ansible.builtin.package:
     name: lvm2
     state: present
@@ -8,16 +8,16 @@
   retries: 10
   delay: 2
 
-- name: Docker | Storage Driver | devicemapper | Create thinpool volume
+- name: Storage Driver | devicemapper | Create thinpool volume
   when: bootstrap_docker__block_device is defined
   block:
-    - name: Docker | Storage Driver | devicemapper | Configure logical volume group
+    - name: Storage Driver | devicemapper | Configure logical volume group
       community.general.lvg:
         vg: docker
         pvs: "{{ bootstrap_docker__block_device }}"
       when: bootstrap_docker__block_device is defined
 
-    - name: Docker | Storage Driver | devicemapper | Create thinpool volume
+    - name: Storage Driver | devicemapper | Create thinpool volume
       community.general.lvol:
         vg: docker
         lv: thinpool
@@ -25,38 +25,38 @@
         opts: --wipesignatures y
       register: thinpool
 
-    - name: Docker | Storage Driver | devicemapper | Create thinpoolmeta volume
+    - name: Storage Driver | devicemapper | Create thinpoolmeta volume
       community.general.lvol:
         vg: docker
         lv: thinpoolmeta
         size: 1%VG
         opts: --wipesignatures y
 
-    - name: Docker | Storage Driver | devicemapper | Convert volumes to thinpool
+    - name: Storage Driver | devicemapper | Convert volumes to thinpool
       when: thinpool.changed # noqa: no-handler
       ansible.builtin.command: lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta
       changed_when: false
 
-    - name: Docker | Storage Driver | devicemapper | Configure autoextension of thin pools via 'lvm' profile
+    - name: Storage Driver | devicemapper | Configure autoextension of thin pools via 'lvm' profile
       ansible.builtin.copy:
         src: docker-thinpool.profile
         dest: /etc/lvm/profile/docker-thinpool.profile
         mode: "0755"
       register: bootstrap_docker__thinpool_profile
-      notify: Docker | Restart Docker
+      notify: Restart Docker
 
-    - name: Docker | Storage Driver | devicemapper | Apply 'lvm' profile
+    - name: Storage Driver | devicemapper | Apply 'lvm' profile
       when: bootstrap_docker__thinpool_profile.changed # noqa: no-handler
       ansible.builtin.command: lvchange --metadataprofile docker-thinpool docker/thinpool
       changed_when: false
 
-    - name: Docker | Storage Driver | devicemapper | Make sure /var/lib/docker is Created
+    - name: Storage Driver | devicemapper | Make sure /var/lib/docker is Created
       ansible.builtin.file:
         path: /var/lib/docker
         state: directory
         mode: "0755"
 
-    - name: Docker | Storage Driver | devicemapper | Add default docker storage options
+    - name: Storage Driver | devicemapper | Add default docker storage options
       when: bootstrap_docker__storage_opts is undefined
       ansible.builtin.set_fact:
         bootstrap_docker__storage_opts:

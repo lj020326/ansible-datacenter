@@ -1,84 +1,200 @@
 ---
-title: Bootstrap StepCA Role Documentation
-role: bootstrap_stepca
-category: Infrastructure
-type: Ansible Role
-tags: stepca, certificate-authority, automation
-
-## Summary
-The `bootstrap_stepca` role is designed to automate the installation and configuration of a Step Certificate Authority (StepCA) server on Debian-based systems. It handles the setup of necessary directories, downloads and installs required packages, generates and manages SSL certificates, configures systemd services, sets up databases for storing certificate data, and optionally configures Certificate Transparency (CT) logging services.
-
-## Variables
-
-| Variable Name                           | Default Value                                                                                   | Description                                                                                                                                                                                                 |
-|-----------------------------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `stepca_local_cert_dir`                 | `/usr/local/ssl/certs`                                                                          | Directory where local certificates will be stored.                                                                                                                                                          |
-| `stepca_local_key_dir`                  | `/usr/local/ssl/private`                                                                        | Directory where local private keys will be stored.                                                                                                                                                          |
-| `stepca_install_service`                | `true`                                                                                          | Whether to install and configure the StepCA renewal service.                                                                                                                                                |
-| `stepca_hostname_full`                  | `{{ ansible_facts['fqdn'] }}`                                                                   | Full hostname of the server, defaults to the FQDN of the host.                                                                                                                                              |
-| `stepca__src`                           | `/var/lib/src/stepca`                                                                           | Source directory for downloading and storing StepCA packages.                                                                                                                                             |
-| `stepca__cli_package_url`               | `https://github.com/smallstep/cli/releases/download/v0.15.16/step-cli_0.15.16_amd64.deb`       | URL to download the Step CLI package.                                                                                                                                                                       |
-| `stepca_cli_bin_dir`                    | `/usr/local/bin`                                                                                | Directory where the Step CLI binary will be installed.                                                                                                                                                    |
-| `stepca__deb_url`                       | `https://github.com/smallstep/certificates/releases/download/v0.15.8/step-certificates_0.15.8_amd64.deb` | URL to download the StepCA server package.                                                                                                                                                                  |
-| `stepca_host_url`                       | `https://stepca.example.int/`                                                                    | Base URL for the StepCA server.                                                                                                                                                                             |
-| `stepca_ca_server`                      | `false`                                                                                         | Whether to install and configure the StepCA server components.                                                                                                                                            |
-| `stepca_svc_user`                       | `step`                                                                                            | System user under which StepCA services will run.                                                                                                                                                           |
-| `stepca_apps`                           | List of StepCA applications (e.g., stepca-ca, stepca-ra, etc.)                                    | List of StepCA application components to be installed and configured.                                                                                                                                       |
-| `stepca_services`                       | List of StepCA systemd service names                                                              | List of systemd services related to StepCA that will be managed by this role.                                                                                                                               |
-| `ctfe_server_http`                      | `4011`                                                                                            | Port number for the Certificate Transparency Front End (CTFE) server HTTP interface.                                                                                                                          |
-| `app_conf`                              | Configuration details for various StepCA applications                                             | Detailed configuration settings for different StepCA components, including network ports and features.                                                                                                        |
-
-## Usage
-To use this role, include it in your playbook and configure the necessary variables as per your environment. Here is an example of how to include this role in a playbook:
+title: "StepCA Bootstrap Role"
+role: roles/bootstrap_stepca
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_stepca]
+---
 
 ```yaml
-- name: Bootstrap Step Certificate Authority Server
-  hosts: stepca_servers
-  become: true
-  roles:
-    - role: bootstrap_stepca
-      vars:
-        stepca_ca_server: true
-        stepca_host_url: https://your-ca-server.example.com/
+---
+title: "StepCA Bootstrap Role"
+role: "bootstrap_stepca"
+category: "Security"
+type: "Role"
+summary: |
+  The StepCA Bootstrap Role installs and configures StepCA, a certificate authority (CA) and related services, on a Debian-based system. It handles the installation of the Step CLI, StepCA server, and related dependencies, as well as the configuration of systemd services and database setup.
+
+variables:
+  - name: "stepca_local_cert_dir"
+    default: "/usr/local/ssl/certs"
+    description: "Directory to store local certificates."
+  - name: "stepca_local_key_dir"
+    default: "/usr/local/ssl/private"
+    description: "Directory to store local private keys."
+  - name: "stepca_install_service"
+    default: "true"
+    description: "Whether to install the StepCA renewal service."
+  - name: "stepca_hostname_full"
+    default: "{{ ansible_facts['fqdn'] }}"
+    description: "Fully qualified domain name of the host."
+  - name: "stepca_src"
+    default: "/var/lib/src/stepca"
+    description: "Source directory for StepCA installation files."
+  - name: "stepca_cli_package_url"
+    default: "https://github.com/smallstep/cli/releases/download/v0.15.16/step-cli_0.15.16_amd64.deb"
+    description: "URL to download the Step CLI package."
+  - name: "stepca_cli_bin_dir"
+    default: "/usr/local/bin"
+    description: "Directory to install the Step CLI binary."
+  - name: "stepca_deb_url"
+    default: "https://github.com/smallstep/certificates/releases/download/v0.15.8/step-certificates_0.15.8_amd64.deb"
+    description: "URL to download the StepCA server package."
+  - name: "stepca_host_url"
+    default: "https://stepca.example.int/"
+    description: "URL of the StepCA host."
+  - name: "stepca_ca_server"
+    default: "false"
+    description: "Whether to configure the system as a StepCA server."
+  - name: "stepca_svc_user"
+    default: "step"
+    description: "User for StepCA services."
+  - name: "stepca_apps"
+    default: |
+      - stepca-ca
+      - stepca-ra
+      - stepca-va
+      - stepca-sa
+      - stepca-publisher
+      - nonce-service
+      - stepca-wfe2
+      - ocsp-updater
+      - ocsp-responder
+      - orphan-finder
+      - admin-revoker
+      - stepca-janitor
+      - expired-authz-purger2
+    description: "List of StepCA applications to install."
+  - name: "stepca_services"
+    default: |
+      - stepca-ca
+      - stepca-ra
+      - stepca-sa
+      - stepca-va
+      - stepca-wfe2
+      - stepca-eap2
+      - stepca-janitor
+      - stepca-nonce-provider
+      - stepca-ocsp-responder
+      - stepca-ocsp-updater
+      - stepca-publisher
+    description: "List of StepCA services to manage."
+  - name: "ctfe_server_http"
+    default: "4011"
+    description: "HTTP port for the CTFE server."
+  - name: "app_conf"
+    default: |
+      ca:
+        network:
+          grpc:
+            ca: 3501
+            ocsp: 3502
+        features:
+          StoreIssuerInfo: true
+          BlockedKeyTable: true
+      ra:
+        network:
+          grpc: 3511
+        features:
+          V1DisableNewValidations: true
+          BlockedKeyTable: true
+          StoreRevokerInfo: false
+          RestrictRSAKeySizes: true
+          FasterNewOrdersRateLimit: true
+      va:
+        network:
+          grpc: 3531
+          dns_resolvers: "{{ va_resolvers }}"
+        features:
+          CAAAccountURI: true
+          CAAValidationMethods: true
+          MultiVAFullResults: false
+          EnforceMultiVA: false
+      sa:
+        network:
+          grpc: 3521
+        db_user: stepca_sasvc
+        features:
+          StoreIssuerInfo: true
+          StoreRevokerInfo: false
+          StoreKeyHashes: true
+          FasterNewOrdersRateLimit: true
+      publisher:
+        network:
+          grpc: 3512
+      nonce:
+        network:
+          grpc: 3541
+      wfe2:
+        network:
+          http: 3601
+          https: 0
+        features:
+          StripDefaultSchemePort: true
+          MandatoryPOSTAsGET: true
+          PrecertificateRevocation: true
+          BlockedKeyTable: true
+      ocsp_updater:
+        features:
+          StoreIssuerInfo: true
+        db_user: stepca_ocspupd
+      ocsp_responder:
+        network:
+          http: 3602
+        db_user: stepca_ocspresp
+      admin_revoker:
+        db_user: stepca_revoker
+      janitor:
+        db_user: stepca_janitor
+      expired_authz_purger2:
+        db_user: stepca_purger
+    description: "Configuration for StepCA applications."
+
+usage: |
+  To use this role, include it in your playbook and set the necessary variables. For example:
+
+  ```yaml
+  - hosts: all
+    roles:
+      - role: bootstrap_stepca
+        vars:
+          stepca_ca_server: true
+          stepca_host_url: "https://stepca.example.com/"
+          stepca_local_cert_dir: "/custom/cert/dir"
+          stepca_local_key_dir: "/custom/key/dir"
+          stepca_install_service: false
+          stepca_svc_user: "customuser"
+  ```
+
+dependencies: |
+  - This role requires a Debian-based system.
+  - The role uses the `community.crypto` collection for OpenSSL tasks (version 2.0.0 or later).
+
+best_practices: |
+  - Ensure that the system has internet access to download the necessary packages.
+  - Make sure that the StepCA server URL is accessible from the system.
+  - Regularly update the StepCA packages to the latest versions by monitoring the official repository.
+  - Monitor the StepCA services and logs for any issues using a centralized logging solution.
+  - Implement proper firewall rules to restrict access to StepCA services.
+  - Backup StepCA configuration and databases regularly.
+
+backlinks:
+  - "../../roles/bootstrap_stepca/defaults/main.yml"
+  - "../../roles/bootstrap_stepca/tasks/fetch-stepca-fingerprint.yml"
+  - "../../roles/bootstrap_stepca/tasks/install-debian.yml"
+  - "../../roles/bootstrap_stepca/tasks/main.yml"
+  - "../../roles/bootstrap_stepca/tasks/02-stepca-server.yml"
+  - "../../roles/bootstrap_stepca/tasks/02-stepcaconfigs.yml"
+  - "../../roles/bootstrap_stepca/tasks/03-stepcasystemd.yml"
+  - "../../roles/bootstrap_stepca/tasks/04-cafiles.yml"
+  - "../../roles/bootstrap_stepca/tasks/05-1-grpcpki-leaf.yml"
+  - "../../roles/bootstrap_stepca/tasks/05-grpcpki.yml"
+  - "../../roles/bootstrap_stepca/tasks/06-installdatabase.yml"
+  - "../../roles/bootstrap_stepca/tasks/07-1-fullctsrv.yml"
+  - "../../roles/bootstrap_stepca/tasks/07-2-testctsrv.yml"
+  - "../../roles/bootstrap_stepca/tasks/07-ctlogconfigs.yml"
+  - "../../roles/bootstrap_stepca/tasks/setup-stepca-cli.yml"
+  - "../../roles/bootstrap_stepca/tasks/setup-stepca-renew-service.yml"
+  - "../../roles/bootstrap_stepca/tasks/setup-stepca-server.yml"
+  - "../../roles/bootstrap_stepca/handlers/main.yml"
 ```
-
-## Dependencies
-This role depends on the following Ansible collections and modules:
-
-- `community.crypto`
-- `ansible.builtin` (standard Ansible modules)
-- `ansible.mysql` (for database management tasks)
-
-Ensure these are installed in your environment before running this role.
-
-## Best Practices
-1. **Security**: Ensure that all sensitive data, such as private keys, are stored securely and access is restricted.
-2. **Backup**: Regularly back up configuration files and databases to prevent data loss.
-3. **Monitoring**: Implement monitoring for StepCA services to ensure they are running correctly and respond promptly to any issues.
-
-## Molecule Tests
-This role includes Molecule tests to verify its functionality. To run the tests, navigate to the role directory and execute:
-
-```bash
-molecule test
-```
-
-Ensure you have Molecule installed in your environment before running the tests.
-
-## Backlinks
-
-- [defaults/main.yml](../../roles/bootstrap_stepca/defaults/main.yml)
-- [tasks/fetch-stepca-fingerprint.yml](../../roles/bootstrap_stepca/tasks/fetch-stepca-fingerprint.yml)
-- [tasks/install-debian.yml](../../roles/bootstrap_stepca/tasks/install-debian.yml)
-- [tasks/main.yml](../../roles/bootstrap_stepca/tasks/main.yml)
-- [tasks/02-stepca-server.yml](../../roles/bootstrap_stepca/tasks/server/02-stepca-server.yml)
-- [tasks/02-stepcaconfigs.yml](../../roles/bootstrap_stepca/tasks/server/02-stepcaconfigs.yml)
-- [tasks/03-stepcasystemd.yml](../../roles/bootstrap_stepca/tasks/server/03-stepcasystemd.yml)
-- [tasks/04-cafiles.yml](../../roles/bootstrap_stepca/tasks/server/04-cafiles.yml)
-- [tasks/05-grpcpki.yml](../../roles/bootstrap_stepca/tasks/server/05-grpcpki.yml)
-- [tasks/06-installdatabase.yml](../../roles/bootstrap_stepca/tasks/server/06-installdatabase.yml)
-- [tasks/07-ctlogconfigs.yml](../../roles/bootstrap_stepca/tasks/server/07-ctlogconfigs.yml)
-- [tasks/setup-stepca-cli.yml](../../roles/bootstrap_stepca/tasks/setup-stepca-cli.yml)
-- [tasks/setup-stepca-renew-service.yml](../../roles/bootstrap_stepca/tasks/setup-stepca-renew-service.yml)
-- [tasks/setup-stepca-server.yml](../../roles/bootstrap_stepca/tasks/server/setup-stepca-server.yml)
-- [handlers/main.yml](../../roles/bootstrap_stepca/handlers/main.yml)

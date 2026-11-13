@@ -32,11 +32,11 @@
 - name: vllm | Download models from Hugging Face
   dettonville.llm.hf_download:
     repo_id: "{{ item.repo }}"
-    filename: "{{ item.filename | default(omit) }}"
-    quant_preference: "{{ item.quant_preference | default(omit) }}"
+    filename: "{{ item.filename | d(omit, true) }}"
+    quant_preference: "{{ item.quant_preference | d(omit, true) }}"
     local_dir: "{{ bootstrap_llm_host__vllm_host_volume_path }}"
     force_download: "{{ bootstrap_llm_host__install_force | bool }}"
-    token: "{{ bootstrap_llm_host__hugging_face_token | d(omit) }}"
+    token: "{{ bootstrap_llm_host__hugging_face_token | d(omit, true) }}"
     owner: "{{ bootstrap_llm_host__model_user }}"
     group: "{{ bootstrap_llm_host__model_user }}"
   loop: "{{ bootstrap_llm_host__vllm_models }}"
@@ -48,9 +48,9 @@
   ansible.builtin.debug:
     msg: >-
       Model: {{ item.item }} |
-      Changed: {{ item.changed | default(false) }} |
-      Status: {{ 'Failed' if item.failed | default(true) else 'Downloaded/Verified' }}
-  loop: "{{ __models_download.results | default([]) }}"
+      Changed: {{ item.changed | d(false, false) }} |
+      Status: {{ 'Failed' if item.failed | d(true, false) else 'Downloaded/Verified' }}
+  loop: "{{ __models_download.results | d([], true) }}"
   when: __models_download.results is defined
 
 - name: vllm | Verify models are present inside container
@@ -87,12 +87,12 @@
 
     - name: vllm | Debug model directory content
       ansible.builtin.debug:
-        msg: "Models found inside container: {{ __model_check.stdout_lines | default([]) }}"
+        msg: "Models found inside container: {{ __model_check.stdout_lines | d([], true) }}"
 
 - name: vllm | Wait for vllm OpenAI-compatible API to be ready
   dettonville.llm.vllm_api:
     url: "{{ __bootstrap_llm_host__vllm_api_url }}"
-    api_key: "{{ bootstrap_llm_host__vllm_api_key | d(omit) }}"
+    api_key: "{{ bootstrap_llm_host__vllm_api_key | d(omit, true) }}"
     action: health
   register: __health_result
   until: __health_result is succeeded

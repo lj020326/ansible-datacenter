@@ -1,93 +1,83 @@
 ---
-title: Bootstrap Linux Firewalld Role Documentation
-role: bootstrap_linux_firewalld
-category: Security
-type: Ansible Role
-tags: firewalld, security, linux, ansible
+title: "Bootstrap Linux Firewalld Role"
+role: roles/bootstrap_linux_firewalld
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_linux_firewalld]
 ---
-
-## Summary
-
-The `bootstrap_linux_firewalld` role is designed to manage the installation, configuration, and uninstallation of the `firewalld` service on Linux systems. It provides flexibility in defining firewall rules, zones, services, and other configurations through Ansible variables.
-
-## Variables
-
-| Variable Name                      | Default Value                                                                 | Description                                                                                                                                                                                                 |
-|------------------------------------|-------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `firewalld_supported_actions`      | `['install', 'configure', 'uninstall']`                                     | List of supported actions for the role.                                                                                                                                                                     |
-| `firewalld_action`                 | `install`                                                                     | The action to perform: install, configure, or uninstall firewalld.                                                                                                                                          |
-| `firewalld_default_zone`           | `internal`                                                                    | The default firewall zone to use.                                                                                                                                                                           |
-| `firewalld_zones_force_reset`      | `false`                                                                       | Whether to force reset unmanaged zones in `/etc/firewalld/zones`.                                                                                                                                           |
-| `firewalld_handler_reload`         | `true`                                                                        | Whether to reload firewalld after configuration changes.                                                                                                                                                    |
-| `firewalld_enabled`                | `true`                                                                        | Whether the firewalld service should be enabled and started.                                                                                                                                              |
-| `firewalld_firewallbackend`        | `iptables`                                                                    | The backend used by firewalld (e.g., iptables).                                                                                                                                                           |
-| `firewalld_conf_file`              | `/etc/firewalld/firewalld.conf`                                               | Path to the firewalld configuration file.                                                                                                                                                                 |
-| `firewalld_configs`                | `{}`                                                                          | Dictionary of custom configurations for the firewalld.conf file.                                                                                                                                            |
-| `firewalld_ipsets`                 | `[]`                                                                          | List of ipset definitions.                                                                                                                                                                                  |
-| `firewalld_services`               | `[]`                                                                          | List of custom services to define in firewalld.                                                                                                                                                             |
-| `firewalld_zones`                  | `[{"name": "{{ firewalld_default_zone }}"}}]`                                  | List of firewall zones to configure.                                                                                                                                                                      |
-| `firewalld_ports`                  | `[]`                                                                          | List of ports to open or close in the firewall.                                                                                                                                                           |
-| `firewalld_rules`                  | `[{"zone": "{{ firewalld_default_zone }}", "immediate": "yes", "masquerade": "yes", "permanent": "yes", "state": enabled}]` | List of rules to apply to the firewall zones.                                                                                                                                                             |
-| `firewalld_default_zone_networks`  | `[127.0.0.0/8, 172.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16]`                      | List of default networks for the internal zone.                                                                                                                                                             |
-| `firewalld_flush_all_handlers`     | `true`                                                                        | Whether to flush all handlers before applying new configurations.                                                                                                                                           |
-
-## Usage
-
-To use this role, include it in your playbook and define the necessary variables as per your requirements. Here is an example:
 
 ```yaml
-- name: Bootstrap firewalld on target hosts
-  hosts: all
-  roles:
-    - role: bootstrap_linux_firewalld
-      vars:
-        firewalld_action: install
-        firewalld_default_zone: public
-        firewalld_zones:
-          - name: public
-            interfaces: eth0
-        firewalld_services:
-          - name: ssh
-            custom: false
-        firewalld_ports:
-          - port: 80/tcp
-            permanent: yes
-```
-
-## Dependencies
-
-This role does not have any external dependencies other than the Ansible control node having access to the target hosts and the necessary permissions to install packages and manage services.
-
-## Tags
-
-- `install`: Installs firewalld and its required packages.
-- `configure`: Configures firewalld based on provided variables.
-- `uninstall`: Uninstalls firewalld from the system.
-
-## Best Practices
-
-- Always ensure that your firewall rules are correctly defined to avoid locking yourself out of the system.
-- Use the `firewalld_configs` variable to customize the firewalld configuration file as needed.
-- Test configurations in a non-production environment before applying them to production systems.
-
-## Molecule Tests
-
-This role includes Molecule tests to verify its functionality. To run the tests, ensure you have Molecule installed and execute the following commands:
-
-```bash
-molecule test
-```
-
-## Backlinks
-
-- [defaults/main.yml](../../roles/bootstrap_linux_firewalld/defaults/main.yml)
-- [tasks/configure.yml](../../roles/bootstrap_linux_firewalld/tasks/configure.yml)
-- [tasks/init-vars.yml](../../roles/bootstrap_linux_firewalld/tasks/init-vars.yml)
-- [tasks/main.yml](../../roles/bootstrap_linux_firewalld/tasks/main.yml)
-- [tasks/setup.yml](../../roles/bootstrap_linux_firewalld/tasks/setup.yml)
-- [tasks/uninstall.yml](../../roles/bootstrap_linux_firewalld/tasks/uninstall.yml)
-- [handlers/main.yml](../../roles/bootstrap_linux_firewalld/handlers/main.yml)
-
 ---
+title: Bootstrap Linux Firewalld Role
+role: bootstrap_linux_firewalld
+category: System
+type: Role
+summary: |
+  The `bootstrap_linux_firewalld` role is designed to manage the installation, configuration, and removal of the Firewalld service on Linux systems. It provides a flexible and comprehensive approach to setting up Firewalld with customizable zones, services, ports, and rules.
 
-This documentation provides a comprehensive overview of the `bootstrap_linux_firewalld` role, including its purpose, variables, usage, and best practices.
+variables: |
+  | Variable Name                         | Default Value                           | Description                                                                 |
+  |---------------------------------------|-----------------------------------------|-----------------------------------------------------------------------------|
+  | `firewalld_supported_actions`         | `['install', 'configure', 'uninstall']` | List of supported actions for the role.                                      |
+  | `firewalld_action`                    | `install`                               | Action to perform (install, configure, uninstall).                           |
+  | `firewalld_default_zone`              | `internal`                              | Default zone for Firewalld.                                                  |
+  | `firewalld_zones_force_reset`         | `false`                                 | Force reset of zones.                                                        |
+  | `firewalld_handler_reload`            | `true`                                  | Reload Firewalld after configuration changes.                                |
+  | `firewalld_enabled`                   | `true`                                  | Enable Firewalld service.                                                    |
+  | `firewalld_firewallbackend`           | `iptables`                              | Backend firewall system (iptables or nftables).                              |
+  | `firewalld_conf_file`                 | `/etc/firewalld/firewalld.conf`         | Path to the Firewalld configuration file.                                    |
+  | `firewalld_configs`                   | `{}`                                    | Dictionary of custom configurations for Firewalld.                            |
+  | `firewalld_ipsets`                    | `[]`                                    | List of IP sets to configure.                                                |
+  | `firewalld_services`                  | `[]`                                    | List of services to configure.                                               |
+  | `firewalld_zones`                     | `[{'name': '{{ firewalld_default_zone }}'}]` | List of zones to configure.                                                  |
+  | `firewalld_ports`                     | `[]`                                    | List of ports to configure.                                                  |
+  | `firewalld_rules`                     | `[{'zone': '{{ firewalld_default_zone }}', 'immediate': 'yes', 'masquerade': 'yes', 'permanent': 'yes', 'state': 'enabled'}]` | List of rules to configure. |
+  | `firewalld_default_zone_networks`     | `[127.0.0.0/8, 172.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16]` | Default networks for the default zone.                                       |
+  | `firewalld_flush_all_handlers`        | `true`                                  | Flush all handlers.                                                          |
+  | `__bootstrap_firewalld__log_prefix_main` | `Bootstrap-firewalld | Install |` | Log prefix for main tasks.                                                   |
+  | `__bootstrap_firewalld__log_prefix_initvars` | `Bootstrap-firewalld | Init-vars |` | Log prefix for initialization variables.                                     |
+  | `__bootstrap_firewalld__log_prefix_configure` | `Bootstrap-firewalld | Configure |` | Log prefix for configuration tasks.                                          |
+  | `__bootstrap_firewalld__log_prefix_setup` | `Bootstrap-firewalld | Setup |` | Log prefix for setup tasks.                                                  |
+  | `__bootstrap_firewalld__log_prefix_remove` | `Bootstrap-firewalld | Remove |` | Log prefix for removal tasks.                                                |
+  | `__firewalld_packages`                | `['firewalld', 'python3-firewall']`    | List of packages to install.                                                 |
+  | `__firewalld_pip_libs`                | `['firewall']`                         | List of Python libraries to install.                                         |
+
+usage: |
+  To use the `bootstrap_linux_firewalld` role, include it in your playbook and configure the variables as needed. Here is an example playbook:
+
+  ```yaml
+  ---
+  - hosts: all
+    roles:
+      - role: bootstrap_linux_firewalld
+        vars:
+          firewalld_action: install
+          firewalld_default_zone: public
+          firewalld_services:
+            - name: http
+              custom: true
+          firewalld_ports:
+            - zone: public
+              port: 8080/tcp
+              permanent: true
+              state: enabled
+  ```
+
+dependencies: |
+  This role does not have any external dependencies. However, it assumes that the target system is a Linux distribution that supports Firewalld.
+
+best_practices: |
+  - Always test the role in a development environment before deploying it to production.
+  - Regularly update the role to ensure compatibility with the latest versions of Firewalld and the target Linux distribution.
+  - Use the `configure` action to apply configuration changes without reinstalling Firewalld.
+  - Customize the Firewalld configuration file (`firewalld.conf`) as needed to suit your specific requirements.
+
+backlinks: |
+  - [defaults/main.yml](../../roles/bootstrap_linux_firewalld/defaults/main.yml)
+  - [tasks/configure.yml](../../roles/bootstrap_linux_firewalld/tasks/configure.yml)
+  - [tasks/init-vars.yml](../../roles/bootstrap_linux_firewalld/tasks/init-vars.yml)
+  - [tasks/main.yml](../../roles/bootstrap_linux_firewalld/tasks/main.yml)
+  - [tasks/setup.yml](../../roles/bootstrap_linux_firewalld/tasks/setup.yml)
+  - [tasks/uninstall.yml](../../roles/bootstrap_linux_firewalld/tasks/uninstall.yml)
+  - [handlers/main.yml](../../roles/bootstrap_linux_firewalld/handlers/main.yml)
+```

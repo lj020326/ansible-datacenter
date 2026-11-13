@@ -1,114 +1,120 @@
 ---
-title: "VMware ESXi Host Configuration Role"
-role: bootstrap_vmware_esxi_hostconf
+title: "Bootstrap VMware ESXi Host Configuration"
+role: roles/bootstrap_vmware_esxi_hostconf
 category: VMware
-type: Ansible Role
-tags: esxi, vmware, configuration, automation
+type: Role
+tags: [ansible, role, bootstrap_vmware_esxi_hostconf]
 ---
 
-## Summary
-
-The `bootstrap_vmware_esxi_hostconf` role is designed to automate the configuration of VMware ESXi hosts. It handles various aspects such as hostname setup, license assignment, DNS and NTP configuration, user management, network settings, storage configuration, autostart options, logging, SSL certificates, and software installation. This role ensures that ESXi hosts are configured consistently and securely according to specified parameters.
-
-## Variables
-
-| Variable Name | Default Value | Description |
-|---------------|---------------|-------------|
-| `role_bootstrap_vmware_esxi_hostconf__esx_asm_cmd` | `vim-cmd hostsvc/autostartmanager` | Command used for managing ESXi autostart settings. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_domain` | `example.int` | Domain name for the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_serial` | `XXXXX-XXXXX-XXXX-XXXXX-XXXXX` | License serial number for the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_regenerate_certs` | `false` | Whether to regenerate self-signed SSL certificates. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_dns_servers` | `[192.168.0.1]` | List of DNS servers for the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_search_domains` | `['subdomain.example.int', 'example.int']` | List of search domains for the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esxi_local_users` | `[]` | List of local users to be configured on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esxi_fqdn` | `"{{ inventory_hostname }}.{{ role_bootstrap_vmware_esxi_hostconf__esx_domain }}"` | Fully Qualified Domain Name for the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_vmfs_guid` | `AA31E02A400F11DB9590000C2911D1B8` | GUID used for VMFS partitions on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_force_reboot` | `false` | Whether to force a reboot of the ESXi host after configuration changes. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_ssh_timeout` | `3600` | SSH timeout value for the ESXi host in seconds. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_syslog_host` | `log.{{ role_bootstrap_vmware_esxi_hostconf__esx_domain }}` | Syslog server hostname or IP address. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_local_datastores` | `{}` | Dictionary of local datastores to be configured on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_rename_datastores` | `true` | Whether to rename existing datastores according to the configuration. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_create_datastores` | `true` | Whether to create new datastores on vacant LUNs. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_permit_ssh_from` | `192.168.0.*` | IP range allowed to SSH into the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_autostart_only_listed` | `false` | Whether to disable autostart for VMs not listed in the configuration. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_vswitch_def` | `vSwitch0` | Default vSwitch name used for network configurations. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_create_vmotion_iface` | `false` | Whether to create a VMotion interface on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_vmotion_iface_name` | `vmk1` | Name of the VMotion interface. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_vmotion_portgroup_name` | `vMotion` | Portgroup name for the VMotion interface. |
-| `role_bootstrap_vmware_esxi_hostconf__esx_vmotion_subnet_number` | `241` | Subnet number used for calculating the VMotion IP address. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_hostname` | `false` | Whether to configure the hostname of the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_license` | `false` | Whether to assign a license to the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_dns` | `false` | Whether to configure DNS settings on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_ntp` | `true` | Whether to configure NTP settings on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_users` | `false` | Whether to manage local users on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_network` | `false` | Whether to configure network settings on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_storage` | `false` | Whether to configure storage settings on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_autostart` | `false` | Whether to configure autostart options for VMs on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_logging` | `false` | Whether to configure logging settings on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_certs` | `false` | Whether to manage SSL certificates on the ESXi host. |
-| `role_bootstrap_vmware_esxi_hostconf__setup_software` | `false` | Whether to install required VIBs (vSphere Installation Bundles) on the ESXi host. |
-
-## Usage
-
-To use this role, include it in your playbook and set the appropriate variables as needed. Here is an example of how to configure an ESXi host with specific settings:
-
 ```yaml
-- name: Configure VMware ESXi Host
-  hosts: esxi_hosts
-  roles:
-    - role: bootstrap_vmware_esxi_hostconf
-      vars:
-        role_bootstrap_vmware_esxi_hostconf__esx_domain: "yourdomain.com"
-        role_bootstrap_vmware_esxi_hostconf__esx_serial: "AAAAA-BBBBB-CCCCC-DDDDD-EEEEE"
-        role_bootstrap_vmware_esxi_hostconf__esx_dns_servers:
-          - 8.8.8.8
-          - 8.8.4.4
-        role_bootstrap_vmware_esxi_hostconf__esx_search_domains:
-          - sub.yourdomain.com
-          - yourdomain.com
-        role_bootstrap_vmware_esxi_hostconf__esxi_local_users:
-          admin_user:
-            desc: "Administrator User"
-        role_bootstrap_vmware_esxi_hostconf__setup_hostname: true
-        role_bootstrap_vmware_esxi_hostconf__setup_license: true
-        role_bootstrap_vmware_esxi_hostconf__setup_dns: true
-        role_bootstrap_vmware_esxi_hostconf__setup_ntp: true
-        role_bootstrap_vmware_esxi_hostconf__setup_users: true
-        role_bootstrap_vmware_esxi_hostconf__setup_network: true
-        role_bootstrap_vmware_esxi_hostconf__setup_storage: true
-        role_bootstrap_vmware_esxi_hostconf__setup_autostart: true
-        role_bootstrap_vmware_esxi_hostconf__setup_logging: true
-        role_bootstrap_vmware_esxi_hostconf__setup_certs: true
-```
+---
+title: Bootstrap VMware ESXi Host Configuration
+role: bootstrap_vmware_esxi_hostconf
+category: VMware
+type: Role
+summary: |
+  The `bootstrap_vmware_esxi_hostconf` role is designed to configure VMware ESXi hosts with a comprehensive set of settings, including hostname, DNS, NTP, users, networking, storage, autostart, logging, certificates, and software. This role ensures that ESXi hosts are configured consistently and securely according to best practices.
 
-## Dependencies
+variables: |
+  | Variable Name                          | Default Value                       | Description                                                                 |
+  |----------------------------------------|-------------------------------------|-----------------------------------------------------------------------------|
+  | `esx_asm_cmd`                          | `vim-cmd hostsvc/autostartmanager`  | Command to manage autostart settings.                                       |
+  | `esx_domain`                           | `example.int`                       | Domain name for the ESXi host.                                               |
+  | `esx_serial`                           | `XXXXX-XXXXX-XXXX-XXXXX-XXXXX`      | Serial number for the ESXi license.                                          |
+  | `esx_regenerate_certs`                 | `false`                             | Whether to regenerate self-signed certificates.                              |
+  | `esx_dns_servers`                      | `192.168.0.1`                       | List of DNS servers to configure.                                            |
+  | `esx_search_domains`                   | `subdomain.example.int, example.int`| List of search domains to configure.                                          |
+  | `esxi_local_users`                     | `[]`                                | List of local users to configure on the ESXi host.                           |
+  | `esxi_fqdn`                            | `{{ inventory_hostname }}.{{ esx_domain }}` | Fully qualified domain name of the ESXi host.                                |
+  | `esx_vmfs_guid`                        | `AA31E02A400F11DB9590000C2911D1B8` | GUID for VMFS datastores.                                                    |
+  | `esx_force_reboot`                     | `false`                             | Whether to force a reboot after configuration.                               |
+  | `esx_ssh_timeout`                      | `3600`                              | SSH timeout in seconds.                                                      |
+  | `esx_syslog_host`                      | `log.{{ esx_domain }}`              | Syslog host for logging.                                                     |
+  | `esx_local_datastores`                 | `{}`                                | Dictionary of local datastores to configure.                                 |
+  | `esx_rename_datastores`                | `true`                              | Whether to rename datastores.                                                |
+  | `esx_create_datastores`                | `true`                              | Whether to create datastores.                                                |
+  | `esx_permit_ssh_from`                  | `192.168.0.*`                       | IP address range permitted to SSH into the ESXi host.                        |
+  | `esx_autostart_only_listed`            | `false`                             | Whether to autostart only listed VMs.                                        |
+  | `esx_vswitch_def`                      | `vSwitch0`                          | Default vSwitch name.                                                        |
+  | `esx_create_vmotion_iface`             | `false`                             | Whether to create a vMotion interface.                                       |
+  | `esx_vmotion_iface_name`               | `vmk1`                              | Name of the vMotion interface.                                               |
+  | `esx_vmotion_portgroup_name`           | `vMotion`                           | Name of the vMotion portgroup.                                               |
+  | `esx_vmotion_subnet_number`            | `241`                               | Subnet number for the vMotion interface.                                     |
+  | `bootstrap_vmware_esxi_hostconf__setup_hostname` | `false` | Whether to set up the hostname.                                             |
+  | `bootstrap_vmware_esxi_hostconf__setup_license` | `false` | Whether to set up the license.                                              |
+  | `bootstrap_vmware_esxi_hostconf__setup_dns` | `false` | Whether to set up DNS.                                                      |
+  | `bootstrap_vmware_esxi_hostconf__setup_ntp` | `true` | Whether to set up NTP.                                                      |
+  | `bootstrap_vmware_esxi_hostconf__setup_users` | `false` | Whether to set up users.                                                    |
+  | `bootstrap_vmware_esxi_hostconf__setup_network` | `false` | Whether to set up networking.                                               |
+  | `bootstrap_vmware_esxi_hostconf__setup_storage` | `false` | Whether to set up storage.                                                  |
+  | `bootstrap_vmware_esxi_hostconf__setup_autostart` | `false` | Whether to set up autostart.                                                |
+  | `bootstrap_vmware_esxi_hostconf__setup_logging` | `false` | Whether to set up logging.                                                  |
+  | `bootstrap_vmware_esxi_hostconf__setup_certs` | `false` | Whether to set up certificates.                                             |
+  | `bootstrap_vmware_esxi_hostconf__setup_software` | `false` | Whether to set up software.                                                 |
 
-This role does not have any external dependencies. However, it requires the `esxi_vm_info` and `esxi_autostart` modules from the VMware collection (`community.vmware`) for certain tasks.
+usage: |
+  To use this role, include it in your playbook and set the desired variables. For example:
 
-## Best Practices
+  ```yaml
+  - hosts: esxi_hosts
+    roles:
+      - role: bootstrap_vmware_esxi_hostconf
+        vars:
+          esx_domain: "example.com"
+          esx_serial: "ABCD1234EFGH5678IJKL"
+          esx_dns_servers:
+            - 8.8.8.8
+            - 8.8.4.4
+          esx_search_domains:
+            - subdomain.example.com
+            - example.com
+          esxi_local_users:
+            - name: "user1"
+              desc: "User 1 description"
+            - name: "user2"
+              desc: "User 2 description"
+          esx_local_datastores:
+            datastore1:
+              name: "datastore1"
+            datastore2:
+              name: "datastore2"
+          bootstrap_vmware_esxi_hostconf__setup_hostname: true
+          bootstrap_vmware_esxi_hostconf__setup_license: true
+          bootstrap_vmware_esxi_hostconf__setup_dns: true
+          bootstrap_vmware_esxi_hostconf__setup_ntp: true
+          bootstrap_vmware_esxi_hostconf__setup_users: true
+          bootstrap_vmware_esxi_hostconf__setup_network: true
+          bootstrap_vmware_esxi_hostconf__setup_storage: true
+          bootstrap_vmware_esxi_hostconf__setup_autostart: true
+          bootstrap_vmware_esxi_hostconf__setup_logging: true
+          bootstrap_vmware_esxi_hostconf__setup_certs: true
+          bootstrap_vmware_esxi_hostconf__setup_software: true
+  ```
 
-- Ensure that all variables are set appropriately before running the playbook to avoid configuration issues.
-- Use secure methods for handling sensitive information such as license keys and passwords.
-- Test configurations in a non-production environment before applying them to production systems.
-- Regularly update the role to incorporate any necessary changes or improvements.
+dependencies: |
+  This role does not have any external dependencies, but it relies on the following Ansible modules:
+  - `esxi_vm_info`
+  - `esxi_autostart`
+  - `esxi_vib`
 
-## Molecule Tests
+best_practices: |
+  1. Always test the role in a development environment before applying it to production hosts.
+  2. Ensure that the ESXi hosts are reachable and that the necessary credentials are provided.
+  3. Regularly review and update the role to accommodate changes in the ESXi environment.
+  4. Use the role in conjunction with other automation tools to achieve a fully automated ESXi deployment.
 
-This role does not currently include Molecule tests. However, it is recommended to create test scenarios using Molecule to ensure the role functions as expected under various conditions.
-
-## Backlinks
-
-- [defaults/main.yml](../../roles/bootstrap_vmware_esxi_hostconf/defaults/main.yml)
-- [tasks/autostart.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/autostart.yml)
-- [tasks/certs.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/certs.yml)
-- [tasks/dns.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/dns.yml)
-- [tasks/hostname.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/hostname.yml)
-- [tasks/license.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/license.yml)
-- [tasks/logging.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/logging.yml)
-- [tasks/main.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/main.yml)
-- [tasks/network.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/network.yml)
-- [tasks/ntp.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/ntp.yml)
-- [tasks/software.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/software.yml)
-- [tasks/storage.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/storage.yml)
-- [tasks/users.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/users.yml)
-- [handlers/main.yml](../../roles/bootstrap_vmware_esxi_hostconf/handlers/main.yml)
+backlinks: |
+  - [defaults/main.yml](../../roles/bootstrap_vmware_esxi_hostconf/defaults/main.yml)
+  - [tasks/autostart.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/autostart.yml)
+  - [tasks/certs.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/certs.yml)
+  - [tasks/dns.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/dns.yml)
+  - [tasks/hostname.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/hostname.yml)
+  - [tasks/license.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/license.yml)
+  - [tasks/logging.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/logging.yml)
+  - [tasks/main.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/main.yml)
+  - [tasks/network.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/network.yml)
+  - [tasks/ntp.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/ntp.yml)
+  - [tasks/software.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/software.yml)
+  - [tasks/storage.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/storage.yml)
+  - [tasks/users.yml](../../roles/bootstrap_vmware_esxi_hostconf/tasks/users.yml)
+  - [handlers/main.yml](../../roles/bootstrap_vmware_esxi_hostconf/handlers/main.yml)

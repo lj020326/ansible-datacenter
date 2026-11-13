@@ -2,7 +2,6 @@
 
 Map config = [:]
 
-config.ansibleLintArgs = "-v"
 // config.ansibleLintPaths = [
 //     'inventory/',
 //     'roles/',
@@ -10,4 +9,4 @@ config.ansibleLintArgs = "-v"
 //     '.'
 // ]
 
-runAnsibleLint(config)
+runAnsibleLintPipeline(config)

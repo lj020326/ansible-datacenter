@@ -5,7 +5,7 @@
 
 - name: "Remove roles"
   ansible.builtin.include_tasks: manage-roles.yml
-  loop: "{{ controller_organizations }}"
+  loop: "{{ __controller_organizations }}"
   loop_control:
     loop_var: __organization_loop_var
     label: organization['name']
@@ -19,7 +19,7 @@
     username: "{{ item['username'] }}"
     organization: "{{ item['organization'] }}"
     state: absent
-  loop: "{{ bootstrap_ansible_controller__local_users }}"
+  loop: "{{ __controller_local_users }}"
 
 ##
 ## Remove teams
@@ -60,20 +60,20 @@
         label: "{{ __schedule_loop_var['schedule_name'] }}"
       when:
         - __controller_schedules | d([], true) | length>0
-        - __schedule_loop_var['environments'] is not defined or controller_env.lower() in __schedule_loop_var['environments']
+        - __schedule_loop_var['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in __schedule_loop_var['environments']
 
 ##
 ## Remove workflow templates
 ##
 
 - name: Workflow template block
-  when: controller_workflow_templates | d([], true) | length>0
+  when: __controller_workflow_templates | d([], true) | length>0
   block:
     - name: Remove workflow template
       ansible.controller.workflow_job_template:
         name: "{{ item['name'] }}"
         state: absent
-      loop: "{{ controller_workflow_templates }}"
+      loop: "{{ __controller_workflow_templates }}"
 
 ##
 ## Remove job templates
@@ -85,7 +85,7 @@
     - name: Remove job templates
       ansible.controller.job_template:
         name: "{{ item['name'] }}"
-        organization: "{{ item['organization'] | d(omit) }}"
+        organization: "{{ item['organization'] | d(omit, true) }}"
         state: absent
       register: remove_job_template_result
       ignore_errors: "{{ ansible_check_mode }}"
@@ -131,7 +131,7 @@
 ##
 
 - name: Remove projects
-  when: controller_projects | d([], true) | length>0
+  when: bootstrap_ansible_controller__projects | d([], true) | length>0
   block:
     - name: Remove project
       ansible.controller.project:
@@ -157,7 +157,7 @@
 ##
 
 - name: Remove credentials
-  when: controller_credentials | d([], true) | length > 0
+  when: __controller_credentials | d([], true) | length > 0
   block:
     - name: Remove credential
       ansible.controller.credential:
@@ -166,7 +166,7 @@
         credential_type: "{{ item['credential_type'] }}"
         state: absent
       register: remove_credential_result
-      loop: "{{ controller_credentials }}"
+      loop: "{{ __controller_credentials }}"
       loop_control:
         label: "{{ item['organization'] }} - {{ item['name'] }}"
   rescue:
@@ -179,12 +179,12 @@
         label: "{{ item['item']['organization'] }} - {{ item['item']['name'] }}"
 
 - name: Remove credential types
-  when: controller_credential_types | d([], true) | length > 0
+  when: __controller_credential_types | d([], true) | length > 0
   ansible.controller.credential_type:
     name: "{{ item['name'] }}"
     state: absent
   register: remove_credential_type_result
-  loop: "{{ controller_credential_types }}"
+  loop: "{{ __controller_credential_types }}"
   loop_control:
     label: "{{ item['name'] }}"
 
@@ -200,7 +200,7 @@
         image: "{{ item['image'] }}"
         credential: "{{ item['credential'] }}"
         state: absent
-      loop: "{{ controller_execution_environments }}"
+      loop: "{{ __controller_execution_environments }}"
 
 ##
 ## Remove organizations
@@ -210,6 +210,6 @@
   ansible.controller.organization:
     name: "{{ item.name }}"
     state: absent
-  loop: "{{ controller_organizations }}"
+  loop: "{{ __controller_organizations }}"
   loop_control:
     label: "{{ item['name'] }}"

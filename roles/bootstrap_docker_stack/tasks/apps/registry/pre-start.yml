@@ -1,28 +1,28 @@
 ---
-- name: "Docker Stack | registry | pre-start | Set __registry_auth_file"
+- name: "Pre-start | registry | Set __registry_auth_file"
   ansible.builtin.set_fact:
     __registry_auth_file: "{{ __docker_stack__registry__auth_path }}/{{ __docker_stack__registry__auth_file }}"
 
-- name: "Docker Stack | registry | pre-start | Check if {{ __registry_auth_file }} exists"
+- name: "Pre-start | registry | Check if {{ __registry_auth_file }} exists"
   ansible.builtin.stat:
     path: "{{ __registry_auth_file }}"
   register: __registry_auth_file_stat
 
-- name: "Docker Stack | registry | pre-start | Display __registry_auth_file_stat.stat.exists"
+- name: "Pre-start | registry | Display __registry_auth_file_stat.stat.exists"
   ansible.builtin.debug:
     var: __registry_auth_file_stat.stat.exists
 
-- name: "Docker Stack | registry | pre-start | Setup {{ __registry_auth_file }}"
+- name: "Pre-start | registry | Setup {{ __registry_auth_file }}"
   when:
     - __docker_stack__registry__enable_auth | bool
-    - __docker_stack__registry__users | d([]) | length > 0
+    - __docker_stack__registry__users | d([], true) | length > 0
   block:
-    - name: "Docker Stack | registry | pre-start | Install htpasswd deps with pip"
+    - name: "Pre-start | registry | Install htpasswd deps with pip"
       ansible.builtin.pip:
         name: passlib[bcrypt]
         state: present
 
-    - name: "Docker Stack | registry | pre-start | Display docker registry vars"
+    - name: "Pre-start | registry | Display docker registry vars"
       ansible.builtin.debug:
         msg:
           - "__docker_stack__registry__enable_auth: {{ __docker_stack__registry__enable_auth }}"
@@ -31,14 +31,14 @@
           # - "__docker_stack__registry__users: {{ __docker_stack__registry__users | to_nice_json }}"
           - "__docker_stack__registry__env: {{ __docker_stack__registry__env | to_nice_json }}"
 
-    - name: "Docker Stack | registry | pre-start | Stop registry service"
-      community.docker.docker_compose_v2:
-        project_src: "{{ docker_stack__dir }}"
-        services:
-          - registry
-        state: stopped
+    # - name: "Pre-start | registry | Stop registry service"
+    #   community.docker.docker_compose_v2:
+    #     project_src: "{{ docker_stack__dir }}"
+    #     services:
+    #       - registry
+    #     state: stopped
 
-    #- name: "Docker Stack | registry | pre-start | Remove registry, if it exists"
+    #- name: "Pre-start | registry | Remove registry, if it exists"
     #  no_log: true
     #  community.docker.docker_container:
     #    name: "{{ __docker_stack__registry__container_name }}"
@@ -46,7 +46,7 @@
     #    #    container_default_behavior: no_defaults
     #    state: absent
 
-    - name: "Docker Stack | registry | pre-start | Display __docker_stack__registry__users info"
+    - name: "Pre-start | registry | Display __docker_stack__registry__users info"
       ansible.builtin.debug:
         msg:
           - "username: {{ item.username }}"
@@ -56,7 +56,7 @@
       loop_control:
         label: "{{ item.username }}"
 
-    - name: "Docker Stack | registry | pre-start | Configure {{ __docker_stack__registry__auth_file }} users file"
+    - name: "Pre-start | registry | Configure {{ __docker_stack__registry__auth_file }} users file"
       no_log: true
       dettonville.utils.htpasswd:
         path: "{{ __registry_auth_file }}"
@@ -67,3 +67,12 @@
         crypt_scheme: bcrypt
         overwrite: true
         backup: true
+      register: __htpasswd_result
+
+    - name: "Pre-start | registry | Restart registry service"  # noqa: no-handler
+      when: __htpasswd_result is changed
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_stack__dir }}"
+        services:
+          - registry
+        state: restarted

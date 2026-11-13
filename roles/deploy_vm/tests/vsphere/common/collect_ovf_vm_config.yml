@@ -19,7 +19,7 @@
 - name: Add VM guest ID and hardware version info
   ansible.builtin.set_fact:
     ovf_vm_hardware_config: "{{ ovf_vm_hardware_config | combine({'Guest ID': vm_guest_id
-      |  d(''), 'Hardware version': vm_hardware_version_num | d('')})
+      |  d(''), 'Hardware version': vm_hardware_version_num | d('', true)})
       }}"
 
 - name: Run vm_get_guest_info.yml
@@ -35,7 +35,7 @@
 - name: Add guest OS version info and VMware tools info
   ansible.builtin.set_fact:
     ovf_vm_hardware_config: "{{ ovf_vm_hardware_config | combine({'Guest OS': ovf_vm_guest_os
-      | d(''), 'VMware tools': guestinfo_vmtools_info | d('')}) }}"
+      | d('', true), 'VMware tools': guestinfo_vmtools_info | d('', true)}) }}"
 
 # Get all the VM hardwares info
 - name: Run vm_get_config.yml
@@ -44,26 +44,26 @@
 - name: Add VM firmware and secureboot info
   ansible.builtin.set_fact:
     ovf_vm_hardware_config: "{{ ovf_vm_hardware_config | combine({'Firmware': vm_config.config.firmware
-      | d(''), 'Secure boot': vm_config.config.bootOptions.efiSecureBootEnabled | d('')}) }}"
+      | d('', true), 'Secure boot': vm_config.config.bootOptions.efiSecureBootEnabled | d('', true)}) }}"
 - name: Add VM CPU and memory info
   ansible.builtin.set_fact:
     ovf_vm_hardware_config: "{{ ovf_vm_hardware_config
       | combine({'CPU number': vm_config.config.hardware.numCPU
-      | d(''), 'CPU cores per socket': vm_config.config.hardware.numCoresPerSocket
-      | d(''), 'Memory MB': vm_config.config.hardware.memoryMB | d('')}) }}"
+      | d('', true), 'CPU cores per socket': vm_config.config.hardware.numCoresPerSocket
+      | d('', true), 'Memory MB': vm_config.config.hardware.memoryMB | d('', true)}) }}"
 
 - name: Add VBS info
   ansible.builtin.set_fact:
     ovf_vm_hardware_config: "{{ ovf_vm_hardware_config
-      | combine({'VBS enabled': vm_config.config.flags.vbsEnabled | d('')}) }}"
+      | combine({'VBS enabled': vm_config.config.flags.vbsEnabled | d('', true)}) }}"
 
 - name: Set fact of disk info
   ansible.builtin.set_fact:
     ovf_vm_disk_info: "{{ ovf_vm_disk_info + [{'label': item.deviceInfo.label
-      | d(''), 'disk GB': item.capacityInKB | int / 1024 / 1024 | d(''), 'controller':
+      | d('', true), 'disk GB': item.capacityInKB | int / 1024 / 1024 | d('', true), 'controller':
       (vm_config.config.hardware.device
       | selectattr('key', 'equalto', item.controllerKey))[0].deviceInfo.summary, 'thin provisioned': item.backing.thinProvisioned
-      | d('')}] }}"
+      | d('', true)}] }}"
   when:
     - item._vimtype == "vim.vm.device.VirtualDisk"
   loop: "{{ vm_config.config.hardware.device }}"
@@ -71,7 +71,7 @@
 - name: Set fact of network adapter info
   ansible.builtin.set_fact:
     ovf_vm_network_info: "{{ ovf_vm_network_info + [{'label': item.deviceInfo.label
-      | d(''), 'network': item.backing.deviceName | d(''), 'type': item._vimtype.split('.')[-1][7:]
+      | d('', true), 'network': item.backing.deviceName | d('', true), 'type': item._vimtype.split('.')[-1][7:]
       | lower, 'mac': item.macAddress }] }}"
   when:
     - item._vimtype in ['vim.vm.device.VirtualVmxnet3', 'vim.vm.device.VirtualE1000e', 'vim.vm.device.VirtualE1000']

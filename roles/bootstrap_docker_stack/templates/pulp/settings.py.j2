@@ -1,0 +1,92 @@
+{{ 'Ansible managed' | comment(format="# {}") }}
+
+# =============================================================================
+# Core Django & Pulp Settings
+# =============================================================================
+
+import os
+
+def _load_secret(secret_name, fallback):
+    secret_path = f"/run/secrets/{secret_name}"
+    if os.path.exists(secret_path):
+        with open(secret_path, "r") as f:
+            return f.read().strip()
+    return os.environ.get(secret_name, fallback)
+
+# Use the helper for SECRET_KEY
+SECRET_KEY = _load_secret(
+    'pulp_secret_key',
+    'DJANGO_SECRET_KEY'
+)
+
+PULP_ADMIN_USERNAME = _load_secret(
+    'pulp_admin_username',
+    'admin'
+)
+
+PULP_ADMIN_PASSWORD = _load_secret(
+    'pulp_admin_password',
+    ''
+)
+
+# Explicit Database Definition (Aligns with official OCI standard)
+DATABASES = {
+    "default": {
+        "ENGINE": "{{ __docker_stack__pulp__db_engine }}",
+        "NAME": "{{ __docker_stack__pulp__db_name }}",
+        "USER": "{{ __docker_stack__pulp__db_user }}",
+        "PASSWORD": "{{ __docker_stack__pulp__db_password }}",
+        "HOST": "{{ __docker_stack__pulp__db_host }}",
+        "PORT": "{{ __docker_stack__pulp__db_port }}",
+        "CONN_MAX_AGE": 0,
+        "OPTIONS": {
+            "sslmode": "prefer"
+        }
+    }
+}
+
+# =============================================================================
+# Redis & Cache Settings
+# =============================================================================
+REDIS_URL = "redis://{{ __docker_stack__pulp__redis_host }}:{{ __docker_stack__pulp__redis_port }}/0"
+CELERY_BROKER_URL = "redis://{{ __docker_stack__pulp__redis_host }}:{{ __docker_stack__pulp__redis_port }}/0"
+CACHE_ENABLED = {{ __docker_stack__pulp__cache_enabled }}
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://{{ __docker_stack__pulp__redis_host }}:{{ __docker_stack__pulp__redis_port }}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
+
+# =============================================================================
+# Reverse Proxy, Content Origin, and Host Settings
+# =============================================================================
+CONTENT_ORIGIN = "{{ __docker_stack__pulp__content_origin }}"
+CSRF_TRUSTED_ORIGINS = [
+    '{{ __docker_stack__pulp__api_url }}',
+]
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+ANSIBLE_API_HOSTNAME = "{{ __docker_stack__pulp__api_url }}"
+ANSIBLE_CONTENT_HOSTNAME = "{{ __docker_stack__pulp__content_origin }}/pulp/content"
+
+# =============================================================================
+# Paths & Token / Signing Configuration
+# =============================================================================
+MEDIA_ROOT = "{{ __docker_stack__pulp__media_root }}"
+STATIC_ROOT = "{{ __docker_stack__pulp__static_root }}"
+
+ALLOWED_IMPORT_PATHS = ["/tmp"]
+ALLOWED_EXPORT_PATHS = ["/tmp"]
+
+TOKEN_SERVER = "{{ __docker_stack__pulp__api_url }}/token/"
+TOKEN_AUTH_DISABLED = False
+TOKEN_SIGNATURE_ALGORITHM = "ES256"
+PUBLIC_KEY_PATH = "/etc/pulp/keys/container_auth_public_key.pem"
+PRIVATE_KEY_PATH = "/etc/pulp/keys/container_auth_private_key.pem"
+
+ANALYTICS = False

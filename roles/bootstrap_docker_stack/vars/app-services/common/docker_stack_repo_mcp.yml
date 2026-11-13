@@ -1,0 +1,136 @@
+---
+
+__docker_stack__repo_mcp__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__repo_mcp__base_dir_default: "{{ __docker_stack__repo_mcp__stack_dir }}/repo_mcp"
+__docker_stack__repo_mcp__base_dir: "{{ docker_stack__repo_mcp__dir
+  | d(__docker_stack__repo_mcp__base_dir_default, true) }}"
+__docker_stack__repo_mcp__data_dir: "{{ __docker_stack__repo_mcp__base_dir }}/data"
+
+# https://github.com/repo_mcp/repo_mcp/blob/main/scripts/docker/Dockerfile
+#__docker_stack__repo_mcp__image_default: "lj020326/repo-mcp:latest"
+__docker_stack__repo_mcp__image_default: "media.johnson.int:5000/repo-tools-mcp:latest"
+__docker_stack__repo_mcp__image: "{{ docker_stack__repo_mcp__image
+  | d(__docker_stack__repo_mcp__image_default, true) }}"
+
+__docker_stack__repo_mcp__enable_persistent_config: "{{ docker_stack__repo_mcp__enable_persistent_config
+  | d(true, false) }}"
+
+# Host address
+__docker_stack__repo_mcp__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__repo_mcp__host_addr_default: "repo_mcp.{{ __docker_stack__repo_mcp__domain }}"
+__docker_stack__repo_mcp__host_addr: "{{ docker_stack__repo_mcp__host_addr
+  | d(__docker_stack__repo_mcp__host_addr_default, true) }}"
+
+# Listener bind ports
+__docker_stack__repo_mcp__http_port: "{{ docker_stack__repo_mcp__http_port | d('2080', true) }}"
+__docker_stack__repo_mcp__internal_http_port: "8080"
+
+#__docker_stack__repo_mcp__ollama_host_default: "{{ __docker_stack__repo_mcp__host_addr }}"
+__docker_stack__repo_mcp__ollama_host_default: "host.docker.internal"
+__docker_stack__repo_mcp__ollama_host: "{{ docker_stack__repo_mcp__ollama_host
+  | d(__docker_stack__repo_mcp__ollama_host_default, true) }}"
+
+__docker_stack__repo_mcp__ollama_port_default: "11434"
+__docker_stack__repo_mcp__ollama_port: "{{ docker_stack__repo_mcp__ollama_port
+  | d(__docker_stack__repo_mcp__ollama_port_default, true) }}"
+
+__docker_stack__repo_mcp__ollama_base_url_default: "http://{{ __docker_stack__repo_mcp__ollama_host }}:{{
+  __docker_stack__repo_mcp__ollama_port }}"
+__docker_stack__repo_mcp__ollama_base_url: "{{ docker_stack__repo_mcp__ollama_base_url
+  | d(__docker_stack__repo_mcp__ollama_base_url_default, true) }}"
+
+#__docker_stack__repo_mcp__cors_allow_origin: "http://{{ __docker_stack__repo_mcp__host_addr }};http://{{
+#    ansible_facts['default_ipv4'].address }};http://localhost:8080;http://127.0.0.1"
+__docker_stack__repo_mcp__cors_allow_origin: "{{ docker_stack__repo_mcp__cors_allow_origin | d('*') }}"
+
+## this assumes that the ollama service is running on port 11434 and is named 'ollama'
+__docker_stack__repo_mcp__ollama_api_base_url: "{{
+  docker_stack__repo_mcp__ollama_api_base_url
+  | d('http://ollama:11434') }}"
+__docker_stack__repo_mcp__ollama_api_key: "{{
+  docker_stack__repo_mcp__ollama_api_key | d('', true) }}"
+
+## this assumes that the vllm-coder service is running on port 8080 and is named 'llama'
+__docker_stack__repo_mcp__openai_api_base_url: "{{
+  docker_stack__repo_mcp__openai_api_base_url
+  | d('http://vllm-coder:8000/v1') }}"
+__docker_stack__repo_mcp__openai_api_key: "{{
+  docker_stack__repo_mcp__openai_api_key | d('', true) }}"
+
+
+__docker_stack__repo_mcp__config_dirs:
+  - path: "{{ __docker_stack__repo_mcp__base_dir }}"
+  - path: "{{ __docker_stack__repo_mcp__data_dir }}"
+
+__docker_stack__repo_mcp__config_templates:
+  - src: repo_mcp/repo_mcp.env.j2
+    dest: "{{ __docker_stack__repo_mcp__base_dir }}/repo_mcp.env"
+
+__docker_stack__repo_mcp__secret_key: "{{ docker_stack__repo_mcp__secret_key | d('', true) }}"
+
+__docker_stack__repo_mcp__secrets:
+  - name: repo_mcp_secret_key
+    value: "{{ __docker_stack__repo_mcp__secret_key }}"
+
+__docker_stack__repo_mcp__firewalld_ports:
+  - "{{ __docker_stack__repo_mcp__http_port }}/tcp"
+
+docker_stack__appspec__repo_mcp:
+  dirs: "{{ __docker_stack__repo_mcp__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__repo_mcp__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__repo_mcp__config_templates | d([], true) }}"
+  secrets: "{{ __docker_stack__repo_mcp__secrets | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__repo_mcp__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__repo_mcp__firewalld_ports | d([], true) }}"
+  docker_services: "{{ __docker_stack__repo_mcp__services | d({}, true) }}"
+
+__docker_stack__repo_mcp__traefik_labels: "{{ docker_stack__repo_mcp__traefik_labels
+  | d(__docker_stack__repo_mcp__traefik_labels_default, true) }}"
+
+__docker_stack__repo_mcp__services:
+
+  ## https://hub.docker.com/r/repo_mcp/repo_mcp
+  ## https://github.com/repo_mcp/repo_mcp/blob/main/scripts/docker/Dockerfile
+  ## https://github.com/open-horizon/devops/blob/master/mgmt-hub/docker-compose.yml
+  repo-mcp:
+    container_name: repo-mcp
+    image: "{{ __docker_stack__repo_mcp__image }}"
+    env_file:
+      - repo_mcp/repo_mcp.env
+    secrets: "{{ __docker_stack__repo_mcp__secrets | map(attribute='name') | list }}"
+    restart: unless-stopped
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__repo_mcp__data_dir }}:/app/backend/data"
+#    ports:
+#      - "{{ __docker_stack__repo_mcp__http_port }}:{{ __docker_stack__repo_mcp__internal_http_port }}"
+    labels: "{{ __docker_stack__repo_mcp__traefik_labels }}"
+    healthcheck:
+      test: [
+        "CMD",
+        "python",
+        "-c",
+        "import urllib.request;urllib.request.urlopen('http://localhost:8080/health', timeout=5)"
+      ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first

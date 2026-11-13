@@ -19,9 +19,9 @@
   ansible.builtin.debug:
     var: docker_stack__swarm_manager
 
-- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__environment"
+- name: "{{ __docker_stack__log_prefix__init_vars }} Display docker_stack__host_environment"
   ansible.builtin.debug:
-    var: docker_stack__environment
+    var: docker_stack__host_environment
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Assert either `docker_stack__enable_selfsigned_certs` OR `docker_stack__enable_cacerts` but not both"
   ansible.builtin.assert:
@@ -39,8 +39,8 @@
 
 #- name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__ca_cert_bundle"
 #  ansible.builtin.set_fact:
-#    __docker_stack__ca_cert_bundle: "{{ docker_stack__ca_cert_bundle | d(__docker_stack__ca_cert_bundle_default) }}"
-#    __docker_stack__ca_java_keystore: "{{ docker_stack__ca_java_keystore | d(__docker_stack__ca_java_keystore_default) }}"
+#    __docker_stack__ca_cert_bundle: "{{ docker_stack__ca_cert_bundle | d(__docker_stack__ca_cert_bundle_default, true) }}"
+#    __docker_stack__ca_java_keystore: "{{ docker_stack__ca_java_keystore | d(__docker_stack__ca_java_keystore_default, true) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack_* os vars"
   ansible.builtin.debug:
@@ -87,8 +87,8 @@
         name: "{{ docker_stack__user_username }}"
         groups: docker
         append: true
-        gid: "{{ docker_stack__user_gid | d(omit) }}"
-        uid: "{{ docker_stack__user_uid | d(omit) }}"
+        gid: "{{ docker_stack__user_gid | d(omit, true) }}"
+        uid: "{{ docker_stack__user_uid | d(omit, true) }}"
 
     - name: "{{ __docker_stack__log_prefix__init_vars }} Get docker user entry info"
       ansible.builtin.getent:
@@ -145,11 +145,11 @@
   ansible.builtin.set_fact:
     __docker_stack__service_groups_by_name: "{{ __docker_stack__service_groups_by_name | d({}, true)
       | combine({((item is mapping) | ternary(item.name, item)):
-        {'source': item.source | d('role'), 'name': ((item is mapping) | ternary(item.name, item))
+        {'source': item.source | d('role', true), 'name': ((item is mapping) | ternary(item.name, item))
         | replace('-', '_')}}) }}"
   loop: "{{ __docker_stack__service_groups_combined }}"
   loop_control:
-    label: "{{ item.name | d(item) }}"
+    label: "{{ item.name | d(item, true) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__service_groups_by_name"
   ansible.builtin.debug:
@@ -181,7 +181,7 @@
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set __docker_stack__proxy_services"
   ansible.builtin.set_fact:
     __docker_stack__proxy_services: "{{ __docker_stack__proxy_services | d([], true)
-      + [{'source': item.source | d('role'), 'name': ((item is mapping) | ternary(item.name, item))
+      + [{'source': item.source | d('role', true), 'name': ((item is mapping) | ternary(item.name, item))
         | replace('-', '_')}] }}"
   loop: "{{ docker_stack__proxy_services }}"
 
@@ -210,7 +210,7 @@
       loop: "{{ __docker_stack__proxy_services }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set the traefik app services vars"
-  #  when: item.source | d('role') == 'role'
+  #  when: item.source | d('role', true) == 'role'
   when: (role_path + '/vars/app-services/traefik/' + docker_stack__traefik__version
     + '/' + docker_stack__traefik__routing_method + '/docker_stack_' + item.name + '.yml') is file
   no_log: true
@@ -218,16 +218,16 @@
     docker_stack__traefik__routing_method }}/docker_stack_{{ item.name }}.yml
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
-    label: "{{ item.name | d(item) }}"
+    label: "{{ item.name | d(item, true) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Set the common app services vars"
   no_log: true
-  #  when: item.source | d('role') == 'role'
+  #  when: item.source | d('role', true) == 'role'
 #  when: (role_path + '/vars/app-services/common/docker_stack_' + item.name + '.yml') is file
   ansible.builtin.include_vars: app-services/common/docker_stack_{{ item.name }}.yml
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
-    label: "{{ item.name | d(item) }}"
+    label: "{{ item.name | d(item, true) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display docker stack info"
   ansible.builtin.debug:
@@ -252,10 +252,10 @@
   ansible.builtin.set_fact:
     __docker_stack__app_configs: "{{ __docker_stack__app_configs | d({}, true)
       | combine({item.name: lookup('vars', q('varnames', '^docker_stack__appspec__'
-        + item.name.replace('-', '_') + '$') | first | d('')) | d({}, true)}) }}"
+        + item.name.replace('-', '_') + '$') | first | d('', true)) | d({}, true)}) }}"
   loop: "{{ __docker_stack__service_groups }}"
   loop_control:
-    label: "{{ item.name | d(item) }}"
+    label: "{{ item.name | d(item, true) }}"
 
 ## NOTE: sensitive info - this var contains the secrets
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__app_configs"
@@ -280,7 +280,7 @@
   ansible.builtin.set_fact:
     __docker_stack__proxy_configs: "{{ __docker_stack__proxy_configs | d({}, true)
       | combine({item.name: lookup('vars', q('varnames', '^__docker_stack__proxyspec__'
-        + item.name.replace('-', '_') + '$') | first | d('')) | d({}, true)}) }}"
+        + item.name.replace('-', '_') + '$') | first | d('', true)) | d({}, true)}) }}"
   loop: "{{ __docker_stack__proxy_services | d([], true) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_configs"
@@ -294,7 +294,7 @@
   ansible.builtin.set_fact:
     __docker_stack__proxy_service_configs: "{{ __docker_stack__proxy_service_configs
       | d({}, true) | combine(__docker_stack__proxy_configs[item.name].proxy_config, recursive=True) }}"
-  loop: "{{ __docker_stack__proxy_services }}"
+  loop: "{{ __docker_stack__proxy_services | d([], true) }}"
 
 - name: "{{ __docker_stack__log_prefix__init_vars }} Display __docker_stack__proxy_service_configs"
   when: __docker_stack__proxy_services | length > 0
@@ -458,7 +458,7 @@
       {% for service_group in __docker_stack__service_groups %}
       {% if __docker_stack__service_group_configs_tpl[service_group.name] | d([], true) | length > 0 %}
       {% for key, container in __docker_stack__service_group_configs_tpl[service_group.name].items() %}
-      {% if (container.active | d(true)) %}
+      {% if (container.active | d(true, false)) %}
       - {{ container.service_name if container.service_name is defined else key }}
       {% endif %}
       {% endfor %}

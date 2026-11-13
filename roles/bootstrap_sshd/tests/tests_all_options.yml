@@ -28,13 +28,13 @@
         state: absent
       when:
         - ansible_facts['os_family'] == "RedHat"
-        - not __sshd_is_ostree | d(false)
+        - not __sshd_is_ostree | d(false, false)
 
     - name: Reinstall manual pages for openssh-server on RHEL
       ansible.builtin.command: "{{ pkg_mgr | quote }} reinstall -y openssh-server"
       when:
         - ansible_facts['os_family'] == "RedHat"
-        - not __sshd_is_ostree | d(false)
+        - not __sshd_is_ostree | d(false, false)
       changed_when: true
 
     - name: Unminimize image on Debian. It looks like there is no simpler way to get manual pages
@@ -51,7 +51,7 @@
           - openssh-doc
           - bash
         state: present
-        use: "{{ (__sshd_is_ostree | d(false)) |
+        use: "{{ (__sshd_is_ostree | d(false, false)) |
           ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
       when:
         - ansible_facts['distribution'] == "Alpine"
@@ -62,7 +62,7 @@
           - man-db
           - bash
         state: present
-        use: "{{ (__sshd_is_ostree | d(false)) |
+        use: "{{ (__sshd_is_ostree | d(false, false)) |
           ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
       when:
         - ansible_facts['os_family'] == "RedHat"
@@ -74,7 +74,7 @@
           - man
           - bash
         state: present
-        use: "{{ (__sshd_is_ostree | d(false)) |
+        use: "{{ (__sshd_is_ostree | d(false, false)) |
           ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
       when:
         - ansible_facts['distribution'] != "Alpine"
@@ -87,6 +87,7 @@
       changed_when: false
 
     - name: Get list of options from manual page
+      when: not sshd_skip_test
       ansible.builtin.shell: >-
         set -o pipefail && man sshd_config \
           | sed 's/\x08.//g' \
@@ -98,20 +99,20 @@
         executable: /bin/bash
       register: sshd_options
       changed_when: false
-      when: not sshd_skip_test
 
     - name: Print all the possible options
       ansible.builtin.debug:
         var: sshd_options.stdout_lines
 
     - name: Construct the configuration list
+      when: not sshd_skip_test
       ansible.builtin.set_fact:
         sshd_c: "{{ sshd_c | combine({item: 'yes'}) }}"
       loop:
         "{{ sshd_options.stdout_lines }}"
-      when: not sshd_skip_test
 
     - name: Run role
+      when: not sshd_skip_test
       ansible.builtin.include_role:
         name: bootstrap_sshd
       vars:
@@ -122,7 +123,6 @@
         bootstrap_sshd__config_file: /tmp/sshd_config
         bootstrap_sshd__config:
           "{{ sshd_c }}"
-      when: not sshd_skip_test
 
     - name: Download the configuration file
       when: not sshd_skip_test
@@ -132,17 +132,17 @@
       register: config
 
     - name: Verify the options are in the file
+      when: not sshd_skip_test
       ansible.builtin.assert:
         that: item ~ " yes" in config.content | b64decode
       loop: "{{ sshd_options.stdout_lines }}"
-      when: not sshd_skip_test
 
     - name: Check generated files for ansible_managed, fingerprint
+      when: not sshd_skip_test
       ansible.builtin.include_tasks: tasks/check_header.yml
       vars:
         __file_content: "{{ config }}"
         __fingerprint: "dettonville:bootstrap_sshd"
-      when: not sshd_skip_test
 
     - name: Restore configuration files
       ansible.builtin.include_tasks: tasks/restore.yml

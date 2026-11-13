@@ -10,32 +10,32 @@
   ansible.posix.mount:
     name: "{{ item.mount }}"
     src: '{{ "/dev/mapper/" + item.vg + "-" + item.lv }}'
-    fstype: "{{ item.fs_type | d(bootstrap_iscsi_client__default_fs_type) }}"
+    fstype: "{{ item.fs_type | d(bootstrap_iscsi_client__default_fs_type, true) }}"
     state: absent
   loop: "{{ bootstrap_iscsi_client__logical_volumes }}"
-  when: bootstrap_iscsi_client__logical_volumes | d(false) and item.vg | d() and item.lv | d() and item.size | d() and item.mount | d(false) and (item.state is defined and item.state == 'absent')
+  when: bootstrap_iscsi_client__logical_volumes | d(false, false) and item.vg | d() and item.lv | d() and item.size | d() and item.mount | d(false, false) and (item.state is defined and item.state == 'absent')
 
 - name: Remove Logical Volumes if requested
   community.general.lvol:
     vg: "{{ item.vg }}"
     lv: "{{ item.lv }}"
     size: "{{ item.size }}"
-    force: "{{ item.force | d(omit) }}"
+    force: "{{ item.force | d(omit, true) }}"
     state: absent
   loop: "{{ bootstrap_iscsi_client__logical_volumes }}"
-  when: bootstrap_iscsi_client__logical_volumes | d(false) and item.vg | d() and item.lv | d() and item.size | d() and item.state | d() and item.state == 'absent'
+  when: bootstrap_iscsi_client__logical_volumes | d(false, false) and item.vg | d() and item.lv | d() and item.size | d() and item.state | d() and item.state == 'absent'
 
 - name: Manage LVM Volume Groups
   community.general.lvg:
     vg: "{{ item.item.lvm_vg }}"
     pvs: '{{ item.devicenodes      | join(",") }}'
-    state: '{{ item.item.lvm_state   | d("present") }}'
-    pesize: "{{ item.item.lvm_pesize  | d(omit) }}"
-    force: "{{ item.item.lvm_force   | d(omit) }}"
-    vg_options: "{{ item.item.lvm_options | d(omit) }}"
+    state: '{{ item.item.lvm_state   | d("present", true) }}'
+    pesize: "{{ item.item.lvm_pesize  | d(omit, true) }}"
+    force: "{{ item.item.lvm_force   | d(omit, true) }}"
+    vg_options: "{{ item.item.lvm_options | d(omit, true) }}"
   loop: "{{ __iscsi__register_targets.results }}"
   when:
-    - __iscsi__register_targets | d(false)
+    - __iscsi__register_targets | d(false, false)
     - __iscsi__register_targets.results | d()
     - item.devicenodes | d()
     - item.item.lvm_vg | d()
@@ -45,11 +45,11 @@
     vg: "{{ item.vg }}"
     lv: "{{ item.lv }}"
     size: "{{ item.size }}"
-    force: "{{ item.force | d(omit) }}"
+    force: "{{ item.force | d(omit, true) }}"
     state: present
   loop: "{{ bootstrap_iscsi_client__logical_volumes }}"
   when:
-    - bootstrap_iscsi_client__logical_volumes | d(false)
+    - bootstrap_iscsi_client__logical_volumes | d(false, false)
     - item.vg | d()
     - item.lv | d()
     - item.size | d()
@@ -58,12 +58,12 @@
 - name: Manage filesystems
   community.general.filesystem:
     dev: '{{ "/dev/mapper/" + item.vg + "-" + item.lv }}'
-    fstype: "{{ item.fs_type  | d(bootstrap_iscsi_client__default_fs_type) }}"
-    force: "{{ item.fs_force | d(omit) }}"
-    opts: "{{ item.fs_opts  | d(omit) }}"
+    fstype: "{{ item.fs_type  | d(bootstrap_iscsi_client__default_fs_type, true) }}"
+    force: "{{ item.fs_force | d(omit, true) }}"
+    opts: "{{ item.fs_opts  | d(omit, true) }}"
   loop: "{{ bootstrap_iscsi_client__logical_volumes }}"
   when:
-    - bootstrap_iscsi_client__logical_volumes | d(false)
+    - bootstrap_iscsi_client__logical_volumes | d(false, false)
     - item.vg | d()
     - item.lv | d()
     - item.size | d()
@@ -75,17 +75,17 @@
   ansible.posix.mount:
     name: "{{ item.mount }}"
     src: '{{ "/dev/mapper/" + item.vg + "-" + item.lv }}'
-    fstype: "{{ item.fs_type      | d(bootstrap_iscsi_client__default_fs_type) }}"
-    opts: "{{ item.mount_opts   | d(bootstrap_iscsi_client__default_mount_options) }}"
-    state: '{{ item.mount_state  | d("mounted") }}'
-    dump: "{{ item.mount_dump   | d(omit) }}"
-    passno: "{{ item.mount_passno | d(omit) }}"
-    fstab: "{{ item.mount_fstab  | d(omit) }}"
+    fstype: "{{ item.fs_type      | d(bootstrap_iscsi_client__default_fs_type, true) }}"
+    opts: "{{ item.mount_opts   | d(bootstrap_iscsi_client__default_mount_options, true) }}"
+    state: '{{ item.mount_state  | d("mounted", true) }}'
+    dump: "{{ item.mount_dump   | d(omit, true) }}"
+    passno: "{{ item.mount_passno | d(omit, true) }}"
+    fstab: "{{ item.mount_fstab  | d(omit, true) }}"
   loop: "{{ bootstrap_iscsi_client__logical_volumes }}"
   when:
-    - bootstrap_iscsi_client__logical_volumes | d(false)
+    - bootstrap_iscsi_client__logical_volumes | d(false, false)
     - item.vg | d()
     - item.lv | d()
     - item.size | d()
-    - item.mount | d(false)
+    - item.mount | d(false, false)
     - (item.state is undefined or item.state != 'absent')

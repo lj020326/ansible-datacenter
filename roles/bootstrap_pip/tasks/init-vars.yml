@@ -36,15 +36,15 @@
 #- name: Init-vars | Set __bootstrap_pip__library_list_by_priority
 #  ansible.builtin.set_fact:
 #    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}, true)
-#      | combine({ (item.priority | d(bootstrap_pip__lib_priority_default) | int):
-#        { item.state | d(bootstrap_pip__lib_state): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
+#      | combine({ (item.priority | d(bootstrap_pip__lib_priority_default, true) | int):
+#        { item.state | d(bootstrap_pip__lib_state, true): { ((item is mapping) | ternary( item.name, item)): {} } } }, recursive=True) }}"
 #  loop: "{{ __bootstrap_pip__libs }}"
 #
 #- name: Init-vars | Set __bootstrap_pip__library_list_by_priority
 #  ansible.builtin.set_fact:
 #    __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}, true) | combine({
-#        (item.priority | d(bootstrap_pip__lib_priority_default) | int): {
-#          item.state | d(bootstrap_pip__lib_state): {
+#        (item.priority | d(bootstrap_pip__lib_priority_default, true) | int): {
+#          item.state | d(bootstrap_pip__lib_state, true): {
 #            (item is mapping | ternary(item.name, item)): {}
 #          }
 #        }
@@ -55,15 +55,15 @@
   ansible.builtin.set_fact:
     __bootstrap_pip__library_list_by_priority: "{{ __bootstrap_pip__library_list_by_priority | d({}, true) | combine({
       (library_priority | int): {
-        (library_state | d(bootstrap_pip__lib_state)): { library_name: {} }
+        (library_state | d(bootstrap_pip__lib_state, true)): { library_name: {} }
       }
     }, recursive=True) }}"
   loop: "{{ __bootstrap_pip__libs }}"
   vars:
     library_name: "{{ item.name if item is mapping else item }}"
-    library_priority: "{{ item.priority | d(bootstrap_pip__lib_priority_default)
+    library_priority: "{{ item.priority | d(bootstrap_pip__lib_priority_default, true)
       if item is mapping else bootstrap_pip__lib_priority_default }}"
-    library_state: "{{ item.state | d(bootstrap_pip__lib_state)
+    library_state: "{{ item.state | d(bootstrap_pip__lib_state, true)
       if item is mapping else bootstrap_pip__lib_state }}"
 
 - name: Init-vars | Display __bootstrap_pip__library_list_by_priority
@@ -115,7 +115,7 @@
     _bootstrap_pip__env_by_name_yaml: |-
       {% set _bootstrap_pip_env_by_name = {} %}
       {% for item in __bootstrap_pip__env_list %}
-        {% set _env_name = item.virtualenv | d(item.pip_executable) | d(__bootstrap_pip__pip_executable) %}
+        {% set _env_name = item.virtualenv | d(item.pip_executable) | d(__bootstrap_pip__pip_executable, true) %}
         {% if _bootstrap_pip_env_by_name[_env_name] is defined %}
           {% set _bootstrap_pip_env_libs = [] %}
           {% if _bootstrap_pip_env_by_name[_env_name].libraries is defined %}
@@ -138,7 +138,7 @@
             {% set _ = _bootstrap_pip_env.update({ 'system': false }) %}
           {% endif %}
         {% else %}
-          {% set _ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(__bootstrap_pip__python_executable) }) %}
+          {% set _ = _bootstrap_pip_env.update({'python_executable': item.python_executable | d(__bootstrap_pip__python_executable, true) }) %}
           {% if item.system is not defined %}
             {% set _ = _bootstrap_pip_env.update({ 'system': true }) %}
           {% endif %}
@@ -146,8 +146,8 @@
         {% if item.symlink_path is defined %}
           {% set _ = _bootstrap_pip_env.update({'symlink_path': item.symlink_path }) %}
         {% endif %}
-        {% set _ = _bootstrap_pip_env.update({'pip_executable': item.pip_executable | d(__bootstrap_pip__pip_executable) }) %}
-        {% set _ = _bootstrap_pip_env.update({'pip_version': item.version | d(__bootstrap_pip__pip_version) }) %}
+        {% set _ = _bootstrap_pip_env.update({'pip_executable': item.pip_executable | d(__bootstrap_pip__pip_executable, true) }) %}
+        {% set _ = _bootstrap_pip_env.update({'pip_version': item.version | d(__bootstrap_pip__pip_version, true) }) %}
         {% set _ = _bootstrap_pip_env_by_name.update({ _env_name: _bootstrap_pip_env }) %}
       {% endfor %}
       {{ _bootstrap_pip_env_by_name }}

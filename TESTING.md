@@ -10,7 +10,9 @@ This repository employs a multi-layered testing strategy, ranging from static an
 - [Pre-commit hooks](#pre-commit-hooks)
 - [Automation Scripts](#automation-scripts)
 - [Environment Setup](#prepare-collection-test-environment)
-- [Molecule Functional Testing](#run-molecule-tests)
+- [Molecule Functional Testing](#molecule-functional-testing)
+- [IDE & Tooling Consistency](#ide--tooling-consistency)
+- [Backlinks](#backlinks)
 
 ---
 
@@ -88,7 +90,6 @@ pre-commit install --hook-type pre-commit
 pre-commit install --hook-type pre-push
 ```
 
-
 3. **Verify it works**:
 You can manually test that the hooks fire across all files without needing to make a commit:
 ```bash
@@ -165,7 +166,7 @@ ln -s ../inventory/DEV inventory
 
 ---
 
-## Run Molecule Tests
+## Molecule Functional Testing
 
 ### What is Molecule?
 
@@ -181,6 +182,10 @@ The `tests/molecule_exec.sh` wrapper manages the `MOLECULE_IMAGE_LABEL` to simpl
 | **Debug Mode**        | `tests/molecule_exec.sh centos9 --debug converge`             |
 | **Manual Inspection** | `tests/molecule_exec.sh redhat8 login`                        |
 | **Cleanup**           | `molecule destroy --all`                                      |
+
+### How to run tests
+
+See the [molecule/README.md](molecule/README.md) for information on how to run molecule tests.
 
 ---
 

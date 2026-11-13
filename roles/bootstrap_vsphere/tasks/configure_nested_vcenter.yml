@@ -42,14 +42,14 @@
     cluster: "{{ item.key }}"
     validate_certs: false
     enable: "{{ item.value.enable_ha }}"
-    admission_control_cpu_reserve_percentage: "{{ item.value.admission_control_cpu_reserve_percentage | d(omit) }}"
-    admission_control_dedicated_hosts: "{{ item.value.admission_control_dedicated_hosts | d(omit) }}"
-    admission_control_failover_level: "{{ item.value.admission_control_failover_level | d(omit) }}"
-    admission_control_memory_reserve_percentage: "{{ item.value.admission_control_memory_reserve_percentage | d(omit) }}"
-    admission_control_policy: "{{ item.value.admission_control_policy | d(omit) }}"
-    host_isolation_response: "{{ item.value.host_isolation_response | d(omit) }}"
-    storage_apd_response: "{{ item.value.ha_storage_apd_response | d(omit) }}"
-    vm_monitoring: "{{ item.value.ha_vm_monitoring | d(omit) }}"
+    admission_control_cpu_reserve_percentage: "{{ item.value.admission_control_cpu_reserve_percentage | d(omit, true) }}"
+    admission_control_dedicated_hosts: "{{ item.value.admission_control_dedicated_hosts | d(omit, true) }}"
+    admission_control_failover_level: "{{ item.value.admission_control_failover_level | d(omit, true) }}"
+    admission_control_memory_reserve_percentage: "{{ item.value.admission_control_memory_reserve_percentage | d(omit, true) }}"
+    admission_control_policy: "{{ item.value.admission_control_policy | d(omit, true) }}"
+    host_isolation_response: "{{ item.value.host_isolation_response | d(omit, true) }}"
+    storage_apd_response: "{{ item.value.ha_storage_apd_response | d(omit, true) }}"
+    vm_monitoring: "{{ item.value.ha_vm_monitoring | d(omit, true) }}"
   with_dict: "{{ bootstrap_vsphere__nested_clusters }}"
 
 - name: configure_nested_vcenter | Configure Clusters DRS
@@ -61,9 +61,9 @@
     cluster: "{{ item.key }}"
     validate_certs: false
     enable: "{{ item.value.enable_drs }}"
-    drs_default_vm_behavior: "{{ item.value.drs_default_vm_behavior | d(omit) }}"
-    drs_vmotion_rate: "{{ item.value.drs_vmotion_rate | d(omit) }}"
-    predictive_drs: "{{ item.value.predictive_drs | d(omit) }}"
+    drs_default_vm_behavior: "{{ item.value.drs_default_vm_behavior | d(omit, true) }}"
+    drs_vmotion_rate: "{{ item.value.drs_vmotion_rate | d(omit, true) }}"
+    predictive_drs: "{{ item.value.predictive_drs | d(omit, true) }}"
   with_dict: "{{ bootstrap_vsphere__nested_clusters }}"
 
 - name: configure_nested_vcenter | Add Nested ESXi Host to nested VCSA
@@ -89,7 +89,7 @@
     password: "{{ bootstrap_vsphere__vsphere_credentials[vsphere_deploy__nested_vcenter.hostname].password }}"
     #    esxi_hostname: "{{ item.hostname | d(item.ip) | d(item.name + '.' + bootstrap_vsphere__vcenter_domain) }}"
     esxi_hostname: "{{ item.hostname }}"
-    license: "{{ bootstrap_vsphere__vsphere_licenses[item.hostname] | d(bootstrap_vsphere__esxi_license) }}"
+    license: "{{ bootstrap_vsphere__vsphere_licenses[item.hostname] | d(bootstrap_vsphere__esxi_license, true) }}"
     state: present
     validate_certs: false
   loop: "{{ __nested_hosts_list }}"
@@ -101,13 +101,13 @@
   vars:
     _datastores_raw: |
       {% for host in __nested_hosts_list %}
-      {% set cluster_disks = bootstrap_vsphere__nested_clusters[host.cluster].nested_hosts_disks | default([]) %}
+      {% set cluster_disks = bootstrap_vsphere__nested_clusters[host.cluster].nested_hosts_disks | d([], true) %}
       {% for disk in cluster_disks %}
       {% if disk.create_datastore_name is defined and not loop.first %}
       - hostname: "{{ host.hostname | default(host.ip) | default(host.name + '.' + bootstrap_vsphere__vcenter_domain) }}"
         datastore_name: "{{ disk.create_datastore_name }}-{{ host.name }}"
         {% if disk.storage_channel_number is defined %}
-        storage_channel_number: "{{ disk.storage_channel_number | default('0') }}"
+        storage_channel_number: "{{ disk.storage_channel_number | d('0', true) }}"
         {% endif %}
         {% if disk.disk_target_position is defined %}
         disk_target_position: "{{ disk.disk_target_position | default(loop.index0) }}"
@@ -129,7 +129,7 @@
     datastore_name: "{{ item.datastore_name }}"
     datastore_type: vmfs
     #    vmfs_device_name: "mpx.vmhba0:C0:T{{item.disk_target_position}}:L0"
-    vmfs_device_name: mpx.vmhba0:C{{ item.storage_channel_number | d('0') }}:T{{item.disk_target_position | d('0') }}:L0
+    vmfs_device_name: mpx.vmhba0:C{{ item.storage_channel_number | d('0', true) }}:T{{item.disk_target_position | d('0', true) }}:L0
     vmfs_version: 6
     esxi_hostname: "{{ item.hostname }}"
     state: present

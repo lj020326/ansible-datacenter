@@ -48,10 +48,10 @@
     name: "{{ item.name }}"
     src: "{{ item.src }}"
     fstype: "{{ item.fstype }}"
-    opts: "{{ item.options | d(omit) }}"
-    dump: "{{ item.dump | d(omit) }}"
-    passno: "{{ item.passno | d(omit) }}"
-    fstab: "{{ item.fstab | d(bootstrap_linux_mount__fstab) }}"
+    opts: "{{ item.options | d(omit, true) }}"
+    dump: "{{ item.dump | d(omit, true) }}"
+    passno: "{{ item.passno | d(omit, true) }}"
+    fstab: "{{ item.fstab | d(bootstrap_linux_mount__fstab, true) }}"
     state: "{{ item.state | d('present' if item.fstype in ['tmpfs'] else bootstrap_linux_mount__state) }}"
     backup: "{{ bootstrap_linux_mount__backup_fstab }}"
   loop: "{{ __bootstrap_linux_mount__list }}"
@@ -110,7 +110,7 @@
     - name: Allocate raw storage space for the swap file image
       ansible.builtin.command: >
         fallocate -l {{ bootstrap_linux_mount__swap_disk.size }} {{ bootstrap_linux_mount__swap_disk.file }}
-      when: not swap_file_stat.stat.exists or (swap_size_mismatch | default(false) | bool)
+      when: not swap_file_stat.stat.exists or (swap_size_mismatch | d(false, false) | bool)
       changed_when: true
 
     - name: Secure file permissions to prevent system data exposure
@@ -122,7 +122,7 @@
 
     - name: Format the allocated space image as Linux Swap signature block
       ansible.builtin.command: mkswap {{ bootstrap_linux_mount__swap_disk.file }}
-      when: not swap_file_stat.stat.exists or (swap_size_mismatch | default(false) | bool)
+      when: not swap_file_stat.stat.exists or (swap_size_mismatch | d(false, false) | bool)
       changed_when: true
 
     - name: Bind swap file layout properties inside system fstab record tables
@@ -135,12 +135,12 @@
 
     # Skip if inside a Docker container
     - name: Re-activate system swap space live on host
-      when: ansible_facts['virtualization_type'] | d('') != 'docker'
+      when: ansible_facts['virtualization_type'] | d('', true) != 'docker'
       ansible.builtin.command: swapon -a
       changed_when: false
 
 - name: Enforce Swap Absence for Kubernetes Node Topology
-  when: bootstrap_linux_mount__disable_swap | d(false) | bool
+  when: bootstrap_linux_mount__disable_swap | d(false, false) | bool
   block:
     - name: Disable system swap mapping in live runtime environment
       ansible.builtin.command: swapoff -a

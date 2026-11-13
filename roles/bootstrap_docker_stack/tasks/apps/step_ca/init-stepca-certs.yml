@@ -1,4 +1,4 @@
-- name: Docker Stack | StepCA | pre-start | Initialize step-ca
+- name: StepCA | pre-start | Initialize step-ca
   no_log: true
   community.docker.docker_container:
     name: step-ca-csr
@@ -19,26 +19,26 @@
     container_default_behavior: compatibility
   register: __stepca_init_docker_output
 
-- name: Docker Stack | StepCA | pre-start | Display __stepca_init_docker_output results
+- name: StepCA | pre-start | Display __stepca_init_docker_output results
   ansible.builtin.debug:
-    var: __stepca_init_docker_output.container.Output | d('')
+    var: __stepca_init_docker_output.container.Output | d('', true)
 #            var: stepca_csr_docker_output
 
-- name: Docker Stack | StepCA | pre-start | Remove default secrets/root_ca_key
+- name: StepCA | pre-start | Remove default secrets/root_ca_key
   ansible.builtin.file:
     path: "{{ __docker_stack__stepca__home_dir }}/secrets/root_ca_key"
     state: absent
 
-- name: Docker Stack | StepCA | pre-start | Copy step-ca's root, intermediate CA cert and key
+- name: StepCA | pre-start | Copy step-ca's root, intermediate CA cert and key
   when: docker_stack__stepca__use_host_cacerts
   ansible.builtin.copy:
     remote_src: true
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    backup: "{{ item.backup | d(true) }}"
+    backup: "{{ item.backup | d(true, false) }}"
     owner: "{{ docker_stack__user_username }}"
     group: "{{ docker_stack__user_group }}"
-    mode: "{{ item.mode | d('0644') }}"
+    mode: "{{ item.mode | d('0644', true) }}"
   loop:
     - src: "{{ __docker_stack__stepca__root_cacert }}"
       dest: "{{ __docker_stack__stepca__home_dir }}/certs/root_ca.crt"

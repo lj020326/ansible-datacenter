@@ -257,7 +257,7 @@ function remove_docker_stack() {
     ## it would be nice if the 'docker stack rm' command supported a 'wait' option to avoid the following hack
     ## ref: https://github.com/moby/moby/issues/30942
   #    until [ -z "$(docker service ls --filter ${DOCKER_LABEL_FILTER} -q)" ] || [ "$wait_limit" -lt 0 ]; do
-    until [ -z "$(docker stack ps "${DOCKER_STACK_NAME}" -q >/dev/null 2>&1)" ] || [ "$wait_limit" -lt 0 ]; do
+    until [ -z "$(docker stack ps "${DOCKER_STACK_NAME}" -q 2>/dev/null)" ] || [ "$wait_limit" -lt 0 ]; do
       sleep 2;
       wait_limit="$((wait_limit-1))"
     done

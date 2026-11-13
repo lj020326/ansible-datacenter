@@ -1,7 +1,7 @@
 ---
 - name: Set __teams_and_users
   ansible.builtin.set_fact:
-    __teams_and_users: "{{ __org_team_list + bootstrap_ansible_controller__local_users }}"
+    __teams_and_users: "{{ __org_team_list + __controller_local_users }}"
 
 - name: Validate organization definitions
   block:
@@ -10,9 +10,9 @@
         that: item['admin_roles'] | dict2items | map(attribute='value') | flatten | unique |
                 difference(item['teams']) | length == 0
         fail_msg: "{{ item['admin_roles'] | dict2items | map(attribute='value') | flatten | unique |
-                    difference(item['teams']) | length == 0 }} not in controller_organizations['teams']"
+                    difference(item['teams']) | length == 0 }} not in __controller_organizations['teams']"
         quiet: True
-      loop: "{{ controller_organizations }}"
+      loop: "{{ __controller_organizations }}"
       loop_control:
         label: "{{ item['name'] }}"
 
@@ -20,7 +20,7 @@
       ansible.builtin.assert:
         that: item['auditors'] | d([], true) is subset(item['teams'])
         quiet: True
-      loop: "{{ controller_organizations }}"
+      loop: "{{ __controller_organizations }}"
       loop_control:
         label: "{{ item['name'] }}"
 
@@ -28,12 +28,12 @@
       ansible.builtin.assert:
         that:
           - item['galaxy_credentials'] | reject('eq', 'Ansible Galaxy') |
-              difference(controller_credentials | map(attribute='name')) | length == 0
+              difference(__controller_credentials | map(attribute='name')) | length == 0
         fail_msg: "{{ item['galaxy_credentials'] | reject('eq', 'Ansible Galaxy') |
-          difference(controller_credentials | map(attribute='name')) }} not defined in controller_credentials"
+          difference(__controller_credentials | map(attribute='name')) }} not defined in __controller_credentials"
         quiet: True
       when: item['galaxy_credentials'] is defined
-      loop: "{{ controller_organizations }}"
+      loop: "{{ __controller_organizations }}"
       loop_control:
         label: "{{ item['name'] }}"
 
@@ -43,10 +43,9 @@
     - name: Assert credential_type and organization references
       ansible.builtin.assert:
         that:
-          - item['credential_type'] in (controller_credential_types | map(attribute='name') + __controller_default_credential_types)
-          - item['organization'] | d('dettonville') in controller_organizations | map(attribute='name')
+          - item['credential_type'] in (__controller_credential_types | map(attribute='name') + __controller_default_credential_types)
         quiet: True
-      loop: "{{ controller_credentials }}"
+      loop: "{{ __controller_credentials }}"
       loop_control:
         label: "{{ item['organization'] }} - {{ item['name'] }}"
 
@@ -55,14 +54,14 @@
         that:
           - item['roles'].keys() | list is subset(['owner', 'use']) # Ensure that only valid keys are listed under roles
           - item['roles'] | dict2items | map(attribute='value') | flatten | unique is subset(
-              ((controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
-              (bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
+              ((__controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
+              (__controller_local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
               )
           - item['roles']['use'] | d([], true) is iterable and item['roles']['use'] is not string
           - item['roles']['owner'] | d([], true) is iterable and item['roles']['owner'] is not string
         fail_msg: "{{ item['name'] }} roles are flawed. Validate key names, team names, and that values are lists."
         quiet: True
-      loop: "{{ controller_credentials | selectattr('roles', 'defined') | list }}"
+      loop: "{{ __controller_credentials | selectattr('roles', 'defined') | list }}"
       loop_control:
         label: "{{ item['organization'] }} - {{ item['name'] }}"
 
@@ -72,7 +71,7 @@
           - item['environments'] | map('lower') is subset(bootstrap_ansible_controller__allowed_environments)
           - item['environments'] is iterable and item['environments'] is not string
         quiet: True
-      loop: "{{ controller_credentials | selectattr('environments', 'defined') | list }}"
+      loop: "{{ __controller_credentials | selectattr('environments', 'defined') | list }}"
       loop_control:
         label: "{{ item['name'] }}"
 
@@ -81,8 +80,8 @@
   block:
     - name: Validate project organization
       ansible.builtin.assert:
-        that: item['organization'] in controller_organizations | map(attribute='name')
-        fail_msg: "{{ item['organization'] }} is not defined in controller_organizations"
+        that: item['organization'] in __controller_organizations | map(attribute='name')
+        fail_msg: "{{ item['organization'] }} is not defined in __controller_organizations"
         quiet: True
       loop: "{{ __controller_projects }}"
       loop_control:
@@ -90,8 +89,8 @@
 
     - name: Validate project credentials
       ansible.builtin.assert:
-        that: item['credential'] in controller_credentials | map(attribute='name')
-        fail_msg: "{{ item['credential'] }} is not defined in controller_credentials"
+        that: item['credential'] in __controller_credentials | map(attribute='name')
+        fail_msg: "{{ item['credential'] }} is not defined in __controller_credentials"
         quiet: True
       when: item['credential'] is defined
       loop: "{{ __controller_projects }}"
@@ -103,8 +102,8 @@
         that:
           - item['roles'].keys() | list is subset(['admin', 'use', 'update']) # Ensure that only valid keys are listed under roles
           - item['roles'] | dict2items | map(attribute='value') | flatten | unique is subset(
-              ((controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
-              (bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
+              ((__controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
+              (__controller_local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
               )
           - item['roles']['use'] | d([], true) is iterable and item['roles']['use'] is not string
           - item['roles']['admin'] | d([], true) is iterable and item['roles']['admin'] is not string
@@ -119,8 +118,8 @@
   block:
     - name: Validate inventory organization
       ansible.builtin.assert:
-        that: item['organization'] in controller_organizations | map(attribute='name')
-        fail_msg: "{{ item['organization'] }} is not defined in controller_organizations"
+        that: item['organization'] in __controller_organizations | map(attribute='name')
+        fail_msg: "{{ item['organization'] }} is not defined in __controller_organizations"
         quiet: True
       loop: "{{ __controller_inventories }}"
       loop_control:
@@ -143,8 +142,8 @@
         that:
           - item['roles'].keys() | list is subset(['admin', 'use', 'update', 'adhoc']) # Ensure that only valid keys are listed under roles
           - item['roles'] | dict2items | map(attribute='value') | flatten | unique is subset(
-              ((controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
-              (bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
+              ((__controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
+              (__controller_local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
               )
           - item['roles']['use'] | d([], true) is iterable and item['roles']['use'] is not string
           - item['roles']['admin'] | d([], true) is iterable and item['roles']['admin'] is not string
@@ -161,7 +160,7 @@
     - name: Validate notification template definitions
       ansible.builtin.assert:
         that:
-          - item['organization'] in controller_organizations | map(attribute='name')
+          - item['organization'] in __controller_organizations | map(attribute='name')
           - item['notification_type'] in bootstrap_ansible_controller__allowed_notification_types
         quiet: True
       loop: "{{ bootstrap_ansible_controller__notification_templates }}"
@@ -172,8 +171,8 @@
   block:
     - name: Validate job template organization
       ansible.builtin.assert:
-        that: item['organization'] in controller_organizations | map(attribute='name')
-        fail_msg: "{{ item['organization'] }} is not defined in controller_organizations"
+        that: item['organization'] in __controller_organizations | map(attribute='name')
+        fail_msg: "{{ item['organization'] }} is not defined in __controller_organizations"
         quiet: True
       loop: "{{ __controller_job_templates }}"
       loop_control:
@@ -199,8 +198,8 @@
 
     - name: Validate job template credentials
       ansible.builtin.assert:
-        that: item['credentials'] | d([], true) is subset(controller_credentials | map(attribute='name') | unique)
-        fail_msg: "{{ item['credentials'] | d([], true) | difference(controller_credentials | map(attribute='name')) }} not in controller_credentials"
+        that: item['credentials'] | d([], true) is subset(__controller_credentials | map(attribute='name') | unique)
+        fail_msg: "{{ item['credentials'] | d([], true) | difference(__controller_credentials | map(attribute='name')) }} not in __controller_credentials"
         quiet: True
       loop: "{{ __controller_job_templates }}"
       loop_control:
@@ -212,11 +211,11 @@
           ansible.builtin.set_fact:
             __credential_job_template_mapping: |-
               {% set ns = namespace() %}
-              {% set ns.credential_list = controller_credentials | selectattr('environments', 'defined') | map(attribute='name') | unique %}
+              {% set ns.credential_list = __controller_credentials | selectattr('environments', 'defined') | map(attribute='name') | unique %}
               {% for credential_name in ns.credential_list %}
               {% set ns.credential_environments = ns.credential_environments | d([], true) + [
               {'name': credential_name,
-              'environments': controller_credentials | selectattr('name', 'eq', credential_name) | map(attribute='environments') | flatten}
+              'environments': __controller_credentials | selectattr('name', 'eq', credential_name) | map(attribute='environments') | flatten}
               ]%}
               {% endfor %}
               {% for collapsed_credential in ns.credential_environments %}
@@ -232,7 +231,7 @@
 
         - name: Validate that credential exists in same environments as calling job templates
           ansible.builtin.assert:
-            that: item['job_template']['environments'] | d(bootstrap_ansible_controller__allowed_environments) is
+            that: item['job_template']['environments'] | d(bootstrap_ansible_controller__allowed_environments, true) is
               subset(item['credential']['environments'])
             fail_msg: >-
               "Job template '{{ item['job_template']['name'] }}' defined for environments {{ item['job_template']['environments'] |
@@ -245,8 +244,8 @@
 
     - name: Validate job template execution environments
       ansible.builtin.assert:
-        that: item['execution_environment'] in controller_execution_environments | map(attribute='name')
-        fail_msg: "{{ item['execution_environment'] }} not in controller_execution_environments. (Case sensitive)"
+        that: item['execution_environment'] in __controller_execution_environments | map(attribute='name')
+        fail_msg: "{{ item['execution_environment'] }} not in __controller_execution_environments. (Case sensitive)"
         quiet: True
       loop: "{{ __controller_job_templates | selectattr('execution_environment', 'defined') }}"
       loop_control:
@@ -257,8 +256,8 @@
         that:
           - item['roles'].keys() | list is subset(['admin', 'execute']) # Ensure that only valid keys are listed under roles
           - item['roles'] | dict2items | map(attribute='value') | flatten | unique is subset(
-              ((controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
-              (bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
+              ((__controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
+              (__controller_local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
               )
           - item['roles']['execute'] | d([], true) is iterable and item['roles']['use'] is not string
           - item['roles']['admin'] | d([], true) is iterable and item['roles']['admin'] is not string
@@ -308,8 +307,8 @@
   block:
     - name: Validate organization
       ansible.builtin.assert:
-        that: item['organization'] in (controller_organizations | map(attribute='name'))
-        fail_msg: "{{ item }} does not exist in controller_organizations"
+        that: item['organization'] in (__controller_organizations | map(attribute='name'))
+        fail_msg: "{{ item }} does not exist in __controller_organizations"
         quiet: True
       loop: "{{ __controller_schedules }}"
       loop_control:
@@ -326,7 +325,7 @@
         label: "{{ item['schedule_name'] }}"
 
     - name: Validate referenced workflows
-      when: item['workflow_job_name'] | d('')| length>0
+      when: item['workflow_job_name'] | d('', true)| length>0
       ansible.builtin.assert:
         that: item['workflow_job_name'] in (__controller_workflow_templates | map(attribute='name'))
         fail_msg: "{{ item }} does not exist in __controller_workflow_templates"
@@ -347,14 +346,14 @@
 
     - name: Validate that schedule environments match job template environments
       ansible.builtin.assert:
-        that: item['environments'] | d(bootstrap_ansible_controller__allowed_environments) is
-              subset(controller_job_templates | selectattr('name', 'eq', item['job_template_name']) |
+        that: item['environments'] | d(bootstrap_ansible_controller__allowed_environments, true) is
+              subset(bootstrap_ansible_controller__job_templates | selectattr('name', 'eq', item['job_template_name']) |
               map(attribute='environments', default=bootstrap_ansible_controller__allowed_environments) | flatten)
         fail_msg: >-
           "{{ item['schedule_name'] }} defined for environments
-          {{ item['environments'] | d(bootstrap_ansible_controller__allowed_environments) }} but job template
+          {{ item['environments'] | d(bootstrap_ansible_controller__allowed_environments, true) }} but job template
           {{ item['job_template_name'] }} defined for environments
-          {{ controller_job_templates | selectattr('name', 'eq', item['job_template_name']) |
+          {{ bootstrap_ansible_controller__job_templates | selectattr('name', 'eq', item['job_template_name']) |
           map(attribute='environments', default=bootstrap_ansible_controller__allowed_environments) | flatten }}"
         quiet: True
       loop: "{{ __controller_schedules | selectattr('job_template_name', 'defined') }}"
@@ -366,8 +365,8 @@
   block:
     - name: Validate inventories
       ansible.builtin.assert:
-        that: item['inventory'] in controller_inventories | map(attribute='name')
-        fail_msg: "{{ item['inventory'] }} not defined in controller_inventories"
+        that: item['inventory'] in bootstrap_ansible_controller__inventories | map(attribute='name')
+        fail_msg: "{{ item['inventory'] }} not defined in bootstrap_ansible_controller__inventories"
         quiet: True
       when: item['inventory'] is defined
       loop: "{{ __controller_workflow_templates }}"
@@ -377,9 +376,9 @@
     - name: Validate node job templates
       ansible.builtin.assert:
         that: item['workflow_nodes'] | map(attribute='unified_job_template') | selectattr('type', 'eq', 'job_template') |
-          map(attribute='name') | unique is subset(controller_job_templates | map(attribute='name'))
+          map(attribute='name') | unique is subset(bootstrap_ansible_controller__job_templates | map(attribute='name'))
         fail_msg: "{{ item['workflow_nodes'] | map(attribute='unified_job_template') | selectattr('type', 'eq', 'job_template') |
-          map(attribute='name') | unique | difference(controller_job_templates | map(attribute='name')) }} not in controller_job_templates"
+          map(attribute='name') | unique | difference(bootstrap_ansible_controller__job_templates | map(attribute='name')) }} not in bootstrap_ansible_controller__job_templates"
         quiet: True
       loop: "{{ __controller_workflow_templates }}"
       loop_control:
@@ -390,8 +389,8 @@
         that:
           - item['roles'].keys() | list is subset(['admin', 'execute', 'approval']) # Ensure that only valid keys are listed under roles
           - item['roles'] | dict2items | map(attribute='value') | flatten | unique is subset(
-              ((controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
-              (bootstrap_ansible_controller__local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
+              ((__controller_organizations | selectattr('name', 'eq', item['organization']) | first)['teams']) +
+              (__controller_local_users | selectattr('organization', 'eq', item['organization']) | map(attribute='username'))
               )
           - item['roles']['execute'] | d([], true) is iterable and item['roles']['use'] is not string
           - item['roles']['admin'] | d([], true) is iterable and item['roles']['admin'] is not string

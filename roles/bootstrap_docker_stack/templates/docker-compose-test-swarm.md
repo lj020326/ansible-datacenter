@@ -129,7 +129,7 @@ __docker_stack__service_group_configs_tpl:
           order: stop-first
           parallelism: 1
       environment:
-        PROXY_BASE_URL: 'https://archiva.admin.dettonville.int/'
+        PROXY_BASE_URL: 'https://archiva.admin.example.int/'
         SMTP_HOST: mail.johnson.int
         SMTP_PORT: '25'
       image: 'xetusoss/archiva:latest'
@@ -137,7 +137,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.archiva.entrypoints=https
         - >-
-          traefik.http.routers.archiva.rule=Host(`archiva.admin.dettonville.int`)
+          traefik.http.routers.archiva.rule=Host(`archiva.admin.example.int`)
         - traefik.http.services.archiva.loadbalancer.server.port=8080
       networks:
         - traefik_public
@@ -172,7 +172,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.authelia-rtr.entrypoints=https
         - >-
-          traefik.http.routers.authelia-rtr.rule=Host(`authelia.admin.dettonville.int`)
+          traefik.http.routers.authelia-rtr.rule=Host(`authelia.admin.example.int`)
         - traefik.http.routers.authelia-rtr.tls=true
         - traefik.http.routers.authelia-rtr.middlewares=chain-authelia@file
         - traefik.http.routers.authelia-rtr.service=authelia-svc
@@ -253,7 +253,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.dozzle-rtr.entrypoints=https
         - >-
-          traefik.http.routers.dozzle-rtr.rule=Host(`dozzle.admin.dettonville.int`)
+          traefik.http.routers.dozzle-rtr.rule=Host(`dozzle.admin.example.int`)
         - traefik.http.routers.dozzle-rtr.service=dozzle-svc
         - traefik.http.services.dozzle-svc.loadbalancer.server.port=8080
       networks:
@@ -292,7 +292,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.portainer-rtr.entrypoints=https
         - >-
-          traefik.http.routers.portainer-rtr.rule=Host(`portainer.admin.dettonville.int`)
+          traefik.http.routers.portainer-rtr.rule=Host(`portainer.admin.example.int`)
         - traefik.http.routers.portainer-rtr.priority=1000
         - traefik.http.routers.portainer-rtr.service=portainer-svc
         - traefik.http.routers.portainer-rtr.tls=true
@@ -386,13 +386,13 @@ __docker_stack__service_group_configs_tpl:
         - traefik.http.routers.http-catchall.priority=1
         - traefik.http.routers.ping.entrypoints=https
         - >-
-          traefik.http.routers.ping.rule=Host(`traefik.admin.dettonville.int`)
+          traefik.http.routers.ping.rule=Host(`traefik.admin.example.int`)
           && PathPrefix(`/ping`)
         - traefik.http.routers.ping.service=ping@internal
         - traefik.http.routers.traefik-rtr.service=api@internal
         - traefik.http.routers.traefik-rtr.entrypoints=https
         - >-
-          traefik.http.routers.traefik-rtr.rule=Host(`traefik.admin.dettonville.int`)
+          traefik.http.routers.traefik-rtr.rule=Host(`traefik.admin.example.int`)
         - traefik.http.services.api.loadbalancer.server.port=8080
       networks:
         - traefik_public
@@ -449,7 +449,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.http.routers.whoami.entrypoints=https
         - >-
           traefik.http.routers.whoami.rule=Host(`whoami.admin.dettonville.cloud`)
-          || Host(`whoami.admin.dettonville.int`)
+          || Host(`whoami.admin.example.int`)
         - traefik.http.services.whoami.loadbalancer.server.port=80
       networks:
         - traefik_public
@@ -493,7 +493,7 @@ __docker_stack__service_group_configs_tpl:
       labels:
         - traefik.enable=true
         - traefik.http.routers.gitea.entrypoints=https
-        - traefik.http.routers.gitea.rule=Host(`gitea.admin.dettonville.int`)
+        - traefik.http.routers.gitea.rule=Host(`gitea.admin.example.int`)
         - traefik.http.routers.gitea.service=gitea-svc
         - traefik.http.services.gitea-svc.loadbalancer.server.port=3000
       networks:
@@ -525,7 +525,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.healthchecks.entrypoints=https
         - >-
-          traefik.http.routers.healthchecks.rule=Host(`healthchecks.admin.dettonville.int`)
+          traefik.http.routers.healthchecks.rule=Host(`healthchecks.admin.example.int`)
         - traefik.http.routers.healthchecks.service=healthchecks-svc
         - traefik.http.services.healthchecks-svc.loadbalancer.server.port=8000
       networks:
@@ -573,10 +573,10 @@ __docker_stack__service_group_configs_tpl:
         - traefik.http.routers.keycloak.entrypoints=https
         - >-
           traefik.http.routers.keycloak.rule=Host(`auth.admin.dettonville.cloud`)
-          || Host(`auth.admin.dettonville.int`)
+          || Host(`auth.admin.example.int`)
         - traefik.http.routers.keycloak_insecure.entrypoints=http
         - >-
-          traefik.http.routers.keycloak_insecure.rule=Host(`auth.admin.dettonville.int`)
+          traefik.http.routers.keycloak_insecure.rule=Host(`auth.admin.example.int`)
         - traefik.http.routers.keycloak_insecure.middlewares=https-only@file
         - traefik.http.services.keycloak.loadbalancer.server.port=8080
       links:
@@ -622,7 +622,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.docker.network=traefik_public
         - >-
-          traefik.http.routers.llm_agent.rule=Host(`orchestrator.admin.dettonville.int`)
+          traefik.http.routers.llm_agent.rule=Host(`orchestrator.admin.example.int`)
         - traefik.http.routers.llm_agent.entrypoints=https
         - traefik.http.routers.llm_agent.tls=true
         - traefik.http.services.llm_agent.loadbalancer.server.port=8000
@@ -663,14 +663,14 @@ __docker_stack__service_group_configs_tpl:
       labels:
         - traefik.enable=true
         - traefik.http.routers.openbao.entrypoints=https
-        - traefik.http.routers.openbao.rule=Host(`vault.admin.dettonville.int`)
+        - traefik.http.routers.openbao.rule=Host(`vault.admin.example.int`)
         - traefik.http.routers.openbao.service=openbao-svc
         - traefik.http.services.openbao-svc.loadbalancer.server.port=8200
         - traefik.http.services.openbao-svc.loadbalancer.server.scheme=http
         - >-
           traefik.http.middlewares.openbao-forwarded-headers.headers.customrequestheaders.X-Forwarded-Proto=https
         - >-
-          traefik.http.middlewares.openbao-forwarded-headers.headers.customrequestheaders.X-Forwarded-Host=vault.admin.dettonville.int
+          traefik.http.middlewares.openbao-forwarded-headers.headers.customrequestheaders.X-Forwarded-Host=vault.admin.example.int
       networks:
         - traefik_public
         - net
@@ -709,7 +709,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.ldapadmin.entrypoints=https
         - >-
-          traefik.http.routers.ldapadmin.rule=Host(`ldapadmin.admin.dettonville.int`)
+          traefik.http.routers.ldapadmin.rule=Host(`ldapadmin.admin.example.int`)
         - traefik.http.services.ldapadmin.loadbalancer.server.port=80
       networks:
         - net
@@ -774,7 +774,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.phpldapadmin.entrypoints=https
         - >-
-          traefik.http.routers.phpldapadmin.rule=Host(`phpldapadmin.admin.dettonville.int`)
+          traefik.http.routers.phpldapadmin.rule=Host(`phpldapadmin.admin.example.int`)
         - traefik.http.services.phpldapadmin.loadbalancer.server.port=80
       networks:
         - traefik_public
@@ -804,10 +804,10 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.pgadmin.entrypoints=https
         - >-
-          traefik.http.routers.pgadmin.rule=Host(`pgadmin.admin.dettonville.int`)
+          traefik.http.routers.pgadmin.rule=Host(`pgadmin.admin.example.int`)
         - traefik.http.routers.pgadmin_insecure.entrypoints=http
         - >-
-          traefik.http.routers.pgadmin_insecure.rule=Host(`pgadmin.admin.dettonville.int`)
+          traefik.http.routers.pgadmin_insecure.rule=Host(`pgadmin.admin.example.int`)
         - traefik.http.routers.pgadmin_insecure.middlewares=https-only@file
         - traefik.http.services.pgadmin.loadbalancer.server.port=80
       links:
@@ -909,7 +909,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.rediscom.entrypoints=https
         - >-
-          traefik.http.routers.rediscom.rule=Host(`rediscom.admin.dettonville.int`)
+          traefik.http.routers.rediscom.rule=Host(`rediscom.admin.example.int`)
         - traefik.http.services.rediscom.loadbalancer.server.port=8081
       networks:
         - net
@@ -964,7 +964,7 @@ __docker_stack__service_group_configs_tpl:
         - traefik.enable=true
         - traefik.http.routers.registryfe-rtr.entrypoints=https
         - >-
-          traefik.http.routers.registryfe-rtr.rule=Host(`registry.admin.dettonville.int`)
+          traefik.http.routers.registryfe-rtr.rule=Host(`registry.admin.example.int`)
         - traefik.http.routers.registryfe-rtr.service=registryfe-svc
         - traefik.http.services.registryfe-svc.loadbalancer.server.port=80
         - traefik.http.services.registryfe-svc.loadbalancer.server.scheme=http
@@ -976,9 +976,9 @@ __docker_stack__service_group_configs_tpl:
       restart: unless-stopped
       volumes:
         - >-
-          /home/container-user/docker/docker-registry/config/certs/admin.dettonville.int.chain.pem:/etc/apache2/server.crt:ro
+          /home/container-user/docker/docker-registry/config/certs/admin.example.int.chain.pem:/etc/apache2/server.crt:ro
         - >-
-          /home/container-user/docker/docker-registry/config/certs/admin.dettonville.int-key.pem:/etc/apache2/server.key:ro
+          /home/container-user/docker/docker-registry/config/certs/admin.example.int-key.pem:/etc/apache2/server.key:ro
   samba:
     samba:
       container_name: samba
@@ -1035,7 +1035,7 @@ __docker_stack__service_group_configs_tpl:
       labels:
         - traefik.enable=true
         - traefik.docker.network=traefik_public
-        - traefik.http.routers.vikunja.rule=Host(`kanban.admin.dettonville.int`)
+        - traefik.http.routers.vikunja.rule=Host(`kanban.admin.example.int`)
         - traefik.http.routers.vikunja.entrypoints=https
         - traefik.http.routers.vikunja.tls=true
         - traefik.http.services.vikunja.loadbalancer.server.port=3456

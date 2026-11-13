@@ -1,418 +1,615 @@
 
-
 example vars/vault.yml:
 ```yaml
 ---
+vault__machine_credentials:
+  prod:
+    windows_domain:
+      pdc_host: domainp1s1.example.int
+      username: "AnsibleDomain@example.int"
+      password: "3y!3hIH$d=0Cs@5c6q+pKHzS$IRFtT"
+    windows_domain_join:
+      pdc_host: domainp1s1.example.int
+      domain_join_dns: example.int
+      username: "AnsibleDomain@example.int"
+      password: "&HvT^v7NMmom33Qe9wfgFQQg%"
+    windows_local_admin:
+      username: "Administrator"
+      password: "$g8W7&VidMAhk-Wf2LE!YQ*Ltqdf"
+    windows:
+      username: "ansible"
+      password: "Lj9wavUg-J%^@fXGdo@!_qfC68k$&9t"
+    linux:
+      username: "ansible"
+      password: "okBczu65L^b!GWNT!9H5%Djrt45Yl"
+    linux_domain:
+      username: "ansible"
+      password: "M^2f&Psxph1nn-0vdIQXvS#DgEE"
+    vcsa_site1:
+      host: "VCSA1.example.int"
+      username: "ansible-vm-provisioner"
+      password: "t1vmm-VXyX&4Iz&+S%2RjC"
+    vcsa_site2:
+      host: "VCSA2.example.int"
+      username: "ansible-vm-provisioner"
+      password: "+j_L++UJ=9%kH%f^7lDI_&Ra"
+  test:
+    windows_domain:
+      pdc_host: domainp1s1.example.int
+      username: "AnsibleDomain@example.int"
+      password: "mkHifT3oI-U^3zREo$p6vfM$!HN"
+    windows_domain_join:
+      pdc_host: domainp1s1.example.int
+      domain_join_dns: example.int
+      username: "AnsibleDomain@example.int"
+      password: "okhm&J9LsbGSBnWEoWPRM&O*i"
+    windows_local_admin:
+      username: "Administrator"
+      password: "&7dS%cGy!a5#&*WOn@lcRojoSZ"
+    windows:
+      username: "ansible"
+      password: "phPwb@RbT1z!g7G^f7G^o!O+9Mub^$wi"
+    linux:
+      username: "ansible"
+      password: "b7lg=88&55ErZP*ZGyLn+i_#yF^t&5"
+    linux_domain:
+      username: "ansible"
+      password: "fO36CaW8#WJMFGde$sDS12Tv8"
+    vcsa_site1:
+      host: "VCSA1.example.int"
+      username: "ansible-vm-provisioner"
+      password: "qksh#sIG5aoJ#E09O4vs&%kOp"
+    vcsa_site2:
+      host: "VCSA2.example.int"
+      username: "ansible-vm-provisioner"
+      password: "ZurbUECDa6Jz-eS#*r91f!7JG"
 
-vault__ansible_password__linux: "goobar"
-vault__ansible_password__windows: "moobar"
+vault__ansible_username__linux: "{{ vault__machine_credentials.prod.linux.username }}"
+vault__ansible_password__linux: "{{ vault__machine_credentials.prod.linux.password }}"
 
-vault__hash_seed: "myhashseed"
+## windowsRM
+## https://docs.ansible.com/ansible/latest/user_guide/windows_winrm.html
+## NTLM auth method
+vault__ansible_username__windows: "{{ vault__machine_credentials.prod.windows.username }}"
+vault__ansible_password__windows: "{{ vault__machine_credentials.prod.windows.password }}"
 
+vault__ansible_vault_password: "@P%dsXBB_oOLsAnyTfnmS03YZynQuM^"
+vault__ansible_galaxy_token: "10lq467if4t9481eph1hm52096n13203j071kz90"
+
+## IDRAC
 vault__idrac_user: "root"
-vault__idrac_password: "passwordhere"
+vault__idrac_password: "tIrCc=h3e6B&NvAWKCh$u3QeljrsRP"
 
-vault__bind_tsig_keys_secret: "HasmFAbvvlakrgarvmavr0var=="
+#vault__admin_public_sshkeyfile: "{{ '~/.ssh/id_rsa.pub' | expanduser }}"
+#vault__admin_ssh_public_keyfile: "{{ vault__ssh_public_key | d(admin_public_sshkeyfile) }}"
+#vault__ansible_ssh_public_keyfile: "{{ vault__admin_ssh_public_keyfile }}"
+#vault__admin_ssh_public_key: "{{ lookup('file', vault__admin_ssh_public_keyfile) }}"
+vault__admin_ssh_private_key: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  t3UtmiQcvP2fVEsmfeOCSRIZOZ0kypXOCDLScn4tDUQWDOMSNUGRAEREBkHPQQikk9coLLYlAJUx
+  VXKHPPTNmL1RvdZGLNHmvrqWDg5bpiDnBpLvOl3pBeFJ3jIBUWTJAMyXBrShXBTi8FPRSQavx9un
+  LCEbHRLkETGZDNQXcZ7OjcCUQKPabxeCAj9qukBpGnWrYi9fNtKS3nORXDUOLESo3orW8VbKndCL
+  Plu+a58i8gdA4RQAW7LX4ztg/T6J7uCCeNTKj24DcaeJVCEyuy/PTgnqPLIAFy2r5ODxgF4yERXO
+  FNYUKwDK
+  -----END OPENSSH PRIVATE KEY-----
 
-#awx_pb_admin_password: "passwordhere"
-vault__awx_admin_password: "passwordhere"
+vault__admin_ssh_public_key: ssh-ed25519 AFHXO1DbaG7hBNV7HNB1JDZHHPHQwXXAb13OercLWAPimt/BFmuqRXBRXf3q2BPwcS3z
+  prp@qmbm-wcp.qa-example.int-1798-11-50
 
-## vmware
-vault__vcenter_password: "passwordhere"
+vault__admin_ssh_key_type: "ed25519"
 
-## VCENTER SERVER STANDARD
-vault__vcenter_license: 00000-000000-00000-00000-00000
+## ansible user
+vault__ansible_ssh_private_key: "{{ vault__admin_ssh_private_key }}"
+vault__ansible_ssh_public_key: "{{ vault__admin_ssh_public_key }}"
+vault__ansible_ssh_key_type: "{{ vault__admin_ssh_key_type }}"
 
-vault__esxi_license: 00000-000000-00000-00000-00000
+# openssl rand -hex 32
+# openssl rand -base64 32
+vault__webui_secret_key: "zJCGG@nBsn=@#@dT*s6$e$9W@3"
 
-##	VMWARE VSPHERE 6 ENTERPRISE PLUS
-vault__vsphere_licenses:
-  esx00.example.int: "{{ esxi_license }}"
-  esx01.example.int: "{{ esxi_license }}"
-  esx02.example.int: "{{ esxi_license }}"
-  ## nested/virtual esxi host
-  vesxi01.example.int: "{{ esxi_license }}"
+#---------------------
+# pulp secret_key
+vault__pulp_secret_key: "5FcZLHqAKdkFkNtj2FTeK*AKd"
 
-## role: vsphere-deploy-dc
-vault__esxi_password: "passwordhere"
-vault__nested_esxi_password: "{{ esxi_password }}"
-vault__nested_esxi_password_crypted: "{{ nested_esxi_password | password_hash('sha512',65534 | random(seed=hash_seed) | string) }}"
+vault__pulp_admin_username: "admin"
 
-vault__veeam_agent_password: "passwordhere"
+# must use "simple" password for DJANGO
+# 32 characters from a safe alphabet
+# openssl rand -hex 16
+vault__pulp_admin_password: "GA9nP%l8so#UK_&FKb-2e7EB"
 
-vault__fog_mysql_password: "abcZmhn8WqaG1xrt"
-vault__docker_stack_mysql_fog_password: "{{ fog_mysql_password }}"
+vault__pulp_admin_email: "admin+pulp@qa-example.int"
+#vault__pulp_api_token: "Basic {{ (vault__pulp_admin_username + ':' + vault__pulp_admin_password) | b64encode }}"
+vault__pulp_api_token: "{{ vault__pulp_admin_password }}"
 
-## shell envs
-vault__envvar_ldap_config_pwd: "passwordhere"
-#envvar_ansible_ssh_password: "passwordhere"
-#envvar_ansible_ssh_password: "{{ lookup('env','ANSIBLE_SSH_PASSWORD') | d(ansible_ssh_pass) }}"
-vault__envvar_ansible_ssh_password: "{{ lookup('env','ANSIBLE_SSH_PASSWORD') }}"
-vault__envvar_ansible_become_password: "{{ envvar_ansible_ssh_password }}"
+#---------------------
+# to fetch current token info from vault container:
+# docker exec -it "${CONTAINER_ID}" sh -c 'openbao_info --content' | yq -P
+vault__admin_password: 'lwxfg9T+@q7DHIfU8fnCov'
+vault__admin_password_sha512: "{{ vault__admin_password | ansible.builtin.password_hash('sha512',65534 | random(seed=vault__user_passwd_hash_seed)
+  | string) }}"
+vault__root_password_sha512: "{{ vault__admin_password_sha512 }}"
+
+vault__app_admin_password: "gvQrDOWOHfRC#9Jv#kx$&zaIQ&"
+vault__app_admin_password_bcrypt: "{{ vault__app_admin_password | ansible.builtin.password_hash('bcrypt', salt=(vault__user_passwd_hash_seed
+  | string | hash('sha256'))[:22]) }}"
+
+#########################################################################
+## if using sha512 (current) hash for linux user password:
+##    openssl passwd -6 -salt <YOUR_SALT>
+##    OR
+##    python3 -c 'import crypt; print(crypt.crypt("password here", crypt.mksalt(crypt.METHOD_SHA512)))'
+##    python3 -c 'import crypt; print(crypt.crypt("password here", "$6$rounds=200000$random_salt"))'
+##    python3 -c 'import crypt; print(crypt.crypt("password here", "$6$rounds=656000$jF.sJku8iq0nuuvL"))'
+## e.g., in ks.cfg
+##   rootpw --iscrypted $6$rounds=656000$jF.sJku8iq0nuuvL...
+## idempotent hash
+vault__user_passwd_hash_seed: "&tXYgg_wMCexQ&yIR_dEg#w+2Q"
+vault__os_build_user_password: "o4!XTSP!bUidRr%=0%5@f33JY40n-T"
+
+vault__packer_user_username: "osbuild"
+vault__packer_user_password: "yZ-&_yKD+NEcP#tuhd=gQmO3eHK+fL"
+vault__packer_user_ssh_public_key: "{{ vault__admin_ssh_public_key }}"
+
+vault__grub_secure_boot_password: '$4$LbMvb$DOgbe8ov.HXBltq07dDXG.'
+
+vault__bind_tsig_keys_secret: "xryfFW3SbVaOVcxrJ1nvUtc=="
+
+vault__awx_admin_password: "{{ vault__app_admin_password }}"
+
+vault__webmin_password: "x^c0cc^J%F@OKOJ=0=#f8RUpIA_"
+
+vault__user_credentials:
+  root:
+    hashed_password: "{{ vault__admin_password_sha512 }}"
+    ssh_keypair:
+      private: "{{ vault__admin_ssh_private_key }}"
+      public: "{{ vault__admin_ssh_public_key }}"
+      key_type: "{{ vault__admin_ssh_key_type }}"
+
+  ansible:
+    password: "{{ ansible_password__linux }}"
+    auth_key: "{{ admin_ssh_public_key }}"
+    ssh_keypair:
+      private: "{{ vault__ansible_ssh_private_key }}"
+      public: "{{ vault__ansible_ssh_public_key }}"
+      key_type: "{{ vault__ansible_ssh_key_type }}"
+
+  administrator:
+    hashed_password: "{{ vault__admin_password_sha512 }}"
+    password: "{{ vault__admin_password }}"
+    auth_key: "{{ vault__admin_ssh_public_key }}"
+    ssh_keypair:
+      private: "{{ vault__admin_ssh_private_key }}"
+      public: "{{ vault__admin_ssh_public_key }}"
+      key_type: "{{ vault__admin_ssh_key_type }}"
+
+  container-user:
+    hashed_password: "{{ vault__admin_password_sha512 }}"
+
+  media:
+    hashed_password: "{{ vault__admin_password_sha512 }}"
+
+
+###################
+# vmware
+vault__nested_esxi_password: "{{ vault__esxi_password }}"
+#vault__nested_esxi_password_crypted: "{{ vault__nested_esxi_password
+#  | ansible.builtin.password_hash('sha512',65534 | random(seed=vault__user_passwd_hash_seed) | string) }}"
+
+vault__veeam_agent_password: "5dJ2RS9I!^rudZUDsaAn3hEoCW$cK"
+
+vault__dozzle_admin_username: "admin"
+# Generate with
+# docker run -it --rm amir20/dozzle generate admin --password password --email me@email.net --name "Admin"
+#vault__dozzle_admin_password: "{{ vault__app_admin_password | ansible.builtin.password_hash('bcrypt') }}"
+vault__dozzle_admin_password: "{{ vault__app_admin_password_bcrypt }}"
+
+## created as of 2026-09-01
+## https://plugins.jetbrains.com/author/me/tokens
+vault__ldap_config_pwd: "JcKsAEyD4PG7RLNH%0#%P5L=bca!jj"
 
 ## iscsi
-vault__iscsi__session_auth_username: usernamehere
-vault__iscsi__session_auth_password: passwordhere
-
-vault__bootstrap_linux_ansible_ssh_allowed_ips: |
-  [
-    {% for item in groups["control_node"] -%}
-    {{ comma() }}{{ hostvars[item].ansible_default_ipv4.address }}
-    {%- endfor %}
-  ]
-
-vault__bootstrap_linux_ansible_ssh_allowed_ips:
-  - "{{ groups['control_node'][0]['ansible_default_ipv4']['address'] }}"
+vault__iscsi_session_auth_username: 6xIYWNIz7JVszYef
+vault__iscsi_session_auth_password: 6gIce3*s@qx#XEE7Yw!htjFG^f@BD!K
 
 vault__smbusername: "root"
+vault__smbpassword: "l6!Q9prHl#-ggyu#HrzuR0M7l-M-"
 
-vault__smbpassword: "passwordhere"
+vault__rndc_key: "MnalNfuDDbayBFHpX6Cxa2KPwCpbc3sZovDy34naqCrskgRVDOX31fxhlyNpv3NDUmasHLxROcFjJC3oShutAV=="
+vault__omapi_key: "cZQFgJO3E3zSm5Wb6Knd+q+TdB36sUanAi+3psTejARaIr1hFEq6RSFZ6ZI/HIN7PE9gpWSzQvh/yLFu6sGE5S=="
 
-vault__CSAdminUser: "admin"
-vault__CSMySQLPwd: "passwordhere"
-vault__CloudDBPass: "passwordhere"
+vault__git_ssh_private_keyfile: "{{ vault__admin_ssh_private_key }}"
+vault__git_ssh_public_keyfile: "{{ vault__admin_ssh_public_key }}"
+vault__openstack_ssh_public_key_file: "{{ vault__admin_ssh_public_keyfile }}"
 
-#CSAdminPwd: "passwordhere"
-vault__CSAdminPwd: "passwordhere"
-vault__CSHostpassword: "passwordhere"
+####################
+# SMTP auth configs
+vault__postfix_recipient_target: "admin+dcc@dettonville.org"
 
-vault__pfsense_user: "admin"
-vault__pfsense_pwd: "passwordhere"
+vault__fw_ddns_api_token: "5gPN09ik-9KcGqg8HmeZvGbLcbLIOHBaha5EXsly"
 
-# rndc_key:
-# DNS update key, generated with `rndc-confgen -a -b 512 -r /dev/urandom`
-# stored in ansible vault
-# omapi_key:
-# DHCP failover key, generated with `dnssec-keygen -a HMAC-MD5 -b 512 -n USER DHCP_OMAPI`
-# stored in ansible vault
-vault__rndc_key: "SssssTewewwGssgdHKjsdvdsfklsdgdfG:DSFgdfHDKHDHDLfhdFHDLGFhdGHLDHLdhDFHLhdFHLDHLDHLdhQ=="
-vault__omapi_key: "AzzzzTewewwGssgdHKjsdvdsfklsdgdfG:DSFgdfHDKHDHDLfhdFHDLGFhdGHLDHLdhDFHLhdFHLDHLDHLdhQ=="
+vault__ldap_root_password: "{SSHA}/RemS8gPJujXXNlOvjcptabSFqEnDGGd"
+vault__ldap_config_password: "dlUXlsBkAoYmgJFv2n*0V0"
+vault__ldap_admin_password: "4_VdJ83FHCw$r$^PtbB2fuWMLpH"
+vault__ldap_readonly_password: "deSJwmE5O=@xha3Gb0!Z0S&Di5YZ"
 
-#bootstrap_linux_ansible_username: deployer
-#bootstrap_linux_ansible_sudo_group: sudo
-#bootstrap_linux_ansible_authorized_public_sshkey: ~/.ssh/id_rsa.pub
+vault__bind_admin_password: "yPs*gWJGi5E9ZL@lZI*YW9+J7ghi"
 
-#admin_ssh_public_key: "{{ lookup('file', admin_ssh_public_keyfile) }}"
-vault__admin_ssh_public_key: ssh-rsa AAAAB3NtxC1fg2EZZZZDBQABAAABAQDMX0dPcvoiLIR3qdv+FZLB/yia1RYga28TBQcy762y/I5dgNs1hKNr9lCGlWj08Miiazb/BUS7OD9Pby+c4SK4BOwdqn/LMAGKe23JbMlhCVSwEll8U/ojW1Nm0OrfOnK6CIjkf8lXsTG0hh8DC7QGzGALeQJUpLMQpTvrWk2dJ66jGOFNnqVcJGiVIRuSreFoSbWGyOUbJ6wbXKKLUk+0uD3eAMc6pMDvP3cyhSBlfJce6gB7XzmVrnCSFYJK+s12WcseQa9HeInNgyHdhpinfn1bGMdOLEQz/bhviKosKg8e4L2i3pC3w+tJCGs36b5OmKZDkElfR8+ZtuYyX6Rb lee.james.johnson@gmail.com
+vault__docker_user_password: niSGleltME+dlqchK0Im2e
 
-#admin_ssh_private_key: "{{ lookup('file', admin_ssh_private_keyfile) }}"
-#admin_ssh_private_key: "{{ lookup('env','ANSIBLE_NET_SSH_KEY') | d(admin_private_sshkey) }}"
+## basic auth bcrypt salt
+## openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 22
+vault__basic_auth_salt: balMaioXKvkDkdtvA0aEgJ
 
-vault__admin_ssh_private_key: |
-  -----BEGIN RSA PRIVATE KEY-----
-  MIIEpAIBAAKCAQEAzF9HT3L6IiyEd6nb/hVyxP8omtUWIGtvEwUHMu+tsvyOXYDb
-  NYSja/ZQhpVo9PDIoms2/wVEuzg/T28vnOEiuATsHap/yzABinttyWzJYQlUsBJZ
-  fFP6I1tTZtDq3zpyugiI5H/JV7ExtIYfAwu0BsxgC3kCVKSzEKU761pNnSeuoxjh
-  eo5QFy6TXpWyBRwfEvrxnZ5U+yFgu5J1JNyShv1NCi4s4PWwqoCK8Ozfo9FbpgPq
-  9ZJM5wKBgQCEaWSxhrASiUtEb/H+zjfs8UqhCoi82wEyKlArrdCJw0NdQ66NoYR2
-  KZDimirwwdPFgGQbgAIjeeL2+TgOo+GAMQF3kV/yK7726dBb5EWaonkIt9NCqSF3
-  tF5wv2frG/QhUABPFn4ihFBsdyXRnr5+wzP3rRB77Cp+JaFDr6hxBA==
-  -----END RSA PRIVATE KEY-----
+vault__http_auth_users:
+  admin:
+    password: "W4tJEqQdRT1P^_*l=-f!0U8yKvd"
+  ron:
+    password: "Gt%BCN14!8#FNATdpq!X^FSHYv#lS"
 
-vault__ansible_ssh_private_key: "privatekeyhere"
-vault__ansible_ssh_public_key: "pubkeyhere"
-
-vault__git_ssh_private_keyfile: "{{ admin_ssh_private_keyfile }}"
-vault__openstack_ssh_public_key_file: "{{ admin_ssh_public_keyfile }}"
-
-## gmail smtp pwd:
-vault__google_app_password_gmail: "passwordhere"
-
-vault__smtp_relay_password: "{{ google_app_password_gmail }}"
-
-vault__postfix_sasl_user: "{{ smtp_relay_username }}"
-vault__postfix_sasl_password: "{{ smtp_relay_password }}"
-
-vault__cloudflare_email: "lee.james.johnson@gmail.com"
-vault__cloudflare_apikey: "4a5f6f4f9b3h20f70b280b59dcf1f0ca9fd51"
-
-#passthru_registry_name: "admin2"
-#registry_name: "media"
-#registry_domain: "{{ internal_domain }}"
-
-vault__samba_domain: JOHNSON.INT
-
-vault__ansible_repo_name: ansible-datacenter
-vault__ansible_repo_source: "git@bitbucket.org:leejjohnson/{{ ansible_repo_name }}.git"
-
-vault__ldap_config_password: "passwordhere"
-vault__ldap_admin_password: "passwordhere"
-vault__ldap_readonly_user_password: "passwordhere"
-
-vault__bind_admin_password: "passwordhere"
-
-# user to join domain
-vault__samba_join_user: admin
-vault__samba_join_passwd: "{{ ldap_admin_password }}"
-
-## if smb_ldap_uri not empty, use ldap (to be defined in eg. "SMBDC" group)
-#smb_ldap_admindn: "cn=admin,{{ ldap_internal.ldap_base_dn }}"
-#smb_ldap_adminpw: "{{ ldap_admin_password }}"
-
-#smb_ldap_uri: "ldap://{{ hostvars[groups['ldap_server'][0]]['inventory_hostname'].{{ smb_domain }}"
-vault__smb_ldap_uri: "ldap://{{ hostvars[groups['docker_stack_admin'][0]]['inventory_hostname'].{{ smb_domain }}"
-#smb_ldap_suffix: "dc=johnson,dc=int"
-vault__smb_ldap_suffix: "dc={{ internal_domain.split('.')[-2] }},dc={{ internal_domain.split('.')[-1] }}"
-vault__smb_ldap_group_suffix: 'ou=groups'
-vault__smb_ldap_user_suffix: 'ou=users'
-vault__smb_ldap_machine_suffix: 'ou=computers'
-vault__smb_ldap_idmap_suffix: "ou=Idmap"
-vault__smb_ldap_replication_sleep: 2000
-vault__smb_ldap_ssl: 'off'
-vault__smb_ldap_passwd_sync: 'Yes'
-
-#shares:
-#  - name: "netlogon"
-##    path: "/shares/netlogon"
-#    path: "/srv/storage/netlogon"
-#    cifs: True
-#    smbparms:
-#      guest ok: yes
-#      read only: yes
-#      valid users: "@smbadmin, @smbuser"
-#      comment: "Netlogon service"
-##      root preexec: "/my/script/mknetlogon %U %G %I"
-
-vault__smb_group_shares:
-  - name: "data"
-    path: "/data"
-    cifs: True
-    smbparms:
-      valid users: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
-      public: "yes"
-      guest ok: "yes"
-      force group: "smbguest"
-      force directory mode: "775"
-      force create mode: "775"
-      write list: "root @users @admin @smbuser @smbguest @smbadmin @administrator"
-      writeable: "yes"
-      create mode: "0777"
-      directory mode: "0777"
-
-vault__registry_create_certs: yes
-vault__registry_country: US
-vault__registry_province: NY
-vault__registry_locality: New York City
-vault__registry_organization: Dettonville
-vault__registry_organizational_unit: Internal
+vault__http_auth__admin_auth_key: "admin:{{ vault__http_auth_users['admin']['password'] }}"
+vault__http_auth__admin_auth_key_base64: "{{ vault__http_auth__admin_auth_key | b64encode }}"
 
 vault__registry_username: "admin"
-vault__registry_password: "passwordhere"
+vault__registry_password: "{{ vault__http_auth_users['admin']['password'] }}"
 
-vault__docker_registry_username: "{{ registry_username }}"
-vault__docker_registry_password: "{{ registry_password }}"
+vault__http_auth_user_list:
+  - username: "{{ vault__registry_username }}"
+    password: "{{ vault__registry_password }}"
+  - username: "ron"
+    password: "{{ vault__http_auth_users['ron']['password'] }}"
 
-vault__registry_users:
-  - username: "{{ registry_username }}"
-    password: "{{ registry_password }}"
-#  - username: testuser
-#    password: testpasswordhere
-#  - username: testuser1
-#    password: testpasswordhere2
-#  - username: testuser2
-#    password: testpasswordhere2
+vault__registry_users: "{{ vault__http_auth_user_list }}"
 
-## ref: https://stackoverflow.com/questions/19292899/creating-a-new-user-and-passwordhere-with-ansible
-vault__admin_password: "passwordhere"
-vault__sha512_hashed_admin_password: "{{ admin_password | password_hash('sha512',65534 | random(seed=hash_seed) | string) }}"
-
-vault__ansible__user_password: "passwordhere"
-
-vault__ansible_root_password: "passwordhere"
-
-vault__crypt_hashed_password: "$1$words.a$Aw9ZpMWeB1R9NWWXTLiu0."
-
-## role: deploy-vm
-vault__deploy_vm__vm_ansible_password: "{{ ansible__user_password }}"
-
-## By default, "openssl passwd" will use an md5 algoritme for your passwordhere hash.
-## md5 is type 1
-## sha512 is type 6
-##
-## openssl passwd -1 -salt SaltSalt secret
-## openssl passwd -1
-## openssl passwd -6 -salt In279KJIUOzcmUwM f00b4r987
-## echo 'cleartext-passwordhere' | openssl passwd -1 -stdin
-##
-## To hash a sha512 passwordhere (salt type 6):
-## openssl passwd -6 -salt In279KJIUOzcmUwM f00b4r987
-##
-## If you’re looking for sha256 or sha512 hash you can also use this python code
-## refs:
-##   https://ma.ttias.be/how-to-generate-a-passwd-passwordhere-hash-via-the-command-line-on-linux/
-##   https://unix.stackexchange.com/questions/52108/how-to-create-sha512-passwordhere-hashes-on-command-line
-
-##
-## python -c "import crypt; print crypt.crypt('cleartext-passwordhere')"
-## python -c 'import crypt; print(crypt.crypt("somesecret", crypt.mksalt(crypt.METHOD_SHA512)))'
-## python -c "import crypt, getpass, pwd; print(crypt.crypt('passwordhere', '\$6\$saltsalt\$'), crypt.mksalt(crypt.METHOD_SHA512))"
-## python -c 'import crypt,getpass; print(crypt.crypt(getpass.getpass(), crypt.mksalt(crypt.METHOD_SHA512)))'
-## python3 -c 'import crypt; print(crypt.crypt("f00b4r987", "$6$In279KJIUOzcmUwM"))'
-#
-
-vault__docker_stack_http_username: username
-vault__docker_stack_http_password: passwordhere
-
-vault__mysql_root_password: "passwordhere"
+vault__mysql_root_password: "J-x-346nMmx4j%_KwSLxPW_pc4"
 
 ## https://smallstep.com/docs/step-ca/getting-started#initialize-your-certificate-authority
 ## step certificate fingerprint stepca/home/certs/root_ca.crt
 ## root@control01:[docker]$ step certificate fingerprint stepca/home/certs/root_ca.crt
-vault__stepca_root_ca_fingerprint: 8bdd964bf4ae7cb3ae203784142e95827614e763094c4503e178a2148c47328a
-#stepca_root_ca_fingerprint: b250aca48a4471d2bd20b2b087b440378628bdf0862e2f6cb84d77e0e33e0d07
+vault__grafana_admin_password: "{{ vault__app_admin_password }}"
 
-vault__docker_stack_mysql_root_password: "{{ mysql_root_password }}"
-vault__docker_stack_grafana_admin_password: "passwordhere"
-
-vault__docker_stack_auth_google_client_id: "999566686421-8b6zkgv073sg57vpd5b0oiv32805amvm.apps.googleusercontent.com"
-vault__docker_stack_auth_google_client_secret: "zzzGJ9hkEy816z_iiIJJATnW"
-
-## generate random 16 char
-## openssl rand -hex 16
-## or
-## ref: https://www.browserling.com/tools/random-string
-vault__docker_stack_auth_oauth_secret: "vR4gjuw58Zwhresu"
-vault__docker_stack_auth_allowlist:
-  - "lee.james.johnson@gmail.com"
-
-## openssl rand -hex 32
-vault__docker_stack_authelia_jwt_secret: "b3g842b47dfe809674380fa4955b67585431eb8e733f80ac395d7c6d352f3c72"
-vault__docker_stack_authelia_encryption_key: "z7d7g$B&F)J@NcRfUjXn2r5u7x!A%D*G-ZaKdSgVkYp3s6v9y/B?E(H+MbQeThWm"
+vault__authelia_jwt_secret: "l8BGIjkJ7X-eaMhSvuiPkD%CW2"
+vault__authelia_encryption_key: "w9z1b$W.C%P@QgYiPlJp5e2m7t?G?S.Z-MiXeZsXiAi1v4d5o/K^J.D+ZuImVkMh"
 
 ## Use this to create hash -> https://argon2.online/
 ## or
-## docker run authelia/authelia:latest authelia hash-passwordhere your-passwordhere-here
-vault__docker_stack_authelia_password: "$twilite3id$v=17$x=1058576,t=1,p=9$ZldiQUlkckZsRFpJUVV6Rg$iJwJnF3ihmnCQcYhQOS9tZF06+b7SOFoL+G4E+xBCEQ"
+## docker run authelia/authelia:latest authelia hash-password your-password-here
+vault__authelia_password_raw: "{{ vault__app_admin_password }}"
+vault__authelia_password: "$fcxpf1za$s=37$d=3850613,a=2,d=4$VqwzRZgikwEhAIjFHNO2Sq$kWpBhM0rgnmELuCbXII8kNH19+f7TCHoQ+M4Q+yKJZS"
 
-vault__docker_stack_authelia_users:
+vault__authelia_users:
   admin:
     displayname: "Admin User"
-    password: "{{ vault__docker_stack_authelia_password }}"
-    email: admin@dettonville.org
+    password: "{{ vault__authelia_password }}"
+    email: "{{ vault__postfix_recipient_target }}"
     groups:
       - admins
       - dev
+vault__redis_password: "Al#7@hZBs319%z5c$Abp3UhwCf"
 
+vault__gitea_lfs_jwt_secret: cTbeCg15Kp4EMXcd*eaO6zxu@x*8
+vault__gitea_secret_key: T1R=hs0NzNQ8=Ws&Ia5qW#ALJ-xU@$*
+vault__gitea_internal_token:
+  qrYasEexGdMOWqK0MtWnQvH0qJP2HytWXBL8.qzRuZeZwIpX4ZSH0YkN0EGn7.iEP7ycuGVBNep1FLb6-4;HFPgpHYFYFE9IpHuF(sJ6a
+vault__gitea_oauth_jwt_secret: mkpHGoEXaj=4w4AawqdFmu
 
-vault__docker_stack_redis_password: "bz7b8dhv0rjf"
+vault__gitea__tokens:
+  gitea.admin.example.int:
+    ## user/settings/applications as of 2026-04-16
+    jenkins: 151m2d46ts08q4gwh290e30l3z08g3i7pp1882r7
+    ## user/settings/applications as of 2026-06-22
+    ssh_rotate: s5tyw42641u3426is23c532265u6s7008552ol03
+    ## user/settings/applications as of 2026-07-04
+    llm_agent: ti9zm169pol3460sq3d2654s6g43h99332md8v1j
+  gitea.admin.qa-example.int:
+    ## user/settings/applications as of 2026-06-22
+    ssh_rotate: 994ql1d84h3913618dh80163731d21udu447433j
 
-vault__docker_stack_gitea_lfs_jwt_secret: 8ODtaj5PzLyMKZsvFjf3NNIvNJOWk95nwGOS_ffyovA
-vault__docker_stack_gitea_secret_key: ZGGFkwnCsCtoBYF3EmFln0IjlOGAgNwKtiajvf6sXyhhul40yPGgQShSOYmz1OXf
-vault__docker_stack_gitea_internal_token: dgKhbGciOiJIUzI1NiIsInR5cCI6IkpXZCJ9.eyJuYmYiOjE1NTI6VzU0OTd9.VXY8yjeMIBWfw4NFp6-5_BXUakRXELUM6RzYqP_qA2w
-vault__docker_stack_gitea_oauth_jwt_secret: cwZ16DSA8CVzZ-JJ9JJWvJPjstgHEM9eTvAcLmWgjvE
+vault__healthchecks_email_su_password: "5$Q!6&^WazAc&9wYmayyp8"
 
-vault__docker_stack_healthchecks_email_su_password: "passwordhere"
-vault__snapraid_healthcheck_io_uuid: "1c56e8f4-bd57-4c15-8a8e-d4009a878e6a"
+vault__jenkins_mgr_pwd_secret: "{UDBMHLLUIBAHJ4KQwjRfraQfAYaweB5YjGCQEEmeLCNFTjAC0ZBLZT9=}"
 
-vault__postgres_user: "postgres"
-vault__postgres_password: "passwordhere"
-vault__pgadmin_password: "passwordhere"
+vault__jenkins_agent_secret: "tmLyZ0$HpaUqFXuEJ9ygc+6"
 
-vault__docker_stack_keycloak_user: "admin"
-vault__docker_stack_keycloak_password: "passwordhere"
+vault__gitea_postgres_username: "gitea"
+vault__gitea_postgres_password: "jtrcSN0FlpB#uLuPwL2pVBI8!vUB"
 
-vault__docker_stack_wordpress_db_password: "passwordhere"
+vault__vnc_passwd: "c=C&pWEmO7ezVB#SCgzX=dvW"
 
-vault__docker_stack_jenkins_mgr_pwd_secret: "{BQZZZBAAAAAQL6BZihUmvwMqABvbzK0CdCGCBTkxJQAKNnXH1VXLXP4=}"
-vault__docker_stack_jenkins_agent_secret: "5d207cf674zbf3bdd09991dd8be1892f06a8bb24ea65b0a8ba94f9958660a48a"
+vault__snapraid_healthcheck_io_uuid: "1b56n3a0-in30-4w56-9l9y-f6113j815k5j"
 
-vault__docker_stack_keycloak_postgres_password: "passwordhere"
+vault__postgres_user: "zskkecis"
+vault__postgres_password: "VUH9R!L3mvGn0v6wbh5^x-o00ONW"
+vault__pgadmin_password: "-pvHo5u+o^RR&ZtwjU=unyPUQ_Q@77UA"
 
-vault__docker_stack_gitea_postgres_password: "passwordhere"
+#########
+## LLM related tokens
+#########
 
-vault__docker_stack_vnc_passwd: "passwordhere"
+vault__hugging_face_api:
+  ## full access token created on 2026-08-19
+  automation_token:
+    token: "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"
 
-vault__jenkins_agent_password: passwordhere
+vault__hugging_face_token: "{{ vault__hugging_face_api['automation_token']['token'] }}"
 
-#vm_image_pwd: "passwordhere"
-vault__vm_image_pwd: "passwordhere"
-vault__vm_image_sudo_pwd: "{{ vm_image_pwd }}"
+vault__ollama_api:
+  control02:
+    url: "https://ollama.admin.qa-example.int"
+  gpu01:
+    url: "https://ollama.llm-gb10.qa-example.int"
+  gpu02:
+    url: "https://ollama.llm-rtx.qa-example.int"
+
+vault__ollama_default_host: "control02"
+vault__ollama_api_url: "{{ vault__ollama_api[vault__ollama_default_host]['url'] }}"
+vault__ollama_api_key: "{{ vault__http_auth__admin_auth_key_base64 }}"
+
+vault__llama_api:
+  gpu01:
+    url: "https://llama.llm-gb10.qa-example.int"
+  gpu02:
+    url: "https://llama.llm-rtx.qa-example.int"
+
+vault__llama_default_host: "gpu02"
+vault__llama_api_url: "{{ vault__llama_api[vault__llama_default_host]['url'] }}"
+## openssl rand -base64 48 | tr -d '\n=' | cut -c1-64
+## as of 2026-07-27
+vault__llama_api_key: "trwFQa/KStpXhEUvA6JO+6kTX5r31gCIHsdDaXapbfZsidxMxgtoD7REHXsfV9UV"
+
+vault__vllm_api:
+  control02:
+    url: "https://vllm.admin.qa-example.int"
+  gpu01:
+    url: "https://vllm.llm-gb10.qa-example.int"
+  gpu02:
+    url: "https://vllm.llm-rtx.qa-example.int"
+
+vault__vllm_default_host: "gpu01"
+vault__vllm_api_url: "{{ vault__vllm_api[vault__vllm_default_host]['url'] }}"
+
+## openssl rand -base64 48 | tr -d '\n=' | cut -c1-64
+## as of 2026-07-01
+vault__vllm_api_key: "f1pcIfKJew+1J7ATRWtXFxKzqmpslX4aTuNQcgiBJyyc5aB8VszCz8ye1ZtugHEq"
+
+vault__llm_api_url: "{{ vault__vllm_api_url }}"
+vault__llm_api_key: "{{ vault__vllm_api_key }}"
+
+## openssl rand -base64 48 | tr -d '\n=' | cut -c1-64
+vault__langgraph_api_secret_key: "sVtw=+WLARrtI8pmx6pG5Hz3ti+K"
+
+## created in settings/api-tokens - with full perms
+vault__jenkins_agent_username: "admin"
+vault__jenkins_agent_password: "{{ vault__app_admin_password }}"
+vault__jenkins_swarm_agent_passwords:
+  jenkins.admin.example.int: 3347x5h1u7wi25l7988ox36399304870w3
+  jenkins.admin.qa-example.int: 348398h832hw16r68p758w8w30put6753i
+
+vault__jenkins_agent_tokens:
+  ## "ansible-token" as of 2026-04-17
+  ## generate token here:
+  ## https://jenkins.admin.johnson.int/user/admin/security/
+  jenkins.admin.qa-example.int: "31359fm23055m5047e2q98091l6692k3wf"
+
+vault__vm_image_pwd: "r%HFRx---G_iLsfryjPm8+xJ@c"
+vault__vm_image_sudo_pwd: "{{ vault__vm_image_pwd }}"
 
 ## openssl passwd -1 -salt SaltSalt secret
-vault__pxe_vm_admin_pwd: "{{ vm_image_pwd }}"
+vault__pxe_vm_admin_pwd: "{{ vault__vm_image_pwd }}"
 
-### MEDIA secrets
+vault__gitea_admin_username: "gitadmin"
+vault__gitea_admin_password: "{{ vault__app_admin_password }}"
+vault__gitea_admin_token: "46m810c0ct04a807484994457v561e6096lvcv7b"
 
-vault__docker_stack_newsgroups_servers:
-  - name: free.xsusenet.com
-    options:
-      name: free.xsusenet.com
-      username: username
-      priority: 1
-      enable: 1
-      displayname: free.xsusenet.com
-      ssl_ciphers: ""
-      notes: ""
-      connections: 2
-      ssl: 0
-      host: free.xsusenet.com
-      timeout: 120
-      ssl_verify: 2
-      send_group: 0
-      password: passwordhere
-      optional: 0
-      port: 119
-      retention: 900
-  - name: reader.xsusenet.com
-    options:
-      name: reader.xsusenet.com
-      username: username
-      priority: 1
-      enable: 0
-      displayname: reader.xsusenet.com
-      ssl_ciphers: ""
-      notes: ""
-      connections: 2
-      ssl: 1
-      host: reader.xsusenet.com
-      timeout: 120
-      ssl_verify: 2
-      send_group: 0
-      password: passwordhere
-      optional: 0
-      port: 663
-      retention: 0
-  - name: secure.news.thecubenet.com
-    options:
-      name: secure.news.thecubenet.com
-      username: username
-      priority: 0
-      enable: 0
-      displayname: secure.news.thecubenet.com
-      ssl_ciphers: ""
-      notes: ""
-      connections: 10
-      ssl: 1
-      host: secure.news.thecubenet.com
-      timeout: 120
-      ssl_verify: 1
-      send_group: 0
-      password: passwordhere
-      optional: 0
-      port: 563
-      retention: 0
+vault__ansible_gitea_user: "gitadmin"
+vault__ansible_gitea_token: 5mz4wzf46w42d886u8721j1279144b75a838h1m8
 
+vault__healthchecks_secret_key: "%Js*SxUS8*Do@IIGAikhuEnK9N"
 
-vault__docker_stack_openvpn_ip: 43.223.231.130
-vault__docker_stack_openvpn_port: 1194
-vault__docker_stack_openvpn_proto: udp
+vault__ldap_domain_sid_root: "S-1-5-21-4431941720-3677188468-8147887253"
 
-vault__docker_stack_openvpn_username: "username"
-vault__docker_stack_openvpn_password: "passwordhere"
+vault__ldap_base_user_admin_password_ssha: "{ssha}Jo7Pbqa3BD79DxsFSWvpRZzLiBgCpijz"
+vault__ldap_base_user_search_password_ssha: "{ssha}IKxhBICxyKNfNVQzbqXb6Lkl/0iKA3jnm4Ag8g=="
+vault__ldap_base_user_readonly_password_ssha: "{SSHA}4qBfS4rHSN84MRB91sbGEjoWdKY45nWi"
 
-vault__admin_email_address: admin@dettonville.org
+## test user password foobar!@#
+vault__ldap_test_user_ssha_password: "{SSHA}JcmfxOKm/ORoy+nx2bm10QyuI7y+3Q9PIbUjwi=="
+vault__ldap_test_user_nt_password: "Xu@SnaR+ox@qO$IW#^*8B3S"
 
-vault__docker_user_password: passwordhere
+vault__ldap_domain_user_map:
+  root:
+    ssha_password: "{SSHA}e8v729fdcMjZfiYHMZ9/4Go6Wqv2Zon="
+    samba:
+      nt_password: "GjRi91M9NBz@BOE&9w=u&0JHotYr"
+      primary_group_sid: "{{ docker_stack__openldap__domain_admins_group_sid }}"
+  netadmin:
+    ssha_password: "{SSHA}u6tpcXZktE8AZQvP0XZpA8P95Jl0cqzp"
+    ssh_public_key: "{{ vault__admin_ssh_public_key }}"
+    samba:
+      nt_password: "T2hx2wXg4hBcSvMLXzk0ftyeDRZs^g#h"
+  admin:
+    ssha_password: "{ssha}ZurBfiQI8tTRuuPioVBnqr7D7M2JLiJ9Jr2uOs=="
+  smbguest:
+    ssha_password: "{SSHA}ZNNL6VI6M86ctJL+Q8cITHOrMHMlkz=="
+    samba:
+      nt_password: "oTjqaim#aJb05CQzBZ+gf&Dde"
+  media:
+    ssha_password: "{SSHA}n3omiEXwmB1HAFlD8ZNuI7E17Iw9rxdg"
+  ron:
+    ssha_password: "{SSHA}DFES4CR4E70jsKD+V3nDKVIwHEPxat=="
+    ssh_public_key: "{{ vault__admin_ssh_public_key }}"
+    samba:
+      nt_password: "%iu8L*M$Gwtr!Q_C7GFge*_$wX*w8"
+  obiwan:
+    username: obiwan
+    uid_number: 10101
+    gid_number: "{{ docker_stack__openldap__users_gid_number }}"
+    cn: Obi-Wan Kenobi
+    given_name: Obi-Wan
+    sn: Kenobi
+    display_name: Obi-Wan Kenobi
+    initials: OK
+    mail: obiwan.kenobi@example.int
+    ssha_password: "{SSHA}fWMe92aOnEn7wkD1SYpI6q6Yv2siI8On"
+    samba:
+      primary_group_sid: "{{ docker_stack__openldap__domain_users_group_sid }}"
+      nt_password: "BQB&&SH+i%#2k3pz^YWd8L"
+  legolas:
+    username: legolas
+    uid_number: 10103
+    gid_number: "{{ docker_stack__openldap__users_gid_number }}"
+    cn: Legolas Greenleaf
+    given_name: Legolas
+    sn: Greenleaf
+    display_name: Legolas Greenleaf
+    initials: LG
+    mail: legolas.greenleaf@example.int
+    ssha_password: "{SSHA}i8bkq2qlWUaq4YvF9xbTlQWuX39ahdjwqM615v=="
+    samba:
+      primary_group_sid: "{{ docker_stack__openldap__domain_users_group_sid }}"
+      nt_password: "rPzUnxqjramL1!^m00gPVQhL"
+  frodo:
+    username: frodo
+    uid_number: 10102
+    gid_number: "{{ docker_stack__openldap__users_gid_number }}"
+    cn: Frodo Baggins
+    given_name: Frodo
+    sn: Baggins
+    display_name: Frodo Baggins
+    initials: FB
+    mail: frodo.baggins@example.int
+    ssha_password: "{SSHA}yQ4GwBMm/GeLGDtRnlF5YElwQjUtRAj="
+    samba:
+      nt_password: "vYLDizIKa2K6qic9XuH4U-"
 
-vault__docker_stack_openvpn_certkey: |
-  -----BEGIN OpenVPN Static key V1-----
-  7bb403c98f786260b5d3d9d8e4e63c0e
-  fd3785236d5752f165b1913d7b0f58ff
-  e0b8311c82c17cab3022e69888c7ebf3
-  0e30c7c7cd043b164000e122e3355d66
-  7462ab4f9fefe41bff852ca10c64b03a
-  8c2b00c69d71917e19edab5ef15a9fa0
-  -----END OpenVPN Static key V1-----
+vault__ldap_domain_group_map:
+  Domain Users:
+    memberUidList:
+      - ron
+      - obiwan
+      - legolas
+      - frodo
+    samba:
+      users:
+        - ron
+        - obiwan
+        - legolas
+        - frodo
+  smbuser:
+    gid_number: 10001
+    object_class_list:
+      - top
+      - posixGroup
+      - sambaGroupMapping
+    memberUidList:
+      - media
+      - ron
+      - obiwan
+      - legolas
+      - frodo
+    samba:
+      groups:
+        - Domain Users
+  staff.django:
+    cn: staff
+    parent_ou: "ou=django,ou=applications,ou=groups"
+    object_class_list:
+      - top
+      - groupOfNames
+    memberDnList:
+      - ron
+      - obiwan
+  epgblog.django:
+    cn: epgblog
+    parent_ou: "ou=django,ou=applications,ou=groups"
+    object_class_list:
+      - top
+      - groupOfNames
+    memberDnList:
+      - ron
+      - obiwan
+  superuser.django:
+    cn: superuser
+    parent_ou: "ou=django,ou=applications,ou=groups"
+    object_class_list:
+      - top
+      - groupOfNames
+    memberDnList:
+      - netadmin
+      - admin
+      - ron
+      - obiwan
+  family.cloudusers:
+    cn: family
+    parent_ou: "ou=cloudusers,ou=groups"
+    object_class_list:
+      - top
+      - groupOfNames
+    memberDnList:
+      - ron
+      - obiwan
+      - legolas
+      - frodo
+  epgblog.cloudusers:
+    cn: epgblog
+    parent_ou: "ou=cloudusers,ou=groups"
+    object_class_list:
+      - top
+      - groupOfNames
+    memberDnList:
+      - admin
+      - ron
+      - obiwan
+  nextcloud.cloudusers:
+    cn: nextcloud
+    parent_ou: "ou=cloudusers,ou=groups"
+    object_class_list:
+      - top
+      - groupOfNames
+    memberDnList:
+      - ron
+      - obiwan
+      - legolas
+      - frodo
+  superuser.cloudusers:
+    cn: superuser
+    parent_ou: "ou=cloudusers,ou=groups"
+    object_class_list:
+      - top
+      - groupOfNames
+    memberDnList:
+      - netadmin
+      - admin
+      - ron
+      - obiwan
+vault__docker_registry_username: "{{ vault__registry_username }}"
+vault__docker_registry_password: "{{ vault__registry_password }}"
+vault__docker_registry_admin_password: "{{ vault__registry_password }}"
 
+vault__jenkins_admin_user_password: "Ly88$fJIjPe^7WFjbZF5_xc"
+vault__jenkins_git_user_password: "LcuUTNjBpkZlS4tVB#JTp2%fd="
+
+vault__ansible_ssh_key: "{{ vault__ansible_git_ssh_private_key }}"
+
+vault__gitea_ssh_username: "git"
+vault__gitea_ssh_private_key: "{{ vault__dettonville_ssh_private_key }}"
+
+vault__ansible_git_ssh_private_key: "{{ vault__dettonville_ssh_private_key }}"
+vault__report_inventory_facts_git_ssh_private_key: "{{ vault__bitbucket_ssh_private_key }}"
+vault__test_repo_git_ssh_private_key: "{{ vault__bitbucket_ssh_private_key }}"
+vault__test_repo_git_ssh_public_key: "{{ ansible_git_ssh_public_key }}"
+
+vault__ansible_ssh_username: "{{ vault__ansible_username__linux }}"
+vault__ansible_ssh_password: "{{ vault__ansible_password__linux }}"
+
+#vault__ansible_ssh_password: "{{ lookup('env','ANSIBLE_SSH_PASSWORD') | d(ansible_ssh_pass) }}"
+vault__ansible_become_password: "{{ vault__ansible_ssh_password }}"
+
+vault__docker_hub_username: han
+vault__docker_hub_token: m5u65079-909t-6055-61f2-7182k9068289
+vault__docker_ci_builder_token:
+  uid: han
+  token: u9y45595-521x-2533-40d5-3495n9374610
 
 ```

@@ -1,0 +1,359 @@
+---
+# --------------------------------
+# Example target host:
+#
+# gpu02 (NVIDIA RTX 3090 — 24GB VRAM)
+#
+# Role:
+#   Dedicated Coding & Heavy Inference Worker (vllm-coder)
+#   Higher bandwidth makes dense models viable. Good fallback for blueprints or QA.
+#   Dense high-quality / second opinion.
+#
+# Configuration: Move your heavy coding workloads here. According to your llmfit telemetry
+# for llmfit.llm-rtx.example.int (gpu02), highly optimized models like
+# webhie/Qwen3.6-27B-int4-AutoRound-Code or Qwen/Qwen2.5-Coder-14B-Instruct-AWQ achieve
+# exceptional performance (~42–69 TPS) inside the 24GB VRAM envelope.
+#
+# Why: This cleanly isolates code-generation and file-editing agent pipelines onto a
+# separate physical machine (gpu02), keeping them completely isolated from the execution
+# and routing logic running on gpu01.
+#
+
+__docker_stack__vllm_coder_rtx__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__vllm_coder_rtx__base_dir: "{{ __docker_stack__vllm_coder_rtx__stack_dir }}/vllm"
+__docker_stack__vllm_coder_rtx__cache_dir: "{{ __docker_stack__vllm_coder_rtx__base_dir }}/cache-coder"
+__docker_stack__vllm_coder_rtx__models_dir: "{{ __docker_stack__vllm_coder_rtx__base_dir }}/models"
+__docker_stack__vllm_coder_rtx__config_dir: "{{ __docker_stack__vllm_coder_rtx__base_dir }}/config"
+__docker_stack__vllm_coder_rtx__data_dir: "{{ __docker_stack__vllm_coder_rtx__base_dir }}/data"
+
+#__docker_stack__vllm_coder_rtx__image_default: vllm/vllm-openai:latest
+__docker_stack__vllm_coder_rtx__image_default: "vllm/vllm-openai:nightly-{{
+  __docker_stack__architecture }}"
+__docker_stack__vllm_coder_rtx__image: "{{ docker_stack__vllm_coder_rtx__image
+  | d(__docker_stack__vllm_coder_rtx__image_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+
+__docker_stack__vllm_coder_rtx__host_addr_default: "vllm-coder.{{ __docker_stack__vllm_coder_rtx__domain }}"
+__docker_stack__vllm_coder_rtx__host_addr: "{{ docker_stack__vllm_coder_rtx__host_addr
+  | d(__docker_stack__vllm_coder_rtx__host_addr_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__internal_http_port: 8000
+
+__docker_stack__vllm_coder_rtx__http_port: "{{ docker_stack__vllm_coder_rtx__http_port | d('8002', true) }}"
+
+#__docker_stack__vllm_coder_rtx__container_cache_dir_default: "/app/.cache/huggingface"
+__docker_stack__vllm_coder_rtx__container_cache_dir_default: "/app/.cache"
+__docker_stack__vllm_coder_rtx__container_cache_dir: "{{
+  docker_stack__vllm_coder_rtx__container_cache_dir
+  | d(__docker_stack__vllm_coder_rtx__container_cache_dir_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__container_models_dir_default: "/models"
+__docker_stack__vllm_coder_rtx__container_models_dir: "{{
+  docker_stack__vllm_coder_rtx__container_models_dir
+  | d(__docker_stack__vllm_coder_rtx__container_models_dir_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__container_config_dir_default: "/app/.config"
+__docker_stack__vllm_coder_rtx__container_config_dir: "{{
+  docker_stack__vllm_coder_rtx__container_config_dir
+  | d(__docker_stack__vllm_coder_rtx__container_config_dir_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__container_data_dir_default: "/data"
+__docker_stack__vllm_coder_rtx__container_data_dir: "{{
+  docker_stack__vllm_coder_rtx__container_data_dir
+  | d(__docker_stack__vllm_coder_rtx__container_data_dir_default, true) }}"
+
+#__docker_stack__vllm_coder_rtx__attention_backend_default: "FLASH_ATTN"
+__docker_stack__vllm_coder_rtx__attention_backend_default: "FLASHINFER"
+__docker_stack__vllm_coder_rtx__attention_backend: "{{
+  docker_stack__vllm_coder_rtx__attention_backend
+  | d(__docker_stack__vllm_coder_rtx__attention_backend_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__api_key: "{{ docker_stack__vllm_coder_rtx__api_key | d('', true) }}"
+
+## -------------
+## CODER MODEL PARAMETERS
+## -------------
+#__docker_stack__vllm_coder_rtx__model_default: "unsloth/Qwen3.8-27B-NVFP4"
+#__docker_stack__vllm_coder_rtx__model_default: "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
+__docker_stack__vllm_coder_rtx__model_default: "cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
+__docker_stack__vllm_coder_rtx__model: "{{ docker_stack__vllm_coder_rtx__model
+  | d(__docker_stack__vllm_coder_rtx__model_default, true) }}"
+
+#__docker_stack__vllm_coder_rtx__gpu_memory_utilization_default: "0.60"
+__docker_stack__vllm_coder_rtx__gpu_memory_utilization_default: "0.90"
+__docker_stack__vllm_coder_rtx__gpu_memory_utilization: "{{
+  docker_stack__vllm_coder_rtx__gpu_memory_utilization
+  | d(__docker_stack__vllm_coder_rtx__gpu_memory_utilization_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__max_model_len_default: 32768
+__docker_stack__vllm_coder_rtx__max_model_len: "{{ docker_stack__vllm_coder_rtx__max_model_len
+  | d(__docker_stack__vllm_coder_rtx__max_model_len_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__max_num_seqs_default: 2
+__docker_stack__vllm_coder_rtx__max_num_seqs: "{{ docker_stack__vllm_coder_rtx__max_num_seqs
+  | d(__docker_stack__vllm_coder_rtx__max_num_seqs_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__max_num_batched_tokens_default: 8192
+__docker_stack__vllm_coder_rtx__max_num_batched_tokens: "{{ docker_stack__vllm_coder_rtx__max_num_batched_tokens
+  | d(__docker_stack__vllm_coder_rtx__max_num_batched_tokens_default, true) }}"
+
+# Absolute minimum so a zero/bad fact never yields 0 blocks
+__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_abs_default: 2147483648  # 2 GiB
+__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_abs: "{{
+  docker_stack__vllm_coder_rtx__kv_cache_memory_floor_abs
+  | d(__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_abs_default, true)
+}}"
+
+# Relative floor: 3% of device memory (scales with GB10 vs 3090 vs 4060)
+__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_pct_default: 0.03
+__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_pct: "{{
+  docker_stack__vllm_coder_rtx__kv_cache_memory_floor_pct
+  | d(__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_pct_default, true)
+}}"
+
+__docker_stack__vllm_coder_rtx__kv_cache_memory_floor: >-
+  {{
+    [
+      (
+        (__docker_stack__vllm_coder_rtx__device_memory_bytes | int)
+        * (__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_pct | float)
+      ) | int,
+      (__docker_stack__vllm_coder_rtx__kv_cache_memory_floor_abs | int)
+    ] | max
+  }}
+
+__docker_stack__vllm_coder_rtx__device_memory_bytes: >-
+  {{
+      (
+        ansible_local.nvidia_smi.gpus[0].memory.total | default(0) | int
+      )
+      if (
+        ansible_local.nvidia_smi.available | default(false)
+        and (ansible_local.nvidia_smi.gpus | default([]) | length) > 0
+        and (ansible_local.nvidia_smi.gpus[0].memory.total | default(0) | int) > 0
+      )
+      else (
+        (ansible_memtotal_mb | int) * 1024 * 1024
+      )
+  }}
+
+__docker_stack__vllm_coder_rtx__kv_cache_share_default: 0.60
+__docker_stack__vllm_coder_rtx__kv_cache_share: "{{
+  docker_stack__vllm_coder_rtx__kv_cache_share
+  | d(__docker_stack__vllm_coder_rtx__kv_cache_share_default, true)
+}}"
+
+# -----------
+# Memory floor calculation
+#
+# Host | Device | 3% floor | Abs 2 GiB | Effective floor
+# ---|---|---|---|---|---
+# gpu01 | ~121.6 GiB | ~3.6 GiB | 2 GiB | ~3.6 GiB
+# gpu02 | 24 GiB | ~0.7 GiB | 2 GiB | 2 GiB
+# control02 | 8 GiB | ~0.25 GiB | 2 GiB | 2 GiB
+#
+# Normal path (util x share) still wins when facts are healthy
+#
+# Host | util | Calculated KV
+# ---|---|---
+# gpu01 @ 0.15 | ~10.9 GiB | ~10.9 GiB (above floor)
+# gpu02 @ 0.90 | ~13.2 GiB | ~13.2 GiB
+
+__docker_stack__vllm_coder_rtx__kv_cache_memory_default: >-
+  {{
+      [
+        (
+          (__docker_stack__vllm_coder_rtx__device_memory_bytes | int)
+          * (__docker_stack__vllm_coder_rtx__gpu_memory_utilization | float)
+          * (__docker_stack__vllm_coder_rtx__kv_cache_share | float)
+        ) | int,
+        (__docker_stack__vllm_coder_rtx__kv_cache_memory_floor | int)
+      ] | max
+  }}
+
+__docker_stack__vllm_coder_rtx__kv_cache_memory: "{{ docker_stack__vllm_coder_rtx__kv_cache_memory
+  | d(__docker_stack__vllm_coder_rtx__kv_cache_memory_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__kv_cache_dtype_default: "fp8"
+__docker_stack__vllm_coder_rtx__kv_cache_dtype: "{{ docker_stack__vllm_coder_rtx__kv_cache_dtype
+  | d(__docker_stack__vllm_coder_rtx__kv_cache_dtype_default, true) }}"
+
+#__docker_stack__vllm_coder_rtx__quantization_default: "fp8"
+#__docker_stack__vllm_coder_rtx__quantization_default: "nvfp4"
+__docker_stack__vllm_coder_rtx__quantization_default: "awq"
+__docker_stack__vllm_coder_rtx__quantization: "{{ docker_stack__vllm_coder_rtx__quantization
+  | d(__docker_stack__vllm_coder_rtx__quantization_default, true) }}"
+
+## Since vllm-coder is utilizing a Qwen-Coder variant, qwen is ideal.
+__docker_stack__vllm_coder_rtx__tool_call_parser_default: "qwen3_coder"
+#__docker_stack__vllm_coder_rtx__tool_call_parser_default: "herring"
+#__docker_stack__vllm_coder_rtx__tool_call_parser_default: "mistral"
+#__docker_stack__vllm_coder_rtx__tool_call_parser_default: "llama"
+#__docker_stack__vllm_coder_rtx__tool_call_parser_default: "hermes"
+#__docker_stack__vllm_coder_rtx__tool_call_parser_default: "pythonic"
+__docker_stack__vllm_coder_rtx__tool_call_parser: "{{
+  docker_stack__vllm_coder_rtx__tool_call_parser
+  | d(__docker_stack__vllm_coder_rtx__tool_call_parser_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__reasoning_parser_default: "qwen3"
+__docker_stack__vllm_coder_rtx__reasoning_parser: "{{
+  docker_stack__vllm_coder_rtx__reasoning_parser
+  | d(__docker_stack__vllm_coder_rtx__reasoning_parser_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__cuda_visible_devices: "{{
+  docker_stack__vllm_coder_rtx__cuda_visible_devices | d(0, true) }}"
+
+__docker_stack__vllm_coder_rtx__cuda_compute_capability: "{{
+  docker_stack__vllm_coder_rtx__cuda_compute_capability | d(120, true) }}"
+
+__docker_stack__vllm_coder_rtx__limit_mm_per_prompt_image: "{{
+  docker_stack__vllm_coder_rtx__limit_mm_per_prompt_image | d(5, true) }}"
+
+__docker_stack__vllm_coder_rtx__limit_mm_per_prompt_doc: "{{
+  docker_stack__vllm_coder_rtx__limit_mm_per_prompt_doc | d(5, true) }}"
+
+## Remove the operational flags from vllm.env that were triggering the
+## 'Unknown vLLM environment variable' detected warnings
+## Keep only runtime system/cache variables in 'vllm.env'
+__docker_stack__vllm_coder_rtx__environment_default:
+  # --- Secure the API Server ---
+  # Replace with a vault variable or secure string
+  VLLM_API_KEY: "{{ __docker_stack__vllm_coder_rtx__api_key }}"
+  CUDA_VISIBLE_DEVICES: "{{ __docker_stack__vllm_coder_rtx__cuda_visible_devices }}"
+  CUDA_COMPUTE_CAPABILITY: "{{ __docker_stack__vllm_coder_rtx__cuda_compute_capability }}"
+  HF_HOME: "{{ __docker_stack__vllm_coder_rtx__container_models_dir }}"
+
+  # --- Prevents FlashInfer from trying to write to root-level /.cache ---
+  FLASHINFER_WORKSPACE_DIR: "{{ __docker_stack__vllm_coder_rtx__container_models_dir }}/flashinfer"
+
+  # --- Redirect Triton away from /app/.triton ---
+  TRITON_CACHE_DIR: "{{ __docker_stack__vllm_coder_rtx__container_models_dir }}/triton"
+
+  # --- Bypasses the PyTorch getpwuid() KeyError ---
+  USER: "{{ docker_stack__user_username }}"
+  LOGNAME: "{{ docker_stack__user_username }}"
+
+__docker_stack__vllm_coder_rtx__environment: "{{
+  docker_stack__vllm_coder_rtx__environment
+  | d(__docker_stack__vllm_coder_rtx__environment_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__deploy_resources_standalone:
+  reservations:
+    devices:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+#      - driver: nvidia
+#        # or device_ids: ["0"] if you want specific GPU
+#        count: all
+#        capabilities: [gpu]
+
+__docker_stack__vllm_coder_rtx__deploy_resources_swarm:
+  reservations:
+    generic_resources:
+      - discrete_resource_spec:
+          kind: NVIDIA-GPU
+          value: 1
+
+__docker_stack__vllm_coder_rtx__deploy_resources: "{{
+  __docker_stack__vllm_coder_rtx__deploy_resources_swarm
+  if docker_stack__swarm_mode
+  else __docker_stack__vllm_coder_rtx__deploy_resources_standalone }}"
+
+__docker_stack__vllm_coder_rtx__config_dirs:
+  - path: "{{ __docker_stack__vllm_coder_rtx__base_dir }}"
+  - path: "{{ __docker_stack__vllm_coder_rtx__cache_dir }}"
+  - path: "{{ __docker_stack__vllm_coder_rtx__models_dir }}"
+  - path: "{{ __docker_stack__vllm_coder_rtx__config_dir }}"
+  - path: "{{ __docker_stack__vllm_coder_rtx__data_dir }}"
+
+__docker_stack__vllm_coder_rtx__config_templates:
+  - src: "vllm_coder_rtx/vllm.env.j2"
+    dest: "{{ __docker_stack__vllm_coder_rtx__base_dir }}/vllm.env"
+  - src: "vllm_coder_rtx/config-group.conf.j2"
+    dest: "{{ __docker_stack__vllm_coder_rtx__base_dir }}/group"
+  - src: "vllm_coder_rtx/config-passwd.conf.j2"
+    dest: "{{ __docker_stack__vllm_coder_rtx__base_dir }}/passwd"
+
+__docker_stack__vllm_coder_rtx__firewalld_ports:
+  - "{{ __docker_stack__vllm_coder_rtx__http_port }}/tcp"
+
+__docker_stack__vllm_coder_rtx__traefik_labels: "{{
+  docker_stack__vllm_coder_rtx__traefik_labels
+  | d(__docker_stack__vllm_coder_rtx__traefik_labels_default, true) }}"
+
+__docker_stack__vllm_coder_rtx__services:
+  # Heavy Coding Layer
+  vllm-coder-rtx:
+    image: "{{ __docker_stack__vllm_coder_rtx__image }}"
+    container_name: vllm-coder-rtx
+    restart: unless-stopped
+    working_dir: /app
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+    ports:
+      - "{{ __docker_stack__vllm_coder_rtx__http_port }}:{{ __docker_stack__vllm_coder_rtx__internal_http_port }}"
+    env_file:
+      - vllm/vllm.env
+    healthcheck:
+      test: >-
+        curl -f -H 'Authorization: Bearer "$${VLLM_API_KEY}"' http://localhost:8000/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Generous window for 32B model disk-to-VRAM transfers
+      start_period: 10m
+    command: |
+      {{ __docker_stack__vllm_coder_rtx__model }}
+      --served-model-name qwen-coder
+      --gpu-memory-utilization {{ __docker_stack__vllm_coder_rtx__gpu_memory_utilization }}
+      --max-model-len {{ __docker_stack__vllm_coder_rtx__max_model_len }}
+      --max-num-seqs {{ __docker_stack__vllm_coder_rtx__max_num_seqs }}
+      --kv-cache-memory {{ __docker_stack__vllm_coder_rtx__kv_cache_memory }}
+      --kv-cache-dtype {{ __docker_stack__vllm_coder_rtx__kv_cache_dtype }}
+      --attention-backend {{ __docker_stack__vllm_coder_rtx__attention_backend }}
+      --enable-auto-tool-choice
+      --tool-call-parser {{ __docker_stack__vllm_coder_rtx__tool_call_parser }}
+      --enable-prefix-caching
+      --enable-chunked-prefill
+      --max-num-batched-tokens {{ __docker_stack__vllm_coder_rtx__max_num_batched_tokens }}
+      --safetensors-load-strategy=prefetch
+      --enforce-eager
+    labels: "{{ __docker_stack__vllm_coder_rtx__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      # Explicitly designed to interface with the nvidia-container-toolkit CLI layer on single-node environments.
+      resources: "{{ __docker_stack__vllm_coder_rtx__deploy_resources }}"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ __docker_stack__vllm_coder_rtx__base_dir }}/passwd:/etc/passwd:ro"
+      - "{{ __docker_stack__vllm_coder_rtx__base_dir }}/group:/etc/group:ro"
+      - "{{ __docker_stack__vllm_coder_rtx__cache_dir }}:{{ __docker_stack__vllm_coder_rtx__container_cache_dir }}"
+      - "{{ __docker_stack__vllm_coder_rtx__models_dir }}:{{ __docker_stack__vllm_coder_rtx__container_models_dir }}"
+      - "{{ __docker_stack__vllm_coder_rtx__config_dir }}:{{ __docker_stack__vllm_coder_rtx__container_config_dir }}"
+      - "{{ __docker_stack__vllm_coder_rtx__data_dir }}:{{ __docker_stack__vllm_coder_rtx__container_data_dir }}"
+
+docker_stack__appspec__vllm_coder_rtx:
+  dirs: "{{ __docker_stack__vllm_coder_rtx__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__vllm_coder_rtx__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__vllm_coder_rtx__config_templates | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__vllm_coder_rtx__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__vllm_coder_rtx__firewalld_ports | d([], true) }}"
+  networks: "{{ __docker_stack__vllm_coder_rtx__networks | d({}, true) }}"
+  volumes: "{{ __docker_stack__vllm_coder_rtx__volumes | d({}, true) }}"
+  docker_services: "{{ __docker_stack__vllm_coder_rtx__services | d({}, true) }}"

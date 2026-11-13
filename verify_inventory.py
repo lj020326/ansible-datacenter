@@ -9,8 +9,8 @@ Key Capabilities:
 
 - **Cross-Environment Linking:** Automatically manages and recreates
     relative symlinks for host files (*.yml), group variables
-    (group_vars), and host variables (host_vars) across environments
-    (e.g., PROD, QA, DEV).
+    (group_vars), host variables (host_vars), and optionally the global
+    vault file across environments (e.g., PROD, QA, DEV) when configured.
 - **Comment-Preserving Key Sorting:** Leverages Ruamel.YAML to sort
     keys within multi-environment mapping configurations while
     strictly preserving comments and structural formatting.
@@ -55,7 +55,6 @@ except ImportError as imp_exc:
 else:
     YAML_RUAMEL_LIB_IMPORT_ERROR = None
 
-
 CONFIG_YAML_DEFAULT = {
     "typ": "rt",
     "allow_duplicate_keys": None,
@@ -85,7 +84,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__scriptName__)
 
-SCRIPT_VERSION = "2026.8.2"
+SCRIPT_VERSION = "2026.11.2"
 
 
 def print_version():
@@ -162,6 +161,7 @@ def load_runtime_config() -> dict:
         "global_xenv_hosts_file": "xenv_hosts.yml",
         "envs": ["PROD", "QA", "DEV"],
         "inventory_yml_list": ["hosts.yml", "xenv_hosts.yml", "xenv_groups.yml"],
+        "link_vault": False,
     }
 
     if config_path.exists():
@@ -185,6 +185,7 @@ INVENTORY_YML_LIST = RUNTIME_CONFIG.get(
 )
 GLOBAL_XENV_GROUP_FILE = RUNTIME_CONFIG.get("global_xenv_group_file", "xenv_groups.yml")
 GLOBAL_XENV_HOSTS_FILE = RUNTIME_CONFIG.get("global_xenv_hosts_file", "xenv_hosts.yml")
+LINK_VAULT = RUNTIME_CONFIG.get("link_vault", False)
 
 
 class MissingLibError(Exception):
@@ -311,8 +312,7 @@ class RuamelYamlParser(GitInventoryParser):
 
     # ref: https://pyyaml.org/wiki/PyYAMLDocumentation
     def dump(self, data: Any, stream: Optional[Any] = None) -> Optional[str]:
-        """Serialize data to YAML string or write to stream using
-        Ruamel.YAML."""
+        """Serialize data to YAML string or write to stream using Ruamel.YAML."""
         try:
             if stream is not None:
                 return self.yaml.dump(data, stream)
@@ -379,6 +379,23 @@ class RuamelYamlParser(GitInventoryParser):
 
 
 # --- Autofix Functions ---
+
+
+def create_vault_link(project_dir: Path, inventory_dir: Path):
+    """Ensure inventory/group_vars/all/vault.yml is symlinked to vars/vault.yml."""
+    vault_file = project_dir / "vars" / "vault.yml"
+    if vault_file.exists():
+        group_vars_all_dir = inventory_dir / "group_vars" / "all"
+        group_vars_all_dir.mkdir(parents=True, exist_ok=True)
+        vault_link = group_vars_all_dir / "vault.yml"
+
+        rel_path = os.path.relpath(vault_file, group_vars_all_dir)
+        if vault_link.is_symlink() or vault_link.exists():
+            vault_link.unlink()
+        vault_link.symlink_to(rel_path)
+        log.debug(f"Created symlink for inventory/group_vars/all/vault.yml -> {rel_path}")
+    else:
+        log.warning(f"Vault file not found at {vault_file}, skipping vault symlink creation.")
 
 
 def create_host_links_yml(inventory_dir: Path, envs: list):
@@ -450,6 +467,9 @@ def create_groupvars_links_yml(inventory_dir: Path, envs: list):
         parent_all_dir = base_group_vars / "all"
         if parent_all_dir.exists():
             for yml_file in parent_all_dir.glob("*.yml"):
+                # If vault linking is disabled, skip symlinking vault.yml inside group_vars/all
+                if yml_file.name == "vault.yml" and not LINK_VAULT:
+                    continue
                 rel_path = os.path.relpath(yml_file, env_group_all)
                 target_link = env_group_all / yml_file.name
                 if target_link.exists() or target_link.is_symlink():
@@ -671,7 +691,7 @@ def verify_child_groupvars(inventory_dir: Path) -> tuple[int, list[str]]:
         env_gv = inventory_dir / env / "group_vars"
         if base_gv.exists() and env_gv.exists():
             # Simple check comparing items excluding env_specific.yml
-            base_files = {f.name for f in base_gv.glob("*.yml")}
+            base_files = {f.name for f in base_gv.glob("*.yml") if f.name != "vault.yml" or LINK_VAULT}
             env_files = {
                 f.name for f in env_gv.glob("*.yml") if f.name != "env_specific.yml"
             }
@@ -756,6 +776,13 @@ def verify_host_mutual_exclusive_group_labels(
 def cmd_autofix(args):
     project_dir = get_project_root()
     inventory_dir = project_dir / "inventory"
+
+    # Conditionally establish symlink for inventory/group_vars/all/vault.yml -> vars/vault.yml
+    if LINK_VAULT:
+        create_vault_link(project_dir, inventory_dir)
+    else:
+        log.debug("Vault symlinking is disabled (link_vault=False). Skipping vault link creation.")
+
     os.chdir(inventory_dir)
 
     log.debug(f"==> PROJECT_DIR={project_dir}")
@@ -921,7 +948,7 @@ class CustomArgumentParser(argparse.ArgumentParser):
         script_name = Path(sys.argv[0]).name
         examples_text = f"""
 Examples:
-       {script_name} 
+       {script_name}
        {script_name} test verify_file_extensions
        {script_name} test verify_yml_sortorder
        {script_name} test -p
@@ -937,17 +964,17 @@ def main():
     parser = CustomArgumentParser(
         description=f"""
         Standalone script to ensure cross-environment inventory consistency,
-        group hierarchy alignment, and structural sanity across the 
+        group hierarchy alignment, and structural sanity across the
         multi-environment data center configuration.
 
         Version: {SCRIPT_VERSION}
-        
+
         Key Capabilities:
-        
+
         - **Cross-Environment Linking:** Automatically manages and recreates
             relative symlinks for host files (*.yml), group variables
-            (group_vars), and host variables (host_vars) across environments
-            (e.g., PROD, QA, DEV).
+            (group_vars), host variables (host_vars), and optionally the global
+            vault file across environments (e.g., PROD, QA, DEV) when configured.
         - **Comment-Preserving Key Sorting:** Leverages Ruamel.YAML to sort
             keys within multi-environment mapping configurations while
             strictly preserving comments and structural formatting.

@@ -1,4 +1,8 @@
 ---
+# NVIDIA Container Toolkit installation + CDI management
+# Ensures CDI specification is regenerated after driver or toolkit changes
+# (fixes stale libnvidia-egl-wayland / library mount errors after driver updates)
+
 - name: NVIDIA Container Toolkit | DGX OS specific handling
   when: __bootstrap_gpu_drivers__is_dgx | bool
   block:
@@ -9,7 +13,7 @@
       register: __toolkit_result
 
     - name: NVIDIA Container Toolkit | Configure runtime on DGX
-      when: __toolkit_result.changed # noqa: no-handler
+      when: __toolkit_result.changed  # noqa: no-handler
       ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker --set-as-default
       changed_when: true
 
@@ -70,28 +74,39 @@
     group: root
 
 - name: NVIDIA Container Toolkit | Clean up temporary GPG file
-  when: gpg_download.changed # noqa: no-handler
+  when: gpg_download.changed  # noqa: no-handler
   ansible.builtin.file:
     path: /tmp/nvidia-container-toolkit.gpg.asc
     state: absent
 
-- name: NVIDIA Container Toolkit | Remove old/broken repository file
+- name: NVIDIA Container Toolkit | Remove legacy .list repository file
   ansible.builtin.file:
-    path: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    path: "{{ item }}"
     state: absent
-
-- name: NVIDIA Container Toolkit | Add repository (with architecture-specific path)
+  loop:
+    - /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    - /etc/apt/sources.list.d/nvidia-container-toolkit.sources
   when: ansible_facts['pkg_mgr'] == 'apt'
-  ansible.builtin.apt_repository:
-    # We dynamically determine the arch (amd64/arm64) to match NVIDIA's new folder structure
-    repo: >-
-      deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg]
+
+- name: NVIDIA Container Toolkit | Add repository (deb822 format)
+  when: ansible_facts['pkg_mgr'] == 'apt'
+  ansible.builtin.deb822_repository:
+    name: nvidia-container-toolkit
+    types: deb
+    uris: >-
       https://nvidia.github.io/libnvidia-container/stable/deb/{{ ansible_facts['architecture']
-        | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }} /
+        | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}
+    suites: /
+    signed_by: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
     state: present
-    filename: nvidia-container-toolkit
-    update_cache: true
   register: repo_added
+
+- name: NVIDIA Container Toolkit | Update apt cache after repo change
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - repo_added is changed
+  ansible.builtin.apt:
+    update_cache: true
 
 - name: NVIDIA Container Toolkit | Install package
   ansible.builtin.package:
@@ -101,25 +116,57 @@
     state: present
   register: __toolkit_installed
 
+# ---------------------------------------------------------------------------
+# CDI + runtime configuration
+# Always ensure CDI is current. Stale CDI after driver / egl-wayland updates
+# causes: "failed to fulfil mount request: open .../libnvidia-egl-wayland.so..."
+# ---------------------------------------------------------------------------
 - name: NVIDIA Container Toolkit | Configure Docker runtime and CDI
-  when: __toolkit_installed.changed or repo_added.changed
   block:
     - name: NVIDIA Container Toolkit | Run nvidia-ctk configure (adds nvidia to daemon.json)
       ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
-      changed_when: true
+      register: __ctk_runtime_configure
+      changed_when: "'already' not in __ctk_runtime_configure.stdout | default('') | lower"
+      failed_when: false
 
-    - name: NVIDIA Container Toolkit | Generate CDI specification (/etc/cdi/nvidia.yaml)
+    - name: NVIDIA Container Toolkit | Prefer CDI mode (modern path)
+      ansible.builtin.command: >
+        nvidia-ctk config --in-place --set nvidia-container-runtime.mode=cdi
+      register: __ctk_set_cdi_mode
+      changed_when: __ctk_set_cdi_mode.rc == 0
+      failed_when: false
+
+    - name: NVIDIA Container Toolkit | Generate / refresh CDI specification
+      # Always regenerate. nvidia-ctk cdi generate is idempotent and cheap.
+      # This is the critical fix for stale library paths after driver updates.
       ansible.builtin.command: nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+      register: __cdi_generate
       changed_when: true
+      notify: Restart docker for nvidia-cdi
 
-    - name: NVIDIA Container Toolkit | Enable and start CDI refresh service
+    - name: NVIDIA Container Toolkit | Ensure CDI directory permissions
+      ansible.builtin.file:
+        path: /etc/cdi
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: NVIDIA Container Toolkit | Enable and start CDI refresh service (if present)
       ansible.builtin.systemd:
         name: nvidia-cdi-refresh.service
         enabled: true
         state: started
+        daemon_reload: true
+      failed_when: false  # service may not exist on older toolkit versions
 
-    - name: NVIDIA Container Toolkit | Restart Docker to apply runtime changes
-      when: bootstrap_gpu_drivers__restart_docker
+    - name: NVIDIA Container Toolkit | Restart Docker to apply runtime / CDI changes
+      when: >
+        bootstrap_gpu_drivers__restart_docker | bool
+        or __toolkit_installed.changed
+        or repo_added.changed
+        or __cdi_generate is defined
       ansible.builtin.systemd:
         name: docker
         state: restarted
+      failed_when: false

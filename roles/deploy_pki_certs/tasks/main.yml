@@ -40,16 +40,16 @@
   register: __crypto_pkg_install
 
 - name: "Assert crypto libraries installed successfully"
-  when: not __crypto_pkg_install.skipped | default(true)
+  when: not __crypto_pkg_install.skipped | d(true, false)
   ansible.builtin.assert:
     that:
-      - not __crypto_pkg_install.failed | default(false)
+      - not __crypto_pkg_install.failed | d(false, false)
       # One per package
       - __crypto_pkg_install.results | length == __deploy_pki_certs__python_packages | length
     success_msg: "System crypto libs (python3-pyopenssl, python3-cryptography) installed for cert validation."
     fail_msg: |
       Failed to install crypto Python libs via package manager on {{ inventory_hostname }}.
-      Error: {{ __crypto_pkg_install.msg | default('Unknown') }}
+      Error: {{ __crypto_pkg_install.msg | d('Unknown', true) }}
       Run manually: sudo dnf/yum/apt install python3-pyopenssl python3-cryptography
       (Repo check: {{ ansible_facts['pkg_mgr'] }}).
 
@@ -61,7 +61,7 @@
 #      - cryptography
 #    state: present
 #    # Respects ansible_python_interpreter
-#    executable: "{{ ansible_python_interpreter | default('python3') }}"
+#    executable: "{{ ansible_python_interpreter | d('python3', true) }}"
 #    extra_args: "--no-cache-dir"
 #    #extra_args: "--user"  # Non-root if needed; remove if root-only
 #  become: true
@@ -70,16 +70,16 @@
 ##  ignore_errors: true
 #
 #- name: "Assert crypto libraries installed successfully"
-#  when: not __crypto_pip_install.skipped | default(true)
+#  when: not __crypto_pip_install.skipped | d(true, false)
 #  ansible.builtin.assert:
 #    that:
-#      - not __crypto_pip_install.failed | default(false)
-#      - "'pyopenssl' in __crypto_pip_install.results[0].name | default([])"
-#      - "'cryptography' in __crypto_pip_install.results[1].name | default([])"
+#      - not __crypto_pip_install.failed | d(false, false)
+#      - "'pyopenssl' in __crypto_pip_install.results[0].name | d([], true)"
+#      - "'cryptography' in __crypto_pip_install.results[1].name | d([], true)"
 #    success_msg: "Crypto libs (pyopenssl, cryptography) installed for cert validation."
 #    fail_msg: |
 #      Failed to install crypto Python libs on {{ inventory_hostname }}.
-#      Error: {{ __crypto_pip_install.msg | default('Unknown') }}
+#      Error: {{ __crypto_pip_install.msg | d('Unknown', true) }}
 #      Run manually: sudo pip3 install pyopenssl cryptography
 #      Or check ansible_python_interpreter: {{ ansible_python_interpreter }}.
 
@@ -166,7 +166,7 @@
     var: __ca_cert_has_changed
 
 - name: "Post root cert deployment - Update system's CA trust store if root cert changed"
-  when: __ca_cert_has_changed | d(false)
+  when: __ca_cert_has_changed | d(false, false)
   block:
     - name: "Get deployed root cert info"
       no_log: true
@@ -219,7 +219,7 @@
     - name: "Set root CA expiry and tolerance epochs"
       ansible.builtin.set_fact:
         __expiry_epoch: "{{ __expiry_epoch_raw.stdout | int }}"
-        __tolerance_days: "{{ deploy_pki_certs__ca_cert_renewal_tolerance_days | default(30) | int }}"
+        __tolerance_days: "{{ deploy_pki_certs__ca_cert_renewal_tolerance_days | d(30, true) | int }}"
 
     - name: "Set __tolerance_epoch"
       ansible.builtin.set_fact:
@@ -228,15 +228,15 @@
     - name: "Display computed epochs (debug)"
       ansible.builtin.debug:
         msg: >-
-          Root expiry epoch: {{ __expiry_epoch | d('') }} ({{ __root_cert_info.not_after }})
-          | Tolerance: {{ __tolerance_days | d('') }} days (epoch: {{ __tolerance_epoch | d('') }})
+          Root expiry epoch: {{ __expiry_epoch | d('', true) }} ({{ __root_cert_info.not_after }})
+          | Tolerance: {{ __tolerance_days | d('', true) }} days (epoch: {{ __tolerance_epoch | d('', true) }})
         verbosity: 1
 
     - name: "Fail if root invalid (e.g., not CA or expires < tolerance days)"
       ansible.builtin.assert:
         that:
           - "'CA:TRUE' in __root_cert_info.basic_constraints"  # Explicit CA check
-          - "not __root_cert_verify.verify_failed | d(true)"   # Your verify result
+          - "not __root_cert_verify.verify_failed | d(true, false)"   # Your verify result
           - "__expiry_epoch > __tolerance_epoch"               # Expiry check (fails if <= tolerance)
         fail_msg: >-
           Root CA invalid: {{ __root_cert_info.subject.commonName }}
@@ -330,7 +330,7 @@
   run_once: true
 
 - name: "Set __internal_ca_keys_list to empty if fetch failed"
-  when: __internal_ca_keys.failed | d(false)
+  when: __internal_ca_keys.failed | d(false, false)
   ansible.builtin.set_fact:
     __internal_ca_keys_list: []
   delegate_to: localhost
@@ -343,7 +343,7 @@
 
 # CRITICAL: Skip the certificate if it was already deployed (e.g., root cert CN, host cert CN and host's service route CN)
 - name: "Set __internal_ca_keys_list from metadata keys"
-  when: not __internal_ca_keys.failed | d(true)
+  when: not __internal_ca_keys.failed | d(true, false)
   ansible.builtin.set_fact:
     __internal_ca_keys_list: >-
       {{
@@ -389,12 +389,12 @@
   run_once: true
 
 - name: "Set __external_ca_keys_list to empty if fetch failed"
-  when: __external_ca_keys.failed | d(false)
+  when: __external_ca_keys.failed | d(false, false)
   ansible.builtin.set_fact:
     __external_ca_keys_list: []
 
 - name: "Set __external_ca_keys_list from metadata keys"
-  when: not __external_ca_keys.failed | d(true)
+  when: not __external_ca_keys.failed | d(true, false)
   ansible.builtin.set_fact:
     __external_ca_keys_list: >-
       {{
@@ -417,13 +417,13 @@
       cert_name: "{{ __current_cert_name }}"
 
 - name: "Post-deployment : Update system's CA trust store"
-  when: __ca_cert_has_changed | d(false)
+  when: __ca_cert_has_changed | d(false, false)
   ansible.builtin.command: "{{ __deploy_pki_certs__trust_ca_update_trust_cmd }}"
   changed_when: true
 
 - name: "Post-deployment : Validate Vault PKI certificates"
-  when: deploy_pki_certs__validation_enabled | default(true) | bool
+  when: deploy_pki_certs__validation_enabled | d(true, false) | bool
 #  when:
-#    - deploy_pki_certs__validation_enabled | default(true) | bool
-#    - __ca_cert_has_changed | default(false)  # Only if certs changed
+#    - deploy_pki_certs__validation_enabled | d(true, false) | bool
+#    - __ca_cert_has_changed | d(false, false)  # Only if certs changed
   ansible.builtin.include_tasks: validate_pki_certs.yml

@@ -3,10 +3,21 @@
 
 set -euo pipefail
 
+EMAIL_MODE=false
+[[ "${1:-}" == "--email" ]] && EMAIL_MODE=true
+
 REPORT_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 HOSTNAME=$(hostname)
 GPU_TELEMETRY_LOG="/var/log/gpu-vram-telemetry.log"
 OUTPUT_FILE="/var/log/sre_postmortem_$(date +%Y%m%d_%H%M%S).md"
+
+# Optional config file dropped by the role
+CONFIG_FILE="/etc/sre-postmortem.conf"
+[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
+
+# Defaults (overridable via config)
+POSTMORTEM_EMAIL_TO="${POSTMORTEM_EMAIL_TO:-admin@example.com}"
+POSTMORTEM_EMAIL_FROM="${POSTMORTEM_EMAIL_FROM:-sre-postmortem@${HOSTNAME}}"
 
 {
     echo "# SRE Sudden Shutdown Triage Report"
@@ -90,3 +101,42 @@ OUTPUT_FILE="/var/log/sre_postmortem_$(date +%Y%m%d_%H%M%S).md"
 } | tee "${OUTPUT_FILE}"
 
 echo "[-] Post-mortem collection complete. Report saved to: ${OUTPUT_FILE}"
+
+if $EMAIL_MODE; then
+    SUBJECT="[SRE] Unexpected reboot postmortem – ${HOSTNAME} – ${REPORT_DATE}"
+
+    if command -v mail >/dev/null 2>&1; then
+        # Most systems with mailutils / bsd-mailx
+        echo "See attached postmortem report." | \
+            mail -s "$SUBJECT" -a "$OUTPUT_FILE" \
+                 -r "$POSTMORTEM_EMAIL_FROM" \
+                 "$POSTMORTEM_EMAIL_TO" \
+            && echo "[-] Report emailed to: $POSTMORTEM_EMAIL_TO" \
+            || echo "[!] mail command failed – report left on disk" >&2
+    elif command -v sendmail >/dev/null 2>&1; then
+        # Fallback: simple sendmail
+        {
+            echo "From: $POSTMORTEM_EMAIL_FROM"
+            echo "To: $POSTMORTEM_EMAIL_TO"
+            echo "Subject: $SUBJECT"
+            echo "MIME-Version: 1.0"
+            echo "Content-Type: multipart/mixed; boundary=\"BOUNDARY\""
+            echo
+            echo "--BOUNDARY"
+            echo "Content-Type: text/plain"
+            echo
+            echo "Unexpected reboot detected. Full triage report attached."
+            echo
+            echo "--BOUNDARY"
+            echo "Content-Type: text/markdown; name=\"$(basename "$OUTPUT_FILE")\""
+            echo "Content-Disposition: attachment; filename=\"$(basename "$OUTPUT_FILE")\""
+            echo
+            cat "$OUTPUT_FILE"
+            echo
+            echo "--BOUNDARY--"
+        } | sendmail -t
+        echo "[-] Report emailed via sendmail to: $POSTMORTEM_EMAIL_TO"
+    else
+        echo "[!] No mailer (mail/sendmail) found – report left on disk only" >&2
+    fi
+fi

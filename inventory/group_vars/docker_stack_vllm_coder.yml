@@ -1,7 +1,25 @@
 ---
 
+# | host      | endpoint                        | Specs | Role |
+# | --------- | ------------------------------- | --- | --- |
+# | control02 | ollama.admin.johnson.int        | AMD Ryzen 9 7945HX + NVIDIA RTX 4060 8 GB + 96 GB RAM | Embeddings + reranker + tiny models only |
+# | gpu01     | vllm-coder.llm-gb10.johnson.int | NVIDIA GB10 – 128 GB unified | Specialized agentic coding (Non-thinking) |
+# | gpu01     | vllm-exec.llm-gb10.johnson.int  | NVIDIA GB10 – 128 GB unified | Primary Reasoning & Agent Supervisor, LangGraph router + Short blueprints |
+# | gpu02     | vllm-coder.llm-rtx.johnson.int  | NVIDIA RTX 3090 – 24 GB | Dedicated Coding & Heavy Inference Worker. Good fallback for blueprints or QA. |
+#
+# gpu01: GB10 favors low-active-param MoE over dense 27B for agent work
+#   role: MoE coder + keep nemotron-lightning for exec/router
+
 docker_stack__service_groups__vllm_coder:
   - vllm_coder
 
 docker_stack__vllm_coder__api_key: "{{ vault__vllm_api_key }}"
 docker_stack__vllm_coder__container_models_dir: "/models"
+
+# GGUF models to download automatically (add/remove as needed)
+#bootstrap_llm_host__vllm_models:
+#  - repo: nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+#    # Target standard safetensors or leave file_name blank for auto-resolution
+#  - repo: unsloth/Qwen3.8-27B-NVFP4
+#    # Optional preference for GGUF quants
+#    quant_preference: "UD-Q4_K_M"
