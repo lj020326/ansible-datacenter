@@ -4,9 +4,9 @@
   ansible.builtin.debug:
     var: __bootstrap_ansible_controller__controller_host
 
-- name: "Display controller_env"
+- name: "Display bootstrap_ansible_controller__controller_env"
   ansible.builtin.debug:
-    var: controller_env
+    var: bootstrap_ansible_controller__controller_env
 
 - name: "Display __bootstrap_ansible_controller__controller_oauth_token"
   ansible.builtin.debug:
@@ -24,15 +24,20 @@
     ignore_unknown_extensions: true
     extensions: ['yml', 'yaml', 'json']
 
-- name: "Include secure credentials" # Used to set vaulted_credentials fact as either masked or unmasked
+- name: "Include secure credentials" # Used to set __vaulted_credentials fact as either masked or unmasked
   ansible.builtin.include_vars:
     file: vars/vaulted-credentials.yml
   no_log: true
 
+- name: "Initialize __vaulted_credentials_raw"
+  ansible.builtin.set_fact:
+    __vaulted_credentials_raw: "{{ bootstrap_ansible_controller__vaulted_credentials
+      | d(bootstrap_ansible_controller__vaulted_credentials_default, true) }}"
+
 - name: "Mask credentials"
   ansible.builtin.set_fact:
-    vaulted_credentials: "{{ vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
-  loop: "{{ _vaulted_credentials.keys() | list }}"
+    __vaulted_credentials: "{{ __vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
+  loop: "{{ __vaulted_credentials_raw.keys() | list }}"
 
 # - name: "Display controller organizations action"
 #   ansible.builtin.debug:
@@ -40,8 +45,7 @@
 
 - name: "Set __role_var_prefix"
   ansible.builtin.set_fact:
-    __role_var_prefix: "controller"
-#    __role_var_prefix: "{{ role_name | replace('-','_') }}"
+    __role_var_prefix: "{{ role_name | replace('-','_') }}"
 
 - name: "Set {{ __role_var_prefix }} list var prefixes"
   ansible.builtin.set_fact:
@@ -63,12 +67,55 @@
 
 - name: "Initialize {{ __role_var_prefix }} lists"
   ansible.builtin.set_fact:
-#    controller_credentials: !unsafe "{{ controller_credentials | d([], true) }}"
-    __controller_projects: "{{ controller_projects | d([], true) }}"
-    __controller_inventories: "{{ controller_inventories | d([], true) }}"
-    __controller_job_templates: "{{ controller_job_templates | d([], true) }}"
-    __controller_workflow_templates: "{{ controller_workflow_templates | d([], true) }}"
-    __controller_schedules: "{{ controller_schedules | d([], true) }}"
+    __controller_env_specific_vars: " {{ bootstrap_ansible_controller__env_specific_vars
+      | d(bootstrap_ansible_controller__env_specific_vars_default, true) }}"
+    __controller_general_settings: " {{ bootstrap_ansible_controller__general_settings
+      | d(bootstrap_ansible_controller__general_settings_default, true) }}"
+    __controller_saml_settings: " {{ bootstrap_ansible_controller__saml_settings
+      | d(bootstrap_ansible_controller__saml_settings_default, true) }}"
+    __controller_organizations: "{{ bootstrap_ansible_controller__organizations
+      | d(bootstrap_ansible_controller__organizations_default, true) }}"
+    __controller_credential_types: "{{ bootstrap_ansible_controller__credential_types
+      | d(bootstrap_ansible_controller__credential_types_default, true) }}"
+    __controller_credentials: "{{ bootstrap_ansible_controller__credentials
+      | d(bootstrap_ansible_controller__credentials_default, true) }}"
+    __controller_local_users: "{{ bootstrap_ansible_controller__local_users
+      | d(bootstrap_ansible_controller__local_users_default, true) }}"
+    __controller_execution_environments: "{{ bootstrap_ansible_controller__execution_environments
+      | d(bootstrap_ansible_controller__execution_environments_default, true) }}"
+    __controller_notification_templates: "{{ bootstrap_ansible_controller__notification_templates
+      | d(bootstrap_ansible_controller__notification_templates_default, true) }}"
+    __controller_projects: "{{ bootstrap_ansible_controller__projects
+      | d(bootstrap_ansible_controller__projects_default, true) }}"
+    __controller_inventories: "{{ bootstrap_ansible_controller__inventories
+      | d(bootstrap_ansible_controller__inventories_default, true) }}"
+    __controller_job_templates: "{{ bootstrap_ansible_controller__job_templates
+      | d(bootstrap_ansible_controller__job_templates_default, true) }}"
+    __controller_workflow_templates: "{{ bootstrap_ansible_controller__workflow_templates
+      | d(bootstrap_ansible_controller__workflow_templates_default, true) }}"
+    __controller_schedules: "{{ bootstrap_ansible_controller__schedules | d(bootstrap_ansible_controller__schedules_default, true) }}"
+
+# __org_team_list is a list of dictionary items with an entry for each org/team combination. e.g.:
+#
+# __org_team_list:
+#   - organization: example
+#     team: SG - Ansible-Admin
+#   - organization: example
+#     team: SG - Ansible-Midwa
+#   - organization: FakeOrg
+#     team: SG - Ansible-Admin
+
+- name: "Initialize {{ __role_var_prefix }} Set __org_team_list"
+  ansible.builtin.set_fact:
+    __org_team_list: |-
+        {% set ns = namespace() %}
+        {% for org in __controller_organizations %}
+        {% set ns.combined_list = ns.combined_list | d([], true) + [org['name']] | product(org['teams']) | list %}
+        {% for each in ns.combined_list %}
+        {% set ns.list_of_dicts = ns.list_of_dicts | d([], true) + [{'organization': each[0], 'team': each[1]}] %}
+        {% endfor %}
+        {% endfor %}
+        {{ ns.list_of_dicts }}
 
 #- name: "Show variables with {{ __role_credentials_list_var_prefix }} prefix"
 #  ansible.builtin.debug:
@@ -94,10 +141,9 @@
   ansible.builtin.debug:
     msg: "{{ lookup('varnames', __role_schedules_list_var_regex, wantlist=True) }}"
 
-
 #- name: "Coalesce lists from {{ __role_credentials_list_var_prefix }}* vars into merged list"
 #  ansible.builtin.set_fact:
-#    controller_credentials: !unsafe "{{ controller_credentials | d([], true) + lookup('vars', item) | d([], true) }}"
+#    bootstrap_ansible_controller__credentials: !unsafe "{{ bootstrap_ansible_controller__credentials | d([], true) + lookup('vars', item) | d([], true) }}"
 #  loop: "{{ lookup('varnames', __role_credentials_list_var_regex, wantlist=True) }}"
 
 - name: "Coalesce lists from {{ __role_projects_list_var_prefix }}* vars into merged list"

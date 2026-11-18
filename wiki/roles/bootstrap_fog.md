@@ -1,74 +1,60 @@
 ---
-title: Bootstrap FOG Role Documentation
-role: bootstrap_fog
-category: Ansible Roles
-type: Installation and Configuration
-tags: fogproject, ansible-role, automation
+title: "Bootstrap Fog Role"
+role: roles/bootstrap_fog
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_fog]
 ---
 
-## Summary
+# Bootstrap FOG Role Documentation
 
-The `bootstrap_fog` role is designed to automate the installation and updating of the Free Open Ghost (FOG) project on a target system. This role handles user creation, directory setup, cloning of the FOG repository from GitHub, and running the unattended installation script.
+## Overview
+
+The `bootstrap_fog` role is designed to automate the installation and updating of the FOG Project on a Debian-based system. FOG is a free and open-source network computer cloning and management solution. This role ensures that the necessary user and directory structure are in place, handles the installation of FOG from a specified Git branch, and provides mechanisms for updating the installation.
 
 ## Variables
 
-| Variable Name         | Default Value  | Description                                                                 |
-|-----------------------|----------------|-----------------------------------------------------------------------------|
-| `fog_user`            | `fog`          | The username under which FOG will be installed.                             |
-| `fog_branch`          | `master`       | The branch of the FOG project to clone from GitHub.                         |
-| `fog_dhcp_server`     | `false`        | A flag indicating whether a DHCP server should be configured (not used in current tasks). |
+| Variable Name       | Default Value | Description                                                                 |
+|---------------------|---------------|-----------------------------------------------------------------------------|
+| `fog_user`          | `fog`         | The username for the FOG user account.                                      |
+| `fog_branch`        | `master`      | The Git branch of the FOG project to install.                               |
+| `fog_dhcp_server`   | `false`       | Indicates whether to configure a DHCP server (not currently implemented).   |
 
 ## Usage
 
-To use this role, include it in your playbook and optionally override any default variables as needed:
-
-```yaml
-- hosts: fog_servers
-  roles:
-    - role: bootstrap_fog
-      vars:
-        fog_user: customfoguser
-        fog_branch: develop
-```
-
-### Example Playbook
-
-Here is an example of how to use the `bootstrap_fog` role in a playbook:
+To use the `bootstrap_fog` role, include it in your playbook and set any necessary variables. Here is an example playbook:
 
 ```yaml
 ---
-- name: Install and configure FOG on target servers
-  hosts: fog_servers
-  become: yes
+- hosts: all
   roles:
     - role: bootstrap_fog
       vars:
-        fog_user: fogadmin
-        fog_branch: latest_release
+        fog_user: "fog"
+        fog_branch: "master"
+        fog_dhcp_server: false
 ```
 
 ## Dependencies
 
-This role has the following dependencies:
+This role does not have any external dependencies, but it assumes a Debian-based system with `git` and `ansible.builtin.apt` installed.
 
-- `ansible.builtin.git` for cloning the FOG repository.
-- `ansible.builtin.command` for running the installation script.
-- `ansible.builtin.user` and `ansible.builtin.file` for user and directory management.
-- `ansible.builtin.apt` (only if the target OS is Debian-based) to ensure `unattended-upgrades` is not installed.
+## Main Tasks
 
-## Tags
-
-This role does not define any specific tags, but you can use the default Ansible tags such as `always`, `never`, or custom tags to control task execution.
+The role performs the following main tasks:
+1. Creates the FOG user account with appropriate permissions.
+2. Sets up the necessary directory structure.
+3. Clones the specified Git branch of the FOG project.
+4. Installs FOG using the cloned repository.
+5. Provides mechanisms for updating the FOG installation.
 
 ## Best Practices
 
-- Ensure that the target system has internet access to clone the FOG repository from GitHub.
-- Verify that the specified user has sufficient permissions for installation and configuration tasks.
-- Review the `temp_settings.j2` template file to ensure it contains all necessary configurations for your environment.
-
-## Molecule Tests
-
-This role does not include Molecule tests. However, you can create a test scenario using Molecule to validate the role's functionality in different environments.
+1. **Ensure Proper Permissions**: Make sure the `fog_user` has the necessary permissions to install and manage FOG.
+2. **Backup Configuration**: Always backup your FOG configuration before performing updates.
+3. **Monitor Logs**: Check the logs for any errors during the installation or update process.
+4. **Test in Development**: Test the role in a development environment before applying it to production systems.
+5. **Review Documentation**: Familiarize yourself with the [FOG Project documentation](https://wiki.fogproject.org/) for additional configuration options and best practices.
 
 ## Backlinks
 
@@ -76,7 +62,3 @@ This role does not include Molecule tests. However, you can create a test scenar
 - [tasks/install.yml](../../roles/bootstrap_fog/tasks/install.yml)
 - [tasks/main.yml](../../roles/bootstrap_fog/tasks/main.yml)
 - [tasks/update.yml](../../roles/bootstrap_fog/tasks/update.yml)
-
----
-
-This documentation provides a comprehensive overview of the `bootstrap_fog` role, including its purpose, configuration options, usage examples, and best practices.

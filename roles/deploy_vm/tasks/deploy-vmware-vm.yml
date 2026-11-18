@@ -103,8 +103,8 @@
     username: "{{ deploy_vm__vcenter_username }}"
     password: "{{ deploy_vm__vcenter_password }}"
     validate_certs: "{{ deploy_vm__vcenter_validate_certs }}"
-    datacenter: "{{ item.datacenter | d(__deploy_vm__vmware_datacenter) }}"
-    cluster: "{{ item.cluster | d(omit) }}"
+    datacenter: "{{ item.datacenter | d(__deploy_vm__vmware_datacenter, true) }}"
+    cluster: "{{ item.cluster | d(omit, true) }}"
     esxi_hostname: "{{ item.host if item.cluster is not defined else omit }}"
     folder: "{{ item.datastore_folder }}"
     name: "{{ item.name }}"
@@ -118,16 +118,16 @@
     disk: "{{ item.disks }}"
     notes: "Deployed via Ansible - date: {{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
     wait_for_ip_address: true
-    networks: "{{ item.networks | d(omit) }}"
+    networks: "{{ item.networks | d(omit, true) }}"
     ## ref: https://github.com/ansible/ansible/issues/44159
     ## ref: https://github.com/ansible-collections/community.vmware/blob/main/plugins/modules/vmware_guest.py#L3237-L3244
     ## ref: https://stackoverflow.com/questions/69649638/ansible-vmware-guest-customization-spec-doesnt-change-anything-if-a-vm-is-alrea
     customization:
       existing_vm: true
       hostname: "{{ item.hostname }}"
-      domain: "{{ item.guest_domain | d(__deploy_vm__vmware_guest_domain) }}"
-      dns_servers: "{{ item.dns_servers | d(__deploy_vm__vmware_vm_dns_nameservers) }}"
-    advanced_settings: "{{ item.advanced_settings | d(omit) }}"
+      domain: "{{ item.guest_domain | d(__deploy_vm__vmware_guest_domain, true) }}"
+      dns_servers: "{{ item.dns_servers | d(__deploy_vm__vmware_vm_dns_nameservers, true) }}"
+    advanced_settings: "{{ item.advanced_settings | d(omit, true) }}"
   loop: "{{ __deploy_vm__vmware_vm_list }}"
   loop_control:
     label: "{{ item.name }}"
@@ -143,7 +143,7 @@
     verbosity: 1
 
 - name: Display __deploy_vm__job_start (not skipped)
-  when: not item.skipped | d(false) | bool
+  when: not item.skipped | d(false, false) | bool
   ansible.builtin.debug:
     var: item
   loop: "{{ __deploy_vm__job_start.results }}"

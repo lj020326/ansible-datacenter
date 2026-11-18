@@ -1,0 +1,21 @@
+---
+
+#__docker_stack__factory__endpoint: "vault.{{ __docker_stack__factory__domain }}"
+
+__docker_stack__factory__traefik_labels_base_default:
+  - "traefik.enable=true"
+  - "traefik.http.routers.factory.entrypoints=https"
+  - "traefik.http.routers.factory.rule=Host(`{{ __docker_stack__factory__host_addr }}`)"
+  - "traefik.http.routers.factory.service=factory-svc"
+  # Add middleware to ensure X-Forwarded-Proto is set to https
+  - "traefik.http.services.factory-svc.loadbalancer.server.port={{ __docker_stack__factory__internal_http_port }}"
+  - "traefik.http.services.factory-svc.loadbalancer.server.scheme=http"
+  # Define the middleware for setting X-Forwarded-Proto
+  - "traefik.http.middlewares.factory-forwarded-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+  - "traefik.http.middlewares.factory-forwarded-headers.headers.customrequestheaders.X-Forwarded-Host={{ __docker_stack__factory__internal_http_port }}"
+
+__docker_stack__factory__traefik_labels_default: >-
+  {{
+    __docker_stack__factory__traefik_labels_base_default
+    + (__docker_stack__traefik__labels_swarm_default if docker_stack__swarm_mode | bool else [])
+  }}

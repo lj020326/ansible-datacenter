@@ -178,18 +178,18 @@ k8s-cp-01 | SUCCESS => {
         "dns_servers": [
             "10.0.0.1"
         ],
-        "dns_suffix": "dettonville.int",
+        "dns_suffix": "example.int",
         "folder": "/dettonville-dc-01/vm/vm",
         "gateway_ipv4": "10.0.0.1",
-        "guest_domain": "dettonville.int",
+        "guest_domain": "example.int",
         "guest_id": "ubuntu64Guest",
         "hardware": {
             "memory_mb": 16384,
             "num_cpus": 4,
             "scsi": "paravirtual"
         },
-        "host": "esx00.dettonville.int",
-        "hostname": "k8s-cp-01.dettonville.int",
+        "host": "esx00.example.int",
+        "hostname": "k8s-cp-01.example.int",
         "name": "k8s-cp-01",
         "nameservers": {
             "addresses": [
@@ -197,7 +197,7 @@ k8s-cp-01 | SUCCESS => {
             ],
             "search": [
                 "johnson.int",
-                "dettonville.int",
+                "example.int",
                 "dettonville.cloud"
             ]
         },

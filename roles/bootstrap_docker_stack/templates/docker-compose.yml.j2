@@ -1,41 +1,124 @@
 {{ 'Ansible managed' | comment(format="# {}") }}
-{% macro render_service_option(key, container, swarm_mode, filter_type='scalar', indent=4) %}
-  {%- set skip_key = (swarm_mode | bool and key in __docker_stack__swarm_restricted_keys) or (not swarm_mode | bool and key in __docker_stack__standalone_restricted_keys) %}
+{%- set swarm_restricted_keys = [
+    "container_name",
+    "devices",
+    "group_add",
+    "labels",
+    "links",
+    "network_mode",
+    "privileged",
+    "profiles",
+    "restart",
+    "security_opt",
+    "sysctls",
+    "tmpfs",
+    "ulimits"
+] %}
+{%- set standalone_restricted_keys = [
+    "configs",
+    "init",
+    "logging",
+    "secrets",
+    "stop_grace_period"
+] %}
+{% macro clean_ports_list(ports_val, swarm_mode) %}
+  {%- set new_ports = [] %}
+  {%- if ports_val is iterable and ports_val is not string and ports_val is not mapping %}
+    {%- for port_item in ports_val %}
+      {%- if port_item is mapping %}
+        {%- set clean_port = {} %}
+        {%- for k, v in port_item.items() %}
+          {%- if not (not (swarm_mode | bool) and k == 'mode') %}
+            {%- if k in ['published', 'target'] and v is string and v | regex_search('^\d+$') %}
+              {%- set _ = clean_port.update({k: v | int}) %}
+            {%- else %}
+              {%- set _ = clean_port.update({k: v}) %}
+            {%- endif %}
+          {%- endif %}
+        {%- endfor %}
+        {%- set _ = new_ports.append(clean_port) %}
+      {%- else %}
+        {%- set _ = new_ports.append(port_item) %}
+      {%- endif %}
+    {%- endfor %}
+  {%- else %}
+    {%- set new_ports = ports_val %}
+  {%- endif %}
+  {{- new_ports | to_json -}}
+{% endmacro %}
+{% macro render_service_option(key, container, swarm_mode, filter_type='auto', indent=4) %}
+  {%- set skip_key = (swarm_mode | bool and key in swarm_restricted_keys) or (not swarm_mode | bool and key in standalone_restricted_keys) %}
   {%- if not skip_key %}
     {%- if container[key] is defined %}
+      {%- set val = container[key] %}
+      {%- if key == 'ports' %}
+        {%- set val = clean_ports_list(container[key], swarm_mode) | from_json %}
+      {%- endif %}
+      {#- Auto-detect filter_type if set to 'auto' -#}
+      {%- set f_type = filter_type %}
+      {%- if f_type == 'auto' %}
+        {%- if key in ['command', 'entrypoint'] %}
+          {%- if val is not string and val is not mapping and val is iterable %}
+            {#- Use a namespace for proper lexical scope mutation inside loops -#}
+            {%- set ns = namespace(has_multiline=false) %}
+            {%- for item in val %}
+              {%- set item_str = item | string %}
+              {%- if '\n' in item_str or '\r' in item_str %}
+                {%- set ns.has_multiline = true %}
+              {%- endif %}
+            {%- endfor %}
+            {%- if ns.has_multiline %}
+              {%- set f_type = 'block_list' %}
+            {%- else %}
+              {%- set f_type = 'yaml' %}
+            {%- endif %}
+          {%- else %}
+            {%- set f_type = 'command' %}
+          {%- endif %}
+        {%- elif val is string or val is number or val is boolean %}
+          {%- set f_type = 'scalar' %}
+        {%- else %}
+          {%- set f_type = 'yaml' %}
+        {%- endif %}
+      {%- endif %}
       {%- set padding = " " * indent %}
 {{ "\n" }}{{ padding }}{{ key }}:
-      {%- if filter_type == 'scalar' %} {{ container[key] }}
-      {%- elif filter_type == 'list_loop' %}
-        {%- for item in container[key] %}
+      {%- if f_type == 'scalar' %} {{ val }}
+      {%- elif f_type == 'list_loop' %}
+        {%- for item in val %}
 {{ "\n" }}{{ padding }}  - {{ item }}
         {%- endfor %}
-      {%- elif filter_type == 'yaml' %}
-{{ "\n" }}{{ padding }}  {{ container[key]
+      {%- elif f_type == 'yaml' %}
+{{ "\n" }}{{ padding }}  {{ val
     | dettonville.utils.to_nice_yaml
     | indent(indent + 2, first=True) | trim }}
-      {%- elif filter_type == 'command' %}
-        {%- if container[key] is not string and container[key] is not mapping and container[key] is iterable %}
-{{ "\n" }}{{ padding }}  {{ container[key]
+      {%- elif f_type == 'block_list' %}
+        {%- for item in val %}
+{{ "\n" }}{{ padding }}  - |
+{{ item | string | trim | indent(indent + 4, first=True) }}
+        {%- endfor %}
+      {%- elif f_type == 'command' %}
+        {%- if val is not string and val is not mapping and val is iterable %}
+{{ "\n" }}{{ padding }}  {{ val
     | dettonville.utils.to_nice_yaml
     | indent(indent + 2, first=True) | trim }}
         {%- else %} >-
-{{ padding }}  {{ container[key] | indent(indent + 2, first=True) | trim }}
+{{ padding }}  {{ val | indent(indent + 2, first=False) | trim }}
         {%- endif %}
       {%- endif %}
     {%- endif %}
   {%- endif %}
 {% endmacro %}
 
-{% if __docker_stack__networks | d({}) | length > 0 %}
+{% if __docker_stack__networks | d({}, true) | length > 0 %}
 
 networks:
   {%- for _network_key, _network_config in __docker_stack__networks.items() %}
 {{ "\n" }}  {{ _network_key }}:
-    {%- if _network_config.external | d(False) | bool %}
+    {%- if _network_config.external | d(false, false) | bool %}
 {{ "\n" }}    external: true
     {%- else %}
-      {%- if docker_stack__swarm_mode | d(False) | bool %}
+      {%- if docker_stack__swarm_mode | d(false, false) | bool %}
 {{ "\n" }}    {{ _network_config
       | ansible.utils.remove_keys(target=['ipam_config','scope'])
       | dettonville.utils.to_nice_yaml
@@ -51,14 +134,14 @@ networks:
 
 {% endif %}
 
-{%- if __docker_stack__volumes | d({}) | length > 0 %}
+{%- if __docker_stack__volumes | d({}, true) | length > 0 %}
 
 volumes:
   {{ __docker_stack__volumes | dettonville.utils.to_nice_yaml | indent(2, first=False) | trim }}
 {% endif %}
 
-{%- if docker_stack__swarm_mode | d(False) | bool %}
-  {%- if __docker_stack__secrets | d({}) | length > 0 %}
+{%- if docker_stack__swarm_mode | d(false, false) | bool %}
+  {%- if __docker_stack__secrets | d({}, true) | length > 0 %}
 
 secrets:
     {%- for _secret_name in __docker_stack__secrets.keys() | sort %}
@@ -69,7 +152,7 @@ secrets:
 
 {% endif %}
 
-{%- if docker_stack__configs | d({}) | length > 0 %}
+{%- if docker_stack__configs | d({}, true) | length > 0 %}
 
 configs:
   {{ docker_stack__configs | dettonville.utils.to_nice_yaml | indent(2, first=False) | trim }}
@@ -78,11 +161,11 @@ configs:
 
 services:
 {% for service_group in __docker_stack__service_groups | sort(attribute='name') %}
-  {%- if __docker_stack__service_group_configs_tpl[service_group.name] | d([]) | length > 0 %}
+  {%- if __docker_stack__service_group_configs_tpl[service_group.name] | d([], true) | length > 0 %}
   ########################
   ## {{ service_group.name | upper }} GROUP SERVICES
     {%- for key, container in __docker_stack__service_group_configs_tpl[service_group.name].items() %}
-      {%- if (container.active | d(True)) %}
+      {%- if (container.active | d(true, false)) %}
       {%- if not loop.first %}
 {{ "\n" }}
       {%- endif %}
@@ -92,14 +175,14 @@ services:
     {{- render_service_option("network_mode", container, docker_stack__swarm_mode) }}
     {{- render_service_option("restart", container, docker_stack__swarm_mode) }}
     {{- render_service_option("user", container, docker_stack__swarm_mode) }}
-    {{- render_service_option("group_add", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("group_add", container, docker_stack__swarm_mode) }}
     {{- render_service_option("privileged", container, docker_stack__swarm_mode) }}
-    {{- render_service_option("security_opt", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("security_opt", container, docker_stack__swarm_mode) }}
     {{- render_service_option("mem_limit", container, docker_stack__swarm_mode) }}
     {{- render_service_option("working_dir", container, docker_stack__swarm_mode) }}
-    {{- render_service_option("configs", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("logging", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("ulimits", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("configs", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("logging", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("ulimits", container, docker_stack__swarm_mode) }}
     {{- render_service_option("stop_grace_period", container, docker_stack__swarm_mode) }}
     {{- render_service_option("init", container, docker_stack__swarm_mode) }}
     {{- render_service_option("profiles", container, docker_stack__swarm_mode) }}
@@ -107,32 +190,32 @@ services:
     {{- render_service_option("sysctls", container, docker_stack__swarm_mode) }}
     {{- render_service_option("tmpfs", container, docker_stack__swarm_mode) }}
     {{- render_service_option("hostname", container, docker_stack__swarm_mode) }}
-    {{- render_service_option("extra_hosts", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("cap_add", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("devices", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("extra_hosts", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("cap_add", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("devices", container, docker_stack__swarm_mode) }}
     {{- render_service_option("depends_on", container, docker_stack__swarm_mode, filter_type='list_loop') }}
     {{- render_service_option("links", container, docker_stack__swarm_mode, filter_type='list_loop') }}
-    {{- render_service_option("networks", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("ports", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("environment", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("env_file", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("healthcheck", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("command", container, docker_stack__swarm_mode, filter_type='command') }}
-    {{- render_service_option("entrypoint", container, docker_stack__swarm_mode, filter_type='command') }}
-    {{- render_service_option("dns", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("secrets", container, docker_stack__swarm_mode, filter_type='yaml') }}
-    {{- render_service_option("labels", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("networks", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("ports", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("environment", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("env_file", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("healthcheck", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("command", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("entrypoint", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("dns", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("secrets", container, docker_stack__swarm_mode) }}
+    {{- render_service_option("labels", container, docker_stack__swarm_mode) }}
 
         {#- Handle complex deploy block conditional fallback separately #}
         {%- set _deploy_config = {} %}
         {%- if container.deploy is defined %}
-            {%- if docker_stack__swarm_mode | d(False) | bool %}
+            {%- if docker_stack__swarm_mode | d(false, false) | bool %}
                 {%- set _deploy_config = container.deploy %}
             {%- else %}
                 {%- set _deploy_config = container.deploy | dettonville.utils.keep_keys(['resources']) %}
             {%- endif %}
         {%- endif %}
-        {%- if docker_stack__swarm_mode | d(False) | bool %}
+        {%- if docker_stack__swarm_mode | d(false, false) | bool %}
             {%- if container.labels is defined %}
                 {%- set _ = _deploy_config.update({ 'labels': container.labels }) %}
             {%- endif %}
@@ -145,7 +228,7 @@ services:
       {{ _deploy_config | dettonville.utils.to_nice_yaml | indent(6, first=False) | trim }}
         {%- endif %}
 
-    {{- render_service_option("volumes", container, docker_stack__swarm_mode, filter_type='yaml') }}
+    {{- render_service_option("volumes", container, docker_stack__swarm_mode) }}
       {%- endif %}
     {%- endfor %}
   {%- endif %}

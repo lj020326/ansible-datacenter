@@ -1,36 +1,17 @@
 ---
 
+# ------------------------------------------------------------------
+# common/shared vars - coerce into appropriate role vars
+# ------------------------------------------------------------------
 dc_os_family: linux
 dc_os_family_shortname: lnx
 
-apply_ping_test__module: ping
+ca_local_cert_dir: /usr/local/ssl/certs
+ca_local_key_dir: /usr/local/ssl/private
 
-#os_python_interpreter: /usr/bin/env python3
-#os_python_interpreter: /usr/bin/python
-os_python_interpreter: /usr/bin/python3
-
-bootstrap_netplan__ethernet_interface_name: "ens160"
-
-bootstrap_linux_user__admin_username: administrator
-#bootstrap_linux_user__admin_password: "{{ vault__admin_password }}"
-bootstrap_linux_user__admin_ssh_auth_key: "{{ vault__admin_ssh_public_key }}"
-
-bootstrap_webmin__user_password: "{{ vault__webmin_password | d('change!me') }}"
-
-### OS bootstrap
-bootstrap_linux_core__init_netplan: false
-bootstrap_linux_core__init_network_interfaces: true
-
-bootstrap_linux_core__network_name_servers: "{{ dns_nameservers }}"
-bootstrap_linux_core__dns_domain: "{{ dns_domain }}"
-bootstrap_linux_core__dns_search_domains: "{{ dns_search_domains }}"
-
-bootstrap_linux_core__hostname_internal_domain: "{{ hostname_internal_domain }}"
-#bootstrap_linux_core__hostname_hosts:
-#  - ip: "{{ ansible_facts['default_ipv4']['address'] }}"
-#    name: "{{ bootstrap_linux_core__hostname_name_full }}"
-#    aliases:
-#      - "{{ inventory_hostname_short }}"
+# ------------------------------------------------------------------
+# ansible env
+# ------------------------------------------------------------------
 
 #ansible_python_interpreter: /usr/bin/env python3
 # ansible_python_interpreter: "/usr/bin/python3"
@@ -48,7 +29,36 @@ ansible_python_interpreter: "{{ ansible_virtualenv_python_interpreter }}"
 #ansible_python_symlink_bin: /usr/local/bin/python3
 #ansible_python_interpreter: "{{ ansible_python_symlink_bin }}"
 
-bootstrap_linux__os_python_interpreter: "{{ os_python_interpreter }}"
+#os_python_interpreter: /usr/bin/env python3
+#os_python_interpreter: /usr/bin/python
+os_python_interpreter: /usr/bin/python3
+
+apply_ping_test__module: ping
+harden_os_linux__system_owner: dettonville.org
+
+# ------------------------------------------------------------------
+# OS bootstrap
+# ------------------------------------------------------------------
+bootstrap_linux_core__init_netplan: false
+bootstrap_linux_core__init_network_interfaces: true
+
+bootstrap_linux_core__network_name_servers: "{{ dns_nameservers }}"
+bootstrap_linux_core__dns_domain: "{{ dns_domain }}"
+bootstrap_linux_core__dns_search_domains: "{{ dns_search_domains }}"
+
+bootstrap_linux_core__hostname_internal_domain: "{{ hostname_internal_domain }}"
+#bootstrap_linux_core__hostname_hosts:
+#  - ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+#    name: "{{ bootstrap_linux_core__hostname_name_full }}"
+#    aliases:
+#      - "{{ inventory_hostname_short }}"
+
+bootstrap_linux_core__pfsense_host: "{{ vault__pfsense_host }}"
+bootstrap_linux_core__pfsense_username: "{{ vault__pfsense_user }}"
+bootstrap_linux_core__pfsense_password: "{{ vault__pfsense_password }}"
+
+bootstrap_linux_core__postmortem_email_to:
+  - admin@dettonville.com
 
 bootstrap_linux_core__ca_certs_config: |
   # host[:port]|jdk|system|docker|python
@@ -72,8 +82,18 @@ bootstrap_linux_core__ca_certs_config: |
   media.johnson.int:5000|1|1|1|1
 
 
-ca_local_cert_dir: /usr/local/ssl/certs
-ca_local_key_dir: /usr/local/ssl/private
+bootstrap_linux_package__use_repo_proxy: true
+bootstrap_linux_package__repo_proxy_url: "http://repo-proxy.admin.johnson.int:3142"
+
+bootstrap_linux__os_python_interpreter: "{{ os_python_interpreter }}"
+
+bootstrap_netplan__ethernet_interface_name: "ens160"
+
+bootstrap_linux_user__admin_username: administrator
+#bootstrap_linux_user__admin_password: "{{ vault__admin_password }}"
+bootstrap_linux_user__admin_ssh_auth_key: "{{ vault__admin_ssh_public_key }}"
+
+bootstrap_webmin__user_password: "{{ vault__webmin_password | d('change!me') }}"
 
 ## ref: https://unix.stackexchange.com/questions/685545/changing-the-key-exchange-algorithm-used-by-openssh-server
 ## ref: https://superuser.com/questions/1016989/ssh-dsa-keys-no-longer-work-for-password-less-authentication
@@ -105,6 +125,9 @@ bootstrap_sshd__config:
 #  KexAlgorithms: +diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1
 #  MACs: hmac-sha2-256,hmac-sha2-512,hmac-sha1
 
+# ------------------------------------------------------------------
+# pip - common python libraries for linux OS
+# ------------------------------------------------------------------
 bootstrap_pip__env_list__ansible:
   - virtualenv: "{{ ansible_virtualenv }}"
     #    virtualenv_site_packages: true
@@ -116,14 +139,9 @@ bootstrap_pip__env_list__ansible:
       - pywinrm
 #      - firewall
 
-bootstrap_linux_mount__swap_disk:
-  file: /swap.img
-  size: 8G
-
-##########
-## mounts
-##   list of mounts to be setup for linux machines.
-##########
+# ------------------------------------------------------------------
+# mounts
+# ------------------------------------------------------------------
 bootstrap_linux_mount__list:
   - name: "/data"
     src: "{{ nfs_primary_host }}:{{ nfs_primary_share }}"
@@ -134,28 +152,15 @@ bootstrap_linux_mount__list:
 #    options: "vers=4.1,proto=tcp,hard,intr,rsize=1048576,wsize=1048576,noatime,nodiratime,timeo=150,retrans=2,_netdev"
 #    options: "vers=4.1,intr,auto,nofail,_netdev"
 
+bootstrap_linux_mount__swap_disk:
+  file: /swap.img
+  size: 8G
 
-##########
-## crons
-##   list of CRONs to be setup for backup machines.
-##########
+# ------------------------------------------------------------------
+# crons
+# ------------------------------------------------------------------
 bootstrap_linux_cron__list__linux:
   ## make sure the backup nfs mount is in setup
   - name: "mount all nfs shares"
     schedule: [ "0", "*", "*", "*", "0" ]
     job: "mount -a"
-
-##########
-## daily batch hooks
-##   list of hooks to be setup for linux machines.
-##########
-bootstrap_linux_core__os_update_hooks__linux_common:
-  # 2. Update Hook: Perform OS Updates
-  - name: "Perform OS Updates"
-    state: present
-    hook_type: "update.d"
-    filename: "50-os-update"
-    content: |
-      #!/usr/bin/env bash
-      echo "Running OS Updates via core platform script..."
-      /usr/local/bin/perform-os-updates.sh

@@ -1,0 +1,39 @@
+---
+- name: Clone Ollama Web UI repository
+  become_user: "{{ bootstrap_llm_host__webui_user }}"
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/ollama-webui/ollama-webui.git
+    dest: "{{ bootstrap_llm_host__webui_home_dir }}/ollama-webui"
+    version: main
+
+- name: Install Ollama Web UI dependencies
+  become_user: "{{ bootstrap_llm_host__webui_user }}"
+  become: true
+  community.general.npm:
+    path: "{{ bootstrap_llm_host__webui_home_dir }}/ollama-webui"
+    state: present
+
+- name: Build Ollama Web UI
+  become_user: "{{ bootstrap_llm_host__webui_user }}"
+  become: true
+  ansible.builtin.shell: |
+    cd {{ bootstrap_llm_host__webui_home_dir }}/ollama-webui
+    npm run build
+  changed_when: true
+
+- name: Create Ollama Web UI systemd service
+  ansible.builtin.template:
+    src: ollama-webui.service.j2
+    dest: /etc/systemd/system/ollama-webui.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart ollama-webui
+
+- name: Enable and start Ollama Web UI service
+  ansible.builtin.systemd:
+    name: ollama-webui
+    enabled: true
+    state: started
+    daemon_reload: true

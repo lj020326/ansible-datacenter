@@ -3,14 +3,14 @@
 ## Create organizations
 ##
 - name: Organization block
-  when: controller_organizations | d([], true) | length > 0
+  when: __controller_organizations | d([], true) | length > 0
   block:
     - name: Create organizations
       ansible.controller.organization:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item.description | d('') }}"
+        description: "{{ item.description | d('', true) }}"
         # galaxy_credentials: "{{ galaxy_credentials | d([], true) }}" # Have to create creds first, then associate w/ org
-      loop: "{{ controller_organizations }}"
+      loop: "{{ __controller_organizations }}"
       loop_control:
         label: "{{ item['name'] }}"
 
@@ -18,35 +18,35 @@
   block:
     - name: Create credential types
       when:
-        - controller_credential_types | d([], true) | length>0
+        - __controller_credential_types | d([], true) | length>0
       ansible.controller.credential_type:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         kind: cloud
         inputs: "{{ item['inputs'] | d({}, true) }}"
         injectors: "{{ item['injectors'] | d({}, true) }}"
-      loop: "{{ controller_credential_types }}"
+      loop: "{{ __controller_credential_types }}"
       loop_control:
         label: "{{ item['name'] }}"
 
     - name: Unmask credentials
       ansible.builtin.set_fact:
-        vaulted_credentials: "{{ _vaulted_credentials }}"
+        __vaulted_credentials: "{{ __vaulted_credentials_raw }}"
       no_log: true
 
     - name: Create org credentials
       when:
-        - controller_credentials | d([], true) | length>0
-        - item['environments'] is not defined or controller_env.lower() in item['environments']
+        - __controller_credentials | d([], true) | length>0
+        - item['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in item['environments']
       ansible.controller.credential:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         credential_type: "{{ item['credential_type'] | mandatory }}"
-        organization: "{{ item['organization'] | d('') }}"
+        organization: "{{ item['organization'] | d('', true) }}"
         inputs: "{{ item['inputs'] | d({}, true) }}"
       ignore_errors: "{{ ansible_check_mode }}"
       no_log: true
-      loop: "{{ controller_credentials }}"
+      loop: "{{ __controller_credentials }}"
       loop_control:
         label: "{{ item['name'] }}"
       async: "{{ ansible_check_mode | ternary(0, __bootstrap_ansible_controller__async_max_runtime_in_seconds) }}"
@@ -66,15 +66,15 @@
 
     - name: Remask credentials
       ansible.builtin.set_fact:
-        vaulted_credentials: "{{ vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
-      loop: "{{ _vaulted_credentials.keys() | list }}"
+        __vaulted_credentials: "{{ __vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
+      loop: "{{ __vaulted_credentials_raw.keys() | list }}"
 
 - name: Add Galaxy credentials to organizations
   ansible.controller.organization:
     name: "{{ item['name'] | mandatory }}"
     galaxy_credentials: "{{ item['galaxy_credentials'] | d([], true) }}"
   ignore_errors: "{{ ansible_check_mode }}"
-  loop: "{{ controller_organizations }}"
+  loop: "{{ __controller_organizations }}"
   loop_control:
     label: "{{ item['name'] }}"
 
@@ -86,21 +86,21 @@
   block:
     - name: Unmask credentials
       ansible.builtin.set_fact:
-        vaulted_credentials: "{{ _vaulted_credentials }}"
+        __vaulted_credentials: "{{ __vaulted_credentials_raw }}"
       no_log: true
 
     - name: Create users
       ansible.controller.user:
         username: "{{ item['username'] | mandatory }}"
-        password: "{{ item['password'] | d(omit) }}"
-        organization: "{{ item['organization'] | d(omit) }}"
+        password: "{{ item['password'] | d(omit, true) }}"
+        organization: "{{ item['organization'] | d(omit, true) }}"
       no_log: true
-      loop: "{{ bootstrap_ansible_controller__local_users }}"
+      loop: "{{ __controller_local_users }}"
 
     - name: Remask credentials
       ansible.builtin.set_fact:
-        vaulted_credentials: "{{ vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
-      loop: "{{ _vaulted_credentials.keys() | list }}"
+        __vaulted_credentials: "{{ __vaulted_credentials | d({}, true) | combine(({item: 'MASKED'})) }}"
+      loop: "{{ __vaulted_credentials_raw.keys() | list }}"
 
 ##
 ## Create teams
@@ -127,9 +127,9 @@
       ansible.controller.execution_environment:
         name: "{{ item['name'] | mandatory }}"
         image: "{{ item['image'] | mandatory }}"
-        credential: "{{ item['credential'] | d('') }}"
-        pull: "{{ item['pull'] | d('missing') }}"
-      loop: "{{ controller_execution_environments }}"
+        credential: "{{ item['credential'] | d('', true) }}"
+        pull: "{{ item['pull'] | d('missing', true) }}"
+      loop: "{{ __controller_execution_environments }}"
 
 ##
 ## Create projects
@@ -140,20 +140,20 @@
     - name: Create projects
       when:
         - __controller_projects | d([], true) | length>0
-        - item['environments'] is not defined or controller_env.lower() in item['environments']
+        - item['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in item['environments']
       ansible.controller.project:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
-        organization: "{{ item['organization'] | d('') }}"
-        scm_type: "{{ item['scm_type'] | d('manual') }}"
-        scm_branch: "{{ item['scm_branch'] | d('') }}"
-        scm_url: "{{ item['scm_url'] | d('') }}"
-        credential: "{{ item['credential'] | d(omit) }}"
-        default_environment: "{{ item['default_environment'] | d(omit) }}"
-        scm_update_on_launch: "{{ item['scm_update_on_launch'] | d(false) }}"
+        description: "{{ item['description'] | d('', true) }}"
+        organization: "{{ item['organization'] | d('', true) }}"
+        scm_type: "{{ item['scm_type'] | d('manual', true) }}"
+        scm_branch: "{{ item['scm_branch'] | d('', true) }}"
+        scm_url: "{{ item['scm_url'] | d('', true) }}"
+        credential: "{{ item['credential'] | d(omit, true) }}"
+        default_environment: "{{ item['default_environment'] | d(omit, true) }}"
+        scm_update_on_launch: "{{ item['scm_update_on_launch'] | d(false, false) }}"
         scm_update_cache_timeout: "{{ item['scm_update_cache_timeout'] | d(0, true) }}"
-        scm_clean: "{{ item['scm_clean'] | d(false) }}"
-        allow_override: "{{ item['allow_override'] | d(false) }}"
+        scm_clean: "{{ item['scm_clean'] | d(false, false) }}"
+        allow_override: "{{ item['allow_override'] | d(false, false) }}"
       ignore_errors: "{{ ansible_check_mode }}"
       loop: "{{ __controller_projects }}"
 
@@ -166,7 +166,7 @@
     - name: Create inventories
       when:
         - __controller_inventories | d([], true) | length>0
-        - item['environments'] is not defined or controller_env.lower() in item['environments']
+        - item['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in item['environments']
       ansible.builtin.include_tasks: create-inventory.yml
       ignore_errors: "{{ ansible_check_mode }}"
       loop: "{{ __controller_inventories }}"
@@ -178,35 +178,35 @@
 ##
 
 - name: Notification templates block
-  when: bootstrap_ansible_controller__notification_templates | d([], true) | length > 0
+  when: __controller_notification_templates | d([], true) | length > 0
   block:
     - name: Create email notifications
       when:
-        - bootstrap_ansible_controller__notification_templates | selectattr('notification_type', 'eq', 'email') | length > 0
-        - item['environments'] is not defined or controller_env.lower() in item['environments']
+        - __controller_notification_templates | selectattr('notification_type', 'eq', 'email') | length > 0
+        - item['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in item['environments']
       ansible.controller.notification_template:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         organization: "{{ item['organization'] | mandatory }}"
         notification_type: email
         messages: "{{ item['messages'] | d({}, true) }}"
-        notification_configuration: "{{ (item['email_settings'] | d(bootstrap_ansible_controller__default_email_notification_settings) |
+        notification_configuration: "{{ (item['email_settings'] | d(bootstrap_ansible_controller__default_email_notification_settings, true) |
           combine({'recipients': item['recipients']})) | d({}, true) }}"
-      loop: "{{ bootstrap_ansible_controller__notification_templates | selectattr('notification_type', 'eq', 'email') }}"
+      loop: "{{ __controller_notification_templates | selectattr('notification_type', 'eq', 'email') }}"
       loop_control:
         label: "{{ item['name'] }}"
 
     - name: Create webhook notifications
       when:
-        - bootstrap_ansible_controller__notification_templates | selectattr('notification_type', 'eq', 'webhook') | length > 0
-        - item['environments'] is not defined or controller_env.lower() in item['environments']
+        - __controller_notification_templates | selectattr('notification_type', 'eq', 'webhook') | length > 0
+        - item['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in item['environments']
       ansible.controller.notification_template:
         name: "{{ item['name'] | mandatory }}"
-        description: "{{ item['description'] | d('') }}"
+        description: "{{ item['description'] | d('', true) }}"
         organization: "{{ item['organization'] | mandatory }}"
         notification_type: webhook
         notification_configuration: "{{ item['notification_configuration'] | d({}, true) }}"
-      loop: "{{ bootstrap_ansible_controller__notification_templates | selectattr('notification_type', 'eq', 'webhook') }}"
+      loop: "{{ __controller_notification_templates | selectattr('notification_type', 'eq', 'webhook') }}"
       loop_control:
         label: "{{ item['name'] }}"
 
@@ -220,9 +220,9 @@
     ## getting timeout issues when running
     ## e.g.,
     ## msg: 'There was an unknown error when trying
-    ##       to connect to https://aap.dev.dettonville.int/api/v2/credentials/?name=AAP+Bitbucket+Push+SSH+Key:
+    ##       to connect to https://aap.dev.example.int/api/v2/credentials/?name=AAP+Bitbucket+Push+SSH+Key:
     ##       timeout The read operation timed out'
-    ## ref: https://infracicd01.dev.s1.dettonville.int/jenkins/job/INFRA/job/ansible/job/SANDBOX/job/ansible-automation-platform/job/bootstrap-ansible-controller/39/consoleFull
+    ## ref: https://infracicd01.dev.s1.example.int/jenkins/job/INFRA/job/ansible/job/SANDBOX/job/ansible-automation-platform/job/bootstrap-ansible-controller/39/consoleFull
     ##
     ## presumably this is since without batching the job is sending the API with 100+ job template definition updates
     ## all at once.
@@ -247,15 +247,15 @@
   block:
     - name: Create workflow template
       when:
-        - controller_workflow_templates | d([], true) | length>0
-        - item['environments'] is not defined or controller_env.lower() in item['environments']
+        - __controller_workflow_templates | d([], true) | length>0
+        - item['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in item['environments']
       ansible.controller.workflow_job_template:
         name: "{{ item['name'] | mandatory }}"
         organization: "{{ item['organization'] | d('', true) }}"
         inventory: "{{ item['inventory'] | d('', true) }}"
         extra_vars: "{{ item['extra_vars'] | d({}, true) }}"
         workflow_nodes: "{{ item['workflow_nodes'] | d([], true) }}"
-      loop: "{{ controller_workflow_templates }}"
+      loop: "{{ __controller_workflow_templates }}"
 
 ##
 ## Create schedules
@@ -271,7 +271,7 @@
         label: "{{ __schedule_loop_var['schedule_name'] }}"
       when:
         - __controller_schedules | d([], true) | length>0
-        - __schedule_loop_var['environments'] is not defined or controller_env.lower() in __schedule_loop_var['environments']
+        - __schedule_loop_var['environments'] is not defined or bootstrap_ansible_controller__controller_env.lower() in __schedule_loop_var['environments']
 
 ##
 ## Create roles
@@ -281,15 +281,15 @@
   block:
     - name: Ensure roles
       ansible.builtin.include_tasks: manage-roles.yml
-      loop: "{{ controller_organizations }}"
+      loop: "{{ __controller_organizations }}"
       loop_control:
         loop_var: __organization_loop_var
         label: "{{ __organization_loop_var['name'] }}"
 
 - name: Set SAML settings
   ansible.controller.settings:
-    settings: "{{ controller_saml_settings }}"
+    settings: "{{ __controller_saml_settings }}"
 
 - name: Set general settings
   ansible.controller.settings:
-    settings: "{{ controller_general_settings }}"
+    settings: "{{ __controller_general_settings }}"

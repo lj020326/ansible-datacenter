@@ -9,7 +9,7 @@
   ansible.builtin.package:
     name: "{{ bootstrap_sshd__packages }}"
     state: present
-    use: "{{ (__bootstrap_sshd__is_ostree | d(false)) | ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
+    use: "{{ (__bootstrap_sshd__is_ostree | d(false, false)) | ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
 
 - name: Sysconfig configuration
   when:
@@ -33,8 +33,8 @@
     # 'MAo=' evaluates to '0\n' in base 64 encoding, which is default
     __bootstrap_sshd__fips_mode: >-
       {{ __bootstrap_sshd__hostkeys_nofips | d([], true) and
-         (__bootstrap_sshd__kernel_fips_mode.content | d('MAo=') | b64decode | trim == '1' or
-          __bootstrap_sshd__userspace_fips_mode.content | d('MAo=') | b64decode | trim != '0') }}
+         (__bootstrap_sshd__kernel_fips_mode.content | d('MAo=', true) | b64decode | trim == '1' or
+          __bootstrap_sshd__userspace_fips_mode.content | d('MAo=', true) | b64decode | trim != '0') }}
     # This mimics the macro body_option() in sshd_config.j2
     # The explicit to_json filter is needed for Python 2 compatibility
     __bootstrap_sshd__hostkeys_from_config: >-
@@ -130,14 +130,14 @@
         - bootstrap_sshd__manage_firewall | bool
         - ansible_facts['os_family'] == 'RedHat'
         - ansible_facts['distribution_version'] is version('7', '>=')
-        - ansible_facts['virtualization_type'] | d(None) not in __bootstrap_sshd__skip_virt_env
+        - ansible_facts['virtualization_type'] | d(None, true) not in __bootstrap_sshd__skip_virt_env
       ansible.builtin.include_tasks: firewall.yml
 
     - name: Configure selinux
       when:
         - bootstrap_sshd__manage_selinux | bool
         - ansible_facts['os_family'] == 'RedHat'
-        - ansible_facts['virtualization_type'] | d(None) not in __bootstrap_sshd__skip_virt_env
+        - ansible_facts['virtualization_type'] | d(None, true) not in __bootstrap_sshd__skip_virt_env
       ansible.builtin.include_tasks: selinux.yml
 
     - name: Create the complete configuration file

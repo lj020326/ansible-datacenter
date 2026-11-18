@@ -6,9 +6,9 @@
 {% set _zone_data = {} %}
 {% set _ = _zone_data.update({'ttl': bind_zone_ttl}) %}
 {% set _ = _zone_data.update({'domain': item.name}) %}
-{% set _ = _zone_data.update({'mname': item.name_servers | default([])}) %}
-{% set _ = _zone_data.update({'aname': item.other_name_servers | default([])}) %}
-{% set _ = _zone_data.update({'mail': item.mail_servers | default([])}) %}
+{% set _ = _zone_data.update({'mname': item.name_servers | d([], true)}) %}
+{% set _ = _zone_data.update({'aname': item.other_name_servers | d([], true)}) %}
+{% set _ = _zone_data.update({'mail': item.mail_servers | d([], true)}) %}
 {% if item.hostmaster_email is defined %}
 {% set _ = _zone_data.update({'rname': (( item.hostmaster_email )) + ('' if (item.hostmaster_email is search('\.')) else ('.' + _zone_data['domain']))}) %}
 {% else %}
@@ -18,11 +18,11 @@
 {% set _ = _zone_data.update({'retry': bind_zone_time_to_retry}) %}
 {% set _ = _zone_data.update({'expire': bind_zone_time_to_expire}) %}
 {% set _ = _zone_data.update({'minimum': bind_zone_minimum_ttl}) %}
-{% set _ = _zone_data.update({'hosts': item.hosts | default([])}) %}
-{% set _ = _zone_data.update({'delegate': item.delegate | default([])}) %}
-{% set _ = _zone_data.update({'services': item.services | default([])}) %}
-{% set _ = _zone_data.update({'text': item.text | default([])}) %}
-{% set _ = _zone_data.update({'naptr': item.naptr | default([])}) %}
+{% set _ = _zone_data.update({'hosts': item.hosts | d([], true)}) %}
+{% set _ = _zone_data.update({'delegate': item.delegate | d([], true)}) %}
+{% set _ = _zone_data.update({'services': item.services | d([], true)}) %}
+{% set _ = _zone_data.update({'text': item.text | d([], true)}) %}
+{% set _ = _zone_data.update({'naptr': item.naptr | d([], true)}) %}
 {#
  #  Compare the zone file hash with the current zone data hash and set serial
  #  accordingly
@@ -107,7 +107,7 @@ $TTL {{ _zone_data['ttl'] }}
 {% if host.aliases is defined %}
 {% for alias in host.aliases %}
 {% if "$GENERATE" not in host.name.upper() %}
-{{ (alias.name | default(alias)).ljust(20) }}{{ (host.ttl | string).rjust(6) if host.ttl is defined else ''.ljust(6) }} IN  {{ alias.type | default('cname') | upper}}  {{ host.name }}
+{{ (alias.name | d(alias, true)).ljust(20) }}{{ (host.ttl | string).rjust(6) if host.ttl is defined else ''.ljust(6) }} IN  {{ alias.type | d('cname', true) | upper}}  {{ host.name }}
 {% endif %}
 {% if "$GENERATE" in host.name.upper() %}
 {{ alias.ljust(20) }} IN  CNAME  {{ host.name.rsplit(None, 1)[1] }}
@@ -124,7 +124,7 @@ $TTL {{ _zone_data['ttl'] }}
 {{ ansible_facts['hostname'].ljust(26) }} IN A     {{ ansible_facts['default_ipv4']['address'] }}
 {% endif %}
 {% for service in _zone_data['services'] %}
-{{ service.name.ljust(20) }}{{ (service.ttl | string).rjust(6) if service.ttl is defined else ''.ljust(6) }} IN  SRV    {{ service.priority | default('0') }} {{ service.weight | default('0') }} {{ service.port }} {{ service.target }}
+{{ service.name.ljust(20) }}{{ (service.ttl | string).rjust(6) if service.ttl is defined else ''.ljust(6) }} IN  SRV    {{ service.priority | d('0', true) }} {{ service.weight | d('0', true) }} {{ service.port }} {{ service.target }}
 {% endfor %}
 {% for text in _zone_data['text'] %}
 {% if text.text is string %}

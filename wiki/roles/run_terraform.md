@@ -1,67 +1,124 @@
 ---
 title: "Run Terraform Role"
 role: run_terraform
-category: Infrastructure as Code
-type: Ansible Role
-tags: terraform, ansible, iac
+category: Roles
+type: ansible-role
+tags: [ansible, role, run_terraform]
 ---
-
-## Summary
-
-The `run_terraform` role is designed to manage the lifecycle of Terraform projects within an Ansible playbook. It includes tasks for initializing a Terraform directory, configuring variables, applying changes, and destroying resources. This role ensures that Terraform operations are performed in a controlled and repeatable manner.
 
 ## Variables
 
-| Variable Name                     | Default Value | Description                                                                 |
-|-----------------------------------|---------------|-----------------------------------------------------------------------------|
-| `role_run_terraform__playbook_dir`  | `{{ playbook_dir }}` | The directory where the Ansible playbook is located. This is used to locate the Terraform project path. |
+| Variable Name | Default Value | Description |
+|---------------|---------------|-------------|
+| `playbook_dir` | Required | The directory where the playbook is located. This is used to reference the Terraform project path. |
 
 ## Usage
 
-To use the `run_terraform` role, include it in your Ansible playbook and ensure that the necessary variables are set. Below is an example of how to integrate this role into a playbook:
+### Applying Terraform Configuration
+
+To apply a Terraform configuration, include the `apply` task in your playbook:
 
 ```yaml
----
-- name: Manage Terraform Infrastructure
-  hosts: localhost
-  gather_facts: no
+- hosts: localhost
   roles:
     - role: run_terraform
-      vars:
-        role_run_terraform__playbook_dir: /path/to/your/playbook
+      tasks_from: apply
 ```
 
-### Tasks Overview
+### Configuring Terraform Variables
 
-1. **Initialization (`init.yml`)**: Initializes the Terraform directory to prepare it for further operations.
-2. **Configuration (`config.yml`)**: Deletes any existing `variables.tf` file and generates a new one using a Jinja2 template.
-3. **Apply (`apply.yml`)**: Applies the Terraform configuration, creating or updating resources as specified.
-4. **Destroy (`destroy.yml`)**: Destroys all resources managed by the Terraform project.
+To configure Terraform variables, include the `config` task in your playbook. Ensure you have a `variables.j2` template file in your role directory:
+
+```yaml
+- hosts: localhost
+  roles:
+    - role: run_terraform
+      tasks_from: config
+```
+
+### Initializing Terraform
+
+To initialize the Terraform directory, include the `init` task in your playbook:
+
+```yaml
+- hosts: localhost
+  roles:
+    - role: run_terraform
+      tasks_from: init
+```
+
+### Destroying Terraform Configuration
+
+To destroy the Terraform configuration, include the `destroy` task in your playbook:
+
+```yaml
+- hosts: localhost
+  roles:
+    - role: run_terraform
+      tasks_from: destroy
+```
 
 ## Dependencies
 
-- `community.general.terraform`: This Ansible collection must be installed to use the `community.general.terraform` module. Install it using:
-  ```bash
-  ansible-galaxy collection install community.general
-  ```
+This role requires the `community.general` collection for the `terraform` module. Ensure you have it installed:
+
+```bash
+ansible-galaxy collection install community.general
+```
 
 ## Best Practices
 
-- **Variable Management**: Always specify the `role_run_terraform__playbook_dir` variable to ensure that Terraform operates in the correct directory.
-- **Idempotency**: The role is designed to be idempotent, meaning it can be run multiple times without causing unintended changes after the desired state has been achieved.
-- **Security**: Ensure that sensitive information (e.g., API keys) is managed securely and not hard-coded into your Terraform configurations.
-
-## Molecule Tests
-
-This role does not currently include Molecule tests. Consider adding Molecule scenarios to validate the functionality of this role in different environments.
+1. **Template Management**: Ensure your `variables.j2` template is correctly configured and located in the appropriate directory.
+2. **Terraform State**: Manage Terraform state files carefully, especially in a team environment, to avoid conflicts.
+3. **Environment Isolation**: Use separate directories or workspaces for different environments (e.g., development, staging, production) to avoid unintended changes.
 
 ## Backlinks
 
-- [tasks/apply.yml](../../roles/run_terraform/tasks/apply.yml)
-- [tasks/config.yml](../../roles/run_terraform/tasks/config.yml)
-- [tasks/destroy.yml](../../roles/run_terraform/tasks/destroy.yml)
-- [tasks/init.yml](../../roles/run_terraform/tasks/init.yml)
+- [tasks/apply.yml](../../roles/run_terraform/tasks/apply.yml) - Tasks for applying Terraform configuration
+- [tasks/config.yml](../../roles/run_terraform/tasks/config.yml) - Tasks for configuring Terraform variables
+- [tasks/destroy.yml](../../roles/run_terraform/tasks/destroy.yml) - Tasks for destroying Terraform configuration
+- [tasks/init.yml](../../roles/run_terraform/tasks/init.yml) - Tasks for initializing Terraform
 
----
+## Troubleshooting
 
-This documentation provides a comprehensive overview of the `run_terraform` role, including its purpose, usage, dependencies, best practices, and backlinks to the source files.
+- If you encounter issues with Terraform initialization, ensure that the Terraform project path is correctly set in the `playbook_dir` variable.
+- Check the Ansible logs for any error messages related to the Terraform module.
+- Verify that the `community.general` collection is installed and up-to-date.
+
+## Examples
+
+### Example 1: Basic Terraform Apply
+
+```yaml
+- hosts: localhost
+  roles:
+    - role: run_terraform
+      tasks_from: apply
+```
+
+### Example 2: Terraform with Variables
+
+```yaml
+- hosts: localhost
+  roles:
+    - role: run_terraform
+      tasks_from: config
+```
+
+### Example 3: Terraform Initialization
+
+```yaml
+- hosts: localhost
+  roles:
+    - role: run_terraform
+      tasks_from: init
+```
+
+### Example 4: Terraform Destruction
+
+```yaml
+- hosts: localhost
+  roles:
+    - role: run_terraform
+      tasks_from: destroy
+```

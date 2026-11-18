@@ -33,17 +33,17 @@
 
 - name: "ensure-vault-pki-engine : Display __vault_ca_cert.status"
   ansible.builtin.debug:
-    var: __vault_ca_cert.status | d(0)
+    var: __vault_ca_cert.status | d(0, true)
 
 - name: "ensure-vault-pki-engine : Debug missing Vault PKI mount"
-  when: __vault_ca_cert.status | d(0) == 404
+  when: __vault_ca_cert.status | d(0, true) == 404
   ansible.builtin.debug:
     msg: "Vault PKI mount at {{ bootstrap_pki__vault_mount_path }} does not exist yet. It will be created in subsequent tasks."
   delegate_to: localhost
   run_once: true
 
 - name: "ensure-vault-pki-engine : Display __vault_ca_cert"
-  when: __vault_ca_cert.status | d(0) not in [200, 404]
+  when: __vault_ca_cert.status | d(0, true) not in [200, 404]
   ansible.builtin.debug:
     var: __vault_ca_cert
     verbosity: 1
@@ -66,10 +66,10 @@
 
 - name: "ensure-vault-pki-engine : Initialize __pki_update_required"
   ansible.builtin.set_fact:
-    __pki_update_required: "{{ __vault_ca_cert.status | d(0) != 200 }}"
+    __pki_update_required: "{{ __vault_ca_cert.status | d(0, true) != 200 }}"
 
 - name: "ensure-vault-pki-engine : Compare local pki cert with vault pki cert"
-  when: __vault_ca_cert.status | d(0) == 200
+  when: __vault_ca_cert.status | d(0, true) == 200
   block:
     - name: "ensure-vault-pki-engine : Display __vault_ca_cert.content"
       ansible.builtin.debug:
@@ -132,7 +132,7 @@
 
     - name: "ensure-vault-pki-engine : Set fact for PKI mount existence"
       ansible.builtin.set_fact:
-        __pki_mount_exists: "{{ (not __pki_mount_status.failed | d(true))
+        __pki_mount_exists: "{{ (not __pki_mount_status.failed | d(true, false))
           and __pki_mount_status.data is defined and __pki_mount_status.data.type == 'pki' }}"
 
     - name: "ensure-vault-pki-engine : Debug PKI mount status"
@@ -249,7 +249,7 @@
 
     # After: "ensure-vault-pki-engine : Assert successful PKI import"
     - name: "ensure-vault-pki-engine : Pause briefly post-import for indexing"
-      when: __pki_import_result.changed | default(false) # noqa: no-handler
+      when: __pki_import_result.changed | d(false, false) # noqa: no-handler
       ansible.builtin.pause:
         seconds: 1
       delegate_to: localhost
@@ -305,7 +305,7 @@
       ansible.builtin.set_fact:
         __primary_issuer_id: >-
           {{
-            __pki_import_result.data.data.imported_issuers | default([]) | last | default(
+            __pki_import_result.data.data.imported_issuers | d([], true) | last | default(
               __pki_issuers_list.data.data.keys | first | default('', true)
             )
           }}
@@ -325,8 +325,8 @@
         that: __primary_issuer_id != ''
         success_msg: "Primary issuer selected: {{ __primary_issuer_id }}"
         fail_msg: >-
-          No primary issuer UUID from import/list. Imported: {{ __pki_import_result.data.data.imported_issuers | default([]) }}.
-          Available keys: {{ __pki_issuers_list.data.data.keys | default([]) | list | truncate(5) }}...
+          No primary issuer UUID from import/list. Imported: {{ __pki_import_result.data.data.imported_issuers | d([], true) }}.
+          Available keys: {{ __pki_issuers_list.data.data.keys | d([], true) | list | truncate(5) }}...
       delegate_to: localhost
       run_once: true
 
@@ -494,7 +494,7 @@
         fail_msg: |
           Vault CA import failed or returned empty content.
           Status: {{ __updated_vault_ca_cert.status }}
-          Content: {{ __updated_vault_ca_cert.content | default('EMPTY') }}
+          Content: {{ __updated_vault_ca_cert.content | d('EMPTY', true) }}
 
     - name: "ensure-vault-pki-engine : Get info from updated Vault certificate"
       no_log: true

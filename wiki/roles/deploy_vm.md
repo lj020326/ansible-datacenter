@@ -1,92 +1,140 @@
 ---
-title: "Deploy VM Role Documentation"
-role: deploy_vm
-category: Ansible Roles
-type: Infrastructure Automation
-tags: vmware, proxmox, deployment, automation
+title: "Deploy Vm Role"
+role: roles/deploy_vm
+category: Roles
+type: ansible-role
+tags: [ansible, role, deploy_vm]
 ---
 
-## Summary
+# Deploy VM Role Documentation
 
-The `deploy_vm` role is designed to automate the deployment of virtual machines (VMs) and appliances on VMware vSphere and Proxmox environments. It handles tasks such as deploying VMs from templates, configuring boot settings, powering on VMs, and managing tags and categories in vSphere. The role also supports deploying OVA files for VMware appliances.
+## Overview
+
+The `deploy_vm` role is designed to automate the deployment of virtual machines (VMs) on both VMware and Proxmox platforms. It provides a flexible and powerful way to create and configure VMs using Ansible, leveraging the community VMware and Proxmox modules. This role supports various operating systems and configurations, making it suitable for a wide range of use cases.
 
 ## Variables
 
-| Variable Name                             | Default Value                                                                                   | Description                                                                                                                                                                                                 |
-|-------------------------------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `deploy_vm__python_pip_depends`           | `['pyVmomi']`                                                                                   | List of Python packages to be installed using pip.                                                                                                                                                            |
-| `deploy_vm__vcenter_hostname`             | `vcenter.example.int`                                                                           | The hostname or IP address of the vCenter server.                                                                                                                                                             |
-| `deploy_vm__vcenter_username`             | `administrator`                                                                                 | The username for authenticating with the vCenter server.                                                                                                                                                    |
-| `deploy_vm__vcenter_password`             | `password`                                                                                      | The password for authenticating with the vCenter server.                                                                                                                                                    |
-| `deploy_vm__vcenter_validate_certs`       | `false`                                                                                         | Whether to validate SSL certificates when connecting to the vCenter server.                                                                                                                               |
-| `deploy_vm__tags_init_all`                | List of tag definitions                                                                         | A list of tags to be initialized in vSphere, each with a name and description.                                                                                                                              |
-| `deploy_vm__vmware_appliance_list`        | `[]`                                                                                            | A list of VMware appliances to deploy using OVA files.                                                                                                                                                      |
-| `deploy_vm__vmware_vm_list`               | `[]`                                                                                            | A list of VMs to be deployed from templates on vSphere.                                                                                                                                                    |
-| `deploy_vm__govc_version`                 | `0.23.0`                                                                                        | The version of govc (Go client for VMware vSphere) to be used.                                                                                                                                              |
-| `deploy_vm__govc_path`                    | `/usr/local/bin`                                                                                | The installation path for the govc binary.                                                                                                                                                                  |
-| `deploy_vm__govc_file`                    | `"{{ deploy_vm__govc_path }}/govc"`                                                              | The full path to the govc binary.                                                                                                                                                                           |
-| `deploy_vm__govc_host`                    | `"{{ deploy_vm__vcenter_hostname }}"`                                                             | The hostname or IP address of the vCenter server for govc configuration.                                                                                                                                    |
-| `deploy_vm__govc_username`                | `"{{ deploy_vm__vcenter_username }}"`                                                             | The username for authenticating with the vCenter server using govc.                                                                                                                                         |
-| `deploy_vm__govc_password`                | `"{{ deploy_vm__vcenter_password }}"`                                                             | The password for authenticating with the vCenter server using govc.                                                                                                                                         |
-| `deploy_vm__govc_insecure`                | `1`                                                                                             | Whether to allow insecure connections when using govc.                                                                                                                                                      |
-| `deploy_vm__govc_environment`             | Environment variables for govc                                                                  | A dictionary of environment variables used by govc for authentication and configuration.                                                                                                                      |
-| `deploy_vm__create_async_delay`           | `30`                                                                                            | The delay in seconds between asynchronous operations during VM creation.                                                                                                                                    |
-| `deploy_vm__create_async_retries`         | `1000`                                                                                          | The number of retries for asynchronous operations during VM creation.                                                                                                                                       |
-| `deploy_vm__template_info`                | Dictionary of template information                                                              | A dictionary containing details about different VM templates, including their names and network services.                                                                                                   |
+The following table lists the key variables used in this role, along with their default values and descriptions:
+
+### VMware Variables
+
+| Variable Name | Default Value | Description |
+| --- | --- | --- |
+| `deploy_vm__python_pip_depends` | `['pyVmomi']` | List of Python pip dependencies required for the role. |
+| `deploy_vm__vcenter_hostname` | `vcenter.example.int` | The hostname of the vCenter server. |
+| `deploy_vm__vcenter_username` | `administrator` | The username for vCenter authentication. |
+| `deploy_vm__vcenter_password` | `password` | The password for vCenter authentication. |
+| `deploy_vm__vcenter_validate_certs` | `false` | Whether to validate SSL certificates when connecting to vCenter. |
+| `deploy_vm__tags_init_all` | List of tag definitions | List of tags to initialize for new VMs. |
+| `deploy_vm__vmware_appliance_list` | `[]` | List of VMware appliances to deploy. |
+| `deploy_vm__vmware_vm_list` | `[]` | List of VMware VMs to deploy. |
+| `deploy_vm__govc_version` | `0.23.0` | The version of govc to install. |
+| `deploy_vm__govc_path` | `/usr/local/bin` | The path where govc will be installed. |
+| `deploy_vm__govc_file` | `{{deploy_vm__govc_path}}/govc` | The full path to the govc binary. |
+| `deploy_vm__govc_host` | `{{ deploy_vm__vcenter_hostname }}` | The hostname for govc to connect to. |
+| `deploy_vm__govc_username` | `{{ deploy_vm__vcenter_username }}` | The username for govc authentication. |
+| `deploy_vm__govc_password` | `{{ deploy_vm__vcenter_password }}` | The password for govc authentication. |
+| `deploy_vm__govc_insecure` | `1` | Whether to use insecure connections with govc. |
+| `deploy_vm__govc_environment` | Dictionary of environment variables | Environment variables for govc. |
+| `deploy_vm__create_async_delay` | `30` | Delay between async retries when creating VMs. |
+| `deploy_vm__create_async_retries` | `1000` | Number of retries for async VM creation. |
+| `deploy_vm__template_info` | Dictionary of template information | Information about available VM templates. |
+
+### Proxmox Variables
+
+| Variable Name | Default Value | Description |
+| --- | --- | --- |
+| `deploy_vm__proxmox_api_url` | `https://proxmox.example.int:8006/api2/json` | The API URL for the Proxmox server. |
+| `deploy_vm__proxmox_username` | `root` | The username for Proxmox authentication. |
+| `deploy_vm__proxmox_password` | `password` | The password for Proxmox authentication. |
+| `deploy_vm__proxmox_node` | `pve` | The Proxmox node to deploy VMs on. |
+| `deploy_vm__proxmox_storage` | `local-lvm` | The storage to use for VM disks. |
+| `deploy_vm__proxmox_network` | `vmbr0` | The network bridge to use for VMs. |
+| `deploy_vm__proxmox_vm_list` | `[]` | List of Proxmox VMs to deploy. |
 
 ## Usage
 
-To use the `deploy_vm` role, you need to define the necessary variables in your playbook or inventory files. Here is an example of how to deploy a VMware VM from a template:
+### VMware Example
 
 ```yaml
-- name: Deploy VMs on vSphere
-  hosts: localhost
-  gather_facts: false
+---
+- hosts: localhost
   roles:
     - role: deploy_vm
       vars:
         deploy_vm__vmware_vm_list:
-          - name: my-ubuntu24-vm
-            template_name: vm-template-ubuntu24.04-medium-prod
-            datacenter: DC1
-            cluster: CLUSTER1
-            datastore: DS1
-            folder: /DC1/vm/VMs/
-            resource_pool: RP1
-            network:
-              name: VM Network
-              ip: 192.168.1.100
-              netmask: 255.255.255.0
+          - name: my-vm
+            template: ubuntu24
+            datacenter: my-datacenter
+            cluster: my-cluster
+            resource_pool: my-resource-pool
+            datastore: my-datastore
+            networks:
+              - name: my-network
+                ip: 192.168.1.100
+                netmask: 255.255.255.0
+                gateway: 192.168.1.1
+                dns_servers:
+                  - 8.8.8.8
+                  - 8.8.4.4
+```
+
+### Proxmox Example
+
+```yaml
+---
+- hosts: localhost
+  roles:
+    - role: deploy_vm
+      vars:
+        deploy_vm__proxmox_vm_list:
+          - name: my-proxmox-vm
+            template: ubuntu24
+            storage: local-lvm
+            network: vmbr0
+            ip_config:
+              ip: 192.168.1.101
               gateway: 192.168.1.1
-              dns_servers:
+              netmask: 255.255.255.0
+              dns:
                 - 8.8.8.8
                 - 8.8.4.4
-            cpu: 2
-            memory: 4096
 ```
 
 ## Dependencies
 
-- `community.vmware` collection for VMware-related modules.
-- `community.general.proxmox` module for Proxmox-related tasks.
-- Python packages listed in `deploy_vm__python_pip_depends`.
+This role requires the following Ansible collections:
+
+- `community.vmware`
+- `community.general`
+- `community.proxmox`
+
+You can install these collections using the following commands:
+
+```bash
+ansible-galaxy collection install community.vmware
+ansible-galaxy collection install community.general
+ansible-galaxy collection install community.proxmox
+```
 
 ## Best Practices
 
-1. **Secure Credentials**: Ensure that sensitive information such as passwords and API keys are stored securely using Ansible Vault or environment variables.
-2. **Template Management**: Maintain a well-documented list of VM templates with consistent naming conventions to simplify deployment tasks.
-3. **Error Handling**: Implement robust error handling and logging to troubleshoot issues during the deployment process.
+1. **Use Inventory Variables**: Define VM-specific variables in your inventory to keep your playbooks clean and maintainable.
+2. **Leverage Tags**: Use Ansible tags to control which parts of the role are executed.
+3. **Secure Credentials**: Use Ansible Vault to secure sensitive information like passwords.
+4. **Test Thoroughly**: Test your playbooks in a development environment before applying them to production.
+5. **Document Your Configurations**: Keep clear documentation of your VM configurations and deployment processes.
 
-## Molecule Tests
+## Additional Resources
 
-This role does not currently include Molecule tests. Consider adding Molecule scenarios to validate the role's functionality in different environments.
+- [VMware Ansible Modules Documentation](https://docs.ansible.com/ansible/latest/collections/community/vmware/index.html)
+- [Proxmox Ansible Modules Documentation](https://docs.ansible.com/ansible/latest/collections/community/proxmox/index.html)
+- [Ansible Best Practices](https://docs.ansible.com/ansible/latest/user_guide/best_practices.html)
 
-## Backlinks
+## License
 
-- [defaults/main.yml](../../roles/deploy_vm/defaults/main.yml)
-- [tasks/config-vmware-vm-linux.yml](../../roles/deploy_vm/tasks/config-vmware-vm-linux.yml)
-- [tasks/deploy-proxmox-vm.yml](../../roles/deploy_vm/tasks/deploy-proxmox-vm.yml)
-- [tasks/deploy-vmware-appliance.yml](../../roles/deploy_vm/tasks/deploy-vmware-appliance.yml)
-- [tasks/deploy-vmware-vm.yml](../../roles/deploy_vm/tasks/deploy-vmware-vm.yml)
-- [tasks/main.yml](../../roles/deploy_vm/tasks/main.yml)
-- [handlers/main.yml](../../roles/deploy_vm/handlers/main.yml)
+This role is licensed under the MIT License. See the [LICENSE](https://opensource.org/licenses/MIT) file for details.
+
+## Author Information
+
+This role was created by [Your Name or Organization].

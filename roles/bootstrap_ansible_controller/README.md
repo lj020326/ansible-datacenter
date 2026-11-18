@@ -51,29 +51,29 @@ The type of roles available will be noted for each entry.
 ### bootstrap_ansible_controller__state (defaults/main.yml)
 The default is present. When set to absent, defined items will be removed with the exceptions noted above.
 
-### controller_general_settings (controller-settings.yml)
+### bootstrap_ansible_controller__general_settings (controller-settings.yml)
 A dictionary of settings to be applied. Available keys can be viewed at {{ hostname }}/api/v2/settings/all/
 
-### controller_saml_settings (controller-settings.yml)
+### bootstrap_ansible_controller__saml_settings (controller-settings.yml)
 A dictionary of SAML-specific settings. Of note is the `team_org_map` value, which is set to a dynamically generated mapping of organizations and teams. (See `__org_team_list` variable)
 
 ### __controller_default_credential_types (credential-types.yml)
 This uses the ansible.controller.controller_api query to get a list of built-in credential types. This is required for validation of credential definitions.
 
-### controller_credential_types (credential-types.yml)
+### bootstrap_ansible_controller__credential_types (credential-types.yml)
 A list of dictionaries that define credential types. _Any new credential types must have a corresponding credential test. See **Credential Testing** below._
 
-### controller_credentials (credentials.yml)
+### bootstrap_ansible_controller__credentials (credentials.yml)
 A list of dictionaries that define credentials. The `use` role may be added to these items.
 
-* The credential_type must be defined in either `controller_credential_types` or exist in `__controller_default_credential_types`
-* Any input that is defined as secret in the assocatied credential type should be referred to as a variable referring to an entry in `_vaulted_credentials` (see `_vaulted_credentials variable`)
+* The credential_type must be defined in either `bootstrap_ansible_controller__credential_types` or exist in `__controller_default_credential_types`
+* Any input that is defined as secret in the assocatied credential type should be referred to as a variable referring to an entry in `bootstrap_ansible_controller__vaulted_credentials` (see `bootstrap_ansible_controller__vaulted_credentials variable`)
 
 ### bootstrap_ansible_controller__env_specific_vars (env-specific.yml)
-This variable contains keys for sandbox, dev, qa, and prod. If a resource definition will vary based on the Controller environment, the environment-specific values should be defined here and referred to. The sandbox/dev/etc value is provided by the 'controller api access' credential type as `controller_env`. For example, this sample credential:
+This variable contains keys for sandbox, dev, qa, and prod. If a resource definition will vary based on the Controller environment, the environment-specific values should be defined here and referred to. The sandbox/dev/etc value is provided by the 'controller api access' credential type as `bootstrap_ansible_controller__controller_env`. For example, this sample credential:
 
     - name: sample credential
-      hostname: {{ bootstrap_ansible_controller__env_specific_vars[controller_env]['sample_cred_hostname']}}
+      hostname: {{ bootstrap_ansible_controller__env_specific_vars[bootstrap_ansible_controller__controller_env]['sample_cred_hostname']}}
 
 would be listed under:
 
@@ -86,7 +86,7 @@ would be listed under:
         sample_cred_hostname: devhost.example.com
       ...
 
-### controller_inventories (inventories.yml)
+### bootstrap_ansible_controller__inventories (inventories.yml)
 A list of inventory definitions. Each inventory definition consists of the inventory itself as well as its sources. The following roles are accepted for these items:
 
 * `use`
@@ -96,44 +96,44 @@ A list of inventory definitions. Each inventory definition consists of the inven
 
 The following dependencies apply:
 
-* `organization` must be defined in `controller_organizations`
-* `source_project` must be defined in `controller_projects`
-* `credential` must be defined in `controller_credentials`
+* `organization` must be defined in `bootstrap_ansible_controller__organizations`
+* `source_project` must be defined in `bootstrap_ansible_controller__projects`
+* `credential` must be defined in `bootstrap_ansible_controller__credentials`
 
 **NOTE:** As of this writing, The ansible.controller.inventory_source module does not appear to respect credentials that are assigned. Credentials will need to be manually added. This only affects inventory sources that have credentials assigned to them directly, such as an AWS dynamic inventory.
 
-### controller_job_templates (job-templates.yml)
+### bootstrap_ansible_controller__job_templates (job-templates.yml)
 A list of job template definitions. The `execute` and `admin` roles are accepted for these items. The following dependencies apply:
 
-* `inventory` must be defined in `controller_inventories`
-* `organization` must be defined in `controller_organizations`
-* `project` must be defined in `controller_projects`
-* `credentials` must be defined in `controller_credentials`
+* `inventory` must be defined in `bootstrap_ansible_controller__inventories`
+* `organization` must be defined in `bootstrap_ansible_controller__organizations`
+* `project` must be defined in `bootstrap_ansible_controller__projects`
+* `credentials` must be defined in `bootstrap_ansible_controller__credentials`
 * `environments` (optional) must be a list and contain only the following values: sandbox, dev, qa, prod. This specificies which environments receive the template. If omitted, template is pushed to all environments.
 * `notification_templates_started`, `notification_templates_success`, and `notification_templates_error` (optional) must be lists. Each item within the list must be defined within `bootstrap_ansible_controller__notification_templates`.
 
-### controller_workflow_templates (workflow-templates.yml)
+### bootstrap_ansible_controller__workflow_templates (workflow-templates.yml)
 A list of workflow job template definitions. The `execute`, `admin`, and `approval` roles are accepted for these items. The following dependencies apply:
 
-* `inventory` must be defined in `controller_inventories` if it is specified in the workflow definition
-* `unified_job_template` within each workflow node must be defined in `controller_job_templates`
+* `inventory` must be defined in `bootstrap_ansible_controller__inventories` if it is specified in the workflow definition
+* `unified_job_template` within each workflow node must be defined in `bootstrap_ansible_controller__job_templates`
 * `environments` (optional) must be a list and contain only the following values: sandbox, dev, qa, prod. This specificies which environments receive the template. If omitted, workflow is pushed to all environments.
 
-### controller_execution_environments (execution-environments.yml)
+### bootstrap_ansible_controller__execution_environments (execution-environments.yml)
 A list of execution environments to be added. Execution environments must already exist in an image registry (e.g. Private Automation Hub).
 
 Project and job template definitions will be validated against this list to ensure only pre-defined execution environments are referenced, though this functionality is not yet in place.
 
-### controller_schedules (schedules.yml)
+### bootstrap_ansible_controller__schedules (schedules.yml)
 A list of schedule definitions. The following dependencies apply:
 
-* `organization` must be defined in `controller_organizations`
-* `job_template_name` must be defined in `controller_job_templates`
+* `organization` must be defined in `bootstrap_ansible_controller__organizations`
+* `job_template_name` must be defined in `bootstrap_ansible_controller__job_templates`
 * `environments` (optional) must be a list and contain only the following values: sandbox, dev, qa, prod. This specificies which environments receive the schedule. If omitted, schedule is pushed to all environments.
 
 `rule_parameters` is a list of parameters used to create a schedule. See full documentation [here](https://docs.ansible.com/ansible/latest/collections/awx/awx/schedule_rruleset_lookup.html#ansible-collections-awx-awx-schedule-rruleset-lookup).
 
-### controller_organizations (orgs-and-teams.yml)
+### bootstrap_ansible_controller__organizations (orgs-and-teams.yml)
 A list of controller organizations.
 
 * `teams` - Any teams listed here will be created (or removed) by the role. Any teams listed under `roles` for resources must be defined here.
@@ -142,16 +142,16 @@ A list of controller organizations.
 * `auditors` - Teams and local users listed here will be given organization audit (full read) rights
 
 ### __org_team_list (orgs-and-teams.yml)
-This is a generated list derived from `controller_organizations` where each item provides an organization and team pairing. This is used to create and remove teams as well as for the SAML group mapping.
+This is a generated list derived from `bootstrap_ansible_controller__organizations` where each item provides an organization and team pairing. This is used to create and remove teams as well as for the SAML group mapping.
 
 ### bootstrap_ansible_controller__local_users (local-users.yml)
 A list of local users to be created, defined by username, password (vaulted), and organization. These users will be created in each environment.
 
-### controller_projects (projects.yml)
+### bootstrap_ansible_controller__projects (projects.yml)
 A list of controller projects. The `use`, `admin`, and `update` roles are accepted for these items. The following dependencies apply:
 
-* `organization` must be defined in `controller_organizations`
-* `credential` must be defined in `controller_credentials`
+* `organization` must be defined in `bootstrap_ansible_controller__organizations`
+* `credential` must be defined in `bootstrap_ansible_controller__credentials`
 
 ### bootstrap_ansible_controller__notification_templates
 A list of notification templates. Only email and webhook types are currently supported by this role.
@@ -159,7 +159,7 @@ A list of notification templates. Only email and webhook types are currently sup
 #### _default_git_credential and _default_scm_branch (projects.yml)
 These items are provided as shorthand. As most projects will have the same git credential and scm branch, these variables allow these items to be defined once for ease of management. Those projects that deviate from the defaults can have their values replaced accordingly.
 
-### _vaulted_credentials
+### bootstrap_ansible_controller__vaulted_credentials
 A dictionary (*not* a list of dictionaries as other items have been) where the values are encrypted with ansible-vault. This allows those credentials to be stored without exposure. This is intended to be a temporary solution. In future state, these vaulted values would be replaced with Conjur (or equivalent) lookup definitions.
 
 Credential Testing

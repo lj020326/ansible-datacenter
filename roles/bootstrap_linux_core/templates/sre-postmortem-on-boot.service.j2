@@ -1,0 +1,19 @@
+[Unit]
+Description=SRE Sudden Shutdown Postmortem (only on unexpected reboot)
+Documentation=file:///opt/scripts/sre-shutdown-postmortem.sh
+After=network-online.target local-fs.target
+Wants=network-online.target
+# Skip if this was a planned OS-update reboot
+ConditionPathExists=!{{ bootstrap_linux_core__postmortem_planned_reboot_flag }}
+
+[Service]
+Type=oneshot
+# Give journald / network a moment to settle
+ExecStartPre=/bin/sleep 45
+ExecStart={{ bootstrap_linux_core__admin_script_dir }}/sre-shutdown-postmortem.sh --email
+RemainAfterExit=false
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

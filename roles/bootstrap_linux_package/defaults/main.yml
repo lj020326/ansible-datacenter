@@ -20,13 +20,34 @@ bootstrap_linux_package__snap_list_default:
 bootstrap_linux_package__install_npm_libs: false
 bootstrap_linux_package__npm_list_default: []
 
+# Toggle to enable repo-proxy configuration (defaults to false)
+bootstrap_linux_package__use_repo_proxy: false
+
+# Proxy endpoint URL (HTTP/HTTPS URL or hostname:port)
+bootstrap_linux_package__repo_proxy_url: "http://repo-proxy.local:3128"
+
+# Optional bypass list for direct connections
+bootstrap_linux_package__repo_proxy_no_proxy:
+  - "localhost"
+  - "127.0.0.1"
+
+__bootstrap_linux_package__pkg_proxy_conf_file_path_map:
+  apt: '/etc/apt/apt.conf.d/90repo-proxy'
+  dnf: '/etc/dnf/dnf.conf'
+  yum: '/etc/yum.conf'
+
+__bootstrap_linux_package__pkg_proxy_profile_script: '/etc/profile.d/repo_proxy.sh'
+
+__bootstrap_linux_package__pkg_proxy_conf_file: "{{
+  __bootstrap_linux_package__pkg_proxy_conf_file_path_map[ansible_facts['pkg_mgr']] | d('', true) }}"
+
 __bootstrap_linux_package__package_source_dir_default: "/etc/apt/sources.list.d"
 __bootstrap_linux_package__package_source_dir: "{{ bootstrap_linux_package__package_source_dir
-  | d(__bootstrap_linux_package__package_source_dir_default) }}"
+  | d(__bootstrap_linux_package__package_source_dir_default, true) }}"
 
 __bootstrap_linux_package__reset_sources_default: false
 __bootstrap_linux_package__reset_sources: "{{ bootstrap_linux_package__reset_sources
-  | d(__bootstrap_linux_package__reset_sources_default) }}"
+  | d(__bootstrap_linux_package__reset_sources_default, true) }}"
 
 ## Detect DGX OS / Ascent GX10
 __bootstrap_linux_package__is_dgx: >-
@@ -35,7 +56,7 @@ __bootstrap_linux_package__is_dgx: >-
      or (ansible_facts.machine == 'aarch64' and 'nvidia' in (ansible_facts.product_version | default('', true) | lower)) }}
 __bootstrap_linux_package__preserve_nvidia_repos_default: true
 __bootstrap_linux_package__preserve_nvidia_repos: "{{ bootstrap_linux_package__preserve_nvidia_repos
-  | d(__bootstrap_linux_package__preserve_nvidia_repos_default) }}"
+  | d(__bootstrap_linux_package__preserve_nvidia_repos_default, true) }}"
 
 #__bootstrap_linux_package__npm_list:
 #  # Install a specific version of a package.
@@ -47,11 +68,11 @@ __bootstrap_linux_package__preserve_nvidia_repos: "{{ bootstrap_linux_package__p
 #  - node-sass
 
 __bootstrap_linux_package__package_list: "{{ bootstrap_linux_package__package_list
-  | d(__bootstrap_linux_package__package_list_default) | d([], true) }}"
+  | d(__bootstrap_linux_package__package_list_default, true) | d([], true) }}"
 __bootstrap_linux_package__npm_list: "{{ bootstrap_linux_package__npm_list
-  | d(bootstrap_linux_package__npm_list_default) | d([], true) }}"
+  | d(bootstrap_linux_package__npm_list_default, true) | d([], true) }}"
 __bootstrap_linux_package__snap_list: "{{ bootstrap_linux_package__snap_list
-  | d(bootstrap_linux_package__snap_list_default) | d([], true) }}"
+  | d(bootstrap_linux_package__snap_list_default, true) | d([], true) }}"
 
 ## Overridden by os-specific vars
 bootstrap_linux_package__yum_repo_list: []

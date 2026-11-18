@@ -1,33 +1,31 @@
 ---
-title: Bootstrap Linux Networking Role Documentation
+title: "Bootstrap Linux Networking Role"
 role: bootstrap_linux_networking
-category: Network Configuration
-type: Ansible Role
-tags: networking, linux, ansible, automation
+category: Networking
+type: Role
+tags: [ansible, role, bootstrap_linux_networking]
+---
 
-## Summary
+# Bootstrap Linux Networking Role
 
-The `bootstrap_linux_networking` role is designed to automate the setup and configuration of network interfaces on Linux systems. It supports various types of network configurations including Ethernet, bridge, bond, and VLAN interfaces. The role dynamically includes OS-specific tasks and variables to ensure compatibility across different distributions such as Debian and RedHat derivatives.
+This Ansible role is designed to configure and manage network interfaces on Linux systems. It supports various types of interfaces including Ethernet, bridge, bond, and VLAN interfaces. The role is compatible with both Debian-based and RedHat-based distributions.
 
 ## Variables
 
-| Variable Name                         | Default Value                      | Description                                                                 |
-|---------------------------------------|------------------------------------|-----------------------------------------------------------------------------|
-| `bootstrap_linux_network_pkgs`        | `[]`                               | List of network-related packages to install.                              |
-| `bootstrap_linux_network_ether_interfaces` | `[]`                             | List of Ethernet interfaces to configure.                                 |
-| `bootstrap_linux_network_bridge_interfaces` | `[]`                            | List of bridge interfaces to configure.                                   |
-| `bootstrap_linux_network_bond_interfaces`   | `[]`                            | List of bond interfaces to configure.                                     |
-| `bootstrap_linux_network_vlan_interfaces`   | `[]`                            | List of VLAN interfaces to configure.                                     |
-| `bootstrap_linux_network_check_packages`  | `true`                           | Boolean flag to determine if required packages should be checked and installed. |
-| `bootstrap_linux_network_allow_service_restart` | `true`                       | Boolean flag to allow restarting network services after configuration changes.|
-| `bootstrap_linux_network_modprobe_persist` | `false`                          | Boolean flag to persist kernel module loading at boot time (not used in this role). |
-| `env`                                 | `{ RUNLEVEL: 1 }`                  | Environment variables for package installation tasks.                       |
+| Variable Name                           | Default Value | Description                                                                 |
+|-----------------------------------------|---------------|-----------------------------------------------------------------------------|
+| `bootstrap_linux_network_pkgs`          | `[]`          | List of network-related packages to install                                |
+| `bootstrap_linux_network_ether_interfaces` | `[]`          | List of Ethernet interfaces to configure                                   |
+| `bootstrap_linux_network_bridge_interfaces` | `[]`          | List of bridge interfaces to configure                                     |
+| `bootstrap_linux_network_bond_interfaces` | `[]`          | List of bond interfaces to configure                                       |
+| `bootstrap_linux_network_vlan_interfaces` | `[]`          | List of VLAN interfaces to configure                                       |
+| `bootstrap_linux_network_check_packages` | `true`        | Whether to check and install required packages                             |
+| `bootstrap_linux_network_allow_service_restart` | `true`        | Whether to allow service restarts during configuration                      |
+| `bootstrap_linux_network_modprobe_persist` | `false`       | Whether to persist modprobe settings                                        |
 
 ## Usage
 
-To use the `bootstrap_linux_networking` role, include it in your playbook and define the necessary variables to specify the network interfaces and packages you want to install.
-
-### Example Playbook
+To use this role, include it in your playbook and define the necessary variables:
 
 ```yaml
 - hosts: all
@@ -35,32 +33,44 @@ To use the `bootstrap_linux_networking` role, include it in your playbook and de
     - role: bootstrap_linux_networking
       vars:
         bootstrap_linux_network_pkgs:
-          - net-tools
           - ifupdown
+          - ifupdown2
         bootstrap_linux_network_ether_interfaces:
           - device: eth0
-            ip: 192.168.1.100
+            ip: 192.168.1.10
             netmask: 255.255.255.0
             gateway: 192.168.1.1
+        bootstrap_linux_network_bridge_interfaces:
+          - name: br0
+            members:
+              - eth1
+              - eth2
+        bootstrap_linux_network_bond_interfaces:
+          - name: bond0
+            slaves:
+              - eth2
+              - eth3
+            mode: active-backup
         bootstrap_linux_network_vlan_interfaces:
-          - device: eth0.10
-            ip: 192.168.10.100
-            netmask: 255.255.255.0
+          - name: eth0.10
+            vlan_id: 10
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies other than the Ansible core modules and the specified network-related packages.
+This role does not have any external dependencies. It only requires Ansible to be installed on the control node.
 
 ## Best Practices
 
-- Ensure that the `bootstrap_linux_network_pkgs` list includes all necessary packages for your specific network configuration.
-- Define all required interfaces in their respective lists (`bootstrap_linux_network_ether_interfaces`, `bootstrap_linux_network_bridge_interfaces`, etc.) with appropriate configurations.
-- Set `bootstrap_linux_network_allow_service_restart` to `false` if you do not want the role to restart network services automatically.
+1. **Package Management**: Ensure that the required network packages are specified in `bootstrap_linux_network_pkgs`. This is crucial for the role to function correctly on different distributions.
 
-## Molecule Tests
+2. **Interface Configuration**: Define all necessary interfaces in their respective variables. Be sure to include all required parameters for each interface type to avoid configuration issues.
 
-This role does not include any Molecule tests at this time. Consider adding Molecule scenarios to ensure the role behaves as expected across different environments and distributions.
+3. **Service Restart**: Be cautious with `bootstrap_linux_network_allow_service_restart` as setting it to `true` can cause network interruptions during application. It's generally recommended to test with this set to `false` first.
+
+4. **Testing**: Always test the configuration on a non-production environment before applying it to production systems. This helps catch any potential issues that could disrupt network connectivity.
+
+5. **Documentation**: Keep your interface configurations documented, especially in complex setups involving bonds and bridges.
 
 ## Backlinks
 

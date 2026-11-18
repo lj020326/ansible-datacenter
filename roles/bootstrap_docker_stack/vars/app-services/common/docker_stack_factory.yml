@@ -1,0 +1,78 @@
+---
+
+__docker_stack__factory__stack_dir: "{{ docker_stack__dir | d('/home/user/docker-dirs') }}"
+__docker_stack__factory__base_dir_default: "{{ __docker_stack__factory__stack_dir }}/factory"
+__docker_stack__factory__base_dir: "{{ docker_stack__factory__dir
+  | d(__docker_stack__factory__base_dir_default, true) }}"
+
+# https://github.com/owainlewis/machinist
+__docker_stack__factory__image_default: "{{ docker_stack__registry__endpoint }}/factory-control:latest"
+__docker_stack__factory__image: "{{ docker_stack__factory__image
+  | d(__docker_stack__factory__image_default, true) }}"
+
+# Host address
+__docker_stack__factory__domain: "{{ docker_stack__internal_domain | d('example.int') }}"
+__docker_stack__factory__host_addr_default: "factory.{{ __docker_stack__factory__domain }}"
+__docker_stack__factory__host_addr: "{{ docker_stack__factory__host_addr
+  | d(__docker_stack__factory__host_addr_default, true) }}"
+
+# Listener bind ports
+__docker_stack__factory__http_port: "{{ docker_stack__factory__http_port | d('8090', true) }}"
+
+__docker_stack__factory__config_dirs:
+  - path: "{{ __docker_stack__factory__base_dir }}"
+  - path: "{{ __docker_stack__factory__base_dir }}/config"
+  - path: "{{ __docker_stack__factory__base_dir }}/workspace"
+
+__docker_stack__factory__config_templates:
+  - src: factory/factory.env.j2
+    dest: "{{ __docker_stack__factory__base_dir }}/factory.env"
+
+__docker_stack__factory__firewalld_ports:
+  - "{{ __docker_stack__factory__http_port }}/tcp"
+
+__docker_stack__factory__traefik_labels: "{{ docker_stack__factory__traefik_labels
+  | d(__docker_stack__factory__traefik_labels_default, true) }}"
+
+__docker_stack__factory__services:
+  factory-control:
+    image: "{{ __docker_stack__factory__image }}"
+    container_name: factory-control
+    env_file:
+      - factory/factory.env
+    restart: unless-stopped
+    working_dir: /app
+    user: "{{ docker_stack__user_uid }}:{{ docker_stack__user_gid }}"
+    networks:
+      - "{{ docker_stack__network_name__traefik_proxy }}"
+      - "{{ docker_stack__network_name__default }}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "{{ __docker_stack__factory__base_dir }}/workspace:/workspace"
+    ports:
+      - "{{ __docker_stack__factory__http_port }}:8080"
+    labels: "{{ __docker_stack__factory__traefik_labels }}"
+    deploy:
+      mode: replicated
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+
+docker_stack__appspec__factory:
+  dirs: "{{ __docker_stack__factory__config_dirs | d([], true) }}"
+  files: "{{ __docker_stack__factory__config_files | d([], true) }}"
+  templates: "{{ __docker_stack__factory__config_templates | d([], true) }}"
+  secrets: "{{ __docker_stack__factory__secrets | d([], true) }}"
+  firewalld_services: "{{ __docker_stack__factory__firewalld_services | d([], true) }}"
+  firewalld_ports: "{{ __docker_stack__factory__firewalld_ports | d([], true) }}"
+  docker_services: "{{ __docker_stack__factory__services | d({}, true) }}"

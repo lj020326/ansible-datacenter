@@ -1,92 +1,85 @@
 ---
-title: "Proxmox Bootstrap Role Documentation"
+title: "Proxmox Bootstrap Role"
 role: bootstrap_proxmox
-category: Ansible Roles
-type: Configuration
-tags: proxmox, pve, virtualization, kvm, lxc
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_proxmox]
+---
 
-## Summary
-The `bootstrap_proxmox` role is designed to install and configure Proxmox VE on Debian-based systems. It supports clustering, Ceph storage integration, ZFS configuration, and various other system-level configurations such as SSH management, SSL certificates, and kernel updates.
+# Proxmox Bootstrap Role
+
+The `bootstrap_proxmox` role is designed to install and configure Proxmox Virtual Environment (PVE) on Debian-based systems. This role handles the setup of Proxmox repositories, configuration of cluster settings, management of SSH keys, and various other Proxmox-specific configurations.
 
 ## Variables
 
-| Variable Name                         | Default Value                                                                                           | Description                                                                                                                                                                                                 |
-|---------------------------------------|---------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `pve_base_dir`                        | `/etc/pve`                                                                                            | Base directory for Proxmox configuration files.                                                                                                                                                             |
-| `pve_cluster_conf`                    | `"{{ pve_base_dir }}/corosync.conf"`                                                                    | Path to the corosync cluster configuration file.                                                                                                                                                            |
-| `_pve_cluster_addr0`                  | `"{{ ansible_facts['default_ipv4']['address'] }}"`                                                      | Default IPv4 address for the first cluster interface.                                                                                                                                                       |
-| `remove_nag`                          | `true`                                                                                                  | Whether to remove the Proxmox no-subscription nag message.                                                                                                                                                |
-| `remove_enterprise_repo`              | `true`                                                                                                  | Whether to remove the Proxmox enterprise repository.                                                                                                                                                      |
-| `pve_group`                           | `proxmox`                                                                                               | The Ansible group that contains all nodes in the Proxmox cluster.                                                                                                                                         |
-| `pve_fetch_directory`                 | `fetch`                                                                                                 | Directory where fetched files (e.g., SSH keys) are stored.                                                                                                                                                  |
-| `pve_repository_line`                 | `deb http://download.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-no-subscription` | APT repository line for Proxmox VE packages.                                                                                                                                                                |
-| `pve_remove_subscription_warning`     | `true`                                                                                                  | Whether to remove the subscription warning in the web interface.                                                                                                                                          |
-| `pve_extra_packages`                  | `[]`                                                                                                    | List of additional packages to install with Proxmox VE.                                                                                                                                                   |
-| `pve_check_for_kernel_update`         | `true`                                                                                                  | Whether to check for kernel updates.                                                                                                                                                                        |
-| `pve_reboot_on_kernel_update`         | `false`                                                                                                 | Whether to reboot the system after a kernel update is detected.                                                                                                                                           |
-| `pve_remove_old_kernels`              | `true`                                                                                                  | Whether to remove old Debian and Proxmox kernels.                                                                                                                                                           |
-| `pve_run_system_upgrades`             | `false`                                                                                                 | Whether to run system upgrades during the playbook execution.                                                                                                                                             |
-| `pve_run_proxmox_upgrades`            | `true`                                                                                                  | Whether to run Proxmox-specific upgrades during the playbook execution.                                                                                                                                   |
-| `pve_watchdog`                        | `none`                                                                                                  | Watchdog module to use (e.g., `ipmi`).                                                                                                                                                                      |
-| `pve_watchdog_ipmi_action`            | `power_cycle`                                                                                           | Action for IPMI watchdog (e.g., `power_cycle`, `reset`).                                                                                                                                                |
-| `pve_watchdog_ipmi_timeout`           | `10`                                                                                                    | Timeout for IPMI watchdog in seconds.                                                                                                                                                                       |
-| `pve_zfs_enabled`                     | `false`                                                                                                 | Whether to enable ZFS support.                                                                                                                                                                              |
-| `pve_ceph_enabled`                    | `false`                                                                                                 | Whether to enable Ceph storage integration.                                                                                                                                                               |
-| `pve_ceph_repository_line`            | `deb http://download.proxmox.com/debian/{% if ansible_facts['distribution_release'] == 'stretch' %}ceph-luminous stretch{% else %}ceph-nautilus buster{% endif %} main` | APT repository line for Ceph packages.                                                                                                                                                                      |
-| `pve_ceph_network`                    | `"{{ (ansible_facts['default_ipv4'].network +'/'+ ansible_facts['default_ipv4']['netmask']) \| ansible.utils.ipaddr('net') }}"` | Network configuration for Ceph cluster.                                                                                                                                                                   |
-| `pve_ceph_mon_group`                  | `"{{ pve_group }}"`                                                                                      | Ansible group containing the Ceph monitors.                                                                                                                                                               |
-| `pve_ceph_mds_group`                  | `"{{ pve_group }}"`                                                                                      | Ansible group containing the Ceph metadata servers (MDS).                                                                                                                                                 |
-| `pve_ceph_osds`                       | `[]`                                                                                                    | List of OSD devices for Ceph storage.                                                                                                                                                                       |
-| `pve_ceph_pools`                      | `[]`                                                                                                    | List of Ceph pools to create.                                                                                                                                                                               |
-| `pve_ceph_fs`                         | `[]`                                                                                                    | List of Ceph filesystems to create.                                                                                                                                                                         |
-| `pve_ceph_crush_rules`                | `[]`                                                                                                    | List of CRUSH rules for Ceph storage.                                                                                                                                                                       |
-| `pve_cluster_enabled`                 | `false`                                                                                                 | Whether clustering is enabled.                                                                                                                                                                              |
-| `pve_cluster_clustername`             | `"{{ pve_group }}"`                                                                                      | Name of the Proxmox cluster.                                                                                                                                                                                |
-| `pve_datacenter_cfg`                  | `{}`                                                                                                    | Configuration for the datacenter in the Proxmox cluster.                                                                                                                                                  |
-| `pve_cluster_ha_groups`               | `[]`                                                                                                    | List of HA groups to configure in the Proxmox cluster.                                                                                                                                                    |
-| `pve_ssl_letsencrypt`                 | `false`                                                                                                 | Whether to use Let's Encrypt for SSL certificates.                                                                                                                                                        |
-| `pve_roles`                           | `[]`                                                                                                    | List of roles to assign to users or groups.                                                                                                                                                                 |
-| `pve_groups`                          | `[]`                                                                                                    | List of groups to create in the Proxmox cluster.                                                                                                                                                            |
-| `pve_users`                           | `[]`                                                                                                    | List of users to create in the Proxmox cluster.                                                                                                                                                             |
-| `pve_acls`                            | `[]`                                                                                                    | Access control lists for Proxmox resources.                                                                                                                                                                 |
-| `pve_storages`                        | `[]`                                                                                                    | Storage configurations for the Proxmox cluster.                                                                                                                                                           |
-| `pve_ssh_port`                        | `22`                                                                                                    | SSH port to use for connecting to Proxmox nodes.                                                                                                                                                            |
-| `pve_manage_ssh`                      | `true`                                                                                                  | Whether to manage SSH keys and configuration for the Proxmox cluster.                                                                                                                                   |
+| Variable Name | Default Value | Description |
+|---------------|---------------|-------------|
+| `pve_base_dir` | `/etc/pve` | Base directory for Proxmox configuration files. |
+| `pve_cluster_conf` | `{{ pve_base_dir }}/corosync.conf` | Path to the Proxmox cluster configuration file. |
+| `_pve_cluster_addr0` | `{{ ansible_facts['default_ipv4']['address'] }}` | Primary cluster address. |
+| `remove_nag` | `true` | Remove the Proxmox subscription nag screen. |
+| `remove_enterprise_repo` | `true` | Remove the Proxmox enterprise repository. |
+| `pve_group` | `proxmox` | Group name for Proxmox hosts. |
+| `pve_fetch_directory` | `fetch` | Directory to fetch SSH keys. |
+| `pve_repository_line` | `deb http://download.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-no-subscription` | Proxmox repository line for APT sources. |
+| `pve_remove_subscription_warning` | `true` | Remove subscription warning messages. |
+| `pve_extra_packages` | `[]` | List of additional packages to install. |
+| `pve_check_for_kernel_update` | `true` | Check for kernel updates. |
+| `pve_reboot_on_kernel_update` | `false` | Reboot on kernel update. |
+| `pve_remove_old_kernels` | `true` | Remove old kernels. |
+| `pve_run_system_upgrades` | `false` | Run system upgrades. |
+| `pve_run_proxmox_upgrades` | `true` | Run Proxmox upgrades. |
+| `pve_watchdog` | `none` | Watchdog configuration. |
+| `pve_watchdog_ipmi_action` | `power_cycle` | IPMI watchdog action. |
+| `pve_watchdog_ipmi_timeout` | `10` | IPMI watchdog timeout. |
+| `pve_zfs_enabled` | `false` | Enable ZFS support. |
+| `pve_ceph_enabled` | `false` | Enable Ceph support. |
+| `pve_ceph_repository_line` | `deb http://download.proxmox.com/debian/{% if ansible_facts['distribution_release'] == 'stretch' %}ceph-luminous stretch{% else %}ceph-nautilus buster{% endif %} main` | Ceph repository line for APT sources. |
+| `pve_ceph_network` | `{{ (ansible_facts['default_ipv4'].network +'/'+ ansible_facts['default_ipv4']['netmask']) | ansible.utils.ipaddr('net') }}` | Ceph network configuration. |
+| `pve_ceph_mon_group` | `{{ pve_group }}` | Group name for Ceph monitors. |
+| `pve_ceph_mds_group` | `{{ pve_group }}` | Group name for Ceph MDS. |
+| `pve_ceph_osds` | `[]` | List of Ceph OSDs. |
+| `pve_ceph_pools` | `[]` | List of Ceph pools. |
+| `pve_ceph_fs` | `[]` | List of Ceph file systems. |
+| `pve_ceph_crush_rules` | `[]` | List of Ceph crush rules. |
+| `pve_cluster_enabled` | `false` | Enable Proxmox cluster. |
+| `pve_cluster_clustername` | `{{ pve_group }}` | Proxmox cluster name. |
+| `pve_datacenter_cfg` | `{}` | Proxmox datacenter configuration. |
+| `pve_cluster_ha_groups` | `[]` | List of Proxmox HA groups. |
+| `pve_ssl_letsencrypt` | `false` | Enable Let's Encrypt SSL. |
+| `pve_roles` | `[]` | List of Proxmox roles. |
+| `pve_groups` | `[]` | List of Proxmox groups. |
+| `pve_users` | `[]` | List of Proxmox users. |
+| `pve_acls` | `[]` | List of Proxmox ACLs. |
+| `pve_storages` | `[]` | List of Proxmox storages. |
+| `pve_ssh_port` | `22` | SSH port for Proxmox. |
+| `pve_manage_ssh` | `true` | Manage SSH configuration. |
 
 ## Usage
 
-To use this role, include it in your playbook and specify any necessary variables as needed. Here is an example playbook:
+To use this role, include it in your playbook and define the necessary variables:
 
 ```yaml
----
-- name: Bootstrap Proxmox VE
-  hosts: proxmox_group
-  become: yes
+- hosts: proxmox
   roles:
     - role: bootstrap_proxmox
       vars:
-        pve_ceph_enabled: true
-        pve_zfs_enabled: false
+        pve_group: "proxmox"
         pve_cluster_enabled: true
+        pve_cluster_clustername: "my-cluster"
+        pve_ceph_enabled: true
+        pve_zfs_enabled: true
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies. However, it requires the `community.general` and `ansible.posix` collections to be installed:
-
-```bash
-ansible-galaxy collection install community.general ansible.posix
-```
+This role does not have any external dependencies. It relies on the standard Ansible modules and the Proxmox API.
 
 ## Best Practices
 
-- Ensure all nodes in the cluster are included in the specified Ansible group.
-- Verify that network configurations for clustering (e.g., `pve_cluster_addr0`) are correct and reachable between nodes.
-- Use Let's Encrypt for SSL certificates to ensure secure communication with the Proxmox web interface.
-
-## Molecule Tests
-
-This role does not include Molecule tests. However, it is recommended to test the role in a controlled environment before deploying it to production.
+- Ensure that all hosts in the Proxmox cluster are reachable and have consistent network configurations.
+- Regularly update the Proxmox repositories and packages to benefit from the latest features and security updates.
+- Monitor the Proxmox cluster for any issues and address them promptly to maintain high availability.
 
 ## Backlinks
 

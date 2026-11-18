@@ -6,12 +6,12 @@ vault_host: "control02"
 vault_config: "{{ vault__openbao_hosts[vault_host] }}"
 vault_url: "{{ vault_config.url }}"
 vault_token_root: "{{ vault_config.root_token }}"
-vault_token_admin: "{{ vault_config.tokens['admin']['value'] | d('') }}"
+vault_token_admin: "{{ vault_config.tokens['admin']['value'] | d('', true) }}"
 
 ca_deploy_token_name: "deploy-ca"
 
-vault_token_accessor_deployca: "{{ vault_config.tokens[ca_deploy_token_name]['accessor'] | d('') }}"
-vault_token_deployca: "{{ vault_config.tokens[ca_deploy_token_name]['value'] | d('') }}"
+vault_token_accessor_deployca: "{{ vault_config.tokens[ca_deploy_token_name]['accessor'] | d('', true) }}"
+vault_token_deployca: "{{ vault_config.tokens[ca_deploy_token_name]['value'] | d('', true) }}"
 
 #vault_kv_mount_path: "kv"
 vault_kv_mount_path: "secret"
@@ -23,8 +23,8 @@ ca_root_cn: "ca-root"
 
 ca_root_domain: "{{ internal_root_domain }}"
 
-# ca_subdomain: "{{ dc_environment | d('') | upper }}"
-ca_subdomain: "{{ internal_subdomain | d('') }}"
+# ca_subdomain: "{{ dc_environment | d('', true) | upper }}"
+ca_subdomain: "{{ internal_subdomain | d('', true) }}"
 
 ca_root_cert_basename: "{{ ca_root_cn }}"
 #ca_root_cert_basename: "ca_root_{{ ca_root_domain | replace('.', '_') }}"
@@ -40,11 +40,11 @@ ca_key_spec:
 ####################################
 ## inventory test
 ## ansible -i inventory/PROD/ -m debug -a var=ca_domain ca_keystore
-#ca_domain: "{{ ca_root_domain if ca_subdomain | default('') | length == 0 else ca_subdomain + '.' + ca_root_domain }}"
-#ca_domain: "{{ ca_subdomain | d('') | length > 0 | ternary(ca_subdomain + '.' + ca_root_domain, ca_root_domain) }}"
-ca_domain: "{{ (ca_subdomain | d('') | length > 0) | ternary(ca_subdomain + '.' + ca_root_domain, ca_root_domain) }}"
+#ca_domain: "{{ ca_root_domain if ca_subdomain | d('', true) | length == 0 else ca_subdomain + '.' + ca_root_domain }}"
+#ca_domain: "{{ ca_subdomain | d('', true) | length > 0 | ternary(ca_subdomain + '.' + ca_root_domain, ca_root_domain) }}"
+ca_domain: "{{ (ca_subdomain | d('', true) | length > 0) | ternary(ca_subdomain + '.' + ca_root_domain, ca_root_domain) }}"
 
-#ca_domain: "{{ (ca_subdomain | default('')) + '.' + ca_root_domain if (ca_subdomain | default('') | length > 0) else ca_root_domain }}"
+#ca_domain: "{{ (ca_subdomain | d('', true)) + '.' + ca_root_domain if (ca_subdomain | d('', true) | length > 0) else ca_root_domain }}"
 #ca_domain: "{{ ca_root_domain }}"
 # ca_domain: "{{ internal_domain }}"
 
@@ -105,10 +105,10 @@ stepca_host_url: "https://stepca.admin.dettonville.int/"
 
 ca_keystore_inventory_host_default: control01
 #ca_keystore_inventory_host_default: vcontrol01
-ca_keystore_inventory_host: "{{ groups['ca_keystore'][0] | d(ca_keystore_inventory_host_default) }}"
+ca_keystore_inventory_host: "{{ groups['ca_keystore'][0] | d(ca_keystore_inventory_host_default, true) }}"
 
 # ca_keystore_host: "{{ ca_keystore_inventory_host }}"
-# ca_keystore_host: "{{ hostvars[groups['ca_keystore'][0]]['ansible_facts']['hostname'] | d(ca_keystore_inventory_host_default) }}"
+# ca_keystore_host: "{{ hostvars[groups['ca_keystore'][0]]['ansible_facts']['hostname'] | d(ca_keystore_inventory_host_default, true) }}"
 ca_keystore_host: "{{ hostvars[ca_keystore_inventory_host]['ansible_facts']['hostname'] }}"
 #ca_keystore_host: "{{ hostvars[ca_keystore_inventory_host]['ansible_facts']['default_ipv4']['address']
 #  | d(hostvars[host]['ansible_facts']['all_ipv4_addresses'] | first }}"
@@ -180,7 +180,7 @@ ca_internal_domains_dynamic: "{{ groups['ca_domain']
   | map('extract', hostvars, ['internal_domain']) | select('defined') | unique }}"
 
 #ca_service_routes_dynamic: "{{ groups['ca_domain']
-#  | map('extract', hostvars, ['ca_service_route']) | select('defined') | unique | d([]) }}"
+#  | map('extract', hostvars, ['ca_service_route']) | select('defined') | unique | d([], true) }}"
 
 ca_service_routes_dynamic: >-
   {%- set all_routes = [] -%}
@@ -193,7 +193,7 @@ ca_service_routes_dynamic: >-
   {{ all_routes | unique | sort }}
 
 ca_internal_host_domains: "{{ ca_internal_domains_dynamic }}"
-ca_domains_dynamic: "{{ ca_internal_domains_dynamic | d([]) + ca_service_routes_dynamic | d([]) }}"
+ca_domains_dynamic: "{{ ca_internal_domains_dynamic | d([], true) + ca_service_routes_dynamic | d([], true) }}"
 
 ca_internal_api_domain: "api.{{ ca_root_domain }}"
 ca_internal_api_domains: "{{ [ca_internal_api_domain] + ca_service_routes_dynamic }}"
@@ -216,7 +216,7 @@ ca_intermediate_certs_list_dynamic: >-
   {%- endfor -%}
   {{ _ca_cert_list }}
 
-ca_intermediate_certs_list: "{{ (ca_intermediate_certs_config.values() | d([]) | list)
+ca_intermediate_certs_list: "{{ (ca_intermediate_certs_config.values() | d([], true) | list)
   + ca_intermediate_certs_list_dynamic }}"
 
 ca_service_routes_issuer_list: >-
@@ -297,7 +297,7 @@ deploy_pki_certs__vault_pki_host_role_name: "{{ ca_vault_pki_deploy_host_role_na
 deploy_pki_certs__vault_cert_configs: "{{ ca_vault_pki_cert_configs }}"
 deploy_pki_certs__vault_cert_basename: "{{ ca_vault_pki_cert_basename }}"
 
-#deploy_pki_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(false) }}"
+#deploy_pki_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(false, false) }}"
 #deploy_pki_certs__ca_reset_local_certs: false
 
 #deploy_pki_certs__ca_reset_trust_certs: true
@@ -349,9 +349,9 @@ deploy_ca_certs__keystore_host: "{{ ca_keystore_host }}"
 deploy_ca_certs__keystore_inventory_hostname: "{{ ca_keystore_inventory_host }}"
 deploy_ca_certs__keystore_python_interpreter: "{{ hostvars[ca_keystore_inventory_host]['ansible_python_interpreter'] }}"
 
-deploy_ca_certs__ca_force_create: "{{ ca_force_create | d(false) }}"
-deploy_ca_certs__ca_force_distribute_nodes: "{{ ca_force_distribute_nodes | d(false) }}"
-deploy_ca_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(false) }}"
+deploy_ca_certs__ca_force_create: "{{ ca_force_create | d(false, false) }}"
+deploy_ca_certs__ca_force_distribute_nodes: "{{ ca_force_distribute_nodes | d(false, false) }}"
+deploy_ca_certs__ca_reset_local_certs: "{{ ca_reset_local_certs | d(false, false) }}"
 
 deploy_ca_certs__ca_intermediate_certs_list: "{{ ca_intermediate_certs_list }}"
 

@@ -26,6 +26,7 @@ if [[ ! -f "${VAULTPASS_FILEPATH}" ]]; then
   echo "Error: Vault password file ${VAULTPASS_FILEPATH} not found"
   exit 1
 fi
+
 VAULT_FILEPATH="./vars/vault.yml"
 if [[ ! -f "${VAULT_FILEPATH}" ]]; then
   echo "Error: Vault file ${VAULT_FILEPATH} not found"
@@ -49,17 +50,8 @@ echo "VAULT_FILEPATH=${VAULT_FILEPATH}"
 echo "VAULT_ID=${VAULT_ID}"
 
 ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.yml"
-#ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.test.yml"
 
 export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible/collections"
-#export LOCAL_COLLECTIONS_PATH="${REPO_DIR}/.ansible/collections"
-#export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
-#export ANSIBLE_ROLES_PATH=./
-#export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}:${REPO_DIR}/collections:${REPO_PARENT_DIR}/requirements_collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections:${REPO_PARENT_DIR}/requirements_collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_PARENT_DIR}/requirements_collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
 export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}"
 export ANSIBLE_LOG_PATH="./ansible.log"
 
@@ -86,11 +78,16 @@ cleanup() {
     eval "$(ssh-agent -k)" >/dev/null 2>&1
   fi
   cleanup_tmpdir
-  rm -f "${TEMP_VARS:-}" "${TEMP_RENDERED_KEY:-}" "${TEMP_KEY:-}"
+  rm -f "${TEMP_VARS:-}" "${TEMP_KEY:-}"
 }
 
-# SSH agent setup
+# SSH agent setup using ANSIBLE_SSH_PRIVATE_KEY environment variable
 start_ssh_agent() {
+  if [ -z "${ANSIBLE_SSH_PRIVATE_KEY:-}" ]; then
+    echo "Error: ANSIBLE_SSH_PRIVATE_KEY environment variable is not set or empty."
+    return 1
+  fi
+
   # Check if a user-managed SSH agent is running
   if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -n "${SSH_AGENT_PID:-}" ] && kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
     echo "==> SSH agent already running (PID: $SSH_AGENT_PID, SOCK: $SSH_AUTH_SOCK)"
@@ -106,51 +103,10 @@ start_ssh_agent() {
   # Verify SSH agent is usable
   ssh-add -l >/dev/null 2>&1 || echo "==> SSH agent is empty"
 
-  # Render ansible_ssh_private_key using Ansible to resolve templates
-  TEMP_RENDERED_KEY=$(mktemp)
-  set +e
-  # OVERRIDE: Prefixing the command with ANSIBLE_LOG_PATH=/dev/null blocks writing to ansible.log
-  ANSIBLE_LOG_PATH=/dev/null ansible localhost -m debug -a "var=ansible_ssh_private_key" -e "@${VAULT_FILEPATH}" --vault-id "${VAULT_ID}@${VAULTPASS_FILEPATH}" > "${TEMP_RENDERED_KEY}.out" 2> "${TEMP_RENDERED_KEY}.err"
-  RENDER_EXIT=$?
-  set -e
-  if [ $RENDER_EXIT -ne 0 ]; then
-    echo "Error: Failed to render ansible_ssh_private_key:"
-    cat "${TEMP_RENDERED_KEY}.err"
-    rm -f "${TEMP_RENDERED_KEY}" "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err"
-    return 1
-  fi
-
-  # Extract the rendered key from debug output
+  # Write private key from environment variable to a secure temp file
   TEMP_KEY=$(mktemp)
-  grep '"ansible_ssh_private_key":' "${TEMP_RENDERED_KEY}.out" | sed 's/.*"ansible_ssh_private_key": "\(.*\)".*/\1/' | sed 's/\\n/\n/g' > "$TEMP_KEY" 2> "${TEMP_KEY}.err"
-  if [ ! -s "$TEMP_KEY" ]; then
-    echo "Warning: Failed to extract rendered key or key is empty"
-    cat "${TEMP_KEY}.err"
-    rm -f "${TEMP_RENDERED_KEY}" "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err" "$TEMP_KEY" "${TEMP_KEY}.err"
-    return 1
-  fi
-  rm -f "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err" "${TEMP_KEY}.err"
+  printf "%s\n" "$ANSIBLE_SSH_PRIVATE_KEY" > "$TEMP_KEY"
 
-  # Validate key format
-  if ! python3 - <<EOF
-import re
-with open('$TEMP_KEY', 'r') as f:
-    key_content = f.read()
-print("Extracted key length:", len(key_content))
-print("Key preview:", key_content[:100])
-# Validate key format
-if re.match(r'^-{5}BEGIN.*PRIVATE KEY-{5}', key_content) and re.search(r'-{5}END.*PRIVATE KEY-{5}\n?$', key_content):
-    print("Key format valid")
-else:
-    print("Invalid key format: does not match BEGIN/END PRIVATE KEY")
-    import sys
-    sys.exit(1)
-EOF
-  then
-    echo "Warning: Invalid SSH key format after rendering"
-    rm -f "$TEMP_KEY"
-    return 1
-  fi
   if [ -s "$TEMP_KEY" ]; then
     echo "==> Extracted key preview (first line):"
     head -n 1 "$TEMP_KEY"
@@ -166,12 +122,12 @@ EOF
         return 1
       fi
     else
-      echo "Warning: Invalid SSH key format in ansible_ssh_private_key"
+      echo "Warning: Invalid SSH key format in ANSIBLE_SSH_PRIVATE_KEY"
       rm -f "$TEMP_KEY"
       return 1
     fi
   else
-    echo "Warning: Empty or missing SSH key in ansible_ssh_private_key"
+    echo "Warning: Empty or missing SSH key in ANSIBLE_SSH_PRIVATE_KEY"
     rm -f "$TEMP_KEY"
     return 1
   fi
@@ -212,7 +168,6 @@ function install_galaxy_collections() {
 }
 
 function main() {
-
   PLAYBOOK_ARGS=()
   if [ $# -gt 0 ]; then
     PLAYBOOK_ARGS=("$@")
@@ -234,17 +189,16 @@ function main() {
   fi
 
   echo "==> ANSIBLE_COLLECTIONS_PATH=${ANSIBLE_COLLECTIONS_PATH}"
-
   echo "==> ansible-galaxy collection list"
   ansible-galaxy collection list
 
   echo "==> ansible --version"
   ansible --version
 
-  # Start SSH agent and load key
+  # Start SSH agent and load key from environment variable
   start_ssh_agent
 
-  # Null inline key vars to force agent usage, mimicking Jenkins
+  # Null inline key vars to force agent usage
   TEMP_VARS=$(mktemp)
   cat > "$TEMP_VARS" << EOF
 {
@@ -255,10 +209,12 @@ EOF
   PLAYBOOK_ARGS+=("-e" "@$TEMP_VARS")
 
   echo "==> Playbook arguments: ${PLAYBOOK_ARGS[*]}"
+
+  # Rely on ansible.cfg [defaults] for extra_vars and vault_password_file
   PLAYBOOK_CMD=("ansible-playbook")
-  PLAYBOOK_CMD+=("-e" "@${VAULT_FILEPATH}")
   PLAYBOOK_CMD+=("--vault-id" "${VAULT_ID}@${VAULTPASS_FILEPATH}")
 #  PLAYBOOK_CMD+=("--vault-password-file" "${VAULTPASS_FILEPATH}")
+  PLAYBOOK_CMD+=("-e" "@${VAULT_FILEPATH}")
   if [[ "${#PLAYBOOK_ARGS[@]}" -gt 0 ]]; then
     PLAYBOOK_CMD+=("${PLAYBOOK_ARGS[*]}")
   fi

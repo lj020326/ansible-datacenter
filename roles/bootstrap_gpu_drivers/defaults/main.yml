@@ -11,14 +11,19 @@ bootstrap_gpu_drivers__auto_detect: true
 
 bootstrap_gpu_drivers__install_gpu_monitoring: true
 
+# Control enabling/disabling GPU power capping
+bootstrap_gpu_drivers__power_limit_enabled: false
+
+# Expressed in Watts (e.g., 280 for RTX 3090 on gpu02)
+# If left null/empty, power capping is bypassed unless specified per host
+bootstrap_gpu_drivers__power_limit_watts: null
+
 # DGX / GB10 specific handling
 __bootstrap_gpu_drivers__is_dgx: >-
   {{ (ansible_facts.product_name | default('', true) | regex_search('(?i)DGX|Ascent|Grace|Blackwell|gx10')) is not none
      or ('dgx' in (ansible_facts.os_family | default('', true) | lower))
      or (ansible_facts.machine == 'aarch64' and 'nvidia' in (ansible_facts.product_version | default('', true) | lower)) }}
 
-# On DGX systems we want to preserve NVIDIA's pre-installed driver stack
-bootstrap_gpu_drivers__skip_driver_install_on_dgx: true
 bootstrap_gpu_drivers__install_container_toolkit_on_dgx: true
 
 
@@ -38,15 +43,21 @@ bootstrap_gpu_drivers__nvidia_package_branch_default: "550"
 bootstrap_gpu_drivers__nvidia_ubuntu_packages_suffix: -open
 # Determine if we should install from CUDA repo instead of Canonical repos
 bootstrap_gpu_drivers__nvidia_ubuntu_install_from_cuda_repo: false
+
+# Install NVIDIA Container Toolkit (required for --gpus / CDI GPU containers)
 bootstrap_gpu_drivers__nvidia_install_container_toolkit: false
 # Optional: pin a specific version (e.g. "1.19.0-1")
 bootstrap_gpu_drivers__nvidia_container_toolkit_version: ""
+
+# Restart Docker after CDI regeneration / runtime config changes.
+# Recommended true on hosts that run GPU containers (ollama, vllm, etc.)
+bootstrap_gpu_drivers__restart_docker: false
 
 bootstrap_gpu_drivers__nvidia_rhel_cuda_repo_baseurl: https://developer.download.nvidia.com/compute/cuda/repos/{{ _rhel_repo_dir }}/
 bootstrap_gpu_drivers__nvidia_rhel_cuda_repo_gpgkey: https://developer.download.nvidia.com/compute/cuda/repos/{{ _rhel_repo_dir }}/D42D0685.pub
 
 bootstrap_gpu_drivers__nvidia_rhel_branch: "{{ bootstrap_gpu_drivers__nvidia_package_branch
-  | d(bootstrap_gpu_drivers__nvidia_package_branch_default) }}"
+  | d(bootstrap_gpu_drivers__nvidia_package_branch_default, true) }}"
 
 ##############################################################################
 # Ubuntu                                                                     #
@@ -101,8 +112,6 @@ bootstrap_gpu_drivers__amd_use_case: "graphics,rocm"   # or "graphics" only
 bootstrap_gpu_drivers__amd_deb_package_base_url: "https://repo.radeon.com/amdgpu-install/latest/ubuntu/{{ ansible_facts['distribution_release'] | lower }}"
 bootstrap_gpu_drivers__amd_rhel_package_base_url: "https://repo.radeon.com/amdgpu-install/latest/rhel/{{ ansible_facts['distribution_major_version'] }}"
 
-bootstrap_gpu_drivers__restart_docker: false
-
 ##############################################################################
 # Intel (mostly open-source, but we can add compute stack later)
 ##############################################################################
@@ -111,4 +120,4 @@ bootstrap_gpu_drivers__intel_install_compute: false # oneAPI / Level Zero etc.
 _ubuntu_repo_dir: "{{ ansible_facts['distribution'] | lower }}{{ ansible_facts['distribution_version']
   | replace('.', '') }}/{{ ansible_facts['architecture'] }}"
 _rhel_repo_dir: "rhel{{ ansible_facts['distribution_major_version'] }}/{{ ansible_facts['architecture'] }}"
-_debian_codename: "{{ ansible_facts['distribution_release'] | lower | default('bookworm') }}"
+_debian_codename: "{{ ansible_facts['distribution_release'] | lower | d('bookworm', true) }}"
