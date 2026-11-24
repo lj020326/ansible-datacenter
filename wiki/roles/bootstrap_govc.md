@@ -1,86 +1,72 @@
 ---
-title: Bootstrap GOVC Role Documentation
+title: "Bootstrap Govc Role"
 role: bootstrap_govc
-category: Ansible Roles
-type: Infrastructure Automation
-tags: govc, vmware, automation, cloud-init, ova-import
+category: Roles
+type: ansible-role
+tags: [ansible, role, bootstrap_govc]
 ---
 
-## Summary
+# Bootstrap govc Role
 
-The `bootstrap_govc` role is designed to automate the installation of the VMware vSphere CLI tool (`govc`) and manage virtual machine operations such as deploying OVA files and configuring cloud-init on a VMware ESXi or vCenter server. This role ensures that the correct version of `govc` is installed, imports specified OVA templates into the vCenter inventory, and optionally configures cloud-init for automated VM setup.
+The `bootstrap_govc` role is designed to automate the installation and configuration of `govc`, a vSphere CLI built on top of the govmomi SDK. This role facilitates the deployment of virtual machines, management of vSphere resources, and integration with cloud-init for automated VM configuration.
 
 ## Variables
 
-| Variable Name                         | Default Value                                                                                          | Description                                                                                                                                                                                                 |
-|---------------------------------------|--------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bootstrap_govc__version`             | `0.20.0`                                                                                               | The version of `govc` to install.                                                                                                                                                                             |
-| `bootstrap_govc__path`                | `/usr/bin`                                                                                             | The installation path for the `govc` binary.                                                                                                                                                                  |
-| `bootstrap_govc__tmp`                 | `/tmp`                                                                                                 | Temporary directory used during the installation process.                                                                                                                                                       |
-| `bootstrap_govc__file`                | `{{ bootstrap_govc__path }}/govc`                                                                      | The full path to the installed `govc` binary.                                                                                                                                                                 |
-| `bootstrap_govc__download_url`        | `https://github.com/vmware/govmomi/releases/download/v{{ bootstrap_govc__version }}`                    | Base URL for downloading the `govc` binary.                                                                                                                                                                   |
-| `bootstrap_govc__host`                | `esx-a.home.local`                                                                                     | The hostname or IP address of the vCenter server or ESXi host.                                                                                                                                                |
-| `bootstrap_govc__username`            | `administrator@home.local`                                                                             | Username for authenticating with the vCenter server or ESXi host.                                                                                                                                             |
-| `bootstrap_govc__password`            | `password`                                                                                             | Password for authenticating with the vCenter server or ESXi host. **Note:** It is recommended to use Ansible Vault for sensitive information.                                                                     |
-| `bootstrap_govc__ova_imports`         | `[]`                                                                                                   | A list of OVA files and their deployment specifications to import into the vCenter inventory.                                                                                                                 |
-| `bootstrap_govc__deploy_cloud_init`   | `false`                                                                                                | Boolean flag to enable or disable cloud-init configuration for VMs.                                                                                                                                           |
-| `bootstrap_govc__insecure`            | `1`                                                                                                    | Flag to allow insecure connections (e.g., self-signed certificates).                                                                                                                                          |
-| `bootstrap_govc__datacenter`          | `Datacenter`                                                                                           | The name of the datacenter in vCenter where VMs will be deployed.                                                                                                                                             |
-| `bootstrap_govc__datastore`           | `Datastore`                                                                                            | The datastore to use for storing VM files and cloud-init ISOs.                                                                                                                                                  |
-| `bootstrap_govc__network`             | `VM Network`                                                                                           | The network label to connect the VMs to.                                                                                                                                                                      |
-| `bootstrap_govc__resource_pool`       | `Pool`                                                                                                 | The resource pool where VMs will be deployed.                                                                                                                                                                   |
+| Variable Name                          | Default Value             | Description                                                                 |
+|----------------------------------------|---------------------------|-----------------------------------------------------------------------------|
+| `bootstrap_govc__version`              | `0.20.0`                  | The version of govc to install.                                              |
+| `bootstrap_govc__path`                 | `/usr/bin`                | The installation path for the govc binary.                                   |
+| `bootstrap_govc__tmp`                  | `/tmp`                    | Temporary directory for downloading and extracting govc.                     |
+| `bootstrap_govc__file`                 | `{{bootstrap_govc__path}}/govc` | The full path to the govc binary.                                            |
+| `bootstrap_govc__download_url`         | `https://github.com/vmware/govmomi/releases/download/v{{bootstrap_govc__version}}` | The base URL for downloading govc.                                           |
+| `bootstrap_govc__host`                 | `esx-a.home.local`        | The hostname of the vCenter server.                                          |
+| `bootstrap_govc__username`             | `administrator@home.local`| The username for vCenter authentication.                                      |
+| `bootstrap_govc__password`             | `password`                | The password for vCenter authentication.                                     |
+| `bootstrap_govc__ova_imports`          | `[]`                      | A list of OVA files to import into vCenter.                                 |
+| `bootstrap_govc__deploy_cloud_init`    | `false`                   | A boolean to enable/disable cloud-init deployment.                           |
+| `bootstrap_govc__insecure`             | `1`                       | Enable/disable insecure connections to vCenter.                              |
+| `bootstrap_govc__datacenter`           | `Datacenter`              | The name of the datacenter in vCenter.                                       |
+| `bootstrap_govc__datastore`            | `Datastore`               | The name of the datastore in vCenter.                                        |
+| `bootstrap_govc__network`              | `VM Network`              | The network name in vCenter.                                                 |
+| `bootstrap_govc__resource_pool`        | `Pool`                    | The resource pool name in vCenter.                                           |
 
 ## Usage
 
-To use this role, include it in your Ansible playbook and provide the necessary variables as shown below:
+To use the `bootstrap_govc` role, include it in your playbook and configure the variables as needed:
 
 ```yaml
-- hosts: vcenter_servers
+- hosts: all
   roles:
     - role: bootstrap_govc
       vars:
-        bootstrap_govc__host: "vcenter.home.local"
-        bootstrap_govc__username: "admin@vsphere.local"
-        bootstrap_govc__password: "{{ vault_vsphere_password }}"
+        bootstrap_govc__version: "0.21.0"
+        bootstrap_govc__host: "vcenter.example.com"
+        bootstrap_govc__username: "admin@example.com"
+        bootstrap_govc__password: "securepassword"
         bootstrap_govc__ova_imports:
-          - name: "Ubuntu-20.04"
-            ova: "/path/to/ubuntu-20.04.ova"
-            spec: "/path/to/ubuntu-20.04.json"
+          - name: "my-vm"
+            ova: "/path/to/my-vm.ova"
         bootstrap_govc__deploy_cloud_init: true
+        bootstrap_govc__datacenter: "MyDatacenter"
+        bootstrap_govc__datastore: "MyDatastore"
+        bootstrap_govc__network: "MyNetwork"
+        bootstrap_govc__resource_pool: "MyResourcePool"
 ```
 
 ## Dependencies
 
-This role does not have any external dependencies other than the `ansible.builtin` module, which is part of Ansible core.
-
-## Tags
-
-The following tags are available for this role:
-
-- `install`: Installs or updates the `govc` binary.
-- `deploy_ova`: Imports OVA files into vCenter.
-- `cloud_init_boot`: Configures and boots VMs with cloud-init.
-
-To run specific tasks, use the `--tags` option in your Ansible playbook execution command:
-
-```bash
-ansible-playbook -i inventory.yml playbook.yml --tags install
-```
+This role does not have any external dependencies. It relies on the `govc` binary, which is downloaded and installed as part of the role's tasks.
 
 ## Best Practices
 
-1. **Secure Credentials**: Always use Ansible Vault to manage sensitive information such as passwords.
-2. **Version Control**: Ensure that the version of `govc` specified in your playbooks is compatible with your vCenter server and ESXi hosts.
-3. **Resource Management**: Properly configure resource pools, datastores, and networks to optimize VM deployment.
-
-## Molecule Tests
-
-This role does not include any Molecule tests at this time. Consider adding Molecule scenarios for automated testing of the role's functionality.
+1. **Security**: Ensure that the `bootstrap_govc__username` and `bootstrap_govc__password` variables are securely managed, possibly using Ansible Vault or another secret management tool.
+2. **Version Management**: Regularly update the `bootstrap_govc__version` variable to ensure you are using the latest stable version of `govc`.
+3. **Error Handling**: The role includes error handling for OVA imports and cloud-init deployment, ensuring that the system is left in a consistent state even if tasks fail.
 
 ## Backlinks
 
-- [defaults/main.yml](../../roles/bootstrap_govc/defaults/main.yml)
-- [tasks/cloud_init_boot.yml](../../roles/bootstrap_govc/tasks/cloud_init_boot.yml)
-- [tasks/deploy_ova.yml](../../roles/bootstrap_govc/tasks/deploy_ova.yml)
-- [tasks/install.yml](../../roles/bootstrap_govc/tasks/install.yml)
-- [tasks/main.yml](../../roles/bootstrap_govc/tasks/main.yml)
+- [[../../roles/bootstrap_govc/defaults/main.yml]]
+- [[../../roles/bootstrap_govc/tasks/cloud_init_boot.yml]]
+- [[../../roles/bootstrap_govc/tasks/deploy_ova.yml]]
+- [[../../roles/bootstrap_govc/tasks/install.yml]]
+- [[../../roles/bootstrap_govc/tasks/main.yml]]

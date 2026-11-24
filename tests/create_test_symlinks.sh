@@ -3,12 +3,12 @@
 PROJECT_DIR=$( git rev-parse --show-toplevel )
 echo "PROJECT_DIR=${PROJECT_DIR}"
 
-cd "${PROJECT_DIR}/tests"
+cd "${PROJECT_DIR}/tests" || exit
 
 find . -maxdepth 1 -type l -print -exec rm {} \;
 
 echo "==> Set up site.yml symlink"
-ln -sf ../site.yml
+ln -sf ../site.yml .
 
 #echo "==> Set up collections symlink"
 #ln -sf ../collections
@@ -22,7 +22,7 @@ ln -sf ../site.yml
 #ln -sf ../roles
 
 echo "==> Set up vars symlinks (vars)"
-ln -sf ../vars
+ln -sf ../vars .
 
 #echo "==> Set up resource/other symlinks (molecule/files/etc)"
 #ln -sf ../molecule

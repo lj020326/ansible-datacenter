@@ -7,7 +7,8 @@
 # ./run.sh --inventory ~/my_inventory --limit kvmhost,guests -e virt_infra_state=undefined
 
 DIR="$(dirname "$(readlink -f "${0}")")"
-cd "${DIR}"
+cd "${DIR}" || exit
+# shellcheck source=/dev/null
 source /etc/os-release
 
 # Check for dependencies
@@ -59,6 +60,7 @@ if ! type ansible-playbook &>/dev/null ; then
 			exit 1
 			;;
 	esac
+	# shellcheck disable=SC2181
 	if [[ "$?" -ne 0 ]]; then
 		echo "Something went wrong, sorry."
 		exit 1
@@ -66,4 +68,4 @@ if ! type ansible-playbook &>/dev/null ; then
 	echo "Continuing with Ansible playbook!"
 fi
 
-exec ansible-playbook ./virt-infra.yml ${@}
+exec ansible-playbook ./virt-infra.yml "$@"

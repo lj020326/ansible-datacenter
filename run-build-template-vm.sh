@@ -22,9 +22,9 @@ ANSIBLE_TEMPLATE_INVENTORY="${PROJECT_DIR}/inventory/xenv_groups.yml"
 ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/collections/requirements.yml"
 #ANSIBLE_COLLECTION_REQUIREMENTS="${PROJECT_DIR}/collections/requirements.test.yml"
 
-VAULTPASS_FILEPATH="~/.vault_pass"
+VAULTPASS_FILEPATH="$HOME/.vault_pass"
 if [[ -f "${PROJECT_DIR}/.vault_pass" ]]; then
-  VAULTPASS_FILEPATH="${PROJECT_DIR}/.vault_pass"
+    VAULTPASS_FILEPATH="${PROJECT_DIR}/.vault_pass"
 fi
 #VAULT_FILEPATH="integration_config.vault.yml"
 VAULT_FILEPATH="./vars/vault.yml"
@@ -35,7 +35,7 @@ INSTALL_LATEST_GALAXY_COLLECTIONS=1
 USE_SOURCE_COLLECTIONS=0
 SOURCE_COLLECTIONS_PATH="${BASE_DIR}/requirements_collections"
 
-SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT_FILE=$(basename "$0")
 #PLAYBOOK="${SCRIPT_FILE%.*}.yml"
 
@@ -56,7 +56,7 @@ export LOCAL_COLLECTIONS_PATH=${HOME}/.ansible
 export ANSIBLE_COLLECTIONS_PATH="${PROJECT_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
 
 if [[ "${USE_SOURCE_COLLECTIONS}" -eq 1 ]]; then
-  export ANSIBLE_COLLECTIONS_PATH=${ANSIBLE_COLLECTIONS_PATH}:${SOURCE_COLLECTIONS_PATH}
+    export ANSIBLE_COLLECTIONS_PATH=${ANSIBLE_COLLECTIONS_PATH}:${SOURCE_COLLECTIONS_PATH}
 fi
 
 #export ANSIBLE_DEBUG=1
@@ -69,61 +69,61 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 
 function install_galaxy_collections() {
 
-  echo "==> ansible-galaxy --version"
-  ansible-galaxy --version
+    echo "==> ansible-galaxy --version"
+    ansible-galaxy --version
 
     ## ref: https://github.com/ansible/ansible/issues/79557#issuecomment-1344168449
-  echo "==> Install Galaxy collection requirements"
-#  GALAXY_INSTALL_CMD=("env ANSIBLE_GALAXY_IGNORE=true env GALAXY_IGNORE_CERTS=true")
-#  GALAXY_INSTALL_CMD+=("ansible-galaxy collection install")
-#  GALAXY_INSTALL_CMD+=("--ignore-certs")
-#  GALAXY_INSTALL_CMD+=("--force")
+    echo "==> Install Galaxy collection requirements"
+    #  GALAXY_INSTALL_CMD=("env ANSIBLE_GALAXY_IGNORE=true env GALAXY_IGNORE_CERTS=true")
+    #  GALAXY_INSTALL_CMD+=("ansible-galaxy collection install")
+    #  GALAXY_INSTALL_CMD+=("--ignore-certs")
+    #  GALAXY_INSTALL_CMD+=("--force")
 
-  GALAXY_INSTALL_CMD=("ansible-galaxy collection install")
-  if [[ "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    GALAXY_INSTALL_CMD+=("--upgrade")
-  fi
-  GALAXY_INSTALL_CMD+=("-r ${ANSIBLE_COLLECTION_REQUIREMENTS}")
-  GALAXY_INSTALL_CMD+=("-p ${LOCAL_COLLECTIONS_PATH}")
+    GALAXY_INSTALL_CMD=("ansible-galaxy collection install")
+    if [[ "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+        GALAXY_INSTALL_CMD+=("--upgrade")
+    fi
+    GALAXY_INSTALL_CMD+=("-r ${ANSIBLE_COLLECTION_REQUIREMENTS}")
+    GALAXY_INSTALL_CMD+=("-p ${LOCAL_COLLECTIONS_PATH}")
 
-  echo "==> ${GALAXY_INSTALL_CMD[@]}"
-  eval "${GALAXY_INSTALL_CMD[@]}"
+    echo "==> ${GALAXY_INSTALL_CMD[*]}"
+    eval "${GALAXY_INSTALL_CMD[*]}"
 
 }
 
 function main() {
-  if [ $# -gt 0 ]; then
-    PLAYBOOK_ARGS=("$@")
-  else
-    PLAYBOOK_ARGS=("${PLAYBOOK_DEFAULT}")
-  fi
-  echo "==> PLAYBOOK_ARGS[*]=${PLAYBOOK_ARGS[*]}"
+    if [ $# -gt 0 ]; then
+        PLAYBOOK_ARGS=("$@")
+    else
+        PLAYBOOK_ARGS=("${PLAYBOOK_DEFAULT}")
+    fi
+    echo "==> PLAYBOOK_ARGS[*]=${PLAYBOOK_ARGS[*]}"
 
-  rm -f ./ansible.log
+    rm -f ./ansible.log
 
-  ## ref: https://stackoverflow.com/questions/40684543/how-to-make-python-use-ca-certificates-from-mac-os-truststore
-  CERT_PATH=$(python -m certifi)
-  export SSL_CERT_FILE=${CERT_PATH}
-  export REQUESTS_CA_BUNDLE=${CERT_PATH}
+    ## ref: https://stackoverflow.com/questions/40684543/how-to-make-python-use-ca-certificates-from-mac-os-truststore
+    CERT_PATH=$(python -m certifi)
+    export SSL_CERT_FILE=${CERT_PATH}
+    export REQUESTS_CA_BUNDLE=${CERT_PATH}
 
-  if [[ "${INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    install_galaxy_collections
-  fi
-  echo "==> ansible-galaxy collection list"
-  ansible-galaxy collection list
+    if [[ "${INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${INSTALL_LATEST_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+        install_galaxy_collections
+    fi
+    echo "==> ansible-galaxy collection list"
+    ansible-galaxy collection list
 
-  echo "==> ansible --version"
-  ansible --version
+    echo "==> ansible --version"
+    ansible --version
 
-  PLAYBOOK_CMD=("ansible-playbook")
-#  PLAYBOOK_CMD+=("-e @${TEST_VARS_FILE}")
-  PLAYBOOK_CMD+=("-e @${VAULT_FILEPATH}")
-  PLAYBOOK_CMD+=("--vault-id ${VAULT_ID}@${VAULTPASS_FILEPATH}")
-  PLAYBOOK_CMD+=("-i ${ANSIBLE_TEMPLATE_INVENTORY}")
-  PLAYBOOK_CMD+=("${PLAYBOOK_ARGS[*]}")
+    PLAYBOOK_CMD=("ansible-playbook")
+    #  PLAYBOOK_CMD+=("-e @${TEST_VARS_FILE}")
+    PLAYBOOK_CMD+=("-e @${VAULT_FILEPATH}")
+    PLAYBOOK_CMD+=("--vault-id ${VAULT_ID}@${VAULTPASS_FILEPATH}")
+    PLAYBOOK_CMD+=("-i ${ANSIBLE_TEMPLATE_INVENTORY}")
+    PLAYBOOK_CMD+=("${PLAYBOOK_ARGS[*]}")
 
-  echo "==> ${PLAYBOOK_CMD[*]}"
-  eval "${PLAYBOOK_CMD[@]}"
+    echo "==> ${PLAYBOOK_CMD[*]}"
+    eval "${PLAYBOOK_CMD[*]}"
 
 }
 

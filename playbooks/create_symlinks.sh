@@ -3,12 +3,12 @@
 PROJECT_DIR=$( git rev-parse --show-toplevel )
 echo "PROJECT_DIR=${PROJECT_DIR}"
 
-cd "${PROJECT_DIR}/playbooks"
+cd "${PROJECT_DIR}/playbooks" || exit
 
 find . -maxdepth 1 -type l -print -exec rm {} \;
 
 echo "==> Set up site.yml symlink"
-ln -sf ../site.yml
+ln -sf ../site.yml .
 
 #echo "==> Set up collections symlink"
 #ln -sf ../collections

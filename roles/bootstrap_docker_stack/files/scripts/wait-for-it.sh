@@ -62,7 +62,7 @@ wait_for_wrapper()
         timeout $WAITFORIT_BUSYTIMEFLAG "$WAITFORIT_TIMEOUT" "$0" --child --host="$WAITFORIT_HOST" --port="$WAITFORIT_PORT" --timeout="$WAITFORIT_TIMEOUT" &
     fi
     WAITFORIT_PID=$!
-    trap "kill -INT -$WAITFORIT_PID" INT
+    trap 'kill -INT -$WAITFORIT_PID' INT
     wait $WAITFORIT_PID
     WAITFORIT_RESULT=$?
     if [[ $WAITFORIT_RESULT -ne 0 ]]; then
@@ -76,7 +76,7 @@ while [[ $# -gt 0 ]]
 do
     case "$1" in
         *:* )
-        WAITFORIT_hostport=(${1//:/ })
+        IFS=':' read -r -a WAITFORIT_hostport <<< "$1"
         WAITFORIT_HOST=${WAITFORIT_hostport[0]}
         WAITFORIT_PORT=${WAITFORIT_hostport[1]}
         shift 1
@@ -154,7 +154,7 @@ if [[ $WAITFORIT_TIMEOUT_PATH =~ "busybox" ]]; then
     WAITFORIT_ISBUSY=1
     # Check if busybox timeout uses -t flag
     # (recent Alpine versions don't support -t anymore)
-    if timeout &>/dev/stdout | grep -q -e '-t '; then
+    if timeout 2>&1 | grep -q -e '-t '; then
         WAITFORIT_BUSYTIMEFLAG="-t"
     fi
 else
@@ -175,7 +175,7 @@ else
     fi
 fi
 
-if [[ $WAITFORIT_CLI != "" ]]; then
+if [[ ${#WAITFORIT_CLI[@]} -gt 0 ]]; then
     if [[ $WAITFORIT_RESULT -ne 0 && $WAITFORIT_STRICT -eq 1 ]]; then
         echoerr "$WAITFORIT_cmdname: strict mode, refusing to execute subprocess"
         exit $WAITFORIT_RESULT

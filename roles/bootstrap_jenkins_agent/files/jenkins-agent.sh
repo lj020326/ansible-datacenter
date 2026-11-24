@@ -6,8 +6,10 @@
 # chkconfig: 2345 89 11
 # description: jenkins-agent
 
+# shellcheck source=/dev/null
 source /etc/rc.d/init.d/functions
 
+# shellcheck disable=SC1091
 [[ -e "/etc/jenkins/jenkins-agent" ]] && source "/etc/jenkins/jenkins-agent"
 
 ####
@@ -63,96 +65,98 @@ ADDITIONAL_FLAGS=${JENKINS_AGENT_ADDITIONAL_FLAGS:=""}
 RETVAL=0
 
 start() {
-  echo -n $"Starting Jenkins Agent... "
+    echo -n $"Starting Jenkins Agent... "
 
-  # create all the folders that will be needed
-  PIDDIR=$(dirname "${PIDFILE}")
-  echo $"Creating folder for PID: ${PIDDIR}"
-  mkdir -p "${PIDDIR}"
-  chown "${USER}":"${USER}" "${PIDDIR}"
+    # create all the folders that will be needed
+    PIDDIR=$(dirname "${PIDFILE}")
+    echo $"Creating folder for PID: ${PIDDIR}"
+    mkdir -p "${PIDDIR}"
+    chown "${USER}":"${USER}" "${PIDDIR}"
 
-  LOGDIR=$(dirname "${LOGFILE}")
-  echo $"Creating folder for LOG: ${LOGDIR}"
-  mkdir -p "${LOGDIR}"
-  chown "${USER}":"${USER}" "${LOGDIR}"
+    LOGDIR=$(dirname "${LOGFILE}")
+    echo $"Creating folder for LOG: ${LOGDIR}"
+    mkdir -p "${LOGDIR}"
+    chown "${USER}":"${USER}" "${LOGDIR}"
 
-  LOCKDIR=$(dirname "${LOCKFILE}")
-  echo $"Creating folder for LOCK: ${LOCKDIR}"
-  mkdir -p "${LOCKDIR}"
-  chown "${USER}":"${USER}" "${LOCKDIR}"
+    LOCKDIR=$(dirname "${LOCKFILE}")
+    echo $"Creating folder for LOCK: ${LOCKDIR}"
+    mkdir -p "${LOCKDIR}"
+    chown "${USER}":"${USER}" "${LOCKDIR}"
 
-  # give the user specified all permissions to the directory containing the jar file
-  chown "${USER}":"${USER}" $(dirname "${JENKINS_AGENT_JAR}")
+    # give the user specified all permissions to the directory containing the jar file
+    chown "${USER}":"${USER}" "$(dirname "${JENKINS_AGENT_JAR}")"
 
-  # Must be in /var/lib/jenkins for the jenkins agent to run properly
-  local cmd="cd /var/lib/jenkins;"
+    # Must be in /var/lib/jenkins for the jenkins agent to run properly
+    local cmd="cd /var/lib/jenkins;"
 
-  cmd="${cmd} java ${JVM_ARGS} "
-  cmd="${cmd} -jar '${JENKINS_AGENT_JAR}'"
-  cmd="${cmd} -url '${JENKINS_PROTOCOL}://${JENKINS_HOME}:${JENKINS_PORT}'"
+    cmd="${cmd} java ${JVM_ARGS} "
+    cmd="${cmd} -jar '${JENKINS_AGENT_JAR}'"
+    cmd="${cmd} -url '${JENKINS_PROTOCOL}://${JENKINS_HOST}:${JENKINS_PORT}'"
 
-  if [[ -n "${JENKINS_AGENT_PASSWORD_FILE}" ]]; then
-    cmd="${cmd} -password '@${JENKINS_AGENT_PASSWORD_FILE}'"
-  elif [[ -n "${JENKINS_AGENT_PASSWORD}" ]]; then
-    cmd="${cmd} -password '${JENKINS_AGENT_PASSWORD}'"
-  fi
+    if [[ -n "${JENKINS_AGENT_PASSWORD_FILE}" ]]; then
+        cmd="${cmd} -password '@${JENKINS_AGENT_PASSWORD_FILE}'"
+    elif [[ -n "${JENKINS_AGENT_PASSWORD}" ]]; then
+        cmd="${cmd} -password '${JENKINS_AGENT_PASSWORD}'"
+    fi
 
-  cmd="${cmd} -name '${JENKINS_AGENT_NAME}'"
+    cmd="${cmd} -name '${JENKINS_AGENT_NAME}'"
 
-  cmd="${cmd} ${ADDITIONAL_FLAGS}"
-  cmd="${cmd} >> '${LOGFILE}' 2>&1 </dev/null &"
+    cmd="${cmd} ${ADDITIONAL_FLAGS}"
+    cmd="${cmd} >> '${LOGFILE}' 2>&1 </dev/null &"
 
-  daemon --user "${USER}" --check "jenkins-agent" --pidfile "${PIDFILE}" "${cmd}"
+    daemon --user "${USER}" --check "jenkins-agent" --pidfile "${PIDFILE}" "${cmd}"
 
-  local pid=$(sudo -u "${USER}" jps -l | grep "${JENKINS_AGENT_JAR}" | awk '{print $1}')
-  [ -n "${pid}" ] && echo "${pid}" > "${PIDFILE}"
-  RETVAL=$?
-  [ $RETVAL -eq 0 ] && touch "$LOCKFILE"
+    local pid
+    pid=$(sudo -u "${USER}" jps -l | grep "${JENKINS_AGENT_JAR}" | awk '{print $1}')
+    [ -n "${pid}" ] && echo "${pid}" >"${PIDFILE}"
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && touch "$LOCKFILE"
 
-  echo
+    echo
 }
 
 stop() {
-  echo -n $"Stopping Jenkins Agent... "
-  killproc -p "$PIDFILE" "jenkins-agent"
-  RETVAL=$?
-  echo
-  [ $RETVAL -eq 0 ] && rm -f "$LOCKFILE"
+    echo -n $"Stopping Jenkins Agent... "
+    killproc -p "$PIDFILE" "jenkins-agent"
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f "$LOCKFILE"
 }
 
 restart() {
-  stop
-  start
+    stop
+    start
 }
 
 checkstatus() {
-  status -p "$PIDFILE" "jenkins-agent"
-  RETVAL=$?
+    status -p "$PIDFILE" "jenkins-agent"
+    RETVAL=$?
 }
 
 condrestart() {
-  [ -e "$LOCKFILE" ] && restart || :
+    [ -e "$LOCKFILE" ] && restart || :
 }
 
 case "$1" in
-  start)
+start)
     start
     ;;
-  stop)
+stop)
     stop
     ;;
-  status)
+status)
     checkstatus
     ;;
-  restart)
+restart)
     restart
     ;;
-  condrestart)
+condrestart)
     condrestart
     ;;
-  *)
+*)
     echo $"Usage: $0 {start|stop|status|restart|condrestart}"
     exit 1
+    ;;
 esac
 
 exit $RETVAL

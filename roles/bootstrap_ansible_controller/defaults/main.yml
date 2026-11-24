@@ -1,9 +1,16 @@
 ---
 bootstrap_ansible_controller__state: present
 
-bootstrap_ansible_controller__smtp_host: smtp.dettonville.int
+bootstrap_ansible_controller__smtp_host: smtp.example.int
 bootstrap_ansible_controller__smtp_port: 25
-bootstrap_ansible_controller__smtp_sender: svc.ansible@dettonville.org
+bootstrap_ansible_controller__smtp_sender: svc.ansible@example.org
+
+bootstrap_ansible_controller__default_git_credential: example - Ansible - git
+bootstrap_ansible_controller__validate_credentials: true
+bootstrap_ansible_controller__controller_env: dev
+
+bootstrap_ansible_controller__redhat_registry_host: ansutil01.s4.example.int
+bootstrap_ansible_controller__azure_ad_host: azadcnctp1s1.example.int
 
 # Common settings for all email notifications
 bootstrap_ansible_controller__default_email_notification_settings:
@@ -16,32 +23,45 @@ bootstrap_ansible_controller__default_email_notification_settings:
   sender: "{{ bootstrap_ansible_controller__smtp_sender }}"
   timeout: 120
 
-__bootstrap_ansible_controller__project_sync_timeout: 300
-__bootstrap_ansible_controller__controller_host: "{{ bootstrap_ansible_controller__controller_host | d(tower_host) | d(ansible_facts.env.bootstrap_ansible_controller__controller_host) | d(ansible_facts.env.TOWER_HOST) }}"
+__legacy_scm_branch: "{{ bootstrap_ansible_controller__legacy_scm_branch | d('release/aap-master') }}"
+__default_scm_branch: "{{ bootstrap_ansible_controller__default_scm_branch | d('main') }}"
+__legacy_ee: "{{ bootstrap_ansible_controller__legacy_ee | d('Automation Hub Ansible Engine 2.9 execution environment') }}"
+__default_ee: "{{ bootstrap_ansible_controller__default_ee | d('Default Execution Environment') }}"
+__environmental_tag_scm_ref: "{{ bootstrap_ansible_controller__env_specific_vars[bootstrap_ansible_controller__controller_env].scm_tag_ref }}"
+__allow_scm_branch_override: "{{ bootstrap_ansible_controller__env_specific_vars[bootstrap_ansible_controller__controller_env].scm_branch_override }}"
+__scm_update_on_launch: "{{ bootstrap_ansible_controller__env_specific_vars[bootstrap_ansible_controller__controller_env].scm_update_on_launch }}"
 
-__bootstrap_ansible_controller__controller_oauth_token: "{{ bootstrap_ansible_controller__controller_oauth_token | d(tower_oauth_token)
+__bootstrap_ansible_controller__project_sync_timeout: 300
+__bootstrap_ansible_controller__controller_host: "{{ bootstrap_ansible_controller__controller_host | d(tower_host, true) | d(ansible_facts.env.bootstrap_ansible_controller__controller_host) | d(ansible_facts.env.TOWER_HOST) }}"
+
+__bootstrap_ansible_controller__controller_oauth_token: "{{ bootstrap_ansible_controller__controller_oauth_token | d(tower_oauth_token, true)
   | d(ansible_facts.env.bootstrap_ansible_controller__controller_oauth_token) | d(ansible_facts.env.TOWER_OAUTH_TOKEN) }}"
 
-__bootstrap_ansible_controller__controller_verify_ssl: "{{ bootstrap_ansible_controller__controller_verify_ssl | d(tower_verify_ssl)
-  | d(ansible_facts.env.CONTROLLER_VERIFY_SSL) | d(ansible_facts.env.TOWER_VERIFY_SSL) | d(false) }}"
-
-bootstrap_ansible_controller__validate_credentials: true
+__bootstrap_ansible_controller__controller_verify_ssl: "{{ bootstrap_ansible_controller__controller_verify_ssl | d(tower_verify_ssl, true)
+  | d(ansible_facts.env.CONTROLLER_VERIFY_SSL) | d(ansible_facts.env.TOWER_VERIFY_SSL) | d(false, false) }}"
 
 __bootstrap_ansible_controller__test_environments:
   - sandbox
 
-__bootstrap_ansible_controller__missing_playbook_fallback_project: dettonville - Ansible Tower Management
-__bootstrap_ansible_controller__missing_playbook_fallback_playbook: playbook_does_not_exist.yml
+__bootstrap_ansible_controller__missing_playbook_fallback_project_default: example - Ansible Tower Management
+__bootstrap_ansible_controller__missing_playbook_fallback_project: "{{
+  bootstrap_ansible_controller__missing_playbook_fallback_project
+    | d(bootstrap_ansible_controller__missing_playbook_fallback_project_default) }}"
+
+__bootstrap_ansible_controller__missing_playbook_fallback_playbook_default: playbook_does_not_exist.yml
+__bootstrap_ansible_controller__missing_playbook_fallback_playbook: "{{
+  bootstrap_ansible_controller__missing_playbook_fallback_playbook
+    | d(__bootstrap_ansible_controller__missing_playbook_fallback_playbook_default) }}"
 
 ## ref: https://dmsimard.com/2017/05/10/limiting-the-amount-of-concurrent-asynchronous-tasks-in-ansible/
 #__bootstrap_ansible_controller__async_max_batch_size_default: 10
 __bootstrap_ansible_controller__async_max_batch_size_default: 40
 __bootstrap_ansible_controller__async_max_batch_size: "{{
   bootstrap_ansible_controller__async_max_batch_size
-  | d(__bootstrap_ansible_controller__async_max_batch_size_default) }}"
+  | d(__bootstrap_ansible_controller__async_max_batch_size_default, true) }}"
 
 #__bootstrap_ansible_controller__async_max_runtime_in_seconds_default: 1000
 __bootstrap_ansible_controller__async_max_runtime_in_seconds_default: 120
 __bootstrap_ansible_controller__async_max_runtime_in_seconds: "{{
   bootstrap_ansible_controller__async_max_runtime_in_seconds
-  | d(__bootstrap_ansible_controller__async_max_runtime_in_seconds_default) }}"
+  | d(__bootstrap_ansible_controller__async_max_runtime_in_seconds_default, true) }}"

@@ -3,7 +3,7 @@
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT=$(dirname "$TESTS_DIR")
 
-# shellcheck source=tests/utils.sh
+# shellcheck source=/dev/null
 source "${TESTS_DIR}/utils.sh"
 
 test_syntax() {

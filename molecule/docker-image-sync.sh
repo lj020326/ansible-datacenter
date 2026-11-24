@@ -18,9 +18,9 @@ docker pull "${IMAGE}"
 
 for im in $CID
 do
-  LATEST=`docker inspect --format "{{.Id}}" "${IMAGE}"`
-  RUNNING=`docker inspect --format "{{.Image}}" "$im"`
-  NAME=`docker inspect --format '{{.Name}}' "$im" | sed "s/\///g"`
+  LATEST=$(docker inspect --format "{{.Id}}" "${IMAGE}")
+  RUNNING=$(docker inspect --format "{{.Image}}" "$im")
+  NAME=$(docker inspect --format '{{.Name}}' "$im" | sed "s/\///g")
   echo "Latest: ${LATEST}"
   echo "Running: ${RUNNING}"
   if [ "$RUNNING" != "$LATEST" ];then

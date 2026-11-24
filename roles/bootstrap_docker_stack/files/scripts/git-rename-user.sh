@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2034
 FROM_USER="ansible"
+# shellcheck disable=SC2034
 FROM_USER_EMAIL="ansible@localhost"
 
+# shellcheck disable=SC2034
 TO_USER="ansible"
+# shellcheck disable=SC2034
 TO_USER_EMAIL="ansible@email.com"
 
 ## old methods using git filter-branch

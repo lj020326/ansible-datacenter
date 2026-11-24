@@ -13,7 +13,7 @@ CFGPATH=${3:-~/.fwbackup.cfg}
 
 MAILFROM=admin@dettonville.com
 MAILTO=admin@dettonville.com
-TIMESTAMP=`date +%Y%m%d%H%M%S`
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
 logName="fwbackup_$(date -Id)_$(date +%H-%M-%S).log"
 ownFolderName=".fwbackup"
@@ -44,10 +44,11 @@ if [ ! -e "$CFGPATH" ]; then
 fi
 
 writeToLog "Reading config ${CFGPATH} ...."
+# shellcheck source=/dev/null
 source "${CFGPATH}"
 writeToLog "Config for the user: $USER"
 
-([ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$PASS" ]) && writeToLog "all 3 arguments must be defined in config: PFSENSE_HOST USERNAME PASSWORD " && exit 1;
+{ [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$PASS" ]; } && writeToLog "all 3 arguments must be defined in config: PFSENSE_HOST USERNAME PASSWORD " && exit 1;
 
 if [ ! -d "$DESTPATH" ]; then
   mkdir -p "$DESTPATH"

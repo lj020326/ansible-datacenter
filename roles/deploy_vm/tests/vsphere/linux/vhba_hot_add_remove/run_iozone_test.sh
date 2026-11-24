@@ -3,25 +3,33 @@
 
 output=""
 ret=0
+# shellcheck disable=SC2034
 dev_list=""
+# shellcheck disable=SC2034
 dev_num=0
-cwd=`pwd`
+cwd="${PWD}"
+# shellcheck disable=SC2034
 EXCLUDE=""
+# shellcheck disable=SC2034
 BOOT_DISK=""
+# shellcheck disable=SC2034
 HAS_PMEM="false"
+# shellcheck disable=SC2034
 HAS_NVME="false"
+# shellcheck disable=SC2034
 HAS_PVSCSI="false"
 IOZONE_PATH="/tmp/iozone"
 PART_FS="ext4"
 
 function exec_cmd()
 {
-    local cmd="$@"
+    # shellcheck disable=SC2124
+    local cmd=("$@")
     output=""
     ret=0
 
-    echo -e "Execute command: $cmd"
-    output=`eval "$cmd"`
+    echo -e "Execute command: ${cmd[*]}"
+    output=$(eval "${cmd[*]}")
     ret=$?
     echo "Return Code: $ret"
 
@@ -48,7 +56,7 @@ function run_iozone()
     if [ -e "$testdir_path" ]; then
         rm -rf "$testdir_path"
     fi
-    printf "Create folder $testdir_path:  "
+    printf "Create folder %s" "${testdir_path}"
     exec_cmd "mkdir $testdir_path"
     if [ $ret -eq 0 ]; then
         echo "SUCCEED"
@@ -59,19 +67,21 @@ function run_iozone()
 
     iozone_file="$testdir_path/iozone.csv"
     # Get partition size
-    part_size=`lsblk -o NAME,SIZE,TYPE | grep -i part | grep -i "${part_name}" | awk '{print $2}'`
+    part_size=$(lsblk -o NAME,SIZE,TYPE | grep -i part | grep -i "${part_name}" | awk '{print $2}')
     echo "Partition $part_path size is $part_size"
 
     if [[ "$part_size" =~ .G ]]; then
-        part_size=`echo "$part_size" | tr -d 'G'`
+        part_size=$(echo "$part_size" | tr -d 'G')
         size_unit="G"
         test_size=128
     else
-        part_size=`echo "$part_size" | tr -d 'M'`
+        part_size=$(echo "$part_size" | tr -d 'M')
+        # shellcheck disable=SC2034
         size_unit="M"
         if [ "$part_size" -gt 128 ]; then
             test_size=128
         else
+            # shellcheck disable=SC2004
             test_size=$(($part_size/2))
         fi
     fi
@@ -82,8 +92,9 @@ function run_iozone()
     fi
 
     echo "Go to $testdir_path"
-    cd "$testdir_path"
-    echo "Run iozone on $part_path" || continue
+    cd "$testdir_path" || exit
+
+    echo "Run iozone on $part_path"
     # Run iozone testing
     if [ "$part_size" -gt 128 ]; then
         ${IOZONE_PATH} -Ra -g 128M -i 0 -i 1 -b "$iozone_file"
@@ -99,7 +110,7 @@ function run_iozone()
     fi
 
     #Return to work dir
-    cd "$cwd"
+    cd "$cwd" || return 1
 }
 
 
@@ -131,9 +142,10 @@ function test_partitions()
     fi
 
     mount | grep -i "$part_name" >/dev/null
+    # shellcheck disable=SC2181
     if [ $? -ne 0 ]; then
         exec_cmd "mount ${mount_ops} $part_path $mount_point >/dev/null 2>&1"
-        printf "Mount $part_path to $mount_point: "
+        printf "Mount %s to %s" "${part_path}" "${mount_point}"
         if [ $ret -ne 0 ] ; then
             echo "FAIL"
             if [ "$PART_FS" == "ext4" ] && [ "$mount_ops" == "-o dax" ]; then

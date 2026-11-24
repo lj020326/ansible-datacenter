@@ -19,12 +19,16 @@ do
         h)
             usage_exit
             ;;
+        *)
+            echo "Unknown argument: $1"
+            usage_exit
+        ;;
     esac
 done
 
 shift $((OPTIND - 1))
 
-[ -f tests/test.yml ] && cd tests
+[ -f tests/test.yml ] && cd tests || exit
 
 cases=$(ls cases)
 if [ ! -z "$1" ];then
@@ -36,6 +40,7 @@ passes=0
 
 for case in $cases
 do
+    # shellcheck disable=SC2115
     rm -rf ${outputs}/"${case}"
 done
 
@@ -45,7 +50,6 @@ do
     echo "* Test: $case"
     ansible-playbook ./test.yml -i 127.0.0.1, -t "$case"-setup -e ansible_unit_test_prefix_dir="${outputs}/${case}" -e prefix_dir="${outputs}/${case}" "${ansible_opts}" >/dev/null
     ansible-playbook ./test.yml -i 127.0.0.1, -t "$case" -e ansible_unit_test_prefix_dir="${outputs}/${case}" -e prefix_dir="${outputs}/${case}" "${ansible_opts}" || exit 255
-
 
     if diff -uNr cases/"${case}" ${outputs}/"${case}" >/dev/null 2>&1 ;then
         passes=$(( passes+1 ))

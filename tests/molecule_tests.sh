@@ -29,7 +29,7 @@ systemd-python-ubuntu:24.04
 IFS=$'\n'
 for MOLECULE_IMAGE in $MOLECULE_IMAGE_LIST; do
   echo "*** MOLECULE_IMAGE=${MOLECULE_IMAGE}"
-  MOLECULE_IMAGE="${MOLECULE_IMAGE}"
+
   "MOLECULE_IMAGE=${MOLECULE_IMAGE} molecule reset"
 #  "MOLECULE_IMAGE=${MOLECULE_IMAGE} molecule test --debug --parallel"
   "MOLECULE_IMAGE=${MOLECULE_IMAGE} molecule test"

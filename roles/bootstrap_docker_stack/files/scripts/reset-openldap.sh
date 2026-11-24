@@ -97,7 +97,7 @@ reset_container() {
         echo "Stopping Swarm service ${SERVICE_ID}..." >&2
         docker service scale "${SERVICE_ID}=0" 2>/dev/null || true
         sleep 2
-        docker rm -f $(docker ps -aq --filter "name=^${SERVICE_ID}" 2>/dev/null) 2>/dev/null || true
+        docker rm -f "$(docker ps -aq --filter "name=^${SERVICE_ID}" 2>/dev/null)" 2>/dev/null || true
     else
         echo "Stopping ${SERVICE_ID} via docker-compose..." >&2
         if docker ps -qa --no-trunc --filter "name=^/${SERVICE_ID}$" | grep -q .; then
@@ -111,6 +111,7 @@ reset_container() {
     for dir in $CLEANUP_DIRS; do
         if [ -d "$dir" ]; then
             echo "  Cleaning ${dir}/*" >&2
+            # shellcheck disable=SC2115
             rm -fr "$dir/"* 2>/dev/null || true
         fi
     done

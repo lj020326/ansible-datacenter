@@ -1,61 +1,57 @@
 ---
-title: "Bootstrap OVFTool Role Documentation"
+title: "Bootstrap OVFTool Role"
 role: bootstrap_ovftool
-category: Ansible Roles
-type: Installation
-tags: ovftool, vmware, automation
+category: System Tools
+type: Role Documentation
+tags: [ansible, role, bootstrap_ovftool]
 ---
 
-## Summary
+# Bootstrap OVFTool Role
 
-The `bootstrap_ovftool` role is designed to automate the installation of VMware's OVF Tool on a target system. This tool is essential for managing and deploying Open Virtualization Format (OVF) files, which are used to package virtual machines and their configurations.
+The `bootstrap_ovftool` role is designed to automate the installation and setup of VMware's OVF Tool on Linux systems. OVF Tool is a command-line utility that simplifies the process of importing and exporting OVF and OVA virtual appliances. This role ensures that the OVF Tool is properly installed, including handling necessary dependencies and creating required symbolic links on specific distributions like Ubuntu.
 
 ## Variables
 
-| Variable Name                  | Default Value                                                                                          | Description                                                                                                                                 |
-|--------------------------------|--------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| `ovftool_download_dir`         | `/tmp`                                                                                                 | The directory where the OVF Tool bundle file will be downloaded.                                                                            |
-| `ovftool_bundle_file`          | `VMware-ovftool-4.3.0-7948156-lin.x86_64.bundle`                                                        | The filename of the OVF Tool bundle to be downloaded.                                                                                         |
-| `ovftool_bundle_file_md5`      | `63698e602af6e24640146a6592348c99`                                                                       | The MD5 checksum of the OVF Tool bundle file to ensure integrity upon download.                                                              |
-| `ovftool_bundle_file_url`      | `"{{ download_site }}/{{ ovftool_bundle_file }}"`                                                      | The URL from which the OVF Tool bundle will be downloaded. This variable is dynamically constructed using the `download_site` and `ovftool_bundle_file`. |
-| `ovf_dir`                      | `/usr`                                                                                                 | The directory where the OVF Tool will be installed.                                                                                           |
+| Variable Name                | Default Value                                 | Description                                                                 |
+|------------------------------|-----------------------------------------------|-----------------------------------------------------------------------------|
+| `ovftool_download_dir`       | `/tmp`                                        | Directory where the OVF Tool bundle file will be downloaded.                 |
+| `ovftool_bundle_file`        | `VMware-ovftool-4.3.0-7948156-lin.x86_64.bundle` | The name of the OVF Tool bundle file to be downloaded.                       |
+| `ovftool_bundle_file_md5`    | `63698e602af6e24640146a6592348c99`           | The MD5 checksum of the OVF Tool bundle file for verification.              |
+| `ovftool_bundle_file_url`    | `{{ download_site }}/{{ ovftool_bundle_file }}` | The URL from which to download the OVF Tool bundle file.                     |
+| `ovf_dir`                    | `/usr`                                        | The directory where OVF Tool will be installed.                              |
 
 ## Usage
 
-To use this role, include it in your Ansible playbook as follows:
+To use this role, include it in your playbook and set any necessary variables. Here is an example playbook:
 
 ```yaml
+---
 - hosts: all
   roles:
-    - bootstrap_ovftool
-```
-
-Ensure that the `download_site` variable is defined in your inventory or playbook to specify where the OVF Tool bundle can be downloaded from. For example:
-
-```yaml
-download_site: "https://packages.vmware.com/tools/ovf"
+    - role: bootstrap_ovftool
+      vars:
+        download_site: "https://example.com/downloads"  # Replace with actual URL
 ```
 
 ## Dependencies
 
-- The role requires the `unzip` package to be installed on the target system, which is handled by the role itself.
-- On Ubuntu systems, a symbolic link for `libncursesw.so.5` pointing to `libncursesw.so.6` is created to resolve compatibility issues.
+This role requires the `unzip` package to be installed on the target system. The role will install this package if it is not already present.
 
 ## Best Practices
 
-- Always ensure that the `download_site` variable points to a reliable and secure source for downloading the OVF Tool bundle.
-- Verify the MD5 checksum of the downloaded file to confirm its integrity before proceeding with installation.
-- Consider using Ansible's `become` directive to run tasks with elevated privileges, as required by this role.
-
-## Molecule Tests
-
-This role does not include any Molecule tests at this time. Future updates may introduce test scenarios to validate the functionality of the role.
+1. **Verify Download URLs**: Ensure that the `download_site` variable points to a valid and secure location where the OVF Tool bundle file can be downloaded.
+2. **Checksum Verification**: The role verifies the MD5 checksum of the downloaded file to ensure its integrity. You can verify the checksum using tools like `md5sum`:
+   ```bash
+   md5sum VMware-ovftool-4.3.0-7948156-lin.x86_64.bundle
+   ```
+   Ensure that the `ovftool_bundle_file_md5` variable matches the checksum of the file you intend to download.
+3. **Symbolic Links**: On Ubuntu systems, the role creates a symbolic link for `libncursesw.so.5` to `libncursesw.so.6`. Ensure that this link is appropriate for your system's configuration. You can verify the symbolic link using:
+   ```bash
+   ls -l /path/to/libncursesw.so.5
+   ```
+4. **Privileged Execution**: The role requires elevated privileges to install the OVF Tool. Ensure that the playbook is executed with the necessary permissions.
 
 ## Backlinks
 
 - [defaults/main.yml](../../roles/bootstrap_ovftool/defaults/main.yml)
 - [tasks/main.yml](../../roles/bootstrap_ovftool/tasks/main.yml)
-
----
-
-This documentation provides a comprehensive overview of the `bootstrap_ovftool` Ansible role, detailing its purpose, configuration options, usage instructions, and dependencies. For more detailed information or troubleshooting, refer to the linked source files.

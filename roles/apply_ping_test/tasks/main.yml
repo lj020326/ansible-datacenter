@@ -2,7 +2,7 @@
 - name: Debug SSH key vars
   ansible.builtin.debug:
     msg:
-      - "ansible_ssh_private_key_file: {{ ansible_ssh_private_key_file | d('') }}"
+      - "ansible_ssh_private_key_file: {{ ansible_ssh_private_key_file | d('', true) }}"
       - "ansible_ssh_private_key: {{ 'EMPTY' if ansible_ssh_private_key is none
           else (ansible_ssh_private_key | truncate(20) + '...') }}"
     verbosity: 1
@@ -33,7 +33,7 @@
     - name: Debug ansible connection vars for windows host
       when:
         - apply_ping_test__module == 'win_ping'
-        - winping_test.unreachable | d(false)
+        - winping_test.unreachable | d(false, false)
       ansible.builtin.debug:
         msg:
           - "ansible_user: {{ ansible_user }}"
@@ -68,40 +68,40 @@
           - netping_test={{ netping_test | to_nice_json }}
 
     - name: Set ping_failed from ping_test
-      when: not (ping_test.skipped | default(false))
+      when: not (ping_test.skipped | d(false, false))
       ansible.builtin.set_fact:
         ping_failed: >-
           {{
-            ping_test.unreachable | default(false) or
-            ping_test.failed | default(false) or
+            ping_test.unreachable | d(false, false) or
+            ping_test.failed | d(false, false) or
             (ping_test.ping is not defined or ping_test.ping != 'pong')
           }}
 
     - name: Set ping_failed from winping_test
-      when: not (winping_test.skipped | default(false))
+      when: not (winping_test.skipped | d(false, false))
       ansible.builtin.set_fact:
         ping_failed: >-
           {{
-            winping_test.unreachable | default(false) or
-            winping_test.failed | default(false) or
+            winping_test.unreachable | d(false, false) or
+            winping_test.failed | d(false, false) or
             (winping_test.ping is not defined or winping_test.ping != 'pong')
           }}
 
     - name: Set ping_failed from netping_test
-      when: not (netping_test.skipped | default(false))
+      when: not (netping_test.skipped | d(false, false))
       ansible.builtin.set_fact:
         ping_failed: >-
           {{
-            netping_test.unreachable | default(false) or
-            netping_test.failed | default(false) or
+            netping_test.unreachable | d(false, false) or
+            netping_test.failed | d(false, false) or
             (netping_test.packet_loss != '0%')
           }}
 
 #    - name: Setting ping_failed[1]
 #      connection: local
-#      when: not item.skipped | d(false)
+#      when: not item.skipped | d(false, false)
 #      ansible.builtin.set_fact:
-#        ping_failed: "{{ item.unreachable | d(item.failed) | d(true) }}"
+#        ping_failed: "{{ item.unreachable | d(item.failed) | d(true, false) }}"
 #      loop:
 #        - "{{ ping_test }}"
 #        - "{{ winping_test }}"
@@ -110,7 +110,7 @@
     - name: Fail block if Ansible ping failed
       when:
         - apply_ping_test__fallback_to_cli
-        - ping_failed | default(false)
+        - ping_failed | d(false, false)
       no_log: true
       ansible.builtin.fail:
         msg: "Ansible connectivity test failed; falling back to CLI ping"
@@ -135,11 +135,11 @@
 
 - name: Display ping_failed
   ansible.builtin.debug:
-    var: ping_failed | d('')
+    var: ping_failed | d('', true)
 
 - name: Set ping_failed
   ansible.builtin.set_fact:
-    ping_failed: "{{ ping_failed | d(true) }}"
+    ping_failed: "{{ ping_failed | d(true, false) }}"
 
 - name: Display ping_failed
   ansible.builtin.debug:
@@ -154,7 +154,7 @@
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
   block:
     - name: Set unreachable_hosts
-      when: hostvars[item].ping_failed | d(true)
+      when: hostvars[item].ping_failed | d(true, false)
       ansible.builtin.set_fact:
         unreachable_hosts: "{{ unreachable_hosts | d([], true) + [item] }}"
       loop: "{{ ansible_play_hosts_all }}"

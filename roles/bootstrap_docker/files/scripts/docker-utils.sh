@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
 
-debug_container=0
+# shellcheck disable=SC2034
+VERSION="2026.11.1"
+
+SCRIPT_NAME="$(basename "$0")"
+
+DEBUG_CONTAINER=0
 
 #DOCKER_REGISTRY_LABEL=org-dettonville-labs
+# shellcheck disable=SC2034
 DOCKER_REGISTRY_LABEL=localhost
 DOCKERFILE=Dockerfile
 
 ## ref: https://hub.docker.com/r/tartarefr/docker-cobbler/
 #HOST_IP_ADDR=$(hostname --ip-address)
+# shellcheck disable=SC2034
 HOST_IP_ADDR=$(hostname --ip-address | awk '{print $1}')
 
 HTTPD_LOG_DIR="/var/log/httpd"
 
 usage() {
     echo "" 1>&2
-    echo "Usage: ${0} [options] command container_name" 1>&2
+    echo "Usage: ${SCRIPT_NAME} [options] command container_name" 1>&2
     echo "" 1>&2
     echo "  Options:" 1>&2
     echo "     -f dockerfile : set dockerfile used, defaults to 'Dockerfile'" 1>&2
@@ -35,14 +42,14 @@ usage() {
     echo "                 fetch-errorlog (fetches a copy of the apache error log from running container)" 1>&2
     echo "" 1>&2
     echo "  Examples:" 1>&2
-    echo "     ${0} build docker-openldap"
-    echo "     ${0} build localhost/ubuntu:bionic"
-    echo "     ${0} build docker-openldap-orig"
-    echo "     ${0} -f Dockerfile build docker-openldap"
-    echo "     ${0} restart docker-cobbler"
-    echo "     ${0} run docker-openldap"
-    echo "     ${0} attach docker-openldap"
-    echo "     ${0} debug docker-openldap"
+    echo "     ${SCRIPT_NAME} build docker-openldap"
+    echo "     ${SCRIPT_NAME} build localhost/ubuntu:bionic"
+    echo "     ${SCRIPT_NAME} build docker-openldap-orig"
+    echo "     ${SCRIPT_NAME} -f Dockerfile build docker-openldap"
+    echo "     ${SCRIPT_NAME} restart docker-cobbler"
+    echo "     ${SCRIPT_NAME} run docker-openldap"
+    echo "     ${SCRIPT_NAME} attach docker-openldap"
+    echo "     ${SCRIPT_NAME} debug docker-openldap"
     exit 1
 }
 
@@ -67,7 +74,8 @@ build_image() {
         fi
     fi
 
-    CURR_DIR=`pwd`
+    # shellcheck disable=SC2034
+    CURR_DIR="${PWD}"
     git pull
 
 #    docker build -t ${DOCKER_IMAGE_NAME} .
@@ -83,10 +91,10 @@ deploy_image() {
     #DOCKER_REPO_URL="artifactory.example.int:6555"
     DOCKER_REPO_URL="localhost:5000"
 
-    docker tag "${DOCKER_IMAGE_NAME}" ${DOCKER_REPO_URL}/"${DOCKER_IMAGE_NAME}"
+    docker tag "${DOCKER_IMAGE_NAME}" "${DOCKER_REPO_URL}"/"${DOCKER_IMAGE_NAME}"
 
     docker login "https://${DOCKER_REPO_URL}"
-    docker push ${DOCKER_REPO_URL}/"${DOCKER_IMAGE_NAME}"
+    docker push "${DOCKER_REPO_URL}"/"${DOCKER_IMAGE_NAME}"
 
 }
 
@@ -110,7 +118,8 @@ restart_container() {
     DOCKER_IMAGE_NAME=$1
     DOCKER_APP_NAME="$( cut -d ':' -f 1 <<< "${DOCKER_IMAGE_NAME}" )"
     DEBUG=${2:-0}
-    ADDITIONAL_ARGS=${3:-}
+    shift 2
+    local ADDITIONAL_ARGS=("$@")
 
 #    DOCKER_IMAGE_NAME="${DOCKER_REGISTRY_LABEL}/${DOCKER_APP_NAME}"
     CONTAINER_NAME="${DOCKER_APP_NAME}"
@@ -146,7 +155,7 @@ restart_container() {
         --volume "${PWD}/.certs":/opt/ssl/ \
         --volumes-from "${DATA_CONTAINER_NAME}" \
         --net=host \
-        -d "${DOCKER_IMAGE_NAME}" "${ADDITIONAL_ARGS}"
+        -d "${DOCKER_IMAGE_NAME}" "${ADDITIONAL_ARGS[@]}"
 
     echo "started container"
     echo "tailing container stdout..."
@@ -202,7 +211,7 @@ fetch_log() {
 while getopts "f:hx" opt; do
     case "${opt}" in
         f) DOCKERFILE="${OPTARG}" ;;
-        x) debug_container=1 ;;
+        x) DEBUG_CONTAINER=1 ;;
         h) usage 1 ;;
         \?) usage 2 ;;
         :)
@@ -225,7 +234,7 @@ command=$1
 docker_image_name=$2
 
 shift 2
-additional_args=$@
+ADDITIONAL_ARGS=("$@")
 
 case "${command}" in
     "build")
@@ -238,11 +247,11 @@ case "${command}" in
         deploy_image "${docker_image_name}"
         ;;
     "restart"|"run")
-        restart_container "${docker_image_name}" $debug_container "${additional_args}"
+        restart_container "${docker_image_name}" "$DEBUG_CONTAINER" "${ADDITIONAL_ARGS[@]}"
         ;;
     "debug")
-        debug_container=1
-        restart_container "${docker_image_name}" $debug_container
+        DEBUG_CONTAINER=1
+        restart_container "${docker_image_name}" "$DEBUG_CONTAINER"
         ;;
     "attach")
         attach_container "${docker_image_name}"

@@ -3,7 +3,7 @@
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT=$(dirname "$SCRIPTS_DIR")
 
-# shellcheck source=scripts/utils.sh
+# shellcheck source=/dev/null
 source "${SCRIPTS_DIR}/utils.sh"
 
 # Get latest stable tag for a GitHub repository

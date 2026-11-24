@@ -1,22 +1,47 @@
 ---
 
-docker_stack__openresty__backend: https://openresty.example.int
+__docker_stack__openresty__virtual_addr_default: "wordpress.example.org"
+__docker_stack__openresty__virtual_addr: "{{ docker_stack__openresty__virtual_addr
+  | d(__docker_stack__openresty__virtual_addr_default, true) }}"
+
+__docker_stack__openresty__upstream_backend_default: "wordpress.example.int"
+__docker_stack__openresty__upstream_backend: "{{ docker_stack__openresty__upstream_backend
+  | d(__docker_stack__openresty__upstream_backend_default) }}"
+
+__docker_stack__openresty__upstream_backend_http_port: "{{ docker_stack__openresty__upstream_backend_http_port
+  | d('80') }}"
+__docker_stack__openresty__upstream_backend_https_port: "{{ docker_stack__openresty__upstream_backend_https_port
+  | d('443') }}"
+
+__docker_stack__openresty__cert_default: "{{ __docker_stack__openresty__virtual_addr | replace('.', '_') }}.chain.pem"
+__docker_stack__openresty__cert: "{{ docker_stack__openresty__cert_file
+  | d(__docker_stack__openresty__cert_default, true) }}"
+
+__docker_stack__openresty__cert_key_default: "{{ __docker_stack__openresty__virtual_addr | replace('.', '_') }}.key"
+__docker_stack__openresty__cert_key: "{{ docker_stack__openresty__cert_key
+  | d(__docker_stack__openresty__cert_key_default) }}"
 
 __docker_stack__openresty__config_dirs:
-  - { path: "{{ docker_stack__dir }}/openresty" }
-  - { path: "{{ docker_stack__dir }}/openresty/conf" }
-  - { path: "{{ docker_stack__dir }}/openresty/logs" }
-  - { path: "{{ docker_stack__dir }}/openresty/vhost" }
-  - { path: "{{ docker_stack__dir }}/openresty/site" }
-  - { path: "{{ docker_stack__dir }}/openresty/ssl" }
+  - path: "{{ docker_stack__dir }}/openresty"
+  - path: "{{ docker_stack__dir }}/openresty/conf"
+  - path: "{{ docker_stack__dir }}/openresty/logs"
+  - path: "{{ docker_stack__dir }}/openresty/vhost"
+  - path: "{{ docker_stack__dir }}/openresty/site"
+  - path: "{{ docker_stack__dir }}/openresty/ssl"
 
 __docker_stack__openresty__config_templates:
-  - { src: openresty/vhost/dettonville.org.vhost.j2, dest: "{{ docker_stack__dir }}/nginx/vhost/dettonville.org.vhost" }
-  - src: openresty/ssl/certs/dettonville_org/dettonville_org.cert_chain.crt
-    dest: "{{ docker_stack__dir }}/nginx/ssl/certs/dettonville_org/dettonville_org.cert_chain.crt"
-  - { src: openresty/ssl/private/dettonville.org.key, dest: "{{ docker_stack__dir }}/nginx/ssl/private/dettonville.org.key" }
-  - { src: openresty/conf/nginx.conf, dest: "{{ docker_stack__dir }}/nginx/conf/nginx.conf" }
-  - { src: openresty/conf/mime.types.nginx.conf, dest: "{{ docker_stack__dir }}/nginx/conf/mime.types" }
+  - src: openresty/vhost/nginx.vhost.j2
+    dest: "{{ docker_stack__dir }}/nginx/vhost/{{ __docker_stack__openresty__virtual_addr }}.vhost"
+  - src: "{{ docker_stack__internal_ssl_cert_dir }}/{{ __docker_stack__openresty__cert }}"
+    dest: "{{ __docker_stack__openresty__cert_path }}/{{ __docker_stack__openresty__cert }}"
+    remote_src: true
+  - src: "{{ docker_stack__internal_ssl_key_dir }}/{{ __docker_stack__openresty__cert_key }}"
+    dest: "{{ __docker_stack__openresty__cert_path }}/{{ __docker_stack__openresty__cert_key }}"
+    remote_src: true
+  - src: openresty/conf/nginx.conf
+    dest: "{{ docker_stack__dir }}/nginx/conf/nginx.conf"
+  - src: openresty/conf/mime.types.nginx.conf
+    dest: "{{ docker_stack__dir }}/nginx/conf/mime.types"
 #    - { src: "openresty/conf/blocklist.nginx.conf", dest: "{{ docker_stack__dir }}/nginx/conf/blocklist.conf" }
 #    - { src: "openresty/conf/fastcgi.nginx.conf", dest: "{{ docker_stack__dir }}/nginx/conf/fastcgi.conf" }
 #    - { src: "openresty/conf/proxy.nginx.conf", dest: "{{ docker_stack__dir }}/nginx/conf/proxy.conf" }

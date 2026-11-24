@@ -1,0 +1,50 @@
+#!/bin/bash
+# /etc/ansible/facts.d/nvidia_smi.fact
+
+if ! command -v nvidia-smi >/dev/null 2>&1; then
+    echo '{"gpus":[],"available":false}'
+    exit 0
+fi
+
+# System RAM in MiB (used when nvidia-smi reports N/A, e.g. GB10 unified memory)
+sys_mem_mib=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
+
+mapfile -t lines < <(
+    nvidia-smi --query-gpu=index,name,memory.total,memory.free \
+        --format=csv,noheader,nounits 2>/dev/null
+)
+
+echo -n '{"available":true,"gpus":['
+first=1
+for line in "${lines[@]}"; do
+    # Split on comma; name may contain spaces
+    idx=$(echo "$line" | cut -d',' -f1 | xargs)
+    name=$(echo "$line" | cut -d',' -f2 | xargs)
+    total_raw=$(echo "$line" | cut -d',' -f3 | xargs)
+    free_raw=$(echo "$line" | cut -d',' -f4 | xargs)
+
+    # GB10 / unified memory: nvidia-smi returns [N/A] or N/A
+    if [[ "$total_raw" == "[N/A]" || "$total_raw" == "N/A" || -z "$total_raw" ]]; then
+        total_mib=$sys_mem_mib
+        free_mib=$sys_mem_mib # approximate; fine for capacity planning
+        unified=true
+    else
+        total_mib=$total_raw
+        free_mib=$free_raw
+        unified=false
+    fi
+
+    # Guard against non-numeric
+    [[ "$total_mib" =~ ^[0-9]+$ ]] || total_mib=$sys_mem_mib
+    [[ "$free_mib" =~ ^[0-9]+$ ]] || free_mib=$sys_mem_mib
+
+    total_bytes=$((total_mib * 1024 * 1024))
+    free_bytes=$((free_mib * 1024 * 1024))
+
+    if [[ $first -eq 0 ]]; then echo -n ','; fi
+    first=0
+
+    printf '{"index":%s,"name":"%s","unified_memory":%s,"memory":{"total_mib":%s,"free_mib":%s,"total":%s,"free":%s}}' \
+        "$idx" "$name" "$unified" "$total_mib" "$free_mib" "$total_bytes" "$free_bytes"
+done
+echo ']}'

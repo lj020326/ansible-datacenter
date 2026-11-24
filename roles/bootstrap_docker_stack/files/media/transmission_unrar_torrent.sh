@@ -10,47 +10,50 @@
 
 ## source: https://gist.github.com/RobertDeRose/9391f5da6273eab26f00d2e7c3c945d3
 
-# The script could use more tesing, but it works well for my needs
+# The script could use more testing, but it works well for my needs
 
 function extract_rar() {
-  isRar=$(ls | grep *.rar)
-  timestamp=`date +%Y%m%d%H%M%S`
-  unrar_staging=/downloads/tmp/unrar_staging_${timestamp}
-#  unrar_staging=/downloads/tmp/unrar_staging
-  mkdir -p "${unrar_staging}"
-  if [ -n "$isRar" ]; then
-    # Handle an edge case with some distributors
-    isPart01="$(ls *.rar | egrep -i 'part01.rar|part1.rar')"
-    if [ -n "$isPart01" ]; then
-      isRar=$isPart01
-    fi
-    toUnrar="$(pwd)/$isRar"
-    # we need to move to new location so sonarr doesn't try to mv before its done
-    # also, unrar doesn't support changing the filename on extracting, makes sense a little bit
-    pushd "${unrar_staging}"
-#    fileName="$(unrar e -y $toUnrar | egrep "^\.\.\..*OK" | awk '{ print $2 }')"
+    isRar=$(find . -maxdepth 1 -name '*.rar' -exec basename {} \; | head -n 1)
+    timestamp=$(date +%Y%m%d%H%M%S)
+    unrar_staging=/downloads/tmp/unrar_staging_${timestamp}
+    #  unrar_staging=/downloads/tmp/unrar_staging
+    mkdir -p "${unrar_staging}"
+    if [ -n "$isRar" ]; then
+        # Handle an edge case with some distributors
+        isPart01="$(find . -maxdepth 1 -name '*.rar' -exec basename {} \; | grep -E -i 'part01\.rar|part1\.rar' | head -n 1)"
+        if [ -n "$isPart01" ]; then
+            isRar=$isPart01
+        fi
+        toUnrar="$(pwd)/$isRar"
+        # we need to move to new location so sonarr doesn't try to mv before its done
+        # also, unrar doesn't support changing the filename on extracting, makes sense a little bit
+        # shellcheck disable=SC2164
+        pushd "${unrar_staging}"
+        #    fileName="$(unrar e -y $toUnrar | egrep "^\.\.\..*OK" | awk '{ print $2 }')"
 
-    ## ref: https://superuser.com/questions/1189702/use-grep-or-other-to-tidify-the-output-of-7z-l
-    fileName="$(7z l "$toUnrar" | tail -n+24 | head -n-9 | cut -c54-)"
-    7z e "$toUnrar"
-    # put it back so sonarr can now find it
-    mv "$fileName" $(dirname "$toUnrar")
-    popd
-  fi
-#  rm -fr ${unrar_staging}
+        ## ref: https://superuser.com/questions/1189702/use-grep-or-other-to-tidify-the-output-of-7z-l
+        fileName="$(7z l "$toUnrar" | tail -n+24 | head -n-9 | cut -c54-)"
+        7z e "$toUnrar"
+        # put it back so sonarr can now find it
+        mv "$fileName" "$(dirname "$toUnrar")"
+        # shellcheck disable=SC2164
+        popd
+    fi
+    #  rm -fr ${unrar_staging}
 }
 
 echo "Starting  - $(date)"
 
-cd "$TR_TORRENT_DIR"
+cd "$TR_TORRENT_DIR" || exit
 
 if [ -d "$TR_TORRENT_NAME" ]; then
-  cd "$TR_TORRENT_NAME"
-  #handle multiple episode packs, like those that contain a whole season, or just a single episode
-  for rar in $(find . -name '*.rar' -exec dirname {} \; | sort -u);
-  do
-    pushd "$rar"
-    extract_rar
-    popd
-  done
+    cd "$TR_TORRENT_NAME" || exit
+    #handle multiple episode packs, like those that contain a whole season, or just a single episode
+    for rar in $(find . -name '*.rar' -exec dirname {} \; | sort -u); do
+        # shellcheck disable=SC2164
+        pushd "$rar"
+        extract_rar
+        # shellcheck disable=SC2164
+        popd
+    done
 fi

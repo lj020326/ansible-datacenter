@@ -6,8 +6,10 @@
 # chkconfig: 2345 89 11
 # description: jenkins-swarm-client
 
+# shellcheck source=/dev/null
 source /etc/rc.d/init.d/functions
 
+# shellcheck disable=SC1091
 [[ -e "/etc/jenkins/swarm-client" ]] && source "/etc/jenkins/swarm-client"
 
 ####
@@ -65,105 +67,107 @@ ADDITIONAL_FLAGS=${SWARM_ADDITIONAL_FLAGS:="-disableClientsUniqueId"}
 RETVAL=0
 
 start() {
-  echo -n $"Starting Jenkins Swarm Client... "
+    echo -n $"Starting Jenkins Swarm Client... "
 
-  # create all the folders that will be needed
-  PIDDIR=$(dirname "${PIDFILE}")
-  echo $"Creating folder for PID: ${PIDDIR}"
-  mkdir -p "${PIDDIR}"
-  chown "${USER}":"${USER}" "${PIDDIR}"
+    # create all the folders that will be needed
+    PIDDIR=$(dirname "${PIDFILE}")
+    echo $"Creating folder for PID: ${PIDDIR}"
+    mkdir -p "${PIDDIR}"
+    chown "${USER}":"${USER}" "${PIDDIR}"
 
-  LOGDIR=$(dirname "${LOGFILE}")
-  echo $"Creating folder for LOG: ${LOGDIR}"
-  mkdir -p "${LOGDIR}"
-  chown "${USER}":"${USER}" "${LOGDIR}"
+    LOGDIR=$(dirname "${LOGFILE}")
+    echo $"Creating folder for LOG: ${LOGDIR}"
+    mkdir -p "${LOGDIR}"
+    chown "${USER}":"${USER}" "${LOGDIR}"
 
-  LOCKDIR=$(dirname "${LOCKFILE}")
-  echo $"Creating folder for LOCK: ${LOCKDIR}"
-  mkdir -p "${LOCKDIR}"
-  chown "${USER}":"${USER}" "${LOCKDIR}"
+    LOCKDIR=$(dirname "${LOCKFILE}")
+    echo $"Creating folder for LOCK: ${LOCKDIR}"
+    mkdir -p "${LOCKDIR}"
+    chown "${USER}":"${USER}" "${LOCKDIR}"
 
-  # give the user specified all permissions to the directory containing the jar file
-  chown "${USER}":"${USER}" $(dirname "${SWARM_AGENT_JAR}")
+    # give the user specified all permissions to the directory containing the jar file
+    chown "${USER}":"${USER}" "$(dirname "${SWARM_AGENT_JAR}")"
 
-  # Must be in /var/lib/jenkins for the swarm client to run properly
-  local cmd="cd /var/lib/jenkins;"
+    # Must be in /var/lib/jenkins for the swarm client to run properly
+    local cmd="cd /var/lib/jenkins;"
 
-  cmd="${cmd} java ${JVM_ARGS} "
-  cmd="${cmd} -jar '${SWARM_AGENT_JAR}'"
-  cmd="${cmd} -master '${MASTER_PROTOCOL}://${MASTER}:${MASTER_PORT}'"
+    cmd="${cmd} java ${JVM_ARGS} "
+    cmd="${cmd} -jar '${SWARM_AGENT_JAR}'"
+    cmd="${cmd} -master '${MASTER_PROTOCOL}://${MASTER}:${MASTER_PORT}'"
 
-  if [[ -n "${SWARM_AGENT_USERNAME}" ]]; then
-    cmd="${cmd} -username '${SWARM_AGENT_USERNAME}'"
-  fi
+    if [[ -n "${SWARM_AGENT_USERNAME}" ]]; then
+        cmd="${cmd} -username '${SWARM_AGENT_USERNAME}'"
+    fi
 
-  if [[ -n "${SWARM_AGENT_PASSWORD_FILE}" ]]; then
-    cmd="${cmd} -password '@${SWARM_AGENT_PASSWORD_FILE}'"
-  elif [[ -n "${SWARM_AGENT_PASSWORD}" ]]; then
-    cmd="${cmd} -password '${SWARM_AGENT_PASSWORD}'"
-  fi
+    if [[ -n "${SWARM_AGENT_PASSWORD_FILE}" ]]; then
+        cmd="${cmd} -password '@${SWARM_AGENT_PASSWORD_FILE}'"
+    elif [[ -n "${SWARM_AGENT_PASSWORD}" ]]; then
+        cmd="${cmd} -password '${SWARM_AGENT_PASSWORD}'"
+    fi
 
-  cmd="${cmd} -name '${SWARM_AGENT_NAME}'"
+    cmd="${cmd} -name '${SWARM_AGENT_NAME}'"
 
-  if [[ -n "${SWARM_AGENT_LABELS}" ]]; then
-    cmd="${cmd} -labels '${SWARM_AGENT_LABELS}'"
-  fi
+    if [[ -n "${SWARM_AGENT_LABELS}" ]]; then
+        cmd="${cmd} -labels '${SWARM_AGENT_LABELS}'"
+    fi
 
-  cmd="${cmd} -executors '${SWARM_AGENT_NUM_EXECUTORS}'"
-  cmd="${cmd} ${ADDITIONAL_FLAGS}"
-  cmd="${cmd} >> '${LOGFILE}' 2>&1 </dev/null &"
+    cmd="${cmd} -executors '${SWARM_AGENT_NUM_EXECUTORS}'"
+    cmd="${cmd} ${ADDITIONAL_FLAGS}"
+    cmd="${cmd} >> '${LOGFILE}' 2>&1 </dev/null &"
 
-  daemon --user "${USER}" --check "swarm-client" --pidfile "${PIDFILE}" "${cmd}"
+    daemon --user "${USER}" --check "swarm-client" --pidfile "${PIDFILE}" "${cmd}"
 
-  local pid=$(sudo -u "${USER}" jps -l | grep "${SWARM_AGENT_JAR}" | awk '{print $1}')
-  [ -n "${pid}" ] && echo "${pid}" > "${PIDFILE}"
-  RETVAL=$?
-  [ $RETVAL -eq 0 ] && touch "$LOCKFILE"
+    local pid
+    pid=$(sudo -u "${USER}" jps -l | grep "${SWARM_AGENT_JAR}" | awk '{print $1}')
+    [ -n "${pid}" ] && echo "${pid}" >"${PIDFILE}"
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && touch "$LOCKFILE"
 
-  echo
+    echo
 }
 
 stop() {
-  echo -n $"Stopping Jenkins Swarm Client... "
-  killproc -p "$PIDFILE" "swarm-client"
-  RETVAL=$?
-  echo
-  [ $RETVAL -eq 0 ] && rm -f "$LOCKFILE"
+    echo -n $"Stopping Jenkins Swarm Client... "
+    killproc -p "$PIDFILE" "swarm-client"
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f "$LOCKFILE"
 }
 
 restart() {
-  stop
-  start
+    stop
+    start
 }
 
 checkstatus() {
-  status -p "$PIDFILE" "swarm-client"
-  RETVAL=$?
+    status -p "$PIDFILE" "swarm-client"
+    RETVAL=$?
 }
 
 condrestart() {
-  [ -e "$LOCKFILE" ] && restart || :
+    [ -e "$LOCKFILE" ] && restart || :
 }
 
 case "$1" in
-  start)
+start)
     start
     ;;
-  stop)
+stop)
     stop
     ;;
-  status)
+status)
     checkstatus
     ;;
-  restart)
+restart)
     restart
     ;;
-  condrestart)
+condrestart)
     condrestart
     ;;
-  *)
+*)
     echo $"Usage: $0 {start|stop|status|restart|condrestart}"
     exit 1
+    ;;
 esac
 
 exit $RETVAL

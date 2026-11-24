@@ -11,7 +11,9 @@ set -xeu
 
 ## Vars ----------------------------------------------------------------------
 
+# shellcheck disable=SC2046
 WORKING_DIR="$(readlink -f $(dirname "$0"))"
+# shellcheck disable=SC2046
 OSA_PROJECT_NAME="$(sed -n 's|^project=openstack/\(.*\).git$|\1|p' $(pwd)/.gitreview)"
 
 COMMON_TESTS_PATH="${WORKING_DIR}/tests/common"
@@ -28,6 +30,7 @@ fi
 ## Main ----------------------------------------------------------------------
 
 # Source distribution information
+# shellcheck source=/dev/null
 source /etc/os-release || source /usr/lib/os-release
 
 # Figure out the appropriate package install command
@@ -64,4 +67,5 @@ if [[ ! -d "${COMMON_TESTS_PATH}" ]]; then
 fi
 
 # Execute the common test script
+# shellcheck source=/dev/null
 source tests/common/run_tests_common.sh

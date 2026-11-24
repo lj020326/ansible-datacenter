@@ -1,6 +1,4 @@
-# Copyright 2021 VMware, Inc.
-# SPDX-License-Identifier: BSD-2-Clause
-#!/bin/bash
+#!/usr/bin/env bash
 # This script will download ActivePython3 and install it in Flatcar
 
 if [ $# -eq 1 ]; then
@@ -30,6 +28,7 @@ ap_python3_install_path="/opt/active_python"
 
 echo "Downloading $ap_python3_download_url ..."
 wget -q --no-check-certificate "$ap_python3_download_url" -O "$ap_python3_download_dest"
+# shellcheck disable=SC2181
 if [ $? -ne 0 ]; then
     echo "Failed to download $ap_python3_download_url"
     exit 1
@@ -37,6 +36,7 @@ fi
 
 echo "Extracting $ap_python3_download_dest to $ap_python3_extract_path ..."
 tar -xf "$ap_python3_download_dest" -C "$ap_python3_extract_path"
+# shellcheck disable=SC2181
 if [ $? -ne 0 ]; then
     echo "Failed to extract $ap_python3_download_dest"
     exit 1

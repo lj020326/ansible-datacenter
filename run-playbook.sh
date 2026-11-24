@@ -20,16 +20,17 @@ REPO_PARENT_DIR="$(dirname "${REPO_DIR}")"
 
 VAULTPASS_FILEPATH="${HOME}/.vault_pass"
 if [[ -f "${REPO_DIR}/.vault_pass" ]]; then
-  VAULTPASS_FILEPATH="${REPO_DIR}/.vault_pass"
+    VAULTPASS_FILEPATH="${REPO_DIR}/.vault_pass"
 fi
 if [[ ! -f "${VAULTPASS_FILEPATH}" ]]; then
-  echo "Error: Vault password file ${VAULTPASS_FILEPATH} not found"
-  exit 1
+    echo "Error: Vault password file ${VAULTPASS_FILEPATH} not found"
+    exit 1
 fi
+
 VAULT_FILEPATH="./vars/vault.yml"
 if [[ ! -f "${VAULT_FILEPATH}" ]]; then
-  echo "Error: Vault file ${VAULT_FILEPATH} not found"
-  exit 1
+    echo "Error: Vault file ${VAULT_FILEPATH} not found"
+    exit 1
 fi
 VAULT_ID="dcc-vault"
 
@@ -49,22 +50,13 @@ echo "VAULT_FILEPATH=${VAULT_FILEPATH}"
 echo "VAULT_ID=${VAULT_ID}"
 
 ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.yml"
-#ANSIBLE_COLLECTION_REQUIREMENTS="${REPO_DIR}/collections/requirements.test.yml"
 
 export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible/collections"
-#export LOCAL_COLLECTIONS_PATH="${REPO_DIR}/.ansible/collections"
-#export LOCAL_COLLECTIONS_PATH="${HOME}/.ansible"
-#export ANSIBLE_ROLES_PATH=./
-#export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}:${REPO_DIR}/collections:${REPO_PARENT_DIR}/requirements_collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections:${REPO_PARENT_DIR}/requirements_collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_PARENT_DIR}/requirements_collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections"
-#export ANSIBLE_COLLECTIONS_PATH="${REPO_DIR}/collections:${LOCAL_COLLECTIONS_PATH}"
 export ANSIBLE_COLLECTIONS_PATH="${LOCAL_COLLECTIONS_PATH}"
 export ANSIBLE_LOG_PATH="./ansible.log"
 
 if [[ "${USE_SOURCE_COLLECTIONS}" -eq 1 ]]; then
-  export ANSIBLE_COLLECTIONS_PATH="${SOURCE_COLLECTIONS_PATH}:${ANSIBLE_COLLECTIONS_PATH}"
+    export ANSIBLE_COLLECTIONS_PATH="${SOURCE_COLLECTIONS_PATH}:${ANSIBLE_COLLECTIONS_PATH}"
 fi
 
 #export ANSIBLE_DEBUG=1
@@ -76,69 +68,52 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 #export GALAXY_IGNORE_CERTS=true
 
 cleanup_tmpdir() {
-  test "${KEEP_TEMP_DIR:-0}" = 1 || rm -rf "${TEMP_DIR:-}"
+    test "${KEEP_TEMP_DIR:-0}" = 1 || rm -rf "${TEMP_DIR:-}"
 }
 
 # Trap to clean up SSH agent and temporary files on exit
 cleanup() {
-  if [ -n "${SSH_AGENT_PID:-}" ]; then
-    echo "==> Stopping SSH agent (PID: $SSH_AGENT_PID)"
-    eval "$(ssh-agent -k)" >/dev/null 2>&1
-  fi
-  cleanup_tmpdir
-  rm -f "${TEMP_VARS:-}" "${TEMP_RENDERED_KEY:-}" "${TEMP_KEY:-}"
+    if [ -n "${SSH_AGENT_PID:-}" ]; then
+        echo "==> Stopping SSH agent (PID: $SSH_AGENT_PID)"
+        eval "$(ssh-agent -k)" >/dev/null 2>&1
+    fi
+    cleanup_tmpdir
+    rm -f "${TEMP_VARS:-}" "${TEMP_KEY:-}"
 }
 
-# SSH agent setup
+# SSH agent setup using ANSIBLE_SSH_PRIVATE_KEY environment variable
 start_ssh_agent() {
-  # Check if a user-managed SSH agent is running
-  if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -n "${SSH_AGENT_PID:-}" ] && kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
-    echo "==> SSH agent already running (PID: $SSH_AGENT_PID, SOCK: $SSH_AUTH_SOCK)"
-  else
-    # Start a new agent, overriding any system agent
-    unset SSH_AUTH_SOCK SSH_AGENT_PID
-    echo "==> Starting new SSH agent"
-    eval "$(ssh-agent -s)" || {
-      echo "Error: Failed to start SSH agent"
-      return 1
-    }
-  fi
-  # Verify SSH agent is usable
-  ssh-add -l >/dev/null 2>&1 || echo "==> SSH agent is empty"
+    if [ -z "${ANSIBLE_SSH_PRIVATE_KEY:-}" ]; then
+        echo "Error: ANSIBLE_SSH_PRIVATE_KEY environment variable is not set or empty."
+        return 1
+    fi
 
-  # Render ansible_ssh_private_key using Ansible to resolve templates
-  TEMP_RENDERED_KEY=$(mktemp)
-  set +e
-  # OVERRIDE: Prefixing the command with ANSIBLE_LOG_PATH=/dev/null blocks writing to ansible.log
-  ANSIBLE_LOG_PATH=/dev/null ansible localhost -m debug -a "var=ansible_ssh_private_key" -e "@${VAULT_FILEPATH}" --vault-id "${VAULT_ID}@${VAULTPASS_FILEPATH}" > "${TEMP_RENDERED_KEY}.out" 2> "${TEMP_RENDERED_KEY}.err"
-  RENDER_EXIT=$?
-  set -e
-  if [ $RENDER_EXIT -ne 0 ]; then
-    echo "Error: Failed to render ansible_ssh_private_key:"
-    cat "${TEMP_RENDERED_KEY}.err"
-    rm -f "${TEMP_RENDERED_KEY}" "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err"
-    return 1
-  fi
+    # Check if a user-managed SSH agent is running
+    if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -n "${SSH_AGENT_PID:-}" ] && kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
+        echo "==> SSH agent already running (PID: $SSH_AGENT_PID, SOCK: $SSH_AUTH_SOCK)"
+    else
+        # Start a new agent, overriding any system agent
+        unset SSH_AUTH_SOCK SSH_AGENT_PID
+        echo "==> Starting new SSH agent"
+        eval "$(ssh-agent -s)" || {
+            echo "Error: Failed to start SSH agent"
+            return 1
+        }
+    fi
+    # Verify SSH agent is usable
+    ssh-add -l >/dev/null 2>&1 || echo "==> SSH agent is empty"
 
-  # Extract the rendered key from debug output
-  TEMP_KEY=$(mktemp)
-  grep '"ansible_ssh_private_key":' "${TEMP_RENDERED_KEY}.out" | sed 's/.*"ansible_ssh_private_key": "\(.*\)".*/\1/' | sed 's/\\n/\n/g' > "$TEMP_KEY" 2> "${TEMP_KEY}.err"
-  if [ ! -s "$TEMP_KEY" ]; then
-    echo "Warning: Failed to extract rendered key or key is empty"
-    cat "${TEMP_KEY}.err"
-    rm -f "${TEMP_RENDERED_KEY}" "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err" "$TEMP_KEY" "${TEMP_KEY}.err"
-    return 1
-  fi
-  rm -f "${TEMP_RENDERED_KEY}.out" "${TEMP_RENDERED_KEY}.err" "${TEMP_KEY}.err"
+    # Write private key from environment variable to a secure temp file
+    TEMP_KEY=$(mktemp)
+    printf "%s\n" "$ANSIBLE_SSH_PRIVATE_KEY" >"$TEMP_KEY"
 
-  # Validate key format
-  if ! python3 - <<EOF
+    # Validate key format via python
+    if ! python3 - <<EOF; then
 import re
 with open('$TEMP_KEY', 'r') as f:
     key_content = f.read()
 print("Extracted key length:", len(key_content))
 print("Key preview:", key_content[:100])
-# Validate key format
 if re.match(r'^-{5}BEGIN.*PRIVATE KEY-{5}', key_content) and re.search(r'-{5}END.*PRIVATE KEY-{5}\n?$', key_content):
     print("Key format valid")
 else:
@@ -146,128 +121,129 @@ else:
     import sys
     sys.exit(1)
 EOF
-  then
-    echo "Warning: Invalid SSH key format after rendering"
-    rm -f "$TEMP_KEY"
-    return 1
-  fi
-  if [ -s "$TEMP_KEY" ]; then
-    echo "==> Extracted key preview (first line):"
-    head -n 1 "$TEMP_KEY"
-    chmod 600 "$TEMP_KEY"
-    # Test key validity
-    if ssh-keygen -y -P "" -f "$TEMP_KEY" >/dev/null 2>&1; then
-      if ssh-add "$TEMP_KEY" 2>/dev/null; then
-        echo "==> Successfully added SSH key to agent"
-        ssh-add -l
-      else
-        echo "Warning: Failed to add SSH key to agent (passphrase or format issue?)"
+
+        echo "Warning: Invalid SSH key format in ANSIBLE_SSH_PRIVATE_KEY"
         rm -f "$TEMP_KEY"
         return 1
-      fi
-    else
-      echo "Warning: Invalid SSH key format in ansible_ssh_private_key"
-      rm -f "$TEMP_KEY"
-      return 1
     fi
-  else
-    echo "Warning: Empty or missing SSH key in ansible_ssh_private_key"
-    rm -f "$TEMP_KEY"
-    return 1
-  fi
 
-  trap cleanup EXIT
+    if [ -s "$TEMP_KEY" ]; then
+        echo "==> Extracted key preview (first line):"
+        head -n 1 "$TEMP_KEY"
+        chmod 600 "$TEMP_KEY"
+        # Test key validity
+        if ssh-keygen -y -P "" -f "$TEMP_KEY" >/dev/null 2>&1; then
+            if ssh-add "$TEMP_KEY" 2>/dev/null; then
+                echo "==> Successfully added SSH key to agent"
+                ssh-add -l
+            else
+                echo "Warning: Failed to add SSH key to agent (passphrase or format issue?)"
+                rm -f "$TEMP_KEY"
+                return 1
+            fi
+        else
+            echo "Warning: Invalid SSH key format in ANSIBLE_SSH_PRIVATE_KEY"
+            rm -f "$TEMP_KEY"
+            return 1
+        fi
+    else
+        echo "Warning: Empty or missing SSH key in ANSIBLE_SSH_PRIVATE_KEY"
+        rm -f "$TEMP_KEY"
+        return 1
+    fi
+
+    trap cleanup EXIT
 }
 
 # Install Galaxy collections if needed
 function install_galaxy_collections() {
-  echo "==> ansible-galaxy --version"
-  ansible-galaxy --version
+    echo "==> ansible-galaxy --version"
+    ansible-galaxy --version
 
-  ## ref: https://github.com/ansible/ansible/issues/79557#issuecomment-1344168449
-  echo "==> Install Galaxy collection requirements"
-#  GALAXY_INSTALL_CMD=("env ANSIBLE_GALAXY_IGNORE=true")
-#  GALAXY_INSTALL_CMD+=("env GALAXY_IGNORE_CERTS=true")
-#  GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
-#  GALAXY_INSTALL_CMD+=("--ignore-certs")
-#  GALAXY_INSTALL_CMD+=("--force")
+    ## ref: https://github.com/ansible/ansible/issues/79557#issuecomment-1344168449
+    echo "==> Install Galaxy collection requirements"
+    #  GALAXY_INSTALL_CMD=("env ANSIBLE_GALAXY_IGNORE=true")
+    #  GALAXY_INSTALL_CMD+=("env GALAXY_IGNORE_CERTS=true")
+    #  GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
+    #  GALAXY_INSTALL_CMD+=("--ignore-certs")
+    #  GALAXY_INSTALL_CMD+=("--force")
 
-  GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
-  if [[ "${_FORCE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-      GALAXY_INSTALL_CMD+=("--force")
-  fi
+    GALAXY_INSTALL_CMD=("ansible-galaxy" "collection" "install")
+    if [[ "${_FORCE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+        GALAXY_INSTALL_CMD+=("--force")
+    fi
 
-  if [[ "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    GALAXY_INSTALL_CMD+=("--upgrade")
-    GALAXY_INSTALL_CMD+=("--clear-response-cache")
-  fi
-  GALAXY_INSTALL_CMD+=("-r" "${ANSIBLE_COLLECTION_REQUIREMENTS}")
-  GALAXY_INSTALL_CMD+=("-p" "${LOCAL_COLLECTIONS_PATH}")
+    if [[ "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+        GALAXY_INSTALL_CMD+=("--upgrade")
+        GALAXY_INSTALL_CMD+=("--clear-response-cache")
+    fi
+    GALAXY_INSTALL_CMD+=("-r" "${ANSIBLE_COLLECTION_REQUIREMENTS}")
+    GALAXY_INSTALL_CMD+=("-p" "${LOCAL_COLLECTIONS_PATH}")
 
-  echo "==> ${GALAXY_INSTALL_CMD[*]}"
-  if ! eval "${GALAXY_INSTALL_CMD[*]} > /dev/null"; then
-    echo "Error: Failed to install Galaxy collections"
-    exit 1
-  fi
+    echo "==> ${GALAXY_INSTALL_CMD[*]}"
+    if ! eval "${GALAXY_INSTALL_CMD[*]} > /dev/null"; then
+        echo "Error: Failed to install Galaxy collections"
+        exit 1
+    fi
 }
 
 function main() {
+    PLAYBOOK_ARGS=()
+    if [ $# -gt 0 ]; then
+        PLAYBOOK_ARGS=("$@")
+    fi
 
-  PLAYBOOK_ARGS=()
-  if [ $# -gt 0 ]; then
-    PLAYBOOK_ARGS=("$@")
-  fi
+    rm -f "$ANSIBLE_LOG_PATH"
 
-  rm -f "$ANSIBLE_LOG_PATH"
+    # Set SSL certificate paths for Python
+    CERT_PATH=$(python3 -m certifi 2>/dev/null || echo "")
+    if [ -n "$CERT_PATH" ]; then
+        export SSL_CERT_FILE=${CERT_PATH}
+        export REQUESTS_CA_BUNDLE=${CERT_PATH}
+    else
+        echo "==> Warning: certifi module not found, SSL_CERT_FILE not set"
+    fi
 
-  # Set SSL certificate paths for Python
-  CERT_PATH=$(python3 -m certifi 2>/dev/null || echo "")
-  if [ -n "$CERT_PATH" ]; then
-    export SSL_CERT_FILE=${CERT_PATH}
-    export REQUESTS_CA_BUNDLE=${CERT_PATH}
-  else
-    echo "==> Warning: certifi module not found, SSL_CERT_FILE not set"
-  fi
+    if [[ "${_INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
+        install_galaxy_collections
+    fi
 
-  if [[ "${_INSTALL_GALAXY_COLLECTIONS}" -eq 1 || "${_UPGRADE_GALAXY_COLLECTIONS}" -eq 1 ]]; then
-    install_galaxy_collections
-  fi
+    echo "==> ANSIBLE_COLLECTIONS_PATH=${ANSIBLE_COLLECTIONS_PATH}"
+    echo "==> ansible-galaxy collection list"
+    ansible-galaxy collection list
 
-  echo "==> ANSIBLE_COLLECTIONS_PATH=${ANSIBLE_COLLECTIONS_PATH}"
+    echo "==> ansible --version"
+    ansible --version
 
-  echo "==> ansible-galaxy collection list"
-  ansible-galaxy collection list
+    # Start SSH agent and load key from environment variable
+    start_ssh_agent
 
-  echo "==> ansible --version"
-  ansible --version
-
-  # Start SSH agent and load key
-  start_ssh_agent
-
-  # Null inline key vars to force agent usage, mimicking Jenkins
-  TEMP_VARS=$(mktemp)
-  cat > "$TEMP_VARS" << EOF
+    # Null inline key vars to force agent usage
+    TEMP_VARS=$(mktemp)
+    cat >"$TEMP_VARS" <<EOF
 {
   "ansible_ssh_private_key_file": null,
   "ansible_ssh_private_key": null
 }
 EOF
-  PLAYBOOK_ARGS+=("-e" "@$TEMP_VARS")
+    PLAYBOOK_ARGS+=("-e" "@$TEMP_VARS")
 
-  echo "==> Playbook arguments: ${PLAYBOOK_ARGS[*]}"
-  PLAYBOOK_CMD=("ansible-playbook")
-  PLAYBOOK_CMD+=("-e" "@${VAULT_FILEPATH}")
-  PLAYBOOK_CMD+=("--vault-id" "${VAULT_ID}@${VAULTPASS_FILEPATH}")
-#  PLAYBOOK_CMD+=("--vault-password-file" "${VAULTPASS_FILEPATH}")
-  if [[ "${#PLAYBOOK_ARGS[@]}" -gt 0 ]]; then
-    PLAYBOOK_CMD+=("${PLAYBOOK_ARGS[*]}")
-  fi
+    echo "==> Playbook arguments: ${PLAYBOOK_ARGS[*]}"
 
-  echo "==> ${PLAYBOOK_CMD[*]}"
-  if ! eval "${PLAYBOOK_CMD[*]}"; then
-    echo "Error: Ansible playbook execution failed"
-    exit 1
-  fi
+    # Rely on ansible.cfg [defaults] for extra_vars and vault_password_file
+    PLAYBOOK_CMD=("ansible-playbook")
+    PLAYBOOK_CMD+=("--vault-id" "${VAULT_ID}@${VAULTPASS_FILEPATH}")
+    #  PLAYBOOK_CMD+=("--vault-password-file" "${VAULTPASS_FILEPATH}")
+    PLAYBOOK_CMD+=("-e" "@${VAULT_FILEPATH}")
+    if [[ "${#PLAYBOOK_ARGS[@]}" -gt 0 ]]; then
+        PLAYBOOK_CMD+=("${PLAYBOOK_ARGS[*]}")
+    fi
+
+    echo "==> ${PLAYBOOK_CMD[*]}"
+    if ! eval "${PLAYBOOK_CMD[*]}"; then
+        echo "Error: Ansible playbook execution failed"
+        exit 1
+    fi
 }
 
 main "$@"

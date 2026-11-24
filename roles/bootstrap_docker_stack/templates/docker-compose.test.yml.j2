@@ -29,15 +29,15 @@
   {%- endif %}
 {% endmacro %}
 
-{% if __docker_stack__networks | d({}) | length > 0 %}
+{% if __docker_stack__networks | d({}, true) | length > 0 %}
 
 networks:
   {%- for _network_key, _network_config in __docker_stack__networks.items() %}
 {{ "\n" }}  {{ _network_key }}:
-    {%- if _network_config.external | d(False) | bool %}
+    {%- if _network_config.external | d(false, false) | bool %}
 {{ "\n" }}    external: true
     {%- else %}
-      {%- if docker_stack__swarm_mode | d(False) | bool %}
+      {%- if docker_stack__swarm_mode | d(false, false) | bool %}
 {{ "\n" }}    {{ _network_config
       | ansible.utils.remove_keys(target=['ipam_config','scope'])
       | to_nice_yaml
@@ -53,14 +53,14 @@ networks:
 
 {% endif %}
 
-{%- if __docker_stack__volumes | d({}) | length > 0 %}
+{%- if __docker_stack__volumes | d({}, true) | length > 0 %}
 
 volumes:
   {{ __docker_stack__volumes | to_nice_yaml | indent(2, first=False) | trim }}
 {% endif %}
 
-{%- if docker_stack__swarm_mode | d(False) | bool %}
-  {%- if __docker_stack__secrets | d({}) | length > 0 %}
+{%- if docker_stack__swarm_mode | d(false, false) | bool %}
+  {%- if __docker_stack__secrets | d({}, true) | length > 0 %}
 
 secrets:
     {%- for _secret_name in __docker_stack__secrets.keys() | sort %}
@@ -71,7 +71,7 @@ secrets:
 
 {% endif %}
 
-{%- if docker_stack__configs | d({}) | length > 0 %}
+{%- if docker_stack__configs | d({}, true) | length > 0 %}
 
 configs:
   {{ docker_stack__configs | to_nice_yaml | indent(2, first=False) | trim }}
@@ -80,11 +80,11 @@ configs:
 
 services:
 {% for service_group in __docker_stack__service_groups | sort(attribute='name') %}
-  {%- if __docker_stack__service_group_configs_tpl[service_group.name] | d([]) | length > 0 %}
+  {%- if __docker_stack__service_group_configs_tpl[service_group.name] | d([], true) | length > 0 %}
   ########################
   ## {{ service_group.name | upper }} GROUP SERVICES
     {%- for key, container in __docker_stack__service_group_configs_tpl[service_group.name].items() %}
-      {%- if (container.active | d(True)) %}
+      {%- if (container.active | d(true, false)) %}
       {%- if not loop.first %}
 {{ "\n" }}
       {%- endif %}
@@ -118,13 +118,13 @@ services:
         {#- Handle complex deploy block conditional fallback separately #}
         {%- set _deploy_config = {} %}
         {%- if container.deploy is defined %}
-            {%- if docker_stack__swarm_mode | d(False) | bool %}
+            {%- if docker_stack__swarm_mode | d(false, false) | bool %}
                 {%- set _deploy_config = container.deploy %}
             {%- else %}
                 {%- set _deploy_config = container.deploy | ansible.utils.keep_keys(['resources']) %}
             {%- endif %}
         {%- endif %}
-        {%- if docker_stack__swarm_mode | d(False) | bool %}
+        {%- if docker_stack__swarm_mode | d(false, false) | bool %}
             {%- if container.labels is defined %}
                 {%- set _ = _deploy_config.update({ 'labels': container.labels }) %}
             {%- endif %}

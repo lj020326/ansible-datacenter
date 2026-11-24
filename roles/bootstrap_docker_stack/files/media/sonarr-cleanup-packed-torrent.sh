@@ -23,9 +23,11 @@
 
 # In *bytes*, the biggest rar file size limit to prevent video deletion from torrents with unrelated rar files (like subs)
 # 25 * 1024 * 1024
+# shellcheck disable=SC2034
 rar_min_size=26214400
 
 # Seconds to wait between size checks for in progress unpack
+# shellcheck disable=SC2034
 unpack_time=5
 
 # The final base directory torrents end up in, for example "tv" from /data/torrents/tv
@@ -38,8 +40,8 @@ sonarr_final_dir="tv"
 # Test that this is a download event, so we don't run on grab or rename.
 # shellcheck disable=SC2154
 if [[ "${sonarr_eventtype}" != "Download" ]]; then
-  echo "[Torrent Cleanup] Sonarr Event Type is NOT Download, exiting."
-  exit
+    echo "[Torrent Cleanup] Sonarr Event Type is NOT Download, exiting."
+    exit
 fi
 
 ## Test that this is a torrent, so we don't run on usenet downloads.
@@ -56,15 +58,16 @@ fi
 
 # Test that this is a multi-file torrent, so we don't run on single file torrents.
 # shellcheck disable=SC2154
-base_dir=$( basename "${sonarr_episodefile_sourcefolder}" )
+base_dir=$(basename "${sonarr_episodefile_sourcefolder}")
 if [[ "${base_dir}" == "${sonarr_final_dir}" ]]; then
-  echo "[Torrent Cleanup] Single file torrent, exiting."
-  exit
+    echo "[Torrent Cleanup] Single file torrent, exiting."
+    exit
 fi
 
 echo "[Torrent Cleanup] unpacking..."
 find "${sonarr_episodefile_sourcefolder}" -name "*.rar" -execdir unrar e -o- "{}" \;
 
+# shellcheck disable=SC2154
 echo "[Torrent Cleanup] ${sonarr_episodefile_sourcepath} unpacked!"
 chown -R abc.abc "${sonarr_episodefile_sourcefolder}"
 

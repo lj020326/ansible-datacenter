@@ -7,6 +7,7 @@ echo "site=${site}"
 
 IFS=':' read -r -a array <<< "${site}"
 host=${array[0]}
+# shellcheck disable=SC2034
 port=${array[1]}
 
 ## ref: https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server

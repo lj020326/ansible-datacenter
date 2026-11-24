@@ -40,7 +40,7 @@ OUTPUT_FILE="/var/log/sre_postmortem_$(date +%Y%m%d_%H%M%S).md"
     if systemctl is-active --quiet kubelet; then
         echo "Kubelet is active."
     else
-        echo "Kubelet state: $(systemctl is-enabled kubelet) / $(systemctl is-active kubelet)"
+        echo "Kubelet state: $(systemctl is-enabled kubelet || true) / $(systemctl is-active kubelet || true)"
         # Check if it was flapping on swap prior to shutdown
         journalctl -b -1 -u kubelet -n 20 --no-pager || true
     fi
@@ -48,7 +48,7 @@ OUTPUT_FILE="/var/log/sre_postmortem_$(date +%Y%m%d_%H%M%S).md"
 
     echo "## 5. Linux Kernel Core Dumps & Crash Logs"
     echo '```text'
-    if [ -d /var/crash ] && [ "$(ls -A /var/crash)" ]; then
+    if [[ -d /var/crash ]] && [[ -n "$(ls -A /var/crash || true)" ]]; then
         ls -la /var/crash/
     else
         echo "No kernel crash dumps found in /var/crash/."
@@ -65,25 +65,25 @@ OUTPUT_FILE="/var/log/sre_postmortem_$(date +%Y%m%d_%H%M%S).md"
     echo '```text'
     # Check both potential log file locations
     ALT_LOG="/var/log/gpu_tracker/gpu-vram-telemetry.log"
-    if [ -f "$GPU_TELEMETRY_LOG" ]; then
-        TARGET_LOG="$GPU_TELEMETRY_LOG"
-    elif [ -f "$ALT_LOG" ]; then
-        TARGET_LOG="$ALT_LOG"
+    if [[ -f "${GPU_TELEMETRY_LOG}" ]]; then
+        TARGET_LOG="${GPU_TELEMETRY_LOG}"
+    elif [[ -f "${ALT_LOG}" ]]; then
+        TARGET_LOG="${ALT_LOG}"
     else
         TARGET_LOG=""
     fi
 
-    if [ -n "$TARGET_LOG" ]; then
+    if [[ -n "${TARGET_LOG}" ]]; then
         echo "Reading telemetry log: ${TARGET_LOG}"
         echo "Last known GPU VRAM state prior to reboot/crash:"
         echo "--------------------------------------------------"
-        tail -n 25 "$TARGET_LOG"
+        tail -n 25 "${TARGET_LOG}"
         echo "--------------------------------------------------"
 
         echo "Top suspect processes running prior to shutdown:"
-        tail -n 50 "$TARGET_LOG" | grep -oP 'PID:?\s*\K[0-9]+|process_name:?\s*\K[^|]+|Name:\s*\K[^,]+|ollama|vllm|llama-server|hip|roc' | sort | uniq -c
+        tail -n 50 "${TARGET_LOG}" | grep -oP 'PID:?\s*\K[0-9]+|process_name:?\s*\K[^|]+|Name:\s*\K[^,]+|ollama|vllm|llama-server|hip|roc' | sort | uniq -c
     else
-        echo "No GPU telemetry log found at $GPU_TELEMETRY_LOG or$ALT_LOG"
+        echo "No GPU telemetry log found at ${GPU_TELEMETRY_LOG} or ${ALT_LOG}"
     fi
     echo '```'
 

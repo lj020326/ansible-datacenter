@@ -13,15 +13,15 @@ CFGPATH=${3:-~/.fwbackup.cfg}
 
 MAILFROM=admin@dettonville.com
 MAILTO=admin@dettonville.com
-TIMESTAMP=`date +%Y%m%d%H%M%S`
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
 logName="fwbackup_$(date -Id)_$(date +%H-%M-%S).log"
 ownFolderName=".fwbackup"
-logFolderName="log"
+logFolderName="logs"
 
-# Combinate previously defined variables for use (don't touch this)
+# Combine previously defined variables for use (don't touch this)
 ownFolderPath="${HOME}/${ownFolderName}"
-tempLogPath="${ownFolderPath}/logs"
+tempLogPath="${ownFolderPath}/${logFolderName}"
 logFile="${tempLogPath}/${logName}"
 
 # Prepare own folder
@@ -29,7 +29,12 @@ mkdir -p "${tempLogPath}"
 touch "${logFile}"
 
 writeToLog() {
-	echo -e "${1}" | tee -a "${logFile}"
+    echo -e "${1}" | tee -a "${logFile}"
+}
+
+function abort() {
+    echo "$1"
+    exit 1
 }
 
 writeToLog "********************************"
@@ -44,16 +49,20 @@ if [ ! -e "$CFGPATH" ]; then
 fi
 
 writeToLog "Reading config ${CFGPATH} ...."
+
+# shellcheck source=/dev/null
 source "${CFGPATH}"
+
 writeToLog "Config for the user: $USER"
 
-([ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$PASS" ]) && writeToLog "all 3 arguments must be defined in config: PFSENSE_HOST USERNAME PASSWORD " && exit 1;
+{ [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$PASS" ]; } &&
+    abort "all 3 arguments must be defined in config: PFSENSE_HOST USERNAME PASSWORD"
 
 if [ ! -d "$DESTPATH" ]; then
-  mkdir -p "$DESTPATH"
+    mkdir -p "$DESTPATH"
 fi
 
-BACKUPFILE=$DESTPATH/config-router-$TIMESTAMP.xml;
+BACKUPFILE=$DESTPATH/config-router-$TIMESTAMP.xml
 
 writeToLog 'Connecting to '"$HOST"
 
@@ -61,51 +70,55 @@ writeToLog 'Connecting to '"$HOST"
 #csrf=$(curl -s -S --insecure --cookie-jar cookies/${HOST}cookie.txt https://${HOST}/diag_backup.php | grep "name='__csrf_magic'" | sed 's/.*value="\(.*\)".*/\1/')
 
 csrf=$(wget -qO- --keep-session-cookies --save-cookies cookies.txt \
-  --no-check-certificate https://"${HOST}"/diag_backup.php \
-  | grep "name='__csrf_magic'" | sed 's/.*value="\(.*\)".*/\1/')
+    --no-check-certificate https://"${HOST}"/diag_backup.php |
+    grep "name='__csrf_magic'" | sed 's/.*value="\(.*\)".*/\1/')
 
 csrf2=$(wget -qO- --keep-session-cookies --load-cookies cookies.txt \
-  --save-cookies cookies.txt --no-check-certificate \
-  --post-data "login=Login&usernamefld=$USER&passwordfld=$PASS&__csrf_magic=${csrf}" \
-  https://"${HOST}"/diag_backup.php  | grep "name='__csrf_magic'" \
-  | sed 's/.*value="\(.*\)".*/\1/;q')
+    --save-cookies cookies.txt --no-check-certificate \
+    --post-data "login=Login&usernamefld=$USER&passwordfld=$PASS&__csrf_magic=${csrf}" \
+    https://"${HOST}"/diag_backup.php | grep "name='__csrf_magic'" |
+    sed 's/.*value="\(.*\)".*/\1/;q')
 #  | sed 's/.*value="\(.*\)".*/\1/')
 
 #writeToLog "csrf=${csrf}"
 #writeToLog "csrf2=${csrf2}"
 
 wget --keep-session-cookies --load-cookies cookies.txt --no-check-certificate \
-  --post-data "download=download&donotbackuprrd=yes&__csrf_magic=${csrf2}" \
-  https://"${HOST}"/diag_backup.php -O "$BACKUPFILE"
+    --post-data "download=download&donotbackuprrd=yes&__csrf_magic=${csrf2}" \
+    https://"${HOST}"/diag_backup.php -O "$BACKUPFILE"
 
-writeToLog  "\n[$(date -Is)] Checking Results"
+writeToLog "\n[$(date -Is)] Checking Results"
 
 # check if credentials are valid
 if grep -qi 'username or password' "$BACKUPFILE"; then
-        writeToLog ; writeToLog "   !!! AUTHENTICATION ERROR (${HOST}): PLEASE CHECK LOGIN AND PASSWORD"; writeToLog
-#        rm -f $BACKUPFILE
-        exit 1
+    writeToLog
+    writeToLog "   !!! AUTHENTICATION ERROR (${HOST}): PLEASE CHECK LOGIN AND PASSWORD"
+    writeToLog
+    #        rm -f $BACKUPFILE
+    exit 1
 fi
 
 grep --silent '^<?xml ' "$BACKUPFILE" || writeToLog "Downloaded file is not XML; is probably broken."
 # xml file contains doctype when the URL is wrong
 if grep -qi 'doctype html' "$BACKUPFILE"; then
-	writeToLog ; writeToLog "   !!! URL ERROR (${HOST}): HTTP OR HTTPS ?"; writeToLog
-#	rm -f $BACKUPFILE
-	exit 1
+    writeToLog
+    writeToLog "   !!! URL ERROR (${HOST}): HTTP OR HTTPS ?"
+    writeToLog
+    #	rm -f $BACKUPFILE
+    exit 1
 fi
 
 if [ -e "$BACKUPFILE" ]; then
-	writeToLog "\n[$(date -Is)] FW Backup completed successfully\n"
+    writeToLog "\n[$(date -Is)] FW Backup completed successfully\n"
 
-	# Clear unneeded partials and lock file
-	fwbackupFail=0
-	cat "${logFile}" | mail -s "fwbackup: SUCCESS Backup for ${HOST}" -r $MAILFROM $MAILTO
+    # Clear unneeded partials and lock file
+    fwbackupFail=0
+    mail -s "fwbackup: SUCCESS Backup for ${HOST}" -r $MAILFROM $MAILTO <"${logFile}"
     #sendemail -u "Firewall Backup Successful for $1" -f $MAILFROM -t $MAILTO -m "Success - pfSense backup - $1"
 else
-	writeToLog "\n[$(date -Is)] FW Backup failed, try again later\n"
-	fwbackupFail=1
-	cat "${logFile}" | mail -s "fwbackup: FAILED for ${HOST}" -r $MAILFROM $MAILTO
+    writeToLog "\n[$(date -Is)] FW Backup failed, try again later\n"
+    fwbackupFail=1
+    mail -s "fwbackup: FAILED for ${HOST}" -r $MAILFROM $MAILTO <"${logFile}"
     #sendemail -u "Firewall Backup Failed for $1" -f $MAILFROM -t $MAILTO -m "Failure - pfSense backup - $1"
 fi
 

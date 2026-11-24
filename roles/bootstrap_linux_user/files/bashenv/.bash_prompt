@@ -1,0 +1,45 @@
+log_prefix_prompts=".bash_prompt:"
+
+echo "${log_prefix_prompts} configuring bash prompt..."
+
+# Define colors with standard Readline non-printing wrappers
+COLOR_RED="\[\033[0;31m\]"
+COLOR_YELLOW="\[\033[0;33m\]"
+COLOR_GREEN="\[\033[0;32m\]"
+COLOR_OCHRE="\[\033[38;5;95m\]"
+COLOR_BLUE="\[\033[0;34m\]"
+COLOR_WHITE="\[\033[0;37m\]"
+COLOR_RESET="\[\033[0m\]"
+
+# Cursor shape controls: \033[2q sets steady block cursor (or \033[1q for blinking block)
+# \033[?25h forces the cursor visible
+CURSOR_STEADY_BLOCK="\[\033[2q\033[?25h\]"
+
+function set_bash_prompt {
+  local exit_status=$?
+  local git_status branch status_color=""
+
+  branch="$(git branch --show-current 2>/dev/null)"
+
+  if [[ -n "$branch" ]]; then
+    status_output="$(git status --porcelain 2>/dev/null)"
+    if [[ -n "$status_output" ]]; then
+      status_color="$COLOR_RED"
+    elif git status -sb 2>/dev/null | grep -q "ahead"; then
+      status_color="$COLOR_YELLOW"
+    else
+      status_color="$COLOR_GREEN"
+    fi
+    branch="(${branch})"
+  fi
+
+  # Construct prompt cleanly
+  PS1="${COLOR_WHITE}\u@\h:[\W]${status_color}${branch}${COLOR_BLUE}\$${COLOR_RESET}${CURSOR_STEADY_BLOCK} "
+}
+
+# Attach prompt evaluation to PROMPT_COMMAND
+if [[ -z "$PROMPT_COMMAND" ]]; then
+  PROMPT_COMMAND="set_bash_prompt"
+else
+  PROMPT_COMMAND="set_bash_prompt; ${PROMPT_COMMAND}"
+fi

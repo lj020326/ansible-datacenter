@@ -56,7 +56,6 @@ find_cleanup=0
 #		don't forget to delete /var/lib/mlocate/mlocate.db as well
 #
 
-
 usage() {
     retcode=${1-1}
     echo "" 1>&2
@@ -79,73 +78,75 @@ usage() {
 }
 
 function find_cleanup() {
-  cleanupfile=$1
+    cleanupfile=$1
 
-
-  find . -not -empty -type f -printf '%s\n' | \
-    sort -rn | uniq -d | \
-    xargs -I{} -n1 find . -type f -size {}c -print0 | \
-    xargs -0 md5sum | \
-    sort | uniq -w32 --all-repeated=separate > "$cleanupfile"
+    find . -not -empty -type f -printf '%s\n' |
+        sort -rn | uniq -d |
+        xargs -I{} -n1 find . -type f -size {}c -print0 |
+        xargs -0 md5sum |
+        sort | uniq -w32 --all-repeated=separate >"$cleanupfile"
 }
 
 function remove_cleanup() {
-  cleanupfile=$1
+    cleanupfile=$1
 
-  cleanupfiles=`cat "$cleanupfile" | sed '/^$/d' | sort -k1,1 -k2,2r | awk '$1 != x { print } { x = $1 }'`
+    cleanupfiles=$(cat "$cleanupfile" | sed '/^$/d' | sort -k1,1 -k2,2r | awk '$1 != x { print } { x = $1 }')
 
-  IFS=$'\n'
-  for file_record in $cleanupfiles; do
-#      filename=`echo $file_record | tr -s ' ' | cut -d" " -f2`
-#      filename=`echo $file_record | sed 's/^(.*)\s+(.*)/$2/'`
-      filename=`echo "$file_record" | cut -c33- | sed 's/^\s*//'`
+    IFS=$'\n'
+    for file_record in $cleanupfiles; do
+        #      filename=`echo $file_record | tr -s ' ' | cut -d" " -f2`
+        #      filename=`echo $file_record | sed 's/^(.*)\s+(.*)/$2/'`
+        filename=$(echo "$file_record" | cut -c33- | sed 's/^\s*//')
 
-      if [[ "${filename}" =~ ^\./big/|^\./medium/|^\./small/ ]]; then
-        echo "cleanupfile skipped: $filename begins with excluded directory"
-      elif [ -f "${filename}" ]; then
-          rm "${filename}"
-          if [ $? -ne 0 ]; then
-              echo "cleanupfile removed: $filename"
-          fi
-      else
-          echo "cleanupfile not found: $filename"
-      fi
-  done
+        if [[ "${filename}" =~ ^\./big/|^\./medium/|^\./small/ ]]; then
+            echo "cleanupfile skipped: $filename begins with excluded directory"
+        elif [ -f "${filename}" ]; then
+            rm "${filename}"
+            # shellcheck disable=SC2181
+            if [ $? -ne 0 ]; then
+                echo "cleanupfile removed: $filename"
+            fi
+        else
+            echo "cleanupfile not found: $filename"
+        fi
+    done
 }
 
 while getopts ":hxfr" opt; do
     case "${opt}" in
-        x) debug=1 ;;
-        f) find_cleanup=1 ;;
-        r) remove_cleanup=1 ;;
-        h) usage 0 ;;
-        \?)
-            echo "Invalid option: -$OPTARG" >&2
-            usage
-            ;;
-        :)
-            echo "Option -$OPTARG requires an argument." >&2
-            usage
-            ;;
-        *)
-            usage
-            ;;
+    x)
+        # shellcheck disable=SC2034
+        debug=1
+        ;;
+    f) find_cleanup=1 ;;
+    r) remove_cleanup=1 ;;
+    h) usage 0 ;;
+    \?)
+        echo "Invalid option: -$OPTARG" >&2
+        usage
+        ;;
+    :)
+        echo "Option -$OPTARG requires an argument." >&2
+        usage
+        ;;
+    *)
+        usage
+        ;;
     esac
 done
-shift $((OPTIND-1))
+shift $((OPTIND - 1))
 
 cleanupfile=${1-"duplicates.txt"}
 
 ## ref: https://stackoverflow.com/questions/5908919/shell-script-to-delete-files-when-disk-is-full
 ## ref: https://liviutudor.com/2013/06/17/very-very-simple-bash-script-to-delete-old-log-files/#sthash.yf5cQamV.dpbs
 FILESYSTEM=/dev/sda1 # or whatever filesystem to monitor
-CAPACITY=95 # delete if FS is over 95% of usage
+CAPACITY=95          # delete if FS is over 95% of usage
 CACHEDIR=/home/user/lotsa_cache_files/
 
 # Proceed if filesystem capacity is over than the value of CAPACITY (using df POSIX syntax)
 # using [ instead of [[ for better error handling.
-if [ $(df -P $FILESYSTEM | awk '{ gsub("%",""); capacity = $5 }; END { print capacity }') -gt $CAPACITY ]
-then
+if [ "$(df -P $FILESYSTEM | awk '{ gsub("%",""); capacity = $5 }; END { print capacity }')" -gt $CAPACITY ]; then
     # lets do some secure removal (if $CACHEDIR is empty or is not a directory find will exit
     # with error which is quite safe for missruns.):
     find "$CACHEDIR" --maxdepth 1 --type f -exec rm -f {} \;
@@ -153,8 +154,7 @@ then
     find "$CACHEDIR" -exec rm -f {} \;
 fi
 
-
-([ $find_cleanup -eq 0 ] && [ $remove_cleanup -eq 0 ]) && echo "must specify one or both of the options (-f/-r) to find (-f) and/or remove (-r) duplicates" >&2 && usage 2;
+{ [ $find_cleanup -eq 0 ] && [ $remove_cleanup -eq 0 ]; } && echo "must specify one or both of the options (-f/-r) to find (-f) and/or remove (-r) duplicates" >&2 && usage 2
 
 #if ( [$find_cleanup -eq 0] && [$remove_cleanup -eq 0] ); then
 #  echo "must specify one or both of the options (-f/-r) to find (-f) and/or remove (-r) duplicates" >&2
@@ -162,9 +162,9 @@ fi
 #fi
 
 if [ $find_cleanup -eq 1 ]; then
-  find_cleanup "$cleanupfile"
+    find_cleanup "$cleanupfile"
 fi
 
 if [ $remove_cleanup -eq 1 ]; then
-  remove_cleanup "$cleanupfile"
+    remove_cleanup "$cleanupfile"
 fi

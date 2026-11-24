@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2034
 VERSION="2025.6.12"
 
 SCRIPT_NAME="$(basename "$0")"
@@ -29,7 +30,9 @@ fi
 while getopts "hx" opt; do
     case "${opt}" in
         h) usage 1 ;;
-        x) debug_container=1 ;;
+        x)
+            # shellcheck disable=SC2034
+            debug_container=1 ;;
         \?) usage 2 ;;
         :)
             echo "Option -$OPTARG requires an argument." >&2

@@ -193,6 +193,7 @@ It provides professional, GitHub-native documentation for the ansible-datacenter
 - [bootstrap_netbootxyz](roles/bootstrap_netbootxyz.md)
 - [bootstrap_samba_client](roles/bootstrap_samba_client.md)
 - [remove_cloudstack_setup](roles/remove_cloudstack_setup.md)
+- [run_vllm_benchmark_tests](roles/run_vllm_benchmark_tests.md)
 
 ### Utility
 *Roles run to perform and/or apply common tasks*
